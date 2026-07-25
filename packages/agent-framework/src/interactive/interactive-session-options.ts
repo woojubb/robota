@@ -8,6 +8,7 @@
 
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -68,6 +69,12 @@ export interface IInteractiveSessionStandardOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (e.g. the capability packs
+   * `assembleProduct` merged). Composed INTO the built-in tier ahead of `BUILT_IN_AGENTS`; precedence is
+   * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ unchanged behavior.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Host adapters available to composed command modules. */
@@ -212,6 +219,8 @@ export interface IInitOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Runtime shell override for subagent execution. */
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
+  agentDefinitions?: readonly IAgentDefinition[];
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */

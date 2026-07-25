@@ -1,5 +1,9 @@
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
+import type {
+  IAgentDefinition,
+  ICommandHostAdapters,
+  ICommandModule,
+} from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -45,6 +49,8 @@ export async function runPrintMode(
   sessionStore: ReturnType<typeof createProjectSessionStore>,
   backgroundTaskRunners: IBackgroundTaskRunner[],
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
+  /** ARCH-005: composition-root-contributed subagent definitions (merged pack subagents). */
+  agentDefinitions: readonly IAgentDefinition[],
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
   sessionResolution: IPrintModeSessionResolution = {},
@@ -115,6 +121,7 @@ export async function runPrintMode(
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,
+    ...(agentDefinitions.length > 0 ? { agentDefinitions } : {}),
     commandModules,
     commandHostAdapters,
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).

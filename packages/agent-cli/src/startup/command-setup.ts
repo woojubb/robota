@@ -13,7 +13,6 @@ import type {
   ICliUpdateNotice,
   ICommandHostAdapters,
   ICommandModule,
-  IUnknownCommandModuleName,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
@@ -45,23 +44,24 @@ export interface IStartCliOptions {
   providerDefinitions?: readonly IProviderDefinition[];
 }
 
-/** Preset-resolved command module selection forwarded by the thin-shell CLI. */
-export interface ICommandModuleSelection {
-  /** Whitelist of module names to keep (omitted → all default modules). */
-  enabledCommandModules?: readonly string[];
-  /** Blacklist of module names to remove after the whitelist (deny > allow). */
-  disabledCommandModules?: readonly string[];
-}
-
 export interface ICliSetup {
   commandHostAdapters: ICommandHostAdapters;
   providerDefinitions: readonly IProviderDefinition[];
-  commandModules: readonly ICommandModule[];
   /**
-   * INFRA-032: preset `enabledCommandModules`/`disabledCommandModules` names that matched no built
-   * command module. Forwarded to `cli.ts`, which writes a non-fatal terminal notice per unknown.
+   * ARCH-005 S2: the product's BASE command modules — the default set MINUS the modules a capability pack
+   * supplies (`packCommandModuleNames`). They are handed to `assembleProduct` as
+   * `IProductProfile.baseCommandModules`, which merges the packs on top; the preset's
+   * enabled/disabled delta is applied to that merged superset AFTERWARDS (spec: "this merger only
+   * produces the base ⊕ pack superset that the preset delta then filters"). So the delta is deliberately
+   * NOT applied here.
    */
-  unknownModuleNames: readonly IUnknownCommandModuleName[];
+  baseCommandModules: readonly ICommandModule[];
+  /**
+   * Modules the preset delta never filters: `/workflows` (bundled into the CLI artifact) and any modules a
+   * caller injected via {@link IStartCliOptions.commandModules}. Appended after the selected set, exactly
+   * as before the ARCH-005 restructure.
+   */
+  fixedCommandModules: readonly ICommandModule[];
   startupUpdateNoticePromise: Promise<ICliUpdateNotice | undefined> | undefined;
   /**
    * REMOTE-006: optional command-execution policy for remote-origin commands (WebSocket / WebRTC). **Allow by
@@ -71,12 +71,21 @@ export interface ICliSetup {
   remoteCommandPolicy: IRemoteCommandPolicy;
 }
 
+/**
+ * Build the product-shell materials the CLI feeds into `assembleProduct`: the host adapters, the provider
+ * definitions, and the BASE command modules.
+ *
+ * `packCommandModuleNames` are the module names a capability pack in the product profile supplies — they are
+ * excluded here so the pack is their single source, and `mergeCapabilityPacks` re-adds them additively
+ * rather than rejecting them as base collisions. Removing the pack from the profile therefore genuinely
+ * removes those commands from the product.
+ */
 export function buildCommandSetup(
   cwd: string,
   args: IParsedCliArgs,
   options: IStartCliOptions,
   version: string,
-  moduleSelection: ICommandModuleSelection = {},
+  packCommandModuleNames: readonly string[] = [],
 ): ICliSetup {
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
@@ -98,30 +107,25 @@ export function buildCommandSetup(
   // DAG workflow engine surfaced as `/workflows` (WORKFLOW-003) — INFRA-028: bundled into the
   // self-contained CLI, so it is always present (statically imported, no runtime `@robota-sdk` edge).
   const workflowsModule = loadWorkflowsCommandModule(providerDefinitions);
-  const { modules: defaultModules, unknownModuleNames } = createDefaultCommandModules({
+  // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
+  // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
+  // preset delta's unknown-name diagnostics are computed by the shell against the MERGED superset.
+  const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     providerDefinitions,
     providerSettingsAdapter,
-    ...(moduleSelection.enabledCommandModules !== undefined
-      ? { enabledCommandModules: moduleSelection.enabledCommandModules }
-      : {}),
-    ...(moduleSelection.disabledCommandModules !== undefined
-      ? { disabledCommandModules: moduleSelection.disabledCommandModules }
+    ...(packCommandModuleNames.length > 0
+      ? { disabledCommandModules: packCommandModuleNames }
       : {}),
   });
-  const commandModules: readonly ICommandModule[] = [
-    ...defaultModules,
-    workflowsModule,
-    ...(options.commandModules ?? []),
-  ];
   const startupUpdateNoticePromise = shouldRunStartupCliUpdateCheck(args)
     ? getStartupCliUpdateNotice({ currentVersion: version })
     : undefined;
   return {
     commandHostAdapters,
     providerDefinitions,
-    commandModules,
-    unknownModuleNames,
+    baseCommandModules,
+    fixedCommandModules: [workflowsModule, ...(options.commandModules ?? [])],
     startupUpdateNoticePromise,
     remoteCommandPolicy: createDefaultRemoteCommandPolicy(), // REMOTE-006: allow-by-default (local == remote).
   };

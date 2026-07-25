@@ -19,7 +19,7 @@ const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 describe('CLI-tier context-capacity hint (NEUT-005)', () => {
   it('registers a compact command in the default module set', () => {
     const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
-    const hasCompact = setup.commandModules.some((m) =>
+    const hasCompact = setup.baseCommandModules.some((m) =>
       m.systemCommands?.some((c) => c.name === 'compact'),
     );
     expect(hasCompact).toBe(true);
@@ -27,6 +27,6 @@ describe('CLI-tier context-capacity hint (NEUT-005)', () => {
 
   it('derives the actionable /compact hint from the CLI-built command set', () => {
     const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
-    expect(deriveContextCapacityHint(setup.commandModules)).toBe('Run /compact and retry.');
+    expect(deriveContextCapacityHint(setup.baseCommandModules)).toBe('Run /compact and retry.');
   });
 });

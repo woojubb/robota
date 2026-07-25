@@ -256,7 +256,9 @@ All five converge on the same three-layer productization pattern:
 
 ## Decision
 
-Three published deliverables. **`agent-framework` and `agent-core` are UNCHANGED and stay neutral.**
+Three published deliverables. **`agent-core` is UNCHANGED. `agent-framework` takes ONE scoped additive
+change** — the `agentDefinitions` injection seam (owner Decision 2, below); it stays neutral, and every
+existing path is byte-identical when the option is absent.
 
 1. **`@robota-sdk/agent-product` (new, published)** — the product-assembly kernel, exposing
    `assembleProduct(profile)` as a **pure, deterministic, IO-free fold** over `IProductProfile` data (a peer
@@ -379,7 +381,8 @@ The reconciliation, so there is **no competing runtime-construction SSOT**:
 ```
 agent-core / agent-tools         (unchanged, neutral foundation)
   ↑
-agent-framework                  (unchanged assembly layer: session/runtime/command contracts)
+agent-framework                  (assembly layer: session/runtime/command contracts; ONE scoped additive
+                                  change — the `agentDefinitions` injection seam, owner Decision 2)
   ↑            ↑              ↑
 agent-preset   agent-capability-pack        (contract + pure merger packages; framework TYPE deps only, no IO)
   ↑            ↑
@@ -602,6 +605,46 @@ Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
   `IProductProfile`, or `assembleProduct` are gated because external consumers depend on them.
 - `IPreset` is already on the published surface; document its external-authoring contract in
   `agent-preset/docs/SPEC.md` and the guide.
+
+### Two owner decisions that S2 implements (2026-07-25)
+
+An independent review of S1 returned **GO-WITH-CHANGES** on two entry conditions. The owner resolved both;
+S2 implements them, and they supersede the S1 "deviations from the directional sketch" recorded below.
+
+**Decision 1 — provider construction returns IN-KERNEL via a pure seam at an allowed layer.** S1 injected
+the already-constructed provider because the only pure `config → IAIProvider` factory was believed to live
+in `agent-executor` (not an allowed dependency). **That premise was wrong:** `createProviderFromConfig` was
+relocated to **`@robota-sdk/agent-core`** by ARCH-PROVIDER-003 (`agent-core/src/index.ts:100`;
+`agent-executor` merely re-exports it), and `agent-core` is already an allowed `agent-product` dependency.
+**No relocation, no forked copy, and no framework edit were needed** — the SSOT is agent-core and
+`agent-executor` already consumes it. So `assembleProduct` now constructs the provider from
+`providerDefinitions` + `providerSettings` (the ALREADY-RESOLVED `IProviderDefinitionConfig` the shell
+passes in as data), exactly as the In-kernel boundary table prescribes. `IProductProfile.provider` remains
+an OPTIONAL injected override for advanced/test consumers (`robota` uses it for `--session-log` replay).
+Both fields are optional, so **a Mode A consumer can pass only `providerDefinitions`** — the consumer then
+supplies a provider in the `buildRuntime` session options. The fold stays pure/IO-free: every settings, env,
+and file read remains in the shell, and all three guards still pass (guard (a) additionally now forbids an
+`agent-executor` dependency; guard (b) additionally forbids `globalThis.process`).
+
+**Decision 2 — pack subagents get a real runtime seam via a scoped, additive framework change.** S1 exposed
+merged pack subagents as inert material (`IAssembledProduct.subagents`) because the framework's roster was
+closed: `buildAgentRuntime` constructed `new AgentDefinitionLoader(cwd)` over the hard-coded
+`BUILT_IN_AGENTS`. S2 adds an **injectable `agentDefinitions`** option to the session seam
+(`TInteractiveSessionOptions` → `IInitOptions` → `ICreateSessionOptions` → `buildAgentRuntime`), composed
+into the built-in tier ahead of `BUILT_IN_AGENTS`, and `assembleProduct`'s runtime overlay populates it from
+the merged packs. `AgentDefinitionLoader` now dedupes within that tier (first wins) so an injected
+definition may override a built-in without duplicating the roster. The option is threaded through the
+headless and TUI channels so every `robota` surface carries it.
+
+> **Precedence (explicit, highest → lowest):** discovered project/user definitions
+> (`.robota/agents` > `.agents/agents` > `.claude/agents` > `~/.robota/agents` > `~/.claude/agents`)
+> **>** injected `agentDefinitions` (packs, in profile order) **>** `BUILT_IN_AGENTS`.
+> A pack may override a framework built-in; the consumer's own on-disk definition still overrides the pack
+> (the ESLint "the consumer decides" rule, applied to subagents).
+
+This is a **SCOPED ADDITIVE** change and nothing broader: absent `agentDefinitions`, every existing path is
+byte-identical. Wherever this spec or the S1 evidence says "the framework is unchanged", read: **one scoped
+additive change — the `agentDefinitions` injection seam.**
 
 ### Staged delivery (owner-directed FULL vertical slice — 2026-07-25, supersedes the P0/P1/P2 plan below)
 
@@ -926,20 +969,21 @@ TDD; full `pnpm -w typecheck`, per-package builds, and `run-all-scans` green.
   hard-codes no product's choices", explicitly NOT "profile-driven assemblers" generally, coupled to the
   composition-neutrality guards. The prohibition on product-specific factories is intact.
 
-**Deviations from the directional sketch (flagged for S2 / owner-gate):**
-- **Provider is INJECTED, not resolved inside `assembleProduct`.** The only pure `config → provider`
-  factory (`createProviderFromConfig`) lives in `agent-executor` (not an allowed dep of agent-product), and
-  re-exporting it would edit the framework (kept UNCHANGED). So `IProductProfile.provider` carries the
-  already-constructed provider (product-owned concrete I/O) — faithful to "concrete I/O stays product-owned"
-  and to `cli.ts` already owning provider construction today. Provider-construction placement is settled
-  in S2 when the shell is wired.
+**Deviations from the directional sketch (flagged for S2 / owner-gate) — BOTH RESOLVED IN S2:**
+
+- ~~**Provider is INJECTED, not resolved inside `assembleProduct`.**~~ **Superseded by owner Decision 1.**
+  The stated premise was wrong: `createProviderFromConfig` lives in **`agent-core`** (relocated by
+  ARCH-PROVIDER-003), an already-allowed dependency — `agent-executor` only re-exports it. S2 returns
+  provider construction to the kernel with no relocation and no framework edit.
 - **agent-core is a direct TYPE dependency of agent-product** (`IAIProvider`/`IProviderDefinition`/
   `FunctionTool`/`TPermissionMode`) because `agent-framework` does not re-export those core types. Neutral
   and allowed (the guards forbid only concrete transport/TUI/CLI, not agent-core).
 - **`buildRuntime` returns the framework `InteractiveSession`** (the seam the shell binds its
   transport/presentation over, as the TUI does), not a channel-bound `IInteractiveRuntime` — the sketch's
-  `createInteractiveRuntime` seam drops `additionalTools`, so it cannot carry pack tools. Merged pack
-  **subagents** are exposed as material; the deeper subagent-runner wiring (`builtInAgents` deps) is S2.
+  `createInteractiveRuntime` seam drops `additionalTools`, so it cannot carry pack tools. ~~Merged pack
+  **subagents** are exposed as material; the deeper subagent-runner wiring is S2.~~ **Subagent exposure
+  superseded by owner Decision 2** — S2 adds the framework `agentDefinitions` injection seam so merged pack
+  subagents reach the runtime.
 - **spec-surface-baseline.json** — the ratchet represents a fully-documented (zero-debt) package by
   ABSENCE; the new packages document every runtime export, so `--write-baseline` normalizes away any `0`
   entry. Registration in `check-spec-public-surface` is via each package's `docs/SPEC.md` (found by
@@ -948,3 +992,121 @@ TDD; full `pnpm -w typecheck`, per-package builds, and `run-all-scans` green.
   in `.changeset/config.json` `fixed` (unrelated to S1); the S1 changeset file
   (`arch-005-s1-composition-layer.md`) is well-formed. The new packages were NOT added to the `fixed` group
   to avoid touching that broken list.
+
+### [S2] — ✅ IMPLEMENTED (robota-as-profile + CLI collapse + both owner decisions) | 2026-07-25
+
+Stage S2 re-expressed `robota` as an `IProductProfile` and **deleted** the hand-wired composition root in
+`cli.ts` — no compat shim, no parallel old path, per the owner directive
+("정석대로, 지름길 금지, 레거시 보존 금지").
+
+**Owner Decision 1 — provider construction IN-KERNEL.** No relocation was needed: `createProviderFromConfig`
+already lives in `@robota-sdk/agent-core` (`src/index.ts:100`, relocated by ARCH-PROVIDER-003), an allowed
+dependency; `agent-executor` merely re-exports it, so there is one SSOT and no forked copy.
+`assembleProduct` now builds the provider from `providerDefinitions` + the shell's already-resolved
+`providerSettings`; `provider?` is an optional injected override (`robota` uses it for `--session-log`
+replay). Both optional ⇒ a Mode A profile carries only `providerDefinitions`. The fold stays pure — 5
+red-first cases failed before the change (undefined provider, Mode A profile rejected, no unknown-provider
+error, missing `buildRuntimeOptions`), then passed.
+
+**Owner Decision 2 — `agentDefinitions` runtime seam.** Injectable on `TInteractiveSessionOptions` /
+`IInitOptions` / `ICreateSessionOptions`, composed into the built-in tier ahead of `BUILT_IN_AGENTS`;
+`AgentDefinitionLoader` dedupes within the tier (first wins). Precedence: discovered > injected > built-in.
+Threaded through the headless + TUI channels. 2 red-first cases failed first (injected definition
+unreachable; duplicated `Explore` in the roster), then passed. A SCOPED ADDITIVE change — absent the option,
+every path is byte-identical; the "framework unchanged" claims in this spec are corrected accordingly.
+
+**The collapse.** `robota`'s identity is data in `packages/agent-cli/src/product/robota-profile.ts`;
+`cli.ts` keeps only the stays-in-shell rows of the boundary table. **`pack-coding` is load-bearing, not a
+mirror**: `buildCommandSetup` builds the base as the default set MINUS the pack-supplied names, so `/shell`
+and `/editor` come from the pack — dropping the pack from the profile drops them from the product (proven by
+test). Composition order follows the spec: the capability merge widens (base ⊕ packs, rejection channel),
+then the preset's enabled/disabled delta narrows that superset; the fixed modules (`/workflows`,
+caller-injected) stay outside the delta, unchanged.
+
+**EQUIVALENCE EVIDENCE (the P0 bar).** `packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts`
+pins literals captured from the PRE-CHANGE hand-wired assembly (at `378c585e9`) and re-derives them through
+the new fold: the 27-module command set, the 6 provider definition types, the 10 default tools, the 3
+subagents, `DEFAULT_AGENT_NAME`, and `resolvePreset('default')`/`('careful-reviewer')` — plus the INFRA-032
+unknown-name notices and the preset delta over the merged superset. Proven NOT accidentally green: replacing
+`ROBOTA_PACKS` with `[]` fails 2 of its assertions. The 15 `startCli` e2e tests drive the REAL collapsed
+shell end-to-end with a scripted provider.
+
+**Verification (all foreground, all green).** Full `pnpm build`; `pnpm -w typecheck` clean; **2184 tests**
+across `agent-cli` (247), `agent-transport-tui` (526), `agent-framework` (1261), `agent-transport` (56),
+`agent-preset` (71), `agent-product` (11), `agent-capability-pack` (7), `pack-coding` (5); **all 61
+`run-all-scans` pass**; the real `robota` binary runs (`--version`, `--help`).
+
+**Guard hardening (reviewer remediation).** Guard (c) caught only `===`/`!==`; it now bans four named forms —
+equality (incl. backticks), `switch (X.id)`, `X.id.startsWith/endsWith/includes/match(…)`, and a lookup table
+keyed by `X.id`. Guard (a) adds `@robota-sdk/agent-executor`; guard (b) adds `globalThis.process` (which
+evaded the bare `process.env` pattern, whose lookbehind rejects a preceding `.`). Red-first: 6 unit cases
+failed first, and an end-to-end proof planted all five evasions in the real `agent-product` tree → scan
+exited 1 with 5 findings → reverted → clean pass. Reading an identity as DATA stays legal; branching on it
+does not.
+
+**Conformance-review outcome (independent review of PR #1386): GO-WITH-CHANGES — applied on the same
+branch.** The collapse, both owner decisions, the equivalence provenance, and the mutation proof all
+verified. Four fixes were required and are in:
+
+- **F4 (gate hole — the important one).** The equivalence test RE-IMPLEMENTED
+  `selectCommandModules(...) + fixedCommandModules` inline instead of calling the shipped
+  `selectProductCommandModules`, so the production path was uncovered. The reviewer proved it: deleting
+  `...fixedCommandModules` from the helper — which drops `/workflows` and every caller-injected module from
+  the real CLI — left all 247 agent-cli tests GREEN. The test now calls the shipped helpers, and the same
+  mutation FAILS it (2 assertions). Lesson: an equivalence gate that re-derives the shipped logic tests the
+  test, not the product.
+- **F5** — the INFRA-032 notice restored to its original position (above).
+- **F3** — the false "nothing observable is ordered by that list" claim corrected (above).
+- **F6** — `agent-framework/docs/SPEC.md` (the package's own SSOT) now documents `agentDefinitions`, its
+  precedence, and the within-tier dedupe, and explicitly reconciles it with the adjacent NEUT-003
+  `builtInAgents` seam: NEUT-003 **REPLACES** the built-in set, ARCH-005 **PREPENDS INTO** it. That
+  ambiguity is now written down rather than left to be inferred.
+
+**DISCLOSURE — `robota` consumes the kernel's MATERIALS but not its RUNTIME SEAM (F1/F2).** Two In-kernel
+rows of the boundary table are therefore **unmet for the dogfooding product itself**, even though the kernel
+implements both:
+
+- **Runtime-build delegation.** `cli.ts` does not call `product.buildRuntime` / `product.buildRuntimeOptions`.
+  It passes the assembled materials (provider, command modules, `agentDefinitions`) into `renderApp` /
+  `runPrintMode` / `runServeMode`, each of which constructs its session through its own channel. Those
+  channels do reach `buildRuntimeSession`, so there is no competing runtime-construction SSOT — but the
+  kernel's overlay is exercised by tests and external Mode-A consumers, not by `robota`.
+- **Preset-resolve glue.** `cli.ts` does not call `product.resolvePreset`. It still resolves through
+  `agent-preset`'s module-global `resolvePreset` (via `resolveCliPreset`), because the resolved preset is
+  needed BEFORE the base command modules are built (its module-selection delta feeds them) and because the
+  in-session `/preset` command reads that same module-global registry — moving the shell to the instance
+  registry alone would split that SSOT.
+
+Neither is a defect in the kernel and neither affects the equivalence bar; both are real gaps between "the
+kernel offers the seam" and "robota eats it". Closure is tracked by the follow-up backlog items filed from
+the review (B1/B2), not resolved here.
+
+**Deviations / follow-ups for S3:**
+
+- **The pack's TOOL axis is declared but not additive for `robota`.** `agent-framework`'s `createSession`
+  hard-codes `createDefaultTools()` and concatenates `additionalTools` with no dedupe, so overlaying
+  `pack-coding`'s (identical) tools would DUPLICATE all ten. The tools are therefore exposed as
+  `IAssembledProduct.tools` and reach `buildRuntime` consumers, but `robota`'s own surfaces still get them
+  from the framework default. Making the framework's default tool set injectable/suppressible is a neutrality
+  change deliberately NOT taken here (out of the scoped-additive budget) — it is the S3 item that would make
+  the tool axis as load-bearing as the command/subagent axes.
+- **Command-module ORDER shifts, and it IS user-visible — an ACCEPTED delta.** The coding modules are
+  appended after the base rather than sitting mid-list. An earlier revision of this entry claimed "nothing
+  observable is ordered by that list"; **that was wrong.** `CommandRegistry.getCommands()` concatenates per
+  source with no sort, and `SystemCommandExecutor.listCommands()` returns Map values in insertion order, so
+  `/shell` and `/editor` move to the END of `/help` output and of the slash-command autocomplete popup.
+  Content identical, position changed. Accepted rather than fixed: restoring the old position would mean
+  teaching the neutral merger about one product's preferred ordering — precisely what the
+  composition-neutrality guards exist to forbid.
+- ~~**The INFRA-032 unknown-preset-module notice moved later in the startup sequence.**~~ **FIXED after
+  review — the recorded rationale did not hold.** The claim was that the notice needs the merged superset,
+  which exists only after `assembleProduct`. But `findUnknownModuleNames` takes only NAMES
+  (`command-module-selection.ts`), and the shell already holds both halves without any merge knowledge. The
+  notice is restored at its ORIGINAL position (immediately after `buildCommandSetup`, before the
+  `init`/`--configure`/provider-config early-returns) using `mergedCommandModuleNames(baseCommandModules,
+ROBOTA_PACK_COMMAND_MODULE_NAMES)`. Byte-identity on the early-return paths AND the normal-run ordering
+  are both restored. The name-superset shortcut is only valid while it equals the real merged product's
+  names, so the equivalence test asserts that identity directly — the two cannot drift apart.
+- `packages/agent-transport` and `packages/agent-transport-tui` each took a 2-line optional pass-through so
+  the Decision-2 seam reaches robota's real surfaces; two files that the threading pushed past the file-size
+  ratchet were SPLIT (not extended) per the ratchet's own remedy.

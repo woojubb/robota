@@ -1,13 +1,10 @@
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
-import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-executor';
 
-import { fireSubagentLifecycleHook } from './background-task-hooks.js';
+import { buildAgentRuntime } from './build-agent-runtime.js';
 import { DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
-import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 import { storeAgentToolDeps } from '../tools/agent-tool.js';
 import { createBackgroundProcessTool } from '../tools/background-process-tool.js';
 import { formatProjectedModelCommandToolPromptDescription } from '../tools/model-command-tool-projection.js';
@@ -20,81 +17,12 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IBackgroundProcessToolDeps } from '../tools/background-process-tool.js';
 import type { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
-import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
-import type { ISessionLogger } from '@robota-sdk/agent-session';
+import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 
-export interface IAgentRuntimeResult {
-  agentToolDeps: IAgentToolDeps | undefined;
-  agentDefinitions: IAgentDefinition[];
-  backgroundTaskManager: IBackgroundTaskManager;
-}
-
-export function buildAgentRuntime(
-  options: ICreateSessionOptions,
-  sessionId: string,
-  cwd: string,
-  provider: IAIProvider,
-  tools: IToolWithEventService[],
-  hookTypeExecutors: IHookTypeExecutor[],
-): IAgentRuntimeResult {
-  let agentToolDeps: IAgentToolDeps | undefined;
-  let agentDefinitions: IAgentDefinition[] = [];
-  let backgroundTaskManager: IBackgroundTaskManager;
-
-  // PRESET-004: a preset opting into parallel subagents activates the agent runtime
-  // (subagent/background dispatch) exactly like an explicit enableAgentRuntime.
-  if (options.enableAgentRuntime || options.enableParallelSubagents) {
-    const agentLoader = new AgentDefinitionLoader(cwd);
-    agentDefinitions = agentLoader.loadAll();
-    agentToolDeps = {
-      config: options.config,
-      context: options.context,
-      tools,
-      terminal: options.terminal,
-      provider,
-      cwd,
-      parentSessionId: sessionId,
-      permissionMode: options.permissionMode,
-      permissionHandler: options.permissionHandler,
-      hooks: options.config.hooks,
-      hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
-      onTextDelta: options.onTextDelta,
-      onToolExecution: options.onToolExecution,
-      customAgentRegistry: (name: string) => agentLoader.getAgent(name),
-      agentDefinitions,
-    };
-    const subagentManager = new SubagentManager({
-      runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
-      backgroundTaskRunners: options.backgroundTaskRunners,
-    });
-    agentToolDeps.subagentManager = subagentManager;
-    backgroundTaskManager = subagentManager.getBackgroundTaskManager();
-    agentToolDeps.backgroundTaskManager = backgroundTaskManager;
-  } else {
-    backgroundTaskManager = new BackgroundTaskManager({
-      runners: options.backgroundTaskRunners ?? [],
-    });
-  }
-
-  const sessionLogger = options.sessionLogger;
-  if (sessionLogger) {
-    backgroundTaskManager.subscribe((event) =>
-      logBackgroundTaskEvent(sessionLogger, sessionId, event),
-    );
-  }
-  backgroundTaskManager.subscribe((event) =>
-    fireSubagentLifecycleHook(
-      event,
-      cwd,
-      options.config.hooks,
-      hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
-    ),
-  );
-
-  return { agentToolDeps, agentDefinitions, backgroundTaskManager };
-}
+// Re-exported so existing importers of the assembly module keep one entry point.
+export { buildAgentRuntime };
+export type { IAgentRuntimeResult } from './build-agent-runtime.js';
 
 export interface IBackgroundProcessResult {
   backgroundProcessToolDeps: IBackgroundProcessToolDeps | undefined;
@@ -283,24 +211,4 @@ export function wireSessionDeps(
   if (backgroundProcessToolDeps) backgroundProcessToolDeps.parentSessionId = session.getSessionId();
   storeSessionBackgroundTaskManager(session, backgroundTaskManager);
   if (agentToolDeps) storeAgentToolDeps(session, agentToolDeps);
-}
-
-function logBackgroundTaskEvent(
-  logger: ISessionLogger,
-  sessionId: string,
-  event: TBackgroundTaskEvent,
-): void {
-  const correlationFields: Record<string, string> = {};
-  if (event.type === 'background_task_created') {
-    correlationFields['taskId'] = event.task.id;
-    const originToolCallId = event.task.metadata?.['executionOriginToolCallId'];
-    if (typeof originToolCallId === 'string') {
-      correlationFields['originToolCallId'] = originToolCallId;
-    }
-  }
-  logger.log(sessionId, 'background_task_event', {
-    backgroundEventType: event.type,
-    backgroundEvent: event,
-    ...correlationFields,
-  });
 }

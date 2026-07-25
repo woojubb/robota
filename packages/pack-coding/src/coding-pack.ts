@@ -50,11 +50,20 @@ const CODING_TOOLS = [
  *
  * This pack contributes only when a product profile lists it (opt-in); every contributed command/tool runs
  * only through the permission-gated runtime at call time.
+ *
+ * **Module-load singleton semantics.** `codingPack` is a module-level constant, so its tool and
+ * command-module instances are created ONCE per module load and SHARED by every profile that lists the
+ * pack. That is correct for the current contributions — the tool and command-module objects are stateless
+ * handlers, and `assembleProduct` only merges them (it never executes or mutates them). It does mean two
+ * products assembled in one process hand the same instances to both runtimes: if a future contribution
+ * carries per-product mutable state, export a `createCodingPack()` factory instead of widening this
+ * constant.
  */
 export const codingPack: ICapabilityPack = {
   id: 'coding',
   title: 'Coding',
-  description: "Robota's built-in coding capability: file/shell tools, /shell + /editor commands, and the coding subagents.",
+  description:
+    "Robota's built-in coding capability: file/shell tools, /shell + /editor commands, and the coding subagents.",
   tools: CODING_TOOLS,
   commandModules: [createShellCommandModule(), createEditorCommandModule()],
   subagents: BUILT_IN_AGENTS,

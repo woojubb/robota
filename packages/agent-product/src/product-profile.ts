@@ -1,5 +1,10 @@
 import type { ICapabilityPack, IRejectedCapability } from '@robota-sdk/agent-capability-pack';
-import type { FunctionTool, IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import type {
+  FunctionTool,
+  IAIProvider,
+  IProviderDefinition,
+  IProviderDefinitionConfig,
+} from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
   IBackgroundTaskRunner,
@@ -30,22 +35,30 @@ export interface IProductProfile {
   /** Product version string. */
   version?: string;
 
-  // (2) provider surface
+  // (2) provider surface — construction is IN-KERNEL (ARCH-005 S2, owner Decision 1)
   /**
-   * The already-constructed provider (product-owned concrete I/O). The shell resolves settings/env/args
-   * and constructs the provider, then injects it — keeping `assembleProduct` pure and IO-free (guard b).
-   *
-   * NOTE (ARCH-005 S1): the spec's directional sketch showed the provider "resolved from
-   * providerDefinitions + settings" INSIDE `assembleProduct`. That would require a pure `config → provider`
-   * factory at an allowed dependency layer; the only such factory (`createProviderFromConfig`) lives in
-   * `agent-executor`, which is NOT an allowed dependency of `agent-product`, and re-exporting it would edit
-   * the framework (which ARCH-005 keeps UNCHANGED). So S1 injects the constructed provider — faithful to
-   * "concrete I/O stays product-owned" and to the shell already owning provider construction today
-   * (`cli.ts`). Provider construction placement is settled in S2 when the shell is wired.
+   * The product's provider surface: the vendor definitions it offers. Required — a product declares which
+   * providers it can speak to, and the kernel constructs from this registry. Pass `[]` for a product that
+   * only ever runs on an injected {@link provider}.
    */
-  provider: IAIProvider;
-  /** Provider definitions (data) — carried for the shell's own provider construction / hot-swap. */
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions: readonly IProviderDefinition[];
+  /**
+   * The ALREADY-RESOLVED provider configuration (name/model/apiKey/baseURL/…). The SHELL performs the
+   * settings/env/file reads that produce this value and passes it IN as plain data; the kernel then
+   * constructs the provider from it via `createProviderFromConfig`. That keeps the fold pure and IO-free
+   * (guard b) while returning provider construction to the kernel, per the spec's In-kernel boundary
+   * ("Provider construction FROM `IProviderDefinition[]` + already-resolved settings → In-kernel").
+   *
+   * Absent ⇒ no provider is constructed; the consumer either injects {@link provider} or supplies one at
+   * `buildRuntime` time (the Mode A shape, which carries only `providerDefinitions`).
+   */
+  providerSettings?: IProviderDefinitionConfig;
+  /**
+   * OPTIONAL injected provider override for advanced/test consumers — a pre-built provider that takes
+   * precedence over {@link providerSettings}. `robota` uses it for `--session-log` replay, where the
+   * provider answers from a recorded log instead of a vendor definition.
+   */
+  provider?: IAIProvider;
   /** Active-provider override id (data). */
   providerOverride?: string;
 
@@ -94,8 +107,14 @@ export interface IAssembledProduct {
   agentName?: string;
   version?: string;
 
-  /** The resolved provider (passthrough from the profile). */
-  provider: IAIProvider;
+  /**
+   * The provider the kernel constructed from `providerDefinitions` + `providerSettings` — or the injected
+   * `profile.provider` when one was supplied (it wins). `undefined` when the profile carried neither
+   * (Mode A): the consumer then supplies a provider in the `buildRuntime` session options.
+   */
+  provider?: IAIProvider;
+  /** The product's provider surface (passthrough) — the definitions hot-swap and setup flows read. */
+  providerDefinitions: readonly IProviderDefinition[];
 
   /** `baseCommandModules ⊕ merged pack modules` (see `mergeCapabilityPacks`). */
   commandModules: readonly ICommandModule[];
@@ -109,7 +128,10 @@ export interface IAssembledProduct {
   /** The per-call instance-scoped preset registry (R8 — no module-global mutation). */
   presets: IPresetRegistry;
   /** Convenience resolver bound over `presets` (equivalent to `presets.resolvePreset`). */
-  resolvePreset: (id: string, context?: Parameters<IPresetRegistry['resolvePreset']>[1]) => IResolvedPresetOptions;
+  resolvePreset: (
+    id: string,
+    context?: Parameters<IPresetRegistry['resolvePreset']>[1],
+  ) => IResolvedPresetOptions;
   /** The default preset id (passthrough) and its resolved posture, when a `defaultPresetId` was given. */
   defaultPresetId?: string;
   defaultPreset?: IResolvedPresetOptions;
@@ -120,9 +142,18 @@ export interface IAssembledProduct {
   transports?: ITransportRegistryView;
 
   /**
+   * The PURE overlay `buildRuntime` delegates through: the shell-supplied session options with the
+   * product-owned materials laid on top (assembled command modules, pack tools, pack subagents as
+   * `agentDefinitions`, the constructed provider, and the default preset's `permissionMode` when the shell
+   * left it unset). Exposed so a consumer can inspect or further extend the options before construction —
+   * and so the overlay contract is assertable without building a live session.
+   */
+  buildRuntimeOptions: (input: IBuildRuntimeInput) => TInteractiveSessionOptions;
+
+  /**
    * Build the runtime session by DELEGATING to `agent-framework`'s `buildRuntimeSession` seam (R2) — never
-   * a re-implementation. Overlays the assembled command modules + pack tools onto the shell-supplied
-   * session options and returns the framework `InteractiveSession` the shell binds its presentation over.
+   * a re-implementation. Equivalent to `buildRuntimeSession(buildRuntimeOptions(input))`; returns the
+   * framework `InteractiveSession` the shell binds its presentation over.
    */
   buildRuntime: (input: IBuildRuntimeInput) => InteractiveSession;
 }

@@ -178,10 +178,15 @@ export class AgentDefinitionLoader {
       }
     }
 
-    // Merge with built-in: custom overrides built-in on name collision
+    // Merge with the built-in tier: a discovered custom agent overrides it on name collision, and WITHIN
+    // the tier the first entry wins. The first-wins rule is load-bearing for the ARCH-005 `agentDefinitions`
+    // injection seam, which composes `[...injected, ...BUILT_IN_AGENTS]` into this tier: a pack-supplied
+    // definition may override a framework built-in of the same name, and the roster never carries a
+    // duplicate. (For a tier with no duplicate names — the historic BUILT_IN_AGENTS alone — this is a no-op.)
     const result = [...customAgents];
     for (const builtIn of this.builtInAgents) {
       if (!seen.has(builtIn.name)) {
+        seen.add(builtIn.name);
         result.push(builtIn);
       }
     }

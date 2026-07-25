@@ -48,7 +48,8 @@ is no "product identity/manifest" unit tying branding + packs + preset + provide
 
 ## Proposed direction (to be validated at the gate)
 
-Three published deliverables; **framework/core unchanged (stays neutral)**:
+Three published deliverables; **core unchanged; framework takes ONE scoped additive change** (the
+`agentDefinitions` injection seam, owner Decision 2 — byte-identical when the option is absent):
 
 1. **`@robota-sdk/agent-product` (new, published)** — `assembleProduct(profile) → runtime`. Extract the
    agent-cli composition root into a pure library; agent-cli becomes a thin caller. (Mode A gateway.)
@@ -65,9 +66,24 @@ packages). API stability is the product surface: register the new packages in `c
 Responsibility split (spec invariant): preset = behavior/persona; pack = capability (tools/commands/agents);
 profile = product assembly (branding + packs + preset + provider-defaults).
 
-Staged, no big-bang: **P0** extract composition kernel → `agent-product` (behavior byte-identical pure
-refactor); **P1** `assembleProduct` + re-express `robota` as a profile; **P2** `ICapabilityPack` +
-first non-coding pack when a real second product exists.
+Staged (owner-directed full vertical slice, 2026-07-25 — supersedes the earlier P0/P1/P2 split):
+
+- **S1 — ✅ MERGED (#1376).** The three new published packages (`agent-product`, `agent-capability-pack`,
+  `pack-coding`), the three composition-neutrality guards, and the coupled L129 amendment. No `cli.ts` change.
+- **S2 — ✅ IMPLEMENTED (this PR).** `robota` re-expressed as an `IProductProfile` assembled by
+  `assembleProduct`; the hand-wired composition root in `cli.ts` DELETED (no compat shim). Implements the two
+  owner decisions that resolved the independent review's GO-WITH-CHANGES entry conditions: **(1)** provider
+  construction returns in-kernel via agent-core's pure `createProviderFromConfig` (no relocation needed — it
+  was already at an allowed layer), with `provider?` as an optional injected override; **(2)** a scoped
+  ADDITIVE `agentDefinitions` injection seam in `agent-framework` so pack subagents reach the runtime.
+  `pack-coding` is load-bearing: `/shell` + `/editor` now come from the pack, not the base set.
+  Equivalence proven against literals captured from the pre-change assembly.
+- **S3 — REMAINING.** The external-consumer proof (done-gate): a throwaway package OUTSIDE the monorepo
+  installs the `pnpm pack` tarballs and exercises Modes A/B/C. Plus the one carried-over item S2 scoped out:
+  the pack **tool** axis is declared but not additive for `robota`, because `agent-framework`'s
+  `createSession` hard-codes `createDefaultTools()` and concatenates `additionalTools` without dedupe —
+  making that default set injectable/suppressible is what would put the tool axis on par with the
+  command/subagent axes.
 
 ## Deferred (owner decision, NOT part of this architecture)
 

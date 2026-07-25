@@ -4,7 +4,6 @@
  */
 
 import { execSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
@@ -12,9 +11,7 @@ import {
   projectPaths,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
-  readMergedProviderSettings,
   readProviderSettings,
-  createProviderFromSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
@@ -22,12 +19,20 @@ import {
   readSettings,
   getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
+import { assembleProduct } from '@robota-sdk/agent-product';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
+import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from './product/robota-profile.js';
+import {
+  createDefaultTransportRegistry,
+  findUnknownPresetModuleNames,
+  loadReplayProvider,
+  mergedCommandModuleNames,
+  selectProductCommandModules,
+} from './product/robota-plumbing.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -35,8 +40,6 @@ import {
 } from './startup/provider-startup.js';
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
@@ -70,53 +73,6 @@ import {
 } from './startup/memory-enablement.js';
 
 export type { IStartCliOptions };
-
-/**
- * Composition-root wiring of the default transport registry. The generic registry lives in
- * `@robota-sdk/agent-transport`; choosing which concrete transports to pre-register is an
- * app-assembly decision, so the CLI (the composition root) wires `WsTransport` here rather than
- * the transport core depending on the ws package.
- */
-/**
- * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
- * dev/test-only package deliberately kept out of the published dependency graph, so `--session-log`
- * replay is a development capability: resolvable in the monorepo (and for anyone who installs the
- * package), and reported as unavailable — never a hard crash — in the default published CLI.
- */
-function loadReplayProvider(logFile: string): IAIProvider {
-  let mod: { createReplayProviderFromLogFile: (file: string) => IAIProvider };
-  try {
-    const requireFrom = createRequire(import.meta.url);
-    mod = requireFrom('@robota-sdk/agent-provider-replay') as typeof mod;
-  } catch {
-    throw new Error(
-      '--session-log replay requires @robota-sdk/agent-provider-replay, a dev-only package that is not bundled in the published CLI.',
-    );
-  }
-  return mod.createReplayProviderFromLogFile(logFile);
-}
-
-function createDefaultTransportRegistry(): {
-  registry: TransportRegistry;
-  wsTransport: WsTransport;
-} {
-  const registry = new TransportRegistry(getUserSettingsPath());
-  // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
-  // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
-  // transport reject any unauthenticated connection before emitting session data. Absent = unchanged
-  // default (open localhost path); the token is never persisted to settings (secret, runtime-only).
-  const wsToken = process.env['ROBOTA_WS_TOKEN'];
-  const wsPortRaw = process.env['ROBOTA_WS_PORT'];
-  const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
-  const wsTransport = new WsTransport({
-    ...(wsToken ? { token: wsToken } : {}),
-    ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
-  });
-  registry.register(wsTransport);
-  // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
-  // monitor's `ws-url` at the actual port.
-  return { registry, wsTransport };
-}
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // OBS-001: `session analyze` carries its own flags (--last/--session) that the strict
@@ -222,6 +178,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
+  // ARCH-005 S2: the loaded presets also travel as DATA into the product profile, where `assembleProduct`
+  // builds an instance-scoped registry over them (R8). The module-global registration above stays — it is
+  // what `/preset` and `listPresets` read at runtime.
+  const externalPresets = externalPresetLoad.loaded
+    .map((id) => getPreset(id))
+    .filter((preset): preset is IPreset => preset !== undefined);
   let resolvedPreset: IResolvedPresetOptions;
   try {
     resolvedPreset = resolveCliPreset(args, settingsPreset);
@@ -237,21 +199,14 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   const {
     commandHostAdapters,
     providerDefinitions,
-    commandModules,
-    unknownModuleNames,
+    baseCommandModules,
+    fixedCommandModules,
     startupUpdateNoticePromise,
     remoteCommandPolicy,
-  } = buildCommandSetup(cwd, args, options, version, {
-    ...(resolvedPreset.enabledCommandModules !== undefined
-      ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
-      : {}),
-    ...(resolvedPreset.disabledCommandModules !== undefined
-      ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
-      : {}),
-  });
-  // REMOTE-008: the composition root owns the transport registry + the remote-control controller (it has
-  // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
-  // a declarative trigger; the enable/stop wiring + status view are assembled here.
+  } = buildCommandSetup(cwd, args, options, version, ROBOTA_PACK_COMMAND_MODULE_NAMES);
+  // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
+  // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
+  // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
@@ -259,8 +214,13 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
   // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
-  // drop, never an abort — mirroring the external-preset skip reporting above.
-  for (const { name, kind } of unknownModuleNames) {
+  // drop, never an abort — mirroring the external-preset skip reporting above. Computed from the
+  // base ⊕ pack NAME superset (no assembly needed), so it still fires before the init/--configure
+  // early-returns exactly as it did before ARCH-005 S2.
+  for (const { name, kind } of findUnknownPresetModuleNames(
+    mergedCommandModuleNames(baseCommandModules, ROBOTA_PACK_COMMAND_MODULE_NAMES),
+    resolvedPreset,
+  )) {
     terminal.writeError(
       `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
     );
@@ -314,12 +274,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  // INFRA-018: when a session log is supplied, replay it deterministically instead of calling a
-  // model. Provider settings/model still come from the configured profile (no key is ever used —
-  // the ReplayProvider answers every call from the recorded log).
-  const provider = args.sessionLog
-    ? loadReplayProvider(args.sessionLog)
-    : createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
@@ -328,6 +282,47 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     logsDir: paths.logs,
     worktreeAdapter: createGitWorktreeIsolationAdapter(),
   });
+
+  // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
+  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct` — provider construction,
+  // the base ⊕ pack capability merge, and the instance-scoped preset registry all happen in the kernel.
+  // What remains below is product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
+  //
+  // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
+  // replays the recorded log deterministically instead of calling a model. Provider settings/model still
+  // come from the configured profile (no key is ever used).
+  const product = assembleProduct(
+    createRobotaProfile({
+      version,
+      agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+      providerDefinitions,
+      providerSettings: { ...providerSettings, model: modelId },
+      ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
+      presets: externalPresets,
+      defaultPresetId: selectedPresetId,
+      baseCommandModules,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      transports: transportRegistry,
+    }),
+  );
+  const provider = product.provider;
+  if (provider === undefined) {
+    // Unreachable with robota's profile (it always supplies providerSettings) — surfaced, never silent.
+    process.stderr.write('No provider could be constructed from the resolved settings.\n');
+    process.exit(1);
+  }
+
+  // The preset's module-selection delta filters the base ⊕ pack superset the kernel merged; the fixed
+  // modules are appended outside the delta, as before.
+  const commandModules = selectProductCommandModules(product, fixedCommandModules, resolvedPreset);
+  // ARCH-005 (owner Decision 2): the packs' subagents reach the runtime through the framework's
+  // `agentDefinitions` seam, so removing a pack genuinely removes its subagents from the product.
+  const agentDefinitions = product.subagents;
+  // A capability the merge refused (a colliding id) is reported, never silently dropped.
+  for (const { kind, id, reason } of product.rejectedCapabilities) {
+    terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
+  }
 
   const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
@@ -368,6 +363,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       sessionStore,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      agentDefinitions,
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
@@ -403,6 +399,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       sessionStore,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      agentDefinitions,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -473,6 +470,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
+    agentDefinitions,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,

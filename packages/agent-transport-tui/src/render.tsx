@@ -20,6 +20,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
+  IAgentDefinition,
   TShellExecFn,
   CommandRegistry,
   IMemoryStore,
@@ -51,6 +52,11 @@ export interface IRenderOptions {
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
+   * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -106,6 +112,9 @@ export function toChannelOptions(
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
+    ...(options.agentDefinitions !== undefined
+      ? { agentDefinitions: options.agentDefinitions }
+      : {}),
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,
     shellExec: options.shellExec,

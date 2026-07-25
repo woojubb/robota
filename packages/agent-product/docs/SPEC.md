@@ -26,9 +26,13 @@ Enforced at all times by the three composition-neutrality guards
 1. **Dependency-graph neutrality** — `agent-product` declares no concrete transport/TUI/CLI dependency
    (`agent-transport*`, `agent-transport-tui`, `agent-transport-ws`, `agent-cli`).
 2. **Purity / no-IO** — no `node:fs`/`fs`, `process.env`, or settings-reader read in `agent-product/src`;
-   all resolved data (settings, env, args, provider) is fed IN from the shell.
-3. **No product-name conditionals** — no `profile.id === '…'` / `agentName === '…'` product-identity
-   branch, so the fold cannot special-case any one product.
+   all resolved data (settings, env, args) is fed IN from the shell. `globalThis.process` is banned too, so
+   the qualified form cannot evade the check. Constructing a provider from already-resolved settings data is
+   pure and therefore allowed.
+3. **No product-name conditionals** — no product-identity BRANCH on `.id`/`.agentName` in any of its four
+   forms: equality against a literal (`===`/`!==`, incl. backticks), `switch (profile.id)`,
+   `profile.id.startsWith/endsWith/includes/match(…)`, or a lookup table keyed by the identity
+   (`TABLE[profile.id]`). Reading the identity as DATA stays legal; branching on it does not.
 
 ## Boundaries
 
@@ -39,13 +43,14 @@ Enforced at all times by the three composition-neutrality guards
   `assembleProduct` receives already-resolved data.
 - Does **not** re-implement runtime assembly. Runtime construction DELEGATES to `agent-framework`'s
   `buildRuntimeSession` seam (R2, RUNTIME-001 SSOT) — there is no competing runtime-construction SSOT.
-- Does **not** construct the provider from settings. **S1 scope note:** the provider is INJECTED
-  (already-constructed, product-owned concrete I/O) via `IProductProfile.provider`. The spec's directional
-  sketch showed the provider "resolved from providerDefinitions + settings" inside `assembleProduct`; the
-  only pure `config → provider` factory (`createProviderFromConfig`) lives in `agent-executor` (not an
-  allowed dependency) and re-exporting it would edit the framework (which ARCH-005 keeps UNCHANGED), so S1
-  injects the constructed provider — faithful to "concrete I/O stays product-owned" and to the shell
-  already owning provider construction today. Provider-construction placement is settled in S2.
+- Does **not** READ provider settings — but it DOES construct the provider (ARCH-005 S2, owner Decision 1).
+  The shell performs the settings/env/file reads and passes the resolved `IProviderDefinitionConfig` in as
+  `IProductProfile.providerSettings`; `assembleProduct` then builds the provider from it via agent-core's
+  pure `createProviderFromConfig` (relocated to `agent-core` by ARCH-PROVIDER-003 — an allowed dependency
+  layer, so no `agent-executor` edge is needed). `IProductProfile.provider` remains an OPTIONAL injected
+  override for advanced/test consumers. With neither field, no provider is constructed and the consumer
+  supplies one in the `buildRuntime` session options — the Mode A shape, which carries only
+  `providerDefinitions`.
 - Does **not** mutate agent-preset's module-level `externalPresets` global. It builds a **per-call
   instance-scoped** preset registry via `createPresetRegistry` (R8).
 
@@ -67,33 +72,38 @@ agent-cli                        (product shell — S2: brings concrete transpor
 resolves inputs → `assembleProduct` folds definitions into materials → the framework's `buildRuntimeSession`
 constructs the runtime. Each concern has exactly one owner.
 
-`buildRuntime` (on the assembled product) overlays the assembled command modules + pack tools onto the
-shell-supplied `TInteractiveSessionOptions`, then calls `buildRuntimeSession` and returns the framework
-`InteractiveSession` the shell binds its own transport/presentation over. Merged pack **subagents** are
-exposed as material (`IAssembledProduct.subagents`); the shell wires the subagent-runner seam
-(`subagentRunnerFactory` + the framework `builtInAgents` deps) — that deeper wiring is S2.
+`buildRuntimeOptions` (on the assembled product) is the PURE overlay: the shell-supplied
+`TInteractiveSessionOptions` with the assembled command modules, pack tools (`additionalTools`), merged pack
+subagents (`agentDefinitions`), the constructed provider, and the default preset's `permissionMode` laid on
+top. `buildRuntime` is `buildRuntimeSession(buildRuntimeOptions(input))` — it returns the framework
+`InteractiveSession` the shell binds its own transport/presentation over.
+
+Merged pack **subagents** reach the runtime through `agent-framework`'s `agentDefinitions` injection seam
+(ARCH-005 S2, owner Decision 2 — a scoped ADDITIVE framework change). Precedence in the framework, highest →
+lowest: discovered project/user definitions > injected `agentDefinitions` > `BUILT_IN_AGENTS`. The overlay
+leaves `agentDefinitions` UNSET when no pack contributes one, so the framework default is untouched.
 
 ## Type Ownership
 
-| Type                | Location             | Purpose                                                                        |
-| ------------------- | -------------------- | ------------------------------------------------------------------------------ |
-| `IProductProfile`   | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing |
-| `IAssembledProduct` | `product-profile.ts` | The neutral runtime materials `assembleProduct` produces                        |
-| `IBuildRuntimeInput`| `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto       |
+| Type                 | Location             | Purpose                                                                           |
+| -------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `IProductProfile`    | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing |
+| `IAssembledProduct`  | `product-profile.ts` | The neutral runtime materials `assembleProduct` produces                          |
+| `IBuildRuntimeInput` | `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto         |
 
 ## Public API Surface
 
-| Export               | Kind      | Description                                                                                                |
-| -------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold             |
-| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                        |
-| `IAssembledProduct`  | Interface | Neutral runtime materials + `resolvePreset` (instance-scoped) + `buildRuntime` (delegates to the seam)    |
-| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto |
+| Export               | Kind      | Description                                                                                                                                   |
+| -------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold                                                 |
+| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                                                            |
+| `IAssembledProduct`  | Interface | Neutral runtime materials + `resolvePreset` (instance-scoped) + `buildRuntimeOptions` (pure overlay) + `buildRuntime` (delegates to the seam) |
+| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto                                  |
 
 ## Merge & precedence semantics
 
 - **Capability merge:** `assembleProduct` calls `mergeCapabilityPacks(profile.baseCommandModules ?? [],
-  profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding later id is rejected and
+profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding later id is rejected and
   surfaced in `IAssembledProduct.rejectedCapabilities`, never silently overridden. The merged command
   modules are the base ⊕ pack superset; a preset's `enabledCommandModules`/`disabledCommandModules` delta
   is applied AFTER this merge by the shell's command-setup (they compose — this widens, the preset delta
@@ -101,11 +111,15 @@ exposed as material (`IAssembledProduct.subagents`); the shell wires the subagen
 - **Preset resolution:** an instance-scoped `IPresetRegistry` over `[built-ins, ...profile.presets]`; the
   default preset (`profile.defaultPresetId`) is resolved to seed `IAssembledProduct.defaultPreset` and the
   `permissionMode` default `buildRuntime` applies when the shell leaves it unset.
+- **Provider resolution:** `profile.provider` (injected override) > `createProviderFromConfig(
+profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consumer supplies one at
+  `buildRuntime` time). An unknown provider `name` THROWS naming the supported types — never a silent
+  no-provider.
 
 ## Extension Points
 
-| Extension Point   | Kind      | How to extend                                                                          |
-| ----------------- | --------- | ------------------------------------------------------------------------------------- |
+| Extension Point   | Kind      | How to extend                                                                                                     |
+| ----------------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
 | `IProductProfile` | Interface | Author a profile value (identity + provider + presets/packs + injected plumbing) and pass it to `assembleProduct` |
 
 ## Error Taxonomy
@@ -133,7 +147,9 @@ or cross-package port implementations are defined here.
 - `@robota-sdk/agent-preset` — `createPresetRegistry` (the instance-scoped resolver, R8) and preset types.
 - `@robota-sdk/agent-capability-pack` — `mergeCapabilityPacks` (the additive merger).
 - `@robota-sdk/agent-core` — provider/tool/permission contract TYPES (`IAIProvider`, `IProviderDefinition`,
-  `FunctionTool`, `TPermissionMode`), consumed because `agent-framework` does not re-export them.
+  `IProviderDefinitionConfig`, `FunctionTool`, `TPermissionMode`), consumed because `agent-framework` does
+  not re-export them, PLUS the pure `createProviderFromConfig` value (owner Decision 1). `agent-executor` is
+  explicitly NOT a dependency — the guard forbids it.
 - `@robota-sdk/agent-interface-transport` — the read-only `ITransportRegistryView` VIEW interface
   (type-only). The concrete `TransportRegistry` class (`agent-transport`) is NEVER a dependency.
 

@@ -17,6 +17,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   TSubagentRunnerFactory,
+  IAgentDefinition,
   TShellExecFn,
   InteractiveSession,
   IMemoryStore,
@@ -60,6 +61,11 @@ export interface IHeadlessInteractionChannelOptions {
   selfVerification?: boolean;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
+   * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -133,6 +139,9 @@ export class HeadlessInteractionChannel {
       ...(this.opts.systemPrompt ? { systemPrompt: this.opts.systemPrompt } : {}),
       backgroundTaskRunners: this.opts.backgroundTaskRunners,
       subagentRunnerFactory: this.opts.subagentRunnerFactory,
+      ...(this.opts.agentDefinitions !== undefined
+        ? { agentDefinitions: this.opts.agentDefinitions }
+        : {}),
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,

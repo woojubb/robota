@@ -1,3 +1,4 @@
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
@@ -88,6 +89,13 @@ export interface ICreateSessionOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
   enableAgentRuntime?: boolean;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (e.g. a capability pack merged by
+   * `assembleProduct`). They compose INTO the built-in tier ahead of `BUILT_IN_AGENTS`, so precedence runs
+   * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ the built-ins alone
+   * (unchanged behavior). Only consulted when the agent runtime is active.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   /**
    * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
    * so subagent/background dispatch is active for this session. Threaded from the
