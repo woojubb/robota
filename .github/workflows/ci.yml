@@ -25,6 +25,44 @@ jobs:
               exit 1 ;;
           esac
 
+  # INFRA-051: a promotion must CARRY main's ancestry. A squashed sync copies content across without
+  # recording the link, so the next promotion re-computes against the old merge base and re-conflicts on
+  # exactly the manifests the last sync reconciled (#1415 squashed as bc0ee64ff → #1413 CONFLICTING on five
+  # package.json files plus pnpm-lock.yaml). This job blocks the promotion BEFORE it lands; the merge METHOD
+  # is enforced separately by the `protect-main` ruleset (`allowed_merge_methods: ["merge"]`).
+  #
+  # It is a REQUIRED status check on `protect-main`, and it is the only substantive one for a main PR —
+  # build/quality/scans/security-audit are all no-op echoes there and commitlint is skipped outright.
+  promotion-ancestry:
+    name: promotion ancestry
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      # INFRA-050: full history, and NO depth-limited fetch anywhere in this job. The verdict is computed
+      # from ancestry between origin/main, origin/develop and the PR head; a graft marks commits parentless
+      # and `git merge-base --is-ancestor` then answers a different question — silently, in the passing
+      # direction.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch both integration branches
+        run: |
+          git fetch origin --no-tags \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+
+      # PR_HEAD_SHA, never HEAD. On a pull_request event HEAD is GitHub's synthetic refs/pull/N/merge,
+      # whose FIRST parent is the base branch — `merge-base --is-ancestor origin/main HEAD` is VACUOUSLY
+      # true there and the gate would pass on the very state it exists to reject. The commitlint job below
+      # documents the same trap. The scan itself refuses to run on HEAD under a pull_request event.
+      - name: Assert the promotion preserves main's ancestry
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/harness/scan-promotion-ancestry.mjs
+
   # Proportional CI (DX): classify whether a PR touches CODE or is documentation-only, so a docs/harness-markdown
   # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks (required =
   # build/quality/scans/security-audit/commitlint, which always run), so skipping them is safe for branch
