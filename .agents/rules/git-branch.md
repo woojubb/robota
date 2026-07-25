@@ -83,9 +83,12 @@ gh pr merge 670 --squash --auto
 ```
 
 **Deleting a merged branch is the agent's own call — no user request needed.** Once a branch's PR is
-confirmed `MERGED` and nothing further is pending on it, clean it up: `git branch -D <name>` (local) or
+confirmed `MERGED` and nothing further is pending on it, clean it up: `git branch -d <name>` (local) or
 `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name>` (remote). Leaving merged branches to pile
-up is its own defect; 105 of them had accumulated by 2026-07-25.
+up is its own defect; 105 of them had accumulated by 2026-07-25. **Use the safe `-d` form, never `-D`** —
+`-d` refuses a branch git cannot see as merged, which is a free second opinion on exactly the case below
+where the merge did not take every commit. `-D` is reserved for an **explicitly approved abandon** of a
+branch that was never merged, and is never part of routine post-merge cleanup.
 
 Judgement is required precisely because deletion is not always right the moment a PR merges. Do **not**
 delete when any of these hold:
@@ -133,7 +136,9 @@ which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
 - If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
 - Never assume `main` as the default merge target. Always check the actual fork point.
-- See [`branch-guard`](../skills/branch-guard/SKILL.md) skill for detailed procedures including protected branch checks and deployment.
+- The mechanical floor for the protected-branch checks is `.claude/hooks/branch-guard.sh` plus
+  `.husky/pre-commit`; the [`branch-guard`](../skills/branch-guard/SKILL.md) skill documents those two
+  layers and their overrides. It owns no policy — this section does.
 
 ### One-Branch-At-A-Time Rule (mandatory in the MAIN clone)
 
@@ -185,67 +190,60 @@ This does NOT relax the **One-Branch-At-A-Time / PR Unit Rule** above: genuinely
 separate PRs. Related steps of ONE work-unit go in one multi-commit PR. Bundling never waives a gate (an
 implementation PR still carries its User Execution Test Scenarios).
 
-### Delete Merged Branches (mandatory)
-
-After a PR merges, delete its now-merged feature branch so only `develop` and `main` remain as standing
-branches. **Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only
-after confirming the branch is merged:
-
-- **Local:** `git branch -d <branch>` (the `-d` form refuses an unmerged branch — a built-in guard).
-- **Remote:** confirm merged, then `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
-- **Verify before remote deletion:** `git merge-base --is-ancestor origin/<branch> origin/main` (or
-  `origin/develop` for non-release merges) must succeed.
-
-**Never delete `develop` or `main`.**
-
-**Why:** stale merged branches obscure the active set; the safe per-branch delete (never merge-time `--delete-branch`) avoids the incident that deleted `develop`.
-
 ### Merge Landing Verification (mandatory)
 
 A merge is not "done" the moment `gh pr merge` returns. **Independently verify the merge actually landed
 before treating the work as complete** — the merge command can report success while the change is absent
 from the target's remote head, or while a required CI gate was still red (a red-`quality` PR has merged
-before). After every merge:
+before). Verification comes **first** in the post-merge sequence, before any branch deletion.
 
-1. Confirm the PR state is `MERGED` and its merge commit is on the **target branch's remote head**
-   (`origin/<target>`), not just locally.
-2. Confirm the changes the PR claimed are actually present on `origin/<target>` (spot-check the key
-   files/symbols), and that no unrelated drift was swept in.
-3. Confirm the required CI gates were green (explicitly check `quality`/build — do not treat "pending" or
-   "not-required-skipped" as pass).
-4. **Verify each hop of a multi-hop flow** (e.g. feature→develop→main): the landing check runs after every
-   hop, not only the last.
+- The read-only `merge-verifier` agent (`.claude/agents/merge-verifier.md`, signal `MERGE VERIFIED`) owns
+  the checks and is the mechanism for this. **Dispatch it after a merge rather than eyeballing it** — its
+  verdict is what "verified" means here.
+- **Verify each hop of a multi-hop flow** (e.g. feature→develop→main): the landing check runs after every
+  hop, not only the last.
+- A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
+  **never treat "pending" or "not-required-skipped" as pass**.
 
-The read-only `merge-verifier` agent (`.claude/agents/merge-verifier.md`, signal `MERGE VERIFIED`) is the
-mechanism for this check; dispatch it after a merge rather than eyeballing. **Why:** a PR once merged despite
-a red quality gate and shipped a broken build to `main` (DATA-005).
+**Why:** a PR once merged despite a red quality gate and shipped a broken build to `main` (DATA-005).
+
+### Delete Merged Branches (mandatory)
+
+After a PR merges, its now-merged feature branch must not be left standing: only `develop` and `main` are
+standing branches. **Mandatory here means "do not leave it undone", not "delete unconditionally"** — the
+judgement conditions above govern, and when one of them holds the branch stays and the reason is recorded.
+**Never** use `gh pr merge --delete-branch` (see the ban above) — delete explicitly, only after confirming
+the branch is merged:
+
+- **Local:** `git branch -d <branch>` (the `-d` form refuses an unmerged branch — a built-in guard).
+- **Remote:** confirm merged, then `gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<branch>`.
+- **Verify before remote deletion:** `git merge-base --is-ancestor origin/<branch> origin/main` (or
+  `origin/develop` for non-release merges) must succeed. If it does not, the branch carries commits the
+  target does not have — do not delete it; surface it.
+
+**Never delete `develop` or `main`.**
+
+**Why:** stale merged branches obscure the active set; the safe per-branch delete (never merge-time `--delete-branch`) avoids the incident that deleted `develop`.
 
 ### Post-Merge Branch Cycle (mandatory)
 
-After a branch is merged, follow this exact cycle to start the next feature branch from a correct base:
+After a branch is merged, the next feature branch must start from a correct base. The invariants:
 
-1. **Discard transient churn first.** Auto-generated churn (e.g. regenerated `.agents/evals/lessons/*`)
-   blocks `git checkout develop` and, if forced or ignored, causes the new branch to fork off the wrong
-   base. **Discard it with a scoped `git checkout --`, not a bare stash:**
-   ```bash
-   git checkout -- .agents/evals/lessons
-   git checkout develop
-   git pull
-   git checkout -b <type>/<topic>
-   ```
-   `pnpm harness:pre-push` already tolerates this specific churn (it does not block a push when the only
-   dirty files are the auto-generated evals lessons), so no stash is needed for the push itself.
-   **Never commit these files.** They are regenerated in place; staging them (typically via a broad
-   `git add .agents`) sweeps machine-churn into a feature/spec commit. **Stage explicit paths, not a broad
-   directory add.** **Enforced** by `.husky/pre-commit`, which blocks a commit that stages
-   `.agents/evals/lessons/*` (override only for a sanctioned harness update: `ALLOW_LESSONS_COMMIT=1`).
-2. **Pull develop** so the new branch is based on the freshly-pulled integration head.
-3. **Create the feature branch** from the updated `develop`.
-4. **Verify the base.** Confirm the new branch forked from the freshly-pulled `develop`, not a previous
-   feature branch:
-   ```bash
-   git merge-base --is-ancestor origin/develop HEAD && echo "base OK"
-   ```
+- **Discard transient churn before switching branches — with a scoped `git checkout --`, never a bare
+  stash.** Auto-generated churn (e.g. regenerated `.agents/evals/lessons/*`) blocks `git checkout develop`
+  and, if forced or ignored, causes the new branch to fork off the wrong base. So the discard
+  (`git checkout -- .agents/evals/lessons`) precedes `git checkout develop`. `pnpm harness:pre-push`
+  already tolerates this specific churn (it does not block a push when the only dirty files are the
+  auto-generated evals lessons), so no stash is needed for the push itself.
+- **Never commit these files.** They are regenerated in place; staging them (typically via a broad
+  `git add .agents`) sweeps machine-churn into a feature/spec commit. **Stage explicit paths, not a broad
+  directory add.** **Enforced** by `.husky/pre-commit`, which blocks a commit that stages
+  `.agents/evals/lessons/*` (override only for a sanctioned harness update: `ALLOW_LESSONS_COMMIT=1`).
+- **The new branch's base is the freshly-pulled integration head — and that must be verified, not
+  assumed:** `git merge-base --is-ancestor origin/develop HEAD` must succeed.
+
+**Ordering and per-failure routing for the whole post-merge sequence** — verify the landing, then delete the
+branch, then re-base — are owned by [`post-merge-cycle`](../skills/post-merge-cycle/SKILL.md).
 
 **Why:** uncommitted evals churn once blocked `git checkout develop`, so a new branch silently forked off the previous feature branch.
 
@@ -258,12 +256,12 @@ explicit ref (`git stash pop stash@{N}`), never the bare top of the stack.
 
 **Never commit directly to `main` or release branches.** Always create a feature branch for work.
 
-**When current branch is `main`:**
+**Branch naming:** `<type>/<topic>` (e.g., `feat/blog-i18n`, `fix/header-switcher`, `chore/cleanup-tasks`).
 
-1. Create a feature branch from `main` (e.g., `feat/topic`, `fix/topic`, `chore/topic`).
-2. Do all work on the feature branch.
-3. Push the feature branch and create a PR targeting `main`.
-4. The user merges the PR manually. The agent cannot merge to `main`.
+**When current branch is `main`:** cut the feature branch from the freshly-fetched `origin/develop` and
+target `develop` — **not** `main`. A feature branch may never PR `main` (Branch Policy above; enforced by
+the `main-pr-source-guard` CI job). Work reaches `main` only through the `develop`→`main` promotion, and
+**the user merges that PR manually — the agent cannot merge to `main`.**
 
 **When current branch is a release branch (e.g., `release/v3.0.0`):**
 
@@ -272,29 +270,37 @@ explicit ref (`git stash pop stash@{N}`), never the bare top of the stack.
 3. When work is complete, propose to the user how to integrate:
    - **Option A: Direct merge** — agent merges the feature branch into the release branch (for small, low-risk changes).
    - **Option B: PR** — agent creates a PR targeting the release branch (for larger or higher-risk changes).
-4. The user decides which option to use. The agent must not merge without proposing first.
-
-**Branch naming:** `<type>/<topic>` (e.g., `feat/blog-i18n`, `fix/header-switcher`, `chore/cleanup-tasks`).
+4. The user decides which option to use. The agent must not merge without proposing first. If the user
+   picks neither, or the chosen integration conflicts, **stop and surface it** — never substitute the
+   other option, and never merge to resolve the ambiguity.
 
 ### Pre-Merge Code-Review Gate (mandatory, zero exceptions)
 
 **Every PR the agent opens must pass a `/code-review` before it is merged. Merging a PR that has not
-been code-reviewed and had all findings resolved is prohibited.**
+been code-reviewed and had all findings resolved is prohibited.** No merge — admin or otherwise — may
+happen before this gate completes.
 
-Sequence for every PR (no merge — admin or otherwise — may happen before step 4 completes):
+**Gate preconditions.** The gate runs on a PR whose **required checks are green** — a red required check
+is a build/test failure, not a review finding — and the review is **scoped to the PR's diff (the branch
+versus its base)**, not to one file and not to the whole tree.
 
-1. **Open the PR** and wait for its checks (CI) to be green.
-2. **Run the `/code-review` skill** scoped to the PR's diff (the branch vs. its base).
-3. **Resolve every finding.** A finding is "resolved" when one of these is true, recorded in a PR
-   comment (or the PR description):
-   - it is **fixed** with a follow-up commit on the same branch (then re-run the relevant
-     tests/typecheck/`harness:scan` so the fix is verified), **or**
-   - it is **refuted** with an explicit, written reason why it is not a real problem (a false positive
-     or out-of-scope), **or**
-   - it is **deferred** by filing a backlog item and linking it, only when the finding is real but
-     genuinely out of the PR's scope (must be justified, not a convenience).
-     No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed.
-4. **Only after all findings are resolved** may the PR be merged.
+**What "resolved" means.** A finding is "resolved" when one of these is true, recorded in a PR
+comment (or the PR description):
+
+- it is **fixed** with a follow-up commit on the same branch (then re-run the relevant
+  tests/typecheck/`harness:scan` so the fix is verified), **or**
+- it is **refuted** with an explicit, written reason why it is not a real problem (a false positive
+  or out-of-scope), **or**
+- it is **deferred** by filing a backlog item and linking it, only when the finding is real but
+  genuinely out of the PR's scope (must be justified, not a convenience).
+
+No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
+may the PR be merged.
+
+The loop that drives a PR to that state is owned by
+[`pr-review-orchestration`](../skills/pr-review-orchestration/SKILL.md) (review → record → fix, to
+convergence) and [`automated-review-convergence`](../skills/automated-review-convergence/SKILL.md) (the
+automated-feedback rounds). Both consume the taxonomy above rather than defining one.
 
 **Scope:** required for any PR that changes code (`.ts`/`.tsx`/`.js`/`.mjs`/`.cjs`). A
 documentation/spec/backlog-only PR (markdown/JSON config only, no code diff) is exempt — running
@@ -305,6 +311,10 @@ pre-merge keeps defects out of the integration branch instead of chasing them af
 to the agent's own admin merges to `develop` exactly as to `main`.
 
 ### Deployment
+
+> Ownership note: this is deployment topology, not git or branch policy. Its likely owner is
+> [`.agents/project-structure.md`](../project-structure.md) or a dedicated deployment spec; the move is
+> tracked in `HARNESS-049` and must update the documents that quote these sentences as evidence.
 
 - **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
 - Manual docs deployment uses `pnpm docs:deploy`, which uploads `apps/docs/.vitepress/dist` to Cloudflare Pages with Wrangler.
