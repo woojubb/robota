@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ import { ProjectMemoryStore } from '../project-memory-store.js';
 
 import type { IMemoryCandidate } from '../automatic-memory-types.js';
 
-const TMP_BASE = join(tmpdir(), `robota-automatic-memory-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-automatic-memory-'));
 const NOW = new Date('2026-05-02T00:00:00.000Z');
 
 function makeProject(): string {

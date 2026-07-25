@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -13,7 +13,7 @@ import {
 
 import type { IContextFileEntry } from '../context-file-tracker.js';
 
-const testDir = join(tmpdir(), `ctx-file-tracker-test-${Date.now()}`);
+const testDir = mkdtempSync(join(tmpdir(), 'ctx-file-tracker-test-'));
 
 beforeEach(() => {
   mkdirSync(testDir, { recursive: true });

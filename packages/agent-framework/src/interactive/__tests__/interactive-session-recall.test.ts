@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,7 @@ import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
  * adapter-gated on a surface-supplied `recallMemory` policy, guarded (recall failure never breaks the turn).
  */
 
-const TMP_BASE = join(tmpdir(), `robota-recall-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-recall-'));
 const ORIGINAL_HOME = process.env.HOME;
 const RECALL_BODY = '### deploy\nThe staging deploy key rotates every 30 days.';
 const BUDGET: IMemoryBudget = { maxTopics: 4, maxTopicChars: 2000 };

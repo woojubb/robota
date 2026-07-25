@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,7 +12,7 @@ import {
 } from '../command-api/provider/provider-configuration.js';
 import { readProviderSettings } from '../command-api/provider/provider-factory.js';
 
-const TMP_BASE = join(tmpdir(), `robota-provider-configuration-test-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-provider-configuration-test-'));
 const ORIGINAL_HOME = process.env.HOME;
 
 function readJson(path: string): Record<string, unknown> {

@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+  mkdtempSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +15,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 import { projectPaths } from '../../paths.js';
 
-const TMP_BASE = join(tmpdir(), `robota-edit-checkpoint-store-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-edit-checkpoint-store-'));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

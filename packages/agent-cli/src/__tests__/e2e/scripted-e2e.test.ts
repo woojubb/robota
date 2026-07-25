@@ -6,7 +6,7 @@
  * persistence → output transports. No model, no network, fully deterministic.
  */
 
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,7 +18,7 @@ import { startCli } from '../../cli.js';
 import type { IScriptedProvider, TScriptedTurn } from '@robota-sdk/agent-transport/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = join(tmpdir(), `robota-scripted-e2e-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-scripted-e2e-'));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 
