@@ -96,8 +96,8 @@ flowchart LR
   Flags["parseCliArgs()\n--preset, --model, --system-prompt,\n--append-system-prompt, --language,\n--permission-mode"]
   Settings["user settings.preset\n(readSettings)"]
   External["agent-preset.loadExternalPresets()\n~/.robota/presets/*.json"]
-  Select["startup/preset-selection.ts\nselectPresetId + resolveCliPreset"]
-  Resolve["agent-preset.resolvePreset(id, { cliOverrides })\nprecedence merge owned here"]
+  Select["startup/preset-selection.ts\nselectPresetId + resolveShellPreset\ncreatePresetRegistry (per-call, R8)"]
+  Resolve["registry.resolvePreset(id, { cliOverrides })\nprecedence merge owned by agent-preset"]
   CLI["startCli()\nforwards resolved option bundle"]
 
   Flags --> Select
@@ -110,7 +110,7 @@ flowchart LR
 
 Preset ownership:
 
-- `agent-cli` owns selection glue only: `selectPresetId(args, settingsPreset)` (`--preset` > `settings.preset` > `'default'`) and forwarding `buildPresetCliOverrides(args)` to `resolvePreset`. It owns no merge, posture, or default logic.
+- `agent-cli` owns selection glue only: `selectPresetId(args, settingsPreset)` (`--preset` > `settings.preset` > `'default'`) and forwarding the CLI-flag overrides to the per-call registry it built (`resolveShellPreset`). It owns no merge, posture, or default logic. The registry it resolved over is adopted by `assembleProduct` (ARCH-008), so there is one resolution path.
 - `agent-preset` owns preset profile data, `resolvePreset()` precedence merge, `loadExternalPresets()` validation, and `DEFAULT_AGENT_NAME`. Unknown preset ids throw; the CLI surfaces the error and exits.
 - `agent-framework` owns `applyPresetToSession` and applies the resolved option bundle (model, persona, agentName, permissionMode, enable/disable command modules, enableParallelSubagents, selfVerification) to the session.
 - Model precedence: the resolved preset model (`resolvedPreset.model`) overrides `providerSettings.model`; an explicit `--model` flag is folded into the preset overrides upstream, so the preset result is the single model source the CLI forwards.
