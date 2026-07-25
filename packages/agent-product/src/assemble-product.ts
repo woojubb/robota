@@ -92,9 +92,11 @@ function overlaySessionOptions(
  * (dependency-graph neutrality, purity/no-IO, no product-name conditionals).
  *
  * What it does:
- * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — it never mutates
- *    agent-preset's module-level `externalPresets` global, so two products in one process do not share one
- *    registry and repeat calls do not accumulate.
+ * 1. Builds a PER-CALL instance-scoped preset registry over `profile.presets` (R8) — or adopts the
+ *    instance the caller already built and handed in as `profile.presetRegistry` (ARCH-008). Either way it
+ *    never mutates agent-preset's module-level `externalPresets` global, so two products in one process do
+ *    not share one registry and repeat calls do not accumulate. `defaultPresetId` is resolved over that
+ *    registry with `profile.presetContext`, so the product's `defaultPreset` is the caller's resolution.
  * 2. Merges the additive capability packs onto `profile.baseCommandModules` via `mergeCapabilityPacks`
  *    (base ⊕ packs, with a rejection channel — never a silent override).
  * 3. Constructs the provider from `profile.providerDefinitions` + the shell's already-resolved
@@ -108,11 +110,15 @@ function overlaySessionOptions(
  * receives already-resolved data and returns neutral materials the shell binds its own transport over.
  */
 export function assembleProduct(profile: IProductProfile): IAssembledProduct {
-  // (1) Per-call instance-scoped preset registry — pure w.r.t. process state (R8).
-  const presets = createPresetRegistry(profile.presets ?? []);
+  // (1) Per-call instance-scoped preset registry — pure w.r.t. process state (R8). A caller that had to
+  // resolve a preset BEFORE it could build this profile (a preset can carry the `model`/`agentName` the
+  // profile is constructed from) hands its own instance in as `presetRegistry`; the assembler then uses
+  // THAT one rather than building a second, equivalent registry, so there is exactly one resolution path
+  // (ARCH-008). Either way the registry is instance-scoped — no module-level state is read or mutated.
+  const presets = profile.presetRegistry ?? createPresetRegistry(profile.presets ?? []);
   const defaultPreset: IResolvedPresetOptions | undefined =
     profile.defaultPresetId !== undefined
-      ? presets.resolvePreset(profile.defaultPresetId)
+      ? presets.resolvePreset(profile.defaultPresetId, profile.presetContext)
       : undefined;
 
   // (2) Additive capability merge — base ⊕ packs, deterministic, with a rejection channel.
