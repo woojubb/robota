@@ -132,6 +132,110 @@ A later increment should register the token and add the field.
 `ci-failure-triager` was dispatched on a real red CI run; the rest ships as extracted-but-unrehearsed
 procedure.
 
+## Phase 2, increment 2 — `backlog-execution.md` — DONE (2026-07-26)
+
+Extracted the backlog procedure into a nested pipeline. The rule went 457 → 417 lines — a smaller
+reduction than increment 1's, and the expected one: phase 1 measured this rule as 44 invariants against
+18 procedures, so most of it was always meant to stay.
+
+**Tree built** (phase 1's hypothesis confirmed, with one structural correction):
+
+```
+multi-backlog-initiative              (NEW outer orchestration) ← Base Branch Workflow 1–7
+└─ backlog-execution-orchestrator     (existing, rewritten as a 5-phase state machine)
+   ├─ phase 1 recommendation gate  → proposal-reviewer          (existing agent, reused unchanged)
+   ├─ phase 2 scenario PLAN        → user-execution-scenario    (NEW sub-orchestration)
+   │     ├─ user-execution-scenario-author (NEW agent, worker)
+   │     └─ backlog-gate-guard             (agent, EXTRACTED)   ← Done Gate Stage 1
+   ├─ phase 3 implementation       → owner skills (unchanged)
+   ├─ phase 4 done gate            → user-execution-scenario in GATE mode ← Done Gate Stage 2
+   └─ phase 5 completion           (step in the orchestrator)   ← Completion Steps 1–3
+```
+
+**Correction to phase 1's proposal:** `multi-backlog-initiative` sits **above** the per-item
+orchestrator, not as a sibling phase inside it. An initiative runs the whole per-item pipeline N times;
+modelling it as a phase would have made the orchestrator dispatch itself.
+
+**Behavioural change, deliberate and flagged:** the Recommendation Gate no longer has the agent judge its
+own recommendation. Phase 1 §9.1 identified this as an `enforcement-architecture.md` violation but could
+not settle it; this increment resolves it by dispatching `proposal-reviewer` and routing on
+ENDORSE / REVISE (bounded 2) / REJECT. An independent review is now required at every recommendation
+gate, where none was required before. An `ENDORSE` is not approval — decisions the rule reserves for the
+user still halt for the user.
+
+**Ownership split for the extracted guardian:** the role charter (how to judge a gate) is
+`.claude/agents/backlog-gate-guard.md` and is neutral; this repo's gate criteria stay in
+`.agents/skills/backlog-gate-guard/SKILL.md`, now a catalogue rather than a role definition, and gained
+`DONE-GATE-STAGE-1` / `DONE-GATE-STAGE-2` moved in from the rule. `backlog-pipeline` was verified
+already-correct in shape — its only change is dispatching the agent file instead of a hand-written
+"read the skill" prompt.
+
+**Routing gaps closed** (all four phase 1 flagged for this rule): Done-Gate-Stage-2 failure now routes by
+cause (implementation defect → back to implement, bounded 2; scenario defect → re-author, bounded 1;
+undetermined → halt) instead of "fix it or ask"; the executability redesign loop is bounded at 2 attempts
+with three named exits; child-PR failure and mid-flight base divergence have edges; and a failed `git mv`
+must not leave the status change committed alone.
+
+**Ledger reconciliation — the undercount is systematic, not a one-off.** Phase 1 listed 44 mandatory
+statements for this rule; re-deriving from the live file found **50** (6 additions), against increment
+1's single addition — and the review round then found a **51st** the re-derivation had also missed (a
+child PR must match its recommendation gate, not merely have green checks). The six from
+re-derivation: (a) a coherent work unit belongs in ONE multi-commit PR, not many tiny
+ones; (b) a library-only slice must NOT claim the capability done, and its epic is not COMPLETE until
+agent-run verification passes; (c) the agent never delegates the agent-run verification to the user;
+(d) at done time an unexecutable scenario must be labeled `manual-only` AND the PR description must not
+claim the gate passed by execution; (e) a failed gate means the work is not complete; (f) closing the
+loop happens in the SAME change, and a "tracked as follow-on" claim must name an existing file. Four
+more are borderline. The pattern: the ledger reliably captures a section's headline mandate and drops
+the subordinate ones — later increments should expect ~1 miss per dense section, not per rule.
+
+**Duplications — one resolved, one reported:** Stop Conditions are **not** duplicated as routing; the
+rule owns the eleven conditions and every skill carries one generic terminate edge pointing at them
+(increment 1 set this precedent for `publish.md`). The `spec-workflow.md` ↔ `backlog-pipeline` status /
+lifecycle-folder duplication is **untouched** — resolving it means editing `spec-workflow.md`, a later
+increment. Note for that increment: it is a different vocabulary from this rule's Status Invariants
+(spec-doc lifecycle vs backlog-item placement), so the two do not conflict.
+
+**Deferred, deliberately:** three relocations phase 1 proposed are left in place because their target
+documents were outside this increment's file ownership — BE-42 Layering Rule → `project-structure.md`,
+BE-43 Orchestration Skill Rule → `enforcement-architecture.md`, and the Common Mistakes table →
+`common-mistakes.md`. The table was collapsed into the invariants it duplicated rather than moved, so no
+fact has two owners; the two rules keep a pointer to their likely owner. `GATE VERDICT` and
+`SCENARIO DRAFTED` join `CI TRIAGE` as terminal lines not yet in `CLOSED_SIGNAL_VOCAB`, for the same
+reason increment 1 recorded.
+
+**Review round (the new gate, dogfooded on itself):** `proposal-reviewer` was dispatched on this
+increment's own recommendation and returned `REVIEW VERDICT: REVISE` — endorsing all four structural
+calls but finding three real invariant losses the mechanical checks did not catch. All were verified
+against `origin/develop` before acting, and all are fixed: the credential-prerequisite MUST (BE-35) had
+become conditional on an agent being dispatched, and its removal also falsified HARNESS-012's TC-04
+done-spec evidence (`grep -c "Scenario Design Preference Order"` → was 1, would have been 0, is 1
+again); the child-PR "matches its recommendation gate" merge condition was dropped — **a 51st mandatory
+statement neither the ledger nor this increment's own re-derivation caught**; and the rule still carried
+the self-judgement sentence the change exists to remove. Also fixed: the map claimed a mechanical floor
+for the recommendation gate that does not exist, an invariant was newly introduced _inside a skill_
+(now in the rule), and the unprobed-absence rule had three copies. The reviewer catching what a
+50-statement manual re-derivation missed is the strongest available evidence for the gate it was
+reviewing.
+
+**Rehearsed:** `backlog-gate-guard` was dispatched on a real open backlog item for `DONE-GATE-STAGE-1`
+and returned `GATE VERDICT: FAIL` on the correct criteria (missing executability label; non-exact steps
+that would exercise a disabled code path). `user-execution-scenario-author` was dispatched on this
+increment and returned `SCENARIO DRAFTED: not-applicable | 0`, correctly refusing to fabricate a
+scenario for a rule/skill-only change and correctly rejecting the one candidate surface as a
+document-existence check in disguise. **Not rehearsed:** the full five-phase loop end to end, and the
+initiative outer loop — both need a real multi-item initiative to exercise.
+
+## User Execution Test Scenarios
+
+**Not applicable.** This item changes only rules, skills, agent definitions, and registry indexes — no
+package or app source, and no user-runnable procedure. `backlog-execution.md` § User Execution Test
+Scenario Rule states that rule-only, skill-only, and governance-only changes mark the gate N/A and record
+verification evidence in the engineering test plan instead. Verification evidence for each increment is
+`pnpm harness:verify-like-ci` green plus the invariant-preservation reconciliation recorded per increment
+above; the agent rehearsals are governance evidence and are recorded as such, not as user-execution
+evidence.
+
 ## What
 
 1. ~~**Inventory and classify**~~ **(DONE — see Phase 1 above)** every `.agents/rules/*.md` section as: `invariant` (stays a rule),

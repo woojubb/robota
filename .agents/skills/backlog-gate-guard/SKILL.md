@@ -1,33 +1,39 @@
 ---
 name: backlog-gate-guard
-description: Validates a single named gate for a spec document and appends the result to the Evidence Log. Invoked as a subagent by backlog-pipeline. Does exactly one thing — check one gate and record the outcome.
+description: This repository's gate catalogue — the named gates, their criteria, their ordering, and the evidence-entry format the backlog-gate-guard agent applies. Facts only; the judgement role that reads them lives in `.claude/agents/backlog-gate-guard.md` and the pipelines that dispatch it are backlog-pipeline and user-execution-scenario.
 ---
 
-# Backlog Gate Guard
+# Backlog Gate Guard — the gate catalogue
 
-Single-gate validator for spec documents. This skill checks exactly one gate, appends the result to the Evidence Log, and returns PASS, FAIL, or NON-COMPLIANCE. It does not write content, orchestrate pipeline flow, or perform implementation.
+**The role is not here.** How to judge a gate — apply every criterion, check ordering first, never soften a
+verdict, record specific evidence, emit `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE` — is owned by the
+[`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md).
+
+This file is the repository-specific half the agent reads: **which gates exist here, what each one
+requires, what precedes it, and the format its evidence entry takes.** It is a fact catalogue, not a
+procedure and not a charter.
 
 ## Rule Anchor
 
-- `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation
-- `backlog-pipeline` skill > State Machine
+- `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation — the spec-document gate mandate
+- `.agents/rules/backlog-execution.md` > Done Gate — the done-gate mandate
+- `backlog-pipeline` skill > State Machine — the gate order for spec documents
 
-## When to Use
+## Gate index
 
-Invoked as a **subagent** (Agent tool) by `backlog-pipeline`. Each invocation handles exactly one gate.
+| Gate                | Applies to                            | Artifact its evidence is recorded in |
+| ------------------- | ------------------------------------- | ------------------------------------ |
+| `GATE-WRITE`        | spec document                         | `## Evidence Log`                    |
+| `GATE-APPROVAL`     | spec document                         | `## Evidence Log`                    |
+| `GATE-IMPLEMENT`    | spec document                         | `## Evidence Log`                    |
+| `GATE-VERIFY`       | spec document                         | `## Evidence Log`                    |
+| `GATE-COMPLETE`     | spec document                         | `## Evidence Log`                    |
+| `GATE-CONFORMANCE`  | spec document (standalone)            | `## Evidence Log`                    |
+| `DONE-GATE-STAGE-1` | backlog item under `.agents/backlog/` | the item's scenario section          |
+| `DONE-GATE-STAGE-2` | backlog item under `.agents/backlog/` | the item's scenario section          |
 
-**Input required from caller:**
-
-- Gate name: one of `GATE-WRITE`, `GATE-APPROVAL`, `GATE-IMPLEMENT`, `GATE-VERIFY`, `GATE-COMPLETE`, `GATE-CONFORMANCE`
-- Spec document path: `.agents/spec-docs/<stage>/<ID>.md`
-
-## Output
-
-Always appends one or more entries to `## Evidence Log` in the spec document using the **Edit tool** (append after the last existing entry, or directly after the `## Evidence Log` header if empty). Then returns one of:
-
-- `PASS` — all criteria met, status upgrade is authorized
-- `FAIL` — one or more criteria not met, status upgrade blocked
-- `NON-COMPLIANCE` — gate was bypassed or evidence from a prior gate is missing
+Spec-document gates are dispatched by `backlog-pipeline`; the two done-gate stages are dispatched by
+`user-execution-scenario`.
 
 ## Evidence Log Entry Format
 
@@ -58,31 +64,22 @@ Partial entries (e.g., PASS without specific evidence lines) are treated as NON-
 
 ---
 
-## Prior-Gate Precondition (run FIRST for every gate)
+## Prior-gate map
 
-Before checking the criteria for ANY status-transition gate (GATE-APPROVAL, GATE-IMPLEMENT,
-GATE-VERIFY, GATE-COMPLETE), first confirm the immediately-prior gate actually passed:
+The agent runs its ordering check before any gate's own criteria. This table is the repository's
+answer to "what precedes this gate, and what state must the document already be in":
 
-1. The immediately-prior gate has a **PASS** Evidence Log entry (`### [<PRIOR-GATE>] — ✅ PASS | <date>`)
-   in `## Evidence Log`.
-2. The spec file's frontmatter `status:` and its folder match the stage expected as input to this gate
-   (e.g. GATE-IMPLEMENT expects `status: approved`; GATE-VERIFY expects `status: in-progress`).
-
-If the prior PASS entry is missing, or the status/folder does not match the expected input stage, the gate
-is being run **out of order** — record **NON-COMPLIANCE** (do not evaluate the gate's own criteria) and
-stop. The required action is to run the missing prior gate first.
-
-Prior-gate map (the immediately-prior gate that must already have PASSed):
-
-| This gate      | Prior gate that must show PASS | Expected input status / folder |
-| -------------- | ------------------------------ | ------------------------------ |
-| GATE-APPROVAL  | GATE-WRITE                     | `review-ready`                 |
-| GATE-IMPLEMENT | GATE-APPROVAL                  | `approved`                     |
-| GATE-VERIFY    | GATE-IMPLEMENT                 | `in-progress`                  |
-| GATE-COMPLETE  | GATE-VERIFY                    | `verifying`                    |
+| This gate         | Prior gate that must show PASS | Expected input status / folder             |
+| ----------------- | ------------------------------ | ------------------------------------------ |
+| GATE-APPROVAL     | GATE-WRITE                     | `review-ready`                             |
+| GATE-IMPLEMENT    | GATE-APPROVAL                  | `approved`                                 |
+| GATE-VERIFY       | GATE-IMPLEMENT                 | `in-progress`                              |
+| GATE-COMPLETE     | GATE-VERIFY                    | `verifying`                                |
+| DONE-GATE-STAGE-2 | DONE-GATE-STAGE-1              | scenarios written, implementation complete |
 
 GATE-WRITE has no prior status gate (it is the entry gate); GATE-CONFORMANCE is standalone (no transition)
-and is exempt. Authoritative gate order: `backlog-pipeline` skill > State Machine.
+and is exempt; DONE-GATE-STAGE-1 has no prior gate. Authoritative spec-document gate order:
+`backlog-pipeline` skill > State Machine.
 
 ---
 
@@ -256,22 +253,55 @@ until those land, a FAIL here is expected and is not a release blocker.)
 
 ---
 
-## What This Skill Does NOT Do
+### DONE-GATE-STAGE-1 — scenario written
 
-- Orchestrate which gate runs next → that is `backlog-pipeline`
-- Write or edit spec document section content → that is `backlog-writer`
-- Perform implementation work or suggest fixes
-- Modify any section except `## Evidence Log`, `## Test Plan` (TC-N references at GATE-COMPLETE), and `## Tasks`
-- Run multiple gates in one invocation — one gate per subagent call
+Applies to a backlog item under `.agents/backlog/` that carries a
+`## User Execution Test Scenarios` section. Mandate and definitions:
+[`backlog-execution.md`](../../rules/backlog-execution.md) > Done Gate.
 
-## Anti-Patterns
+- [ ] Every scenario is written with exact commands or UI steps, prerequisites, an expected observable
+      result, and an evidence field
+- [ ] Every scenario carries its executability decision (`agent-executable`, or `manual-only:` with a
+      **specific technical reason** — a bare "it is a UI" is not one)
+- [ ] The scenario drives a product surface. A scenario whose observable is a build, typecheck, lint, test
+      run, harness check, CI check, or an inspection of repository text is **not** a scenario — FAIL
+- [ ] A scenario requiring live credentials or an external service states that prerequisite **explicitly**
+      (`backlog-execution.md` > Scenario Design Preference Order). An executor must learn the gate cannot
+      run in their environment from the scenario, not from the failure
 
-| Anti-pattern                                                | Correct behavior                                        |
-| ----------------------------------------------------------- | ------------------------------------------------------- |
-| Checking a criterion without recording specific evidence    | Always record what was checked and what was found       |
-| Writing PASS when one criterion is unmet                    | Write FAIL with the specific failing criterion          |
-| Skipping a criterion because it seems inapplicable          | Explicitly document why it is N/A in the evidence entry |
-| Editing Problem or Solution sections during guard run       | Read-only except Evidence Log, Test Plan, and Tasks     |
-| Combining PASS evidence from multiple gates in one entry    | One entry per gate, clearly labelled                    |
-| Marking TC-N complete without test reference or skip reason | Write the reference or skip reason before marking PASS  |
-| Checking `## Status` section instead of frontmatter         | Always read frontmatter `status:` field                 |
+**Exception:** passes by exception only when writing a scenario is genuinely impossible AND a valid reason
+is recorded explicitly under each unwritten scenario. An unwritten scenario with no stated reason does not
+pass.
+
+**Evidence to record on PASS:** each scenario named, with the field-completeness result per scenario.
+
+---
+
+### DONE-GATE-STAGE-2 — scenario executed
+
+- [ ] The agent directly executed every scenario against the completed implementation or delivered artifact
+- [ ] The observed result matched the expected observable result for every scenario
+- [ ] Concrete evidence (command output, exit code, screenshot, log excerpt, diff, or another artifact) is
+      recorded in the item under each scenario's evidence field
+
+All three must hold. Two additional checks that turn a PASS into a FAIL:
+
+- **Engineering verification cited as evidence** — see the authoritative statement in
+  [`backlog-execution.md`](../../rules/backlog-execution.md) > Done Gate. Build/test/lint/harness/CI output
+  is never user-execution evidence. FAIL.
+- **An unprobed capability-absence claim** — "the environment lacks the key/tool/device" is not a valid
+  exception reason unless the probe itself is recorded (which surfaces were checked, and what they
+  contained). FAIL.
+
+For a code-changing item, evidence must reference **durable repository artifacts** (paths that exist), per
+the durable-artifact rule the same document owns.
+
+**Exception:** passes by exception only when execution is genuinely impossible AND a specific reason is
+stated under the scenario that could not be executed, which must also carry the `manual-only` label.
+
+**Evidence to record on PASS:** per scenario — the command run, the observed result, and where the
+evidence now lives in the item.
+
+**Mechanical floors behind this gate:** `check-done-evidence.mjs` (referenced artifacts still exist),
+`check-backlog-placement.mjs` (terminal status ↔ location ↔ `completed:` date), and
+`scan-capability-reachability.mjs` (a declared capability may not record `user_execution: none`).
