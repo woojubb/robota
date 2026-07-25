@@ -1,3 +1,5 @@
+import { trimEdgeChars } from '../../utils/trim-char.js';
+
 const FALLBACK_PROFILE_NAME = 'provider';
 const FIRST_DUPLICATE_SUFFIX = 2;
 
@@ -27,10 +29,12 @@ export function suggestProviderProfileName(
 }
 
 export function sanitizeProviderProfileName(value: string | undefined): string | undefined {
-  const normalized = value
-    ?.trim()
+  if (value === undefined) return undefined;
+  const collapsed = value
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return normalized !== undefined && normalized.length > 0 ? normalized : undefined;
+    .replace(/[^a-z0-9]+/g, '-');
+  // `trimEdgeChars` rather than `/^-+|-+$/g`: the trailing half of that alternation is quadratic (SEC-003).
+  const normalized = trimEdgeChars(collapsed, '-');
+  return normalized.length > 0 ? normalized : undefined;
 }
