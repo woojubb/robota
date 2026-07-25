@@ -58,7 +58,7 @@ because `git-branch.md` prohibits direct pushes to `main`, promotion is a user-a
 action, and a bypassing push forfeits the only place `release-grade verification` and CodeQL run
 against the promotion. Its premise is also false: `git rev-list origin/develop..origin/main
 --no-merges` = 10 — nine Dependabot PRs **and one human feature branch** (`fbf9f5156`, #1216, base
-`main`) landed directly on `main`. Filed as **INFRA-053** as the stronger end state, which needs this
+`main`) landed directly on `main`. Filed as **INFRA-054** as the stronger end state, which needs this
 item's invariant first.
 
 **Direction 3 (single trunk) rejected on blast radius.** `main` is a tag trigger
@@ -90,7 +90,7 @@ the prose-without-a-mechanism failure this harness has recorded repeatedly.
 | Merge **input**  | `promotion ancestry` job in `.github/workflows/ci.yml`, a **required status check** on `protect-main`, running `scripts/harness/scan-promotion-ancestry.mjs` | **GATE** — blocks the promotion PR before it lands.                                                                  |
 
 Neither is a post-merge detector. The one residue is `protect-main.bypass_actors` (admin, always) —
-INFRA-054.
+INFRA-055.
 
 ## Root cause of the recurring cost — removed, not mitigated
 
@@ -204,12 +204,12 @@ $ # restored
 1. A `hotfix/*` that lands content on `main` still needs one deliberate `main -> develop` back-merge,
    merged as a merge commit, before the next promotion. A3 blocks the promotion until then and prints
    the remedy, but `protect-develop` cannot restrict that back-merge's _method_ without stripping
-   squash from every feature PR. → INFRA-053.
-2. A repository admin can bypass `protect-main` and therefore both gates. → INFRA-054.
+   squash from every feature PR. → INFRA-054.
+2. A repository admin can bypass `protect-main` and therefore both gates. → INFRA-055.
 
 ## References
 
 - #1415 (back-merge, squashed), #1413 (promotion, blocked by it), #1427 (manual re-resolution)
 - `.agents/rules/git-branch.md` § Promotion — the procedure and both enforcement layers
-- Follow-ups: INFRA-053 (fast-forward promotion end state), INFRA-054 (vacuous required contexts and
+- Follow-ups: INFRA-054 (fast-forward promotion end state), INFRA-055 (vacuous required contexts and
   bypass actors on `protect-main`)

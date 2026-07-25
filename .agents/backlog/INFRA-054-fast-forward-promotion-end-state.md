@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-053: promote by fast-forward so the two branches cannot diverge at all'
+title: 'INFRA-054: promote by fast-forward so the two branches cannot diverge at all'
 status: todo
 created: 2026-07-26
 priority: medium
@@ -8,7 +8,7 @@ area: .github/workflows, scripts/harness, repo rulesets
 depends_on: [INFRA-051]
 ---
 
-# INFRA-053: fast-forward promotion — the end state INFRA-051 stops short of
+# INFRA-054: fast-forward promotion — the end state INFRA-051 stops short of
 
 ## Problem
 

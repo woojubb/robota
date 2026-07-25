@@ -34,7 +34,7 @@ jobs:
   # It is a REQUIRED status check on `protect-main`. Of the required contexts it is the only one that
   # verifies anything on a main PR — build/quality/scans/security-audit are all no-op echoes there and
   # commitlint is skipped outright. `release-grade verification` does substantive work (and runs this
-  # same gate through `harness:scan`) but is NOT a required check; INFRA-054 tracks that.
+  # same gate through `harness:scan`) but is NOT a required check; INFRA-055 tracks that.
   promotion-ancestry:
     name: promotion ancestry
     if: github.base_ref == 'main'

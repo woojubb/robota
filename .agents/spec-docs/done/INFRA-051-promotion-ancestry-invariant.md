@@ -64,7 +64,7 @@ got wrong.
    - Its premise — "nothing ever lands directly on `main`" — is refuted by the history above (nine
      Dependabot PRs **and** #1216). One such landing makes `main` un-fast-forwardable and demands exactly
      the hand-derived merge this item exists to remove.
-   - It is nevertheless the stronger end state. Filed as **INFRA-053** with the concrete shape the review
+   - It is nevertheless the stronger end state. Filed as **INFRA-054** with the concrete shape the review
      supplied: a `workflow_dispatch` job that asserts the ancestry, runs `harness:verify:release` **on the
      exact SHA being promoted**, then fast-forwards — one CI run, not two. It requires this item's
      invariant first, so the sequencing is right.
@@ -153,7 +153,7 @@ residue in the merge-method dimension.**
 
 Remaining bypass, recorded honestly: `protect-main.bypass_actors` still lists `RepositoryRole 5` with
 `bypass_mode: always`, so a repository admin can override both layers. Narrowing that list is a separate
-owner decision (**INFRA-054**).
+owner decision (**INFRA-055**).
 
 ### Test Strategy
 
@@ -207,8 +207,8 @@ INFRA-050's floor covers the new indirect base-history read), the `promotion anc
 `.github/workflows/ci.yml`, the `protect-main` ruleset, `.agents/rules/git-branch.md`, and the stale
 `-s ours` comment in `.claude/hooks/pre-push-check.sh`.
 
-**Out:** fast-forward promotion (INFRA-053), narrowing `protect-main`'s bypass actors and making
-`release-grade verification` a required context (INFRA-054), re-enabling Dependabot.
+**Out:** fast-forward promotion (INFRA-054), narrowing `protect-main`'s bypass actors and making
+`release-grade verification` a required context (INFRA-055), re-enabling Dependabot.
 
 ## Residual manual work (filed, not hidden)
 
@@ -216,5 +216,5 @@ INFRA-050's floor covers the new indirect base-history read), the `promotion anc
    merged as a merge commit, before the next promotion. A3 blocks the promotion until that happens, with the
    remedy in the failure message — but `protect-develop` cannot restrict the _method_ of that back-merge
    without also stripping squash from every feature PR. Routing hotfixes through `develop` first is the
-   documented process; making it mechanical is INFRA-053 scope.
-2. **A repository admin can bypass `protect-main`** and therefore both gates. → INFRA-054.
+   documented process; making it mechanical is INFRA-054 scope.
+2. **A repository admin can bypass `protect-main`** and therefore both gates. → INFRA-055.

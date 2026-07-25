@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-054: every required check on a promotion PR was vacuous, and the real one is optional'
+title: 'INFRA-055: every required check on a promotion PR was vacuous, and the real one is optional'
 status: todo
 created: 2026-07-26
 priority: high
@@ -8,7 +8,7 @@ area: repo rulesets, .github/workflows
 depends_on: []
 ---
 
-# INFRA-054: `protect-main`'s required contexts do not verify a promotion
+# INFRA-055: `protect-main`'s required contexts do not verify a promotion
 
 ## Problem
 
