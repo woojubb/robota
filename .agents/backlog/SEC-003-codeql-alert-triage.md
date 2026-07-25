@@ -203,8 +203,14 @@ now exist and should collapse into one scan.
 
 ### Adjacent alerts
 
-None surfaced. The diff-scoped CodeQL PR gate hazard slice 1 warned about did not materialise here:
-no other open alert sits on a line this slice touched, so nothing was dismissed.
+Slice 1's diff-scoped-gate warning was borne out, in miniature. Adding `mkdtempSync` to the `node:fs`
+import of `context/__tests__/context-loader-memory.test.ts` made the PR analysis report a
+**pre-existing** `js/unused-local-variable` on line 1 (`Unused import writeFileSync`) — the import was
+already dead before this slice, and only became visible because the diff touches that line. It is a
+genuine (if trivial) defect, so the dead import was removed rather than dismissed. ESLint does not
+catch this class in test files, which is why it survived.
+
+`js/insecure-temporary-file` on the PR merge ref: **0**. Nothing was dismissed in either slice.
 
 ### Class state
 
