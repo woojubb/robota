@@ -50,7 +50,7 @@ const MAX_CANDIDATE_TEXT_LENGTH = 240;
 const HASH_ID_LENGTH = 12;
 
 function hashCandidate(seed: string): string {
-  return `mem_${createHash('sha1').update(seed).digest('hex').slice(0, HASH_ID_LENGTH)}`;
+  return `mem_${createHash('sha256').update(seed).digest('hex').slice(0, HASH_ID_LENGTH)}`;
 }
 
 function normalizeText(text: string): string {

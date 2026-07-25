@@ -106,7 +106,9 @@ auto-merge armed early fires on the gating checks and carries the review's findi
 integration branch — the feedback was produced, and simply never read. A review job reporting `pass` is
 not evidence of no findings; it usually passes whether or not it commented. Therefore: fetch the PR's
 review comments and analysis findings, address or consciously dismiss them, and only then arm the merge.
-Passing checks answer "did it break anything"; the review answers "should it land as written".
+Passing checks answer "did it break anything"; the review answers "should it land as written". The full
+fix → push → re-review loop this hands off to is
+[automated-review-convergence](../automated-review-convergence/SKILL.md).
 
 ### 6. Spec-gated (code) work clears its gate BEFORE implementation
 

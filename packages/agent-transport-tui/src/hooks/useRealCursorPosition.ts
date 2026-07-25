@@ -107,7 +107,7 @@ export function useRealCursorPosition(
     cell !== undefined &&
     origin !== undefined &&
     shouldPositionRealCursor({
-      hasMeasured: metrics.hasMeasured && origin !== undefined, // I1
+      hasMeasured: metrics.hasMeasured, // I1 — `origin` is already narrowed non-undefined above
       y: cell.y,
       frameHeight: origin.frameHeight, // I2 checked inside the guard
       viewportRows,

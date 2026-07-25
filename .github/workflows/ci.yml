@@ -365,11 +365,48 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }} --depth=50
-
+      # INFRA-049: lint ONLY the commits this PR authored. Three things make that true, and all
+      # three are load-bearing — see .agents/backlog/completed/INFRA-049-*.md for the evidence.
+      #
+      # 1. NO base fetch, and above all no `--depth`. `actions/checkout` already fetched every
+      #    branch at full depth (fetch-depth: 0), so `origin/<base>` is present and complete. The
+      #    `git fetch origin <base> --depth=50` step that used to sit here GRAFTED the repository at
+      #    depth 50, destroying the ancestry that `<base>..<head>` is computed from: commits long
+      #    since merged into the base looked unreachable and were re-linted. That is what failed
+      #    #1415 — 97 inherited commits and 26 errors in CI, while the identical command exited 0
+      #    on a full local clone. Removing it is what makes CI and a local run agree.
+      # 2. `--first-parent` drops history the PR merged IN from another branch. A main→develop
+      #    back-merge carries ~109 already-merged commits its author cannot rewrite; those belong to
+      #    the PRs that introduced them. Every commit the PR itself authored — including its own
+      #    merge commits — sits on the first-parent path and is still linted in full, so a bad
+      #    subject the PR wrote still fails the gate.
+      # 3. `github.event.pull_request.head.sha`, NOT `HEAD`. On a pull_request event HEAD is
+      #    GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch — walking
+      #    first-parent from it would traverse the base and lint nothing at all.
+      #
+      # commitlint's own `--git-log-args=--first-parent` is NOT usable here: @commitlint/read passes
+      # the parsed flags to @conventional-changelog/git-client, which only understands the camelCase
+      # `firstParent` key and silently drops anything else (its own source says so). The documented
+      # spelling is a no-op, so the range is computed with git directly.
+      #
+      # Local equivalent — same commit set, given an up-to-date origin/<base>:
+      #   git rev-list --first-parent origin/develop..HEAD |
+      #     while read -r sha; do
+      #       git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || exit 1
+      #     done
       - name: Lint PR commit messages
-        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          range="origin/${BASE_REF}..${HEAD_SHA}"
+          echo "Linting $(git rev-list --count --first-parent "$range") commit(s) authored by this PR ($range, first-parent)."
+          status=0
+          for sha in $(git rev-list --first-parent "$range"); do
+            echo "── $(git log -1 --format='%h %s' "$sha")"
+            git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || status=1
+          done
+          exit "$status"
 
   examples-typecheck:
     name: examples-typecheck

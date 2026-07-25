@@ -24,7 +24,22 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [worktree-parallel-orchestration](worktree-parallel-orchestration/SKILL.md) | Run ≥2 independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts (partition → spawn → serial merge) |
 | [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                 |
 | [pr-review-orchestration](pr-review-orchestration/SKILL.md)                 | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018)            |
+| [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round     |
 | [version-management](version-management/SKILL.md)                           | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                               |
+
+## Release
+
+Nested release pipeline (HARNESS-049): the top-level orchestrator sequences three phase skills, which
+share one gate-observation loop and dispatch the `ci-failure-triager` / `merge-verifier` agents. All
+release invariants stay in [publish.md](../rules/publish.md); these skills carry only control flow.
+
+| Skill                                                   | Description                                                                                                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [release-orchestration](release-orchestration/SKILL.md) | Top-level release state machine: source-stabilization → version-bump → npm-otp-publish, with per-phase advance/retry/regress/halt |
+| [source-stabilization](source-stabilization/SKILL.md)   | Phase 1 — get the source branch green and verified as landed on the release target                                                |
+| [version-bump](version-bump/SKILL.md)                   | Phase 2 — cut from a fresh base, apply the coordinated bump, land the bump PR cleanly                                             |
+| [npm-otp-publish](npm-otp-publish/SKILL.md)             | Phase 3 — ordered publish preflight, the hard halt for the user's OTP, publish, and post-publish verification                     |
+| [ci-gate-watch](ci-gate-watch/SKILL.md)                 | Shared observation loop for a long-running gate: observe → report the current step → route; terminates its own watcher            |
 
 ## Code Quality & Architecture
 
@@ -73,6 +88,7 @@ for orchestrator/worker/guardian wiring). One-line roles:
 | `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                   |
 | `doc-auditor`                      | Read-only documentation staleness/quality audit                           |
 | `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)               |
+| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note  |
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by
