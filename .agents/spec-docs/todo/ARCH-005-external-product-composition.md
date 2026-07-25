@@ -1,16 +1,7 @@
 ---
 status: approved
 type: INFRA
-tags:
-  [
-    architecture,
-    product-composition,
-    agent-product,
-    capability-pack,
-    preset,
-    external-consumer,
-    packaging,
-  ]
+tags: [architecture, product-composition, packaging]
 ---
 
 # ARCH-005: external product composition — publishable `assembleProduct` + capability-pack + product-profile
