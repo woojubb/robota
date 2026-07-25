@@ -132,13 +132,58 @@ which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --
   **Enforced** by `.claude/hooks/pre-push-check.sh` (blocks a push when `git log --merges origin/develop..HEAD`
   is non-empty on a non-integration branch) and the `branch-guard` create-check (flags local unmerged branches);
   recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
-- Merging `develop` into `main` requires explicit user approval and is a release-level action.
+- Merging `develop` into `main` requires explicit user approval and is a release-level action. **Build the
+  promotion branch with `node scripts/harness/promote.mjs` — never by hand** (§ Promotion below).
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
 - If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
 - Never assume `main` as the default merge target. Always check the actual fork point.
 - The mechanical floor for the protected-branch checks is `.claude/hooks/branch-guard.sh` plus
   `.husky/pre-commit`; the [`branch-guard`](../skills/branch-guard/SKILL.md) skill documents those two
   layers and their overrides. It owns no policy — this section does.
+
+### Promotion — `develop` → `main` (mandatory, INFRA-051)
+
+**A promotion must CARRY `main`'s ancestry. Squashing a sync merge is prohibited in both directions.**
+
+A squash copies content across but records **no ancestry link**. After `main -> develop` squash-merged as
+`bc0ee64ff` (single parent), `git merge-base --is-ancestor origin/main origin/develop` still failed, so the
+next promotion re-computed against the **old merge base** and re-conflicted on the same five `package.json`
+files plus `pnpm-lock.yaml` the back-merge had just reconciled (#1415 → #1413, 2026-07-26). The cost is not
+the conflict — it is that a human re-derives the resolution every cycle, and **both wholesale directions are
+wrong**: toward `main` reverts develop's dependency patch bumps; toward `develop` un-archives backlog items
+and drops changesets.
+
+**Build the promotion branch with the tool, not by hand:**
+
+```bash
+node scripts/harness/promote.mjs          # --dry-run to check without creating the branch
+```
+
+It performs exactly this, and stops if either step is not clean:
+
+```bash
+git checkout -B release/promote-develop-to-main origin/develop
+git merge --no-ff origin/main             # records main's ancestry INTO the promotion
+```
+
+In the steady state that merge is **clean by construction and asks nothing of a human**:
+`merge-base(develop, main)` is the develop commit the last promotion promoted, and `main`'s tree equals that
+commit's tree, so `main`'s side of the three-way merge is empty. If it is **not** clean, `main` holds content
+`develop` never integrated (a `hotfix/*`, a direct push, a conflict-resolving merge) — back-merge `main` into
+`develop` on its own PR, **merged as a merge commit**, then re-run. Never resolve that inside the promotion.
+
+**Merge the promotion PR with `gh pr merge <n> --merge`. Never `--squash`.**
+
+**Enforcement — two mechanical layers, both pre-merge:**
+
+| Layer            | Mechanism                                                                                                                   | What it blocks                                                                                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Merge **method** | `protect-main` ruleset, `pull_request` rule with `allowed_merge_methods: ["merge"]`                                         | GitHub refuses to squash- or rebase-merge any PR into `main`. `protect-develop` is untouched, so feature PRs still squash.                                       |
+| Merge **input**  | `promotion ancestry` CI job (required status check on `protect-main`) running `scripts/harness/scan-promotion-ancestry.mjs` | A promotion whose head does not contain `origin/main` (**A1**), carries non-merge commits `develop` has never seen (**A2**), or changes develop's tree (**A3**). |
+
+Both are gates, not detectors: they block before the merge, not after. A **plain `develop → main` PR
+generally cannot satisfy A1** once `main` carries a promotion merge commit — `release/promote-develop-to-main`
+is the normal route, which is why `main-pr-source-guard` admits it.
 
 ### One-Branch-At-A-Time Rule (mandatory in the MAIN clone)
 

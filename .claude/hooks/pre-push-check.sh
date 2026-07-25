@@ -43,8 +43,9 @@ echo "[pre-push-check] Running fast pre-push gates (branch hygiene, lockfile syn
 # commits over origin/develop. Skip integration/detached branches and when origin/develop is absent.
 CUR_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 case "$CUR_BRANCH" in
-  # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `-s ours` merge of `main`
-  # (develop→main promotion), so exempt them from the "no foreign merge commits" check that targets
+  # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `git merge --no-ff origin/main`
+  # that records main's ancestry into a develop→main promotion (INFRA-051, built by
+  # scripts/harness/promote.mjs), so exempt them from the "no foreign merge commits" check that targets
   # feature branches accidentally based on `main`.
   main | master | develop | release/* | hotfix/* | "") : ;;
   *)

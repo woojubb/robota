@@ -74,6 +74,11 @@ export const BASE_HISTORY_INVOCATIONS = [
     pattern: /\bpnpm\s+harness:(scan|verify)/,
     script: 'scripts/harness/check-document-authority.mjs',
   },
+  {
+    name: 'scan-promotion-ancestry.mjs (INFRA-051 promotion gate)',
+    pattern: /scan-promotion-ancestry\.mjs/,
+    script: 'scripts/harness/scan-promotion-ancestry.mjs',
+  },
 ];
 
 /** How a script proves it still reads base-relative history. */

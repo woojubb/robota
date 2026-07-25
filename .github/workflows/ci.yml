@@ -25,6 +25,54 @@ jobs:
               exit 1 ;;
           esac
 
+  # INFRA-051: a promotion must CARRY main's ancestry. A squashed sync copies content across without
+  # recording the link, so the next promotion re-computes against the old merge base and re-conflicts on
+  # exactly the manifests the last sync reconciled (#1415 squashed as bc0ee64ff → #1413 CONFLICTING on five
+  # package.json files plus pnpm-lock.yaml). This job blocks the promotion BEFORE it lands; the merge METHOD
+  # is enforced separately by the `protect-main` ruleset (`allowed_merge_methods: ["merge"]`).
+  #
+  # It is a REQUIRED status check on `protect-main`. Of the required contexts it is the only one that
+  # verifies anything on a main PR — build/quality/scans/security-audit are all no-op echoes there and
+  # commitlint is skipped outright. `release-grade verification` does substantive work (and runs this
+  # same gate through `harness:scan`) but is NOT a required check; INFRA-055 tracks that.
+  promotion-ancestry:
+    name: promotion ancestry
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      # INFRA-050: full history, and NO depth-limited fetch anywhere in this job. The verdict is computed
+      # from ancestry between origin/main, origin/develop and the PR head; a graft marks commits parentless
+      # and `git merge-base --is-ancestor` then answers a different question — silently, in the passing
+      # direction.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The gate is dependency-free (node:child_process + node:path only, so no `pnpm install`), but it
+      # uses `import.meta.dirname` (Node >= 20.11) and top-level await — pin the runtime like every
+      # sibling job rather than inheriting whatever the runner image ships.
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Fetch both integration branches
+        run: |
+          git fetch origin --no-tags \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+
+      # PR_HEAD_SHA, never HEAD. On a pull_request event HEAD is GitHub's synthetic refs/pull/N/merge,
+      # whose FIRST parent is the base branch — `merge-base --is-ancestor origin/main HEAD` is VACUOUSLY
+      # true there and the gate would pass on the very state it exists to reject. The commitlint job below
+      # documents the same trap. The scan itself refuses to run on HEAD under a pull_request event.
+      - name: Assert the promotion preserves main's ancestry
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/harness/scan-promotion-ancestry.mjs
+
   # Proportional CI (DX): classify whether a PR touches CODE or is documentation-only, so a docs/harness-markdown
   # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks (required =
   # build/quality/scans/security-audit/commitlint, which always run), so skipping them is safe for branch
@@ -366,7 +414,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # INFRA-051: this job runs `harness:scan`, which now includes the promotion-ancestry gate, and
+      # this job only runs when `base_ref == 'main'` — i.e. always in a promotion context. The runner
+      # sets GITHUB_BASE_REF and GITHUB_EVENT_NAME but NOT the PR head sha, and the gate REFUSES to
+      # evaluate `HEAD` on a pull_request event (it is refs/pull/N/merge, whose first parent is the
+      # base — A1/A3 would pass vacuously). Without this env the gate would fail closed here and turn
+      # this job red on every promotion PR, including a correctly built one. Supplying the head sha is
+      # the fix; making the gate skip when it cannot resolve a head would recreate INFRA-050's
+      # silently-skipped-but-green shape.
       - name: Run release-grade verification
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: pnpm harness:verify:release
 
       # INFRA-038: osv-scanner (pnpm-lockfile-based) — the retired npm audit endpoint broke `pnpm audit`.
