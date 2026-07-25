@@ -114,6 +114,10 @@ const SCAN_COMMANDS = [
     name: 'promotion-ancestry',
     command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
   },
+  {
+    name: 'main-required-checks',
+    command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
+  },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
   {
