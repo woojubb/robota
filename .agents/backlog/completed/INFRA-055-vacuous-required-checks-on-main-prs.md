@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-055: every required check on a promotion PR was vacuous, and the real one is optional'
-status: todo
+status: done
 created: 2026-07-26
+completed: 2026-07-26
 priority: high
 urgency: soon
 area: repo rulesets, .github/workflows
@@ -52,9 +53,12 @@ always`, so an admin can bypass every rule including INFRA-051's two gates. Deci
 
 ## Acceptance
 
-- [ ] `protect-main`'s required contexts include at least one check that verifies the promotion's
-      content, proven by a deliberately-broken promotion branch being blocked.
-- [ ] The bypass-actor decision recorded explicitly (kept, narrowed, or removed) with its reason.
+- [x] `protect-main`'s required contexts include at least one check that verifies the promotion's
+      content, proven by a deliberately-broken promotion branch being blocked. — PR #1446,
+      `mergeStateStatus: BLOCKED`, `release-grade verification` red on a content scan while the five
+      formerly-required contexts all reported `skipping`. See _Proof_ cell 2.
+- [x] The bypass-actor decision recorded explicitly (kept, narrowed, or removed) with its reason. —
+      NOT applied; recommendation recorded for the owner below.
 
 ---
 
@@ -63,9 +67,10 @@ always`, so an admin can bypass every rule including INFRA-051's two gates. Deci
 Items 1–4 are closed. Item 5 is **not applied** — narrowing admin bypass is the repository owner's
 call and a wrong move can lock them out during an incident. The recommendation is recorded below.
 
-> **STATUS: IN PROGRESS.** Nothing below marked "applied" has been applied to the live ruleset yet.
-> This section is the plan of record; the required-list table, the `### Proof` section and the
-> terminal status are filled in from real runs, after the runs.
+Reviewed by `proposal-reviewer` in two passes before anything was applied to the live ruleset. Both
+returned **REVISE** and both caught real defects — the first a base-retarget bypass that defeats the
+entire scheme including INFRA-051's already-live gate, the second a blacklist-of-one-spelling hole in
+this item's own rot guard. Both are recorded below.
 
 ### What `protect-main` now requires
 
@@ -80,9 +85,23 @@ call and a wrong move can lock them out during an incident. The recommendation i
 | `security audit`             | **removed**     | 3s echo. `release-grade verification`'s osv-scanner step is unconditional, where this job's is gated on a manifest diff — the replacement is stronger. |
 | `commitlint`                 | **removed**     | Skipped wholesale on `main` by design. A promotion's merge-commit subject is GitHub-generated and every promoted commit was linted on its own PR.      |
 
-To be set in the same call: `strict_required_status_checks_policy: true`, so a promotion's green run
-must have been produced against the current `main` rather than a stale one — A1 is computed against
+Set in the same call: `strict_required_status_checks_policy: true`, so a promotion's green run must
+have been produced against the current `main` rather than a stale one — A1 is computed against
 `origin/main` at run time, so a stale run can assert ancestry against a `main` that has since moved.
+`non_fast_forward`, `allowed_merge_methods: ["merge"]` and `bypass_actors` were carried through
+unchanged, and `protect-develop` (a separate ruleset, 18715844) was not touched — verified after
+applying.
+
+Live state after the change:
+
+```
+$ gh api repos/woojubb/robota/rules/branches/main --jq '.[] | select(.type=="required_status_checks") | .parameters'
+{"do_not_enforce_on_create":false,
+ "required_status_checks":[{"context":"promotion ancestry"},
+                           {"context":"main PR source guard"},
+                           {"context":"release-grade verification"}],
+ "strict_required_status_checks_policy":true}
+```
 
 ### Unconditional-execution evidence for each added context
 
@@ -132,7 +151,27 @@ skipping the jobs when the edit was not a base change, to avoid re-running CI on
 **rejected**: a skipped job publishes a `skipped` check run that supersedes the previous `success`
 for the same head sha, so editing a PR's title would erase its verification and leave it mergeable on
 skipped required checks. Re-running is the only conclusion-preserving option, and its cost (one CI
-run per title/body edit) is the price of that property.
+run per title/body edit) is the price of that property. The reviewer conceded this ruling in full on
+its second pass.
+
+Two consequences of `edited` that were closed in the same change:
+
+- **A per-PR `concurrency` group** (`ci-${{ github.event.pull_request.number }}`,
+  `cancel-in-progress: true`). `ci.yml` had none while `codeql.yml` and `review-gate.yml` both do,
+  and `edited` makes two runs per head sha routine — two check runs per context means a flake in
+  either decides the merge verdict. Fails closed: a cancelled run reports `cancelled`, not `success`.
+- **The same supersede property has one benign instance here**: a develop→main retarget re-dispatches
+  the workflow and the four develop-side jobs publish `skipped` over the `success` they earned
+  against `develop` (visible on #1447, where each of those contexts shows both conclusions). That is
+  harmless _only_ because they are no longer required on `main`. `scan-main-required-checks.mjs` is
+  what refuses the combination that would make it harmful, and the reasoning is recorded in ci.yml
+  next to the trigger so nobody "restores" the old required list later.
+
+A second, unrelated defect was found in the same job while making it required: `main-pr-source-guard`
+interpolated `${{ github.head_ref }}` directly into its `run:` script. A `${{ }}` expression is
+substituted before the shell parses, and a git ref may contain backticks, `$`, `;`, `&` and `|` — on
+a public repo with forking enabled that is remote code execution on the runner, openable by anyone.
+Now passed through `env:`. Making the job required is what obliged the fix.
 
 ### Decisions on items 3 and 4
 
@@ -200,10 +239,11 @@ this drift survived. `.github/required-status-checks.json` is now the **source**
 | --------- | --------------------------------------------------------------------------------------------------------------------- |
 | R1        | The context resolves to exactly one job that publishes that display name — a context nothing publishes never reports. |
 | R2        | The workflow triggers on `pull_request` for `main` with no `paths`/`paths-ignore` — the #1436 never-reports shape.    |
-| R3        | No `github.base_ref` condition at job or step level — the #1427 echo shape verbatim.                                  |
+| R3        | The job's `if:` is absent or **exactly** `github.base_ref == 'main'`; no step is gated on `base_ref`.                 |
 | R4        | At least one unconditional step, so the job cannot become an all-conditional shell.                                   |
 | R5        | No `continue-on-error` on the job or any step — the one **fail-open** rot: command fails, check reports success.      |
 | R6        | No `needs:` on a job that is itself main-excluded — GitHub then skips the required job, and skipped is accepted.      |
+| R7        | The `pull_request` trigger declares `types:` including `edited`; an **absent** `types:` is the failing case.          |
 
 A missing or empty declaration is a hard failure, not a pass. The scan is hermetic (checked-in files
 only), so it always reaches a verdict, never prints SKIP, and no GitHub API outage can redden the
@@ -211,14 +251,95 @@ release gate that runs it. An opt-in `--live` half reconciles the declaration ag
 ruleset; `.github/workflows/ruleset-drift.yml` runs it daily and on demand, deliberately outside the
 merge path so drift costs a red cron rather than a blocked promotion.
 
-15 unit tests assert the scan is RED on each shape it targets, not merely green on the current tree.
-Writing them found a real parser bug — the block-list branch reader matched every `- x` in the
-trigger body, so a `paths-ignore:` list parsed as branch names and a path-filtered workflow would have
-looked like it covered `main`, masking the exact R2 finding the scan exists to raise.
+**R3 is a whitelist because the first draft's blacklist was green on the defect it existed to
+prevent.** The reviewer ran the draft against fixtures and found three passes: `base_ref != "main"`
+in double quotes (the #1427 vacuous shape, one quote character away from the spelling it caught),
+`base_ref == 'develop'` (the #1436 permanent-pending shape), and a `types:` list without `edited`
+(so deleting the fix above would have kept `harness:scan` green while the #1442 bypass returned).
+Inverting to a whitelist makes any unanticipated spelling fail closed; R7 was added for the third.
+
+21 unit tests assert the scan is RED on each shape it targets, not merely green on the current tree,
+including each of those three fixtures. Writing them found a real parser bug of the same family: the
+block-list branch reader matched every `- x` in the trigger body, so a `paths-ignore:` list parsed as
+branch names and a path-filtered workflow would have looked like it covered `main` — masking the
+exact R2 finding the scan exists to raise. Both block-list readers are now anchored to their own key,
+with a test for the scoping class itself.
 
 ### Proof
 
-_Filled in from the live runs once the ruleset is applied._
+Three real PRs against the live ruleset, all closed unmerged. Together they measure the defect, the
+fix, and the bypass — none of it is argued from reasoning.
+
+**Cell 1 — the defect, re-measured today. PR #1448, plain `develop → main`.** Its head is `develop`,
+so the workflow came from develop's still-unfixed `ci.yml` — i.e. exactly the #1427 shape:
+
+| Context          | Result       |
+| ---------------- | ------------ |
+| `build`          | pass, **5s** |
+| `quality`        | pass, **5s** |
+| `scans`          | pass, **5s** |
+| `security audit` | pass, **5s** |
+| `commitlint`     | `skipping`   |
+
+Under the old required list — those five contexts — this PR was green on every required check.
+Under the new one: `mergeStateStatus: BEHIND`, with `promotion ancestry` and `release-grade
+verification` red.
+
+**Cell 2 — a deliberately-broken promotion is BLOCKED. PR #1446,
+`release/infra-055-blocked-promotion-proof` → `main`.** The branch is a correctly-shaped promotion
+(`git merge --no-ff origin/main`, so A1 holds) carrying one deliberate content defect: the INFRA-050
+depth-limited `git fetch` reintroduced into `ci.yml`, which `scan-ci-base-history` catches inside
+`harness:scan` and therefore inside `pnpm harness:verify:release`.
+
+```
+$ gh pr view 1446 --json mergeStateStatus
+mergeStateStatus = BLOCKED
+
+main PR source guard          pass  3s
+promotion ancestry            fail  12s
+release-grade verification    fail  2m51s
+build / quality / scans / security audit / commitlint    skipping
+```
+
+The failure inside `release-grade verification` is a CONTENT failure, from its own job log:
+
+```
+----- ci-base-history (FAILED) -----
+ci-base-history scan failed (INFRA-050):
+✗ ci-base-history
+2 of 66 scans failed
+```
+
+**This is the attribution, and it is measured rather than argued.** On this PR the five formerly-
+required contexts all reported `skipping`, and branch protection accepts a skipped required check —
+so under the old required list every required check was satisfied and this broken promotion would
+have merged. It is `BLOCKED` only because the required list now names a check that reads the
+promotion's content.
+
+One honest caveat: `release-grade verification` runs `harness:scan`, which itself contains the
+`promotion-ancestry` scan, so the two required gates are not fully independent — a promotion that
+fails A1/A2/A3 also fails the content gate transitively. The reviewer asked for a cell isolating
+(ancestry-green, content-red); that cell is **structurally void**, because A3 requires the head's
+tree to equal `develop`'s, so no content defect can exist on the head without also reddening
+ancestry. What the required list buys that ancestry cannot is the converse case: a promotion that
+faithfully promotes a **broken `develop`** — where A1/A2/A3 all hold and only `release-grade
+verification` can object. The `promotion-ancestry` job installs nothing and executes no repository
+code; it reads `merge-base`, `rev-list` and `diff` only.
+
+**Cell 3 — the base-retarget bypass is closed. PR #1447,
+`chore/infra-055-retarget-probe-2` → `develop`, then retargeted to `main`.** Head branch carries the
+fixed `ci.yml`, so the `edited` trigger applies.
+
+|                                               | #1442 (before the fix)              | #1447 (after)                           |
+| --------------------------------------------- | ----------------------------------- | --------------------------------------- |
+| Workflow runs for the head sha after retarget | **unchanged** (same 4 ids)          | **new CI run `30172547631` dispatched** |
+| `main PR source guard`                        | `SKIPPED`                           | **`FAILURE`**                           |
+| `promotion ancestry`                          | `SKIPPED`                           | **`FAILURE`**                           |
+| `release-grade verification`                  | `SKIPPED`                           | **`FAILURE`**                           |
+| `mergeStateStatus`                            | **`CLEAN`, `mergeable: MERGEABLE`** | **`BEHIND`**                            |
+
+The same two-click action that put a feature branch one click from `main` now re-dispatches CI and
+produces three red required checks.
 
 ### Follow-ups recorded, not done here
 
@@ -234,6 +355,22 @@ _Filled in from the live runs once the ruleset is applied._
   `merge-base(origin/develop, head)`'s tree, which a hotfix by definition violates. Either the rule
   should say hotfixes route through `develop`, or A3 needs a hotfix path.
 - **Require `review-gate` on `protect-main`** once the two-shape observation window above is met.
+- **`git-branch.md` needs one line: a promotion PR is never updated with GitHub's "Update branch"
+  button — re-run `promote.mjs`.** `strict_required_status_checks_policy: true` means a promotion PR
+  goes `BEHIND` if `main` moves while it is open, and the button offers rebase, which would destroy
+  A1/A2/A3. It fails closed (the ancestry gate reddens rather than the promotion landing wrong), so
+  this is a usability fix, not a safety hole. Not written here because `.agents/rules/**` was outside
+  the authorised paths for this change.
+- **Dispatch `ruleset-drift.yml` once by `workflow_dispatch` after this merges.** Its `GITHUB_TOKEN`
+  read of `repos/{owner}/{repo}/rules/branches/main` is unverified in the Actions environment (it
+  works from a local `gh`), and a permanently-red non-gating cron is the alarm everyone learns to
+  ignore. `workflow_dispatch` only becomes available once the file is on the default branch.
+- **`harness:verify:release` now pulls `test:bin` into the sole required content gate on `main`.**
+  That is a deliberate trade — the RUNTIME-001 binary e2e spawns a built binary, so it is more
+  environment-sensitive than a unit test, and a flake there now reddens a promotion. Accepted because
+  it is satisfiable by re-run and because the alternative was leaving the subsumption claim false. It
+  runs on every develop code PR today and has been stable; if it proves flaky on the release path,
+  the fix is to stabilise it, not to drop it back out of the gate.
 
 ## `bypass_actors` — recommendation to the owner (NOT applied)
 
