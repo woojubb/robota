@@ -331,6 +331,16 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
   return result;
 }
 
+/**
+ * The files this change touches: uncommitted working-tree entries when the tree is dirty, otherwise
+ * the branch's diff against its base ref.
+ *
+ * FAIL-CLOSED (INFRA-048-C). When the tree is clean and NO base ref can be resolved, this throws.
+ * It used to return `[]`, which is indistinguishable from a branch that genuinely changed nothing —
+ * so `harness:plan` printed "Changed files: 0" and `harness:verify` exited 0 having verified
+ * nothing, on a branch carrying real source changes. An empty list is still returned for the
+ * legitimate case (base resolved, diff ran, no files differ); only "could not compute" now throws.
+ */
 export function detectChangedFiles(baseRef = null) {
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: WORKSPACE_ROOT,
@@ -349,7 +359,13 @@ export function detectChangedFiles(baseRef = null) {
   const resolvedBaseRef = resolveGitBaseRef(baseRef);
 
   if (!resolvedBaseRef) {
-    return [];
+    throw new Error(
+      'Unable to resolve a base ref to diff against (tried --base-ref, $HARNESS_BASE_REF, ' +
+        'origin/$GITHUB_BASE_REF, $GITHUB_BASE_REF, origin/develop, develop, origin/main, main). ' +
+        'Refusing to report "no changed files" from a base that could not be resolved — that reads ' +
+        'as "nothing to verify" and silently verifies nothing (INFRA-048). ' +
+        'Pass --base-ref <ref>, or fetch the base branch.',
+    );
   }
 
   const diffResult = spawnSync(
