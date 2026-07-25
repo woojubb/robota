@@ -18,6 +18,7 @@ import {
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
@@ -82,10 +83,7 @@ export interface ITuiInteractionChannelOptions {
   onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
-  /**
-   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
-   * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
-   */
+  /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
@@ -186,47 +184,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
   }
 
   private createSession(): InteractiveSession {
-    const opts = this.opts;
-    // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
-    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
-    return buildRuntimeSession({
-      cwd: opts.cwd,
-      provider: opts.provider,
-      // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
-      // session's config/default model.
-      ...(opts.model !== undefined ? { model: opts.model } : {}),
-      permissionMode: opts.permissionMode,
-      maxTurns: opts.maxTurns,
-      // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's
-      // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
-      // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
-      sessionStore: opts.sessionStore,
-      resumeSessionId: opts.resumeSessionId,
-      forkSession: opts.forkSession,
-      sessionName: opts.sessionName,
-      backgroundTaskRunners: opts.backgroundTaskRunners,
-      subagentRunnerFactory: opts.subagentRunnerFactory,
-      ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
-      commandModules: opts.commandModules,
-      commandHostAdapters: opts.commandHostAdapters,
-      shellExec: opts.shellExec,
-      ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
-      language: opts.language,
-      agentName: opts.agentName,
-      activePresetId: opts.activePresetId,
-      persona: opts.persona,
-      systemPrompt: opts.systemPrompt,
-      appendSystemPrompt: opts.appendSystemPrompt,
-      allowedTools: opts.allowedTools,
-      deniedTools: opts.deniedTools,
-      enableParallelSubagents: opts.enableParallelSubagents,
-      selfVerification: opts.selfVerification,
-      terminalHandoff: opts.terminalHandoff,
-      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
-      ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
-      ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),
-      ...(opts.recallMemory ? { recallMemory: opts.recallMemory } : {}),
-    });
+    return buildRuntimeSession(buildTuiSessionOptions(this.opts));
   }
 
   private createRegistry(): CommandRegistry {

@@ -20,6 +20,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
+  IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
@@ -50,6 +51,8 @@ export interface IServeModeOptions {
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   backgroundTaskRunners: IBackgroundTaskRunner[];
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
+  /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
@@ -90,6 +93,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
+    ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),

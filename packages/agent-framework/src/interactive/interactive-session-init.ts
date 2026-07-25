@@ -164,9 +164,7 @@ export async function createInteractiveSession(
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
-    ...(options.agentDefinitions !== undefined
-      ? { agentDefinitions: options.agentDefinitions }
-      : {}),
+    ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.commandModules?.some((module) =>
       module.sessionRequirements?.includes('agent-runtime'),
     )
@@ -286,9 +284,7 @@ export async function initializeInteractiveSessionAsync(
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
-    ...(options.agentDefinitions !== undefined
-      ? { agentDefinitions: options.agentDefinitions }
-      : {}),
+    ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
     editCheckpointRecorder: checkpointStore,
     ...(options.reversibleExecution ? { reversibleExecution: options.reversibleExecution } : {}),

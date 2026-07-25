@@ -10,8 +10,16 @@ A **thin CLI layer** built on top of agent-framework, responsible only for the t
 over the resolved runtime options + the loopback `WsTransport` (token/port from `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`)
 and keeps the process alive until SIGTERM — rendering NO ink. This is the backend `apps/agent-app` (the desktop
 GUI) spawns: the TUI and the GUI are sibling presentations over the SAME runtime host; the GUI does not control
-the CLI. The CLI stays the composition root (it resolves settings/preset/provider and chooses the transports);
-`agent-framework` owns the neutral build-session + transport-lifecycle seam.
+the CLI. `agent-framework` owns the neutral build-session + transport-lifecycle seam.
+
+**Product shell, not a composition root (ARCH-005 S2).** `robota`'s product identity — branding, provider
+surface, presets, capability packs, base command modules, and the injected transports/runners/subagent
+factory — is declared as DATA in `src/product/robota-profile.ts` and folded by the product-neutral
+`assembleProduct` (`@robota-sdk/agent-product`). The CLI is the SHELL around that fold: it parses args,
+performs every settings/env/file read, prints notices, runs first-run/`init`/`--configure`/`ensureConfig`,
+owns memory + session-resume UX, and dispatches print/serve/TUI mode. It resolves the inputs and binds the
+presentation; it no longer hand-wires the assembly. `robota` is one profile among many — an external repo
+brings its own and reuses the same kernel.
 
 ## Boundaries
 
@@ -102,11 +110,18 @@ CLI composition changes.
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. The CLI:
 
-1. Reads config to determine which provider profile to use.
-2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
-3. Creates the provider instance by calling `definition.createProvider(config)`.
-4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files. Session persistence is passed only through SDK-owned facade types.
-5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+1. Reads config/settings to resolve which provider profile to use (the shell owns all IO).
+2. Builds the base command modules — the default set MINUS the modules a capability pack supplies.
+3. Calls `assembleProduct(createRobotaProfile(…))` once. The kernel constructs the provider from the
+   resolved settings + the injected `IProviderDefinition[]`, merges the capability packs onto the base
+   (base ⊕ packs, with a rejection channel), and builds the instance-scoped preset registry.
+4. Applies the preset's `enabledCommandModules`/`disabledCommandModules` delta to that merged superset,
+   then appends the fixed modules the delta never filters (`/workflows`, caller-injected).
+5. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore, agentDefinitions })` —
+   config and context loading happen internally inside the SDK. CLI-owned adapters expose host services
+   such as user-settings persistence and plugin management without letting command packages import CLI
+   files. Session persistence is passed only through SDK-owned facade types.
+6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Transparent Workflow Boundary
 
@@ -300,12 +315,18 @@ Flow ownership:
 | `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects                       | `CjkTextInput`                                                   |
 
 ```
-bin.ts → cli.ts (arg parsing + provider definition composition)
+bin.ts → cli.ts (SHELL: arg parsing, settings IO, notices, mode dispatch)
               ├── buildCommandSetup(...)          (src/startup/command-setup.ts)
               │     ├── createDefaultCommandModules(...)  (from @robota-sdk/agent-command;
-              │     │     assembles the full default command set)
+              │     │     the default set MINUS the pack-supplied coding modules → baseCommandModules)
               │     └── createWorkflowsCommandModule(...) (from @robota-sdk/agent-command-workflows;
-              │           the bundled `/workflows` module, statically imported — always present)
+              │           the bundled `/workflows` module → fixedCommandModules, never preset-filtered)
+              ├── assembleProduct(createRobotaProfile(...))   (from @robota-sdk/agent-product)
+              │     ├── constructs the provider from providerDefinitions + resolved settings
+              │     ├── merges packs: baseCommandModules ⊕ pack-coding (tools/commands/subagents)
+              │     └── builds the instance-scoped preset registry
+              ├── selectProductCommandModules(...)  (src/product/robota-plumbing.ts;
+              │     applies the preset delta to the merged superset, appends the fixed modules)
               └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
                     └── TuiInteractionChannel (owns session lifecycle)
                           ├── InteractiveSession({ cwd, provider })
@@ -476,6 +497,13 @@ TUI interaction behaviors (picker overlays, confirm dialogs) are not registered 
 ### Command Module Composition
 
 Built-in commands are represented as `ICommandModule` instances injected into `InteractiveSession`. Command modules own command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
+
+**Composition order (ARCH-005 S2).** The base set (`createDefaultCommandModules`, minus the pack-supplied
+names) is merged with the profile's capability packs by `assembleProduct` — additively, with a rejection
+channel, never a silent override. The preset's `enabledCommandModules`/`disabledCommandModules` delta is
+applied to that merged SUPERSET afterwards: the capability merge widens, the preset delta narrows. The
+`/shell` and `/editor` modules are supplied by `@robota-sdk/pack-coding`, not by the base set — dropping
+the pack from the profile drops those commands from the product.
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 

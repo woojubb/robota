@@ -1124,6 +1124,9 @@ importers:
       '@robota-sdk/agent-preset':
         specifier: workspace:*
         version: link:../agent-preset
+      '@robota-sdk/agent-product':
+        specifier: workspace:*
+        version: link:../agent-product
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
@@ -1166,6 +1169,9 @@ importers:
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
         version: link:../agent-transport-ws
+      '@robota-sdk/pack-coding':
+        specifier: workspace:*
+        version: link:../pack-coding
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0

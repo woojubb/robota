@@ -1,0 +1,288 @@
+/**
+ * ARCH-005 S2 — the EQUIVALENCE bar for collapsing `cli.ts`'s hand-wired composition root into
+ * `assembleProduct(createRobotaProfile(…))`.
+ *
+ * Every literal below was captured from the PRE-CHANGE assembly (commit `378c585e9`, ARCH-005 S1 on
+ * develop) by running the old hand-wired path and dumping its resolved values. The assertions then re-derive
+ * the same values through the NEW profile-driven assembly. A drift in the assembled runtime — a lost command
+ * module, a changed provider surface, a different preset resolution, a missing subagent — fails here.
+ *
+ * The bar is the SET of assembled materials, as the spec states ("same provider, same command-module set,
+ * same preset resolution, same transport registry"). Module ORDER shifts by design: the coding modules
+ * (`/shell`, `/editor`) now arrive from `pack-coding` and so are appended after the base instead of sitting
+ * mid-list. Nothing observable is ordered by that list — `/help` renders its own command, and the registry
+ * is keyed by command name.
+ */
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import {
+  BUILT_IN_AGENTS,
+  createDefaultTools,
+  findUnknownModuleNames,
+  selectCommandModules,
+} from '@robota-sdk/agent-framework';
+import { DEFAULT_AGENT_NAME, resolvePreset } from '@robota-sdk/agent-preset';
+import { assembleProduct } from '@robota-sdk/agent-product';
+import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
+import { describe, expect, it } from 'vitest';
+
+import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from '../product/robota-profile.js';
+import { buildCommandSetup } from '../startup/command-setup.js';
+
+import type { IParsedCliArgs } from '../utils/cli-args.js';
+import type { ICommandModule } from '@robota-sdk/agent-framework';
+
+/* ── PRE-CHANGE BASELINE (captured from the hand-wired root before the collapse) ──────────────────── */
+
+/** The full command-module set `startCli` assembled with no preset delta: defaults + `/workflows`. */
+const BASELINE_COMMAND_MODULE_NAMES = [
+  'agent-command-skills',
+  'agent-command-help',
+  'agent-command-agent',
+  'agent-command-permissions',
+  'agent-command-mode',
+  'agent-command-preset',
+  'agent-command-language',
+  'agent-command-background',
+  'agent-command-goal',
+  'agent-command-plan',
+  'agent-command-shell',
+  'agent-command-editor',
+  'agent-command-memory',
+  'agent-command-user-local',
+  'agent-command-compact',
+  'agent-command-context',
+  'agent-command-exit',
+  'agent-command-session',
+  'agent-command-reset',
+  'agent-command-rewind',
+  'agent-command-schedule',
+  'agent-command-statusline',
+  'agent-command-plugin',
+  'agent-command-settings',
+  'agent-command-remote-control',
+  'agent-command-provider',
+  'agent-command-workflows',
+];
+
+const BASELINE_PROVIDER_DEFINITION_TYPES = [
+  'anthropic',
+  'openai',
+  'gemini',
+  'gemma',
+  'qwen',
+  'deepseek',
+];
+
+const BASELINE_DEFAULT_TOOL_NAMES = [
+  'Shell',
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'AskUserQuestion',
+];
+
+const BASELINE_SUBAGENT_NAMES = ['general-purpose', 'Explore', 'Plan'];
+
+const BASELINE_DEFAULT_AGENT_NAME = 'robota-cli';
+
+/** `resolvePreset('default')` is a documented no-op; `careful-reviewer` carries a real posture. */
+const BASELINE_DEFAULT_PRESET_OPTIONS = {};
+const BASELINE_CAREFUL_REVIEWER_POSTURE = {
+  effort: 'high',
+  autonomy: 'ask-first',
+  enableParallelSubagents: false,
+  selfVerification: true,
+  permissionMode: 'default',
+};
+
+/* ── The NEW assembly, driven exactly as `startCli` drives it ─────────────────────────────────────── */
+
+const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
+
+/** Re-derive the shell's assembly for a given preset delta, mirroring `startCli` step for step. */
+function assembleRobota(
+  presetDelta: {
+    enabledCommandModules?: readonly string[];
+    disabledCommandModules?: readonly string[];
+  } = {},
+): {
+  commandModules: readonly ICommandModule[];
+  unknownModuleNames: readonly { name: string; kind: string }[];
+  product: ReturnType<typeof assembleProduct>;
+} {
+  const { providerDefinitions, baseCommandModules, fixedCommandModules } = buildCommandSetup(
+    '/tmp/equivalence',
+    MINIMAL_ARGS,
+    {},
+    '0.0.0-test',
+    ROBOTA_PACK_COMMAND_MODULE_NAMES,
+  );
+
+  const product = assembleProduct(
+    createRobotaProfile({
+      version: '0.0.0-test',
+      agentName: DEFAULT_AGENT_NAME,
+      providerDefinitions,
+      provider: createScriptedProvider([{ text: 'ok' }]).provider,
+      presets: [],
+      defaultPresetId: 'default',
+      baseCommandModules,
+      backgroundTaskRunners: [],
+      subagentRunnerFactory: (() => {
+        throw new Error('not used');
+      }) as never,
+      transports: { startAll: async () => {}, stopAll: async () => {} } as never,
+    }),
+  );
+
+  return {
+    commandModules: [
+      ...selectCommandModules(
+        product.commandModules,
+        presetDelta.enabledCommandModules,
+        presetDelta.disabledCommandModules,
+      ),
+      ...fixedCommandModules,
+    ],
+    unknownModuleNames: findUnknownModuleNames(
+      product.commandModules.map((m) => m.name),
+      presetDelta.enabledCommandModules,
+      presetDelta.disabledCommandModules,
+    ),
+    product,
+  };
+}
+
+describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change baseline', () => {
+  it('assembles exactly the same command-module SET (no module gained or lost)', () => {
+    const { commandModules } = assembleRobota();
+
+    expect([...commandModules.map((m) => m.name)].sort()).toEqual(
+      [...BASELINE_COMMAND_MODULE_NAMES].sort(),
+    );
+  });
+
+  it('composes NO capability rejection — the pack and the base do not collide', () => {
+    expect(assembleRobota().product.rejectedCapabilities).toEqual([]);
+  });
+
+  it('sources the coding modules from pack-coding, not from the base set', () => {
+    const { product } = assembleRobota();
+    const packNames = ROBOTA_PACK_COMMAND_MODULE_NAMES;
+
+    expect(packNames).toEqual(['agent-command-shell', 'agent-command-editor']);
+    // Present in the merged product…
+    for (const name of packNames) {
+      expect(product.commandModules.map((m) => m.name)).toContain(name);
+    }
+    // …and load-bearing: dropping the pack from the profile drops them from the product.
+    const withoutPack = assembleProduct({
+      id: 'robota',
+      providerDefinitions: [],
+      provider: createScriptedProvider([{ text: 'ok' }]).provider,
+      baseCommandModules: buildCommandSetup(
+        '/tmp/equivalence',
+        MINIMAL_ARGS,
+        {},
+        '0.0.0-test',
+        packNames,
+      ).baseCommandModules,
+    });
+    for (const name of packNames) {
+      expect(withoutPack.commandModules.map((m) => m.name)).not.toContain(name);
+    }
+  });
+
+  it('keeps the preset module-selection delta working over the merged superset', () => {
+    // A disable of a PACK-supplied module must still take effect — the delta filters base ⊕ packs.
+    const { commandModules } = assembleRobota({
+      disabledCommandModules: ['agent-command-editor'],
+    });
+    expect(commandModules.map((m) => m.name)).not.toContain('agent-command-editor');
+    expect(commandModules.map((m) => m.name)).toContain('agent-command-shell');
+    // `/workflows` is a FIXED module — the delta never filters it (unchanged pre-existing behavior).
+    expect(commandModules.map((m) => m.name)).toContain('agent-command-workflows');
+  });
+
+  it('still reports an unmatched preset module name (INFRA-032 notice), and none when matched', () => {
+    // "editor" is the short form; the built module name is agent-command-editor → unmatched.
+    expect(assembleRobota({ disabledCommandModules: ['editor'] }).unknownModuleNames).toEqual([
+      { name: 'editor', kind: 'disabled' },
+    ]);
+    expect(
+      assembleRobota({ disabledCommandModules: ['agent-command-editor'] }).unknownModuleNames,
+    ).toEqual([]);
+    expect(assembleRobota().unknownModuleNames).toEqual([]);
+  });
+
+  it('offers the same provider surface', () => {
+    expect(assembleRobota().product.providerDefinitions.map((d) => d.type)).toEqual(
+      BASELINE_PROVIDER_DEFINITION_TYPES,
+    );
+    expect(createDefaultProviderDefinitions().map((d) => d.type)).toEqual(
+      BASELINE_PROVIDER_DEFINITION_TYPES,
+    );
+  });
+
+  it('constructs the provider in-kernel from resolved settings (owner Decision 1)', () => {
+    const { providerDefinitions } = buildCommandSetup('/tmp/equivalence', MINIMAL_ARGS, {}, '0.0.0-test');
+    const product = assembleProduct(
+      createRobotaProfile({
+        version: '0.0.0-test',
+        agentName: DEFAULT_AGENT_NAME,
+        providerDefinitions,
+        providerSettings: { name: 'anthropic', model: 'claude-test', apiKey: 'sk-test' },
+        presets: [],
+        defaultPresetId: 'default',
+        baseCommandModules: [],
+        backgroundTaskRunners: [],
+        subagentRunnerFactory: (() => {
+          throw new Error('not used');
+        }) as never,
+        transports: { startAll: async () => {}, stopAll: async () => {} } as never,
+      }),
+    );
+
+    // The same provider the pre-change `createProviderFromSettings(cwd, model, {providerDefinitions})`
+    // would have produced for these settings — built by the kernel now, from the shell's resolved data.
+    expect(product.provider).toBeDefined();
+  });
+
+  it('exposes the same subagent roster through the runtime seam (owner Decision 2)', () => {
+    const { product } = assembleRobota();
+
+    expect(product.subagents.map((a) => a.name)).toEqual(BASELINE_SUBAGENT_NAMES);
+    expect(BUILT_IN_AGENTS.map((a) => a.name)).toEqual(BASELINE_SUBAGENT_NAMES);
+
+    const options = product.buildRuntimeOptions({
+      session: { cwd: '/tmp/equivalence', provider: createScriptedProvider([{ text: 'ok' }]).provider },
+    });
+    expect(
+      (options as { agentDefinitions?: readonly { name: string }[] }).agentDefinitions?.map(
+        (a) => a.name,
+      ),
+    ).toEqual(BASELINE_SUBAGENT_NAMES);
+  });
+
+  it('leaves the tool set and identity defaults untouched', () => {
+    expect(createDefaultTools().map((t) => t.getName())).toEqual(BASELINE_DEFAULT_TOOL_NAMES);
+    expect(DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
+  });
+
+  it('resolves presets identically (built-ins reachable through the instance registry)', () => {
+    const { product } = assembleRobota();
+
+    expect(resolvePreset('default')).toEqual(BASELINE_DEFAULT_PRESET_OPTIONS);
+    expect(product.resolvePreset('default')).toEqual(BASELINE_DEFAULT_PRESET_OPTIONS);
+
+    const carefulReviewer = product.resolvePreset('careful-reviewer');
+    expect(carefulReviewer).toMatchObject(BASELINE_CAREFUL_REVIEWER_POSTURE);
+    // …and identical to the module-global resolver the `/preset` command still reads.
+    expect(carefulReviewer).toEqual(resolvePreset('careful-reviewer'));
+  });
+});

@@ -9,16 +9,20 @@ composition mechanism a third party imports to build their OWN product on Robota
 ```ts
 import { assembleProduct } from '@robota-sdk/agent-product';
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
-declare const provider: IAIProvider; // already-constructed, product-owned
+declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-provider-defaults
+declare const provider: IAIProvider;
 declare const acmeJiraPack: ICapabilityPack;
 declare const cwd: string;
 
 const product = assembleProduct({
   id: 'acme-assistant',
   agentName: 'acme',
-  provider,
+  providerDefinitions,
+  // The SHELL resolves settings/env and passes the result in as data; the kernel constructs the
+  // provider from it. Omit `providerSettings` and pass a pre-built `provider` to override.
+  providerSettings: { name: 'anthropic', model: 'claude-sonnet-4-5', apiKey: 'sk-…' },
   packs: [acmeJiraPack], // additive capability
   defaultPresetId: 'careful-reviewer', // Robota's built-in preset, reused
 });
