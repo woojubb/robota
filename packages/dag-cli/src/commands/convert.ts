@@ -16,6 +16,9 @@ export interface IConvertCommandOptions {
   readonly io: IDagCliIo;
 }
 
+/** Length of the mermaid edge token `-->`. */
+const ARROW_LENGTH = 3;
+
 type TParseResult =
   | { readonly ok: true; readonly from: string; readonly input: string | undefined }
   | { readonly ok: false; readonly exitCode: number; readonly message: string };
@@ -145,15 +148,31 @@ export function convertMermaid(input: string): IBuildSpec {
    * Returns null if the line contains no arrow.
    */
   function splitByArrows(line: string): string[] | null {
-    // Match --> or -->|...|. The surrounding `\s*` the earlier form carried was redundant (each
-    // part is trimmed below) and made every failing start position cost O(n), so a whitespace-only
-    // line was rejected in O(n^2). Anchoring each attempt on the literal `-->` makes it linear.
-    const ARROW_RE = /-->(?:\|[^|]*\|)?/g;
-    const hasArrow = ARROW_RE.test(line);
-    if (!hasArrow) return null;
+    // Scanned rather than matched with a regex. The regex form carried a `\s*` on both sides of
+    // each `-->` alternative, which is unanchored, so a whitespace-heavy line restarted an O(n)
+    // scan at every offset and was rejected in O(n^2) (SEC-003 / js/polynomial-redos). A regex
+    // that tokenizes a bare `-->` also trips js/bad-tag-filter, which reads any such pattern as an
+    // attempt to parse HTML comment end tags — a false positive here, but one that is better
+    // removed than dismissed. `indexOf` advances monotonically, so this pass is linear by
+    // construction, and the surrounding whitespace never mattered: every part is trimmed below.
+    if (!line.includes('-->')) return null;
 
-    // Split by arrows (with optional pipe labels)
-    const parts = line.split(/-->(?:\|[^|]*\|)?/g);
+    const parts: string[] = [];
+    let cursor = 0;
+    for (;;) {
+      const arrowIdx = line.indexOf('-->', cursor);
+      if (arrowIdx === -1) break;
+      parts.push(line.slice(cursor, arrowIdx));
+      cursor = arrowIdx + ARROW_LENGTH;
+      // An edge label (`-->|label|`) binds directly to the arrow; an unclosed `|` is not a label,
+      // so it stays with the following token exactly as the regex form left it.
+      if (line[cursor] === '|') {
+        const closeIdx = line.indexOf('|', cursor + 1);
+        if (closeIdx !== -1) cursor = closeIdx + 1;
+      }
+    }
+    parts.push(line.slice(cursor));
+
     return parts.map((p) => p.trim()).filter((p) => p.length > 0);
   }
 
