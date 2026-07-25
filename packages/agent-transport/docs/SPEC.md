@@ -144,6 +144,12 @@ composition root decides which concrete transports to register.
 Headless runner surfaces provider/runtime errors with a non-zero exit code (`getExitCode()`).
 Registry settings I/O errors propagate from the `agent-framework` settings helpers.
 
+`run(prompt)` resolves the exit code only AFTER the underlying `session.submit()` operation has fully
+settled — the terminal `complete`/`interrupted`/`error` event fires from inside the turn, before the
+turn's awaited `finally` runs session persistence / checkpoint finalize, so the runner awaits the
+operation (not just the event) so all trailing writes under cwd `.robota/` have drained before the
+process may exit. It writes exactly one terminal record per run (CI-001).
+
 ## 8. Test Strategy
 
 Headless runner/channel unit + integration tests and scripted-provider tests under `src/**/__tests__`.
