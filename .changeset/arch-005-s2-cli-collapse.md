@@ -31,5 +31,8 @@ the hand-wired composition root in `agent-cli` is gone.
   in the CLI is product-shell only: arg parsing, settings/file IO, terminal notices, first-run/init/
   `--configure`, memory + session-resume UX, and print/serve/TUI mode dispatch.
 
-End-user `robota` behavior is unchanged: the assembled command-module set, provider surface, tool set,
-subagent roster, and preset resolution all match the pre-change assembly.
+End-user `robota` behavior is unchanged in substance — the assembled command-module set, provider surface,
+tool set, subagent roster, and preset resolution all match the pre-change assembly — with one accepted
+cosmetic delta: `/shell` and `/editor` now appear at the END of `/help` output and of the slash-command
+autocomplete popup rather than mid-list, because they arrive from `pack-coding` and both surfaces render in
+module-insertion order. Same commands, same behavior, different position.

@@ -70,37 +70,55 @@ export function createDefaultTransportRegistry(): {
 }
 
 /**
+ * The command-module NAMES the assembled product will carry: `baseCommandModules` ⊕ the pack-supplied
+ * names, in merge order. Deriving the names without assembling lets the shell surface the INFRA-032
+ * unknown-preset-module notice at its original point in the startup sequence — before the
+ * `init`/`--configure`/provider-config early-returns — since `findUnknownModuleNames` needs only names.
+ *
+ * This equals `assembleProduct(...).commandModules.map(m => m.name)` exactly, because the product's base
+ * excludes every pack-supplied name, so the merge appends them with no collision and no rejection. The
+ * equivalence test asserts that identity so the two cannot drift apart.
+ */
+export function mergedCommandModuleNames(
+  baseCommandModules: readonly ICommandModule[],
+  packCommandModuleNames: readonly string[],
+): readonly string[] {
+  return [...baseCommandModules.map((module) => module.name), ...packCommandModuleNames];
+}
+
+/**
+ * Report the preset selection names that matched no command module (INFRA-032) — a short form like
+ * `"editor"` instead of `agent-command-editor`, or a typo. Non-fatal: surfaced, never silently dropped.
+ */
+export function findUnknownPresetModuleNames(
+  moduleNames: readonly string[],
+  preset: Pick<IResolvedPresetOptions, 'enabledCommandModules' | 'disabledCommandModules'>,
+): readonly IUnknownCommandModuleName[] {
+  return findUnknownModuleNames(
+    moduleNames,
+    preset.enabledCommandModules,
+    preset.disabledCommandModules,
+  );
+}
+
+/**
  * Apply the preset's module-selection delta to the assembled base ⊕ pack SUPERSET, then append the fixed
  * modules the delta never filters (`/workflows`, caller-injected).
  *
  * ARCH-005: "this merger only produces the base ⊕ pack superset that the preset delta then filters" — the
  * capability merge widens, the preset delta narrows, and they compose in that order.
- *
- * Also returns the selection names that matched no module (INFRA-032), computed against the same superset,
- * so the shell can surface a non-fatal notice per unknown instead of dropping it silently.
  */
 export function selectProductCommandModules(
   product: IAssembledProduct,
   fixedCommandModules: readonly ICommandModule[],
   preset: Pick<IResolvedPresetOptions, 'enabledCommandModules' | 'disabledCommandModules'>,
-): {
-  commandModules: readonly ICommandModule[];
-  unknownModuleNames: readonly IUnknownCommandModuleName[];
-} {
-  const { enabledCommandModules, disabledCommandModules } = preset;
-  return {
-    commandModules: [
-      ...selectCommandModules(
-        product.commandModules,
-        enabledCommandModules,
-        disabledCommandModules,
-      ),
-      ...fixedCommandModules,
-    ],
-    unknownModuleNames: findUnknownModuleNames(
-      product.commandModules.map((module) => module.name),
-      enabledCommandModules,
-      disabledCommandModules,
+): readonly ICommandModule[] {
+  return [
+    ...selectCommandModules(
+      product.commandModules,
+      preset.enabledCommandModules,
+      preset.disabledCommandModules,
     ),
-  };
+    ...fixedCommandModules,
+  ];
 }

@@ -1044,6 +1044,43 @@ failed first, and an end-to-end proof planted all five evasions in the real `age
 exited 1 with 5 findings → reverted → clean pass. Reading an identity as DATA stays legal; branching on it
 does not.
 
+**Conformance-review outcome (independent review of PR #1386): GO-WITH-CHANGES — applied on the same
+branch.** The collapse, both owner decisions, the equivalence provenance, and the mutation proof all
+verified. Four fixes were required and are in:
+
+- **F4 (gate hole — the important one).** The equivalence test RE-IMPLEMENTED
+  `selectCommandModules(...) + fixedCommandModules` inline instead of calling the shipped
+  `selectProductCommandModules`, so the production path was uncovered. The reviewer proved it: deleting
+  `...fixedCommandModules` from the helper — which drops `/workflows` and every caller-injected module from
+  the real CLI — left all 247 agent-cli tests GREEN. The test now calls the shipped helpers, and the same
+  mutation FAILS it (2 assertions). Lesson: an equivalence gate that re-derives the shipped logic tests the
+  test, not the product.
+- **F5** — the INFRA-032 notice restored to its original position (above).
+- **F3** — the false "nothing observable is ordered by that list" claim corrected (above).
+- **F6** — `agent-framework/docs/SPEC.md` (the package's own SSOT) now documents `agentDefinitions`, its
+  precedence, and the within-tier dedupe, and explicitly reconciles it with the adjacent NEUT-003
+  `builtInAgents` seam: NEUT-003 **REPLACES** the built-in set, ARCH-005 **PREPENDS INTO** it. That
+  ambiguity is now written down rather than left to be inferred.
+
+**DISCLOSURE — `robota` consumes the kernel's MATERIALS but not its RUNTIME SEAM (F1/F2).** Two In-kernel
+rows of the boundary table are therefore **unmet for the dogfooding product itself**, even though the kernel
+implements both:
+
+- **Runtime-build delegation.** `cli.ts` does not call `product.buildRuntime` / `product.buildRuntimeOptions`.
+  It passes the assembled materials (provider, command modules, `agentDefinitions`) into `renderApp` /
+  `runPrintMode` / `runServeMode`, each of which constructs its session through its own channel. Those
+  channels do reach `buildRuntimeSession`, so there is no competing runtime-construction SSOT — but the
+  kernel's overlay is exercised by tests and external Mode-A consumers, not by `robota`.
+- **Preset-resolve glue.** `cli.ts` does not call `product.resolvePreset`. It still resolves through
+  `agent-preset`'s module-global `resolvePreset` (via `resolveCliPreset`), because the resolved preset is
+  needed BEFORE the base command modules are built (its module-selection delta feeds them) and because the
+  in-session `/preset` command reads that same module-global registry — moving the shell to the instance
+  registry alone would split that SSOT.
+
+Neither is a defect in the kernel and neither affects the equivalence bar; both are real gaps between "the
+kernel offers the seam" and "robota eats it". Closure is tracked by the follow-up backlog items filed from
+the review (B1/B2), not resolved here.
+
 **Deviations / follow-ups for S3:**
 
 - **The pack's TOOL axis is declared but not additive for `robota`.** `agent-framework`'s `createSession`
@@ -1053,16 +1090,23 @@ does not.
   from the framework default. Making the framework's default tool set injectable/suppressible is a neutrality
   change deliberately NOT taken here (out of the scoped-additive budget) — it is the S3 item that would make
   the tool axis as load-bearing as the command/subagent axes.
-- **Command-module ORDER shifts** (the coding modules are appended after the base rather than sitting
-  mid-list). The equivalence bar is the SET, as the spec states; nothing observable is ordered by that list,
-  and both full suites are green.
-- **The INFRA-032 unknown-preset-module notice moved later in the startup sequence.** It now needs the
-  merged base ⊕ pack superset, which exists only after `assembleProduct` — i.e. after `ensureConfig`
-  resolves provider settings. Two consequences, both narrow and flagged rather than papered over: (a) it no
-  longer fires on the `init` / `--configure` / provider-config early-return paths, where the module set is
-  built but never used (arguably more correct); (b) on a normal run it prints AFTER the "Using <provider>
-  via <ENV_VAR>" notice instead of before, for a user who triggers both at once. Computing it earlier would
-  mean a second place that knows the merge — rejected as the worse trade.
+- **Command-module ORDER shifts, and it IS user-visible — an ACCEPTED delta.** The coding modules are
+  appended after the base rather than sitting mid-list. An earlier revision of this entry claimed "nothing
+  observable is ordered by that list"; **that was wrong.** `CommandRegistry.getCommands()` concatenates per
+  source with no sort, and `SystemCommandExecutor.listCommands()` returns Map values in insertion order, so
+  `/shell` and `/editor` move to the END of `/help` output and of the slash-command autocomplete popup.
+  Content identical, position changed. Accepted rather than fixed: restoring the old position would mean
+  teaching the neutral merger about one product's preferred ordering — precisely what the
+  composition-neutrality guards exist to forbid.
+- ~~**The INFRA-032 unknown-preset-module notice moved later in the startup sequence.**~~ **FIXED after
+  review — the recorded rationale did not hold.** The claim was that the notice needs the merged superset,
+  which exists only after `assembleProduct`. But `findUnknownModuleNames` takes only NAMES
+  (`command-module-selection.ts`), and the shell already holds both halves without any merge knowledge. The
+  notice is restored at its ORIGINAL position (immediately after `buildCommandSetup`, before the
+  `init`/`--configure`/provider-config early-returns) using `mergedCommandModuleNames(baseCommandModules,
+ROBOTA_PACK_COMMAND_MODULE_NAMES)`. Byte-identity on the early-return paths AND the normal-run ordering
+  are both restored. The name-superset shortcut is only valid while it equals the real merged product's
+  names, so the equivalence test asserts that identity directly — the two cannot drift apart.
 - `packages/agent-transport` and `packages/agent-transport-tui` each took a 2-line optional pass-through so
   the Decision-2 seam reaches robota's real surfaces; two files that the threading pushed past the file-size
   ratchet were SPLIT (not extended) per the ratchet's own remedy.

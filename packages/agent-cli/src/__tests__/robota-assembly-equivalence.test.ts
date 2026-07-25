@@ -10,22 +10,31 @@
  * The bar is the SET of assembled materials, as the spec states ("same provider, same command-module set,
  * same preset resolution, same transport registry"). Module ORDER shifts by design: the coding modules
  * (`/shell`, `/editor`) now arrive from `pack-coding` and so are appended after the base instead of sitting
- * mid-list. Nothing observable is ordered by that list — `/help` renders its own command, and the registry
- * is keyed by command name.
+ * mid-list.
+ *
+ * That order IS user-visible, and the delta is ACCEPTED, not absent: `CommandRegistry.getCommands()`
+ * concatenates per source with no sort, and `SystemCommandExecutor.listCommands()` returns Map values in
+ * insertion order — so `/shell` and `/editor` move to the END of `/help` output and of the slash-command
+ * autocomplete popup. Content identical, position changed. Restoring the old position would mean teaching
+ * the neutral merger about one product's preferred ordering, which is exactly what the composition-
+ * neutrality guards forbid — so the ordering delta is recorded in the ARCH-005 evidence log instead.
  */
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import {
-  BUILT_IN_AGENTS,
-  createDefaultTools,
-  findUnknownModuleNames,
-  selectCommandModules,
-} from '@robota-sdk/agent-framework';
+import { BUILT_IN_AGENTS, createDefaultTools } from '@robota-sdk/agent-framework';
 import { DEFAULT_AGENT_NAME, resolvePreset } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { describe, expect, it } from 'vitest';
 
-import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from '../product/robota-profile.js';
+import {
+  findUnknownPresetModuleNames,
+  mergedCommandModuleNames,
+  selectProductCommandModules,
+} from '../product/robota-plumbing.js';
+import {
+  createRobotaProfile,
+  ROBOTA_PACK_COMMAND_MODULE_NAMES,
+} from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -113,6 +122,7 @@ function assembleRobota(
 ): {
   commandModules: readonly ICommandModule[];
   unknownModuleNames: readonly { name: string; kind: string }[];
+  moduleNameSuperset: readonly string[];
   product: ReturnType<typeof assembleProduct>;
 } {
   const { providerDefinitions, baseCommandModules, fixedCommandModules } = buildCommandSetup(
@@ -140,20 +150,18 @@ function assembleRobota(
     }),
   );
 
+  // Call the SHIPPED helpers, never a re-implementation of them. An inline copy of
+  // `selectCommandModules(...) + fixedCommandModules` here left the production path uncovered: deleting
+  // `...fixedCommandModules` from `selectProductCommandModules` — which drops `/workflows` and every
+  // caller-injected module from the real CLI — kept the whole agent-cli suite green.
+  const moduleNameSuperset = mergedCommandModuleNames(
+    baseCommandModules,
+    ROBOTA_PACK_COMMAND_MODULE_NAMES,
+  );
   return {
-    commandModules: [
-      ...selectCommandModules(
-        product.commandModules,
-        presetDelta.enabledCommandModules,
-        presetDelta.disabledCommandModules,
-      ),
-      ...fixedCommandModules,
-    ],
-    unknownModuleNames: findUnknownModuleNames(
-      product.commandModules.map((m) => m.name),
-      presetDelta.enabledCommandModules,
-      presetDelta.disabledCommandModules,
-    ),
+    commandModules: selectProductCommandModules(product, fixedCommandModules, presetDelta),
+    unknownModuleNames: findUnknownPresetModuleNames(moduleNameSuperset, presetDelta),
+    moduleNameSuperset,
     product,
   };
 }
@@ -165,6 +173,15 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     expect([...commandModules.map((m) => m.name)].sort()).toEqual(
       [...BASELINE_COMMAND_MODULE_NAMES].sort(),
     );
+  });
+
+  it('derives the same module-NAME superset the kernel actually merges (no drift)', () => {
+    // The shell reports INFRA-032 unknown names from `mergedCommandModuleNames` BEFORE assembling (so the
+    // notice survives the init/--configure early-returns). That shortcut is only valid while the derived
+    // names equal the real merged product's names — asserted here so the two cannot drift apart.
+    const { moduleNameSuperset, product } = assembleRobota();
+
+    expect(moduleNameSuperset).toEqual(product.commandModules.map((m) => m.name));
   });
 
   it('composes NO capability rejection — the pack and the base do not collide', () => {
@@ -230,7 +247,12 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
   });
 
   it('constructs the provider in-kernel from resolved settings (owner Decision 1)', () => {
-    const { providerDefinitions } = buildCommandSetup('/tmp/equivalence', MINIMAL_ARGS, {}, '0.0.0-test');
+    const { providerDefinitions } = buildCommandSetup(
+      '/tmp/equivalence',
+      MINIMAL_ARGS,
+      {},
+      '0.0.0-test',
+    );
     const product = assembleProduct(
       createRobotaProfile({
         version: '0.0.0-test',
@@ -260,7 +282,10 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     expect(BUILT_IN_AGENTS.map((a) => a.name)).toEqual(BASELINE_SUBAGENT_NAMES);
 
     const options = product.buildRuntimeOptions({
-      session: { cwd: '/tmp/equivalence', provider: createScriptedProvider([{ text: 'ok' }]).provider },
+      session: {
+        cwd: '/tmp/equivalence',
+        provider: createScriptedProvider([{ text: 'ok' }]).provider,
+      },
     });
     expect(
       (options as { agentDefinitions?: readonly { name: string }[] }).agentDefinitions?.map(

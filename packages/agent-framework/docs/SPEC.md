@@ -2378,6 +2378,38 @@ tool's `subagent_type` schema description is derived from the session's actual a
 prompts are mechanism-only: they must not embed house code-style doctrine (conventions come from
 the project's instruction files).
 
+**Session-level `agentDefinitions` injection (ARCH-005).** Distinct from the NEUT-003 seam above,
+and the difference is the whole point: NEUT-003's `builtInAgents` **REPLACES** the default set,
+whereas `agentDefinitions` **PREPENDS INTO** it. The option is available on
+`IInteractiveSessionStandardOptions` / `IInitOptions` / `ICreateSessionOptions` and carries subagent
+definitions contributed by the composition root — e.g. the capability packs `assembleProduct`
+(`@robota-sdk/agent-product`) merged. `buildAgentRuntime` composes them as
+`[...options.agentDefinitions, ...BUILT_IN_AGENTS]` and hands that array to the loader's
+`builtInAgents` parameter, so a pack's subagents actually reach the runtime instead of being inert
+material the shell must re-wire.
+
+| Seam                          | Semantics                       | Set with no built-ins                         |
+| ----------------------------- | ------------------------------- | --------------------------------------------- |
+| `builtInAgents` (NEUT-003)    | REPLACES the default set        | pass `[]`                                     |
+| `agentDefinitions` (ARCH-005) | PREPENDS into the built-in tier | not expressible — use `builtInAgents` instead |
+
+Full precedence, highest → lowest:
+
+1. **Discovered** definitions from the scan directories (project before user — see
+   `AgentDefinitionLoader` below).
+2. **Injected** `agentDefinitions`, in the order the composition root supplied them.
+3. **`BUILT_IN_AGENTS`** (or the NEUT-003 replacement set).
+
+So a pack MAY override a framework built-in of the same name, and a consumer's own on-disk
+definition still overrides the pack — the "the consumer decides" rule, applied to subagents. Absent
+`agentDefinitions`, every path is byte-identical to before ARCH-005: the loader receives exactly
+`BUILT_IN_AGENTS`.
+
+Because the two seams meet in one array, `AgentDefinitionLoader` deduplicates WITHIN the built-in
+tier: the FIRST entry for a name wins and later duplicates are dropped, so a pack definition that
+shadows a built-in yields one roster entry, never two. (For a tier with no duplicate names — the
+historic `BUILT_IN_AGENTS` alone — the dedupe is a no-op.)
+
 ### Model-Requested Agent Invocation
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command`. The command module
@@ -2396,7 +2428,7 @@ When `isolation: 'worktree'` is requested, a runtime shell that supports worktre
 
 ### AgentDefinitionLoader (Internal)
 
-`AgentDefinitionLoader` is an internal class — it is not exported from `src/index.ts`. It scans directories for custom `.md` agent definitions with YAML frontmatter, merged with built-in agents. Custom agents override built-in agents on name collision.
+`AgentDefinitionLoader` is an internal class — it is not exported from `src/index.ts`. It scans directories for custom `.md` agent definitions with YAML frontmatter, merged with the built-in tier (`BUILT_IN_AGENTS`, a NEUT-003 replacement set, or an ARCH-005 `agentDefinitions`-prepended tier). Discovered agents override the built-in tier on name collision, and within the tier the first entry for a name wins.
 
 **Scan directories (highest priority first):**
 

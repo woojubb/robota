@@ -31,7 +31,9 @@ import {
 } from './product/robota-profile.js';
 import {
   createDefaultTransportRegistry,
+  findUnknownPresetModuleNames,
   loadReplayProvider,
+  mergedCommandModuleNames,
   selectProductCommandModules,
 } from './product/robota-plumbing.js';
 import {
@@ -213,6 +215,20 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
 
+  // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
+  // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
+  // drop, never an abort — mirroring the external-preset skip reporting above. Computed from the
+  // base ⊕ pack NAME superset (no assembly needed), so it still fires before the init/--configure
+  // early-returns exactly as it did before ARCH-005 S2.
+  for (const { name, kind } of findUnknownPresetModuleNames(
+    mergedCommandModuleNames(baseCommandModules, ROBOTA_PACK_COMMAND_MODULE_NAMES),
+    resolvedPreset,
+  )) {
+    terminal.writeError(
+      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
+    );
+  }
+
   if (args.positional[0] === 'init') {
     try {
       await runInitCommand(cwd, terminal, {
@@ -302,19 +318,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
 
   // The preset's module-selection delta filters the base ⊕ pack superset the kernel merged; the fixed
   // modules are appended outside the delta, as before.
-  const { commandModules, unknownModuleNames } = selectProductCommandModules(
-    product,
-    fixedCommandModules,
-    resolvedPreset,
-  );
-  // INFRA-032: a preset command-module name that matched no module (a short form like "editor" instead of
-  // agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent drop, never an
-  // abort — mirroring the external-preset skip reporting above.
-  for (const { name, kind } of unknownModuleNames) {
-    terminal.writeError(
-      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
-    );
-  }
+  const commandModules = selectProductCommandModules(product, fixedCommandModules, resolvedPreset);
   // ARCH-005 (owner Decision 2): the packs' subagents reach the runtime through the framework's
   // `agentDefinitions` seam, so removing a pack genuinely removes its subagents from the product.
   const agentDefinitions = product.subagents;
