@@ -149,6 +149,76 @@ The grep floor added here (`dag-cli/src/utils/__tests__/no-insecure-temp-path.te
 SEC-003 stays **open**: `js/polynomial-redos` (18), the style classes, and the
 advisory→required promotion decision are untouched.
 
+## Slice 2 — finish `js/insecure-temporary-file` (2026-07-25)
+
+Slice 1's analysis was used as-is; nothing was re-derived. Scope: the remaining **88** alerts in
+`agent-framework` (76) and `agent-cli` (12).
+
+### Converted in this slice (88 alerts owned)
+
+Mechanical by pattern, exactly as slice 1 prescribed — **no shared helper, no new dependency**:
+`join(tmpdir(), <fixed name>)` → `mkdtempSync(join(tmpdir(), 'prefix-'))`, using Node's own
+`mkdtempSync` already available from `node:fs` in each file.
+
+| Package           | Alerts | Sites converted | Files |
+| ----------------- | ------ | --------------- | ----- |
+| `agent-framework` | 76     | 29              | 27    |
+| `agent-cli`       | 12     | 6               | 6     |
+
+The sweep converted **every** `join(tmpdir(), …)` site in both packages, not only the lines CodeQL
+had completed a flow for. The unflagged ones are the same defect with a flow the scanner did not
+finish; leaving them would also have left the grep floor unenforceable.
+
+All four flagged **production** lines (`update-check.ts:92`, `memory/project-memory-store.ts:182`,
+`config/settings-io.ts:44`, `adapters/node-file-system.ts:38`) are class B exactly as slice 1
+predicted — each takes a **caller-supplied** path and none constructs a path under `os.tmpdir()`.
+Three were left alone deliberately: `node-file-system.ts` is the generic `IFileSystem` adapter the
+agent's Write tool uses for ordinary project files (forcing `0600` there would be wrong),
+`project-memory-store.ts` writes repo-tracked memory markdown meant to be shared, and
+`update-check.ts` caches a version string. Adding a mode to those would be scanner appeasement.
+
+### Real hardening found by the sweep — plaintext API key in settings
+
+Running the converted `agent-cli` suite surfaced this on stderr:
+
+> `API key stored as plain text in settings. Use --api-key-env for better security.`
+
+`command-api/provider/provider-settings.ts` does persist `provider.apiKey` verbatim when a profile
+is configured without `--api-key-env`, and `writeSettings` (`config/settings-io.ts:44`) wrote that
+file with no `mode` — measured `0o664` on this host, i.e. **a credential readable by every user on
+the machine**. This is the same class of real exposure slice 1 fixed for session/prompt content, so
+it was hardened rather than dismissed: settings files are now created `0o600`, proven by a
+red-first test (`expect(statSync(path).mode & 0o777).toBe(0o600)` — failed at `436` = `0o664`
+before the fix). `mode` applies at creation only, so a pre-existing settings file keeps its mode;
+that residual is recorded in the changeset.
+
+### Grep floor
+
+Slice 1's `dag-cli` floor was mirrored into both packages —
+`packages/agent-framework/src/__tests__/no-insecure-temp-path.test.ts` and
+`packages/agent-cli/src/__tests__/no-insecure-temp-path.test.ts`. Proven red before the sweep
+(28 offenders in `agent-framework`, 6 in `agent-cli`) and green after. The repo-wide promotion
+under `scripts/harness/` recorded in slice 1's follow-up is still open — three package-local floors
+now exist and should collapse into one scan.
+
+### Adjacent alerts
+
+None surfaced. The diff-scoped CodeQL PR gate hazard slice 1 warned about did not materialise here:
+no other open alert sits on a line this slice touched, so nothing was dismissed.
+
+### Class state
+
+`js/insecure-temporary-file` is **closed**: 21 (slice 1) + 88 (slice 2) = **109 of 109** alerts
+fixed at the source. **Zero dismissals across both slices.** One caveat to verify once CodeQL
+re-analyzes `develop`: `agent-command/src/memory/__tests__/memory-command-module.test.ts:12` still
+uses the old pattern and imports `@robota-sdk/agent-framework`. It carries no alert of its own
+today, which indicates CodeQL is not tracking taint across the package boundary — but if any
+`agent-framework` production alert survives, that line is the cause. It is outside slice 2's
+ownership and is a one-line conversion.
+
+SEC-003 remains **open** for `js/polynomial-redos` (18, sibling-owned), the style classes, the
+`js/file-system-race` class (16) slice 1 catalogued, and the advisory→required decision.
+
 ## Test Plan
 
 Per fixed class: a red-first regression test where feasible (e.g. the temp-path helper's test proves
