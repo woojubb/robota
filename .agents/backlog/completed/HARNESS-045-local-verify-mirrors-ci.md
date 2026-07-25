@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-045: a single local verification entry that reproduces the CI scans/quality gate exactly'
-status: todo
+status: done
 created: 2026-07-25
+completed: 2026-07-25
 priority: high
 urgency: soon
 area: scripts/harness, package.json, .agents/skills, .agents/rules
@@ -60,7 +61,7 @@ Then wire a reference to this single entry into:
   command, not bare `run-all-scans`); and
 - the `git-branch.md` pre-merge guidance (the pre-push / pre-merge check is the CI-equivalent entry).
 
-## Why this is deferred (concrete obstacle, per lesson-to-harness step 8 "infeasible-now")
+## Why this was deferred (resolved — ARCH-005 S1 landed as #1376, unblocking the work)
 
 The mechanism lives in `scripts/harness/**`, which is currently **contended by another active agent**
 (ARCH-005 S1 is editing `scripts/harness`). Building the new entry now would conflict. Coordinate:
@@ -88,6 +89,64 @@ is the sanctioned "infeasible-now + tracked backlog" terminal state.
 
 - Not applicable (harness / CI-parity check; governance-only change with no runnable user-facing
   behavior). Evidence: the fixture red/green pairs above, run by the agent.
+
+## Outcome (done 2026-07-25)
+
+**Built:** `pnpm harness:verify-like-ci` → `scripts/harness/verify-like-ci.mjs` (+ 23-case unit suite in
+`scripts/harness/__tests__/verify-like-ci.test.mjs`). Four stages, each **derived from the real
+definition** (`.github/workflows/ci.yml`, `.lintstagedrc.json`) and printed with the definition it
+mirrors, so a failure names its own fix target:
+
+| Stage               | Mirrors                                                                              | What a bare `run-all-scans` misses                                            |
+| ------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `harness-self-test` | ci.yml → `scans` → "Harness scan test suite" (`pnpm harness:test`)                   | baseline TIGHTNESS (`notices == []`) — a below-baseline count is a local pass |
+| `format-check`      | `.lintstagedrc.json` globs via `.husky/pre-commit` (prettier)                        | a `--no-verify` push from a fresh worktree never runs the SSOT formatter      |
+| `scan-suite`        | ci.yml → `scans` "Harness scan suite" + `quality` "Build-output contracts" (w/ dist) | the dist-dependent scans silently no-op on an unbuilt tree                    |
+| `typecheck`         | ci.yml → `quality` → `harness:verify` (typecheck step)                               | the scan suite never typechecks                                               |
+
+No stage is skipped after an earlier failure (a new failure must never hide behind a known one). The
+formatter file set is **derived** from `.lintstagedrc.json`, not hardcoded; the dist check enumerates
+packages declaring `build:js` and **fails with `run pnpm build`** rather than passing silently.
+
+### Red/green evidence (agent-run)
+
+**Mode (a) — below-baseline spec-surface improvement.** Documented `AbstractNodeDefinition` in
+`packages/dag-node/docs/SPEC.md` (count 1 → 0, below its frozen baseline of 1), baseline NOT regenerated:
+
+- RED: `node scripts/harness/run-all-scans.mjs` → **exit 0, "all 61 scans passed"**.
+  `pnpm harness:verify-like-ci -- --only harness-self-test` → **exit 1**,
+  `check-spec-public-surface.test.mjs > passes on the live repository … and needs no tightening`
+  `AssertionError: expected [ Array(1) ] to deeply equal []` —
+  `"@robota-sdk/dag-node is below its frozen undocumented-export baseline — tighten the ratchet"`.
+- GREEN: after the correct fix (`node scripts/harness/check-spec-public-surface.mjs --write-baseline`)
+  → `703 passed`, `✓ harness-self-test / PASS`. Fixture reverted (dag-node is out of this PR's scope).
+
+**Mode (b) — prettier formatter drift on a spec-doc `tags:` array.** Lengthened
+`.agents/spec-docs/done/HARNESS-003-simple-harness-scans.md`'s `tags:` flow array past `printWidth: 100`:
+
+- RED: `run-all-scans` → **exit 0, "all 61 scans passed"** (the unformatted single-line form parses
+  fine). `pnpm harness:verify-like-ci -- --only format-check` → **exit 1**,
+  `[warn] .agents/spec-docs/done/HARNESS-003-simple-harness-scans.md … Run Prettier with --write to fix.`
+  (it also caught this PR's own unformatted test file — dogfooded).
+- GREEN: after `pnpm exec prettier --write …` → `All matched files use Prettier code style!`,
+  `✓ format-check / PASS`.
+- **Honest note on the literal #1369 state.** Once prettier rewrites the array to its wrapped
+  block form (`tags:\n  [\n    harness,\n    …\n  ]`), `check-spec-doc-frontmatter` reports
+  `tags missing or empty` → **exit 1**. So the multi-line state is NOT a local false-pass today;
+  `run-all-scans` catches it. The reproducible blind spot is the state a fresh worktree actually
+  pushes — the **un**formatted file, green in `run-all-scans` and red in `verify-like-ci`. The
+  parser half of the chain is HARNESS-044 (sibling-owned), and `verify-like-ci` surfaces the whole
+  chain locally instead of in CI.
+
+**Unbuilt-`dist` stage.** Temporarily removing `packages/dag-node/dist` →
+`✗ scan-suite — dist missing for 1 package(s) — run \`pnpm build\``with the actionable block message
+(instead of`build-contracts` no-op'ing into a green).
+
+### Wired in
+
+- `.agents/skills/worktree-parallel-orchestration/SKILL.md` § 4 — the implementer's foreground
+  self-verification is now `pnpm harness:verify-like-ci` on a built tree, not bare `run-all-scans`.
+- `.agents/rules/git-branch.md` — one-line pre-push/pre-merge pointer (no rule text duplicated).
 
 ## Related
 

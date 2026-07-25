@@ -47,6 +47,10 @@ git status --short
 belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
 with uncommitted modifications or staged changes is blocked with exit code 1.
 
+**Before pushing or merging, run `pnpm harness:verify-like-ci` on a built tree** — the single entry that
+reproduces what CI's `scans`/`quality` jobs assert (`scripts/harness/verify-like-ci.mjs`); a bare
+`run-all-scans` is not that gate (HARNESS-045).
+
 **Why:** selective commits leave invisible half-states — code pushed while dependent files (SPEC.md, README, tests, backlog) are not.
 
 ### Git Operations
