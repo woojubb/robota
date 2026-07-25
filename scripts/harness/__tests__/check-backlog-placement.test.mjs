@@ -64,3 +64,32 @@ describe('findDuplicateIdFindings', () => {
     expect(await findDuplicateIdFindings(dir)).toEqual([]);
   });
 });
+
+describe('findDuplicateIdFindings — same-ID collisions within the root', () => {
+  async function rootOnly(names) {
+    const dir = await mkdtemp(path.join(tmpdir(), 'backlog-root-dup-'));
+    await mkdir(path.join(dir, '.agents/backlog/completed'), { recursive: true });
+    for (const name of names) {
+      await writeFile(path.join(dir, '.agents/backlog', name), '---\nstatus: todo\n---\n');
+    }
+    return dir;
+  }
+
+  it('flags one ID claimed by two different slugs (concurrent authors)', async () => {
+    const dir = await rootOnly([
+      'ARCH-006-framework-tool-axis-neutrality.md',
+      'ARCH-006-route-robota-through-kernel-runtime-seam.md',
+    ]);
+    const findings = await findDuplicateIdFindings(dir);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].problem).toContain('one number, one item');
+  });
+
+  it('does NOT flag a phase follow-up beside its non-phase sibling', async () => {
+    const dir = await rootOnly([
+      'SELFHOST-011-P3-P4-evals-followups.md',
+      'SELFHOST-011-evals-as-code.md',
+    ]);
+    expect(await findDuplicateIdFindings(dir)).toEqual([]);
+  });
+});

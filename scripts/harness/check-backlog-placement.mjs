@@ -117,9 +117,24 @@ export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
     if (id !== null) completedById.set(id, name);
   }
 
+  // Within the root, the same ID under two different slugs is always a collision — two authors
+  // claimed one number (observed 2026-07-25: concurrent PRs both filed ARCH-006/ARCH-007 from the
+  // same audit under different slugs). Phase suffixes are part of the ID, so a legitimate
+  // `SELFHOST-008-P5-…` never collides with `SELFHOST-008-…`.
+  const rootById = new Map();
   for (const name of await listMarkdown(path.join(root, BACKLOG_DIR))) {
     const id = idOf(name);
     if (id === null) continue;
+
+    const twin = rootById.get(id);
+    if (twin === undefined) rootById.set(id, name);
+    else {
+      findings.push({
+        file: path.join(BACKLOG_DIR, name),
+        problem: `duplicate backlog ID ${id} — also filed as ${path.join(BACKLOG_DIR, twin)}; one number, one item`,
+      });
+    }
+
     const archived = completedById.get(id);
     if (archived === undefined) continue;
     findings.push({
