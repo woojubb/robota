@@ -10,7 +10,7 @@ packages/
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
-├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider)
+├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider-defaults)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
 ├── agent-cli/                   # Terminal UI and local runtime adapters
