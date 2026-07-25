@@ -145,13 +145,15 @@ export function convertMermaid(input: string): IBuildSpec {
    * Returns null if the line contains no arrow.
    */
   function splitByArrows(line: string): string[] | null {
-    // Match --> or -->|...|
-    const ARROW_RE = /\s*-->[|][^|]*[|]\s*|\s*-->\s*/g;
+    // Match --> or -->|...|. The surrounding `\s*` the earlier form carried was redundant (each
+    // part is trimmed below) and made every failing start position cost O(n), so a whitespace-only
+    // line was rejected in O(n^2). Anchoring each attempt on the literal `-->` makes it linear.
+    const ARROW_RE = /-->(?:\|[^|]*\|)?/g;
     const hasArrow = ARROW_RE.test(line);
     if (!hasArrow) return null;
 
     // Split by arrows (with optional pipe labels)
-    const parts = line.split(/\s*-->[|][^|]*[|]\s*|\s*-->\s*/);
+    const parts = line.split(/-->(?:\|[^|]*\|)?/g);
     return parts.map((p) => p.trim()).filter((p) => p.length > 0);
   }
 

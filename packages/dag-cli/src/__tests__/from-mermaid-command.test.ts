@@ -262,4 +262,34 @@ describe('fromMermaidCommand', () => {
     expect(code).toBe(0);
     expect(getOutput(opts)).toContain('Run completed');
   });
+
+  /**
+   * SEC-003, same class as `js/polynomial-redos` but not reported by CodeQL (no library-input
+   * flow was proven into this file). The markdown comes from a caller-supplied path, and the
+   * block-extraction regex began with a whitespace run that overlapped the lazy body capture,
+   * so an unterminated ```mermaid fence was rejected in O(n^2) — 3.4s for the input below,
+   * versus ~1ms after the fix.
+   */
+  it('rejects an unterminated mermaid fence in linear time', async () => {
+    const hostile = '```mermaid' + ' \n'.repeat(100_000) + 'x';
+    const opts = createOptions({
+      io: { ...createOptions().io, readTextFile: async () => hostile },
+    });
+
+    const started = performance.now();
+    const code = await fromMermaidCommand(['diagram.md'], opts);
+    const took = performance.now() - started;
+
+    expect(code).toBe(1);
+    expect(took).toBeLessThan(250);
+  });
+
+  it('still extracts a well-formed mermaid block from markdown', async () => {
+    const markdown = `# Title\n\n\`\`\`mermaid\n${SIMPLE_MERMAID}\n\`\`\`\n`;
+    const opts = createOptions({
+      io: { ...createOptions().io, readTextFile: async () => markdown },
+    });
+
+    expect(await fromMermaidCommand(['diagram.md'], opts)).toBe(0);
+  });
 });
