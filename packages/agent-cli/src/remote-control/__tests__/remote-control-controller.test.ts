@@ -1,3 +1,4 @@
+import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteControlController } from '../remote-control-controller.js';
@@ -14,6 +15,23 @@ import type {
  * REMOTE-008 Step 4 — the composition-root remote-control controller. Driven with injected construction
  * seams (no real relay / werift / QR), so the enable/stop/status + fail-closed logic is unit-tested.
  */
+
+/** The client base URL `makeDeps` injects; the pairing link must be on exactly this origin. */
+const CLIENT_ORIGIN = 'https://remote.example';
+
+/**
+ * The pairing link the controller emitted: `renderPairingMessage` puts it on the message's last line.
+ *
+ * SEC-004 shape-match (the `js/regex/missing-regexp-anchor` family, unflagged here): the assertions
+ * used to be `expect(msg).toMatch(/https:\/\/remote\.example\//)` — an unanchored substring probe over
+ * the whole message, which a link like `https://phish.test/?next=https://remote.example/` satisfies
+ * just as well as the real one. Extracting the link and parsing it makes the check exact: the origin
+ * is compared, not merely found somewhere in the prose.
+ */
+function pairingLinkOf(message: string): URL {
+  const lastLine = message.split('\n').at(-1) ?? '';
+  return new URL(lastLine);
+}
 
 function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   deps: IRemoteControlControllerDeps;
@@ -90,7 +108,13 @@ describe('RemoteControlController (REMOTE-008)', () => {
     expect(transport.start).toHaveBeenCalledTimes(1);
     // The pairing link is a real URL with the secret + rendezvous in the FRAGMENT (never on the server).
     expect(msg).toContain('[QR]');
-    expect(msg).toMatch(/https:\/\/remote\.example\/#.*r=.*s=/);
+    const link = pairingLinkOf(msg);
+    expect(link.origin).toBe(CLIENT_ORIGIN);
+    expect(link.pathname).toBe('/');
+    expect(link.search).toBe(''); // the secret must never reach the server as a query param
+    const pairing = parsePairingUrl(link.toString());
+    expect(pairing.rendezvous).not.toBe('');
+    expect(pairing.secret).not.toBe('');
     const status = controller.getStatus();
     expect(status.state).toBe('awaiting-pairing');
   });
@@ -215,6 +239,6 @@ describe('RemoteControlController (REMOTE-008)', () => {
     const { deps } = makeDeps({ renderQr: () => Promise.reject(new Error('no qr')) });
     const msg = await new RemoteControlController(deps).enable();
     expect(msg).not.toContain('[QR]');
-    expect(msg).toMatch(/https:\/\/remote\.example\//);
+    expect(pairingLinkOf(msg).origin).toBe(CLIENT_ORIGIN);
   });
 });

@@ -11,6 +11,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
+/**
+ * The default adapter's vendor host. Every vendor URL — endpoint, signup page, docs, any subdomain,
+ * any scheme — contains it, so one substring probe covers the whole family the neutrality rule bans.
+ */
+const VENDOR_HOST = 'brave.com';
+
 async function callTool(tool: FunctionTool, query: string): Promise<IToolInvocationResult> {
   const result = await tool.execute({ query } as Parameters<typeof tool.execute>[0]);
   const raw =
@@ -68,12 +74,16 @@ describe('web-search provider port (NEUT-008)', () => {
     // The default adapter module may hold the endpoint; the TOOL layer must not carry any
     // vendor URL literal (NEUT-008). Importing the default adapter by name is the sanctioned
     // "default provider wired via factory option" seam.
+    //
+    // SEC-004 (`js/regex/missing-regexp-anchor`): these were unanchored hostname REGEXES spelling
+    // out two exact endpoints. A substring search is what is wanted here — the literal may sit
+    // anywhere in the file — so it is written as a substring search, and the property asserted is
+    // the one the test name claims: no vendor host in ANY spelling, not two hand-picked ones.
     const toolSource = readFileSync(
       fileURLToPath(new URL('../builtins/web-search-tool.ts', import.meta.url)),
       'utf8',
     );
-    expect(toolSource).not.toMatch(/api\.search\.brave\.com/);
-    expect(toolSource).not.toMatch(/brave\.com\/search/);
+    expect(toolSource).not.toContain(VENDOR_HOST);
     expect(toolSource).not.toMatch(/https?:\/\//);
   });
 
@@ -85,6 +95,10 @@ describe('web-search provider port (NEUT-008)', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/BRAVE_API_KEY/);
-    expect(result.error).not.toMatch(/https:\/\/brave\.com/);
+    // SEC-004: was `not.toMatch(/https:\/\/brave\.com/)`, which rejected exactly one spelling —
+    // the vendor's real key-signup URL (`https://api.search.brave.com/app/keys`) sailed through the
+    // check that exists to keep it out. Reject the host in any form, and any URL at all.
+    expect(result.error).not.toContain(VENDOR_HOST);
+    expect(result.error).not.toMatch(/https?:\/\//);
   });
 });
