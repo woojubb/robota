@@ -8,7 +8,7 @@
  * `~/.robota` means control of the host process, which IS the agent. The device pins this host's PUBLIC key
  * at first pair and verifies it on every reconnect (rogue-host defense).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -62,10 +62,22 @@ async function derive(keyPair: CryptoKeyPair): Promise<IHostIdentity> {
 export async function loadOrCreateHostIdentity(
   filePath: string = defaultHostIdentityPath(),
 ): Promise<IHostIdentity> {
-  if (existsSync(filePath)) {
+  // Read first and treat ENOENT as "no identity yet", rather than `existsSync` + read. Two path
+  // lookups can disagree; one read cannot. It also keeps the corrupt-file fail-fast distinct from
+  // the absent-file case, which an existence check conflates with any other read failure.
+  let raw: string | undefined;
+  try {
+    raw = readFileSync(filePath, 'utf8');
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new Error(`remote host identity file is unreadable: ${filePath}`, { cause });
+    }
+  }
+
+  if (raw !== undefined) {
     let parsed: IHostIdentityFile;
     try {
-      parsed = JSON.parse(readFileSync(filePath, 'utf8')) as IHostIdentityFile;
+      parsed = JSON.parse(raw) as IHostIdentityFile;
     } catch (cause) {
       throw new Error(`remote host identity file is corrupt: ${filePath}`, { cause });
     }

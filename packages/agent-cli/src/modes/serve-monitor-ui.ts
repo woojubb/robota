@@ -9,7 +9,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { closeSync, existsSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,22 +100,34 @@ export async function startMonitorUiServer(
     // `readFileSync(<dir>)` throws EISDIR synchronously inside this request callback — an uncaught
     // exception that takes the whole serve host down. SEC-001 treats localhost as hostile, so a
     // co-resident process must not be able to DoS the running agent with `GET /assets` (SEC-006).
-    // Reading the bytes inside the same try/catch also removes the stat-then-read race: whatever the
-    // path becomes between the two syscalls, a failure is a 404, never a crash.
+    //
+    // The path is resolved EXACTLY ONCE, into a file descriptor, and the kind-check and the read both
+    // operate on that descriptor. A path-based `stat` followed by a path-based `read` would be two
+    // independent lookups that can disagree; with an fd there is nothing left to swap between them.
     const isIndex = filePath.endsWith(`${sep}index.html`);
     const contentType = MIME[extname(filePath)] ?? 'application/octet-stream';
     let body: string | Buffer;
+    let fd: number;
     try {
-      if (!statSync(filePath).isFile()) {
+      fd = openSync(filePath, 'r');
+    } catch {
+      // allow-fallback: a missing or unreadable asset is a 404 for this static host — the only
+      // alternative is crashing the agent the monitor is attached to.
+      res.writeHead(404).end('Not found');
+      return;
+    }
+    try {
+      if (!fstatSync(fd).isFile()) {
         res.writeHead(404).end('Not found');
         return;
       }
-      body = isIndex ? injectWsUrl(readFileSync(filePath, 'utf8'), wsUrl) : readFileSync(filePath);
+      body = isIndex ? injectWsUrl(readFileSync(fd, 'utf8'), wsUrl) : readFileSync(fd);
     } catch {
-      // allow-fallback: a missing, unreadable, or concurrently-replaced asset is a 404 for this
-      // static host — the only alternative is crashing the agent the monitor is attached to.
+      // allow-fallback: an unreadable asset is a 404, for the same reason as above.
       res.writeHead(404).end('Not found');
       return;
+    } finally {
+      closeSync(fd);
     }
     res.writeHead(200, { 'content-type': contentType });
     res.end(body);

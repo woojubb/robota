@@ -372,6 +372,46 @@ Delivered in the same PR, each with its own failing-test evidence:
   validation at all and writes partly-remote content to an arbitrary path; it is a larger change than
   this item's scope and is carried to SEC-007.
 
+## The PR's own CodeQL result (11 "new" alerts)
+
+CodeQL's PR check reported **11 new alerts in code changed by this pull request** (6 high, 5 medium).
+Ten of the eleven are the SAME pre-existing alerts re-filed at new line numbers — CodeQL counts a
+moved line as new-in-changed-code, so refactoring a flagged file re-opens its findings:
+
+| Re-filed alert                                                                                      | Was           | Verdict unchanged                                                      |
+| --------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------- |
+| `js/path-injection` ×3 `serve-monitor-ui.ts:109,113`                                                | #27–29        | FP — the traversal guard is still there                                |
+| `js/stack-trace-exposure` `studio/http-io.ts:35`                                                    | #2            | FP — moved by the file split; still no `.stack` anywhere               |
+| `js/file-access-to-http` `local-fs-asset-store.ts:158`                                              | #75           | now guarded by the SSRF check added here                               |
+| `js/indirect-command-line-injection` + `js/shell-command-injection-from-environment` `studio.ts:30` | #56, #9-class | FP — re-filed onto the `spawn` that REPLACED the `exec`                |
+| `js/shell-command-constructed-from-input` `studio.ts:93`                                            | #8            | FP — the URL template still flows to the child, but no shell parses it |
+
+On `studio.ts` specifically: the exploitable property was that `exec` handed a concatenated string to
+a shell. That is gone — `spawn` with an argv vector and no `shell` option. What CodeQL still sees is
+(a) a user-derived value reaching a child process, which is the feature, and (b) a bare command name
+(`open`/`xdg-open`/`cmd`) resolved through `PATH`. Unlike **R8**, that `PATH` is the user's own
+environment and is not caller-supplied, and PATH resolution is the only portable way to invoke a
+platform browser opener — so the premise that made R8 real does not hold here.
+
+**Two were genuinely actionable, and both came from this PR's own fixes:**
+
+- `js/file-system-race` ×2 `serve-monitor-ui.ts:113` — the R1 fix introduced a path-based `statSync`
+  followed by a path-based `readFileSync`. Behaviourally safe (both were inside one try/catch, so a
+  race produced a 404), but they are still two independent path lookups that can disagree. Replaced
+  with a single `openSync` and an `fstatSync`/`readFileSync` on the **file descriptor**: the path is
+  resolved exactly once and there is nothing left to swap between the check and the read.
+- `js/file-system-race` `host-identity.ts:82` — the surviving `existsSync` + `readFileSync` pair in
+  the load branch. Replaced with a direct read that treats `ENOENT` as "no identity yet", which also
+  keeps the corrupt-file fail-fast distinct from the absent-file case that an existence check
+  conflates with every other read failure.
+
+Both are strictly better code, not alert-appeasement, and both keep their suites green (agent-cli
+279/279). This is the "prefer a source change that is obviously correct to both a human and the
+analyser" branch of the triage policy.
+
+The CodeQL PR check is **not** a required status check on `develop` (required: `build`, `quality`,
+`scans`, `security audit`, `commitlint`, `tui-e2e`, `examples-typecheck`, `windows-shell`).
+
 ## Test Plan
 
 - Per-package vitest suites for every package touched, run in the foreground: `agent-cli`,
