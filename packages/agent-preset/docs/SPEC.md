@@ -56,6 +56,7 @@ Types owned by this package (SSOT):
 | `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                |
 | `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`     |
 | `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ registered, rejected }` outcome of `registerExternalPresets`        |
+| `IPresetRegistry`           | `resolve-preset.ts`        | `{ resolvePreset, getPreset, listPresets }` instance-scoped registry (R8) |
 | `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                |
 | `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result       |
 
@@ -78,6 +79,8 @@ indexed access rather than redefining the permission-mode union.
 | `defaultPreset`              | Const     | Built-in neutral baseline preset                                                                                                                 |
 | `autonomousBuilderPreset`    | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification`  |
 | `resolvePreset`              | Function  | `(id, context?) => IResolvedPresetOptions`; throws on unknown id                                                                                 |
+| `createPresetRegistry`       | Function  | `(externalPresets?) => IPresetRegistry`; per-call instance-scoped resolver over `[built-ins, ...externalPresets]` — no module-global mutation (ARCH-005 R8) |
+| `IPresetRegistry`            | Interface | `{ resolvePreset, getPreset, listPresets }` — an instance-scoped preset registry                                                                 |
 | `listPresets`                | Function  | `() => readonly IPresetSummary[]` (built-ins + registered external presets)                                                                      |
 | `getPreset`                  | Function  | `(id) => IPreset \| undefined`                                                                                                                   |
 | `registerExternalPresets`    | Function  | `(presets) => IPresetRegistrationResult`; appends external presets to the module-level registry, rejecting built-in id collisions and duplicates |
@@ -194,9 +197,11 @@ _off_ (`enableParallelSubagents: false`, `selfVerification: false`) at `effort: 
 
 ## Class Contract Registry
 
-This package contains no classes. It exports interfaces, type unions, two constants, and three pure
-functions. The only intra-package inheritance is `IPreset extends IResolvedPresetOptions`. No
-abstract classes or cross-package port implementations are defined here.
+This package contains no classes. It exports interfaces, type unions, two constants, and pure
+functions (the resolver trio `resolvePreset`/`listPresets`/`getPreset`, the external-preset
+register/clear/load helpers, and the instance-scoped `createPresetRegistry` factory). The only
+intra-package inheritance is `IPreset extends IResolvedPresetOptions`. No abstract classes or
+cross-package port implementations are defined here.
 
 ## Dependencies
 

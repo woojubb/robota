@@ -895,3 +895,56 @@ All eight REVISE items were folded into this spec:
 carving out the pure-fold assembler lands **with P0**, coupled to guards (a)/(b)/(c) that make it safe —
 flagged here for owner visibility as a change to a mandatory rule. Status → `approved`; spec moved to
 `todo/`.
+
+### [S1] — ✅ IMPLEMENTED (packages + guards + L129) | 2026-07-25
+
+Owner-directed full-slice staging: **Stage S1** landed the three new published packages, the three R1
+guards, and the coupled L129 amendment — **without editing `cli.ts`** (that wiring is S2). All red-first
+TDD; full `pnpm -w typecheck`, per-package builds, and `run-all-scans` green.
+
+- **`@robota-sdk/agent-capability-pack`** (new) — `ICapabilityPack` typed to the REAL contracts
+  (`ICommandModule`/`IAgentDefinition` from agent-framework, `FunctionTool` from agent-core — no
+  `IToolContribution`, R7b) + pure `mergeCapabilityPacks(baseCommandModules, packs) → { merged, rejected }`
+  (R5: one precedence order base < packs-in-order; colliding id rejected+reported, never overridden). Packs
+  carry executable code objects, not JSON (R6) — stated in the SPEC. 7 red-first tests.
+- **`@robota-sdk/agent-product`** (new) — `assembleProduct(profile)`: pure, IO-free, zero product-name
+  branching. Per-call instance-scoped preset registry (R8), pack merge, and runtime construction that
+  DELEGATES to `buildRuntimeSession` (R2 — proven `instanceof InteractiveSession`, never re-implemented).
+  Deps = agent-framework + agent-preset + agent-capability-pack + type-only agent-interface-transport
+  (`ITransportRegistryView`, R7a) + agent-core contract TYPES. 5 red-first tests.
+- **`@robota-sdk/pack-coding`** (new) — robota's coding capability as one `ICapabilityPack` (built-in tools
+  imported from agent-tools factories + `/shell`+`/editor` command modules + `BUILT_IN_AGENTS` subagents);
+  tool set drift-pinned to `createDefaultTools()`. 5 red-first tests.
+- **`@robota-sdk/agent-preset`** — minimal addition `createPresetRegistry` (the instance-scoped resolver
+  R8 needs; no module-global mutation). 4 red-first tests; full preset suite green.
+- **Three R1 guards** — one focused scan `scan-composition-neutrality.mjs` (config in
+  `.agents/harness.config.json` → `compositionNeutrality`; registered in `run-all-scans`): (a)
+  dependency-graph neutrality, (b) purity/no-IO, (c) no product-name conditionals. 8 red-first unit tests +
+  an end-to-end red proof (planted fs-import + `process.env` + `profile.id === 'robota'` + `agent-cli` dep →
+  scan FAILED with 4 findings → reverted → passed).
+- **L129 amendment** (governance-flagged) — carved out "a pure, IO-free, data-driven assembler that
+  hard-codes no product's choices", explicitly NOT "profile-driven assemblers" generally, coupled to the
+  composition-neutrality guards. The prohibition on product-specific factories is intact.
+
+**Deviations from the directional sketch (flagged for S2 / owner-gate):**
+- **Provider is INJECTED, not resolved inside `assembleProduct`.** The only pure `config → provider`
+  factory (`createProviderFromConfig`) lives in `agent-executor` (not an allowed dep of agent-product), and
+  re-exporting it would edit the framework (kept UNCHANGED). So `IProductProfile.provider` carries the
+  already-constructed provider (product-owned concrete I/O) — faithful to "concrete I/O stays product-owned"
+  and to `cli.ts` already owning provider construction today. Provider-construction placement is settled
+  in S2 when the shell is wired.
+- **agent-core is a direct TYPE dependency of agent-product** (`IAIProvider`/`IProviderDefinition`/
+  `FunctionTool`/`TPermissionMode`) because `agent-framework` does not re-export those core types. Neutral
+  and allowed (the guards forbid only concrete transport/TUI/CLI, not agent-core).
+- **`buildRuntime` returns the framework `InteractiveSession`** (the seam the shell binds its
+  transport/presentation over, as the TUI does), not a channel-bound `IInteractiveRuntime` — the sketch's
+  `createInteractiveRuntime` seam drops `additionalTools`, so it cannot carry pack tools. Merged pack
+  **subagents** are exposed as material; the deeper subagent-runner wiring (`builtInAgents` deps) is S2.
+- **spec-surface-baseline.json** — the ratchet represents a fully-documented (zero-debt) package by
+  ABSENCE; the new packages document every runtime export, so `--write-baseline` normalizes away any `0`
+  entry. Registration in `check-spec-public-surface` is via each package's `docs/SPEC.md` (found by
+  `listSpecPackageDirs`), which enforces full documentation.
+- **`changeset status` is broken on `develop`** by a pre-existing dangling `@robota-sdk/agent-web-ui` entry
+  in `.changeset/config.json` `fixed` (unrelated to S1); the S1 changeset file
+  (`arch-005-s1-composition-layer.md`) is well-formed. The new packages were NOT added to the `fixed` group
+  to avoid touching that broken list.

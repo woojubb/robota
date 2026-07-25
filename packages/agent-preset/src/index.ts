@@ -19,6 +19,7 @@ export { autonomousBuilderPreset } from './presets/autonomous-builder.js';
 export {
   DEFAULT_AGENT_NAME,
   resolvePreset,
+  createPresetRegistry,
   listPresets,
   getPreset,
   registerExternalPresets,
@@ -29,6 +30,7 @@ export type {
   IPresetSummary,
   IResolvePresetContext,
   IPresetRegistrationResult,
+  IPresetRegistry,
 } from './resolve-preset.js';
 
 export {
