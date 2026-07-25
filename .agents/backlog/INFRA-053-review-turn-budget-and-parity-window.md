@@ -2,7 +2,7 @@
 id: INFRA-053
 title: Raise the review turn budget, and close the parity window that makes workflow edits risky
 status: todo
-priority: medium
+priority: high
 type: INFRA
 created: 2026-07-26
 ---
@@ -11,20 +11,25 @@ created: 2026-07-26
 
 Two coupled defects, both surfaced by INFRA-048's parity fix.
 
-### 1. The review exhausts its turn budget on large PRs
+### 1. The review exhausts its turn budget on essentially every PR
 
 `claude-code-review.yml` runs the action with `--max-turns 25`. Now that the review actually executes
 (it was silently skipping every run — see INFRA-048), the budget is the binding constraint on large
 changes. Measured 2026-07-26:
 
-| PR    | Size              | Result                                           |
-| ----- | ----------------- | ------------------------------------------------ |
-| #1434 | large, multi-area | `error_max_turns` at 25 — **no comments posted** |
-| #1435 | moderate          | completed in 1m40s                               |
+| PR    | Size                          | Result                                           |
+| ----- | ----------------------------- | ------------------------------------------------ |
+| #1434 | large, multi-area             | `error_max_turns` at 25 — **no comments posted** |
+| #1435 | moderate                      | completed in 1m40s                               |
+| #1436 | **one backlog file, no code** | `error_max_turns` at 25 — **no comments posted** |
 
-So the review works, and silently produces nothing on exactly the changes that most need reviewing.
-The check went from green-and-empty to red-and-honest, which is an improvement — but a red that
-posts no findings is still no review.
+**It is not a function of PR size.** A single-file, code-free backlog PR exhausted the same budget,
+so the review currently produces nothing on _most_ PRs, not only large ones. The check went from
+green-and-empty to red-and-honest, which is a real improvement — the failure is at least visible now
+— but review coverage is still effectively zero. That is why this is `high` rather than `medium`.
+
+It is not blocking, though: `Claude review` is advisory, and the required `review-gate` reads
+code-scanning output rather than this review, so the merge gate itself is unaffected.
 
 ### 2. Editing that workflow at all is a two-step with a blocking window
 
