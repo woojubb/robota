@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-006: make the framework default tool set injectable so the pack TOOL axis is additive everywhere'
-status: in-progress
+status: done
 created: 2026-07-25
+completed: 2026-07-25
 priority: medium
 urgency: soon
 area: packages/agent-framework, packages/agent-product, packages/pack-coding
@@ -132,4 +133,29 @@ this constant"):
    pack's tools are name-identical to the defaults).
 
 None of the three files above was inside the ownership boundary of the change that landed the seam, which
-is why this item stays open rather than being marked done.
+is why this item stayed open rather than being marked done at that point.
+
+## COMPLETE (2026-07-25) — all three steps landed
+
+1. **`createCodingPack({ cwd, sandboxClient })`**, with `cwd` **required**. The module-level `codingPack`
+   constant was **REMOVED**, not deprecated: its tools were exactly the hazard this item documented, and a
+   "zero-option default" sitting beside the `defaultTools: []` seam would be a loaded gun. Pre-release
+   package, two in-tree consumers, both migrated in the same change. The scoping property is asserted by
+   EXECUTION — `Read`/`Write`/`Edit` each deny a path outside the supplied `cwd`, and two packs built with
+   different roots do not share a scope.
+2. **`robota`'s packs own its tool surface.** The shell builds the packs from its resolved `cwd` before
+   command setup (the same instances feed the pack command-module names, the profile, and the overlay), and
+   `buildRobotaRuntimeOptions` passes `ROBOTA_PACKS_OWN_TOOL_SURFACE` — an empty `defaultTools` — into the
+   runtime seam. Removing the pack now removes robota's ten coding tools.
+3. **`agent-transport` + `agent-transport-tui`** each took the optional `additionalTools`/`defaultTools`
+   pass-through mirroring the `agentDefinitions` seam, so print, serve and TUI carry an identical surface.
+
+**Mutation-proving found a real gate hole first.** Removing the suppression initially left the acceptance
+test GREEN, because the shell helper defaulted `defaultTools` to `[]` on the way out and thereby collapsed
+"suppressed" and "absent" into one value. The default was removed; the same mutation now fails 2
+assertions, and dropping `cwd` from the pack fails 4 pack cases plus the agent-cli scoping case.
+
+**Agent-run evidence.** The real binary answers `robota -p "Read the file /etc/hostname …"` with
+`Access denied: "/etc/hostname" is outside the working directory` — the regression this item was written to
+prevent, proven absent with the pack as the source. `pnpm proof:external`: 69 assertions, exit 0. 2207
+tests green across the eight touched packages. ARCH-005 **TC-4** is met and the spec is `done`.

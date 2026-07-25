@@ -28,15 +28,34 @@ import {
   selectProductCommandModules,
 } from '../product/robota-plumbing.js';
 import {
+  createRobotaPacks,
   createRobotaProfile,
-  ROBOTA_PACK_COMMAND_MODULE_NAMES,
+  packCommandModuleNames,
 } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 
+const SEAM_CWD = '/tmp/runtime-seam';
+const ROBOTA_PACKS = createRobotaPacks({ cwd: SEAM_CWD });
+const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(ROBOTA_PACKS);
+
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
+
+/** The ten coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
+const CODING_TOOL_NAMES = [
+  'Shell',
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'WebFetch',
+  'WebSearch',
+  'AskUserQuestion',
+];
 
 interface IProbeOverrides {
   packs?: 'default' | 'none';
@@ -63,6 +82,7 @@ function robotaProduct(overrides: IProbeOverrides = {}) {
     presets: overrides.presets ?? [],
     defaultPresetId: overrides.defaultPresetId ?? 'default',
     baseCommandModules,
+    packs: ROBOTA_PACKS,
     backgroundTaskRunners: [],
     subagentRunnerFactory: (() => {
       throw new Error('not used');
@@ -100,25 +120,71 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
   });
 
   it('carries the pack TOOLS through the kernel overlay as additionalTools', () => {
-    expect(robotaRuntimeOptions().additionalTools.map((t) => t.getName())).toEqual([
-      'Shell',
-      'Bash',
-      'Read',
-      'Write',
-      'Edit',
-      'Glob',
-      'Grep',
-      'WebFetch',
-      'WebSearch',
-      'AskUserQuestion',
-    ]);
+    expect(robotaRuntimeOptions().toolOptions.additionalTools.map((t) => t.getName())).toEqual(
+      CODING_TOOL_NAMES,
+    );
+  });
+
+  it('SUPPRESSES the framework default tier so the packs are the SOLE source of tools (ARCH-006)', () => {
+    // `defaultTools: []` REPLACES `createDefaultTools()`. Without it the framework would still contribute
+    // its own ten tools and the pack's would merely dedupe away — the pack would be decorative.
+    expect(robotaRuntimeOptions().toolOptions.defaultTools).toEqual([]);
   });
 
   it('removing the coding pack removes its TOOLS and SUBAGENTS from robota’s runtime options', () => {
     const withoutPack = robotaRuntimeOptions({ packs: 'none' });
 
-    expect(withoutPack.additionalTools).toEqual([]);
+    expect(withoutPack.toolOptions.additionalTools).toEqual([]);
     expect(withoutPack.agentDefinitions).toEqual([]);
+    // …and the framework tier stays suppressed, so the product genuinely has NO coding tools left.
+    expect(withoutPack.toolOptions.defaultTools).toEqual([]);
+  });
+
+  it('gives robota the PACK’s cwd-scoped tools, not the framework defaults', async () => {
+    // The identity check that makes the axis real: robota's `Read` is the instance `pack-coding` built
+    // with the shell's cwd, so it DENIES a path outside it. A framework default built with a different
+    // cwd — or, worse, a context-free pack instance — would not.
+    const read = robotaRuntimeOptions().toolOptions.additionalTools.find(
+      (t) => t.getName() === 'Read',
+    );
+    expect(read).toBeDefined();
+
+    const outcome = await read!.execute(
+      { filePath: '/etc/hostname' } as never,
+      {
+        toolName: 'Read',
+        parameters: {},
+      } as never,
+    );
+    const result = JSON.parse(String((outcome as { data?: unknown }).data)) as {
+      success: boolean;
+      error?: string;
+    };
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('outside the working directory');
+  });
+
+  it('scopes robota’s file tools to the SHELL’s cwd, not some other directory', async () => {
+    // Same tool, a path INSIDE the cwd the pack was built with → the guard does not fire (the failure is
+    // a missing file, not an access denial). This is what proves the scope is the shell's cwd.
+    const read = robotaRuntimeOptions().toolOptions.additionalTools.find(
+      (t) => t.getName() === 'Read',
+    );
+    const outcome = await read!.execute(
+      { filePath: `${SEAM_CWD}/absent.txt` } as never,
+      {
+        toolName: 'Read',
+        parameters: {},
+      } as never,
+    );
+    const result = JSON.parse(String((outcome as { data?: unknown }).data)) as {
+      success: boolean;
+      error?: string;
+    };
+
+    expect(result.error).not.toContain('outside the working directory');
+    expect(result.error).toContain('File not found');
   });
 
   it('lets the kernel apply the default preset’s permission posture when the shell left it unset', () => {

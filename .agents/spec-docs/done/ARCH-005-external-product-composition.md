@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed: 2026-07-25
 type: INFRA
 tags: [architecture, product-composition, packaging]
 ---
@@ -908,10 +909,11 @@ backed by `scripts/external-proof/` (`pnpm proof:external`) — 65 assertions, a
       contribution, because the default tier is built WITH the session context (`cwd` supplies
       `agent-tools`' working-directory path guard) and an already-constructed contribution carries none of
       it; replacement is expressible only through the explicit `defaultTools` seam. Measured from the
-      published surface by `pnpm proof:external` § C5 (6 assertions) and in-repo by 8 red-first framework
-      cases. **One residual, disclosed:** `robota`'s own profile does NOT pass `defaultTools: []`, because
-      `pack-coding` ships pre-constructed, context-free tool instances — see the ARCH-006/007 evidence
-      entry below and the follow-up backlog item.
+      published surface by `pnpm proof:external` § C5 (7 assertions) and in-repo by 8 red-first framework
+      cases. **And `robota` itself eats it:** its profile builds `pack-coding` with the shell's `cwd` and
+      passes `defaultTools: []`, so its ten coding tools come FROM the pack — removing the pack removes
+      them, and the pack's `Read` still denies a path outside the working directory (verified on the real
+      binary). See the ARCH-006 completion entry below.
 - [x] **TC-5 (published-surface sufficiency)** — the proof installs real `pnpm pack` tarballs via
       `npm install` (no workspace link, no relative import, `npm overrides` pinning every `@robota-sdk/*`
       specifier so nothing resolves from the registry) and type-checks with `skipLibCheck: false` against the
@@ -1354,12 +1356,72 @@ anti-split test registers an external preset and asserts it resolves IDENTICALLY
    Decision-2 `agentDefinitions` seam already has. With first-wins dedupe and robota's name-identical pack
    tools this is behaviourally inert today, so the surfaces do not diverge.
 
-Both are carried by **[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**, which stays
-open (`status: in-progress`) with the exact three-step remedy written down. **ARCH-007 is closed and
-archived** to `.agents/backlog/completed/`.
+Both are carried by **[ARCH-006](../../backlog/completed/ARCH-006-framework-tool-axis-neutrality.md)**.
+**ARCH-007 is closed and archived** to `.agents/backlog/completed/`.
 
-**DISPOSITION AFTER ARCH-006/007 — the spec stays `active`.** TC-4 and TC-7 both now carry real evidence
-and are checked. But ARCH-006's own Test Plan asked for one thing more than the framework seam — "`robota`
-sourcing tools from `pack-coding` instead of the framework default" — and that is not done, for the
-measured reason above. The done-gate is not a place to round up: the spec closes when the ARCH-006
-residual lands.
+**DISPOSITION AFTER ARCH-006/007 — the spec stayed `active`.** TC-4 and TC-7 both carried real evidence,
+but ARCH-006's own Test Plan asked for one thing more than the framework seam — "`robota` sourcing tools
+from `pack-coding` instead of the framework default" — and that was not done, for the measured reason
+above. The done-gate is not a place to round up, so the spec stayed open until the residual landed. It did;
+see the entry below.
+
+### [ARCH-006 completion] — ✅ IMPLEMENTED (the packs OWN robota's tool surface) | 2026-07-25
+
+The three-step residual recorded above, executed. TC-4 is now met **for `robota` itself**, not only for the
+framework seam and external consumers.
+
+**1. `pack-coding` is a FACTORY, and the context-free constant is GONE.** `createCodingPack({ cwd,
+sandboxClient })` builds the pack bound to one session context; `cwd` is **required**. The module-level
+`codingPack` constant was **removed outright** — not deprecated, not kept as a "zero-option default" —
+because its tools were exactly the hazard: `checkPathWithinCwd` is a no-op when `cwd` is `undefined`, so a
+context-free pack contributes an unsandboxed `Read`/`Write`/`Edit`. That was inert only while the
+framework's own context-bound tier won the first-wins dedupe; the moment a profile passes
+`defaultTools: []` — the seam ARCH-006 exists to provide — it becomes live. Keeping a zero-option export
+beside that seam would have been a loaded gun. The package is pre-release with two in-tree consumers, both
+migrated in the same change (owner directive: 레거시 보존 금지).
+
+**2. `robota`'s packs own its tool surface.** The shell builds the packs from its resolved `cwd`
+(`createRobotaPacks({ cwd })`) BEFORE command setup — the same instances then supply the pack command-module
+names, the profile's `packs`, and the kernel overlay's tools. `buildRobotaRuntimeOptions` passes
+`ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) into the runtime seam, REPLACING the framework's
+`createDefaultTools()` tier. Every tool robota runs now arrives from a capability pack.
+
+**3. The tool options reach every surface.** `agent-transport`'s `HeadlessInteractionChannel` and
+`agent-transport-tui`'s `renderApp` → `TuiInteractionChannel` → `buildTuiSessionOptions` each took the same
+optional pass-through the Decision-2 `agentDefinitions` seam already had, for both `additionalTools` and
+`defaultTools`. Print, serve and TUI now carry an identical tool surface.
+
+**Evidence.**
+
+- Red-first: all 9 `pack-coding` cases failed before the factory existed.
+- **The acceptance bar, met at the product surface.** `robota-runtime-seam.test.ts` (10 cases) asserts that
+  removing `packs` from the profile the shell built drops all 10 coding tools AND all 3 subagents AND
+  leaves the framework tier suppressed — so the product genuinely has no coding tools left — and that the
+  `Read` robota actually gets is the PACK's `cwd`-scoped instance: it DENIES `/etc/hostname` and does NOT
+  deny a path inside the shell's `cwd` (that one fails as "File not found", proving the scope is the right
+  directory rather than a blanket refusal).
+- **Mutation-proven, twice — and the first attempt found a real gate hole.** Removing the suppression from
+  the seam initially passed, because `IRobotaRuntimeOptions.defaultTools` was being defaulted to `[]` on
+  the way out, collapsing "suppressed" and "absent" into the same value. That default was removed; the same
+  mutation now fails 2 assertions. Dropping `cwd` from the pack's tool options fails 4 `pack-coding` cases
+  AND the agent-cli scoping case — the cross-package gate catches it end to end.
+- **Real binary, agent-run.** `robota -p "Read the file /etc/hostname …"` returns
+  `Access denied: "/etc/hostname" is outside the working directory` — the exact regression measured when
+  ARCH-006 was designed, proven absent in the shipped product now that the pack is the source.
+- `pnpm proof:external` — **69 assertions, exit 0** (was 68). § C5 adds the safety property measured from
+  the published surface: the pack-owned `Read` denies a path outside the cwd the pack was built with.
+- Full suites green: `agent-framework` 1269, `agent-transport-tui` 526, `agent-cli` 258, `agent-transport`
+  56, `agent-preset` 71, `agent-product` 11, `agent-capability-pack` 7, `pack-coding` 9 — **2207 tests**.
+  `pnpm -w typecheck` clean; `pnpm harness:verify-like-ci` green.
+
+**The ARCH-005 equivalence suite stays green with ONE pinned literal legitimately updated.** Its packs are
+now built through `createRobotaPacks({ cwd })` instead of read from a module constant — the same shipped
+factory `startCli` calls, so the gate still exercises the production path (the S2 F4 lesson). No assertion
+was relaxed: the 27-module command set, the 6 provider types, the 10 tool names, the 3 subagents,
+`DEFAULT_AGENT_NAME` and both preset resolutions are unchanged.
+
+**FINAL DISPOSITION — `done`.** All seven completion criteria are met with agent-run evidence. Modes A, B
+and C work from a genuinely external consumer against the published surface; all three capability axes
+(commands, subagents, tools) are additive AND load-bearing for the reference product; and `robota` consumes
+the kernel's runtime seam rather than re-threading its materials. ARCH-006 and ARCH-007 are both closed and
+archived. The spec moves `active/` → `done/`.

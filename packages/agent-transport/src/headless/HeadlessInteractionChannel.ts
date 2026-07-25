@@ -11,7 +11,7 @@ import { buildRuntimeSession } from '@robota-sdk/agent-framework';
 
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
 
-import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -66,6 +66,13 @@ export interface IHeadlessInteractionChannelOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
+   * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
+   */
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -142,6 +149,10 @@ export class HeadlessInteractionChannel {
       ...(this.opts.agentDefinitions !== undefined
         ? { agentDefinitions: this.opts.agentDefinitions }
         : {}),
+      ...(this.opts.additionalTools !== undefined
+        ? { additionalTools: this.opts.additionalTools }
+        : {}),
+      ...(this.opts.defaultTools !== undefined ? { defaultTools: this.opts.defaultTools } : {}),
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec,

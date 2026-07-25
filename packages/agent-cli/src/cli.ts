@@ -25,13 +25,16 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
 import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
-import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from './product/robota-profile.js';
+import {
+  createRobotaPacks,
+  createRobotaProfile,
+  packCommandModuleNames,
+} from './product/robota-profile.js';
 import {
   buildRobotaRuntimeOptions,
   createDefaultTransportRegistry,
-  findUnknownPresetModuleNames,
   loadReplayProvider,
-  mergedCommandModuleNames,
+  reportUnknownPresetModules,
   selectProductCommandModules,
 } from './product/robota-plumbing.js';
 import {
@@ -197,6 +200,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // session's runtime active-preset state. Pure state — no option re-application here.
   const selectedPresetId = selectPresetId(args, settingsPreset);
 
+  const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
+  const packCommandModules = packCommandModuleNames(packs);
   const {
     commandHostAdapters,
     providerDefinitions,
@@ -204,7 +209,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     fixedCommandModules,
     startupUpdateNoticePromise,
     remoteCommandPolicy,
-  } = buildCommandSetup(cwd, args, options, version, ROBOTA_PACK_COMMAND_MODULE_NAMES);
+  } = buildCommandSetup(cwd, args, options, version, packCommandModules);
   // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
   // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
   // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
@@ -213,19 +218,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
 
-  // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
-  // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
-  // drop, never an abort — mirroring the external-preset skip reporting above. Computed from the
-  // base ⊕ pack NAME superset (no assembly needed), so it still fires before the init/--configure
-  // early-returns exactly as it did before ARCH-005 S2.
-  for (const { name, kind } of findUnknownPresetModuleNames(
-    mergedCommandModuleNames(baseCommandModules, ROBOTA_PACK_COMMAND_MODULE_NAMES),
+  reportUnknownPresetModules(
+    (message) => terminal.writeError(message),
+    baseCommandModules,
+    packCommandModules,
     resolvedPreset,
-  )) {
-    terminal.writeError(
-      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
-    );
-  }
+  );
 
   if (args.positional[0] === 'init') {
     try {
@@ -285,9 +283,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
-  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct` — provider construction,
-  // the base ⊕ pack capability merge, and the instance-scoped preset registry all happen in the kernel.
-  // What remains below is product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
+  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct`. What remains below is
+  // product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
   //
   // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
   // replays the recorded log deterministically instead of calling a model. Provider settings/model still
@@ -302,6 +299,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       presets: externalPresets,
       defaultPresetId: selectedPresetId,
       baseCommandModules,
+      packs,
       backgroundTaskRunners,
       subagentRunnerFactory,
       transports: transportRegistry,
@@ -315,7 +313,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
-  const { commandModules, agentDefinitions, additionalTools, permissionMode } =
+  const { commandModules, agentDefinitions, toolOptions, permissionMode } =
     buildRobotaRuntimeOptions({
       product,
       cwd,
@@ -372,6 +370,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      toolOptions,
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
@@ -407,7 +406,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      additionalTools,
+      ...toolOptions,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -477,6 +476,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
+    ...toolOptions,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,

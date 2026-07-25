@@ -10,10 +10,17 @@
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
-import { codingPack } from '@robota-sdk/pack-coding';
+import { createCodingPack } from '@robota-sdk/pack-coding';
 
 import { ACME_PROVIDER_SETTINGS } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';
+
+/**
+ * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
+ * would carry a disarmed working-directory path guard on its file tools. A consumer builds it exactly as
+ * robota's own shell does, with the cwd it assembles the session under.
+ */
+const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
 import type { IProductProfile } from '@robota-sdk/agent-product';

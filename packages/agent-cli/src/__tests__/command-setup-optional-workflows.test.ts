@@ -10,10 +10,14 @@
  */
 import { describe, it, expect } from 'vitest';
 
-import { ROBOTA_PACK_COMMAND_MODULE_NAMES } from '../product/robota-profile.js';
+import { createRobotaPacks, packCommandModuleNames } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(
+  createRobotaPacks({ cwd: '/tmp/optional-workflows' }),
+);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 

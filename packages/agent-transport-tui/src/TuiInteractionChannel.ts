@@ -24,7 +24,12 @@ import { TuiStateManager } from './tui-state-manager.js';
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { IPendingPermissionRequest } from './types.js';
-import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  TPermissionMode,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 // CMD-004 unified action contract (SSOT in agent-core).
 import type {
@@ -85,6 +90,13 @@ export interface ITuiInteractionChannelOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
+   * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
+   */
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;

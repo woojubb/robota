@@ -324,6 +324,7 @@ bin.ts → cli.ts (SHELL: arg parsing, settings IO, notices, mode dispatch)
               ├── assembleProduct(createRobotaProfile(...))   (from @robota-sdk/agent-product)
               │     ├── constructs the provider from providerDefinitions + resolved settings
               │     ├── merges packs: baseCommandModules ⊕ pack-coding (tools/commands/subagents)
+              │     │   (packs built from the shell cwd; their tools REPLACE the framework default tier)
               │     └── builds the instance-scoped preset registry
               ├── selectProductCommandModules(...)  (src/product/robota-plumbing.ts;
               │     applies the preset delta to the merged superset, appends the fixed modules)
@@ -504,6 +505,14 @@ channel, never a silent override. The preset's `enabledCommandModules`/`disabled
 applied to that merged SUPERSET afterwards: the capability merge widens, the preset delta narrows. The
 `/shell` and `/editor` modules are supplied by `@robota-sdk/pack-coding`, not by the base set — dropping
 the pack from the profile drops those commands from the product.
+
+**The tool axis, on the same terms (ARCH-006).** `robota`'s packs also own its TOOL surface: the shell
+passes `ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) into the kernel's runtime seam, which
+REPLACES `agent-framework`'s `createDefaultTools()` tier — so every tool the session runs arrives from a
+pack through `additionalTools`, and dropping a pack drops its tools. Because the pack's file tools are
+scoped to the `cwd` they are built with, the shell builds the packs (`createRobotaPacks({ cwd })`) before
+command setup and passes the instances into the profile; a context-free pack would carry a disarmed
+working-directory path guard.
 
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 

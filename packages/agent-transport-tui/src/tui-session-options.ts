@@ -32,6 +32,8 @@ export function buildTuiSessionOptions(
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
+    ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     shellExec: opts.shellExec,

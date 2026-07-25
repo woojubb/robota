@@ -13,7 +13,7 @@
  * itself performs no IO.
  */
 
-import { codingPack } from '@robota-sdk/pack-coding';
+import { createCodingPack } from '@robota-sdk/pack-coding';
 
 import type {
   IAIProvider,
@@ -28,17 +28,41 @@ import type {
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import type { IProductProfile } from '@robota-sdk/agent-product';
+import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+
+/**
+ * A capability pack, reached through the kernel's own profile contract rather than a direct dependency on
+ * `@robota-sdk/agent-capability-pack` — the shell composes packs, it does not author the pack contract.
+ */
+type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
 
 /** The product id. Data only — `assembleProduct` never branches on it (composition-neutrality guard c). */
 const ROBOTA_PRODUCT_ID = 'robota';
 
-/** The capability packs `robota` composes. Removing one genuinely removes its capability from the product. */
-const ROBOTA_PACKS = [codingPack] as const;
+/**
+ * The capability packs `robota` composes. Removing one genuinely removes its capability from the product —
+ * its command modules, its subagents AND (since ARCH-006) its tools, because the profile hands the packs
+ * the whole tool surface (see {@link ROBOTA_PACKS_OWN_TOOL_SURFACE}).
+ *
+ * A FACTORY over the session context, not a constant: `pack-coding`'s file tools are scoped to the `cwd`
+ * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
+ */
+export function createRobotaPacks(context: ICodingPackOptions): readonly TCapabilityPack[] {
+  return [createCodingPack(context)];
+}
 
-/** Command-module names the packs supply, so the shell can exclude them from the base set it builds. */
-export const ROBOTA_PACK_COMMAND_MODULE_NAMES: readonly string[] = ROBOTA_PACKS.flatMap(
-  (pack) => pack.commandModules?.map((module) => module.name) ?? [],
-);
+/**
+ * ARCH-006: `robota`'s packs OWN its tool surface. The shell passes this as the session's `defaultTools`,
+ * which REPLACES `agent-framework`'s `createDefaultTools()` tier — so every tool robota runs comes from a
+ * pack, and dropping a pack drops its tools from the product. Exported as the single named declaration of
+ * that decision rather than an anonymous `[]` at the call site.
+ */
+export const ROBOTA_PACKS_OWN_TOOL_SURFACE: readonly never[] = [];
+
+/** Command-module names the given packs supply, so the shell can exclude them from the base set it builds. */
+export function packCommandModuleNames(packs: readonly TCapabilityPack[]): readonly string[] {
+  return packs.flatMap((pack) => pack.commandModules?.map((cmd) => cmd.name) ?? []);
+}
 
 /** The already-resolved shell inputs `robota`'s profile is built from. */
 export interface IRobotaProfileInput {
@@ -64,6 +88,8 @@ export interface IRobotaProfileInput {
   subagentRunnerFactory: TSubagentRunnerFactory;
   /** The transport registry the shell owns (concrete `WsTransport` registered), passed as a read-only view. */
   transports: ITransportRegistryView;
+  /** The capability packs the shell built from `createRobotaPacks` with its resolved session context. */
+  packs: readonly TCapabilityPack[];
 }
 
 /** Build `robota`'s product profile from the shell's already-resolved inputs. Pure. */
@@ -77,7 +103,7 @@ export function createRobotaProfile(input: IRobotaProfileInput): IProductProfile
     ...(input.provider !== undefined ? { provider: input.provider } : {}),
     presets: input.presets,
     defaultPresetId: input.defaultPresetId,
-    packs: [...ROBOTA_PACKS],
+    packs: input.packs,
     baseCommandModules: input.baseCommandModules,
     backgroundTaskRunners: input.backgroundTaskRunners,
     subagentRunnerFactory: input.subagentRunnerFactory,
