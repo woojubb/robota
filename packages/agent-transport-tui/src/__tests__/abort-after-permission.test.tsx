@@ -3,7 +3,7 @@
  * Verifies that the global ESC handler remains available after overlays close.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { render } from 'ink-testing-library';
 import { Box, Text, useInput } from 'ink';
 import { describe, it, expect } from 'vitest';
@@ -22,20 +22,11 @@ function AbortAfterPermissionApp({
   onAbort: () => void;
   onPermissionReady: (grantPermission: () => void) => void;
 }): React.ReactElement {
-  const [isThinking, setIsThinking] = useState(true);
+  const [isThinking] = useState(true);
   const [permissionRequest, setPermissionRequest] = useState<{
     resolve: () => void;
   } | null>(null);
   const [aborted, setAborted] = useState(false);
-
-  // Simulate permission prompt appearing after mount
-  const showPermission = useCallback(() => {
-    setPermissionRequest({
-      resolve: () => {
-        setPermissionRequest(null);
-      },
-    });
-  }, []);
 
   // Give parent a way to grant permission
   React.useEffect(() => {

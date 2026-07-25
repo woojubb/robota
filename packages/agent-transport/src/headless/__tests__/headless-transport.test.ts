@@ -2,25 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createHeadlessTransport } from '../headless-transport.js';
 import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
-function createMockSession(): IInteractiveSession {
-  return {
-    submit: vi.fn(),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
-    getMessages: vi.fn().mockReturnValue([]),
-    getContextState: vi
-      .fn()
-      .mockReturnValue({ usedPercentage: 0, usedTokens: 0, maxTokens: 200000 }),
-    isExecuting: vi.fn().mockReturnValue(false),
-    getPendingPrompt: vi.fn().mockReturnValue(null),
-    executeCommand: vi.fn().mockResolvedValue({ message: 'ok', success: true }),
-    listCommands: vi.fn().mockReturnValue([]),
-    getSession: vi.fn().mockReturnValue({ getSessionId: () => 'test-session-id' }),
-    on: vi.fn(),
-    off: vi.fn(),
-  } as unknown as IInteractiveSession;
-}
-
 function createEventDrivenMockSession(
   behavior: 'complete' | 'error' | 'interrupted' = 'complete',
   options?: { response?: string; textDeltas?: string[] },
