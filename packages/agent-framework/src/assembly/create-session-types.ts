@@ -81,6 +81,15 @@ export interface ICreateSessionOptions {
   ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
+   * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * `builtInAgents` seam for subagents. Absent ⇒ the framework tier is constructed as before
+   * (byte-identical). The injected tools are used as given — the framework cannot re-bind the session
+   * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
+   * context-sensitive default must carry that context itself.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
   includeGoalTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */

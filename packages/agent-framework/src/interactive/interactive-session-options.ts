@@ -147,6 +147,12 @@ export interface IInteractiveSessionStandardOptions {
   orgPolicy?: IOrgPolicy;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
+   * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }
@@ -258,6 +264,12 @@ export interface IInitOptions {
   selfVerification?: boolean | string;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
+   * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   /** Request structured output from the provider for this session. */
   responseFormat?: { type: 'text' | 'json_object' };
 }

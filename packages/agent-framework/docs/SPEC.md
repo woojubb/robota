@@ -2410,6 +2410,48 @@ tier: the FIRST entry for a name wins and later duplicates are dropped, so a pac
 shadows a built-in yields one roster entry, never two. (For a tier with no duplicate names — the
 historic `BUILT_IN_AGENTS` alone — the dedupe is a no-op.)
 
+### Session-level tool composition (`defaultTools` / `additionalTools`, ARCH-006)
+
+The tool axis has the same two-seam shape as the subagent axis above, and the same precedence
+question answered explicitly. Both options are available on `IInteractiveSessionStandardOptions` /
+`IInitOptions` / `ICreateSessionOptions`.
+
+| Seam                      | Semantics                                                         | Set with no framework defaults |
+| ------------------------- | ----------------------------------------------------------------- | ------------------------------ |
+| `defaultTools` (ARCH-006) | REPLACES the `createDefaultTools()` tier                          | pass `[]`                      |
+| `additionalTools`         | APPENDS to that tier; contributes NEW names only (see precedence) | n/a                            |
+
+`createSession` assembles the fixed tier order `defaultTools ⊕ additionalTools ⊕ goalTool` and then
+**deduplicates by tool name, first occurrence wins** — the same "first entry for a name wins" rule
+`AgentDefinitionLoader` applies within the subagent built-in tier. Consequences:
+
+1. A contributed tool whose name is **new** is fully additive.
+2. A contributed tool whose name **collides** with a tool already in the list is **dropped**, never
+   listed twice. Before ARCH-006 it was listed twice, so a capability pack whose tools mirror the
+   framework defaults (as `@robota-sdk/pack-coding`'s do by design) could not be overlaid at all.
+3. A contributed tool **cannot silently displace** a framework default. That direction is deliberate
+   and is the one place this seam differs from `agentDefinitions` (where the injected tier is placed
+   FIRST and therefore wins): the default tier is constructed WITH the session context — `cwd`
+   supplies `agent-tools`' working-directory path guard, plus the sandbox client and the retrieval
+   adapter — and an already-constructed contribution carries none of it. Letting a name collision
+   swap in a context-free instance would silently disable a security guarantee. It mirrors
+   `mergeCapabilityPacks`' own rule: additive merge, never a silent override.
+
+**Replacement and suppression are still fully expressible** — through the explicit `defaultTools`
+seam, which is the intentional act rather than a side effect of a name collision. A product profile
+that wants its capability packs to OWN the tool surface passes `defaultTools: []` and lets the packs
+supply every tool through `additionalTools`; removing a pack then genuinely removes its tools. The
+injected tools are used as given: the framework cannot re-bind session context onto an
+already-constructed tool, so an injected replacement for a context-sensitive default (`Read`,
+`Write`, `Edit`, and the sandbox-aware `Shell`/`Bash`) must carry that context itself.
+
+The edit-checkpoint wrap (`wrapEditCheckpointTools`) is applied to the **assembled, deduplicated**
+set rather than to the default tier alone, so a pack-contributed `Write`/`Edit` is checkpointed too.
+With no contributed `Write`/`Edit` this is byte-identical to the previous behavior.
+
+Absent `defaultTools` **and** absent a duplicate name, the whole assembly is byte-identical to
+before ARCH-006.
+
 ### Model-Requested Agent Invocation
 
 Model-requested agent invocation is owned by `@robota-sdk/agent-command`. The command module
