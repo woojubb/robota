@@ -10,6 +10,8 @@ depends_on: ['SELFHOST-003']
 
 # Embedding-vector retrieval backend (SELFHOST-003 P4)
 
+> Parent SELFHOST-003 is verified done and archived to `completed/SELFHOST-003-codebase-index-rag.md` (2026-07-24); this consciously-deferred slice stays open.
+
 ## Problem
 
 SELFHOST-003 v1 (P1–P3) shipped the **repo-map graph-ranking** retrieval backend (no embedding infra):

@@ -3,15 +3,23 @@
 ## Scope
 
 Interactive terminal AI coding assistant. A React + Ink-based TUI for running AI agents from the command line.
-A **thin CLI layer** built on top of agent-sdk, responsible only for the terminal UI.
+A **thin CLI layer** built on top of agent-framework, responsible only for the terminal UI.
 
 **Modes.** Default = interactive TUI (`renderApp`). `-p`/`--goal` = print/headless autonomous run. **`--serve`
 (RUNTIME-001)** = the **headless runtime host**: it runs `startRuntimeHost` (from `@robota-sdk/agent-framework`)
 over the resolved runtime options + the loopback `WsTransport` (token/port from `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`)
 and keeps the process alive until SIGTERM — rendering NO ink. This is the backend `apps/agent-app` (the desktop
 GUI) spawns: the TUI and the GUI are sibling presentations over the SAME runtime host; the GUI does not control
-the CLI. The CLI stays the composition root (it resolves settings/preset/provider and chooses the transports);
-`agent-framework` owns the neutral build-session + transport-lifecycle seam.
+the CLI. `agent-framework` owns the neutral build-session + transport-lifecycle seam.
+
+**Product shell, not a composition root (ARCH-005 S2).** `robota`'s product identity — branding, provider
+surface, presets, capability packs, base command modules, and the injected transports/runners/subagent
+factory — is declared as DATA in `src/product/robota-profile.ts` and folded by the product-neutral
+`assembleProduct` (`@robota-sdk/agent-product`). The CLI is the SHELL around that fold: it parses args,
+performs every settings/env/file read, prints notices, runs first-run/`init`/`--configure`/`ensureConfig`,
+owns memory + session-resume UX, and dispatches print/serve/TUI mode. It resolves the inputs and binds the
+presentation; it no longer hand-wires the assembly. `robota` is one profile among many — an external repo
+brings its own and reuses the same kernel.
 
 ## Boundaries
 
@@ -42,11 +50,12 @@ the CLI. The CLI stays the composition root (it resolves settings/preset/provide
 - Does NOT own workflow manifests, harness command registry semantics, workflow artifact schemas,
   deterministic workflow hook policy, review/evidence gates, or workflow run lifecycle — these must
   be owned below the CLI by SDK/runtime/harness contracts before TUI screens are added
-- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); CLI re-exports from `@robota-sdk/agent-core` and must not import `agent-sessions` in production source
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core` (domain port); the CLI does not re-export them (consumers import them directly from `@robota-sdk/agent-core`) and must not import `agent-session` in production source
 - Does NOT own Ink TUI components, permission-prompt, TUI hooks, TUI flows, or `TuiStateManager` — these are owned by `@robota-sdk/agent-transport-tui`
 - OWNS: CLI argument parsing, process lifecycle and assembly, `TransportRegistry`, `ITuiCliAdapter` wiring, provider composition
 - OWNS: CLI package-version update checks and user-level update-check cache
-- OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O)
+- OWNS: Concrete local host adapters (background runner, child-process subagent, Git worktree, settings I/O incl. the CMD-004 `delete()` reset capability)
+- OWNS: CMD-004 Phase 2 host-action adapter wiring (`src/startup/host-action-adapters.ts`): the `/remote-control` host adapter (status/devices + host-executed `enable()`/`stop()`) and the late-bound per-mode `process` adapter — TUI (deferred SIGTERM → the App's existing graceful signal flow), serve (deferred shared-host shutdown; local == remote, REMOTE-006), print (exit satisfied by the end-of-run exit-code contract; restart surfaced explicitly)
 - Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-framework`
 - Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-framework`
 
@@ -101,11 +110,19 @@ CLI composition changes.
 
 The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-framework`'s `InteractiveSession`. The CLI:
 
-1. Reads config to determine which provider profile to use.
-2. Resolves the profile `type` against an injected `IProviderDefinition[]`.
-3. Creates the provider instance by calling `definition.createProvider(config)`.
-4. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore })` — config and context loading happen internally inside the SDK. CLI-owned adapters expose host services such as user-settings persistence and plugin management without letting command packages import CLI files. Session persistence is passed only through SDK-owned facade types.
-5. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
+1. Reads config/settings to resolve which provider profile to use (the shell owns all IO).
+2. Builds the base command modules — the default set MINUS the modules a capability pack supplies.
+3. Calls `assembleProduct(createRobotaProfile(…))` once. The kernel constructs the provider from the
+   resolved settings + the injected `IProviderDefinition[]`, merges the capability packs onto the base
+   (base ⊕ packs, with a rejection channel), and ADOPTS the instance-scoped preset registry the shell
+   already resolved over (ARCH-008) instead of building a second one.
+4. Applies the preset's `enabledCommandModules`/`disabledCommandModules` delta to that merged superset,
+   then appends the fixed modules the delta never filters (`/workflows`, caller-injected).
+5. Creates `InteractiveSession({ cwd, provider, commandHostAdapters, sessionStore, agentDefinitions })` —
+   config and context loading happen internally inside the SDK. CLI-owned adapters expose host services
+   such as user-settings persistence and plugin management without letting command packages import CLI
+   files. Session persistence is passed only through SDK-owned facade types.
+6. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ### Transparent Workflow Boundary
 
@@ -257,7 +274,7 @@ Non-interactive print/headless execution must not prompt. Missing provider confi
 
 Environment-variable API key references use the `$ENV:NAME` form. If a required provider API key resolves to an unset environment variable, setup validation or provider construction must fail with a clear error before any provider request is sent. A literal unresolved `$ENV:NAME` string must never be sent as an API key.
 
-Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module and applies typed restart effects.
+Provider slash commands are command-module interactions rendered through generic TUI prompts. The default CLI composes `@robota-sdk/agent-command`, which consumes SDK provider common APIs the same way a third-party command module would. The CLI must not implement provider-profile action rules; it only renders `choice` and `text` prompts returned by the command module; restarts are host-executed `session-restart` actions.
 
 | Command                      | Behavior                                                                                                                                                                                                                                                      |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -271,7 +288,7 @@ Provider slash commands are command-module interactions rendered through generic
 
 Selecting a profile opens a provider-command-owned action menu with switch, edit, test, duplicate, delete, and cancel. Edit uses provider setup metadata with masked current values hidden from the prompt display. Delete confirms the action, blocks the last profile, and requires a replacement before deleting the active profile. Non-interactive/headless slash execution never blocks on these interactions; it prints the deterministic command message and exits.
 
-Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart-requested` effect. The provider command solicits each step inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask(IActionRequest)`); the CLI/TUI only renders those `IActionRequest` dialogs (via the channel's `askUser`) and applies typed command effects.
+Provider changes must follow the SDK command contract: the provider command module owns provider setup/edit/delete state, settings patch construction, writes through the injected settings adapter, and returns a generic `session-restart` host action the session executes via the per-mode process adapter. The provider command solicits each step inline via the CMD-004 ask seam (`context.getUserInteraction()?.ask(IActionRequest)`); the CLI/TUI only renders those `IActionRequest` dialogs (via the channel's `askUser`); host actions are session-executed (CMD-004).
 
 The TUI status area must show enough active profile identity for users to verify the selected
 runtime profile. When profile metadata is available, it renders profile key, provider type, and
@@ -299,12 +316,19 @@ Flow ownership:
 | `cjk-text-input-flow.ts`    | printable filtering, cursor movement, bracketed paste, submit effects                       | `CjkTextInput`                                                   |
 
 ```
-bin.ts → cli.ts (arg parsing + provider definition composition)
+bin.ts → cli.ts (SHELL: arg parsing, settings IO, notices, mode dispatch)
               ├── buildCommandSetup(...)          (src/startup/command-setup.ts)
               │     ├── createDefaultCommandModules(...)  (from @robota-sdk/agent-command;
-              │     │     assembles the full default command set)
+              │     │     the default set MINUS the pack-supplied coding modules → baseCommandModules)
               │     └── createWorkflowsCommandModule(...) (from @robota-sdk/agent-command-workflows;
-              │           the bundled `/workflows` module, statically imported — always present)
+              │           the bundled `/workflows` module → fixedCommandModules, never preset-filtered)
+              ├── assembleProduct(createRobotaProfile(...))   (from @robota-sdk/agent-product)
+              │     ├── constructs the provider from providerDefinitions + resolved settings
+              │     ├── merges packs: baseCommandModules ⊕ pack-coding (tools/commands/subagents)
+              │     │   (packs built from the shell cwd; their tools REPLACE the framework default tier)
+              │     └── builds the instance-scoped preset registry
+              ├── selectProductCommandModules(...)  (src/product/robota-plumbing.ts;
+              │     applies the preset delta to the merged superset, appends the fixed modules)
               └── renderApp({ ..., transportRegistry, cliAdapter })  (from @robota-sdk/agent-transport-tui)
                     └── TuiInteractionChannel (owns session lifecycle)
                           ├── InteractiveSession({ cwd, provider })
@@ -351,14 +375,23 @@ Preset selection surface:
   `src/utils/cli-args.ts`).
 - `selectPresetId(args, settingsPreset)` (`src/startup/preset-selection.ts`) — picks the preset id
   with precedence `--preset` flag > `settings.preset` > `'default'`. Pure selection glue.
-- `resolveCliPreset(args, settingsPreset)` (`src/startup/preset-selection.ts`) — calls
-  `selectPresetId(...)` and hands the selected id plus a CLI-flag override set
-  (`model`, `systemPrompt`, `appendSystemPrompt`, `language`, `permissionMode`) to agent-preset's
-  `resolvePreset`. The override-vs-preset precedence MERGE is owned by `resolvePreset`, not the CLI.
-- Startup `loadExternalPresets()` (`src/cli.ts`) — registers user-authored external presets from
-  `~/.robota/presets/*.json` into the shared registry **before** preset resolution so `--preset <id>`
-  and the `/preset` command can see them. Per-file load errors are surfaced as terminal notices and
-  skipped; they do not abort startup.
+- `resolveShellPreset(externalPresets, args, settingsPreset)` (`src/startup/preset-selection.ts`) —
+  the shell's **single** preset resolution (ARCH-008). It builds agent-preset's per-call
+  instance-scoped registry (`createPresetRegistry`, R8) over the loaded external presets, calls
+  `selectPresetId(...)`, and resolves that id with a CLI-flag override set (`model`, `systemPrompt`,
+  `appendSystemPrompt`, `language`, `permissionMode`). The override-vs-preset precedence MERGE is owned
+  by agent-preset, not the CLI. It returns `{ registry, presetId, context, options }` as ONE value;
+  `createRobotaProfile` takes that whole value, so `assembleProduct` **adopts the same registry** and
+  replays the same override context — `product.presets` is that registry object and
+  `product.defaultPreset` equals `options`. Robota's startup path therefore never reads agent-preset's
+  module-global resolver.
+- Startup `loadExternalPresets()` (`src/cli.ts`) — loads user-authored external presets from
+  `~/.robota/presets/*.json`. The load also registers them into agent-preset's **module-global**
+  registry, which remains the in-session DISCOVERY surface: the `/preset` command (in
+  `@robota-sdk/agent-command`) lists and switches through `listPresets`/`getPreset`/`resolvePreset` and
+  has no handle on the assembled product. Both surfaces are fed by this one load, so they cannot
+  disagree (asserted by the anti-split gate in `robota-runtime-seam.test.ts`). Per-file load errors are
+  surfaced as terminal notices and skipped; they do not abort startup.
 
 The selected preset id is also passed to the session as runtime active-preset state
 (`ISessionOptions.activePresetId`, see the agent-session SPEC). An unknown `--preset <id>` is terminal:
@@ -462,7 +495,7 @@ Supported commands:
 | `/statusline git off` | Persist `statusline.gitBranch=false`                           |
 | `/statusline reset`   | Restore default status line fields                             |
 
-Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect, `useSlashRouting` stores it as a pending command effect, and `useSideEffects` persists the setting and updates React state. `StatusBar` remains a pure renderer.
+Defaults are `enabled=true` and `gitBranch=true`. The command emits the typed SDK `statusline-settings-patch` effect; the SESSION layer applies it host-side via the settings adapter (CMD-004 Phase 2 — works on every surface, including headless), and the TUI re-reads the persisted settings when the command result arrives (refresh-on-result) to update React state. `StatusBar` remains a pure renderer.
 
 ### TUI Command Interactions
 
@@ -476,9 +509,24 @@ TUI interaction behaviors (picker overlays, confirm dialogs) are not registered 
 
 Built-in commands are represented as `ICommandModule` instances injected into `InteractiveSession`. Command modules own command metadata and structured command results; the CLI hook layer owns rendering generic interactions and applying typed SDK command effects.
 
+**Composition order (ARCH-005 S2).** The base set (`createDefaultCommandModules`, minus the pack-supplied
+names) is merged with the profile's capability packs by `assembleProduct` — additively, with a rejection
+channel, never a silent override. The preset's `enabledCommandModules`/`disabledCommandModules` delta is
+applied to that merged SUPERSET afterwards: the capability merge widens, the preset delta narrows. The
+`/shell` and `/editor` modules are supplied by `@robota-sdk/pack-coding`, not by the base set — dropping
+the pack from the profile drops those commands from the product.
+
+**The tool axis, on the same terms (ARCH-006).** `robota`'s packs also own its TOOL surface: the shell
+passes `ROBOTA_PACKS_OWN_TOOL_SURFACE` (an empty `defaultTools`) into the kernel's runtime seam, which
+REPLACES `agent-framework`'s `createDefaultTools()` tier — so every tool the session runs arrives from a
+pack through `additionalTools`, and dropping a pack drops its tools. Because the pack's file tools are
+scoped to the `cwd` they are built with, the shell builds the packs (`createRobotaPacks({ cwd })`) before
+command setup and passes the instances into the profile; a context-free pack would carry a disarmed
+working-directory path guard.
+
 The CLI slash router must not own command-specific switch cases for built-ins when an injected command module can own the command. It may still own slash-prefix parsing, skill/plugin fallback lookup, result projection, and unknown-command rendering.
 
-`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command`. The CLI owns only the local `ICommandPluginAdapter` implementation. It applies `plugin-tui-requested` by opening `PluginTUI` and applies `plugin-registry-reload-requested` by reloading the registry's plugin command source.
+`/plugin` and `/reload-plugins` are provided by `@robota-sdk/agent-command`. The CLI owns only the local `ICommandPluginAdapter` implementation. It opens `PluginTUI` from the requester-routed `show-plugin-manager` `ui_intent` event and reloads the registry's plugin command source from the `data.pluginRegistryReloaded` result hint.
 
 `/exit` is provided by `@robota-sdk/agent-command`. The command package owns command metadata and emits `session-exit-requested`; the CLI applies that typed effect by gracefully shutting down the session and terminal UI.
 
@@ -704,23 +752,23 @@ From the TUI's `/provider list` menu, selecting a profile and choosing the **swi
 
 The `/permissions` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The CLI slash router does not inspect or mutate permission state directly; it routes `/permissions [mode]` into the generic command execution path, and the command module uses SDK permission common APIs. The default Robota CLI does not compose `/mode`; permission-mode changes belong under `/permissions`.
 
-The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module emits `language-change-requested`; the CLI applies settings persistence and restart through the generic command effect handler.
+The `/language` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `language-change` host action; the SESSION applies settings persistence and requests the restart through `ICommandHostAdapters` (CMD-004) — the CLI only renders the result.
 
-The `/statusline` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module emits `statusline-settings-patch`; the CLI applies settings persistence and TUI state updates through the generic command effect handler.
+The `/statusline` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module returns the `statusline-settings-patch` host action; the SESSION persists it via the settings adapter and the TUI re-reads the settings when the result arrives (refresh-on-result).
 
-The `/clear` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module clears SDK session history through SDK session command APIs and emits `conversation-history-cleared`; the CLI applies that effect by clearing `TuiStateManager` rendered history before adding the command result message.
+The `/clear` command is provided by the `@robota-sdk/agent-command` module that the Robota binary composes into `InteractiveSession`. The command module clears SDK session history through SDK session command APIs; the session broadcasts the `history_cleared` event (CMD-004 Stage E) and every attached surface — the TUI included — clears its rendered transcript from that broadcast before the command result message is added.
 
-The `/rename <name>` command is provided by the same `@robota-sdk/agent-command` module. The command module emits `session-renamed`; the CLI applies that effect through the generic command effect handler by updating `InteractiveSession.setName()` and local TUI session-name state.
+The `/rename <name>` command is provided by the same `@robota-sdk/agent-command` module. The command module returns the `session-rename` host action; the SESSION executes `setName()` and broadcasts `session_renamed`, from which every attached surface updates its title.
 
-The `/resume` command is provided by the same `@robota-sdk/agent-command` module. The command module emits `session-picker-requested`; the CLI applies that effect through the generic command effect handler by opening `SessionPicker`.
+The `/resume` command is provided by the same `@robota-sdk/agent-command` module. The command module returns the `show-session-picker` UI intent; the requesting TUI surface opens `SessionPicker` from the requester-routed `ui_intent` session event.
 
 The `/cost` command is provided by the same `@robota-sdk/agent-command` module. The command module reads session id and message count through SDK session command APIs; the CLI only displays the command result.
 
-The `/reset` command is provided by `@robota-sdk/agent-command`. The command module emits `settings-reset-requested`; the CLI applies local settings deletion and shutdown through the generic command effect handler.
+The `/reset` command is provided by `@robota-sdk/agent-command`. The command module returns the `settings-reset` host action; the SESSION deletes the settings document via the settings adapter and requests exit via the per-mode process adapter.
 
-The `/exit` command is provided by `@robota-sdk/agent-command`. The command module emits `session-exit-requested`; the CLI applies graceful shutdown and terminal exit through the generic command effect handler.
+The `/exit` command is provided by `@robota-sdk/agent-command`. The command module returns the `session-exit` host action; the SESSION requests exit via the per-mode process adapter (TUI: deferred SIGTERM through the App's graceful signal flow).
 
-The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module emits `plugin-tui-requested` for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands.
+The `/plugin` command is provided by `@robota-sdk/agent-command`. The command module returns the `show-plugin-manager` UI intent for `/plugin` and `/plugin manage`, and uses the CLI-provided `ICommandPluginAdapter` for install/uninstall/enable/disable/marketplace subcommands; `/reload-plugins` reloads host-side and carries the requester-local `data.pluginRegistryReloaded` hint for the autocomplete refresh.
 
 The `/rewind` command is provided by `@robota-sdk/agent-command`. The CLI slash router only routes it into `session.executeCommand()` and renders the returned command result; checkpoint storage, restore, rollback ordering, and command output formatting live outside the CLI.
 
@@ -741,7 +789,7 @@ A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a li
 
 ### ConfirmPrompt Component
 
-A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used for yes/no confirmations triggered by host-applied command effects.
+A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used for yes/no confirmations triggered by command confirmations (the CMD-004 ask seam).
 
 **Props:**
 
@@ -781,7 +829,7 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list and the latest SDK execution workspace snapshot for background/workspace rendering. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()` and `interactiveSession.getExecutionWorkspaceSnapshot()`.
 3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`, `execution_workspace_event`) and converts them to channel state.
 4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue`, and `handleShutdown` as stable callbacks to the TUI via `useTuiChannel`.
-5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are handled by typed `TCommandEffect` values.
+5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI. Commands that need input ask inline via the CMD-004 seam (rendered by the channel's `askUser` → `PendingActionPrompt`); command-specific host actions are typed `TCommandHostAction` values the SESSION executes via `ICommandHostAdapters` (CMD-004; the legacy `TCommandEffect` union is deleted).
 6. Manages the permission queue (serialises concurrent permission requests).
 
 `useTuiChannel` is the React hook that subscribes to `TuiInteractionChannel.onChange` and exposes its state/callbacks to `App.tsx`. No component interacts with `InteractiveSession` directly.
@@ -795,7 +843,7 @@ Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) 
 `App.tsx` is owned by `@robota-sdk/agent-transport-tui` (`packages/agent-transport-tui/src/App.tsx`). It is a thin JSX shell that:
 
 - Calls `useTuiChannel` and `usePluginCallbacks`.
-- Applies typed command effects that require the host shell via `ITuiCliAdapter` (injected by `startCli()`).
+- Renders host-shell state via `ITuiCliAdapter` (injected by `startCli()`; read-only toward settings since CMD-004 — host actions are session-executed).
 - Contains no queue logic, no abort logic, no session business logic.
 
 ### Tool List Visibility
@@ -845,7 +893,7 @@ interface ICommand {
 
 ### Skill Discovery (Multi-Path)
 
-Skills are discovered at session start from directories scanned by `SkillCommandSource` (agent-sdk), in priority order (highest first, deduplicated by name). Paths are defined in agent-sdk's SPEC.md; the CLI uses them as-is:
+Skills are discovered at session start from directories scanned by `SkillCommandSource` (agent-framework), in priority order (highest first, deduplicated by name). Paths are defined in agent-framework's SPEC.md; the CLI uses them as-is:
 
 | Priority | Path                          | Scope                                           |
 | -------- | ----------------------------- | ----------------------------------------------- |
@@ -940,7 +988,7 @@ used is not treated as skill activation unless a `skill_activation` event exists
 | startCli         | function | CLI entry point — parses args, assembles runtime, starts TUI or print mode           |
 | IStartCliOptions | type     | Options accepted by `startCli()` (injected command modules and provider definitions) |
 
-Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
+Note: `createSession()` is internal to `agent-framework` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-framework`. `ITerminalOutput` and `ISpinner` are no longer re-exported from `agent-cli`; import them directly from `@robota-sdk/agent-core`.
 
 ## File Structure
 
@@ -964,7 +1012,7 @@ src/
     ├── command-setup.ts                           ← buildCommandSetup() — command modules, adapters, provider definitions
     ├── diagnose-command.ts                        ← runDiagnoseCommand() — `robota diagnose` 6-check setup report
     ├── first-run.ts                               ← isFirstRun() / markOnboarded() / printFirstRunWelcome(terminal)
-    ├── preset-selection.ts                        ← selectPresetId() / resolveCliPreset() — thin preset id selection glue over agent-preset
+    ├── preset-selection.ts                        ← selectPresetId() / resolveShellPreset() — the shell's single preset resolution over agent-preset's per-call registry
     ├── provider-startup.ts                        ← runInteractiveProviderSetup() — interactive provider config
     ├── reset-config.ts                            ← Deletes user settings file on --reset
     ├── terminal-check.ts                          ← warnIfTerminalAppOnMacOS(terminal) — macOS Terminal.app CJK warning
@@ -1219,7 +1267,7 @@ checks fail — `robota diagnose` can gate CI and scripts.
 
 ## Session Logging
 
-Session logging is an SDK-internal concern. The CLI does not configure or manage log files. For logging details (JSONL format, log paths, event types), see the agent-sdk SPEC.
+Session logging is an SDK-internal concern. The CLI does not configure or manage log files. For logging details (JSONL format, log paths, event types), see the agent-framework SPEC.
 
 ## Tool Execution Display
 
@@ -1559,7 +1607,7 @@ The always-visible panel must not expose raw task IDs; task IDs remain available
 | `/background cancel <task-id>`        | Cancel one queued/running task |
 | `/background close <task-id>`         | Dismiss one terminal task      |
 
-For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-sdk and agent-runtime SPEC files.
+For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-framework and agent-executor SPEC files.
 
 Background job groups are SDK-owned orchestration state. The TUI may render group entries from the
 SDK execution workspace snapshot, but it must not decide group completion, aggregate raw logs,
@@ -1569,7 +1617,7 @@ SDK APIs and `/agent wait` command behavior.
 ### Execution Workspace Switcher
 
 The execution workspace switcher is a TUI-only view over `InteractiveSession` execution workspace
-APIs. `agent-sdk` owns the snapshot entries, status, attention, visibility, origin metadata, detail
+APIs. `agent-framework` owns the snapshot entries, status, attention, visibility, origin metadata, detail
 pagination, and available controls. `agent-cli` owns only:
 
 - opening/closing the switcher with Ctrl+B;
@@ -1733,32 +1781,50 @@ existing Node path (`bin/robota.cjs` → `dist/node/bin.js`) and every existing 
 
 `@robota-sdk/agent-cli` requires Node.js 22+ because Ink 7 requires Node.js 22 and React 19.2+.
 
-| Package                                | Purpose                                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-command`            | Default `/agent` command module composed by the Robota binary                                                                                     |
-| `@robota-sdk/agent-command`            | Default `/compact` command module composed by the Robota binary                                                                                   |
-| `@robota-sdk/agent-command`            | Default `/context` command module composed by the Robota binary                                                                                   |
-| `@robota-sdk/agent-command`            | Default `/exit` command module composed by the Robota binary                                                                                      |
-| `@robota-sdk/agent-command`            | Default `/help` command module composed by the Robota binary                                                                                      |
-| `@robota-sdk/agent-command`            | Default `/language` command module composed by the Robota binary                                                                                  |
-| `@robota-sdk/agent-command`            | Default `/permissions [mode]` command module composed by the Robota binary                                                                        |
-| `@robota-sdk/agent-command`            | Default `/provider` command module composed by the Robota binary                                                                                  |
-| `@robota-sdk/agent-command`            | Default `/rewind` command module composed by the Robota binary                                                                                    |
-| `@robota-sdk/agent-command`            | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`                        |
-| `@robota-sdk/agent-command`            | Default `/statusline` command module composed by the Robota binary                                                                                |
-| `@robota-sdk/agent-preset`             | Preset resolution (`resolvePreset`) and external preset loading (`loadExternalPresets`, `DEFAULT_AGENT_NAME`) consumed at startup                 |
-| `@robota-sdk/agent-framework`          | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts              |
-| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                          |
-| `@robota-sdk/agent-provider-openai`    | Default provider definitions contributed by the Robota binary (via sub-paths: `/anthropic`, `/openai`, `/gemini`, `/gemma`, `/qwen`, `/deepseek`) |
-| `@robota-sdk/agent-transport/headless` | Headless runner for print mode (`-p`) execution                                                                                                   |
-| `ink` 7, `react` 19.2+                 | TUI rendering                                                                                                                                     |
-| `ink-select-input`                     | Arrow-key selection (permission prompt)                                                                                                           |
-| `ink-spinner`                          | Loading spinner                                                                                                                                   |
-| `chalk`                                | Terminal colors                                                                                                                                   |
-| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                                                                                        |
-| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                                                                                           |
-| `cli-highlight`                        | Syntax highlighting for code blocks                                                                                                               |
-| `string-width`                         | Unicode-aware string width calculation                                                                                                            |
+| Package                                 | Purpose                                                                                                                                                                                                                         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-command`             | Default `/agent` command module composed by the Robota binary                                                                                                                                                                   |
+| `@robota-sdk/agent-command`             | Default `/compact` command module composed by the Robota binary                                                                                                                                                                 |
+| `@robota-sdk/agent-command`             | Default `/context` command module composed by the Robota binary                                                                                                                                                                 |
+| `@robota-sdk/agent-command`             | Default `/exit` command module composed by the Robota binary                                                                                                                                                                    |
+| `@robota-sdk/agent-command`             | Default `/help` command module composed by the Robota binary                                                                                                                                                                    |
+| `@robota-sdk/agent-command`             | Default `/language` command module composed by the Robota binary                                                                                                                                                                |
+| `@robota-sdk/agent-command`             | Default `/permissions [mode]` command module composed by the Robota binary                                                                                                                                                      |
+| `@robota-sdk/agent-command`             | Default `/provider` command module composed by the Robota binary                                                                                                                                                                |
+| `@robota-sdk/agent-command`             | Default `/rewind` command module composed by the Robota binary                                                                                                                                                                  |
+| `@robota-sdk/agent-command`             | Default session command module composed by the Robota binary, currently owning `/clear`, `/rename`, `/resume`, and `/cost`                                                                                                      |
+| `@robota-sdk/agent-command`             | Default `/statusline` command module composed by the Robota binary                                                                                                                                                              |
+| `@robota-sdk/agent-preset`              | Preset resolution (`resolvePreset`) and external preset loading (`loadExternalPresets`, `DEFAULT_AGENT_NAME`) consumed at startup                                                                                               |
+| `@robota-sdk/agent-framework`           | `InteractiveSession`, `CommandRegistry`, command sources, command API common layer, plugin management, re-exported runtime contracts                                                                                            |
+| `@robota-sdk/agent-core`                | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)                                                                                                                                                        |
+| `@robota-sdk/agent-provider-defaults`   | `createDefaultProviderDefinitions()` — the default provider definition set composed by the Robota binary (the concrete provider packages `agent-provider-{anthropic,openai,gemini,openai-compatible}` are bundled transitively) |
+| `@robota-sdk/agent-interface-transport` | Transport/interaction contracts (`IInteractionChannel`, session/command contract types)                                                                                                                                         |
+| `@robota-sdk/agent-transport`           | `TransportRegistry` (root barrel) for the TUI transport registry                                                                                                                                                                |
+| `@robota-sdk/agent-transport/headless`  | Headless runner for print mode (`-p`) execution                                                                                                                                                                                 |
+| `@robota-sdk/agent-transport-tui`       | `renderApp()` + `createDefaultTuiCliAdapter()` — the Ink TUI shell                                                                                                                                                              |
+| `@robota-sdk/agent-transport-ws`        | `WsTransport` registered (disabled by default) in the transport registry                                                                                                                                                        |
+| `@robota-sdk/agent-transport-webrtc`    | `WsSignalingClient` / `WebRtcTransport` for the remote-control P2P channel                                                                                                                                                      |
+| `@robota-sdk/agent-transport-protocol`  | `SessionResumeBridge` for remote-control session resume                                                                                                                                                                         |
+| `@robota-sdk/agent-remote-pairing`      | Pairing + host identity for remote control                                                                                                                                                                                      |
+| `@robota-sdk/agent-executor`            | `createDefaultBackgroundTaskRunners()` + background/subagent runner contracts                                                                                                                                                   |
+| `@robota-sdk/agent-subagent-runner`     | `createChildProcessSubagentRunnerFactory()` wired at the composition root                                                                                                                                                       |
+| `@robota-sdk/agent-command-workflows`   | `createWorkflowsCommandModule()` — the `/workflows` command module                                                                                                                                                              |
+| `@robota-sdk/agent-session-analytics`   | `robota session analyze` command implementation                                                                                                                                                                                 |
+| `@robota-sdk/agent-provider-replay`     | Dev-only `--session-log` replay provider (guarded dynamic require; not bundled in the published CLI)                                                                                                                            |
+| `ink` 7, `react` 19.2+                  | TUI rendering                                                                                                                                                                                                                   |
+| `ink-select-input`                      | Arrow-key selection (permission prompt)                                                                                                                                                                                         |
+| `ink-spinner`                           | Loading spinner                                                                                                                                                                                                                 |
+| `chalk`                                 | Terminal colors                                                                                                                                                                                                                 |
+| `ink-text-input`                        | Base text input (extended by CjkTextInput)                                                                                                                                                                                      |
+| `marked`, `marked-terminal`             | Markdown parsing and terminal rendering                                                                                                                                                                                         |
+| `cli-highlight`                         | Syntax highlighting for code blocks                                                                                                                                                                                             |
+| `string-width`                          | Unicode-aware string width calculation                                                                                                                                                                                          |
+| `qrcode`                                | Terminal QR rendering for remote-control pairing                                                                                                                                                                                |
+
+The remaining third-party entries in `package.json` `dependencies` (`openai`, `@anthropic-ai/sdk`,
+`@google/genai`, `werift`, `ws`, `zod`, `croner`, `fast-glob`, `jssha`, `open`, `p-limit`,
+`@marcbachmann/cel-js`, `zod-to-json-schema`, …) are not imported by CLI source; they are the hoisted
+runtime dependencies of the bundled workspace packages (see § Self-contained bundle, INFRA-028).
 
 ## Extension Points
 
@@ -1850,18 +1916,18 @@ Testing rules:
 All behavioral contracts in this package are expressed through interfaces and factory functions, not
 classes. The following table lists the primary runtime constructs with their contracts.
 
-| Construct                                | Kind     | Owner file                        | Contract summary                                                                                                                                                                                         |
-| ---------------------------------------- | -------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `startCli(options?)`                     | function | `src/cli.ts`                      | Parse args → dispatch pre-session commands inline (`init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                     |
-| `buildCommandSetup(cwd, args, opts, v)`  | factory  | `src/startup/command-setup.ts`    | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                                                                             |
-| `runDiagnoseCommand(ctx, deps?)`         | function | `src/startup/diagnose-command.ts` | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                                                                                 |
-| `runPrintMode(...)`                      | function | `src/modes/print-mode.ts`         | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                                                                          |
-| `runInitCommand(cwd, terminal, opts?)`   | function | `src/init/init-command.ts`        | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                                                                                   |
-| `isFirstRun(markerPath?)`                | function | `src/startup/first-run.ts`        | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                                                                                |
-| `markOnboarded(markerPath?)`             | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                                                                            |
-| `printFirstRunWelcome(terminal)`         | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                                                                      |
-| `warnIfTerminalAppOnMacOS(terminal)`     | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                                                                                |
-| `parseCliArgs()`                         | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs` (including `preset`); throws `Error` on invalid input                                                                                                        |
-| `selectPresetId(args, settingsPreset)`   | function | `src/startup/preset-selection.ts` | Picks the preset id: `--preset` flag > `settings.preset` > `'default'`. Pure selection glue                                                                                                              |
-| `resolveCliPreset(args, settingsPreset)` | function | `src/startup/preset-selection.ts` | Resolves the selected preset via agent-preset `resolvePreset` with CLI-flag overrides; precedence merge owned by agent-preset                                                                            |
-| `AGENT_CLI_BIN`                          | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner. The session `agentName` comes from `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME` (imported from `@robota-sdk/agent-preset`) |
+| Construct                                                   | Kind     | Owner file                        | Contract summary                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------- | -------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `startCli(options?)`                                        | function | `src/cli.ts`                      | Parse args → dispatch pre-session commands inline (`init`, `diagnose`, `session analyze`, `user-local`, flags) → assemble layers → print or TUI mode                                                                                                                           |
+| `buildCommandSetup(cwd, args, opts, v)`                     | factory  | `src/startup/command-setup.ts`    | Returns `ICliSetup` with command modules, adapters, provider defs, and startup update notice                                                                                                                                                                                   |
+| `runDiagnoseCommand(ctx, deps?)`                            | function | `src/startup/diagnose-command.ts` | Prints the 6-check diagnostics report via injected `ITerminalOutput`; network check injectable for tests                                                                                                                                                                       |
+| `runPrintMode(...)`                                         | function | `src/modes/print-mode.ts`         | Creates `HeadlessInteractionChannel`, calls `channel.run(prompt)`, exits with channel exit code                                                                                                                                                                                |
+| `runInitCommand(cwd, terminal, opts?)`                      | function | `src/init/init-command.ts`        | Creates AGENTS.md and `.robota/settings.json`; optionally migrates `.claude/` settings                                                                                                                                                                                         |
+| `isFirstRun(markerPath?)`                                   | function | `src/startup/first-run.ts`        | Returns `true` when the onboarded marker file (default `userPaths().onboarded`) is absent                                                                                                                                                                                      |
+| `markOnboarded(markerPath?)`                                | function | `src/startup/first-run.ts`        | Creates the onboarded marker file; idempotent                                                                                                                                                                                                                                  |
+| `printFirstRunWelcome(terminal)`                            | function | `src/startup/first-run.ts`        | Writes welcome banner via injected `ITerminalOutput` using `AGENT_CLI_BIN` constant                                                                                                                                                                                            |
+| `warnIfTerminalAppOnMacOS(terminal)`                        | function | `src/startup/terminal-check.ts`   | Emits CJK/IME stability warning on darwin + Apple_Terminal via injected `ITerminalOutput`                                                                                                                                                                                      |
+| `parseCliArgs()`                                            | function | `src/utils/cli-args.ts`           | Parses `process.argv` into `IParsedCliArgs` (including `preset`); throws `Error` on invalid input                                                                                                                                                                              |
+| `selectPresetId(args, settingsPreset)`                      | function | `src/startup/preset-selection.ts` | Picks the preset id: `--preset` flag > `settings.preset` > `'default'`. Pure selection glue                                                                                                                                                                                    |
+| `resolveShellPreset(externalPresets, args, settingsPreset)` | function | `src/startup/preset-selection.ts` | The shell's single preset resolution: builds agent-preset's per-call instance registry (R8), resolves the selected id with CLI-flag overrides, and returns `{ registry, presetId, context, options }` for the product profile to adopt. Precedence merge owned by agent-preset |
+| `AGENT_CLI_BIN`                                             | constant | `src/constants.ts`                | `'robota'` — binary name used in user-facing messages and welcome banner. The session `agentName` comes from `resolvedPreset.agentName ?? DEFAULT_AGENT_NAME` (imported from `@robota-sdk/agent-preset`)                                                                       |

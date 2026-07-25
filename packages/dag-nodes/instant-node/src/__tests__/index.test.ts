@@ -1,24 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('@robota-sdk/agent-core', () => ({
+// Partial mocks: every other export of each package stays real. Only the agent entrypoint and the
+// provider classes the node constructs are stubbed, so no provider SDK client is ever instantiated
+// and no real API call is made.
+vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   Robota: vi.fn().mockImplementation(() => ({
     run: vi.fn().mockResolvedValue('mocked response'),
   })),
 }));
 
-vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
+vi.mock('@robota-sdk/agent-provider-anthropic', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-anthropic')>()),
   AnthropicProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider-openai', () => ({
+vi.mock('@robota-sdk/agent-provider-openai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai')>()),
   OpenAIProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider-gemini/google', () => ({
+vi.mock('@robota-sdk/agent-provider-gemini/google', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-gemini/google')>()),
   GoogleProvider: vi.fn().mockImplementation(() => ({})),
 }));
 
-vi.mock('@robota-sdk/agent-provider-openai-compatible', () => ({
+vi.mock('@robota-sdk/agent-provider-openai-compatible', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-openai-compatible')>()),
   DeepSeekProvider: vi.fn().mockImplementation(() => ({})),
   QwenProvider: vi.fn().mockImplementation(() => ({})),
 }));
@@ -114,11 +122,13 @@ describe('createPromptBackedNodeDefinition', () => {
 });
 
 describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
-  const OLD_ENV = process.env;
-
   beforeEach(() => {
     vi.resetModules();
-    process.env = { ...OLD_ENV, ANTHROPIC_API_KEY: 'test-key' };
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('renders template and returns output on success', async () => {
@@ -141,7 +151,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('returns validation error when API key is missing', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
     const node = createPromptBackedNodeDefinition(SINGLE_PORT_SPEC);
     const result = await node.taskHandler.execute({ text: 'hello' }, MOCK_CONTEXT);
     expect(result.ok).toBe(false);
@@ -151,7 +161,7 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
   });
 
   it('multi-port spec renders all variables into template', async () => {
-    process.env.ANTHROPIC_API_KEY = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
     const multiSpec: ICreatePromptNodeInput = {
       nodeType: 'multi-port-node',
       displayName: 'Multi Port',

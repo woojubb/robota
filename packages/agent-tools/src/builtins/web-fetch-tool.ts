@@ -9,7 +9,9 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5 MB max download
@@ -21,12 +23,66 @@ const WebFetchSchema = z.object({
 
 type TWebFetchArgs = z.infer<typeof WebFetchSchema>;
 
+/**
+ * Remove every `<tag>…</tag>` element — the linear equivalent of `replace(/<tag[\s\S]*?<\/tag>/gi, '')`.
+ *
+ * The regex form is quadratic: every `<tag` with no closing tag after it rescans to end of input, and the scan
+ * then restarts at the next one. `htmlToText`'s input is a **response body from an arbitrary URL**, capped only
+ * at {@link MAX_RESPONSE_BYTES} (5 MB) — 5 MB of `<script` would have taken minutes. Because the closing tag is
+ * searched forward, its absence at one opener means no later opener can have one either, so the scan stops.
+ *
+ * Case folding is `[A-Z]`-only, not `toLowerCase()`: `toLowerCase()` can change a string's LENGTH (U+0130
+ * lowercases to two code units), which would desynchronise the indices from the original text.
+ */
+function stripElement(html: string, tag: string): string {
+  const openTag = `<${tag}`;
+  const closeTag = `</${tag}>`;
+  const haystack = html.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  const parts: string[] = [];
+  let cursor = 0;
+  for (;;) {
+    const open = haystack.indexOf(openTag, cursor);
+    if (open < 0) break;
+    const close = haystack.indexOf(closeTag, open + openTag.length);
+    if (close < 0) break;
+    parts.push(html.slice(cursor, open));
+    cursor = close + closeTag.length;
+  }
+  parts.push(html.slice(cursor));
+  return parts.join('');
+}
+
+/**
+ * Replace every `<…>` tag with a space — the linear equivalent of `replace(/<[^>]+>/g, ' ')`.
+ *
+ * Same defect, same input: `[^>]+` cannot cross a `>`, so a `<` with no `>` after it consumed the rest of the
+ * document and then backtracked over it, once per `<`. A page of 200 K `<` characters took 12.6 s; the 5 MB the
+ * fetch allows would have taken hours. `close === open + 1` reproduces the regex's `+` (a tag body must be at
+ * least one character), so a literal `<>` is left in the text exactly as before.
+ */
+function stripTags(html: string): string {
+  const parts: string[] = [];
+  let cursor = 0;
+  for (;;) {
+    const open = html.indexOf('<', cursor);
+    if (open < 0) break;
+    const close = html.indexOf('>', open + 1);
+    if (close < 0) break;
+    if (close === open + 1) {
+      parts.push(html.slice(cursor, open + 1));
+      cursor = open + 1;
+      continue;
+    }
+    parts.push(html.slice(cursor, open), ' ');
+    cursor = close + 1;
+  }
+  parts.push(html.slice(cursor));
+  return parts.join('');
+}
+
 /** Strip HTML tags and decode common entities to produce readable text. */
 function htmlToText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
+  return stripTags(stripElement(stripElement(html, 'script'), 'style'))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -141,9 +197,22 @@ async function runWebFetch(args: TWebFetchArgs, signal?: AbortSignal): Promise<s
   }
 }
 
-export const webFetchTool = createZodFunctionTool(
-  'WebFetch',
-  'Fetch a URL and return its content as text. HTML pages are converted to plain text.',
-  WebFetchSchema,
-  async (params, context) => runWebFetch(params, context?.signal),
-);
+const DEFAULT_WEB_FETCH_DESCRIPTION =
+  'Fetch a URL and return its content as text. HTML pages are converted to plain text.';
+
+/**
+ * Create a WebFetchTool instance — register with Robota agent tools registry.
+ */
+export function createWebFetchTool(options: IBuiltinToolDescriptionOptions = {}): FunctionTool {
+  return createZodFunctionTool(
+    'WebFetch',
+    options.description ?? DEFAULT_WEB_FETCH_DESCRIPTION,
+    WebFetchSchema,
+    async (params, context) => runWebFetch(params, context?.signal),
+  );
+}
+
+/**
+ * WebFetchTool instance — register with Robota agent tools registry.
+ */
+export const webFetchTool = createWebFetchTool();

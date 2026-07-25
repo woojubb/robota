@@ -1,0 +1,93 @@
+name: Live provider smoke
+
+# HARNESS-024: every provider boundary in the test suite is scripted or replayed, so auth failures,
+# vendor wire-format drift, a dropped required request field (the Anthropic 400 / maxTokens family)
+# and streaming-shape changes are invisible to PR CI by construction. This job makes one minimal
+# REAL turn per credentialed provider so that class of breakage surfaces within a day.
+#
+# NON-BLOCKING (same posture as mutation-nightly): scheduled + manual only, never a required check,
+# never a PR gate. A PR cannot be blocked by a third party's API being down or by a spent quota.
+#
+# Credential-gated by construction: each provider's key is passed through from repo secrets, and
+# scripts/harness/live-provider-smoke.mjs runs a provider ONLY when its `$ENV:` key variable is
+# present and non-empty. A secret that has not been provisioned expands to an empty string, so the
+# job SKIPS that provider and still exits 0 — it can never fail for lack of credentials. Until the
+# owner provisions at least one key secret, this workflow is a green no-op.
+#
+# Secrets consumed (all optional, add only the providers you want covered):
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, DASHSCOPE_API_KEY
+# OpenAI ships no default model, so covering it also needs the repo VARIABLE
+# `LIVE_SMOKE_MODEL_OPENAI` (e.g. a small chat model id); without it OpenAI is reported WARN.
+
+on:
+  schedule:
+    # Daily 05:37 UTC — off-peak, and distinct from mutation-nightly (03:17), CodeQL (04:27) and the
+    # scheduled security scan (Mon 04:47) so the runners never contend.
+    - cron: '37 5 * * *'
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Smoke a single provider type (blank = every credentialed provider)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  live-smoke:
+    name: live provider smoke (1 real turn per credentialed provider)
+    runs-on: ubuntu-latest
+    # A hung provider must not hold a runner: the script caps each call at 60s, this is the backstop.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The smoke reads the provider DEFINITIONS from built output, so only the provider-defaults
+      # dependency closure needs building (js only — no d.ts is needed to execute).
+      - name: Build provider closure
+        run: pnpm --filter @robota-sdk/agent-provider-defaults... build:js
+
+      - name: Run live provider smoke
+        env:
+          # Unprovisioned secrets expand to '' → that provider is skipped, not failed.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          # Model override for providers whose definition ships no default model.
+          LIVE_SMOKE_MODEL_OPENAI: ${{ vars.LIVE_SMOKE_MODEL_OPENAI }}
+          # Read through an env var, never interpolated into the shell line, so a dispatch input
+          # cannot become shell text.
+          SMOKE_PROVIDER: ${{ inputs.provider }}
+        run: |
+          args=(--report-file reports/live-provider-smoke/summary.json)
+          if [ -n "$SMOKE_PROVIDER" ]; then args+=(--provider "$SMOKE_PROVIDER"); fi
+          node scripts/harness/live-provider-smoke.mjs "${args[@]}"
+
+      # The report records provider/model/latency and the key VARIABLE NAMES only — never a key value.
+      - name: Upload live smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-provider-smoke-report
+          path: reports/live-provider-smoke
+          if-no-files-found: warn
+          retention-days: 30

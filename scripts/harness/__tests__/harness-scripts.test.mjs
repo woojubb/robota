@@ -191,7 +191,8 @@ describe('deploy workflow', () => {
   it('points deploy artifacts and Vercel working directories at apps/agent-web', () => {
     const content = readFileSync('.github/workflows/deploy.yml', 'utf8');
 
-    expect(content).toContain('apps/agent-web/coverage/lcov.info');
+    // (The former lcov.info assertion lived in the codecov upload step, removed in the Dependabot
+    // #1309 triage — the path-correctness intent is carried by the remaining assertions.)
     expect(content).toContain('working-directory: apps/agent-web');
     expect(content).not.toContain('apps/web');
   });

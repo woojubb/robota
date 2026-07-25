@@ -1,3 +1,8 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -149,5 +154,119 @@ describe('check-agent-def-convention (INFRA-030) — real corpus', () => {
   it('exposes the closed signal vocabulary including DECOMPOSITION', () => {
     expect(CLOSED_SIGNAL_VOCAB.has('DECOMPOSITION')).toBe(true);
     expect(CLOSED_SIGNAL_VOCAB.has('REVIEW VERDICT')).toBe(true);
+  });
+});
+
+/**
+ * HARNESS-046 — `tools:` may legitimately be a YAML flow array, and prettier (lint-staged's `*.md`
+ * formatter) then reflows it past printWidth onto one indented line per tool. The byte-exact shape
+ * below is the repo prettier's own output for
+ * `tools: [Read, Grep, Glob, Bash, Edit, Write, WebSearch, WebFetch, NotebookEdit, TodoWrite]`.
+ *
+ * A per-line frontmatter regex reads that as `tools: ''`, which (a) reports a bogus
+ * "missing frontmatter field: tools" and, far worse, (b) makes the read-only/edit-tool check blind:
+ * a read-only agent carrying `Write` sails straight through. Both are covered here end-to-end.
+ */
+const WRAPPED_TOOLS = [
+  'tools:',
+  '  [',
+  '    Read,',
+  '    Grep,',
+  '    Glob,',
+  '    Bash,',
+  '    Edit,',
+  '    Write,',
+  '    WebSearch,',
+  '    WebFetch,',
+  '    NotebookEdit,',
+  '    TodoWrite,',
+  '  ]',
+].join('\n');
+
+const WRAPPED_TOOLS_READONLY_AGENT = [
+  '---',
+  'name: wrapped-tools-auditor',
+  'description: Independent, read-only auditor. Never edits.',
+  WRAPPED_TOOLS,
+  '---',
+  '',
+  '# Wrapped Tools Auditor',
+  '',
+  'Never run tree-mutating git in the working tree.',
+].join('\n');
+
+describe('check-agent-def-convention (HARNESS-046) — prettier-wrapped tools array', () => {
+  it('sees Edit/Write inside a wrapped tools array on a read-only agent', () => {
+    const findings = analyzeAgent(WRAPPED_TOOLS_READONLY_AGENT, { referencedInIndex: true });
+    expect(findings.some((f) => /read-only but carries edit tool\(s\): Edit, Write/.test(f))).toBe(
+      true,
+    );
+    expect(findings.some((f) => /missing frontmatter field: tools/.test(f))).toBe(false);
+  });
+
+  it('accepts an INLINE flow array of tools', () => {
+    const agent = [
+      '---',
+      'name: inline-flow-fixer',
+      'description: Applies findings precisely. Edits docs only.',
+      'tools: [Read, Grep, Glob, Bash, Edit, Write]',
+      '---',
+      '',
+      '# Inline Flow Fixer',
+    ].join('\n');
+    expect(analyzeAgent(agent, { referencedInIndex: true })).toHaveLength(0);
+  });
+
+  it('still requires the tree-mutating-git guardrail when Bash arrives via a wrapped array', () => {
+    const agent = [
+      '---',
+      'name: wrapped-unguarded-auditor',
+      'description: Independent, read-only auditor.',
+      'tools:',
+      '  [',
+      '    Read,',
+      '    Grep,',
+      '    Glob,',
+      '    Bash,',
+      '  ]',
+      '---',
+      '',
+      '# No guardrail in the body.',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /tree-mutating git/.test(f))).toBe(true);
+  });
+
+  it('still reports an EMPTY tools list as missing (the check is not weakened)', () => {
+    const agent = [
+      '---',
+      'name: empty-tools',
+      'description: An agent with no tools declared.',
+      'tools: []',
+      '---',
+      '',
+      '# Body',
+    ].join('\n');
+    const findings = analyzeAgent(agent, { referencedInIndex: true });
+    expect(findings.some((f) => /missing frontmatter field: tools/.test(f))).toBe(true);
+  });
+
+  it('reads a wrapped tools array end-to-end through findAgentDefFindings', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-agent-def-'));
+    const agentsDir = path.join(root, '.claude/agents');
+    mkdirSync(agentsDir, { recursive: true });
+    writeFileSync(
+      path.join(agentsDir, 'wrapped-tools-auditor.md'),
+      WRAPPED_TOOLS_READONLY_AGENT,
+      'utf8',
+    );
+    const indexPath = path.join(root, 'index.md');
+    writeFileSync(indexPath, '- wrapped-tools-auditor — a registered fixture agent.\n', 'utf8');
+
+    const results = findAgentDefFindings(agentsDir, indexPath);
+    expect(results).toHaveLength(1);
+    expect(results[0].findings.some((f) => /carries edit tool\(s\): Edit, Write/.test(f))).toBe(
+      true,
+    );
   });
 });

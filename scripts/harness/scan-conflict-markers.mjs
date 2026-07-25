@@ -17,6 +17,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -36,14 +37,14 @@ const ALLOW_SUBSTRINGS = [
 
 const SCAN_TARGETS = ['AGENTS.md', '.agents/skills', '.agents/rules'];
 
-function walkMarkdown(target) {
-  const full = path.join(WORKSPACE_ROOT, target);
+function walkMarkdown(root, target) {
+  const full = path.join(root, target);
   if (!existsSync(full)) return [];
   if (statSync(full).isFile()) return full.endsWith('.md') ? [full] : [];
   const files = [];
   for (const entry of readdirSync(full, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      files.push(...walkMarkdown(path.join(target, entry.name)));
+      files.push(...walkMarkdown(root, path.join(target, entry.name)));
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       files.push(path.join(full, entry.name));
     }
@@ -54,7 +55,7 @@ function walkMarkdown(target) {
 export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   for (const target of SCAN_TARGETS) {
-    for (const file of walkMarkdown(target)) {
+    for (const file of walkMarkdown(root, target)) {
       const lines = readFileSync(file, 'utf8').split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -75,16 +76,22 @@ export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
   return findings;
 }
 
-const findings = findConflictMarkerFindings();
-if (findings.length === 0) {
-  process.stdout.write('conflict marker scan passed.\n');
-} else {
-  process.stdout.write('conflict marker scan failed:\n');
-  for (const f of findings) {
-    process.stdout.write(`  ${f.file}:${f.line}  ${f.text}\n`);
+export function main() {
+  const findings = findConflictMarkerFindings();
+  if (findings.length === 0) {
+    process.stdout.write('conflict marker scan passed.\n');
+  } else {
+    process.stdout.write('conflict marker scan failed:\n');
+    for (const f of findings) {
+      process.stdout.write(`  ${f.file}:${f.line}  ${f.text}\n`);
+    }
+    process.stdout.write(
+      '\nReword the guidance, or (if a legitimate definition/prohibition) add a substring to ALLOW_SUBSTRINGS.\n',
+    );
+    process.exitCode = 1;
   }
-  process.stdout.write(
-    '\nReword the guidance, or (if a legitimate definition/prohibition) add a substring to ALLOW_SUBSTRINGS.\n',
-  );
-  process.exitCode = 1;
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }

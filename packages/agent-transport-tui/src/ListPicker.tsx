@@ -15,6 +15,7 @@ import {
   type ISelectionFlowState,
   type TSelectionInputAction,
 } from './flows/selection-flow.js';
+import { KeyHintFooter, type IKeyHint } from './key-hint-footer.js';
 
 /** Default number of visible items */
 const DEFAULT_MAX_VISIBLE = 3;
@@ -30,12 +31,16 @@ export interface IListPickerProps<T> {
   onCancel: () => void;
   /** Maximum number of items visible at once (default: 10) */
   maxVisible?: number;
-  /** Key-hint footer shown below the list (default: navigate/select/cancel hint) */
-  footerHint?: string;
+  /** Key-hint footer shown below the list (default: navigate/select/cancel; `[]` suppresses it) */
+  footerHints?: readonly IKeyHint[];
 }
 
 /** Default affordance footer — Enter always selects and Esc always cancels. */
-const DEFAULT_FOOTER_HINT = ' ↑↓ Navigate  Enter Select  Esc Cancel';
+export const LIST_PICKER_DEFAULT_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '↑↓', label: 'Navigate' },
+  { keys: 'Enter', label: 'Select' },
+  { keys: 'Esc', label: 'Cancel' },
+];
 
 export default function ListPicker<T>({
   items,
@@ -43,7 +48,7 @@ export default function ListPicker<T>({
   onSelect,
   onCancel,
   maxVisible = DEFAULT_MAX_VISIBLE,
-  footerHint = DEFAULT_FOOTER_HINT,
+  footerHints = LIST_PICKER_DEFAULT_FOOTER_HINTS,
 }: IListPickerProps<T>): React.ReactElement {
   const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
   const stateRef = useRef(state);
@@ -96,7 +101,7 @@ export default function ListPicker<T>({
         </Box>
       ))}
       {hasMore && <Text dimColor> ↓ {items.length - scrollOffset - maxVisible} more below</Text>}
-      {footerHint !== '' && <Text dimColor>{footerHint}</Text>}
+      <KeyHintFooter hints={footerHints} />
     </Box>
   );
 }

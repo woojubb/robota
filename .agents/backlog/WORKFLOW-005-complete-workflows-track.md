@@ -232,3 +232,99 @@ sessionId, baseCredits(=0) }`. `SkillResolverRuntime` loads skills via `@robota-
 possible future addition).** Next phases per the phasing plan: P2 (dynamic authoring — instant-node
 Phase C + unified persistence + composite reload fix), P3 (surface unification — expose create/save/build
 through `/workflows` + WORKFLOW-004 build).
+
+## P2 progress log
+
+- **composite reload fix + unified persistence (agent `/workflows` path) — DONE (2026-07-25).** The
+  agent-slash-command persistence path (`packages/agent-command-workflows/src/persistence/`) previously
+  **refused** composite (DAG-wrapping) instant nodes: `saveInstantNodeFile` returned `null` for them and
+  `loadInstantNodes` skipped them with a "composite reload is not supported in this workspace" warning —
+  so a composite authored via that path was dropped on reload. It now round-trips both prompt AND
+  composite instant nodes through the shared `@robota-sdk/dag-node-instant-node`
+  `toPersisted()`/`parsePersistedInstantNode`/`rehydrateInstantNode` abstraction (DATA-003/004) — the
+  same single abstraction dag-cli's persistence store uses, closing the divergence where the two paths
+  had diverged (dag-cli supported composites, the agent path did not).
+  - **Composite sub-runner** (behavioral, never serialized) is rebuilt on reload by `loadInstantNodes`,
+    backed by `dag-framework`'s `LocalDagRuntimeProvider` (already a dep — no new package edge; the agent
+    path stays free of any `dag-cli` dependency). The runner closes over the live reloaded-defs array so
+    an inner DAG can reference other reloaded instant nodes regardless of load order. Because the provider
+    consumes the ComfyUI workflow-file format (and runs `fromDagWorkflowFile(file, undefined)`, re-keying
+    nodes to `node-<numId>`), the runner remaps runtime ids back to the inner DAG's original node ids via
+    the companion `toDagWorkflowFile` emits, and reshapes the provider's flat `"<id>.<port>"` output map
+    into the nested `outputs[nodeId][portKey]` shape the composite contract reads.
+  - **TDD**: red-first. New `workspace-writer.test.ts` case saves a composite, reloads it after a
+    simulated restart, and RUNS the reloaded composite end-to-end on the in-process runtime (pure inner
+    `input` node → no credentials) asserting its exposed output flows through. Verified RED before the fix
+    (`saveInstantNodeFile` returned `null` → composite dropped), GREEN after. Full `agent-command-workflows`
+    suite green (37 pass / 5 skipped live).
+  - Files: `persistence/workspace-writer.ts` (drop the composite refusal), `persistence/instant-node-loader.ts`
+    (build the sub-runner + reload composites), `__tests__/workspace-writer.test.ts`, `docs/SPEC.md`.
+  - Branch: `feat/workflow-005-p2-reload-persistence`.
+
+- **instant-node Phase C (arbitrary code node via API) — NOT STARTED; awaits owner phasing confirmation.**
+  Phase C is a NEW capability with security implications (runtime-defined executable code, persistable).
+  The doc notes it as "explicitly out of scope today" (Current state) yet lists it under P2 (phasing) —
+  this inconsistency needs an explicit OWNER decision on phasing/sandboxing before implementation. Do NOT
+  build it until confirmed.
+
+## P3 progress log
+
+- **Surface unification — DONE (2026-07-25).** P3's original wording ("expose create/save/build
+  through `/workflows` + WORKFLOW-004 build") was **already satisfied for the exposure half** by the
+  time it was picked up: `create` shipped with FLOW-007 P4 and `build` shipped with WORKFLOW-004
+  (#1358). Assessment against the code found the remaining P3 work was not _exposure_ but genuine
+  **unification** — the six subcommands had drifted into six ad-hoc executors. What was exposed vs
+  what was missing:
+
+  | Verb       | Exposed before P3?               | Gap found                                                 |
+  | ---------- | -------------------------------- | --------------------------------------------------------- |
+  | `create`   | ✅ (FLOW-007 P4)                 | owned a private copy of the authoring pipeline            |
+  | `build`    | ✅ (WORKFLOW-004 #1358)          | ~90-line verbatim copy of `create`'s pipeline             |
+  | `save`     | ✅ transitively (create + build) | no standalone verb needed — see below                     |
+  | `list`     | ✅                               | **blind to workspace-saved instant nodes**                |
+  | `catalog`  | ✅                               | none                                                      |
+  | `validate` | ✅                               | **blind to workspace-saved nodes** + raw, ungrammared arg |
+  | `run`      | ✅                               | raw, ungrammared arg                                      |
+
+  Four seams now have exactly one owner (`packages/agent-command-workflows/docs/SPEC.md` §"One
+  surface, four shared seams"):
+  - **Node catalog** (`src/workspace-runtime.ts`) — the headline **bug**: `create`/`build`/`run`
+    reloaded `<root>/nodes/`, but `validate` and `list` built a bare provider. So `build`'s own
+    printed hand-off "Next steps: `/workflows validate <path>`" **failed** with
+    `unknown node type "<authored-node>"` for every workflow `build` authored with a `newNodes`
+    prompt node, and `list` hid the nodes the user had just created. One provider factory now serves
+    `list`/`validate`/`run`, so the catalog a workflow is validated against is the one it runs against.
+  - **Argument grammar** (`src/args.ts`) — the quote-aware tokenizer was private to `create`/`build`;
+    `validate`/`run` took the arg raw, so a quoted path was opened verbatim and surplus tokens were
+    folded into the filename (`ENOENT: 'a.json b.json'`). `parseFileArg` now serves both.
+  - **Subcommand registry** (`src/subcommands.ts`) — list, hints, usage block and every
+    per-subcommand `Usage:` line derive from one array (`validate` advertised `<file.json>` while
+    emitting `<file.dag.json>`). Two mechanical anti-drift guards: an advertised verb cannot be
+    unroutable; a hint cannot drift from its usage line.
+  - **Authoring pipeline** (`src/authoring/pipeline.ts`) — `create` and `build` now share
+    `authorAndSaveWorkflow`; `create` alone adds the run step.
+  - **`save` assessed, deliberately NOT added as a verb.** Persisting is not a user-facing operation
+    on this surface: `create`/`build` both end in a save and `list`/`catalog` read it back. A
+    standalone `save <json>` would be an _import_ of externally-supplied graph/node data — a new
+    capability (dag-cli's MCP `dag_import` / `dag_instant_node_save` already cover the MCP-side
+    need), outside P3's intent. Recorded in the package SPEC.
+  - **WORKFLOW-004 contract intact and now proven twice**: the runtime execute-canary (0 calls) plus
+    a new **static import guard** that neither `build-command.ts` nor the shared pipeline imports the
+    execution module — so no module on `build`'s import path can construct a DAG runtime, for any
+    input, not just the tested ones.
+  - **TDD**: red-first. The 4 new `surface-unification.test.ts` cases were verified RED for the right
+    reasons before the fix (`unknown node type "pirate-speak"`; `pirate-speak` absent from `list`;
+    quoted path rejected; surplus args swallowed into the path). Both anti-drift guards were proven
+    to bite by temporarily introducing the drift each guards against. The pipeline dedupe is
+    behavior-preserving — the pre-existing `create`/`build` suites (incl. the non-execution canary)
+    stayed green across it.
+  - Verification: `pnpm harness:verify-like-ci` **PASS (4/4 stages)**; `pnpm -w typecheck` clean;
+    suites green — agent-command-workflows 45 (was 37), dag-framework 107, dag-cli 1007,
+    agent-cli 248. Package lint warnings 29 → 24. No changeset (`private: true`).
+  - Branch: `feat/workflow-005-p3-surface-unification`.
+
+**WORKFLOW-005 status: P1 ✅, P2 ✅ (except Phase C), P3 ✅. The item stays OPEN for exactly one
+thing — instant-node Phase C (arbitrary code node via API), which is OWNER-GATED (see the P2 log
+entry above), not deferred by engineering judgement.** Everything in the item that is not
+owner-gated is now done; archive it once the owner rules on Phase C's phasing/sandboxing (or drops
+it).

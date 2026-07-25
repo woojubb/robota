@@ -9,9 +9,9 @@ each deployment context.
 | Use case                          | Recommended API                                            | Notes                                 |
 | --------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
 | Single-shot query (scripts, CI)   | `createQuery`                                              | Simplest; multi-turn capable          |
-| Streaming server (SSE, WebSocket) | `createAgentRuntime + createSession`                       | Full event system                     |
-| Custom tools + streaming          | `createSession({ additionalTools })`                       | Tools AND events together             |
-| Bot with conversation memory      | `createSession({ resumeSessionId })`                       | Resumes persisted session             |
+| Streaming server (SSE, WebSocket) | `createAgentRuntime` + `runtime.createSession()`           | Full event system                     |
+| Custom tools + streaming          | `runtime.createSession({ additionalTools })`               | Tools AND events together             |
+| Bot with conversation memory      | `runtime.createSession({ resumeSessionId })`               | Resumes persisted session             |
 | Serverless / no filesystem        | `createStatelessRuntime`                                   | No session store, no-op settings      |
 | Batch processing                  | `createQuery` with `Promise.all`                           | Parallel queries                      |
 | Structured JSON output            | `createQuery({ responseFormat: { type: 'json_object' } })` | Instructs provider to emit valid JSON |
@@ -111,7 +111,7 @@ export async function POST(request: Request): Promise<Response> {
 
 ### Custom tools with streaming
 
-`additionalTools` is available on `createSession`:
+`additionalTools` is available on `runtime.createSession()`:
 
 ```typescript
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
@@ -270,7 +270,7 @@ const result = JSON.parse(raw);
 // result: { sentiment: "positive", topic: "TypeScript", confidence: 0.95 }
 ```
 
-Works with `createSession` and `createAgentRuntime.createSession` too:
+Works with `runtime.createSession()` too:
 
 ```typescript
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';

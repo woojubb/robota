@@ -22,7 +22,7 @@ import {
   stringifyParallelSubagentsDisabled,
   stringifyUnknownAgentType,
 } from './agent-tool-output.js';
-import { getBuiltInAgent } from '../agents/built-in-agents.js';
+import { BUILT_IN_AGENTS, getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
 
@@ -74,39 +74,49 @@ export function createAgentToolPromptDescription(
     .trim();
 }
 
-const AgentSchema = z
-  .object({
-    prompt: z
-      .string()
-      .optional()
-      .describe('The task for a single subagent to perform. Required when jobs is omitted.'),
-    subagent_type: z
-      .string()
-      .optional()
-      .describe('Agent type: "general-purpose", "Explore", "Plan", or a custom agent name'),
-    model: z.string().optional().describe('Optional model override'),
-    isolation: z
-      .enum(['none', 'worktree'])
-      .optional()
-      .describe('Optional runtime isolation mode. "worktree" runs in a Git worktree.'),
-    jobs: z
-      .array(
-        z
-          .object({
-            label: z.string().optional().describe('Stable role label for this batch job'),
-            prompt: z.string().describe('The task for this subagent to perform'),
-            subagent_type: z.string().optional().describe('Agent type for this job'),
-            model: z.string().optional().describe('Optional model override for this job'),
-            isolation: z.enum(['none', 'worktree']).optional().describe('Isolation for this job'),
-          })
-          .passthrough(),
-      )
-      .optional()
-      .describe('Batch of subagent jobs to start in one Agent tool call'),
-  })
-  .passthrough();
+/**
+ * NEUT-003: the `subagent_type` schema description is DERIVED from the agent
+ * definitions available to this session instead of hardcoding built-in names
+ * (which drifts against custom/injected registries).
+ */
+function createSubagentTypeDescription(agentTypeNames: readonly string[]): string {
+  return agentTypeNames.length > 0
+    ? `Agent type: ${agentTypeNames.map((name) => `"${name}"`).join(', ')}, or a custom agent name`
+    : 'Agent type: a custom agent name from the configured agent registry';
+}
 
-type TAgentArgs = z.infer<typeof AgentSchema>;
+function createAgentSchema(agentTypeNames: readonly string[]) {
+  return z
+    .object({
+      prompt: z
+        .string()
+        .optional()
+        .describe('The task for a single subagent to perform. Required when jobs is omitted.'),
+      subagent_type: z.string().optional().describe(createSubagentTypeDescription(agentTypeNames)),
+      model: z.string().optional().describe('Optional model override'),
+      isolation: z
+        .enum(['none', 'worktree'])
+        .optional()
+        .describe('Optional runtime isolation mode. "worktree" runs in a Git worktree.'),
+      jobs: z
+        .array(
+          z
+            .object({
+              label: z.string().optional().describe('Stable role label for this batch job'),
+              prompt: z.string().describe('The task for this subagent to perform'),
+              subagent_type: z.string().optional().describe('Agent type for this job'),
+              model: z.string().optional().describe('Optional model override for this job'),
+              isolation: z.enum(['none', 'worktree']).optional().describe('Isolation for this job'),
+            })
+            .passthrough(),
+        )
+        .optional()
+        .describe('Batch of subagent jobs to start in one Agent tool call'),
+    })
+    .passthrough();
+}
+
+type TAgentArgs = z.infer<ReturnType<typeof createAgentSchema>>;
 type TAgentJobArgs = IAgentToolBatchJobArgs;
 type TSingleAgentArgs = TAgentArgs & { prompt: string };
 
@@ -147,18 +157,21 @@ export function retrieveAgentToolDeps(key: object): IAgentToolDeps | undefined {
 /**
  * Resolve an agent type name to an IAgentDefinition.
  * Checks custom registry first so project/user definitions can override built-ins.
+ * NEUT-003: an injected `deps.builtInAgents` set REPLACES the module built-ins
+ * (an empty array removes them entirely).
  */
 function resolveAgentDefinition(
   agentType: string,
-  customRegistry?: (name: string) => IAgentDefinition | undefined,
+  deps: Pick<IAgentToolDeps, 'customAgentRegistry' | 'builtInAgents'>,
 ): IAgentDefinition | undefined {
-  if (customRegistry) {
-    const custom = customRegistry(agentType);
+  if (deps.customAgentRegistry) {
+    const custom = deps.customAgentRegistry(agentType);
     if (custom) return custom;
   }
-  const builtIn = getBuiltInAgent(agentType);
-  if (builtIn) return builtIn;
-  return undefined;
+  if (deps.builtInAgents) {
+    return deps.builtInAgents.find((agent) => agent.name === agentType);
+  }
+  return getBuiltInAgent(agentType);
 }
 
 function createSubagentManager(deps: IAgentToolDeps): ISubagentManager {
@@ -209,7 +222,7 @@ async function runManagedAgent(
 
   const singleArgs: TSingleAgentArgs = { ...args, prompt: args.prompt };
   const agentType = args.subagent_type ?? 'general-purpose';
-  const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
+  const agentDef = resolveAgentDefinition(agentType, deps);
   if (!agentDef) {
     return stringifyUnknownAgentType(agentType);
   }
@@ -235,11 +248,15 @@ async function runManagedAgent(
  */
 export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZodFunctionTool> {
   const manager = createSubagentManager(deps);
+  // NEUT-003: derive the subagent_type description from this session's actual definitions.
+  const agentTypeNames = (deps.agentDefinitions ?? deps.builtInAgents ?? BUILT_IN_AGENTS).map(
+    (definition) => definition.name,
+  );
 
   return createZodFunctionTool(
     'Agent',
     AGENT_TOOL_DESCRIPTION,
-    AgentSchema,
+    createAgentSchema(agentTypeNames),
     async (params, context) => {
       const args = params as TAgentArgs;
       const toolCallId = (context as IToolExecutionContext | undefined)?.executionId;

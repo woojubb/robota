@@ -3,6 +3,9 @@
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
+const TOGGLE_CLASSES =
+  'flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-[var(--border-strong)] bg-transparent text-muted-foreground transition-colors hover:text-[var(--foreground-hi)]';
+
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -11,24 +14,7 @@ export function ThemeToggle() {
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return (
-      <button
-        aria-label="Toggle theme"
-        style={{
-          width: 32,
-          height: 32,
-          background: 'transparent',
-          border: '1px solid #252540',
-          borderRadius: '0.375rem',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#7b7a95',
-          fontSize: '1rem',
-        }}
-      />
-    );
+    return <button aria-label="Toggle theme" className={TOGGLE_CLASSES} />;
   }
 
   const isDark = theme === 'dark';
@@ -38,20 +24,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      style={{
-        width: 32,
-        height: 32,
-        background: 'transparent',
-        border: '1px solid #252540',
-        borderRadius: '0.375rem',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#7b7a95',
-        fontSize: '1rem',
-        transition: 'border-color 0.15s, color 0.15s',
-      }}
+      className={TOGGLE_CLASSES}
     >
       {isDark ? (
         // Sun icon
@@ -64,6 +37,7 @@ export function ThemeToggle() {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <circle cx="12" cy="12" r="5" />
           <line x1="12" y1="1" x2="12" y2="3" />
@@ -86,6 +60,7 @@ export function ThemeToggle() {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>

@@ -18,6 +18,7 @@ import type {
   IStreamExecutionRequest as BaseStreamExecutionRequest,
   IAssistantMessage,
   IToolSchema,
+  ITokenUsage,
 } from '@robota-sdk/agent-core';
 
 export type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agent-core';
@@ -26,11 +27,8 @@ export type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agent-cor
 export interface IExtendedAssistantMessage extends IAssistantMessage {
   provider?: string;
   model?: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  /** TYPE-003: usage-triple SSOT (`ITokenUsage`, owned by agent-core). */
+  usage?: ITokenUsage;
   tools?: IToolSchema[];
 }
 
@@ -85,11 +83,8 @@ export interface IChatResponseData {
   content: string;
   provider?: string;
   model?: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  /** TYPE-003: usage-triple SSOT (`ITokenUsage`, owned by agent-core). */
+  usage?: ITokenUsage;
   tools?: IToolSchema[];
 }
 

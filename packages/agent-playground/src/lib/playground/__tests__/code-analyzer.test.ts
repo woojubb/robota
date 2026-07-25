@@ -159,4 +159,44 @@ describe('agent config parser', () => {
       plugins: [],
     });
   });
+
+  /**
+   * SEC-003 (`js/polynomial-redos`). `parseAgentConfig` is exported from `@robota-sdk/agent-playground`
+   * and takes arbitrary source text, so a consumer can hand it code it did not author. Two
+   * pre-fix regexes were quadratic: `tools:\s*\[([^\]]+)\]` rescanned to end-of-input from every
+   * unterminated `tools:[` (~1.8s below), and `\w+Tool` started a fresh O(n) scan at every offset
+   * of a long word-character run (~13s below). Both are ~1ms after the fix.
+   */
+  describe('parseAgentConfig is not polynomial-ReDoS-able', () => {
+    it('handles repeated unterminated tools arrays in linear time', () => {
+      const hostile = 'tools:['.repeat(60_000);
+
+      const started = performance.now();
+      const config = parseAgentConfig(hostile);
+      const took = performance.now() - started;
+
+      expect(config.tools).toEqual([]);
+      expect(took).toBeLessThan(250);
+    });
+
+    it('handles a long word-character run inside a tools array in linear time', () => {
+      const hostile = `tools: [${'0'.repeat(200_000)}]`;
+
+      const started = performance.now();
+      const config = parseAgentConfig(hostile);
+      const took = performance.now() - started;
+
+      expect(config.tools).toEqual([]);
+      expect(took).toBeLessThan(250);
+    });
+
+    it('still extracts tool variable names from a tools array', () => {
+      const config = parseAgentConfig('const r = new Robota({ tools: [weatherTool, calcTool] });');
+
+      expect(config.tools).toEqual([
+        { name: 'weather', description: 'Custom tool function' },
+        { name: 'calc', description: 'Custom tool function' },
+      ]);
+    });
+  });
 });

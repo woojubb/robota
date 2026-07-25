@@ -299,9 +299,100 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]!.type).toBe('command_result');
     // A transport-origin command is an untrusted remote origin — the handler tags it `'remote'` so the session
     // applies its (optional, allow-by-default) remote-command policy.
+    // CMD-004 Phase 2: the 4th arg is the command-origin driver id — undefined when the handler has
+    // no server-assigned id (unattributed; a client-sent id is NEVER trusted).
     expect(
       (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
-    ).toHaveBeenCalledWith('clear', '', 'remote');
+    ).toHaveBeenCalledWith('clear', '', 'remote', undefined);
+  });
+
+  it('command carries the SERVER-ASSIGNED driver id as the command origin (CMD-004 Phase 2)', async () => {
+    const session = createMockSession();
+    const sent: TServerMessage[] = [];
+    const { onMessage } = createWsHandler({
+      session: session as unknown as IInteractiveSession,
+      send: (msg) => sent.push(msg),
+      driverId: 'device-7',
+    });
+    onMessage(JSON.stringify({ type: 'command', name: 'settings' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(
+      (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
+    ).toHaveBeenCalledWith('settings', '', 'remote', 'device-7');
+  });
+
+  it('forwards ui_intent session events to the requesting client (CMD-004 Phase 2)', () => {
+    const session = createMockSession();
+    const sent: TServerMessage[] = [];
+    createWsHandler({
+      session: session as unknown as IInteractiveSession,
+      send: (msg) => sent.push(msg),
+      driverId: 'device-7',
+    });
+    session._emit('ui_intent', {
+      intent: { type: 'show-settings' },
+      requesterDriverId: 'device-7',
+    });
+    expect(sent).toEqual([
+      {
+        type: 'ui_intent',
+        event: { intent: { type: 'show-settings' }, requesterDriverId: 'device-7' },
+      },
+    ]);
+  });
+
+  // CMD-004 Stage D — `ui_intent` is REQUESTER-ROUTED (the spec's Key mechanics): the surface that
+  // issued the command renders the intent; other surfaces never see it. Only an UNATTRIBUTED intent
+  // (no requester id — e.g. an idle model-invoked command) reaches every surface, because it cannot
+  // be routed and a silent drop is banned.
+  describe('ui_intent requester routing (CMD-004 Stage D)', () => {
+    function twoSurfaces() {
+      const session = createMockSession();
+      const sentA: TServerMessage[] = [];
+      const sentB: TServerMessage[] = [];
+      createWsHandler({
+        session: session as unknown as IInteractiveSession,
+        send: (msg) => sentA.push(msg),
+        driverId: 'device-A',
+      });
+      createWsHandler({
+        session: session as unknown as IInteractiveSession,
+        send: (msg) => sentB.push(msg),
+        driverId: 'device-B',
+      });
+      return { session, sentA, sentB };
+    }
+
+    it('routes a requester-stamped intent ONLY to the invoking surface — not broadcast', () => {
+      const { session, sentA, sentB } = twoSurfaces();
+      session._emit('ui_intent', {
+        intent: { type: 'show-session-picker' },
+        requesterDriverId: 'device-A',
+      });
+      expect(sentA).toEqual([
+        {
+          type: 'ui_intent',
+          event: { intent: { type: 'show-session-picker' }, requesterDriverId: 'device-A' },
+        },
+      ]);
+      expect(sentB).toEqual([]);
+    });
+
+    it('an unattributed intent reaches every surface (unroutable — never silently dropped)', () => {
+      const { session, sentA, sentB } = twoSurfaces();
+      session._emit('ui_intent', { intent: { type: 'show-settings' } });
+      expect(sentA).toEqual([{ type: 'ui_intent', event: { intent: { type: 'show-settings' } } }]);
+      expect(sentB).toEqual(sentA);
+    });
+
+    it("a surface with NO server-assigned id never receives another surface's intent", () => {
+      const { sent, session } = setup(); // setup() builds a handler without a driverId
+      session._emit('ui_intent', {
+        intent: { type: 'show-agent-switcher' },
+        requesterDriverId: 'device-elsewhere',
+      });
+      expect(sent).toEqual([]);
+    });
   });
 
   it('invalid JSON sends protocol_error', () => {
@@ -475,7 +566,8 @@ describe('WebSocket Transport Handler', () => {
   it('cleanup unsubscribes from all events', () => {
     const { session, cleanup } = setup();
     cleanup();
-    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved).
-    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(14);
+    // 11 base events + 3 REMOTE-007 prompt events (permission_request/ask_request/prompt_resolved)
+    // + 3 CMD-004 Phase 2 events (ui_intent + the session_renamed/history_cleared broadcasts).
+    expect((session as unknown as { off: ReturnType<typeof vi.fn> }).off).toHaveBeenCalledTimes(17);
   });
 });

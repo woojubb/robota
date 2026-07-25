@@ -35,7 +35,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
       - name: Fetch base branch
@@ -66,7 +66,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "build is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -157,7 +157,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "quality is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -185,7 +185,7 @@ jobs:
 
       - name: Download package build output
         if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: package-dist
           path: .artifacts/package-dist
@@ -228,7 +228,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "scans are covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -273,7 +273,7 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "security audit is covered by release-grade verification"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
           fetch-depth: 50
@@ -310,7 +310,7 @@ jobs:
     if: github.base_ref == 'main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -338,47 +338,16 @@ jobs:
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
-  # HARNESS-DIET-007: this job verifies the declared Node >=18 engines floor, so it
-  # must actually run on Node 18 (it previously ran on 22.x and tested nothing extra).
-  compat-node18:
-    name: compat-node18
-    runs-on: ubuntu-latest
-    if: github.base_ref == 'main'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 50
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8.15.4
-
-      - name: Use Node.js 18.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build packages
-        run: pnpm run build:deps
-
-      - name: Test with coverage (excludes packages requiring Node 20+)
-        # robota-web (apps/agent-web) is a jest-based Next.js app, not a published
-        # Node-18 consumer surface; jest cannot parse the vitest coverage flags.
-        run: pnpm --filter !@robota-sdk/agent-cli --filter !robota-web run test -- --coverage --coverage.thresholds.lines=80
-
+  # compat-node18 was removed: its first REAL Node 18 run (promotion #1306) proved the build chain
+  # (rolldown, engines ^20.19 || >=22.12) cannot run on Node 18 at all, and Node 18 has been EOL since
+  # 2025-04 — the engines floor is now >=20.19.0, making a separate compat job redundant with `build`.
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
     if: github.base_ref != 'main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -396,11 +365,48 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }} --depth=50
-
+      # INFRA-049: lint ONLY the commits this PR authored. Three things make that true, and all
+      # three are load-bearing — see .agents/backlog/completed/INFRA-049-*.md for the evidence.
+      #
+      # 1. NO base fetch, and above all no `--depth`. `actions/checkout` already fetched every
+      #    branch at full depth (fetch-depth: 0), so `origin/<base>` is present and complete. The
+      #    `git fetch origin <base> --depth=50` step that used to sit here GRAFTED the repository at
+      #    depth 50, destroying the ancestry that `<base>..<head>` is computed from: commits long
+      #    since merged into the base looked unreachable and were re-linted. That is what failed
+      #    #1415 — 97 inherited commits and 26 errors in CI, while the identical command exited 0
+      #    on a full local clone. Removing it is what makes CI and a local run agree.
+      # 2. `--first-parent` drops history the PR merged IN from another branch. A main→develop
+      #    back-merge carries ~109 already-merged commits its author cannot rewrite; those belong to
+      #    the PRs that introduced them. Every commit the PR itself authored — including its own
+      #    merge commits — sits on the first-parent path and is still linted in full, so a bad
+      #    subject the PR wrote still fails the gate.
+      # 3. `github.event.pull_request.head.sha`, NOT `HEAD`. On a pull_request event HEAD is
+      #    GitHub's synthetic `refs/pull/N/merge`, whose FIRST parent is the base branch — walking
+      #    first-parent from it would traverse the base and lint nothing at all.
+      #
+      # commitlint's own `--git-log-args=--first-parent` is NOT usable here: @commitlint/read passes
+      # the parsed flags to @conventional-changelog/git-client, which only understands the camelCase
+      # `firstParent` key and silently drops anything else (its own source says so). The documented
+      # spelling is a no-op, so the range is computed with git directly.
+      #
+      # Local equivalent — same commit set, given an up-to-date origin/<base>:
+      #   git rev-list --first-parent origin/develop..HEAD |
+      #     while read -r sha; do
+      #       git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || exit 1
+      #     done
       - name: Lint PR commit messages
-        run: pnpm exec commitlint --from origin/${{ github.base_ref }} --to HEAD --verbose
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          range="origin/${BASE_REF}..${HEAD_SHA}"
+          echo "Linting $(git rev-list --count --first-parent "$range") commit(s) authored by this PR ($range, first-parent)."
+          status=0
+          for sha in $(git rev-list --first-parent "$range"); do
+            echo "── $(git log -1 --format='%h %s' "$sha")"
+            git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || status=1
+          done
+          exit "$status"
 
   examples-typecheck:
     name: examples-typecheck
@@ -409,7 +415,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -445,7 +451,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -484,7 +490,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -520,7 +526,7 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 50
 
@@ -545,3 +551,59 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/harness/check-regression-red-proof.mjs
+
+  # INFRA-041: PR patch (diff) coverage — the lines a PR adds/changes in package/app `src` must
+  # themselves be exercised by tests. The former global 80% average (compat-node18, removed) never
+  # guaranteed this: a PR could add untested lines while the repo average stayed green. ADVISORY in
+  # v1 (never blocks; the script exits 0 unless PATCH_COVERAGE_ENFORCE=1 — same rollout pattern as
+  # regression-red-proof). Honest by construction: when coverage data for an affected package cannot
+  # be produced, the verdict is INCONCLUSIVE with an explicit NO-DATA log — never a silent pass.
+  # Runtime is bounded: a --detect pre-step gates the build+test steps to PRs that actually change
+  # coverable src lines, and coverage runs execute ONLY the affected packages' suites.
+  patch-coverage:
+    name: patch-coverage (advisory)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 50
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch the base branch (for merge-base + changed-line diff)
+        run: git fetch origin ${{ github.base_ref }} --depth=50
+
+      - name: Detect packages with coverable changed lines
+        id: detect
+        env:
+          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/harness/check-patch-coverage.mjs --detect
+
+      - name: Build workspace packages (affected suites import sibling dist)
+        if: steps.detect.outputs.affected == 'true'
+        run: pnpm build:deps
+
+      - name: Compute patch coverage over changed lines
+        if: steps.detect.outputs.affected == 'true'
+        env:
+          PATCH_COVERAGE_BASE_REF: origin/${{ github.base_ref }}
+        run: node scripts/harness/check-patch-coverage.mjs
+
+      - name: Skip (no coverable src changes)
+        if: steps.detect.outputs.affected != 'true'
+        run: echo "No package/app src lines changed — patch coverage is a no-op for this PR."

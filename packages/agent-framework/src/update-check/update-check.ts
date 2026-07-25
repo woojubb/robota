@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { compareSemverVersions, isNewerSemverVersion } from '../utils/semver-compare.js';
+import { trimTrailingChars } from '../utils/trim-char.js';
 
 export const CLI_UPDATE_PACKAGE_NAME = '@robota-sdk/agent-cli';
 export const CLI_UPDATE_REGISTRY_URL = 'https://registry.npmjs.org';
@@ -61,12 +62,7 @@ interface INpmPackageMetadata {
 export { compareSemverVersions, isNewerSemverVersion };
 
 type TJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly TJsonValue[]
-  | { readonly [key: string]: TJsonValue };
+  string | number | boolean | null | readonly TJsonValue[] | { readonly [key: string]: TJsonValue };
 
 export function getUserUpdateCheckCachePath(
   home = process.env.HOME ?? process.env.USERPROFILE ?? '/',
@@ -276,7 +272,8 @@ async function fetchLatestVersion(options: {
 }
 
 function buildPackageMetadataUrl(registryUrl: string, packageName: string): string {
-  return `${registryUrl.replace(/\/+$/, '')}/${encodeURIComponent(packageName)}`;
+  // `trimTrailingChars` rather than `/\/+$/`: an unanchored trailing-run regex is quadratic (SEC-003).
+  return `${trimTrailingChars(registryUrl, '/')}/${encodeURIComponent(packageName)}`;
 }
 
 function parseUpdateCheckCache(value: TJsonValue): IUpdateCheckCache | undefined {

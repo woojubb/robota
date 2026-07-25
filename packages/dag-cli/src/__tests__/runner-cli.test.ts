@@ -3,7 +3,7 @@
  * All subcommand handlers are mocked so these tests only cover routing logic.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock all heavy dependencies that would make network/FS calls
 vi.mock('../commands/run.js', () => ({
@@ -53,7 +53,8 @@ vi.mock('../telemetry.js', () => ({
   isTelemetryEnabled: vi.fn().mockResolvedValue(false),
   readTelemetryConfig: vi.fn().mockResolvedValue({}),
 }));
-vi.mock('@robota-sdk/dag-orchestration-client', () => ({
+vi.mock('@robota-sdk/dag-orchestration-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-orchestration-client')>()),
   DagOrchestrationHttpClient: vi.fn().mockImplementation(() => ({})),
 }));
 vi.mock('../runner-dispatch.js', () => ({
@@ -79,6 +80,10 @@ function makeMockIo(): IDagCliIo & { written: string[] } {
 describe('runDagCli', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('shows help text when no args given', async () => {
@@ -361,7 +366,7 @@ describe('runDagCli', () => {
     });
 
     const io = makeMockIo();
-    delete process.env['CI'];
+    vi.stubEnv('CI', undefined);
     await runDagCli(['validate', 'bad.dag.json'], { io });
     const output = io.written.join('');
     expect(output).toContain('dag doctor');

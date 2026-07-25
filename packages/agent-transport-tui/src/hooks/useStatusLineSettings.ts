@@ -1,8 +1,9 @@
 import { DEFAULT_STATUS_LINE_COMMAND_SETTINGS } from '@robota-sdk/agent-framework';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
+import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { IStatusLineCommandSettings } from '@robota-sdk/agent-interface-transport';
 
@@ -26,12 +27,24 @@ function isRecord(value: TUniversalValue): value is Record<string, TUniversalVal
   );
 }
 
-export function useStatusLineSettings(): [
-  IStatusLineCommandSettings,
-  (settings: IStatusLineCommandSettings) => void,
-] {
+function readFromAdapter(cliAdapter: ITuiCliAdapter): IStatusLineCommandSettings {
+  return readStatusLineSettings(cliAdapter.readSettings(cliAdapter.getUserSettingsPath()));
+}
+
+/**
+ * Statusline settings as persisted on disk, plus a from-disk `refresh()`.
+ *
+ * CMD-004 Phase 2 Stage C: the HOST applies `statusline-settings-patch` via the settings adapter
+ * (the TUI no longer writes settings), so the renderer refreshes by RE-READING the persisted
+ * document when a command result arrives (refresh-on-result).
+ */
+export function useStatusLineSettings(): [IStatusLineCommandSettings, () => void] {
   const cliAdapter = useTuiCliAdapter();
-  return useState<IStatusLineCommandSettings>(() =>
-    readStatusLineSettings(cliAdapter.readSettings(cliAdapter.getUserSettingsPath())),
+  const [settings, setSettings] = useState<IStatusLineCommandSettings>(() =>
+    readFromAdapter(cliAdapter),
   );
+  const refresh = useCallback((): void => {
+    setSettings(readFromAdapter(cliAdapter));
+  }, [cliAdapter]);
+  return [settings, refresh];
 }

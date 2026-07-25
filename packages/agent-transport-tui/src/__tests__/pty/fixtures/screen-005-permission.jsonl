@@ -1,0 +1,3 @@
+{"timestamp":"2026-07-24T00:00:00.000Z","sessionId":"perm-fixture","event":"provider_request","executionId":"e1","round":0}
+{"timestamp":"2026-07-24T00:00:01.000Z","sessionId":"perm-fixture","event":"provider_response_normalized","executionId":"e1","round":0,"response":{"role":"assistant","content":null,"id":"a1","state":"complete","timestamp":"2026-07-24T00:00:01.000Z","toolCalls":[{"id":"call_shell_1","type":"function","function":{"name":"Shell","arguments":"{\"command\":\"printf PERM_TEST\\\\n\"}"}}]}}
+{"timestamp":"2026-07-24T00:00:02.000Z","sessionId":"perm-fixture","event":"provider_response_normalized","executionId":"e2","round":0,"response":{"role":"assistant","content":"AFTER_PERMISSION_FLOW","id":"a2","state":"complete","timestamp":"2026-07-24T00:00:02.000Z"}}

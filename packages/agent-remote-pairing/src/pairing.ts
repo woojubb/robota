@@ -90,9 +90,25 @@ export function parsePairingUrl(url: string): IPairingSecret {
 
 // ── DTLS fingerprint extraction ─────────────────────────────────────────────────────────────────
 
-/** Extract the `a=fingerprint:<hash> <value>` value from an SDP. Throws if absent (fail closed). */
+/**
+ * Extract the `a=fingerprint:<hash> <value>` value from an SDP. Throws if absent (fail closed).
+ *
+ * **Anchored to the start of an SDP line (`^…/m`) — deliberately, on two counts.**
+ *
+ * 1. *Linearity.* Unanchored, the scan retried `\S+` from every offset in a non-space run, so an SDP made of
+ *    repeated `a=fingerprint:` text cost O(n²) — 5.2 s at 400 KB. The remote SDP arrives over the (untrusted,
+ *    content-blind) signaling relay and is parsed here **before** the pairing confirmation runs, so that was a
+ *    pre-authentication remote stall. `^…/m` limits the start offsets to line starts, which makes the total work
+ *    linear in the SDP length.
+ * 2. *Not binding free text.* An SDP line is `<type>=<value>`; `a=fingerprint:` appearing mid-line is inside some
+ *    other field's free text (`s=`, `i=`, an unrelated attribute value) that no DTLS stack reads. The unanchored
+ *    form returned such a value, letting a relay smuggle a fingerprint of its choosing into the channel binding.
+ *
+ * Residual (tracked in SEC-003): this still returns the FIRST fingerprint line rather than the one the DTLS stack
+ * actually verified for the negotiated m-section, so a session-level line can still shadow a media-level one.
+ */
 export function extractDtlsFingerprint(sdp: string): string {
-  const match = sdp.match(/a=fingerprint:\S+\s+([0-9A-Fa-f:]+)/);
+  const match = sdp.match(/^a=fingerprint:\S+\s+([0-9A-Fa-f:]+)/m);
   if (!match) throw new Error('no DTLS fingerprint (a=fingerprint) found in SDP');
   return match[1].toUpperCase();
 }

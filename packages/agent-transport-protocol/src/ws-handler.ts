@@ -12,20 +12,15 @@ import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './ws-background-messages.js';
+import { subscribeSessionEvents } from './ws-session-events.js';
 
 import type { TClientMessage, TServerMessage } from './ws-protocol.js';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
-import type {
-  IAskRequestEvent,
-  IExecutionResult,
-  IExecutionWorkspaceEvent,
-  IInteractiveSession,
-  IPermissionRequestEvent,
-  IPromptResolvedEvent,
-  IToolState,
-  TBackgroundJobGroupEvent,
-} from '@robota-sdk/agent-interface-transport';
-import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
+
+// Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
+// `ws-session-events.ts`; re-exported here for the bridge and existing importers.
+export { subscribeSessionEvents } from './ws-session-events.js';
+export type { ISubscribeSessionEventsOptions } from './ws-session-events.js';
 
 export interface IWsHandlerOptions {
   /** IInteractiveSession to expose. */
@@ -62,87 +57,12 @@ export function createWsHandler(options: IWsHandlerOptions): {
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
-  const cleanup = subscribeSessionEvents(options.session, options.send);
+  const cleanup = subscribeSessionEvents(options.session, options.send, {
+    getSurfaceDriverId: () => options.driverId,
+  });
   const onMessage = createWsMessageHandler(options.session, options.send, options.driverId);
 
   return { onMessage, cleanup };
-}
-
-/**
- * Subscribe the session's events and forward each as a `TServerMessage` via `send`; returns an unsubscribe.
- * Exported (REMOTE-013 E4) so the persistent {@link SessionResumeBridge} can own a SINGLE subscription that
- * outlives per-channel handlers.
- */
-export function subscribeSessionEvents(
-  session: IInteractiveSession,
-  send: (message: TServerMessage) => void,
-): () => void {
-  // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
-  // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
-  // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
-  const driver = (): TDriverId | undefined => session.getActiveDriverId?.() ?? undefined;
-  const attr = (): { driverId?: TDriverId } => {
-    const d = driver();
-    return d ? { driverId: d } : {};
-  };
-  const onUserMessage = (content: string): void =>
-    send({ type: 'user_message', content, ...attr() });
-  const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta, ...attr() });
-  const onToolStart = (state: IToolState): void => send({ type: 'tool_start', state, ...attr() });
-  const onToolEnd = (state: IToolState): void => send({ type: 'tool_end', state, ...attr() });
-  const onThinking = (isThinking: boolean): void =>
-    send({ type: 'thinking', isThinking, ...attr() });
-  const onComplete = (result: IExecutionResult): void =>
-    send({ type: 'complete', result, ...attr() });
-  const onInterrupted = (result: IExecutionResult): void =>
-    send({ type: 'interrupted', result, ...attr() });
-  const onError = (error: Error): void =>
-    send({ type: 'error', message: error.message, ...attr() });
-  const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
-    send({ type: 'background_task_event', event });
-  const onBackgroundJobGroupEvent = (event: TBackgroundJobGroupEvent): void =>
-    send({ type: 'background_job_group_event', event });
-  const onExecutionWorkspace = (event: IExecutionWorkspaceEvent): void =>
-    send({ type: 'execution_workspace_event', snapshot: event.snapshot });
-  // REMOTE-007: forward the transport-neutral prompt events so a remote surface can render + answer the
-  // SAME permission/ask prompt; `prompt_resolved` dismisses it when another surface answered first.
-  const onPermissionRequest = (event: IPermissionRequestEvent): void =>
-    send({ type: 'permission_request', event });
-  const onAskRequest = (event: IAskRequestEvent): void => send({ type: 'ask_request', event });
-  const onPromptResolved = (event: IPromptResolvedEvent): void =>
-    send({ type: 'prompt_resolved', event });
-
-  session.on('user_message', onUserMessage);
-  session.on('text_delta', onTextDelta);
-  session.on('tool_start', onToolStart);
-  session.on('tool_end', onToolEnd);
-  session.on('thinking', onThinking);
-  session.on('complete', onComplete);
-  session.on('interrupted', onInterrupted);
-  session.on('error', onError);
-  session.on('background_task_event', onBackgroundTaskEvent);
-  session.on('background_job_group_event', onBackgroundJobGroupEvent);
-  session.on('execution_workspace_event', onExecutionWorkspace);
-  session.on('permission_request', onPermissionRequest);
-  session.on('ask_request', onAskRequest);
-  session.on('prompt_resolved', onPromptResolved);
-
-  return (): void => {
-    session.off('user_message', onUserMessage);
-    session.off('text_delta', onTextDelta);
-    session.off('tool_start', onToolStart);
-    session.off('tool_end', onToolEnd);
-    session.off('thinking', onThinking);
-    session.off('complete', onComplete);
-    session.off('interrupted', onInterrupted);
-    session.off('error', onError);
-    session.off('background_task_event', onBackgroundTaskEvent);
-    session.off('background_job_group_event', onBackgroundJobGroupEvent);
-    session.off('execution_workspace_event', onExecutionWorkspace);
-    session.off('permission_request', onPermissionRequest);
-    session.off('ask_request', onAskRequest);
-    session.off('prompt_resolved', onPromptResolved);
-  };
 }
 
 function createWsMessageHandler(
@@ -200,11 +120,8 @@ export function handleClientMessage(
     handlePromptResponseMessage(session, msg, driverId);
     return;
   }
-  send({ type: 'protocol_error', message: `Unknown message type: ${getMessageType(msg)}` });
-}
-
-function getMessageType(msg: TClientMessage): string {
-  return (msg as { type: string }).type;
+  const unknownType = (msg as { type: string }).type;
+  send({ type: 'protocol_error', message: `Unknown message type: ${unknownType}` });
 }
 
 function isSessionControlMessage(
@@ -222,11 +139,7 @@ function isSessionQueryMessage(msg: TClientMessage): msg is Extract<
   TClientMessage,
   {
     type:
-      | 'get-messages'
-      | 'get-context'
-      | 'get-executing'
-      | 'get-pending'
-      | 'get-execution-workspace';
+      'get-messages' | 'get-context' | 'get-executing' | 'get-pending' | 'get-execution-workspace';
   }
 > {
   return (
@@ -314,9 +227,9 @@ function handleSessionControlMessage(
       send({ type: 'protocol_error', message: 'name is required' });
       return;
     }
-    // REMOTE-003: a command arriving over a transport is an untrusted remote origin — tag it `'remote'` so the
-    // session applies its optional remote-command policy (allow-by-default — local == remote; REMOTE-006).
-    session.executeCommand(msg.name, msg.args ?? '', 'remote').then(
+    // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
+    // REMOTE-006). CMD-004: the SERVER-ASSIGNED driver id (E5) is the command origin — intents route back here.
+    session.executeCommand(msg.name, msg.args ?? '', 'remote', driverId).then(
       (result) => {
         send({
           type: 'command_result',

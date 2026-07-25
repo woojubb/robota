@@ -45,6 +45,6 @@ export async function executeLanguageCommand(
     message: `Language set to "${language}".`,
     success: true,
     data: { language },
-    effects: [{ type: 'language-change-requested', language }],
+    hostActions: [{ type: 'language-change', language }],
   };
 }

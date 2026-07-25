@@ -50,7 +50,11 @@ export function parseScheduleSpec(args: string, now: number): TScheduleParseResu
 
   if (trimmed.startsWith('cron ')) {
     const rest = trimmed.slice(5).trim();
-    const quoted = /^["']([^"']+)["']\s+(.+)$/.exec(rest);
+    // `(\S.*)` — not `(.+)`: `\s+(.+)` is ambiguous (`.` also matches spaces), so a failing
+    // input runs in O(n^2). Requiring the instruction to start with a non-space pins the split
+    // point after the greedy `\s+`, making the match linear. Behaviour is unchanged because the
+    // greedy `\s+` already consumed every leading space and the capture is trimmed below.
+    const quoted = /^["']([^"']+)["']\s+(\S.*)$/.exec(rest);
     if (!quoted) {
       return { ok: false, error: `cron form needs a quoted expression. ${USAGE}` };
     }

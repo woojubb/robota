@@ -2,6 +2,7 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { renderMarkdown } from './render-markdown.js';
+import { PALETTE } from './tui-palette.js';
 import { buildToolDiffSummary } from './utils/tool-diff-summary.js';
 
 import type { IDiffLine } from './utils/edit-diff.js';
@@ -17,13 +18,13 @@ export default function ToolDiffBlock({ file, lines }: IProps): React.ReactEleme
   return (
     <Box flexDirection="column" marginLeft={4}>
       {summary.file && (
-        <Text color="white" dimColor>
+        <Text color={PALETTE.text.emphasis} dimColor>
           │ {summary.file}
         </Text>
       )}
       <Text>{renderMarkdown(summary.markdown)}</Text>
       {summary.truncated && (
-        <Text color="white" dimColor>
+        <Text color={PALETTE.text.emphasis} dimColor>
           │ ... and {summary.remainingLineCount} more lines
         </Text>
       )}

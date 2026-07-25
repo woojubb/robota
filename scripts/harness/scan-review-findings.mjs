@@ -18,65 +18,79 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(import.meta.dirname, '../..');
-const REVIEWER = path.join(ROOT, '.claude/agents/pr-review-reviewer.md');
-const ORCH = path.join(ROOT, '.agents/skills/pr-review-orchestration/SKILL.md');
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-const findings = [];
+export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
+  const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
+  const orch = path.join(root, '.agents/skills/pr-review-orchestration/SKILL.md');
 
-function must(file, label, re, why) {
-  if (!existsSync(file)) {
-    findings.push(`${label}: file missing (${path.relative(ROOT, file)})`);
-    return;
+  const findings = [];
+
+  function must(file, label, re, why) {
+    if (!existsSync(file)) {
+      findings.push(`${label}: file missing (${path.relative(root, file)})`);
+      return;
+    }
+    if (!re.test(readFileSync(file, 'utf8'))) {
+      findings.push(`${label}: ${why}`);
+    }
   }
-  if (!re.test(readFileSync(file, 'utf8'))) {
-    findings.push(`${label}: ${why}`);
-  }
-}
 
-// (1) Reviewer output contract.
-must(
-  REVIEWER,
-  'pr-review-reviewer',
-  /ACTIONABLE FINDINGS:\s*<n>|ACTIONABLE FINDINGS:\s*`?<n>/i,
-  'no longer declares the `ACTIONABLE FINDINGS: <n>` output contract (the orchestrator routes on it).',
-);
-
-// (2) Orchestrator merge-gate contracts.
-must(
-  ORCH,
-  'pr-review-orchestration',
-  /unresolved MUST/i,
-  'merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
-);
-must(
-  ORCH,
-  'pr-review-orchestration',
-  /never merges? `?main`?|do NOT merge/i,
-  'no longer states the agent never merges `main`.',
-);
-must(
-  ORCH,
-  'pr-review-orchestration',
-  /merge-verifier|MERGE VERIFIED/i,
-  'no longer requires the `merge-verifier` post-merge check on develop.',
-);
-must(
-  ORCH,
-  'pr-review-orchestration',
-  /git-branch\.md/i,
-  'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
-);
-
-if (findings.length > 0) {
-  console.error('review-findings scan: FINDINGS');
-  for (const f of findings) console.error('  - ' + f);
-  console.error(
-    '\nThe PR-review pipeline contracts must hold (see .agents/spec-docs/*/HARNESS-018*).',
+  // (1) Reviewer output contract.
+  must(
+    reviewer,
+    'pr-review-reviewer',
+    /ACTIONABLE FINDINGS:\s*<n>|ACTIONABLE FINDINGS:\s*`?<n>/i,
+    'no longer declares the `ACTIONABLE FINDINGS: <n>` output contract (the orchestrator routes on it).',
   );
-  process.exit(1);
+
+  // (2) Orchestrator merge-gate contracts.
+  must(
+    orch,
+    'pr-review-orchestration',
+    /unresolved MUST/i,
+    'merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
+  );
+  must(
+    orch,
+    'pr-review-orchestration',
+    /never merges? `?main`?|do NOT merge/i,
+    'no longer states the agent never merges `main`.',
+  );
+  must(
+    orch,
+    'pr-review-orchestration',
+    /merge-verifier|MERGE VERIFIED/i,
+    'no longer requires the `merge-verifier` post-merge check on develop.',
+  );
+  must(
+    orch,
+    'pr-review-orchestration',
+    /git-branch\.md/i,
+    'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
+  );
+
+  return findings;
 }
 
-console.log('review-findings scan passed.');
-process.exit(0);
+export function main() {
+  const findings = collectReviewFindingsFindings();
+
+  if (findings.length > 0) {
+    console.error('review-findings scan: FINDINGS');
+    for (const f of findings) console.error('  - ' + f);
+    console.error(
+      '\nThe PR-review pipeline contracts must hold (see .agents/spec-docs/*/HARNESS-018*).',
+    );
+    process.exit(1);
+  }
+
+  console.log('review-findings scan passed.');
+  process.exit(0);
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

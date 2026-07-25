@@ -14,7 +14,6 @@ const baseConfig = {
   clean: true,
   treeshake: true,
   minify: true, // Enable minification for smaller bundle size
-  publicDir: 'src/templates', // Copy templates directory to dist
 };
 
 export default defineConfig([

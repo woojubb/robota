@@ -40,13 +40,13 @@
   "devDependencies": {
     "@types/node": "^22.19.21",
     "rimraf": "^5.0.10",
-    "tsdown": "^0.22.2",
+    "tsdown": "^0.22.14",
     "typescript": "^5.9.3",
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.91.1",
+    "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-core": "workspace:*"
   }
 }

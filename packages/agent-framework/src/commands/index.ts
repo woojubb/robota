@@ -23,7 +23,8 @@ export type {
   ISystemCommand,
   TAutoCompactThresholdSource,
   TCommandInvocationSource,
-  TCommandEffect,
+  TCommandHostAction,
+  TCommandUiIntent,
   TCommandModuleSessionRequirement,
   TCommandResultDataValue,
   TRemoteControlStatus,
@@ -199,8 +200,7 @@ export type {
 } from '../command-api/plugin/plugin-command-api.js';
 export {
   buildPluginCommandSubcommands,
-  createPluginRegistryReloadRequestedEffect,
-  createPluginTuiRequestedEffect,
+  createShowPluginManagerIntent,
   PLUGIN_COMMAND_ARGUMENT_HINT,
   PLUGIN_COMMAND_DESCRIPTION,
   RELOAD_PLUGINS_COMMAND_DESCRIPTION,
@@ -208,11 +208,11 @@ export {
 } from '../command-api/plugin/plugin-command-api.js';
 export {
   clearConversationHistory,
-  createSessionPickerRequestedEffect,
-  createSessionRenamedEffect,
+  createShowSessionPickerIntent,
+  createSessionRenameHostAction,
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
-  createSessionExitRequestedEffect,
+  createSessionExitHostAction,
   EXIT_COMMAND_DESCRIPTION,
   formatCommandSessionReplayValidationReport,
   parseSessionNameArgument,

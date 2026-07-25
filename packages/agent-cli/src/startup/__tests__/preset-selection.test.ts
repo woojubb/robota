@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveCliPreset, selectPresetId } from '../preset-selection.js';
+import { resolveShellPreset, selectPresetId } from '../preset-selection.js';
 
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
+import type { IPreset } from '@robota-sdk/agent-preset';
+
+/** Resolve exactly as `startCli` does, with no external presets loaded. */
+function resolveCliPreset(args: IParsedCliArgs, settingsPreset: string | undefined) {
+  return resolveShellPreset([], args, settingsPreset).options;
+}
 
 /** Minimal IParsedCliArgs fixture — every field defaults to its "unset" value. */
 function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
@@ -71,7 +77,7 @@ describe('selectPresetId', () => {
   });
 });
 
-describe('resolveCliPreset', () => {
+describe('resolveShellPreset', () => {
   it('TC-05: --model flows through cliOverrides into the resolved bundle', () => {
     const resolved = resolveCliPreset(makeArgs({ model: 'm' }), undefined);
     expect(resolved.model).toBe('m');
@@ -84,5 +90,40 @@ describe('resolveCliPreset', () => {
   it('TC-01: default preset with no flags resolves to a no-op (no model injected)', () => {
     const resolved = resolveCliPreset(makeArgs(), undefined);
     expect(resolved).toEqual({});
+  });
+
+  it('ARCH-008: returns the registry it resolved over, the id, and the override context', () => {
+    // The whole value travels into the profile, so the kernel resolves the SAME id over the SAME
+    // registry with the SAME overrides — `product.defaultPreset` is this `options` object's equal.
+    const resolution = resolveShellPreset(
+      [],
+      makeArgs({ model: 'm', preset: 'default' }),
+      undefined,
+    );
+
+    expect(resolution.presetId).toBe('default');
+    expect(resolution.context).toEqual({ cliOverrides: { model: 'm' } });
+    expect(resolution.registry.resolvePreset(resolution.presetId, resolution.context)).toEqual(
+      resolution.options,
+    );
+  });
+
+  it('ARCH-008: resolves external presets from the instance registry, not the module global', () => {
+    const external: IPreset = {
+      id: 'shell-scoped',
+      title: 't',
+      description: 'd',
+      persona: 'instance-scoped',
+    };
+
+    // Passed in ⇒ resolvable…
+    expect(
+      resolveShellPreset([external], makeArgs({ preset: 'shell-scoped' }), undefined).options
+        .persona,
+    ).toBe('instance-scoped');
+    // …NOT passed in ⇒ unknown, even though a module-global registry would still be holding it.
+    expect(() => resolveShellPreset([], makeArgs({ preset: 'shell-scoped' }), undefined)).toThrow(
+      /Unknown preset/,
+    );
   });
 });

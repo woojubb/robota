@@ -1,10 +1,18 @@
 ---
 title: 'CLI-046: --denied-tools 플래그 추가'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: low
 category: feature
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place: `--denied-tools` is parsed in
+`packages/agent-cli/src/utils/cli-args.ts` (L45/L97/L195/L265), threaded to both TUI
+(`renderApp({ deniedTools })` in `cli.ts`) and print mode, with tests in
+`cli-args.test.ts`. Verified 2026-07-25 (PROC-001).
 
 ## 문제
 

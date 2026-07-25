@@ -19,7 +19,7 @@ export interface ILoadedContext {
   /** Concatenated content of all AGENTS.md files found (root-first) */
   agentsMd: string;
   /** Concatenated content of all CLAUDE.md files found (root-first) */
-  claudeMd: string;
+  projectNotesMd: string;
   /** Startup project memory index loaded from .robota/memory/MEMORY.md, if present */
   memoryMd?: string;
   /** Formatted active task context loaded from .agents/tasks/*.md, if present */
@@ -29,11 +29,24 @@ export interface ILoadedContext {
   /** Per-file entries for all AGENTS.md files, root-first. Present for staleness detection. */
   agentsFileEntries?: IContextFileEntry[];
   /** Per-file entries for all CLAUDE.md files, root-first. Present for staleness detection. */
-  claudeFileEntries?: IContextFileEntry[];
+  projectNotesFileEntries?: IContextFileEntry[];
 }
 
 const AGENTS_FILENAME = 'AGENTS.md';
 const CLAUDE_FILENAME = 'CLAUDE.md';
+
+/** NEUT-004: context-load behavior toggles (settings-driven at the composition root). */
+export interface ILoadContextOptions {
+  /**
+   * Active-task context injection. Default preserves today's behavior (enabled,
+   * scanning `.agents/tasks`); `enabled: false` skips the scan entirely; `dir`
+   * replaces the scan directory (relative to cwd).
+   */
+  taskContext?: {
+    enabled?: boolean;
+    dir?: string;
+  };
+}
 
 /**
  * Walk up directory tree from `startDir`, collecting absolute paths of
@@ -103,6 +116,7 @@ function extractCompactInstructions(content: string): string | undefined {
 export async function loadContext(
   cwd: string,
   memoryStore?: IMemoryStore,
+  options: ILoadContextOptions = {},
 ): Promise<ILoadedContext> {
   const agentsPaths = collectFilesWalkingUp(cwd, AGENTS_FILENAME);
   const claudePaths = collectFilesWalkingUp(cwd, CLAUDE_FILENAME);
@@ -111,23 +125,27 @@ export async function loadContext(
   const claudeEntries = claudePaths.map((p) => loadFileWithHash(p));
 
   const agentsMd = agentsEntries.map((e) => e.content).join('\n\n');
-  const claudeMd = claudeEntries.map((e) => e.content).join('\n\n');
+  const projectNotesMd = claudeEntries.map((e) => e.content).join('\n\n');
 
-  const compactInstructions = extractCompactInstructions(claudeMd);
+  const compactInstructions = extractCompactInstructions(projectNotesMd);
   // SELFHOST-008: startup memory is read through the injected memory port; with none supplied the
   // neutral filesystem reference adapter is the default, so memory keeps working exactly as before.
   const startupMemory = await (memoryStore ?? createFileSystemMemoryStore(cwd)).loadStartupMemory();
   const memoryMd = startupMemory.content || undefined;
-  const loadedTaskContext = loadTaskContext(cwd);
+  // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
+  const taskContextEnabled = options.taskContext?.enabled !== false;
+  const loadedTaskContext = taskContextEnabled
+    ? loadTaskContext(cwd, options.taskContext?.dir ? { dir: options.taskContext.dir } : {})
+    : '';
   const taskContext = loadedTaskContext.trim().length > 0 ? loadedTaskContext : undefined;
 
   return {
     agentsMd,
-    claudeMd,
+    projectNotesMd,
     memoryMd,
     taskContext,
     compactInstructions,
     agentsFileEntries: agentsEntries,
-    claudeFileEntries: claudeEntries,
+    projectNotesFileEntries: claudeEntries,
   };
 }

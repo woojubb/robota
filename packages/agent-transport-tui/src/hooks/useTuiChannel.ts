@@ -8,7 +8,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import type { TuiInteractionChannel } from '../TuiInteractionChannel.js';
-import type { ICommandEffectQueue } from './command-effect-queue.js';
 import type { IPendingPermissionRequest } from '../types.js';
 import type { IActionRequest, IHistoryEntry, TSessionEndReason } from '@robota-sdk/agent-core';
 import type { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-framework';
@@ -21,7 +20,6 @@ import type {
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
-  commandEffectQueue: ICommandEffectQueue;
   history: IHistoryEntry[];
   addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
@@ -93,7 +91,6 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
   return {
     interactiveSession: channel.getSession(),
     registry: channel.getRegistry(),
-    commandEffectQueue: channel.getCommandEffectQueue(),
     history: manager.history,
     addEntry: (e) => manager.addEntry(e),
     streamingText: manager.streamingText,

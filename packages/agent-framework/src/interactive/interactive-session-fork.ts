@@ -18,7 +18,12 @@ function resolveForkAgentDefinition(
   parentSession: Session,
 ): IAgentDefinition {
   const deps = retrieveAgentToolDeps(parentSession);
-  const definition = deps?.customAgentRegistry?.(agentType) ?? getBuiltInAgent(agentType);
+  // NEUT-003: an injected built-in set replaces the module built-ins here too.
+  const definition =
+    deps?.customAgentRegistry?.(agentType) ??
+    (deps?.builtInAgents
+      ? deps.builtInAgents.find((agent) => agent.name === agentType)
+      : getBuiltInAgent(agentType));
   if (!definition) {
     throw new Error(`Unknown agent type: ${agentType}`);
   }

@@ -9,6 +9,14 @@ import type { ILogger } from '../utils/logger';
 
 export const CONTEXT_HARD_BLOCK_THRESHOLD = 0.95;
 
+/**
+ * Product-neutral default remediation hint for the hard-capacity notice. This zero-dependency
+ * core layer must not emit product vocabulary (e.g. slash commands); a surface tier that has a
+ * concrete remediation command injects its own hint via `IAgentConfig.contextCapacityHint`.
+ */
+export const DEFAULT_CONTEXT_CAPACITY_HINT =
+  'Reduce the conversation history (for example, compact or summarize it) and retry.';
+
 export interface IContextCapacityDecision {
   readonly shouldBlock: boolean;
   readonly estimatedTokens: number;
@@ -73,8 +81,9 @@ export function handleContextCapacityBlock(
     usageFloorTokens: contextDecision.usageFloorTokens ?? 0,
     round: currentRound,
   });
+  const capacityHint = config.contextCapacityHint ?? DEFAULT_CONTEXT_CAPACITY_HINT;
   conversationStore.addAssistantMessage(
-    `Context window is near capacity. Cannot process further in this round. Estimated ${contextDecision.estimatedTokens.toLocaleString()} / ${contextDecision.contextLimit.toLocaleString()} tokens (${Math.round(contextDecision.usedPercentage)}%) exceeds the hard-block threshold ${Math.round(contextDecision.thresholdPercentage)}%. Run /compact and retry.`,
+    `Context window is near capacity. Cannot process further in this round. Estimated ${contextDecision.estimatedTokens.toLocaleString()} / ${contextDecision.contextLimit.toLocaleString()} tokens (${Math.round(contextDecision.usedPercentage)}%) exceeds the hard-block threshold ${Math.round(contextDecision.thresholdPercentage)}%. ${capacityHint}`,
     [],
     {
       round: currentRound,

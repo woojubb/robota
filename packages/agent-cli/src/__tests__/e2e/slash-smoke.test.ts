@@ -8,7 +8,7 @@
  * but they must never crash the CLI or emit a non-envelope.
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,7 +20,7 @@ import { startCli } from '../../cli.js';
 import type { IScriptedProvider } from '@robota-sdk/agent-transport/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-const TMP_BASE = join(tmpdir(), `robota-slash-smoke-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-slash-smoke-'));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 

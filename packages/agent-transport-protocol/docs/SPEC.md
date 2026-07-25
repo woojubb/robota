@@ -11,6 +11,30 @@ non-WebSocket transport can reuse it without a `webrtc → ws` package edge.
 abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: works over any byte/string
   channel via `send`/`onMessage` callbacks — no `ws`, no `node:` sockets.
 - `TClientMessage` / `TServerMessage` — the JSON wire protocol (inbound client verbs; outbound server events).
+- **TRANS-001 payload-agnostic channel frame codec** (`src/channel-frames.ts`) — `encodeBinaryFrame`,
+  `encodeChannelEventFrame`, `decodeChannelFrame`, `isChannelFrame`, plus `CHANNEL_FRAME_MAGIC` /
+  `CHANNEL_FRAME_VERSION`. A pure, byte-oriented envelope for the contracts in
+  `agent-interface-transport` (`IBinaryFrame` / `IChannelEventFrame`). It is a SEPARATE, sibling profile
+  to the JSON agent protocol above — `TClientMessage`/`TServerMessage` are untouched by it, so an app
+  adds its own payloads and event types without forking the agent wire protocol. The codec NEVER
+  interprets a binary body, and `decodeChannelFrame` returns a `TChannelReceiveResult` union so a
+  non-channel / truncated / malformed input is a stated error the carrier reports to its peer.
+
+  Wire layout (big-endian integers):
+
+  ```text
+  0..2  magic 'RBF'                     ← a carrier can route without parsing
+  3     version (1)
+  4     kind: 0x01 opaque binary | 0x02 structured event (UTF-8 JSON body)
+  5     channel-name length in bytes (1..255)
+  6..   channel name (UTF-8)
+  +4    seq (uint32) — sender-assigned, monotonic per channel, shared by both kinds
+  ...   body: opaque bytes, or UTF-8 JSON `{ "event": string, "payload": … }`
+  ```
+
+  No body length prefix: the carrier already delimits the message (a WebSocket frame is a message
+  boundary), so a length field would be a second source of truth that can disagree with the first.
+
 - **REMOTE-007 transport-neutral permission/ask.** The handler forwards the session's
   `permission_request` / `ask_request` / `prompt_resolved` events as `TServerMessage`s and dispatches the
   inbound `permission-response` / `ask-response` verbs to `session.resolvePermission` / `resolveAsk`. So a
@@ -18,6 +42,23 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
   operator (local == remote); the first answer wins and `prompt_resolved` dismisses it on co-drive. A client
   disconnect (`cleanup` → `session.off`) drops the prompt listeners, and the session's reconcile-on-detach
   fails the prompt closed (deny/cancel) so a mid-prompt disconnect cannot hang the awaiting tool.
+- **CMD-004 Phase 2 host-action/UI-intent split.** An inbound `command` verb passes the handler's
+  SERVER-ASSIGNED `driverId` (REMOTE-014 E5 — never a client-sent one) into
+  `session.executeCommand(name, args, 'remote', driverId)` so the session executes host actions
+  host-side BEFORE `command_result` is sent (the pre-CMD-004 handler dropped `result.effects` on the
+  floor). The handler forwards the session's `ui_intent` events as `{ type: 'ui_intent', event }`
+  server messages (same pattern as `ask_request`); the event needs no answer (fire-and-forget).
+  **Stage D — `ui_intent` is REQUESTER-ROUTED server-side:** `subscribeSessionEvents` delivers an
+  intent only when `event.requesterDriverId` matches THIS surface's server-assigned driver id (read
+  lazily via `ISubscribeSessionEventsOptions.getSurfaceDriverId` — lazy because the resume bridge
+  binds its id only at pairing). Other surfaces never see it. An UNATTRIBUTED intent (no requester
+  id — e.g. an idle model-invoked command) is unroutable and reaches every surface (never a silent
+  drop). In the `SessionResumeBridge`, routing happens BEFORE seq-stamping/buffering, so a foreign
+  surface's intent consumes no seq and cannot leak through a later `resume` replay.
+  **Stage E — broadcast session-state events:** `subscribeSessionEvents` forwards the session's
+  `session_renamed` (`{ type: 'session_renamed', event }`) and `history_cleared`
+  (`{ type: 'history_cleared' }`) events to EVERY attached surface, unfiltered — the host executed
+  the rename/clear; co-driving titles and transcripts follow the broadcast.
 - **REMOTE-014 E5 co-drive attribution (SERVER-ASSIGNED, display-only).** `IWsHandlerOptions.driverId` binds a
   surface's server-assigned driver id (the E3 `deviceId`; the SessionResumeBridge sets it at pairing via
   `setDriverId`). The handler INJECTS it into every inbound `submit` / `permission-response` / `ask-response`
@@ -53,6 +94,12 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 | `ISessionResumeBridgeOptions` | interface |
 | `TResumeSink`                 | type      |
 | `IAttachOptions`              | interface |
+| `encodeBinaryFrame`           | function  |
+| `encodeChannelEventFrame`     | function  |
+| `decodeChannelFrame`          | function  |
+| `isChannelFrame`              | function  |
+| `CHANNEL_FRAME_MAGIC`         | constant  |
+| `CHANNEL_FRAME_VERSION`       | constant  |
 
 ## Type Ownership
 
@@ -62,9 +109,15 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 | `TClientMessage`  | `src/ws-protocol.ts` | Inbound client wire messages                  |
 | `TServerMessage`  | `src/ws-protocol.ts` | Outbound server wire messages                 |
 
+The TRANS-001 channel frame codec owns the ENVELOPE only; the frame/channel CONTRACT types
+(`IBinaryFrame`, `IChannelEventFrame`, `TChannelReceiveResult`, …) are owned by
+`@robota-sdk/agent-interface-transport` and imported type-only from there.
+
 ## Test Strategy
 
 `src/__tests__/ws-handler.test.ts` (moved from `agent-transport-ws`) covers the session-event → `TServerMessage`
 subscription and inbound `TClientMessage` dispatch with a stubbed session (no socket, no real provider),
 including the REMOTE-007 prompt-event forwarding and the `permission-response` / `ask-response` → `resolve*`
-dispatch (TC-06).
+dispatch (TC-06). `src/__tests__/channel-frames.test.ts` (TRANS-001) covers the channel codec: opaque
+round-trip integrity (including non-UTF-8 bytes), chunked reassembly by `seq` from out-of-order delivery,
+multi-byte channel names, encoder input validation, and every malformed-input error result.

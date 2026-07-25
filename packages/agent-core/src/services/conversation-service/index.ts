@@ -88,7 +88,9 @@ export class ConversationService implements IConversationService {
         provider: context.provider,
         model: context.model,
         duration: Date.now() - startTime,
-        usage: processed.usage,
+        // TYPE-003: spread the ITokenUsage interface into a literal — TLoggerData accepts object
+        // literals (implicit index signature) but not named interfaces.
+        usage: processed.usage ? { ...processed.usage } : undefined,
       });
       return processed;
     } catch (error) {

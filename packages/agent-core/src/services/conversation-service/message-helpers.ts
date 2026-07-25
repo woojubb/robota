@@ -16,7 +16,7 @@ import type {
   IUserMessage,
   TMessageState,
 } from '../../interfaces/messages';
-import type { IRawProviderResponse } from '../../interfaces/provider';
+import type { IRawProviderResponse, ITokenUsage } from '../../interfaces/provider';
 import type {
   IConversationResponse,
   IStreamingChunk,
@@ -110,12 +110,8 @@ export function convertToProviderMetadata(
   return converted;
 }
 
-/** Convert optional usage to required format. @internal */
-export function convertUsage(usage?: {
-  promptTokens?: number;
-  completionTokens?: number;
-  totalTokens?: number;
-}): { promptTokens: number; completionTokens: number; totalTokens: number } | undefined {
+/** Convert optional usage to the required {@link ITokenUsage} SSOT triple (TYPE-003). @internal */
+export function convertUsage(usage?: Partial<ITokenUsage>): ITokenUsage | undefined {
   if (!usage) return undefined;
   if (
     typeof usage.promptTokens === 'number' &&

@@ -3,7 +3,7 @@
  * These exercise the outer function entry points, achieving function coverage,
  * without triggering heavy I/O or network calls.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { IDagCliIo } from '../types.js';
 
 vi.mock('../local-runner/index.js', async () => {
@@ -155,6 +155,10 @@ describe('generateShareText', () => {
 });
 
 describe('shareCommand', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('returns error when no file argument provided', async () => {
     const { shareCommand } = await import('../commands/share.js');
     const io = makeIo();
@@ -173,13 +177,11 @@ describe('shareCommand', () => {
 
   it('returns failure when GITHUB_TOKEN is missing (with file arg)', async () => {
     const { shareCommand } = await import('../commands/share.js');
-    const savedToken = process.env['GITHUB_TOKEN'];
-    delete process.env['GITHUB_TOKEN'];
+    vi.stubEnv('GITHUB_TOKEN', undefined);
     const io = makeIo();
     const code = await shareCommand(['some.dag.json'], { io });
     expect(code).toBe(1);
     expect(io.writes.join('')).toContain('GITHUB_TOKEN');
-    if (savedToken !== undefined) process.env['GITHUB_TOKEN'] = savedToken;
   });
 });
 

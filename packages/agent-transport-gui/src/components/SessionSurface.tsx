@@ -137,9 +137,37 @@ export function SessionSurface({
     !state.isThinking &&
     state.activeTools.length === 0;
 
+  // CMD-004 Stage D: `ui_intent` notices — a command issued from THIS surface requested a screen
+  // the GUI cannot render; the reducer folds it into an explicit dismissible notice (TC-05, never a
+  // silent drop). Tolerates a partial state stub (older embedders) via the nullish default.
+  const uiIntentNotices = state.uiIntentNotices ?? [];
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <TitleBar status={state.status} surface={surface} />
+
+      {uiIntentNotices.length > 0 && (
+        <div className="flex flex-col gap-1 border-b border-border/50 bg-card/40 px-4 py-2">
+          {uiIntentNotices.map((n) => (
+            <div
+              key={n.id}
+              data-testid="ui-intent-notice"
+              data-intent={n.intentType}
+              className="flex items-center gap-3 font-mono text-[12px] text-amber-300/90"
+            >
+              <span className="flex-1">{n.notice}</span>
+              <button
+                type="button"
+                aria-label={`dismiss ${n.intentType} notice`}
+                className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+                onClick={() => state.dismissUiIntentNotice?.(n.id)}
+              >
+                Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <div className="gui-rise flex min-w-0 flex-1 flex-col">

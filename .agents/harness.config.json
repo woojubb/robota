@@ -98,6 +98,56 @@
       }
     ]
   },
+  "compositionNeutrality": [
+    {
+      "$comment": "ARCH-005 composition-neutrality POLICY (scan-composition-neutrality.mjs). Enforces the three R1 guards that make the agent-product L129 carve-out safe: the shared assembler stays pure, IO-free, and product-neutral. The amended project-structure L129 rule is COUPLED to these guards. A missing scan target is a hard finding, not a silent pass.",
+      "dir": "packages/agent-product",
+      "forbiddenDependencies": [
+        "@robota-sdk/agent-cli",
+        "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-executor"
+      ],
+      "forbiddenDependencyPrefixes": [
+        "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-interface-tui"
+      ],
+      "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
+      "forbiddenIdentifiers": [
+        "process.env",
+        "globalThis.process",
+        "readSettings",
+        "readProviderSettings",
+        "readMergedProviderSettings",
+        "createProviderFromSettings",
+        "loadExternalPresets"
+      ],
+      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b — resolved data is fed in from the shell), and branches on no product identity (c)."
+    },
+    {
+      "dir": "packages/agent-capability-pack",
+      "forbiddenDependencies": [
+        "@robota-sdk/agent-cli",
+        "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-executor",
+        "@robota-sdk/agent-product"
+      ],
+      "forbiddenDependencyPrefixes": [
+        "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-interface-tui"
+      ],
+      "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
+      "forbiddenIdentifiers": [
+        "process.env",
+        "globalThis.process",
+        "readSettings",
+        "readProviderSettings",
+        "readMergedProviderSettings",
+        "createProviderFromSettings",
+        "loadExternalPresets"
+      ],
+      "reason": "HARNESS-048: agent-capability-pack is the other half of the ARCH-005 composition contract — the additive capability-bundle type plus the pure mergeCapabilityPacks fold that assembleProduct applies. It is an equally pure PUBLISHED contract package, so the same three guards apply: it must take no concrete transport/TUI/CLI dep (a), read no fs/env/settings (b), and branch on no product identity (c) — a merger that special-cases one product's pack ids is a shared product factory wearing a merge function's clothes."
+    }
+  ],
   "neutrality": {
     "$comment": "Per-subsystem library-neutrality policy DATA (HARNESS-DIET-002). The neutrality scan ENGINES live in scripts/harness/scan-*-neutrality.mjs; their Robota-specific target paths / allowlists / forbidden terms live here so the engines stay repo-agnostic.",
     "agentToolsRuntimeAllowlist": ["fast-glob", "p-limit", "zod"],
@@ -138,5 +188,53 @@
     "evalsDatasetNameMarkers": ["evalset", "cases", "dataset", "corpus"],
     "evalsContentBindingTerms": ["cases", "dataset", "evalset", "corpus"],
     "evalsContentTypeNames": ["IEvalDefinition", "IMetric"]
+  },
+  "progressReportQuantification": {
+    "$comment": "Policy DATA for scan-progress-report-quantification.mjs (HARNESS-026). The ENGINE (transcript streaming, narrative extraction, bare-ratio detection, suppression) lives in scripts/harness/scan-progress-report-quantification.mjs; the host-specific transcript root, the enforcement cutoff, and the keyword vocabulary live here. `*Pattern` fields are RegExp sources matched case-insensitively. transcriptRoot is the agent harness's per-project session-transcript directory (a leading `~` expands to the home directory); when it has no directory for this workspace the scan SKIPS with an explicit reason. enforceSinceIso is a TIME RATCHET: conversation before it cannot be edited, so only sessions from adoption onward are judged — move it forward only to adopt a deliberate, reviewed reset. completionKeywordPattern gates a line to completion/progress context; identifierNounPattern suppresses reference forms (Step 2/3, lines 54/146) that are not counts.",
+    "transcriptRoot": "~/.claude/projects",
+    "enforceSinceIso": "2026-07-25T00:00:00Z",
+    "completionKeywordPattern": "\\b(?:done|complete[ds]?|completing|finished|remaining|remains|left to (?:do|go)|progress|resolved|migrated|converted|processed)\\b|완료|진행",
+    "identifierNounPattern": "\\b(?:step|steps|stage|stages|phase|phases|round|rounds|pass|passes|line|lines|item|items?\\s*#|section|sections|chapter|week|weeks|day|days|v|version|단계|라운드|줄)\\s*$",
+    "identifierNounSuffixPattern": "^\\s*(?:단계|번째|steps?\\b|stages?\\b|phases?\\b|rounds?\\b)"
+  },
+  "promptProse": {
+    "$comment": "Policy DATA for scan-prompt-prose.mjs (NEUT-006, audit 2026-07-24 gap #6). The ENGINE (literal extraction, prose heuristic, frozen-baseline ratchet, role-vocab conjunction) lives in scripts/harness/scan-prompt-prose.mjs; the Robota-specific scan roots, prompt-sink patterns, exemptions, and role vocabulary live here. `pattern` fields are RegExp sources. exemptPathIncludes lists the CHARTERED opinion homes (audit: personas/presets are quarantined opinion, not neutral-library debt); roleVocabulary flags a workflow role name AND a concrete model id in the SAME file (the role→model opinion) outside allowedPathIncludes.",
+    "scanRoots": ["packages"],
+    "srcPathIncludes": ["/src/"],
+    "excludePathIncludes": ["__tests__", ".test.", ".spec.", "/dist/", "/node_modules/"],
+    "exemptPathIncludes": ["packages/agent-preset/"],
+    "baselinePath": "scripts/harness/prompt-prose-baseline.json",
+    "sinkPatterns": [
+      { "id": "description-property", "pattern": "\\bdescription\\s*:\\s*" },
+      { "id": "zod-describe", "pattern": "\\.describe\\s*\\(\\s*" },
+      {
+        "id": "prompt-named-binding",
+        "pattern": "(?:export\\s+)?(?:const|let)\\s+[A-Za-z_$][\\w$]*(?:[Pp]rompt|PROMPT|[Ss]ystemMessage|SYSTEM_MESSAGE|[Tt]emplate|TEMPLATE|[Ii]nstructions?|INSTRUCTIONS?|[Dd]escription|DESCRIPTION)[\\w$]*\\s*(?::\\s*string)?\\s*=\\s*"
+      },
+      {
+        "id": "prompt-property",
+        "pattern": "\\b(?:systemPrompt|systemMessage|instructions?)\\s*:\\s*"
+      },
+      {
+        "id": "tool-positional-description",
+        "pattern": "createZodFunctionTool\\s*\\(\\s*'[^']*'\\s*,\\s*"
+      },
+      { "id": "returned-literal-or-array", "pattern": "\\breturn\\s*(?=['\"`\\[])" }
+    ],
+    "prose": {
+      "minWords": 8,
+      "markerPattern": "\\b(?:you|your|never|always|you must|do not|don't|use this|important|prefer|avoid|instead)\\b",
+      "nonProsePatterns": ["^\\s*<", "^\\s*import\\s", "^\\s*//"]
+    },
+    "roleVocabulary": {
+      "roleTermPattern": "['\"`](?:planner|editor|reviewer)['\"`]|\\b(?:planner|editor|reviewer)\\s*:",
+      "modelIdPatterns": [
+        "\\bclaude-[a-z0-9][a-z0-9.-]*\\b",
+        "\\bgpt-[0-9][a-z0-9.-]*\\b",
+        "\\bgemini-[0-9][a-z0-9.-]*\\b",
+        "['\"`]o[13](?:-mini|-pro)?['\"`]"
+      ],
+      "allowedPathIncludes": ["packages/agent-provider-defaults/"]
+    }
   }
 }

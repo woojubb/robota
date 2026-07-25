@@ -102,11 +102,25 @@ export type {
 
 // Built-in CLI tools
 export { shellTool, createShellTool, bashTool, createBashTool } from './builtins/shell-tool';
+export type { IShellToolOptions } from './builtins/shell-tool';
 export { readTool, createReadTool } from './builtins/read-tool';
 export { writeTool, createWriteTool } from './builtins/write-tool';
 export { editTool, createEditTool } from './builtins/edit-tool';
-export { globTool } from './builtins/glob-tool';
-export { grepTool } from './builtins/grep-tool';
-export { webFetchTool } from './builtins/web-fetch-tool';
-export { webSearchTool } from './builtins/web-search-tool';
+export { globTool, createGlobTool } from './builtins/glob-tool';
+export { grepTool, createGrepTool } from './builtins/grep-tool';
+export type { IGrepToolOptions } from './builtins/grep-tool';
+export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
+export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';
+export type { IWebSearchToolOptions } from './builtins/web-search-tool';
+export { createBraveSearchProvider } from './builtins/brave-search-provider';
+export type {
+  IWebSearchProvider,
+  IWebSearchQuery,
+  IWebSearchResultItem,
+  IWebSearchToolProviderOptions,
+} from './builtins/web-search-provider';
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
+export type {
+  IBuiltinToolDescriptionOptions,
+  ISandboxBuiltinToolOptions,
+} from './builtins/tool-options';

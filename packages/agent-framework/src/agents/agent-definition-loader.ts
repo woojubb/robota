@@ -23,7 +23,9 @@ interface IRawFrontmatter {
 }
 
 function parseListValue(rawValue: string): string[] {
-  const separator = rawValue.includes(',') ? /\s*,\s*/ : /\s+/;
+  // A plain `','` rather than `/\s*,\s*/`: the padding that regex absorbed is stripped by the `.trim()` below
+  // anyway, and `\s*,` retried its whitespace run from every offset — quadratic on a long run (SEC-003).
+  const separator = rawValue.includes(',') ? ',' : /\s+/;
   return rawValue
     .split(separator)
     .map((value) => value.trim())
@@ -128,7 +130,7 @@ function scanAgentsDir(dir: string, fs: IFileSystem): IAgentDefinition[] {
  *
  * Scan directories (highest priority first):
  * 1. `<cwd>/.robota/agents/` — project-level Robota native
- * 2. `<cwd>/.agents/agents/` — project-level Robota repository convention
+ * 2. `<cwd>/.agents/agents/` — project-level supported convention
  * 3. `<cwd>/.claude/agents/` — project-level Claude Code compatible
  * 4. `<home>/.robota/agents/` — user-level Robota native
  * 5. `<home>/.claude/agents/` — user-level Claude Code compatible
@@ -139,11 +141,20 @@ export class AgentDefinitionLoader {
   private readonly cwd: string;
   private readonly home: string;
   private readonly fs: IFileSystem;
+  private readonly builtInAgents: readonly IAgentDefinition[];
 
-  constructor(cwd: string, home?: string, fs: IFileSystem = new NodeFileSystem()) {
+  constructor(
+    cwd: string,
+    home?: string,
+    fs: IFileSystem = new NodeFileSystem(),
+    // NEUT-003: injectable built-in set — replaces the default three when supplied
+    // (empty array = no built-ins merged).
+    builtInAgents: readonly IAgentDefinition[] = BUILT_IN_AGENTS,
+  ) {
     this.cwd = cwd;
     this.home = home ?? homedir();
     this.fs = fs;
+    this.builtInAgents = builtInAgents;
   }
 
   /** Load all agent definitions, merged with built-in agents. Custom overrides built-in on name collision. */
@@ -169,10 +180,15 @@ export class AgentDefinitionLoader {
       }
     }
 
-    // Merge with built-in: custom overrides built-in on name collision
+    // Merge with the built-in tier: a discovered custom agent overrides it on name collision, and WITHIN
+    // the tier the first entry wins. The first-wins rule is load-bearing for the ARCH-005 `agentDefinitions`
+    // injection seam, which composes `[...injected, ...BUILT_IN_AGENTS]` into this tier: a pack-supplied
+    // definition may override a framework built-in of the same name, and the roster never carries a
+    // duplicate. (For a tier with no duplicate names — the historic BUILT_IN_AGENTS alone — this is a no-op.)
     const result = [...customAgents];
-    for (const builtIn of BUILT_IN_AGENTS) {
+    for (const builtIn of this.builtInAgents) {
       if (!seen.has(builtIn.name)) {
+        seen.add(builtIn.name);
         result.push(builtIn);
       }
     }

@@ -31,7 +31,9 @@ function kebabToCamel(key: string): string {
 }
 
 function parseListValue(rawValue: string): string[] {
-  const separator = rawValue.includes(',') ? /\s*,\s*/ : /\s+/;
+  // A plain `','` rather than `/\s*,\s*/`: the padding that regex absorbed is stripped by the `.trim()` below
+  // anyway, and `\s*,` retried its whitespace run from every offset — quadratic on a long run (SEC-003).
+  const separator = rawValue.includes(',') ? ',' : /\s+/;
   return rawValue
     .split(separator)
     .map((value) => value.trim())
@@ -151,6 +153,9 @@ export class SkillCommandSource implements ICommandSource {
     if (this.cachedCommands) return this.cachedCommands;
 
     const sources: ICommand[][] = [
+      // NEUT-004 fold-in: project-level .robota/skills mirrors the user-level
+      // ~/.robota/skills location (fixes the native-dir discovery asymmetry).
+      scanSkillsDir(join(this.cwd, '.robota', 'skills'), this.fs),
       scanSkillsDir(join(this.cwd, '.claude', 'skills'), this.fs),
       scanCommandsDir(join(this.cwd, '.claude', 'commands'), this.fs),
       scanSkillsDir(join(this.home, '.robota', 'skills'), this.fs),

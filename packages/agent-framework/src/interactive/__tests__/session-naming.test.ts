@@ -61,4 +61,38 @@ describe('generateSessionName', () => {
     const userMsg = messages.find((m: { role: string }) => m.role === 'user');
     expect(userMsg.content.length).toBeLessThanOrEqual(200);
   });
+
+  it('preserves non-Latin (Korean) titles instead of destroying them', async () => {
+    const provider = makeProvider('한국어 세션 제목');
+    const name = await generateSessionName(provider, '한국어로 된 첫 메시지입니다');
+    expect(name).toBe('한국어-세션-제목');
+  });
+
+  it('falls back to a sanitized Korean first message when the model returns nothing usable', async () => {
+    const provider = makeProvider('');
+    const name = await generateSessionName(provider, '로그인 버그 수정');
+    expect(name).toBe('로그인-버그-수정');
+  });
+
+  it('strips punctuation but keeps letters and digits of any script', async () => {
+    const provider = makeProvider('버그 수정: DB 연결!');
+    const name = await generateSessionName(provider, 'fix db');
+    expect(name).toBe('버그-수정-db-연결');
+  });
+
+  it('honors an injected naming system prompt', async () => {
+    const provider = makeProvider('custom-title');
+    await generateSessionName(provider, 'hello', { systemPrompt: 'CUSTOM NAMING PROMPT' });
+    const messages = (provider.chat as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const systemMsg = messages.find((m: { role: string }) => m.role === 'system');
+    expect(systemMsg.content).toBe('CUSTOM NAMING PROMPT');
+  });
+
+  it('honors an injected sanitizer', async () => {
+    const provider = makeProvider('Raw Title');
+    const name = await generateSessionName(provider, 'hello', {
+      sanitize: (raw) => raw.toUpperCase(),
+    });
+    expect(name).toBe('RAW TITLE');
+  });
 });

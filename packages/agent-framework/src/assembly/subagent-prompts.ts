@@ -5,16 +5,25 @@
  * subagent sessions to control output format and behavior.
  */
 
+/**
+ * NEUT-003: caller-supplied replacement for the framework suffix. A string is
+ * used verbatim; a function receives the assembly context. Omitted keeps the
+ * documented default suffixes below.
+ */
+export type TSubagentSuffix = string | ((context: { isForkWorker: boolean }) => string);
+
 /** Options for assembling a subagent system prompt. */
 export interface ISubagentPromptOptions {
   /** Agent definition markdown body. */
   agentBody: string;
   /** CLAUDE.md content to include. */
-  claudeMd?: string;
+  projectNotesMd?: string;
   /** AGENTS.md content to include. */
   agentsMd?: string;
   /** When true, use fork worker suffix instead of standard subagent suffix. */
   isForkWorker: boolean;
+  /** Replaces the framework suffix (NEUT-003). Omitted keeps the defaults. */
+  suffix?: TSubagentSuffix;
 }
 
 /**
@@ -40,6 +49,14 @@ export function getForkWorkerSuffix(): string {
 - Issues: Any problems encountered`;
 }
 
+function resolveSuffix(options: ISubagentPromptOptions): string {
+  if (typeof options.suffix === 'string') return options.suffix;
+  if (typeof options.suffix === 'function') {
+    return options.suffix({ isForkWorker: options.isForkWorker });
+  }
+  return options.isForkWorker ? getForkWorkerSuffix() : getSubagentSuffix();
+}
+
 /**
  * Assembles the full system prompt for a subagent.
  *
@@ -47,20 +64,20 @@ export function getForkWorkerSuffix(): string {
  * 1. Agent definition body
  * 2. CLAUDE.md content (if provided)
  * 3. AGENTS.md content (if provided)
- * 4. Framework suffix (fork worker OR standard subagent)
+ * 4. Framework suffix (caller-supplied `suffix`, else fork worker OR standard subagent)
  */
 export function assembleSubagentPrompt(options: ISubagentPromptOptions): string {
   const parts: string[] = [options.agentBody];
 
-  if (options.claudeMd) {
-    parts.push(options.claudeMd);
+  if (options.projectNotesMd) {
+    parts.push(options.projectNotesMd);
   }
 
   if (options.agentsMd) {
     parts.push(options.agentsMd);
   }
 
-  const suffix = options.isForkWorker ? getForkWorkerSuffix() : getSubagentSuffix();
+  const suffix = resolveSuffix(options);
   parts.push(suffix);
 
   return parts.join('\n\n');

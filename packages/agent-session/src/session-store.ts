@@ -17,49 +17,20 @@ import {
 } from 'fs';
 import { join } from 'path';
 
-import type { IToolSchema } from '@robota-sdk/agent-core';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
-/** A persisted session record */
-export interface ISessionRecord {
-  /** Unique session identifier */
-  id: string;
-  /** Optional human-readable session name */
-  name?: string;
-  /** Working directory when the session was created */
-  cwd: string;
-  /** ISO-8601 creation timestamp */
-  createdAt: string;
-  /** ISO-8601 last-updated timestamp */
-  updatedAt: string;
-  /** Conversation messages (opaque to the store) */
-  messages: unknown[];
-  /** Full UI timeline (chat + events) for rendering restoration */
-  history?: unknown[];
-  /** Exact system prompt used to create the session. */
-  systemPrompt?: string;
-  /** Tool schemas registered for the session. */
-  toolSchemas?: IToolSchema[];
-  /** Latest background task snapshots for resume/debugging. */
-  backgroundTasks?: unknown[];
-  /** Durable non-streaming background task events for resume/debugging. */
-  backgroundTaskEvents?: unknown[];
-  /** Latest background job group snapshots for resume/debugging. */
-  backgroundJobGroups?: unknown[];
-  /** Durable background job group events for resume/debugging. */
-  backgroundJobGroupEvents?: unknown[];
-  /** Durable skill activation events for resume/debugging. */
-  skillActivationEvents?: unknown[];
-  /** Durable automatic memory events for resume/debugging. */
-  memoryEvents?: unknown[];
-  /** Memory references used by the latest prompt turn. */
-  usedMemoryReferences?: unknown[];
-  /** SDK-owned context reference inventory for resume/debugging. */
-  contextReferences?: unknown[];
-  /** Provider sandbox snapshot identifier for workspace hydration on resume. */
-  sandboxSnapshotId?: string;
-  /** In-flight autonomous goal payload (opaque; typed as IGoalState by the domain contract). */
-  goal?: unknown;
-}
+/**
+ * A persisted session record.
+ *
+ * TYPE-003: alias of the typed resumable-session contract (`IInteractiveSessionRecord`,
+ * `@robota-sdk/agent-interface-transport` — DATA-001 SSOT). This used to be a relaxed
+ * `unknown[]`-payload mirror of that contract, which drifted (it silently lacked the later
+ * `plan`/`activeBranch` fields) and forced an `as unknown as` bridge in `agent-framework`'s
+ * store facade. The store itself stays payload-agnostic: it never inspects the fields it
+ * persists, and `load`/`list` keep the honest `JSON.parse(...) as ISessionRecord` trust
+ * boundary (no runtime validation is added or removed by the alias).
+ */
+export type ISessionRecord = IInteractiveSessionRecord;
 
 /** Minimal persistence port consumed by Session. */
 export interface ISessionStore {

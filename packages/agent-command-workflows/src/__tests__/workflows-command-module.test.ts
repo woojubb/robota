@@ -6,6 +6,7 @@ import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 import { describe, expect, it } from 'vitest';
 
 import { executeWorkflowsCatalog } from '../catalog-command.js';
+import { subcommandUsage, WORKFLOWS_SUBCOMMANDS } from '../subcommands.js';
 import { executeWorkflowsValidate } from '../validate-command.js';
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
@@ -34,6 +35,7 @@ describe('workflows command module', () => {
     expect(cmd.name).toBe('workflows'); // canonical name has no leading slash
     const subs = (cmd.subcommands ?? []).map((s) => s.name);
     expect(subs).toContain('create');
+    expect(subs).toContain('build');
     expect(subs).toContain('list');
     expect(subs).toContain('catalog');
     expect(subs).toContain('validate');
@@ -45,6 +47,16 @@ describe('workflows command module', () => {
     expect(cmd.modelInvocable).toBe(true);
     const create = (cmd.subcommands ?? []).find((s) => s.name === 'create');
     expect(create?.modelInvocable).toBe(true);
+    // WORKFLOW-004: `build` (author + save, never run) is also model-invocable — strictly less
+    // privileged than `create`.
+    const build = (cmd.subcommands ?? []).find((s) => s.name === 'build');
+    expect(build?.modelInvocable).toBe(true);
+  });
+
+  it('dispatches `build` and reports the build usage on empty args (WORKFLOW-004)', async () => {
+    const result = await workflowsCommand().execute(FAKE_CONTEXT, 'build');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Usage: /workflows build');
   });
 
   it('dispatches `list` to the in-process node catalog', async () => {
@@ -57,6 +69,33 @@ describe('workflows command module', () => {
     const cmd = workflowsCommand();
     expect((await cmd.execute(FAKE_CONTEXT, '')).message).toContain('Usage');
     expect((await cmd.execute(FAKE_CONTEXT, 'bogus')).success).toBe(false);
+  });
+
+  // WORKFLOW-005 P3 anti-drift: `subcommands.ts` is the SSOT for the surface. Every registered
+  // subcommand must be dispatched (no advertised-but-unroutable verb), every registered
+  // argumentHint must match the `Usage:` line its executor emits, and the hint must be advertised
+  // to the CLI verbatim.
+  it('dispatches every registered subcommand (no advertised-but-unroutable verb)', async () => {
+    const cmd = workflowsCommand();
+    for (const sub of WORKFLOWS_SUBCOMMANDS) {
+      const result = await cmd.execute(FAKE_CONTEXT, sub.name);
+      expect(result.message, `subcommand "${sub.name}" is not dispatched`).not.toContain(
+        'Unknown subcommand',
+      );
+    }
+  });
+
+  it('advertises each subcommand hint verbatim and derives its usage line from it', () => {
+    const advertised = new Map(
+      (workflowsCommand().subcommands ?? []).map((s) => [s.name, s.argumentHint]),
+    );
+    for (const sub of WORKFLOWS_SUBCOMMANDS) {
+      expect(advertised.get(sub.name)).toBe(sub.argumentHint);
+      const expected = sub.argumentHint
+        ? `Usage: /workflows ${sub.name} ${sub.argumentHint}`
+        : `Usage: /workflows ${sub.name}`;
+      expect(subcommandUsage(sub.name)).toBe(expected);
+    }
   });
 
   it('reports a usage error when `run`/`validate` are given no file', async () => {

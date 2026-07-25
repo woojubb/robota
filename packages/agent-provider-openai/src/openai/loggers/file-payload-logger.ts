@@ -9,6 +9,10 @@ import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type { IOpenAILogData } from '../types/api-types';
 import type { ILogger } from '@robota-sdk/agent-core';
 
+/** Owner-only access — no group or other bits (SEC-003 / CWE-377). */
+const OWNER_ONLY_FILE_MODE = 0o600;
+const OWNER_ONLY_DIR_MODE = 0o700;
+
 /**
  * File-based payload logger for Node.js environments
  *
@@ -85,7 +89,12 @@ export class FilePayloadLogger implements IPayloadLogger {
         payload: sanitizeOpenAILogData(payload),
       };
 
-      await fs.promises.writeFile(filepath, JSON.stringify(logData, null, 2), 'utf8');
+      // SEC-003: payload logs contain prompt/response content and `logDir` is
+      // caller-supplied, so create them owner-only rather than under the process umask.
+      await fs.promises.writeFile(filepath, JSON.stringify(logData, null, 2), {
+        encoding: 'utf8',
+        mode: OWNER_ONLY_FILE_MODE,
+      });
 
       // Payload saved successfully (silent operation)
     } catch (error) {
@@ -103,7 +112,7 @@ export class FilePayloadLogger implements IPayloadLogger {
   private ensureLogDirectoryExists(): void {
     try {
       if (!fs.existsSync(this.logDir)) {
-        fs.mkdirSync(this.logDir, { recursive: true });
+        fs.mkdirSync(this.logDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
       }
     } catch (error) {
       this.logger.error('[FilePayloadLogger] Failed to create log directory:', {

@@ -3,7 +3,7 @@
  * happy-path and alternate-format code branches that misc-commands.test.ts
  * does not reach.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { IDagCliIo } from '../types.js';
 
 vi.mock('../local-runner/index.js', async () => {
@@ -76,22 +76,8 @@ function makeIo(): IDagCliIo & { writes: string[] } {
 // ---------------------------------------------------------------------------
 
 describe('compareCommand — execution paths', () => {
-  const savedKeys: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    savedKeys['ANTHROPIC_API_KEY'] = process.env['ANTHROPIC_API_KEY'];
-    savedKeys['OPENAI_API_KEY'] = process.env['OPENAI_API_KEY'];
-    savedKeys['GEMINI_API_KEY'] = process.env['GEMINI_API_KEY'];
-  });
-
   afterEach(() => {
-    for (const [k, v] of Object.entries(savedKeys)) {
-      if (v === undefined) {
-        delete process.env[k];
-      } else {
-        process.env[k] = v;
-      }
-    }
+    vi.unstubAllEnvs();
   });
 
   it('shows help with --help', async () => {
@@ -110,8 +96,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('skips both providers when no API keys set', async () => {
-    delete process.env['ANTHROPIC_API_KEY'];
-    delete process.env['OPENAI_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('OPENAI_API_KEY', undefined);
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -122,8 +108,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('runs both providers when API keys present', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key-anthropic';
-    process.env['OPENAI_API_KEY'] = 'test-key-openai';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key-anthropic');
+    vi.stubEnv('OPENAI_API_KEY', 'test-key-openai');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -135,8 +121,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('outputs JSON when --output json', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['OPENAI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -148,8 +134,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('includes decision section with --decide', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['OPENAI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -158,8 +144,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('includes JSON decision with --decide --output json', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['OPENAI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -177,8 +163,8 @@ describe('compareCommand — execution paths', () => {
   });
 
   it('uses --pipeline arg to build custom DAG', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['OPENAI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -598,28 +584,13 @@ describe('benchmarkCommand — additional branch coverage', () => {
 // ---------------------------------------------------------------------------
 
 describe('compareCommand — additional branch coverage', () => {
-  const savedKeys: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    savedKeys['ANTHROPIC_API_KEY'] = process.env['ANTHROPIC_API_KEY'];
-    savedKeys['OPENAI_API_KEY'] = process.env['OPENAI_API_KEY'];
-    savedKeys['GEMINI_API_KEY'] = process.env['GEMINI_API_KEY'];
-    savedKeys['DEEPSEEK_API_KEY'] = process.env['DEEPSEEK_API_KEY'];
-  });
-
   afterEach(() => {
-    for (const [k, v] of Object.entries(savedKeys)) {
-      if (v === undefined) {
-        delete process.env[k];
-      } else {
-        process.env[k] = v;
-      }
-    }
+    vi.unstubAllEnvs();
   });
 
   it('runs with gemini provider to cover gemini cost-ternary branch', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['GEMINI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -630,8 +601,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('runs with deepseek provider to cover fallback cost-ternary branch', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['DEEPSEEK_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -642,8 +613,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('covers runnable.length===1 when one provider has no key', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    delete process.env['OPENAI_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('OPENAI_API_KEY', undefined);
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -655,8 +626,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('covers runnable.length===0 when both providers have no key', async () => {
-    delete process.env['ANTHROPIC_API_KEY'];
-    delete process.env['OPENAI_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('OPENAI_API_KEY', undefined);
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -667,8 +638,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('outputs JSON with gemini provider', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['GEMINI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -680,8 +651,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('shows decision section with --decide when both providers run', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['GEMINI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -694,8 +665,8 @@ describe('compareCommand — additional branch coverage', () => {
   });
 
   it('covers --pipeline with {provider} substitution for gemini', async () => {
-    process.env['ANTHROPIC_API_KEY'] = 'test-key';
-    process.env['GEMINI_API_KEY'] = 'test-key';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
 
     const { compareCommand } = await import('../commands/compare.js');
     const io = makeIo();
@@ -712,6 +683,10 @@ describe('compareCommand — additional branch coverage', () => {
 // ---------------------------------------------------------------------------
 
 describe('perfCommand — execution paths', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('runs default measurement (--runs 3 for speed)', async () => {
     const { perfCommand } = await import('../commands/perf.js');
     const io = makeIo();
@@ -756,18 +731,13 @@ describe('perfCommand — execution paths', () => {
   });
 
   it('shows error when --publish used without GITHUB_TOKEN', async () => {
-    const savedToken = process.env['GITHUB_TOKEN'];
-    delete process.env['GITHUB_TOKEN'];
-    try {
-      const { perfCommand } = await import('../commands/perf.js');
-      const io = makeIo();
-      const code = await perfCommand(['--runs', '1', '--publish'], { io });
-      expect(code).toBe(0);
-      const output = io.writes.join('');
-      expect(output).toContain('GITHUB_TOKEN');
-    } finally {
-      if (savedToken !== undefined) process.env['GITHUB_TOKEN'] = savedToken;
-    }
+    vi.stubEnv('GITHUB_TOKEN', undefined);
+    const { perfCommand } = await import('../commands/perf.js');
+    const io = makeIo();
+    const code = await perfCommand(['--runs', '1', '--publish'], { io });
+    expect(code).toBe(0);
+    const output = io.writes.join('');
+    expect(output).toContain('GITHUB_TOKEN');
   });
 
   it('shows help with --help flag', async () => {

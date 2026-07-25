@@ -3,6 +3,7 @@ export {
   transitionSelfHostingLoop,
 } from './self-hosting-verification.js';
 export type {
+  ISelfHostingCommandTemplates,
   ISelfHostingVerificationPlan,
   ISelfHostingVerificationPlanInput,
   ISelfHostingVerificationStep,

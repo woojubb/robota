@@ -103,31 +103,39 @@ export interface IStatusLineCommandSettings {
 export type TStatusLineCommandSettingsPatch = Partial<IStatusLineCommandSettings> &
   Record<string, TUniversalValue>;
 
-/** Typed host effects requested by a command execution. */
-export type TCommandEffect =
-  | { type: 'provider-hot-swap-requested'; profileName: string }
-  | { type: 'language-change-requested'; language: string }
-  | { type: 'settings-reset-requested' }
-  | { type: 'session-exit-requested'; reason?: TSessionEndReason; message?: string }
-  | { type: 'session-restart-requested'; reason: TSessionEndReason; message: string }
-  | { type: 'plugin-tui-requested' }
-  | { type: 'plugin-registry-reload-requested' }
-  | { type: 'settings-tui-requested' }
-  | { type: 'session-picker-requested' }
-  | { type: 'session-renamed'; name: string }
-  | { type: 'conversation-history-cleared' }
-  | { type: 'session-execution-started' }
+/**
+ * CMD-004 Phase 2: host-executed command ACTIONS — semantic operations the SESSION layer (the host)
+ * executes via `ICommandHostAdapters` or directly on the session, BEFORE the command result is
+ * returned. They execute with zero surfaces attached (headless parity — the LSP
+ * `workspace/executeCommand` model); surfaces observe the outcome via session events / the result,
+ * never by executing the semantics themselves.
+ */
+export type TCommandHostAction =
+  | { type: 'provider-hot-swap'; profileName: string }
+  | { type: 'language-change'; language: string }
+  | { type: 'settings-reset' }
+  | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }
+  | { type: 'session-restart'; reason: TSessionEndReason; message: string }
+  | { type: 'session-rename'; name: string }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
-  | { type: 'agent-switcher-requested' }
-  // REMOTE-008: `/remote-control` enable/disable. The host wires the request to an injected callback that
-  // constructs the WebRTC transport at the composition root (commands never touch transports directly).
-  | { type: 'remote-control-enable-requested' }
-  | { type: 'remote-control-stop-requested' };
+  | { type: 'remote-control-enable' }
+  | { type: 'remote-control-stop' };
+
+/**
+ * CMD-004 Phase 2: surface-rendered UI INTENTS — presentation requests (full-screen navigation)
+ * rendered by the surface that issued the command (requester-routed via
+ * `IUiIntentEvent.requesterDriverId`), fire-and-forget. Names are UI-neutral (LSP `window/show*`
+ * style — never a UI-technology token); a surface that cannot render an intent reports an explicit
+ * "not available on this surface" notice, never a silent drop.
+ */
+export type TCommandUiIntent =
+  | { type: 'show-plugin-manager' }
+  | { type: 'show-settings' }
+  | { type: 'show-session-picker' }
+  | { type: 'show-agent-switcher' };
 
 export type TCommandResultDataValue =
-  | TUniversalValue
-  | Record<string, unknown>
-  | readonly Record<string, unknown>[];
+  TUniversalValue | Record<string, unknown> | readonly Record<string, unknown>[];
 
 /** Result of a system command execution. */
 export interface ICommandResult {
@@ -137,8 +145,10 @@ export interface ICommandResult {
   success: boolean;
   /** Additional structured data (command-specific diagnostics only) */
   data?: Record<string, unknown>;
-  /** Typed host effects requested by the command */
-  effects?: readonly TCommandEffect[];
+  /** CMD-004 Phase 2: host-executed actions — applied by the session layer before the result returns. */
+  hostActions?: readonly TCommandHostAction[];
+  /** CMD-004 Phase 2: UI intents — emitted as `ui_intent` session events routed to the requesting surface. */
+  uiIntents?: readonly TCommandUiIntent[];
 }
 
 /** Minimal command projection surfaced to host UIs and autocomplete. */

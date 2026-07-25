@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type {
@@ -12,7 +12,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { startCli } from '../cli.js';
 
-const TMP_BASE = join(tmpdir(), `robota-cli-update-check-test-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-cli-update-check-test-'));
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 let lastChatMessages: TUniversalMessage[] = [];
@@ -38,10 +38,7 @@ function createFakeProvider(): IAIProvider {
   return {
     name: 'fake',
     version: 'test',
-    async chat(
-      messages: TUniversalMessage[],
-      _options?: IChatOptions,
-    ): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], _options?: IChatOptions): Promise<TUniversalMessage> {
       lastChatMessages = [...messages];
       return {
         id: 'assistant-1',
@@ -129,7 +126,8 @@ describe('CLI update check command', () => {
     expect(stderr.mock.calls.join('')).toBe('');
     expect(
       lastChatMessages.some(
-        (message) => typeof message.content === 'string' && message.content.includes('Loop objective'),
+        (message) =>
+          typeof message.content === 'string' && message.content.includes('Loop objective'),
       ),
     ).toBe(true);
     expect(lastChatMessages.some((message) => message.content === 'Summarize the task file.')).toBe(

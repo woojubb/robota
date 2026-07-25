@@ -12,7 +12,7 @@
  */
 
 import chalk from 'chalk';
-import { Text, useInput, usePaste } from 'ink';
+import { Box, Text, useInput, usePaste } from 'ink';
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -28,6 +28,10 @@ import {
   scheduleDeferredSubmit,
   type IDeferSubmitState,
 } from './flows/defer-submit.js';
+import { useRealCursorPosition } from './hooks/useRealCursorPosition.js';
+import { supportsImeCursorPositioning } from './terminal-capabilities.js';
+
+import type { DOMElement } from 'ink';
 
 interface IProps {
   value: string;
@@ -92,20 +96,32 @@ export default function CjkTextInput({
     deferState: deferRef.current,
   });
 
-  // Real terminal cursor positioning is intentionally omitted.
-  // setCursorPosition(x, 0) crashes Terminal.app via Korean IME SIGSEGV.
-  // Correct fix requires the input row's y offset from the bottom of the render,
-  // which Ink does not expose. Tracked as a known limitation.
+  // CLI-062: real terminal cursor positioning so the OS IME composition window appears AT the
+  // input position. The historical Terminal.app SIGSEGV came from a hardcoded `y: 0` (logo area);
+  // the hook only positions with a y measured from the live yoga layout and refuses the ink
+  // fullscreen geometry (invariants I1–I5 — see flows/real-cursor-flow.ts and the hook itself).
+  const boxRef = useRef<DOMElement | null>(null);
+  const { realCursorActive } = useRealCursorPosition({
+    boxRef,
+    enabled: focus && showCursor && supportsImeCursorPositioning(),
+    value: stateRef.current.value,
+    cursor: stateRef.current.cursor,
+    ...(availableWidth !== undefined ? { availableWidth } : {}),
+  });
 
   return (
-    <Text>
-      {renderWithCursor(
-        stateRef.current.value,
-        stateRef.current.cursor,
-        placeholder,
-        showCursor && focus,
-      )}
-    </Text>
+    <Box ref={boxRef}>
+      <Text>
+        {renderWithCursor(
+          stateRef.current.value,
+          stateRef.current.cursor,
+          placeholder,
+          // I4: the drawn inverse cursor is suppressed ONLY while real positioning is active;
+          // any guard failure falls back to exactly today's rendering.
+          showCursor && focus && !realCursorActive,
+        )}
+      </Text>
+    </Box>
   );
 }
 

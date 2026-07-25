@@ -36,19 +36,19 @@ describe('exit command module', () => {
     expect(result).toEqual({
       success: true,
       message: 'Exit requested.',
-      effects: [{ type: 'session-exit-requested' }],
+      hostActions: [{ type: 'session-exit' }],
     });
   });
 
   it('confirms before exiting and proceeds on yes (CMD-004)', async () => {
     const result = await executeExitCommand(contextWithAnswer('yes'), '');
-    expect(result.effects).toEqual([{ type: 'session-exit-requested' }]);
+    expect(result.hostActions).toEqual([{ type: 'session-exit' }]);
   });
 
   it('cancels the exit when the user declines (CMD-004)', async () => {
     const result = await executeExitCommand(contextWithAnswer('no'), '');
     expect(result.success).toBe(true);
     expect(result.message).toBe('Exit cancelled.');
-    expect(result.effects).toBeUndefined();
+    expect(result.hostActions).toBeUndefined();
   });
 });

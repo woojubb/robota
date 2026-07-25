@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 
 import {
   compareScenarioRecordArtifact,
@@ -15,7 +16,24 @@ import {
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import { listWorkspaceScopes, WORKSPACE_ROOT } from './shared.mjs';
 
-function runHookFixture(scriptRelativePath, input, projectDir) {
+// The content the check-forbidden-patterns hook fixture writes. It MUST be a pattern the
+// hook currently blocks — when the hook's rules change, this fixture must change with it,
+// or the self-check reports a false failure. scripts/harness/__tests__/self-check.test.mjs
+// runs the hook against this exact constant so drift fails the globbed harness suite
+// (TEST-011: the any-type fixture sat stale after HARNESS-DIET-006 removed that branch;
+// the hook now enforces only try/catch-fallback, common-mistakes #9).
+export const FORBIDDEN_PATTERN_FIXTURE_CONTENT = [
+  'export function loadConfig(): Config | null {',
+  '  try {',
+  '    return parseConfig();',
+  '  } catch (error) {',
+  '    return null;',
+  '  }',
+  '}',
+  '',
+].join('\n');
+
+export function runHookFixture(scriptRelativePath, input, projectDir) {
   return spawnSync('bash', [path.join(WORKSPACE_ROOT, scriptRelativePath)], {
     cwd: WORKSPACE_ROOT,
     env: {
@@ -68,7 +86,7 @@ async function runHookFixtureSelfCheck() {
         session_id: 'self-check-session',
         tool_input: {
           file_path: sourcePath,
-          content: 'const value: any = input;\n',
+          content: FORBIDDEN_PATTERN_FIXTURE_CONTENT,
         },
       },
       projectDir,
@@ -209,4 +227,6 @@ async function main() {
   process.stdout.write('hook_fixtures: ok\n');
 }
 
-void main();
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
+}

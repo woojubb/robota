@@ -1,10 +1,19 @@
 ---
 title: 'CLI-048: WebSearch BRAVE_API_KEY 없을 때 폴백 및 문서화'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: low
 category: feature
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place — the P1 (minimum) scope plus
+graceful degradation: `web-search-tool.ts` returns a setup message when `BRAVE_API_KEY` is absent,
+and `packages/agent-cli/README.md` documents the key in the env-var table (L93) and the Built-in
+Tools section (L234/L237). The optional P2 fallback search engine was explicitly "(선택)" and was
+not pursued. Verified 2026-07-25 (PROC-001).
 
 ## 문제
 

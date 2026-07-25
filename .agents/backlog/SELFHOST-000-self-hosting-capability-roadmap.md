@@ -62,6 +62,10 @@ product opinion in `agent-cli`/`apps/agent-app`.
 -008 semantic memory, -009 hook catalog, -010 computer use, -011 evals-as-code, -012 scheduled tasks,
 -013 multi-surface deployment, -014 async shared sessions).
 
+**Progress (2026-07-24):** all 14 spun-out capabilities are spec-gated DONE and archived to
+`completed/` (specs in `.agents/spec-docs/done/`). Remaining open follow-ups: SELFHOST-003-P4
+(embedding-vector backend), SELFHOST-008-P5 (concrete semantic backend), SELFHOST-011-P3/P4 remainder.
+
 ## Test Plan
 
 Per spun-out item. Each capability item carries its own Architecture Review (correct-layer placement,

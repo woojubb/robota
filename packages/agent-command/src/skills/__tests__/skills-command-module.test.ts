@@ -149,7 +149,6 @@ describe('createSkillsCommandModule', () => {
         skill: 'audit',
         sessionExecution: true,
       }),
-      effects: [{ type: 'session-execution-started' }],
     });
     expect(parentSession.run).toHaveBeenCalledWith(
       expect.stringContaining('Audit src/index.ts'),

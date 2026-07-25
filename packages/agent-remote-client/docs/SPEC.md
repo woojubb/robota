@@ -48,7 +48,10 @@ This package is SSOT for the following types. All types marked **public** are ex
 - `IExtendedChatExecutionRequest`, `IExtendedStreamExecutionRequest` — request extensions with temperature/maxTokens (internal).
 - `IRemoteConfig`, `IHealthStatus`, `IUserContext`, `IProviderStatus` — shared configuration/status types (internal).
 
-`ITokenUsage` is owned by `@robota-sdk/agent-core`; this package re-exports it for consumer convenience only.
+`ITokenUsage` is owned by `@robota-sdk/agent-core`; this package re-exports it for consumer convenience
+only. TYPE-003: every usage field in this package (`IExtendedAssistantMessage.usage`,
+`IChatResponseData.usage`, `IResponseMessage.usage`) references that SSOT — no inline copy of the
+prompt/completion/total triple is declared here.
 
 Re-exports from `@robota-sdk/agent-core` via `src/shared/types.ts` (`IExecutor`, `IChatExecutionRequest`, `IStreamExecutionRequest`, `IRemoteExecutorConfig`, `TUniversalMessage`, `IAssistantMessage`) are compatibility shims and do not represent SSOT ownership.
 

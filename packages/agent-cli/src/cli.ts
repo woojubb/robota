@@ -4,7 +4,6 @@
  */
 
 import { execSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 
 import { PrintTerminal, promptInput } from '@robota-sdk/agent-transport/headless';
 import {
@@ -12,9 +11,7 @@ import {
   projectPaths,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
-  readMergedProviderSettings,
   readProviderSettings,
-  createProviderFromSettings,
   checkForCliUpdate,
   formatCliUpdateCheckMessage,
   formatCliUpdateNotice,
@@ -22,12 +19,25 @@ import {
   readSettings,
   getUserSettingsPath,
 } from '@robota-sdk/agent-framework';
+import { assembleProduct } from '@robota-sdk/agent-product';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
-import { DEFAULT_AGENT_NAME, loadExternalPresets } from '@robota-sdk/agent-preset';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import { resolveShellPreset } from './startup/preset-selection.js';
+import type { IShellPresetResolution } from './startup/preset-selection.js';
+import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-preset';
+import {
+  createRobotaPacks,
+  createRobotaProfile,
+  packCommandModuleNames,
+} from './product/robota-profile.js';
+import {
+  buildRobotaRuntimeOptions,
+  createDefaultTransportRegistry,
+  loadReplayProvider,
+  reportUnknownPresetModules,
+  selectProductCommandModules,
+} from './product/robota-plumbing.js';
 import {
   ensureConfig,
   handleProviderConfigurationArgs,
@@ -35,8 +45,6 @@ import {
 } from './startup/provider-startup.js';
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-transport-tui';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
-import { TransportRegistry } from '@robota-sdk/agent-transport';
-import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 import {
@@ -56,6 +64,10 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetup } from './startup/command-setup.js';
+import {
+  buildRemoteControlHostAdapter,
+  createTuiProcessAdapter,
+} from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { runServeMode } from './modes/serve-mode.js';
 import {
@@ -66,53 +78,6 @@ import {
 } from './startup/memory-enablement.js';
 
 export type { IStartCliOptions };
-
-/**
- * Composition-root wiring of the default transport registry. The generic registry lives in
- * `@robota-sdk/agent-transport`; choosing which concrete transports to pre-register is an
- * app-assembly decision, so the CLI (the composition root) wires `WsTransport` here rather than
- * the transport core depending on the ws package.
- */
-/**
- * Load the optional session-log replay provider (INFRA-017). `@robota-sdk/agent-provider-replay` is a
- * dev/test-only package deliberately kept out of the published dependency graph, so `--session-log`
- * replay is a development capability: resolvable in the monorepo (and for anyone who installs the
- * package), and reported as unavailable — never a hard crash — in the default published CLI.
- */
-function loadReplayProvider(logFile: string): IAIProvider {
-  let mod: { createReplayProviderFromLogFile: (file: string) => IAIProvider };
-  try {
-    const requireFrom = createRequire(import.meta.url);
-    mod = requireFrom('@robota-sdk/agent-provider-replay') as typeof mod;
-  } catch {
-    throw new Error(
-      '--session-log replay requires @robota-sdk/agent-provider-replay, a dev-only package that is not bundled in the published CLI.',
-    );
-  }
-  return mod.createReplayProviderFromLogFile(logFile);
-}
-
-function createDefaultTransportRegistry(): {
-  registry: TransportRegistry;
-  wsTransport: WsTransport;
-} {
-  const registry = new TransportRegistry(getUserSettingsPath());
-  // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
-  // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
-  // transport reject any unauthenticated connection before emitting session data. Absent = unchanged
-  // default (open localhost path); the token is never persisted to settings (secret, runtime-only).
-  const wsToken = process.env['ROBOTA_WS_TOKEN'];
-  const wsPortRaw = process.env['ROBOTA_WS_PORT'];
-  const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
-  const wsTransport = new WsTransport({
-    ...(wsToken ? { token: wsToken } : {}),
-    ...(wsPort !== undefined && Number.isInteger(wsPort) ? { port: wsPort } : {}),
-  });
-  registry.register(wsTransport);
-  // GUI-007: return the WS transport so `--serve --open` can read its `boundPort` to point the served
-  // monitor's `ws-url` at the actual port.
-  return { registry, wsTransport };
-}
 
 export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // OBS-001: `session analyze` carries its own flags (--last/--session) that the strict
@@ -205,72 +170,58 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // PRESET-002/004: thin shell — select preset id (flag > settings.preset > 'default') and forward
-  // the resolved framework options. The precedence merge + posture mapping lives in
-  // agent-preset.resolvePreset; the CLI owns none of that logic. Resolved before command setup so
-  // the preset's module-selection delta can reach createDefaultCommandModules.
+  // PRESET-002/004/007/011 + ARCH-008: the shell's ONE preset resolution. `loadExternalPresets` reads
+  // `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and also registers them into
+  // agent-preset's module-global registry — which is now the in-session `/preset` DISCOVERY surface only,
+  // NOT this resolution path. `resolveShellPreset` builds the kernel's per-call registry (R8) over the
+  // same loaded presets and resolves the selected id over it, returning registry + id + override context
+  // as one value that travels whole into the profile, so `assembleProduct` adopts that same registry. Both
+  // surfaces come from this one load, so they cannot disagree (anti-split gate). Resolved before command
+  // setup so the preset's module-selection delta can reach createDefaultCommandModules.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  // PRESET-007: register user-authored external presets (~/.robota/presets/*.json) into the
-  // shared registry before resolution so `--preset <id>` and `/preset` can see them. Per-file
-  // load/validation problems are non-fatal and surfaced as warnings; the run still proceeds.
   const externalPresetLoad = loadExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
-  let resolvedPreset: IResolvedPresetOptions;
+  const externalPresets = externalPresetLoad.loaded
+    .map((id) => getPreset(id))
+    .filter((entry): entry is IPreset => entry !== undefined);
+  let preset: IShellPresetResolution;
   try {
-    resolvedPreset = resolveCliPreset(args, settingsPreset);
+    preset = resolveShellPreset(externalPresets, args, settingsPreset);
   } catch (error) {
     // allow-fallback: unknown preset id is terminal — surface available list, exit
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-  // PRESET-011: the selected preset id (same selection glue as resolveCliPreset) becomes the
-  // session's runtime active-preset state. Pure state — no option re-application here.
-  const selectedPresetId = selectPresetId(args, settingsPreset);
+  const resolvedPreset = preset.options;
+  const selectedPresetId = preset.presetId;
 
+  const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
+  const packCommandModules = packCommandModuleNames(packs);
   const {
     commandHostAdapters,
     providerDefinitions,
-    commandModules,
-    unknownModuleNames,
+    baseCommandModules,
+    fixedCommandModules,
     startupUpdateNoticePromise,
     remoteCommandPolicy,
-  } = buildCommandSetup(cwd, args, options, version, {
-    ...(resolvedPreset.enabledCommandModules !== undefined
-      ? { enabledCommandModules: resolvedPreset.enabledCommandModules }
-      : {}),
-    ...(resolvedPreset.disabledCommandModules !== undefined
-      ? { disabledCommandModules: resolvedPreset.disabledCommandModules }
-      : {}),
-  });
-  // REMOTE-008: the composition root owns the transport registry + the remote-control controller (it has
-  // settings, the registry, and — via onChannelReady — the live session). The `/remote-control` command is
-  // a declarative trigger; the enable/stop wiring + status view are assembled here.
+  } = buildCommandSetup(cwd, args, options, version, packCommandModules);
+  // REMOTE-008: the shell owns the transport registry + the remote-control controller (it has settings, the
+  // registry, and — via onChannelReady — the live session), and injects the registry into the profile. The
+  // `/remote-control` command is a declarative trigger; the enable/stop wiring + status view are here.
   const { registry: transportRegistry, wsTransport } = createDefaultTransportRegistry();
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry);
-  commandHostAdapters.remoteControl = {
-    getStatus: () => remoteControlController.getStatus(),
-    // REMOTE-012 E3: `/remote-control devices` + `revoke <id>` over the same controller (trusted-device store).
-    listDevices: () =>
-      remoteControlController.listDevices().map((d) => ({
-        deviceId: d.deviceId,
-        label: d.label,
-        lastSeenAt: d.lastSeenAt,
-      })),
-    revokeDevice: (deviceId: string) => remoteControlController.revokeDevice(deviceId),
-  };
+  commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
 
-  // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
-  // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
-  // drop, never an abort — mirroring the external-preset skip reporting above.
-  for (const { name, kind } of unknownModuleNames) {
-    terminal.writeError(
-      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
-    );
-  }
+  reportUnknownPresetModules(
+    (message) => terminal.writeError(message),
+    baseCommandModules,
+    packCommandModules,
+    resolvedPreset,
+  );
 
   if (args.positional[0] === 'init') {
     try {
@@ -320,12 +271,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       terminal.writeLine(notice.trimEnd());
     }
   }
-  // INFRA-018: when a session log is supplied, replay it deterministically instead of calling a
-  // model. Provider settings/model still come from the configured profile (no key is ever used —
-  // the ReplayProvider answers every call from the recorded log).
-  const provider = args.sessionLog
-    ? loadReplayProvider(args.sessionLog)
-    : createProviderFromSettings(cwd, resolvedPreset.model, providerOptions);
   const backgroundTaskRunners = createDefaultBackgroundTaskRunners();
   const paths = projectPaths(cwd);
   const subagentRunnerFactory = createChildProcessSubagentRunnerFactory({
@@ -334,6 +279,53 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     logsDir: paths.logs,
     worktreeAdapter: createGitWorktreeIsolationAdapter(),
   });
+
+  // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
+  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct`. What remains below is
+  // product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
+  //
+  // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
+  // replays the recorded log deterministically instead of calling a model. Provider settings/model still
+  // come from the configured profile (no key is ever used).
+  const product = assembleProduct(
+    createRobotaProfile({
+      version,
+      agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
+      providerDefinitions,
+      providerSettings: { ...providerSettings, model: modelId },
+      ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
+      preset,
+      baseCommandModules,
+      packs,
+      backgroundTaskRunners,
+      subagentRunnerFactory,
+      transports: transportRegistry,
+    }),
+  );
+  const provider = product.provider;
+  if (provider === undefined) {
+    // Unreachable with robota's profile (it always supplies providerSettings) — surfaced, never silent.
+    process.stderr.write('No provider could be constructed from the resolved settings.\n');
+    process.exit(1);
+  }
+
+  // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
+  const { commandModules, agentDefinitions, toolOptions, permissionMode } =
+    buildRobotaRuntimeOptions({
+      product,
+      cwd,
+      provider,
+      selectedCommandModules: selectProductCommandModules(
+        product,
+        fixedCommandModules,
+        resolvedPreset,
+      ),
+      ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
+    });
+  // A capability the merge refused (a colliding id) is reported, never silently dropped.
+  for (const { kind, id, reason } of product.rejectedCapabilities) {
+    terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
+  }
 
   const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
@@ -374,6 +366,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       sessionStore,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      agentDefinitions,
+      toolOptions,
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
@@ -382,9 +376,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
-        ...(resolvedPreset.permissionMode !== undefined
-          ? { permissionMode: resolvedPreset.permissionMode }
-          : {}),
+        // ARCH-007: the posture the KERNEL resolved (explicit --permission-mode, else the preset's).
+        ...(permissionMode !== undefined ? { permissionMode } : {}),
         ...(resolvedPreset.enableParallelSubagents !== undefined
           ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
           : {}),
@@ -409,6 +402,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       sessionStore,
       backgroundTaskRunners,
       subagentRunnerFactory,
+      agentDefinitions,
+      ...toolOptions,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -428,9 +423,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
-        ...(resolvedPreset.permissionMode !== undefined
-          ? { permissionMode: resolvedPreset.permissionMode }
-          : {}),
+        ...(permissionMode !== undefined ? { permissionMode } : {}),
         ...(resolvedPreset.enableParallelSubagents !== undefined
           ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
           : {}),
@@ -446,6 +439,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   warnIfTerminalAppOnMacOS(terminal);
   // ERR-001 G1: interactive mode only — the process must survive transient failures.
   installTuiProcessGuards();
+  // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
+  commandHostAdapters.process = createTuiProcessAdapter();
   if (isFirstRun()) {
     printFirstRunWelcome(terminal);
     markOnboarded();
@@ -465,7 +460,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode: args.permissionMode ?? resolvedPreset.permissionMode,
+    permissionMode,
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
@@ -477,6 +472,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,
+    agentDefinitions,
+    ...toolOptions,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
@@ -486,8 +483,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ? startupUpdateNoticePromise.then((n) => (n ? formatCliUpdateNotice(n) : undefined))
       : undefined,
     transportRegistry,
-    enableRemoteControl: () => remoteControlController.enable(),
-    stopRemoteControl: () => remoteControlController.stop(),
+    // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
+    // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),

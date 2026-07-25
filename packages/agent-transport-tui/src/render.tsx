@@ -2,15 +2,17 @@
  * Ink render entry point.
  */
 
+import chalk from 'chalk';
 import { render } from 'ink';
 import React from 'react';
 
 import App from './App.js';
+import { isInteractiveColorTerminal } from './terminal-capabilities.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -18,6 +20,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
+  IAgentDefinition,
   TShellExecFn,
   CommandRegistry,
   IMemoryStore,
@@ -49,6 +52,18 @@ export interface IRenderOptions {
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
+   * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
+   * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
+   */
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -72,13 +87,6 @@ export interface IRenderOptions {
    * product wire process-level concerns (ERR-001 G1: error routing into the live session).
    */
   onChannelReady?: (channel: TuiInteractionChannel) => void;
-  /**
-   * REMOTE-008: enable/stop P2P remote control (implemented at the composition root). Each returns a
-   * message (QR + link, or a fail-closed notice) the TUI renders into history. The command triggers
-   * these via the `remote-control-enable-requested`/`-stop-requested` effects.
-   */
-  enableRemoteControl?: () => string | Promise<string>;
-  stopRemoteControl?: () => string | Promise<string>;
   /**
    * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded to the
    * channel → `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement is surface-owned.
@@ -111,6 +119,11 @@ export function toChannelOptions(
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
     subagentRunnerFactory: options.subagentRunnerFactory,
+    ...(options.agentDefinitions !== undefined
+      ? { agentDefinitions: options.agentDefinitions }
+      : {}),
+    ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
+    ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,
     shellExec: options.shellExec,
@@ -133,6 +146,15 @@ export function toChannelOptions(
 export async function renderApp(options: IRenderOptions): Promise<void> {
   // ERR-001 / Library Neutrality Rule: NO process-level error policy here — process survival
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
+
+  // SCREEN-006: chalk (ink's styling engine) does not implement the NO_COLOR convention itself
+  // (verified: chalk 5's vendored supports-color reads only FORCE_COLOR/TTY/TERM), so on a real
+  // TTY `NO_COLOR=1` would still color every component. Sync chalk once with the package's single
+  // color gate (`terminal-capabilities.ts` — the SSOT that DOES honor NO_COLOR) so gate-off means
+  // zero SGR color output. Gate-on changes nothing: chalk's own level detection stays authoritative.
+  if (!isInteractiveColorTerminal()) {
+    chalk.level = 0;
+  }
 
   // TERM-002: one terminal-handoff controller per process (one Ink instance / App). Shared across
   // channel re-creations (session switch) so the handoff capability survives a session swap.
@@ -166,8 +188,6 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
       startupUpdateNotice={options.startupUpdateNotice}
       transportRegistry={options.transportRegistry}
       cliAdapter={options.cliAdapter}
-      enableRemoteControl={options.enableRemoteControl}
-      stopRemoteControl={options.stopRemoteControl}
     />,
     { exitOnCtrlC: false },
   );

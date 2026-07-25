@@ -18,6 +18,7 @@ async function runGrep(args: Record<string, unknown>): Promise<IGrepResult> {
 
 describe('grepTool', () => {
   let fixtureDir: string;
+  let bulkDir: string;
 
   beforeAll(() => {
     fixtureDir = mkdtempSync(join(tmpdir(), 'grep-tool-test-'));
@@ -26,10 +27,22 @@ describe('grepTool', () => {
     writeFileSync(join(fixtureDir, 'c.md'), 'alpha markdown\n');
     mkdirSync(join(fixtureDir, 'sub'));
     writeFileSync(join(fixtureDir, 'sub', 'd.txt'), 'no match here\n');
+
+    // Deterministic multi-file corpus for ordering/determinism tests (CLI-042).
+    // Separate tmpdir so it does not alter the counts the fixtureDir tests assert.
+    bulkDir = mkdtempSync(join(tmpdir(), 'grep-tool-bulk-'));
+    for (let i = 0; i < 80; i++) {
+      const id = String(i).padStart(2, '0');
+      writeFileSync(
+        join(bulkDir, `bulk-${id}.txt`),
+        `start ${id}\nalpha ${id}\nmiddle ${id}\nalpha again ${id}\nend ${id}\n`,
+      );
+    }
   });
 
   afterAll(() => {
     rmSync(fixtureDir, { recursive: true, force: true });
+    rmSync(bulkDir, { recursive: true, force: true });
   });
 
   it('TC-01: count mode returns path:count rows for matching files only', async () => {
@@ -107,6 +120,42 @@ describe('grepTool', () => {
     const result = await runGrep({ pattern: 'alpha', path: fixtureDir, glob: '*.md' });
     expect(result.output.split('\n')).toHaveLength(1);
     expect(result.output.trim().endsWith('c.md')).toBe(true);
+  });
+
+  it('TC-06: repeated runs over the same corpus produce byte-identical output (determinism)', async () => {
+    for (const mode of ['files_with_matches', 'content', 'count'] as const) {
+      const args: Record<string, unknown> = { pattern: 'alpha', path: bulkDir, outputMode: mode };
+      if (mode === 'content') args.contextLines = 1;
+      const first = await runGrep(args);
+      const second = await runGrep(args);
+      expect(first.success).toBe(true);
+      expect(second.output).toBe(first.output);
+    }
+  });
+
+  it('TC-06: directory output preserves per-file blocks in file-enumeration order', async () => {
+    // files_with_matches order IS the enumeration order the sequential
+    // implementation used; content/count output must be the concatenation of
+    // per-file results in exactly that order.
+    const filesResult = await runGrep({ pattern: 'alpha', path: bulkDir });
+    const fileOrder = filesResult.output.split('\n');
+    expect(fileOrder).toHaveLength(80);
+
+    for (const mode of ['content', 'count'] as const) {
+      const dirArgs: Record<string, unknown> = {
+        pattern: 'alpha',
+        path: bulkDir,
+        outputMode: mode,
+      };
+      if (mode === 'content') dirArgs.contextLines = 1;
+      const dirResult = await runGrep(dirArgs);
+      const perFileOutputs: string[] = [];
+      for (const filePath of fileOrder) {
+        const single = await runGrep({ ...dirArgs, path: filePath });
+        perFileOutputs.push(single.output);
+      }
+      expect(dirResult.output).toBe(perFileOutputs.join('\n'));
+    }
   });
 
   it('returns an error result for an invalid regex', async () => {

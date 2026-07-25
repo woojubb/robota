@@ -1,10 +1,17 @@
 ---
 title: 'CLI-044: cli.ts TUI 종료 후 process.exit 비동기 리소스 정리'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-24
 priority: low
 category: bug
 ---
+
+> **Superseded by CLI-071 + CLI-075 (both done).** The TUI exit path was redesigned after this
+> item: `cli.ts` now awaits the full TUI lifecycle (`await renderApp(...)`) and then calls an
+> explicit `process.exit(0)` (reintroduced deliberately in PLG-007, ff6f178e5) — graceful
+> shutdown/flush is owned by the CLI-071 shutdown fix and CLI-075 shutdown/channel hygiene, not by
+> removing the exit call as this item proposed. Reconciled 2026-07-25 (PROC-001).
 
 ## 문제
 

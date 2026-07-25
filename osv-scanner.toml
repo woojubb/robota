@@ -27,3 +27,16 @@ id = "GHSA-f88m-g3jw-g9cj" # sharp / bundled libvips (CVSS 7.0), fixed in 0.35.0
 # uploads — so the vector is unreachable. Bumping to 0.35.0 was reverted because it raises sharp's Node floor and
 # changes the prebuilt-binary platforms, breaking the Cloudflare Pages docs build environment. Pinned at 0.34.5.
 reason = "sharp build-time-only on trusted site images (unreachable); 0.35.0 bump breaks the CF Pages docs build env — INFRA-044."
+
+[[IgnoredVulns]]
+id = "GHSA-mh99-v99m-4gvg" # brace-expansion DoS via unbounded expansion length → OOM (fixed only in 5.0.8)
+# Reviewed re-accept (INFRA-042 finding). brace-expansion@1.1.16 / @2.1.2 have ZERO production dependency
+# paths in this workspace (`pnpm why -r --prod brace-expansion` → 0) — both are DEV-ONLY, pulled exclusively
+# by the eslint / typescript-eslint toolchain via minimatch 3.x/9.x, which parses only the repo's OWN trusted
+# source and config, never untrusted runtime input, so the OOM vector is unreachable. (The runtime glob-tool
+# uses fast-glob → micromatch → `braces`, a DIFFERENT package, not brace-expansion.) The only published fix is
+# on the 5.x line (5.0.8): brace-expansion 1.x/2.x have NO backport (1.1.16 / 2.1.2 are their latest maintenance
+# releases and remain affected), and forcing 5.x onto the pinned minimatch 3.x/9.x consumers is API-incompatible
+# — INFRA-044 already proved brace-expansion→5.x breaks minimatch ("expand is not a function"). Same disposition
+# class as the js-yaml dev-only re-accept above.
+reason = "brace-expansion@1.1.16/2.1.2 dev-only (eslint toolchain, trusted input); no 1.x/2.x backport, 5.x breaks minimatch — INFRA-042/044."

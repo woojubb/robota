@@ -1,4 +1,4 @@
-import type { TCommandEffect } from '../effects.js';
+import type { TCommandUiIntent } from '../effects.js';
 import type { ICommandHostContext } from '../host-context.js';
 import type { ICommand } from '../types.js';
 // Plugin command adapter contracts SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
@@ -18,12 +18,9 @@ export const PLUGIN_COMMAND_ARGUMENT_HINT =
   'manage | install <name@marketplace> | uninstall <name@marketplace> | enable <name@marketplace> | disable <name@marketplace> | marketplace <action>';
 export const RELOAD_PLUGINS_COMMAND_DESCRIPTION = 'Reload all plugin resources';
 
-export function createPluginTuiRequestedEffect(): TCommandEffect {
-  return { type: 'plugin-tui-requested' };
-}
-
-export function createPluginRegistryReloadRequestedEffect(): TCommandEffect {
-  return { type: 'plugin-registry-reload-requested' };
+/** CMD-004: `/plugin manage` asks the REQUESTING surface to open its plugin manager (UI intent). */
+export function createShowPluginManagerIntent(): TCommandUiIntent {
+  return { type: 'show-plugin-manager' };
 }
 
 export function resolvePluginCommandAdapter(

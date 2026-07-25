@@ -10,6 +10,8 @@ depends_on: ['SELFHOST-008']
 
 # Concrete semantic/vector memory backend (SELFHOST-008 P5)
 
+> Parent SELFHOST-008 is verified done and archived to `completed/SELFHOST-008-durable-semantic-memory.md` (2026-07-24); this consciously-deferred slice stays open.
+
 ## Problem
 
 SELFHOST-008's **neutral library is complete** (P1 port + fs reference adapter, P1R async remediation, P2 live

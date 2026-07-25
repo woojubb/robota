@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtempSync } from 'node:fs';
 import { doctorCommand } from '../commands/doctor.js';
 import type { IDoctorCommandOptions } from '../commands/doctor.js';
+
+// SEC-003: a private 0700 dir, not the shared world-writable OS temp dir itself.
+const FALLBACK_CWD = mkdtempSync(join(tmpdir(), 'dag-doctor-cwd-'));
 
 function createOptions(cwd?: string): IDoctorCommandOptions & { written: string[] } {
   const written: string[] = [];
@@ -18,7 +22,7 @@ function createOptions(cwd?: string): IDoctorCommandOptions & { written: string[
       readTextFile: async () => '',
       writeBinaryStream: async () => {},
     },
-    cwd: cwd ?? tmpdir(),
+    cwd: cwd ?? FALLBACK_CWD,
     written,
   };
 }
@@ -28,6 +32,10 @@ function getOutput(opts: { written: string[] }): string {
 }
 
 describe('doctorCommand', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('--json flag outputs JSON', async () => {
     const opts = createOptions();
     const code = await doctorCommand(['--json'], opts);
@@ -47,8 +55,7 @@ describe('doctorCommand', () => {
   });
 
   it('--save writes JSON to file', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-test-${Date.now()}`);
-    await mkdir(tmpDir, { recursive: true });
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-test-'));
     const savePath = join(tmpDir, 'report', 'doctor.json');
     const opts = createOptions();
     await doctorCommand(['--json', '--save', savePath], opts);
@@ -59,8 +66,7 @@ describe('doctorCommand', () => {
   });
 
   it('--save alone also outputs JSON (implicit json mode)', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-test2-${Date.now()}`);
-    await mkdir(tmpDir, { recursive: true });
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-test2-'));
     const savePath = join(tmpDir, 'auto.json');
     const opts = createOptions();
     await doctorCommand(['--save', savePath], opts);
@@ -93,16 +99,14 @@ describe('doctorCommand', () => {
   });
 
   it('outputs "All checks passed" when all required checks pass (covers result.ok=true branch)', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-allok-${Date.now()}`);
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-allok-'));
     const dagDir = join(tmpDir, '.dag');
     const workflowsDir = join(dagDir, 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     await writeFile(join(dagDir, '.env'), 'placeholder=value\n', 'utf8');
-    const savedAnthropic = process.env['ANTHROPIC_API_KEY'];
-    const savedOpenai = process.env['OPENAI_API_KEY'];
     // Set both required keys so errorCount = 0
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-api03-validkeyformat1234567890123456';
-    process.env['OPENAI_API_KEY'] = 'sk-validopenaikeyformat1234567890123456789';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-api03-validkeyformat1234567890123456');
+    vi.stubEnv('OPENAI_API_KEY', 'sk-validopenaikeyformat1234567890123456789');
     const opts: IDoctorCommandOptions & { written: string[] } = {
       io: {
         write: (t) => {
@@ -118,39 +122,24 @@ describe('doctorCommand', () => {
       written: [],
     };
     await doctorCommand([], opts);
-    if (savedAnthropic !== undefined) process.env['ANTHROPIC_API_KEY'] = savedAnthropic;
-    else delete process.env['ANTHROPIC_API_KEY'];
-    if (savedOpenai !== undefined) process.env['OPENAI_API_KEY'] = savedOpenai;
-    else delete process.env['OPENAI_API_KEY'];
     const output = opts.written.join('');
     expect(output).toContain('All checks passed');
   });
 
   it('outputs url hint when API key is missing (covers check.url branch in renderPretty)', async () => {
-    const saved = {
-      anthropic: process.env['ANTHROPIC_API_KEY'],
-      openai: process.env['OPENAI_API_KEY'],
-      gemini: process.env['GEMINI_API_KEY'],
-      deepseek: process.env['DEEPSEEK_API_KEY'],
-    };
-    delete process.env['ANTHROPIC_API_KEY'];
-    delete process.env['OPENAI_API_KEY'];
-    delete process.env['GEMINI_API_KEY'];
-    delete process.env['DEEPSEEK_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('OPENAI_API_KEY', undefined);
+    vi.stubEnv('GEMINI_API_KEY', undefined);
+    vi.stubEnv('DEEPSEEK_API_KEY', undefined);
     const opts = createOptions();
     await doctorCommand([], opts);
-    // restore
-    if (saved.anthropic !== undefined) process.env['ANTHROPIC_API_KEY'] = saved.anthropic;
-    if (saved.openai !== undefined) process.env['OPENAI_API_KEY'] = saved.openai;
-    if (saved.gemini !== undefined) process.env['GEMINI_API_KEY'] = saved.gemini;
-    if (saved.deepseek !== undefined) process.env['DEEPSEEK_API_KEY'] = saved.deepseek;
     const output = getOutput(opts);
     // renderPretty should have output the url hint
     expect(output).toContain('https://');
   });
 
   it('reports valid workflow file when .dag/workflows exists with dag.json files', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-wf-${Date.now()}`);
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-wf-'));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     const validDag = JSON.stringify({
@@ -182,7 +171,7 @@ describe('doctorCommand', () => {
   });
 
   it('reports invalid dag.json when workflow file has invalid JSON', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-bad-${Date.now()}`);
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-bad-'));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     await writeFile(join(workflowsDir, 'broken.dag.json'), 'not valid json', 'utf8');
@@ -207,7 +196,7 @@ describe('doctorCommand', () => {
   });
 
   it('shows empty result when .dag/workflows has no .dag.json files', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-empty-${Date.now()}`);
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-empty-'));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     // Write a non-.dag.json file so readdir returns something but dagJsonFiles is empty
@@ -231,7 +220,7 @@ describe('doctorCommand', () => {
   });
 
   it('shows valid check for dag file without nodes array (nodeCount=null)', async () => {
-    const tmpDir = join(tmpdir(), `dag-doctor-nonodes-${Date.now()}`);
+    const tmpDir = await mkdtemp(join(tmpdir(), 'dag-doctor-nonodes-'));
     const workflowsDir = join(tmpDir, '.dag', 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     // Valid JSON object but no nodes array → nodeCount = null

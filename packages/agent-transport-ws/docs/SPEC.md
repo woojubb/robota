@@ -22,24 +22,69 @@ without pulling React, Ink, or Hono.
 
 ```
 agent-transport-ws
-  ├── WsTransport            ← IConfigurableTransport (settings-backed)
-  └── createWsTransport      ← functional transport factory
-  (reuses createWsHandler + TClientMessage/TServerMessage from @robota-sdk/agent-transport-protocol)
+  ├── WsTransport             ← IConfigurableTransport + IPayloadChannelHost (settings-backed)
+  ├── PayloadChannelRegistry  ← TRANS-001 channel multiplexing (declare / route / fan out)
+  └── createWsTransport       ← functional transport factory
+  (reuses createWsHandler + TClientMessage/TServerMessage + the channel frame codec
+   from @robota-sdk/agent-transport-protocol)
 ```
+
+### Frame routing — two profiles on one connection (TRANS-001)
+
+`WsTransport` is a **payload-agnostic carrier**. It routes by WebSocket frame opcode, so the
+text-agent protocol is one profile ON the transport rather than being the transport:
+
+| Inbound WS frame | Routed to                                        | Owner                      |
+| ---------------- | ------------------------------------------------ | -------------------------- |
+| TEXT             | `createWsHandler` (`TClientMessage` JSON)        | `agent-transport-protocol` |
+| BINARY           | `PayloadChannelRegistry.receive` (channel frame) | this package               |
+
+Outbound, a registered channel's frames are encoded by the shared codec and sent as BINARY frames to
+every attached connection; the agent protocol keeps sending TEXT frames. The two never constrain
+each other, and `TClientMessage`/`TServerMessage` are unchanged — a consumer adds an app-level event
+type by declaring a channel, never by forking the agent wire protocol.
+
+Rejections are explicit: a binary frame for an unregistered channel, an undeclared event name, or a
+malformed envelope is answered with a `protocol_error` TEXT frame — never silently dropped.
+Authentication is unaffected: channel sinks are attached only AFTER the SEC-001 token check, so an
+unauthenticated socket receives no channel traffic.
 
 ## Type Ownership
 
-Owns `IWsTransportOptions`, `IWsTransportConfig`. The session bridge (`createWsHandler`/`IWsHandlerOptions`) +
-wire protocol (`TClientMessage`/`TServerMessage`) are owned by `@robota-sdk/agent-transport-protocol` and
-imported from there. Consumers import execution-workspace contract types from
+Owns `IWsTransportOptions`, `IWsTransportConfig`, and `TChannelSink`. The session bridge
+(`createWsHandler`/`IWsHandlerOptions`), the wire protocol (`TClientMessage`/`TServerMessage`), and the
+TRANS-001 channel frame codec are owned by `@robota-sdk/agent-transport-protocol` and imported from
+there; the channel CONTRACTS (`IPayloadChannel`, `IChannelDescriptor`, `IBinaryFrame`, …) are owned by
+`@robota-sdk/agent-interface-transport`. Consumers import execution-workspace contract types from
 `@robota-sdk/agent-interface-transport` directly (INFRA-025: no pass-through re-exports).
 
 ## Public API Surface
 
-| Export              | Kind     | Description                               |
-| ------------------- | -------- | ----------------------------------------- |
-| `WsTransport`       | class    | Settings-backed configurable WS transport |
-| `createWsTransport` | function | Functional WS transport factory           |
+| Export                   | Kind     | Description                                                                       |
+| ------------------------ | -------- | --------------------------------------------------------------------------------- |
+| `WsTransport`            | class    | Settings-backed configurable WS transport; also an `IPayloadChannelHost`          |
+| `createWsTransport`      | function | Functional WS transport factory                                                   |
+| `PayloadChannelRegistry` | class    | TRANS-001 channel registry: declare, route inbound frames, fan out to connections |
+
+### Payload-agnostic channels (TRANS-001)
+
+`WsTransport.registerChannel(descriptor)` opens a consumer-declared channel on the transport:
+
+```typescript
+const channel = transport.registerChannel<{ manifest: { name: string; size: number } }>({
+  name: 'file',
+  events: ['manifest'],
+  binary: true,
+});
+channel.sendEvent('manifest', { name: 'payload.bin', size: blob.byteLength });
+channel.sendBinary(chunk); // opaque bytes — the transport never inspects them
+channel.onBinary((frame) => reassemble(frame.seq, frame.payload));
+```
+
+A channel may be registered before or after `start()`; a later registration is served by every
+already-connected client. Sends are broadcast to all attached connections. `sendEvent` with an
+undeclared name and `sendBinary` on a channel without `binary: true` throw — the descriptor is the
+contract. `close()` frees the name for re-registration.
 
 ### Loopback auth token (GUI-002)
 
@@ -57,14 +102,22 @@ unauthenticated default path is tracked for hardening by a companion SECURITY ba
 ## Extension Points
 
 New message variants extend the protocol unions; new transport options extend the option interfaces.
+App-level payloads and event types are added WITHOUT touching either: declare a channel through
+`registerChannel` (TRANS-001).
 
 ## Error Taxonomy
 
-Connection/protocol errors surface as `TServerMessage` error frames; no new error classes.
+Connection/protocol errors surface as `TServerMessage` error frames; no new error classes. An
+unroutable channel frame surfaces as a `protocol_error` frame carrying the registry's stated reason;
+misuse of a channel handle (undeclared event, binary on a text-only channel, duplicate name, closed
+channel) throws a plain `Error` at the call site.
 
 ## Test Strategy
 
-Protocol + handler unit tests under `src/__tests__`.
+Protocol + handler unit tests under `src/__tests__`. TRANS-001 adds `payload-channels.test.ts`
+(registry declare/route/reject) and `ws-payload-channel.e2e.test.ts` — an end-to-end run over a real
+WebSocket server proving interleaved text deltas, opaque binary frames, and a custom event share one
+connection, with byte-identical ordered reassembly in both directions.
 
 ## Dependencies
 

@@ -24,20 +24,14 @@ function makeMockIo(): IDagCliIo & { written: string[] } {
 }
 
 describe('telemetryCommand', () => {
-  const originalCI = process.env['CI'];
-  const originalOpt = process.env['ROBOTA_DAG_TELEMETRY'];
-
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env['CI'];
-    delete process.env['ROBOTA_DAG_TELEMETRY'];
+    vi.stubEnv('CI', undefined);
+    vi.stubEnv('ROBOTA_DAG_TELEMETRY', undefined);
   });
 
   afterEach(() => {
-    if (originalCI !== undefined) process.env['CI'] = originalCI;
-    else delete process.env['CI'];
-    if (originalOpt !== undefined) process.env['ROBOTA_DAG_TELEMETRY'] = originalOpt;
-    else delete process.env['ROBOTA_DAG_TELEMETRY'];
+    vi.unstubAllEnvs();
   });
 
   it('shows help text when no subcommand is given', async () => {
@@ -70,7 +64,7 @@ describe('telemetryCommand', () => {
 
   describe('status subcommand', () => {
     it('shows disabled in CI when CI=true', async () => {
-      process.env['CI'] = 'true';
+      vi.stubEnv('CI', 'true');
       const io = makeMockIo();
       const code = await telemetryCommand(['status'], { io });
       expect(code).toBe(0);
@@ -78,7 +72,7 @@ describe('telemetryCommand', () => {
     });
 
     it('shows disabled when ROBOTA_DAG_TELEMETRY=0', async () => {
-      process.env['ROBOTA_DAG_TELEMETRY'] = '0';
+      vi.stubEnv('ROBOTA_DAG_TELEMETRY', '0');
       const io = makeMockIo();
       const code = await telemetryCommand(['status'], { io });
       expect(code).toBe(0);
@@ -110,7 +104,7 @@ describe('telemetryCommand', () => {
 
   describe('on subcommand', () => {
     it('returns error in CI environment', async () => {
-      process.env['CI'] = 'true';
+      vi.stubEnv('CI', 'true');
       const io = makeMockIo();
       const code = await telemetryCommand(['on'], { io });
       expect(code).not.toBe(0);
@@ -118,7 +112,7 @@ describe('telemetryCommand', () => {
     });
 
     it('returns error when ROBOTA_DAG_TELEMETRY=0', async () => {
-      process.env['ROBOTA_DAG_TELEMETRY'] = '0';
+      vi.stubEnv('ROBOTA_DAG_TELEMETRY', '0');
       const io = makeMockIo();
       const code = await telemetryCommand(['on'], { io });
       expect(code).not.toBe(0);

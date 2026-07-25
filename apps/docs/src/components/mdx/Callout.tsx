@@ -9,29 +9,29 @@ interface CalloutProps {
 
 const CALLOUT_STYLES: Record<
   CalloutType,
-  { border: string; bg: string; icon: string; label: string }
+  { container: string; title: string; icon: string; label: string }
 > = {
   info: {
-    border: '#3b82f6',
-    bg: 'rgba(59,130,246,0.08)',
+    container: 'border-l-[#3b82f6] bg-[rgba(59,130,246,0.08)]',
+    title: 'text-[#3b82f6]',
     icon: 'ℹ',
     label: 'Info',
   },
   tip: {
-    border: '#22c55e',
-    bg: 'rgba(34,197,94,0.08)',
+    container: 'border-l-[#22c55e] bg-[rgba(34,197,94,0.08)]',
+    title: 'text-[#22c55e]',
     icon: '💡',
     label: 'Tip',
   },
   warning: {
-    border: '#f59e0b',
-    bg: 'rgba(245,158,11,0.08)',
+    container: 'border-l-[#f59e0b] bg-[rgba(245,158,11,0.08)]',
+    title: 'text-[#f59e0b]',
     icon: '⚠',
     label: 'Warning',
   },
   danger: {
-    border: '#ef4444',
-    bg: 'rgba(239,68,68,0.08)',
+    container: 'border-l-[#ef4444] bg-[rgba(239,68,68,0.08)]',
+    title: 'text-[#ef4444]',
     icon: '🚫',
     label: 'Danger',
   },
@@ -40,26 +40,11 @@ const CALLOUT_STYLES: Record<
 export function Callout({ type = 'info', children }: CalloutProps) {
   const styles = CALLOUT_STYLES[type];
   return (
-    <aside
-      style={{
-        borderLeft: `4px solid ${styles.border}`,
-        background: styles.bg,
-        borderRadius: '0 0.375rem 0.375rem 0',
-        padding: '0.75rem 1rem',
-        marginBottom: '1.25rem',
-      }}
-    >
-      <div
-        style={{
-          fontWeight: 600,
-          fontSize: '0.85rem',
-          marginBottom: '0.25rem',
-          color: styles.border,
-        }}
-      >
+    <aside className={`mb-5 rounded-r-[0.375rem] border-l-4 px-4 py-3 ${styles.container}`}>
+      <div className={`mb-1 text-[0.85rem] font-semibold ${styles.title}`}>
         {styles.icon} {styles.label}
       </div>
-      <div style={{ fontSize: '0.9rem', lineHeight: 1.65 }}>{children}</div>
+      <div className="text-[0.9rem] leading-[1.65]">{children}</div>
     </aside>
   );
 }

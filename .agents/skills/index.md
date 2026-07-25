@@ -7,23 +7,39 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 
 ## Process & Planning
 
-| Skill                                                                     | Description                                                                                                                    |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [backlog-pipeline](backlog-pipeline/SKILL.md)                             | Spec document gate pipeline orchestrator: draft → backlog → todo → active → done                                               |
-| [backlog-writer](backlog-writer/SKILL.md)                                 | Author a new spec document with all required sections and frontmatter                                                          |
-| [backlog-gate-guard](backlog-gate-guard/SKILL.md)                         | Validate a single gate (GATE-WRITE/APPROVAL/IMPLEMENT/VERIFY/COMPLETE) and record Evidence Log                                 |
-| [user-request-gate](user-request-gate/SKILL.md)                           | Entry-point gate: backlog draft first, then implementation — invoked on every user impl request                                |
-| [spec-first-development](spec-first-development/SKILL.md)                 | Enforce spec-first workflow before touching contract boundaries                                                                |
-| [spec-writing-standard](spec-writing-standard/SKILL.md)                   | Required sections and quality gates for SPEC.md authoring                                                                      |
-| [spec-code-conformance](spec-code-conformance/SKILL.md)                   | Verification loop to align code with spec after spec changes                                                                   |
-| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                 | Kent Beck TDD cycle: Red → Green → Refactor                                                                                    |
-| [task-tracking](task-tracking/SKILL.md)                                   | Create and update task files in `.agents/tasks/`                                                                               |
-| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md) | Route-only backlog PR pipeline — sequences the gates owned by `backlog-execution.md` and routes to owner skills                |
-| [post-implementation-checklist](post-implementation-checklist/SKILL.md)   | Router: mandatory post-implementation order + gates (SPEC sync → build/test → README → PR → publish → docs)                    |
-| [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)   | Delegate a large mechanical refactor to a subagent under a hard green-or-report completion gate                                |
-| [repo-change-loop](repo-change-loop/SKILL.md)                             | Standard change loop: impact → build → verify → summarize                                                                      |
-| [pr-review-orchestration](pr-review-orchestration/SKILL.md)               | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018) |
-| [version-management](version-management/SKILL.md)                         | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                    |
+| Skill                                                                       | Description                                                                                                                               |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [backlog-pipeline](backlog-pipeline/SKILL.md)                               | Spec document gate pipeline orchestrator: draft → backlog → todo → active → done                                                          |
+| [backlog-writer](backlog-writer/SKILL.md)                                   | Author a new spec document with all required sections and frontmatter                                                                     |
+| [backlog-gate-guard](backlog-gate-guard/SKILL.md)                           | Validate a single gate (GATE-WRITE/APPROVAL/IMPLEMENT/VERIFY/COMPLETE) and record Evidence Log                                            |
+| [user-request-gate](user-request-gate/SKILL.md)                             | Entry-point gate: backlog draft first, then implementation — invoked on every user impl request                                           |
+| [spec-first-development](spec-first-development/SKILL.md)                   | Enforce spec-first workflow before touching contract boundaries                                                                           |
+| [spec-writing-standard](spec-writing-standard/SKILL.md)                     | Required sections and quality gates for SPEC.md authoring                                                                                 |
+| [spec-code-conformance](spec-code-conformance/SKILL.md)                     | Verification loop to align code with spec after spec changes                                                                              |
+| [tdd-red-green-refactor](tdd-red-green-refactor/SKILL.md)                   | Kent Beck TDD cycle: Red → Green → Refactor                                                                                               |
+| [task-tracking](task-tracking/SKILL.md)                                     | Create and update task files in `.agents/tasks/`                                                                                          |
+| [backlog-execution-orchestrator](backlog-execution-orchestrator/SKILL.md)   | Route-only backlog PR pipeline — sequences the gates owned by `backlog-execution.md` and routes to owner skills                           |
+| [post-implementation-checklist](post-implementation-checklist/SKILL.md)     | Router: mandatory post-implementation order + gates (SPEC sync → build/test → README → PR → publish → docs)                               |
+| [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)     | Delegate a large mechanical refactor to a subagent under a hard green-or-report completion gate                                           |
+| [worktree-parallel-orchestration](worktree-parallel-orchestration/SKILL.md) | Run ≥2 independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts (partition → spawn → serial merge) |
+| [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                 |
+| [pr-review-orchestration](pr-review-orchestration/SKILL.md)                 | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018)            |
+| [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round     |
+| [version-management](version-management/SKILL.md)                           | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                               |
+
+## Release
+
+Nested release pipeline (HARNESS-049): the top-level orchestrator sequences three phase skills, which
+share one gate-observation loop and dispatch the `ci-failure-triager` / `merge-verifier` agents. All
+release invariants stay in [publish.md](../rules/publish.md); these skills carry only control flow.
+
+| Skill                                                   | Description                                                                                                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [release-orchestration](release-orchestration/SKILL.md) | Top-level release state machine: source-stabilization → version-bump → npm-otp-publish, with per-phase advance/retry/regress/halt |
+| [source-stabilization](source-stabilization/SKILL.md)   | Phase 1 — get the source branch green and verified as landed on the release target                                                |
+| [version-bump](version-bump/SKILL.md)                   | Phase 2 — cut from a fresh base, apply the coordinated bump, land the bump PR cleanly                                             |
+| [npm-otp-publish](npm-otp-publish/SKILL.md)             | Phase 3 — ordered publish preflight, the hard halt for the user's OTP, publish, and post-publish verification                     |
+| [ci-gate-watch](ci-gate-watch/SKILL.md)                 | Shared observation loop for a long-running gate: observe → report the current step → route; terminates its own watcher            |
 
 ## Code Quality & Architecture
 
@@ -72,6 +88,7 @@ for orchestrator/worker/guardian wiring). One-line roles:
 | `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                   |
 | `doc-auditor`                      | Read-only documentation staleness/quality audit                           |
 | `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)               |
+| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note  |
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by

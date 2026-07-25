@@ -1,5 +1,9 @@
-import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
-import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
+import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
+import type {
+  IAgentDefinition,
+  ICommandHostAdapters,
+  ICommandModule,
+} from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -8,6 +12,16 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { parseToolList } from '../utils/cli-args.js';
 import { buildAppendSystemPrompt } from '../startup/append-system-prompt.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
+
+/**
+ * ARCH-006: the tool surface the kernel overlay resolved. `additionalTools` carries the capability packs'
+ * tools; `defaultTools` REPLACES `agent-framework`'s `createDefaultTools()` tier (`robota` passes an empty
+ * array, so its packs are the sole source of tools).
+ */
+export interface IPrintModeToolOptions {
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
+}
 
 export interface IPrintModeSessionResolution {
   /** Session id resolved by the CLI from -c/-r (undefined starts a new session). */
@@ -45,6 +59,10 @@ export async function runPrintMode(
   sessionStore: ReturnType<typeof createProjectSessionStore>,
   backgroundTaskRunners: IBackgroundTaskRunner[],
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>,
+  /** ARCH-005: composition-root-contributed subagent definitions (merged pack subagents). */
+  agentDefinitions: readonly IAgentDefinition[],
+  /** ARCH-006: the kernel-resolved tool surface (pack tools + the replaced framework default tier). */
+  toolOptions: IPrintModeToolOptions,
   commandModules: readonly ICommandModule[],
   commandHostAdapters: ICommandHostAdapters,
   sessionResolution: IPrintModeSessionResolution = {},
@@ -68,6 +86,21 @@ export async function runPrintMode(
   }
 
   const appendSystemPrompt = buildAppendSystemPrompt(cwd, args);
+
+  // CMD-004 Phase 2 (Stage B): print-mode process adapter. Print mode ALWAYS exits when the run
+  // completes (the exit-code contract below), so a host-executed exit action is satisfied by the
+  // mode itself — nothing extra to do. A restart cannot be performed headlessly; it is surfaced
+  // explicitly (never a silent skip).
+  commandHostAdapters.process = {
+    requestExit: () => {
+      /* satisfied by the end-of-run process.exit(channel.getExitCode()) contract */
+    },
+    requestRestart: (_reason, message) => {
+      process.stderr.write(
+        `Restart requested (${message}) — print mode cannot restart itself; run the command again.\n`,
+      );
+    },
+  };
 
   const channel = new HeadlessInteractionChannel({
     cwd,
@@ -100,6 +133,11 @@ export async function runPrintMode(
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
     backgroundTaskRunners,
     subagentRunnerFactory,
+    ...(agentDefinitions.length > 0 ? { agentDefinitions } : {}),
+    ...(toolOptions.additionalTools !== undefined
+      ? { additionalTools: toolOptions.additionalTools }
+      : {}),
+    ...(toolOptions.defaultTools !== undefined ? { defaultTools: toolOptions.defaultTools } : {}),
     commandModules,
     commandHostAdapters,
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).

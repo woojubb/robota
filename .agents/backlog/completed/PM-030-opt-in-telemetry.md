@@ -1,12 +1,19 @@
 ---
 title: 'PM-030: opt-in 익명 텔레메트리 — 실제 사용 패턴 수집'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-24
 priority: low
 urgency: later
 area: packages/agent-cli, packages/agent-framework
 depends_on: []
 ---
+
+> **Superseded by AUDIT-001 (done).** A telemetry stub shipped in PR #589
+> (`packages/agent-cli/src/startup/telemetry.ts` + first-run opt-in prompt) but had no collection
+> backend and was deliberately removed in full by AUDIT-001 decision B ("Remove telemetry
+> entirely", commit 9c53c19d3, 2026-05-25). No telemetry code exists today; re-introducing it
+> would need a fresh spec. Reconciled 2026-07-25 (PROC-001).
 
 ## Background
 
