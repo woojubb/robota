@@ -27,6 +27,7 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                 |
 | [pr-review-orchestration](pr-review-orchestration/SKILL.md)                 | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018)            |
 | [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round     |
+| [post-merge-cycle](post-merge-cycle/SKILL.md)                               | Shared post-merge tail: verify the landing → delete the merged branch → reset onto a fresh base, with a defined edge per failure          |
 | [version-management](version-management/SKILL.md)                           | Coordinated version bumps with changesets across all packages + semver impact of public API surface changes                               |
 
 ## Release

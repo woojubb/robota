@@ -326,7 +326,27 @@ Three phases, each an ordered pipeline with its own gates and its own failure ro
 "a phase is itself a pipeline" case the design describes. A single flat skill would be ~27 steps
 with three unrelated gate vocabularies.
 
-### 5.2 `git-branch.md` — **confirmed**, but the tree is mostly already built
+### 5.2 `git-branch.md` — **partly refuted** (see the increment-3 correction below)
+
+> **Superseded 2026-07-26 by phase 2 increment 3.** Only `post-merge-cycle` was built. The
+> `branch-guard` → "branch-lifecycle" promotion and its `branch-creation` phase were **refuted**:
+> re-growing `branch-guard` would undo `HARNESS-DIET-005`'s deliberate 144 → 33-line cut to a pointer;
+> branch creation is invariants plus a mechanical hook (`.claude/hooks/branch-guard.sh`), not a pipeline;
+> and its only genuinely ordered part — the base reset — is `post-merge-cycle`'s own last phase, so a
+> `branch-creation` skill would have duplicated it. The `Pre-Merge Code-Review Gate` row was also
+> narrowed: only steps 1–2 (wait-for-green, scope the review to the diff) moved to
+> `pr-review-orchestration`; the taxonomy, the merge gate, and the scope table are invariants and stayed.
+> The tree actually built:
+>
+> ```
+> post-merge-cycle                           (NEW top-level, shared)
+>  ├─ merge-verifier                         (existing agent, reused unchanged)
+>  ├─ branch deletion                        (step)
+>  └─ next-branch base reset                 (step)
+> dispatched by: pr-review-orchestration (merge path) + worktree-parallel-orchestration (step 5)
+> ```
+>
+> The original hypothesis is preserved below for the record.
 
 ```
 branch-guard                               (existing pointer stub → promote to branch-lifecycle)
@@ -483,7 +503,24 @@ statement pointing at a skill or agent must be _referenced_ from the rule, never
 | BE-43 | An orchestration skill must stay thin — sequence, gate, record; never duplicate or redefine             | **relocate** to `enforcement-architecture.md`                                  |
 | BE-44 | Each of the eleven stop conditions halts the work                                                       | stays; terminate-edges in the orchestrator                                     |
 
-### 7.2 `git-branch.md` — 35 invariants
+### 7.2 `git-branch.md` — 35 invariants (**re-derived 2026-07-26: 84**)
+
+> **The undercount here was the largest of the four rules.** Increment 3 re-derived this rule statement by
+> statement against the live file and found **77** mandatory statements, not 35 — and its review round then
+> found **7 more, for 84** — of which **26+ have no row below at any granularity** and 16 are subordinate
+> clauses folded into a headline row. One of the seven was the single statement the increment was actually
+> relocating, which is the sharpest form of the failure: **the statement a ledger is most likely to omit is
+> the one the change is about to move.** Re-derive, then re-check the ledger specifically against the diff.
+> The pattern
+> increment 2 identified is confirmed and is worse in prose-dense sections: § Commit Cadence, § PR
+> Batching, § Merge Landing Verification and § Pre-Merge Code-Review Gate each contributed **one** row here
+> while carrying 4–6 independent mandates apiece. Examples this table has no row for: "a filling context
+> window is not a reason to stop implementing"; `delete_branch_on_merge` is deliberately off; "never run
+> `gh pr merge` and the deletion in one blind sequence"; "one conventional commit per logical step within
+> the PR"; "no merge — admin or otherwise — before the gate completes"; "never treat `pending` or
+> `not-required-skipped` as pass". **Treat every count in §7 as a lower bound, and re-derive before
+> extracting.** Increment 3's full 77-row ledger, with each statement's post-change home, is recorded in
+> the `HARNESS-049` backlog item.
 
 | ID    | Invariant                                                                                                   | Post-change home                                      |
 | ----- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -702,11 +739,22 @@ is four bullets and no agent would exist to hold it alone — extracting it woul
 than its own frontmatter. Kept as `invariant` with the tension recorded. If a
 `branch-cleanup` worker ever exists for another reason, this is its criteria.
 
+> **RESOLVED 2026-07-26 (increment 3), on a better reason than file size.** All four conditions are
+> **mechanically decidable from observable state**, so they are gate conditions the orchestrator
+> (`post-merge-cycle`) evaluates — not a verdict a role forms. The design doc now settles this as a general
+> corollary. They stay `invariant`; the door to a future `branch-cleanup` agent is closed, not deferred.
+
 **5. `git-branch.md` § Deployment — right content, wrong document.** Cloudflare Pages behaviour, the
 docs-deploy command, and release-branch deploy semantics are deployment topology, not git or branch
 policy. It is invariant either way, so nothing is at risk, but its owner should probably be
 `.agents/project-structure.md` or a deployment spec. Recorded as an ownership question, not a
 classification one.
+
+> **STILL OPEN after increment 3, deliberately.** The relocation was not attempted: the target document was
+> outside that increment's file ownership (the BE-42/BE-43 precedent), and the section's literal
+> "Cloudflare Pages (blog, docs) deploys automatically when `main` is updated" is quoted as evidence by
+> `ARCH-AUDIT-004` and two `.design/architecture-audit/` documents — so a move must be a deliberate change
+> that updates them, not a side effect of a git-rule refactor.
 
 **6. `spec-workflow.md` § Status levels / Lifecycle folders — duplicated fact, two owners.** The
 status vocabulary (`draft → review-ready → … → done`) and the folder mapping appear both here and as
@@ -749,7 +797,9 @@ churn is not the goal.
 
 ## Revision log
 
-| Date       | Change                                                                                                                                                                                                                                                                                  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-26 | Created as `HARNESS-049` phase 1. 142 sections across 22 rule files classified (116 invariant / 21 procedure / 5 role); reuse check against the 14 existing agents; nesting trees for the four large rules; 14 routing gaps; 153-statement invariant ledger; sequencing recommendation. |
-| 2026-07-26 | Phase 2 increment 1 (`publish.md`, #1423) confirmed the nesting tree and step ranges, added a shared `ci-gate-watch` phase, and **found the invariant ledger undercounts** (40 vs 39 for `publish.md`) — ledger marked provisional, per-increment audit now required.                   |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-26 | Created as `HARNESS-049` phase 1. 142 sections across 22 rule files classified (116 invariant / 21 procedure / 5 role); reuse check against the 14 existing agents; nesting trees for the four large rules; 14 routing gaps; 153-statement invariant ledger; sequencing recommendation.                                                                                                                   |
+| 2026-07-26 | Marked the invariant ledger **provisional** after increment 1's measured undercount.                                                                                                                                                                                                                                                                                                                      |
+| 2026-07-26 | Increment 3 reconciliation for `git-branch.md`. §5.2's tree **partly refuted** — only `post-merge-cycle` was built; the `branch-guard` promotion and its `branch-creation` phase were rejected with reasons. §7.2's ledger re-derived from the live file: **35 → 77** (26 statements had no row at any granularity), the largest undercount of the four rules; §7 counts are now explicitly lower bounds. |
+| 2026-07-26 | Phase 2 increment 1 (`publish.md`, #1423) confirmed the nesting tree and step ranges, added a shared `ci-gate-watch` phase, and **found the invariant ledger undercounts** (40 vs 39 for `publish.md`) — ledger marked provisional, per-increment audit now required.                                                                                                                                     |

@@ -37,8 +37,13 @@ rejects). Two modes:
 
 Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identities `file:line + severity`).
 
-1. **Review.** Dispatch `pr-review-reviewer` on the PR. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its
-   finding set. (Do NOT judge the findings yourself — take the count as given.)
+0. **Wait for the gate precondition** the rule sets (required checks green) before the first review round:
+   dispatch [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or
+   `STALLED` → **leave the loop** and route it as a build/test failure under the verification rules, not
+   as a review finding; re-enter here once the head is green.
+1. **Review.** Dispatch `pr-review-reviewer` on the PR at the diff scope the rule's gate preconditions
+   define. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its finding set. (Do NOT judge the
+   findings yourself — take the count as given.)
 2. **Converged?** If `n == 0` → go to **Merge path**.
 3. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
    unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
@@ -52,18 +57,20 @@ Hand to the gated merge path (detailed wiring is HARNESS-018d). It MUST honor [g
 
 - Merge allowed only when there is **no unresolved MUST** and **every SHOULD is fixed or filed-and-linked** as a
   justified backlog item (never silently deferred), AND required CI checks are green.
-- `develop`: gated admin-merge, then dispatch `merge-verifier` and require `MERGE VERIFIED: PASS`.
+- `develop`: gated admin-merge, then hand to [post-merge-cycle](../post-merge-cycle/SKILL.md) — which
+  requires `merge-verifier`'s `MERGE VERIFIED: PASS` before it will delete anything, and owns the branch
+  deletion and base-reset steps. Do not verify, delete, or re-base here.
 - `main`: **do NOT merge.** Enable auto-merge / mark ready and hand to the user — the agent never merges `main`.
-- Delete the branch only after the merge is confirmed MERGED (branch-guard enforces this).
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job             | Owner                                      |
-| -------------------------------- | ------------------------------------------ |
-| Judge findings / assign severity | `pr-review-reviewer` (guardian)            |
-| Post the review to the PR        | `pr-review-writer` (worker)                |
-| Edit/fix code                    | `pr-review-fixer` (worker)                 |
-| Decide the PR is "good"          | the reviewer's `ACTIONABLE FINDINGS` count |
-| Merge `main`                     | the user (never the agent)                 |
+| Not this skill's job                   | Owner                                            |
+| -------------------------------------- | ------------------------------------------------ |
+| Judge findings / assign severity       | `pr-review-reviewer` (guardian)                  |
+| Post the review to the PR              | `pr-review-writer` (worker)                      |
+| Edit/fix code                          | `pr-review-fixer` (worker)                       |
+| Decide the PR is "good"                | the reviewer's `ACTIONABLE FINDINGS` count       |
+| Merge `main`                           | the user (never the agent)                       |
+| Verify the landing / delete the branch | [post-merge-cycle](../post-merge-cycle/SKILL.md) |
 
 If you find yourself reviewing, writing, or fixing inside this skill, stop — route to the owning agent instead.
