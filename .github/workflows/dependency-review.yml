@@ -32,6 +32,15 @@ jobs:
         with:
           # Block the PR on a newly-introduced HIGH+ vulnerability.
           fail-on-severity: high
+          # Reviewed re-accepts. This repo judges the SAME advisory with two tools — osv-scanner (the
+          # `security audit` job, via osv-scanner.toml) and this one — and a suppression in one is NOT
+          # read by the other, so an accepted advisory must be recorded in BOTH or the two gates
+          # disagree. Each id here MUST have its full reachability reasoning in `osv-scanner.toml`;
+          # this list is the mirror, not the record.
+          #   GHSA-mh99-v99m-4gvg — brace-expansion DoS. Dev-only (eslint/ts-eslint toolchain over the
+          #   repo's own trusted source; `pnpm why -r --prod brace-expansion` → 0 production paths), no
+          #   1.x/2.x backport exists, and 5.x is API-incompatible with the pinned minimatch (INFRA-044).
+          allow-ghsas: GHSA-mh99-v99m-4gvg
           # License ALLOW-list (INFRA-047: replaces the v6-deprecated `deny-licenses`). The list is the
           # verified closure of SPDX leaf licenses present in the full pnpm-lock.yaml graph (prod + dev,
           # all platform variants) as of 2026-07-25 — every id is permissive/non-viral, preserving the
