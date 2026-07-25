@@ -196,7 +196,24 @@ gh api repos/woojubb/robota/rulesets/18715844 --jq '.rules[] | select(.type=="re
 # then PUT the ruleset back with {"context":"review-gate"} appended to required_status_checks
 ```
 
-Also unobserved on a live runner: that the restored parity makes `Claude review` actually review.
-The mechanism is directly measured (three run logs, the one-line diff, 100/100 `success`), and the
-PR carrying this change is itself the first PR whose merge ref holds a file identical to `main`'s —
-so its `Claude Code Review` run is the observation point.
+**Raise `--max-turns` on the review prompt — and do it on the default branch first.** The parity fix
+is confirmed live on the PR that carries it (#1434, run `30167624730`): the run log contains **zero**
+`workflow validation` lines, where every earlier run had them. The reviewer really ran — for ~2
+minutes instead of the previous 13–21 s — and then ended on
+
+```
+"subtype": "error_max_turns"
+##[error]Execution failed: Reached maximum number of turns (25)
+```
+
+posting `No buffered inline comments`. So the check went from **green-and-empty** to
+**red-and-honest**: the reviewer's turn budget is now the binding constraint, and it is visible.
+That is the point of the parity fix — the constraint existed all along and was hidden behind a
+`success`. A prompt that instructs the model to read `AGENTS.md` plus `.agents/rules/*` before
+judging a diff does not fit in 25 turns on this repo.
+
+Raising it means editing `claude-code-review.yml`, which the parity rule governs: the change must
+land on `main` first (or in the same promotion), otherwise the reviewer goes straight back to
+skipping. That constraint is inherent to the action, not to this scan — the scan only makes it
+visible instead of silent. Nothing downstream depends on this: `review-gate` reads code-scanning
+output, not the Claude review.
