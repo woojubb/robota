@@ -33,6 +33,7 @@ import {
   packCommandModuleNames,
 } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
+import { resolveShellPreset } from '../startup/preset-selection.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
@@ -79,8 +80,16 @@ function robotaProduct(overrides: IProbeOverrides = {}) {
     agentName: DEFAULT_AGENT_NAME,
     providerDefinitions,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
-    presets: overrides.presets ?? [],
-    defaultPresetId: overrides.defaultPresetId ?? 'default',
+    // ARCH-008: the SHIPPED shell resolution (registry + id + override context as one value), exactly as
+    // `startCli` builds it — never a hand-rolled registry, which would test the test.
+    preset: resolveShellPreset(
+      overrides.presets ?? [],
+      {
+        ...MINIMAL_ARGS,
+        ...(overrides.defaultPresetId !== undefined ? { preset: overrides.defaultPresetId } : {}),
+      } as IParsedCliArgs,
+      undefined,
+    ),
     baseCommandModules,
     packs: ROBOTA_PACKS,
     backgroundTaskRunners: [],

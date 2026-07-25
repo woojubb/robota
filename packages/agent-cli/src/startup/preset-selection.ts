@@ -1,11 +1,23 @@
 /**
  * Preset selection glue — thin shell over `@robota-sdk/agent-preset`.
  * The CLI only selects the preset id and forwards CLI flags as overrides; the
- * precedence merge lives entirely inside `resolvePreset` (agent-preset), never here.
+ * precedence merge lives entirely inside the resolver (agent-preset), never here.
+ *
+ * ARCH-008: the shell resolves over the kernel's PER-CALL instance registry (`createPresetRegistry`,
+ * R8) — not `agent-preset`'s module-global `resolvePreset`. {@link resolveShellPreset} returns the
+ * registry it resolved over together with the id and the override context, and `createRobotaProfile`
+ * takes that whole result, so `assembleProduct` adopts the SAME registry and replays the SAME context.
+ * One registry, one resolution: the shell and `product.defaultPreset` cannot drift apart, and the
+ * module-global registry is no longer on robota's startup resolution path.
  */
 
-import { resolvePreset } from '@robota-sdk/agent-preset';
-import type { IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import type {
+  IPreset,
+  IPresetRegistry,
+  IResolvePresetContext,
+  IResolvedPresetOptions,
+} from '@robota-sdk/agent-preset';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
@@ -17,7 +29,7 @@ export function selectPresetId(
   return args.preset ?? settingsPreset ?? 'default';
 }
 
-/** Build the CLI-flag override set (highest-but-explicit tier) handed to resolvePreset. */
+/** Build the CLI-flag override set (highest-but-explicit tier) handed to the resolver. */
 function buildPresetCliOverrides(args: IParsedCliArgs): IResolvedPresetOptions {
   return {
     ...(args.model !== undefined ? { model: args.model } : {}),
@@ -30,12 +42,38 @@ function buildPresetCliOverrides(args: IParsedCliArgs): IResolvedPresetOptions {
   };
 }
 
-/** Resolve the active preset → framework option bundle (merge owned by agent-preset). Throws on unknown id. */
-export function resolveCliPreset(
+/**
+ * The shell's ONE preset resolution (ARCH-008) — the registry it ran over, the id it picked, the
+ * override layers it applied, and the resolved option bundle every shell surface binds to.
+ *
+ * Carried as a single value (rather than four loose locals) so the profile cannot be handed a registry,
+ * id, or context other than the ones the resolution actually used: `IRobotaProfileInput` takes this
+ * object, so a mismatch is not expressible.
+ */
+export interface IShellPresetResolution {
+  /** The per-call instance-scoped registry (R8) the resolution ran over. Adopted by `assembleProduct`. */
+  registry: IPresetRegistry;
+  /** The selected preset id (`--preset` > `settings.preset` > `'default'`). */
+  presetId: string;
+  /** The override layers applied — replayed by the kernel so `product.defaultPreset` matches exactly. */
+  context: IResolvePresetContext;
+  /** The resolved framework option bundle (merge + posture mapping owned by agent-preset). */
+  options: IResolvedPresetOptions;
+}
+
+/**
+ * Resolve the active preset → framework option bundle, over a per-call instance registry built from the
+ * external presets the shell loaded. The merge and the posture mapping stay in agent-preset.
+ *
+ * @throws Error when the selected id matches no preset in the registry.
+ */
+export function resolveShellPreset(
+  externalPresets: readonly IPreset[],
   args: IParsedCliArgs,
   settingsPreset: string | undefined,
-): IResolvedPresetOptions {
-  return resolvePreset(selectPresetId(args, settingsPreset), {
-    cliOverrides: buildPresetCliOverrides(args),
-  });
+): IShellPresetResolution {
+  const registry = createPresetRegistry(externalPresets);
+  const presetId = selectPresetId(args, settingsPreset);
+  const context: IResolvePresetContext = { cliOverrides: buildPresetCliOverrides(args) };
+  return { registry, presetId, context, options: registry.resolvePreset(presetId, context) };
 }

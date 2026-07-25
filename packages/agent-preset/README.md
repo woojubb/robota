@@ -49,7 +49,8 @@ agent-framework        ← neutral assembly + option-type SSOT
     ↑
 agent-preset           ← this package (preset contract + resolver)
     ↑
-agent-cli              ← consumes resolvePreset / listPresets
+agent-cli              ← consumes createPresetRegistry (per-call resolution, ARCH-008)
+agent-command          ← consumes resolvePreset / listPresets / getPreset (module-global, /preset discovery)
 ```
 
 This package depends only on `@robota-sdk/agent-framework` and must not re-export it.

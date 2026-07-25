@@ -45,53 +45,53 @@ are skipped. The identity triple (`id`/`title`/`description`) is stripped before
 
 Types owned by this package (SSOT):
 
-| Type                        | Location                   | Purpose                                                                |
-| --------------------------- | -------------------------- | ---------------------------------------------------------------------- |
-| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides     |
-| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                  |
-| `TPresetEffort`             | `preset-types.ts`          | Effort dial: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`         |
-| `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`          |
-| `TPresetTrustLevel`         | `preset-types.ts`          | Trust profile: `'safe' \| 'moderate' \| 'full'`                        |
-| `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT) |
-| `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                |
-| `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`     |
-| `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ registered, rejected }` outcome of `registerExternalPresets`        |
+| Type                        | Location                   | Purpose                                                                   |
+| --------------------------- | -------------------------- | ------------------------------------------------------------------------- |
+| `IPreset`                   | `preset-types.ts`          | Named preset: identity triple + `IResolvedPresetOptions` overrides        |
+| `IResolvedPresetOptions`    | `preset-types.ts`          | Framework-facing option subset a preset resolves into                     |
+| `TPresetEffort`             | `preset-types.ts`          | Effort dial: `'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'`            |
+| `TPresetAutonomy`           | `preset-types.ts`          | Behaviour posture: `'ask-first' \| 'balanced' \| 'act-first'`             |
+| `TPresetTrustLevel`         | `preset-types.ts`          | Trust profile: `'safe' \| 'moderate' \| 'full'`                           |
+| `TPresetPermissionMode`     | `preset-types.ts`          | Reused from `ICreateSessionOptions['permissionMode']` (framework SSOT)    |
+| `IPresetSummary`            | `resolve-preset.ts`        | `{ id, title, description }` discovery view of a preset                   |
+| `IResolvePresetContext`     | `resolve-preset.ts`        | `{ cliOverrides?, explicit? }` override layers for `resolvePreset`        |
+| `IPresetRegistrationResult` | `resolve-preset.ts`        | `{ registered, rejected }` outcome of `registerExternalPresets`           |
 | `IPresetRegistry`           | `resolve-preset.ts`        | `{ resolvePreset, getPreset, listPresets }` instance-scoped registry (R8) |
-| `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                |
-| `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result       |
+| `IExternalPresetLoadResult` | `load-external-presets.ts` | `{ loaded, errors }` outcome of an external-preset load                   |
+| `TPresetValidationResult`   | `preset-validation.ts`     | `{ ok: true; preset } \| { ok: false; error }` validation result          |
 
 `TPresetPermissionMode` reuses `agent-framework`'s `ICreateSessionOptions['permissionMode']` via
 indexed access rather than redefining the permission-mode union.
 
 ## Public API Surface
 
-| Export                       | Kind      | Description                                                                                                                                      |
-| ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `IPreset`                    | Interface | Preset definition shape (identity + option overrides)                                                                                            |
-| `IResolvedPresetOptions`     | Interface | Resolved framework-option subset                                                                                                                 |
-| `TPresetEffort`              | Type      | Effort dial union                                                                                                                                |
-| `TPresetAutonomy`            | Type      | Autonomy posture union                                                                                                                           |
-| `TPresetTrustLevel`          | Type      | Trust-level union                                                                                                                                |
-| `TPresetPermissionMode`      | Type      | Permission-mode union (reused from framework)                                                                                                    |
-| `IPresetSummary`             | Interface | `{ id, title, description }` summary                                                                                                             |
-| `IResolvePresetContext`      | Interface | Override layers for resolution                                                                                                                   |
-| `DEFAULT_AGENT_NAME`         | Const     | Default agent identity (`'robota-cli'`), owned by this package                                                                                   |
-| `defaultPreset`              | Const     | Built-in neutral baseline preset                                                                                                                 |
-| `autonomousBuilderPreset`    | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification`  |
-| `resolvePreset`              | Function  | `(id, context?) => IResolvedPresetOptions`; throws on unknown id                                                                                 |
-| `createPresetRegistry`       | Function  | `(externalPresets?) => IPresetRegistry`; per-call instance-scoped resolver over `[built-ins, ...externalPresets]` — no module-global mutation (ARCH-005 R8) |
-| `IPresetRegistry`            | Interface | `{ resolvePreset, getPreset, listPresets }` — an instance-scoped preset registry                                                                 |
-| `listPresets`                | Function  | `() => readonly IPresetSummary[]` (built-ins + registered external presets)                                                                      |
-| `getPreset`                  | Function  | `(id) => IPreset \| undefined`                                                                                                                   |
-| `registerExternalPresets`    | Function  | `(presets) => IPresetRegistrationResult`; appends external presets to the module-level registry, rejecting built-in id collisions and duplicates |
-| `clearExternalPresets`       | Function  | `() => void`; remove every registered external preset, leaving only the built-ins                                                                |
-| `loadExternalPresets`        | Function  | `(options?: { dir? }) => IExternalPresetLoadResult`; load+validate+register `*.json` presets from `options.dir` (default `~/.robota/presets`)    |
-| `loadExternalPresetsFromDir` | Function  | `(dir) => IExternalPresetLoadResult`; same as `loadExternalPresets` against an explicit directory; missing directory yields an empty result      |
-| `defaultExternalPresetDir`   | Function  | `() => string`; the conventional external-preset directory (`~/.robota/presets`)                                                                 |
-| `validateExternalPreset`     | Function  | `(value: unknown) => TPresetValidationResult`; manual `IPreset` type-guard (no schema library); drops unrecognised keys                          |
-| `IExternalPresetLoadResult`  | Interface | `{ loaded: readonly string[]; errors: readonly { file; error }[] }` — per-file errors collected, run continues                                   |
-| `IPresetRegistrationResult`  | Interface | `{ registered: readonly string[]; rejected: readonly { id; reason }[] }`                                                                         |
-| `TPresetValidationResult`    | Type      | `{ ok: true; preset } \| { ok: false; error }` result of `validateExternalPreset`                                                                |
+| Export                       | Kind      | Description                                                                                                                                                                                                                                                    |
+| ---------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IPreset`                    | Interface | Preset definition shape (identity + option overrides)                                                                                                                                                                                                          |
+| `IResolvedPresetOptions`     | Interface | Resolved framework-option subset                                                                                                                                                                                                                               |
+| `TPresetEffort`              | Type      | Effort dial union                                                                                                                                                                                                                                              |
+| `TPresetAutonomy`            | Type      | Autonomy posture union                                                                                                                                                                                                                                         |
+| `TPresetTrustLevel`          | Type      | Trust-level union                                                                                                                                                                                                                                              |
+| `TPresetPermissionMode`      | Type      | Permission-mode union (reused from framework)                                                                                                                                                                                                                  |
+| `IPresetSummary`             | Interface | `{ id, title, description }` summary                                                                                                                                                                                                                           |
+| `IResolvePresetContext`      | Interface | Override layers for resolution                                                                                                                                                                                                                                 |
+| `DEFAULT_AGENT_NAME`         | Const     | Default agent identity (`'robota-cli'`), owned by this package                                                                                                                                                                                                 |
+| `defaultPreset`              | Const     | Built-in neutral baseline preset                                                                                                                                                                                                                               |
+| `autonomousBuilderPreset`    | Const     | Opinionated preset: proactive/self-verifying persona + `effort: 'high'`, `autonomy: 'act-first'`, `enableParallelSubagents`, `selfVerification`                                                                                                                |
+| `resolvePreset`              | Function  | `(id, context?) => IResolvedPresetOptions` over the MODULE-GLOBAL registry; throws on unknown id. Used by the in-session `/preset` discovery surface, which has no instance registry to reach; product assembly uses `createPresetRegistry` instead (ARCH-008) |
+| `createPresetRegistry`       | Function  | `(externalPresets?) => IPresetRegistry`; per-call instance-scoped resolver over `[built-ins, ...externalPresets]` — no module-global mutation (ARCH-005 R8)                                                                                                    |
+| `IPresetRegistry`            | Interface | `{ resolvePreset, getPreset, listPresets }` — an instance-scoped preset registry                                                                                                                                                                               |
+| `listPresets`                | Function  | `() => readonly IPresetSummary[]` (built-ins + registered external presets)                                                                                                                                                                                    |
+| `getPreset`                  | Function  | `(id) => IPreset \| undefined`                                                                                                                                                                                                                                 |
+| `registerExternalPresets`    | Function  | `(presets) => IPresetRegistrationResult`; appends external presets to the module-level registry, rejecting built-in id collisions and duplicates                                                                                                               |
+| `clearExternalPresets`       | Function  | `() => void`; remove every registered external preset, leaving only the built-ins                                                                                                                                                                              |
+| `loadExternalPresets`        | Function  | `(options?: { dir? }) => IExternalPresetLoadResult`; load+validate+register `*.json` presets from `options.dir` (default `~/.robota/presets`)                                                                                                                  |
+| `loadExternalPresetsFromDir` | Function  | `(dir) => IExternalPresetLoadResult`; same as `loadExternalPresets` against an explicit directory; missing directory yields an empty result                                                                                                                    |
+| `defaultExternalPresetDir`   | Function  | `() => string`; the conventional external-preset directory (`~/.robota/presets`)                                                                                                                                                                               |
+| `validateExternalPreset`     | Function  | `(value: unknown) => TPresetValidationResult`; manual `IPreset` type-guard (no schema library); drops unrecognised keys                                                                                                                                        |
+| `IExternalPresetLoadResult`  | Interface | `{ loaded: readonly string[]; errors: readonly { file; error }[] }` — per-file errors collected, run continues                                                                                                                                                 |
+| `IPresetRegistrationResult`  | Interface | `{ registered: readonly string[]; rejected: readonly { id; reason }[] }`                                                                                                                                                                                       |
+| `TPresetValidationResult`    | Type      | `{ ok: true; preset } \| { ok: false; error }` result of `validateExternalPreset`                                                                                                                                                                              |
 
 The built-in registry holds **4** presets (`default`, `autonomous-builder`, `careful-reviewer`, `neutral-executor`), but only `defaultPreset` and `autonomousBuilderPreset` are exported as individual consts — `careful-reviewer` and `neutral-executor` are registry-only (reachable via `listPresets`/`getPreset`/`resolvePreset`, not as named exports).
 
