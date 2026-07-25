@@ -1,9 +1,13 @@
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
+import { loadHarnessConfig } from '../harness-config.mjs';
 import {
   findForbiddenDependencies,
   findIoViolations,
   findProductNameConditionals,
+  formatFinding,
   scanCompositionNeutrality,
 } from '../scan-composition-neutrality.mjs';
 
@@ -184,8 +188,123 @@ describe('guard (c) — no product-name conditionals', () => {
   });
 });
 
-describe('the real agent-product package is neutral (guards hold on the live tree)', () => {
+/**
+ * HARNESS-048 — the evasions the line-regex guard could not see. ARCH-005 S2 planted a probe file
+ * containing ALL of these in `packages/agent-product/src` and the scan still printed "passed", so each is
+ * pinned here red-first: an evadable guard is a rule that is not enforced.
+ */
+describe('HARNESS-048 — evasions of the line-regex guard (AST hardening)', () => {
+  it('FLAGS a DESTRUCTURED identity equality (`const { id } = profile; id === "robota"`)', () => {
+    const source = "const { id } = profile;\nif (id === 'robota') doThing();";
+    const findings = findProductNameConditionals(source, 'x.ts');
+    expect(findings.map((f) => f.id)).toContain('equality');
+    // The alias is renameable — the aliased binding form must be caught too.
+    expect(
+      findProductNameConditionals(
+        "const { id: which } = profile;\nif (which !== 'acme') skip();",
+        'x.ts',
+      ),
+    ).not.toEqual([]);
+  });
+
+  it('FLAGS an ALIASED identity string predicate (`const a = profile.id; a.startsWith(…)`)', () => {
+    const source = "const alias = profile.id;\nif (alias.startsWith('acme')) doThing();";
+    expect(findProductNameConditionals(source, 'x.ts').map((f) => f.id)).toContain(
+      'string-predicate',
+    );
+  });
+
+  it('FLAGS a COMPUTED identity index (`table[profile["id"]]`)', () => {
+    expect(findProductNameConditionals("const w = table[profile['id']];", 'x.ts')).toHaveLength(1);
+  });
+
+  it('FLAGS an aliased identity switch (`const { agentName } = p; switch (agentName)`)', () => {
+    const source = 'const { agentName } = profile;\nswitch (agentName) {\n  case 1: break;\n}';
+    expect(findProductNameConditionals(source, 'x.ts').map((f) => f.id)).toContain('switch');
+  });
+
+  it('FLAGS the BRACKET form of a banned identifier (`globalThis["process"].env["HOME"]`)', () => {
+    expect(
+      findIoViolations("const h = globalThis['process'].env['HOME'];", 'x.ts', RULE).map(
+        (f) => f.id,
+      ),
+    ).toContain('globalThis.process');
+  });
+
+  it('FLAGS an ALIASED process (`const proc = process; proc.env["HOME"]`)', () => {
+    const source = "const proc = process;\nconst h = proc.env['HOME'];";
+    expect(findIoViolations(source, 'x.ts', RULE).map((f) => f.id)).toContain('process.env');
+  });
+
+  it('FLAGS a dynamic `import()` of a forbidden module', () => {
+    expect(
+      findIoViolations("const fs = await import('node:fs');", 'x.ts', RULE).map((f) => f.kind),
+    ).toContain('forbidden-io-import');
+    expect(
+      findIoViolations("const fs = require('node:fs/promises');", 'x.ts', RULE).map((f) => f.id),
+    ).toContain('node:fs/promises');
+  });
+
+  it('FLAGS a member access split across lines', () => {
+    const source = 'const t = process\n  .env\n  .ROBOTA_WS_TOKEN;';
+    expect(findIoViolations(source, 'x.ts', RULE).map((f) => f.id)).toContain('process.env');
+  });
+
+  it('FLAGS an identity equality split across lines', () => {
+    const source = "if (\n  profile.id ===\n  'robota'\n) doThing();";
+    expect(findProductNameConditionals(source, 'x.ts').map((f) => f.id)).toContain('equality');
+  });
+
+  it('does NOT flag a member access that merely LOOKS like one (`x.readSettings`, `process.cwd`)', () => {
+    // `.readSettings` on some other object is a method call, not the banned module-level reader.
+    expect(findIoViolations('const s = host.readSettings();', 'x.ts', RULE)).toEqual([]);
+    // Only `process.env` is banned — `process.cwd()` appears in the package's own tests.
+    expect(findIoViolations('const cwd = process.cwd();', 'x.ts', RULE)).toEqual([]);
+    // A declaration NAME that shadows a banned reader is not an IO edge.
+    expect(findIoViolations('const readSettings = 1;', 'x.ts', RULE)).toEqual([]);
+    expect(findIoViolations("const o = { readSettings: 'x' };", 'x.ts', RULE)).toEqual([]);
+  });
+});
+
+describe('HARNESS-048 — the finding reports WHICH dependency/identifier was found', () => {
+  it('prints the offending dependency name (previously dropped by the reporter)', () => {
+    const [finding] = findForbiddenDependencies(
+      { dependencies: { '@robota-sdk/agent-cli': 'workspace:*' } },
+      RULE,
+    ).map((f) => ({ ...f, dir: 'packages/agent-product' }));
+    expect(formatFinding(finding)).toContain('@robota-sdk/agent-cli');
+    expect(formatFinding(finding)).toContain('packages/agent-product');
+  });
+
+  it('prints the offending identifier and the source line for a content finding', () => {
+    const [finding] = findIoViolations('const t = process.env.HOME;', 'src/a.ts', RULE);
+    const line = formatFinding(finding);
+    expect(line).toContain('process.env');
+    expect(line).toContain('src/a.ts:1');
+  });
+});
+
+describe('a missing scan target is a hard finding, never a silent no-op', () => {
+  it('reports scan-target-missing for a configured package that does not exist', () => {
+    const workspaceRoot = path.resolve(import.meta.dirname, '../../..');
+    const findings = scanCompositionNeutrality(workspaceRoot, [
+      { dir: 'packages/does-not-exist', forbiddenImports: [], forbiddenIdentifiers: [] },
+    ]);
+    expect(findings.map((f) => f.kind)).toEqual(['scan-target-missing', 'scan-target-missing']);
+    expect(findings.map((f) => f.id)).toContain('packages/does-not-exist/src');
+    expect(findings.map((f) => f.id)).toContain('packages/does-not-exist/package.json');
+  });
+});
+
+describe('the real configured packages are neutral (guards hold on the live tree)', () => {
   it('reports zero findings against the configured packages', () => {
     expect(scanCompositionNeutrality()).toEqual([]);
+  });
+
+  // HARNESS-048: agent-capability-pack is an equally pure published contract package and was unscanned.
+  it('covers agent-product AND agent-capability-pack', () => {
+    const dirs = loadHarnessConfig().compositionNeutrality.map((r) => r.dir);
+    expect(dirs).toContain('packages/agent-product');
+    expect(dirs).toContain('packages/agent-capability-pack');
   });
 });
