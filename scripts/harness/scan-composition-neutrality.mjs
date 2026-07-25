@@ -93,7 +93,13 @@ export function findIoViolations(source, file, rule) {
       const re = new RegExp(`(?:from|import)\\s+['"]${escaped}['"]`);
       const m = re.exec(line);
       if (m && !inComment(line, m.index)) {
-        findings.push({ kind: 'forbidden-io-import', id: mod, file, line: i + 1, text: line.trim().slice(0, 120) });
+        findings.push({
+          kind: 'forbidden-io-import',
+          id: mod,
+          file,
+          line: i + 1,
+          text: line.trim().slice(0, 120),
+        });
       }
     }
 
@@ -104,7 +110,13 @@ export function findIoViolations(source, file, rule) {
       const re = new RegExp(`(?<![\\w$.])${escaped}(?![\\w$])`);
       const m = re.exec(line);
       if (m && !inComment(line, m.index)) {
-        findings.push({ kind: 'forbidden-io-identifier', id: ident, file, line: i + 1, text: line.trim().slice(0, 120) });
+        findings.push({
+          kind: 'forbidden-io-identifier',
+          id: ident,
+          file,
+          line: i + 1,
+          text: line.trim().slice(0, 120),
+        });
       }
     }
   }
@@ -128,7 +140,9 @@ const PRODUCT_NAME_CONDITIONALS = [
   // `profile.id.startsWith('robota')` / `.includes(…)` / `.endsWith(…)` — prefix/substring identity tests.
   {
     form: 'string-predicate',
-    re: new RegExp(String.raw`${PRODUCT_IDENTITY}\s*\.\s*(?:startsWith|endsWith|includes|match)\s*\(`),
+    re: new RegExp(
+      String.raw`${PRODUCT_IDENTITY}\s*\.\s*(?:startsWith|endsWith|includes|match)\s*\(`,
+    ),
   },
   // `PRODUCT_WIRING[profile.id]` — a lookup table keyed by the product identity.
   { form: 'identity-index', re: new RegExp(String.raw`\[\s*[\w$]+${PRODUCT_IDENTITY}\s*\]`) },
@@ -158,7 +172,10 @@ export function findProductNameConditionals(source, file) {
 }
 
 /** Run all three checks over the configured packages against the real tree. */
-export function scanCompositionNeutrality(root = WORKSPACE_ROOT, rules = loadHarnessConfig().compositionNeutrality ?? []) {
+export function scanCompositionNeutrality(
+  root = WORKSPACE_ROOT,
+  rules = loadHarnessConfig().compositionNeutrality ?? [],
+) {
   const findings = [];
   for (const rule of rules) {
     const srcRel = path.join(rule.dir, 'src');
@@ -170,12 +187,18 @@ export function scanCompositionNeutrality(root = WORKSPACE_ROOT, rules = loadHar
       findings.push({ kind: 'scan-target-missing', id: srcRel, detail: 'src/ dir does not exist' });
     }
     if (!existsSync(pkgJsonAbs)) {
-      findings.push({ kind: 'scan-target-missing', id: pkgJsonRel, detail: 'package.json does not exist' });
+      findings.push({
+        kind: 'scan-target-missing',
+        id: pkgJsonRel,
+        detail: 'package.json does not exist',
+      });
     }
 
     if (existsSync(pkgJsonAbs)) {
       const manifest = JSON.parse(readFileSync(pkgJsonAbs, 'utf8'));
-      findings.push(...findForbiddenDependencies(manifest, rule).map((f) => ({ ...f, dir: rule.dir })));
+      findings.push(
+        ...findForbiddenDependencies(manifest, rule).map((f) => ({ ...f, dir: rule.dir })),
+      );
     }
 
     if (existsSync(srcAbs)) {
@@ -195,7 +218,9 @@ function main() {
     console.log('composition-neutrality scan passed.');
     process.exit(0);
   }
-  console.error('composition-neutrality scan FAILED — a product-composition assembler broke a neutrality guard:');
+  console.error(
+    'composition-neutrality scan FAILED — a product-composition assembler broke a neutrality guard:',
+  );
   for (const f of findings) {
     const loc = f.file ? `${f.file}:${f.line}` : (f.dir ?? f.id);
     console.error(`  [${f.kind}] ${loc}  ${f.text ?? f.detail ?? f.id ?? ''}`.trimEnd());

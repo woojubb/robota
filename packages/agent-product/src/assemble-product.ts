@@ -47,7 +47,12 @@ function overlaySessionOptions(
       : {};
 
   if ('session' in base) {
-    return { ...base, provider, commandModules: materials.commandModules, ...permissionModeOverlay };
+    return {
+      ...base,
+      provider,
+      commandModules: materials.commandModules,
+      ...permissionModeOverlay,
+    };
   }
 
   if (provider === undefined) {
@@ -100,7 +105,9 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
   // (1) Per-call instance-scoped preset registry — pure w.r.t. process state (R8).
   const presets = createPresetRegistry(profile.presets ?? []);
   const defaultPreset: IResolvedPresetOptions | undefined =
-    profile.defaultPresetId !== undefined ? presets.resolvePreset(profile.defaultPresetId) : undefined;
+    profile.defaultPresetId !== undefined
+      ? presets.resolvePreset(profile.defaultPresetId)
+      : undefined;
 
   // (2) Additive capability merge — base ⊕ packs, deterministic, with a rejection channel.
   const { merged, rejected } = mergeCapabilityPacks(
@@ -149,7 +156,10 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       ? { subagentRunnerFactory: profile.subagentRunnerFactory }
       : {}),
     ...(profile.transports !== undefined
-      ? { transports: typeof profile.transports === 'function' ? profile.transports() : profile.transports }
+      ? {
+          transports:
+            typeof profile.transports === 'function' ? profile.transports() : profile.transports,
+        }
       : {}),
     buildRuntimeOptions,
     buildRuntime: (input) => buildRuntimeSession(buildRuntimeOptions(input)),

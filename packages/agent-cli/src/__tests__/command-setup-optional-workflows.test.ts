@@ -26,9 +26,7 @@ describe('buildCommandSetup — bundled /workflows (INFRA-028)', () => {
 
   it('always includes exactly one fully-formed /workflows module (bundled, not optional)', () => {
     const setup = buildCommandSetup('/tmp', MINIMAL_ARGS, {}, '0.0.0-test');
-    const workflows = setup.fixedCommandModules.filter(
-      (m) => m.name === 'agent-command-workflows',
-    );
+    const workflows = setup.fixedCommandModules.filter((m) => m.name === 'agent-command-workflows');
     expect(workflows).toHaveLength(1);
     expect(workflows[0]?.systemCommands?.some((c) => c.name === 'workflows')).toBe(true);
   });

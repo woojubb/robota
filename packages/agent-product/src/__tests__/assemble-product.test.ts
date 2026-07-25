@@ -102,7 +102,9 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
 
     const product = assembleProduct(profile);
 
-    expect(product.resolvePreset('acme-reviewer').persona).toBe('You are a meticulous code reviewer.');
+    expect(product.resolvePreset('acme-reviewer').persona).toBe(
+      'You are a meticulous code reviewer.',
+    );
     expect(product.defaultPresetId).toBe('acme-reviewer');
     // built-ins remain reachable through the instance registry
     expect(product.presets.getPreset('default')).toBeDefined();
@@ -135,7 +137,9 @@ describe('assembleProduct — runtime construction delegates to the framework se
     };
 
     const product = assembleProduct(profile);
-    const session = product.buildRuntime({ session: { cwd: process.cwd(), provider: testProvider() } });
+    const session = product.buildRuntime({
+      session: { cwd: process.cwd(), provider: testProvider() },
+    });
 
     try {
       // Delegation, not re-implementation: buildRuntimeSession returns an InteractiveSession.

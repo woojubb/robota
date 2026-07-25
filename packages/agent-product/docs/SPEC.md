@@ -85,25 +85,25 @@ leaves `agentDefinitions` UNSET when no pack contributes one, so the framework d
 
 ## Type Ownership
 
-| Type                | Location             | Purpose                                                                        |
-| ------------------- | -------------------- | ------------------------------------------------------------------------------ |
-| `IProductProfile`   | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing |
-| `IAssembledProduct` | `product-profile.ts` | The neutral runtime materials `assembleProduct` produces                        |
-| `IBuildRuntimeInput`| `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto       |
+| Type                 | Location             | Purpose                                                                           |
+| -------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| `IProductProfile`    | `product-profile.ts` | The declarative product object — identity + provider + presets + packs + plumbing |
+| `IAssembledProduct`  | `product-profile.ts` | The neutral runtime materials `assembleProduct` produces                          |
+| `IBuildRuntimeInput` | `product-profile.ts` | The shell-supplied session options `buildRuntime` overlays materials onto         |
 
 ## Public API Surface
 
-| Export               | Kind      | Description                                                                                                |
-| -------------------- | --------- | -------------------------------------------------------------------------------------------------------- |
-| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold             |
-| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                        |
+| Export               | Kind      | Description                                                                                                                                   |
+| -------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assembleProduct`    | Function  | `(profile: IProductProfile) => IAssembledProduct`; the pure, IO-free product-composition fold                                                 |
+| `IProductProfile`    | Interface | Declarative product object (identity, provider, presets, packs, injected plumbing)                                                            |
 | `IAssembledProduct`  | Interface | Neutral runtime materials + `resolvePreset` (instance-scoped) + `buildRuntimeOptions` (pure overlay) + `buildRuntime` (delegates to the seam) |
-| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto |
+| `IBuildRuntimeInput` | Interface | `{ session: TInteractiveSessionOptions }` — the shell input `buildRuntime` overlays assembled materials onto                                  |
 
 ## Merge & precedence semantics
 
 - **Capability merge:** `assembleProduct` calls `mergeCapabilityPacks(profile.baseCommandModules ?? [],
-  profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding later id is rejected and
+profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding later id is rejected and
   surfaced in `IAssembledProduct.rejectedCapabilities`, never silently overridden. The merged command
   modules are the base ⊕ pack superset; a preset's `enabledCommandModules`/`disabledCommandModules` delta
   is applied AFTER this merge by the shell's command-setup (they compose — this widens, the preset delta
@@ -112,14 +112,14 @@ leaves `agentDefinitions` UNSET when no pack contributes one, so the framework d
   default preset (`profile.defaultPresetId`) is resolved to seed `IAssembledProduct.defaultPreset` and the
   `permissionMode` default `buildRuntime` applies when the shell leaves it unset.
 - **Provider resolution:** `profile.provider` (injected override) > `createProviderFromConfig(
-  profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consumer supplies one at
+profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consumer supplies one at
   `buildRuntime` time). An unknown provider `name` THROWS naming the supported types — never a silent
   no-provider.
 
 ## Extension Points
 
-| Extension Point   | Kind      | How to extend                                                                          |
-| ----------------- | --------- | ------------------------------------------------------------------------------------- |
+| Extension Point   | Kind      | How to extend                                                                                                     |
+| ----------------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
 | `IProductProfile` | Interface | Author a profile value (identity + provider + presets/packs + injected plumbing) and pass it to `assembleProduct` |
 
 ## Error Taxonomy

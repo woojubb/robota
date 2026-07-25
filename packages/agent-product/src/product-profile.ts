@@ -128,7 +128,10 @@ export interface IAssembledProduct {
   /** The per-call instance-scoped preset registry (R8 — no module-global mutation). */
   presets: IPresetRegistry;
   /** Convenience resolver bound over `presets` (equivalent to `presets.resolvePreset`). */
-  resolvePreset: (id: string, context?: Parameters<IPresetRegistry['resolvePreset']>[1]) => IResolvedPresetOptions;
+  resolvePreset: (
+    id: string,
+    context?: Parameters<IPresetRegistry['resolvePreset']>[1],
+  ) => IResolvedPresetOptions;
   /** The default preset id (passthrough) and its resolved posture, when a `defaultPresetId` was given. */
   defaultPresetId?: string;
   defaultPreset?: IResolvedPresetOptions;

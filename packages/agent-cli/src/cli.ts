@@ -25,10 +25,7 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
 import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
-import {
-  createRobotaProfile,
-  ROBOTA_PACK_COMMAND_MODULE_NAMES,
-} from './product/robota-profile.js';
+import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from './product/robota-profile.js';
 import {
   createDefaultTransportRegistry,
   findUnknownPresetModuleNames,
