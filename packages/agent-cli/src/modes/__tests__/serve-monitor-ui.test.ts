@@ -99,4 +99,21 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect(res.status).toBe(403);
     expect(res.body).not.toContain('ws-url');
   });
+
+  it('returns 404 (not a crash) when the resolved path is a DIRECTORY (SEC-006)', async () => {
+    // `existsSync` is true for a directory, so the handler fell through to `readFileSync(dir)`, which
+    // throws EISDIR synchronously inside the request callback — an uncaught exception that kills the
+    // whole serve host. SEC-001 treats localhost as hostile: a co-resident process must not be able to
+    // DoS the running agent with a one-line `GET /assets`.
+    const res = await rawGet(server.url, '/assets');
+    expect(res.status).toBe(404);
+    // the server must still be alive afterward
+    expect((await fetch(`${server.url}/`)).status).toBe(200);
+  });
+
+  it('returns 404 (not a crash) for a bare-dot path resolving to webRoot itself (SEC-006)', async () => {
+    const res = await rawGet(server.url, '/.');
+    expect(res.status).toBe(404);
+    expect((await fetch(`${server.url}/`)).status).toBe(200);
+  });
 });

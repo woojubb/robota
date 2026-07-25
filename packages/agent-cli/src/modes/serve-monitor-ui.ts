@@ -9,7 +9,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,20 +96,29 @@ export async function startMonitorUiServer(
       res.writeHead(403).end('Forbidden');
       return;
     }
-    if (!existsSync(filePath)) {
+    // Only a regular FILE may be served. `existsSync` is also true for a directory, and
+    // `readFileSync(<dir>)` throws EISDIR synchronously inside this request callback — an uncaught
+    // exception that takes the whole serve host down. SEC-001 treats localhost as hostile, so a
+    // co-resident process must not be able to DoS the running agent with `GET /assets` (SEC-006).
+    // Reading the bytes inside the same try/catch also removes the stat-then-read race: whatever the
+    // path becomes between the two syscalls, a failure is a 404, never a crash.
+    const isIndex = filePath.endsWith(`${sep}index.html`);
+    const contentType = MIME[extname(filePath)] ?? 'application/octet-stream';
+    let body: string | Buffer;
+    try {
+      if (!statSync(filePath).isFile()) {
+        res.writeHead(404).end('Not found');
+        return;
+      }
+      body = isIndex ? injectWsUrl(readFileSync(filePath, 'utf8'), wsUrl) : readFileSync(filePath);
+    } catch {
+      // allow-fallback: a missing, unreadable, or concurrently-replaced asset is a 404 for this
+      // static host — the only alternative is crashing the agent the monitor is attached to.
       res.writeHead(404).end('Not found');
       return;
     }
-    const isIndex = filePath.endsWith(`${sep}index.html`);
-    const contentType = MIME[extname(filePath)] ?? 'application/octet-stream';
-    if (isIndex) {
-      const html = injectWsUrl(readFileSync(filePath, 'utf8'), wsUrl);
-      res.writeHead(200, { 'content-type': contentType });
-      res.end(html);
-      return;
-    }
     res.writeHead(200, { 'content-type': contentType });
-    res.end(readFileSync(filePath));
+    res.end(body);
   });
 
   await new Promise<void>((resolve) => server.listen(0, MONITOR_HOST, () => resolve()));
