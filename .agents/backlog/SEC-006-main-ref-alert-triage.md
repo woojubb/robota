@@ -380,7 +380,7 @@ moved line as new-in-changed-code, so refactoring a flagged file re-opens its fi
 
 | Re-filed alert                                                                                      | Was           | Verdict unchanged                                                      |
 | --------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------- |
-| `js/path-injection` ×3 `serve-monitor-ui.ts:109,113`                                                | #27–29        | FP — the traversal guard is still there                                |
+| `js/path-injection` ×3 `serve-monitor-ui.ts:109,113`                                                | #27–29        | **WRONG — this was REAL. See R9.**                                     |
 | `js/stack-trace-exposure` `studio/http-io.ts:35`                                                    | #2            | FP — moved by the file split; still no `.stack` anywhere               |
 | `js/file-access-to-http` `local-fs-asset-store.ts:158`                                              | #75           | now guarded by the SSRF check added here                               |
 | `js/indirect-command-line-injection` + `js/shell-command-injection-from-environment` `studio.ts:30` | #56, #9-class | FP — re-filed onto the `spawn` that REPLACED the `exec`                |
@@ -411,6 +411,98 @@ analyser" branch of the triage policy.
 
 The CodeQL PR check is **not** a required status check on `develop` (required: `build`, `quality`,
 `scans`, `security audit`, `commitlint`, `tui-e2e`, `examples-typecheck`, `windows-shell`).
+
+### R9 — the monitor asset server followed symlinks out of `webRoot` (a triage error, corrected)
+
+**I first classified `js/path-injection` on `serve-monitor-ui.ts` as a false positive, on the grounds
+that "the traversal guard is still there". That was wrong, and the review gate was right to block.**
+
+The guard was there, but it was _lexical_:
+
+```ts
+const filePath = normalize(join(webRoot, relPath));
+if (filePath !== webRoot && !filePath.startsWith(webRoot + sep)) { 403 }
+...
+fd = openSync(filePath, 'r');
+```
+
+`normalize`/`join` never consult the filesystem, so they cannot see a symlink. A link INSIDE
+`webRoot` pointing outside satisfies `startsWith` while `openSync` follows it out — **exactly the
+defect R3 fixed in `path-guard.ts` in this same PR.** I had the fix in hand and did not apply the
+same reasoning one directory over. What made it easy to miss is that the guard _looks_ like
+containment and is correct against the traversal input the existing test exercised (`../secret.txt`);
+nothing in the suite planted a real symlink, so nothing contradicted the assumption.
+
+An intermediate segment-validation refactor did not fix it either, and is worth recording because it
+is a plausible wrong turn: rejecting `.`/`..`/separator segments makes traversal _syntactically_
+impossible, but `escape` is a perfectly plain segment — if it is a symlink, every check still passes.
+**Segment validation is not containment.**
+
+Failing test before the fix — note the status, which is the part that matters:
+
+```
+× does not follow a symlink under webRoot that escapes it (SEC-006)
+  → expected 200 to be 403
+× does not follow a symlinked FILE under webRoot (SEC-006)
+  → expected 200 to be 403
+ Tests  2 failed | 9 passed (11)
+```
+
+`200`, not a wrong error code: the server served the file through the symlink and returned the
+out-of-root content.
+
+Fix: containment is now decided on the canonical (realpath-resolved) path, and — because two
+containment checks that can disagree are their own defect — **`path-guard.ts` and
+`serve-monitor-ui.ts` now share one implementation**, `isPathInside` /`canonicalizePath` in
+`packages/agent-core/src/utils/path-containment.ts`. `agent-cli` and `agent-tools` both already
+depend on `agent-core`, so this needs no new dependency edge. `dag-cli` keeps its own copy in
+`studio/request-guards.ts` because the `dag-*` family does not depend on `agent-core` and a
+cross-family edge would be the larger problem; that duplication is now called out in both files so
+the two are changed together.
+
+Green after the fix: agent-core 906, agent-tools 221, agent-cli 281.
+
+**The transferable lesson** — and the reason this belongs in the record rather than being quietly
+fixed: _"the guard is still there" is not a verdict._ A containment check has to be read for whether
+it is lexical or canonical, and a re-filed alert on a line you edited deserves the same scrutiny as a
+new one, not a presumption of inheritance from the earlier triage.
+
+#### Class sweep: every path-containment check in the repo
+
+Closing the class, not the instance. Both idioms were swept — `startsWith(root + sep)` and
+`relative(root, p)` + `!startsWith('..')`, which share the identical symlink weakness.
+
+| Site                                                                    | Boundary?                              | Canonical? | Verdict                                                                                                                                                                                            |
+| ----------------------------------------------------------------------- | -------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent-tools/src/builtins/path-guard.ts`                                | yes — file-tool sandbox (LLM input)    | **now**    | fixed (R3), now shares the SSOT                                                                                                                                                                    |
+| `agent-cli/src/modes/serve-monitor-ui.ts`                               | yes — HTTP asset server (remote input) | **now**    | fixed (R9), now shares the SSOT                                                                                                                                                                    |
+| `dag-cli/src/studio/request-guards.ts`                                  | yes — studio HTTP API (remote input)   | yes        | fixed (R5), **now shares the SSOT too** — see note below                                                                                                                                           |
+| `agent-framework/src/context/prompt-file-reference-resolver.ts:165,172` | yes — `@file` prompt references        | yes        | **already correct** — lexical pre-check, then `realpath` and re-check, which is the right pattern                                                                                                  |
+| `agent-framework/src/user-local/storage.ts:119`                         | yes — user-local storage root          | yes        | **already correct** — `resolveForComparison()` realpaths BOTH sides before comparing                                                                                                               |
+| `agent-framework/src/checkpoints/edit-checkpoint-store.ts:404`          | **no**                                 | no         | lexical, but it is a SELF-EXCLUSION (`if (isInside(rootDir, p)) return` — skip capturing the store's own backups), not a boundary. Worst case is capturing or skipping one extra file. Left as is. |
+
+No security-boundary containment check in `packages/` or `apps/` remains lexical, and all three now
+call one implementation.
+
+I initially kept `dag-cli`'s copy separate, on the stated grounds that the `dag-*` family does not
+depend on `agent-core`. **That was factually wrong**: `dag-framework` declares
+`@robota-sdk/agent-core` in its runtime `dependencies`, so agent-core is already in `dag-cli`'s
+closure and the direct edge only makes it explicit. The copy is collapsed and the incorrect comment
+removed. It also used to return the LEXICAL path after validating the CANONICAL one — so the path
+that was checked was not the path the caller opened; it now returns the canonical form.
+
+#### Adjacent, NOT this class — carried to SEC-007
+
+Found while sweeping. These have **no containment check at all**, which is a different (and in places
+larger) problem than a lexical one, so they are follow-ups rather than scope creep here:
+
+- `agent-tools/src/builtins/glob-tool.ts:50` and `grep-tool.ts:180` resolve an LLM-supplied root and
+  never call `checkPathWithinCwd`; `shell-tool.ts:153` spawns with an unguarded `cwd`. **The file-tool
+  sandbox covers Read/Write/Edit only** — Glob and Grep can enumerate outside it.
+- `dag-nodes/file-read/src/index.ts:64` and `file-write/src/index.ts:71` resolve a path straight from
+  a `.dag.json` (a shareable, LLM-authorable workflow file) with no guard at all.
+- `dag-framework/src/adapters/local-fs-asset-store.ts:263` joins a caller-supplied `assetId` on the
+  read path (the write path mints a `randomUUID`).
 
 ## Test Plan
 

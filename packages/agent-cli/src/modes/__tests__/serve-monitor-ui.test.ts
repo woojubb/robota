@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +48,9 @@ describe('startMonitorUiServer (GUI-007)', () => {
     writeFileSync(join(webRoot, 'assets', 'app.js'), 'export const x = 1;');
     // a sensitive file OUTSIDE webRoot the traversal test tries to reach
     writeFileSync(join(webRoot, '..', 'secret.txt'), 'top-secret');
+    // symlinks INSIDE webRoot that escape it — a lexical containment check cannot see through these
+    symlinkSync(join(webRoot, '..'), join(webRoot, 'escape'));
+    symlinkSync(join(webRoot, '..', 'secret.txt'), join(webRoot, 'secret-link.txt'));
     server = await startMonitorUiServer(webRoot, wsUrl);
   });
   afterAll(async () => {
@@ -111,9 +114,27 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect((await fetch(`${server.url}/`)).status).toBe(200);
   });
 
-  it('returns 404 (not a crash) for a bare-dot path resolving to webRoot itself (SEC-006)', async () => {
+  it('rejects a bare-dot path instead of crashing on webRoot itself (SEC-006)', async () => {
+    // `/.` used to resolve to webRoot and reach readFileSync(<dir>) → EISDIR → uncaught crash.
+    // A `.` is not a plain path segment, so it is now refused up front (403 rather than 404).
     const res = await rawGet(server.url, '/.');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
     expect((await fetch(`${server.url}/`)).status).toBe(200);
+  });
+
+  it('does not follow a symlink under webRoot that escapes it (SEC-006)', async () => {
+    // The containment check was LEXICAL: `normalize`/`join` do not resolve symlinks, so a link
+    // sitting inside webRoot satisfied `startsWith(webRoot + sep)` while `openSync` followed it
+    // straight out. `escape` is an ordinary path segment, so segment validation cannot catch this —
+    // only canonicalizing the resolved path can. Same class as the agent-tools path-guard escape.
+    const res = await rawGet(server.url, '/escape/secret.txt');
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain('top-secret');
+  });
+
+  it('does not follow a symlinked FILE under webRoot (SEC-006)', async () => {
+    const res = await rawGet(server.url, '/secret-link.txt');
+    expect(res.status).toBe(403);
+    expect(res.body).not.toContain('top-secret');
   });
 });

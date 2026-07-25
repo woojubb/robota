@@ -9,8 +9,9 @@
  * Kept in its own module so the containment and origin checks are reviewable on their own, rather than
  * buried among the route handlers.
  */
-import { realpathSync } from 'node:fs';
-import { basename, dirname, join, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
+
+import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
@@ -27,47 +28,22 @@ export function isLoopbackHostHeader(host: string | undefined): boolean {
 }
 
 /**
- * Canonicalize `p` so symlinks are resolved, tolerating a path that does not exist yet.
- *
- * `realpathSync` throws on a missing path, but a client may legitimately reference a file that is not
- * there (the caller then reports a read error). So we walk up to the deepest ancestor that DOES exist,
- * canonicalize that, and re-attach the remaining segments — the re-attached tail cannot itself be a
- * symlink, since it does not exist.
- */
-function canonicalize(p: string): string {
-  const tail: string[] = [];
-  let current = p;
-  for (;;) {
-    try {
-      return join(realpathSync(current), ...tail);
-    } catch {
-      const parent = dirname(current);
-      // allow-fallback: nothing along the chain exists (or is readable) — fall back to the lexical
-      // path, which is still fully normalized by `resolve()` and therefore safe to compare.
-      if (parent === current) return p;
-      tail.unshift(basename(current));
-      current = parent;
-    }
-  }
-}
-
-/**
  * Resolve a CLIENT-SUPPLIED `file` against `cwd` and refuse anything that escapes it.
  *
- * Containment is decided on the CANONICAL (symlink-resolved) paths: `resolve()` alone is purely
- * lexical, so `<cwd>/link/x.dag.json` where `link -> /etc` passed a `startsWith` check while the
- * subsequent `readFile` followed the link out of the working directory. Both sides are canonicalized so
- * a cwd that is itself behind a symlink (macOS `/tmp` -> `/private/tmp`) still matches.
+ * Containment is decided on the CANONICAL (symlink-resolved) paths via agent-core's shared
+ * `isPathInside` SSOT: `resolve()` alone is purely lexical, so `<cwd>/link/x.dag.json` where
+ * `link -> /etc` passed a `startsWith` check while the subsequent `readFile` followed the link out of
+ * the working directory.
  */
 export function resolveContainedFile(
   file: string,
   cwd: string,
 ): { ok: true; path: string } | { ok: false; message: string } {
-  const resolved = resolve(cwd, file);
-  const canonical = canonicalize(resolved);
-  const canonicalCwd = canonicalize(resolve(cwd));
-  if (canonical !== canonicalCwd && !canonical.startsWith(canonicalCwd + sep)) {
+  const canonical = canonicalizePath(resolve(cwd, file));
+  if (!isPathInside(cwd, canonical)) {
     return { ok: false, message: `Access denied: "${file}" is outside the working directory` };
   }
-  return { ok: true, path: resolved };
+  // Return the CANONICAL path, not the lexical one: the caller reads and executes it, and handing
+  // back the unresolved form would mean the path that was validated is not the path that is opened.
+  return { ok: true, path: canonical };
 }

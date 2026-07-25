@@ -9,10 +9,12 @@
  */
 
 import { spawn } from 'node:child_process';
-import { closeSync, existsSync, fstatSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, normalize, sep } from 'node:path';
+import { extname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { isPathInside } from '@robota-sdk/agent-core';
 
 const MONITOR_HOST = '127.0.0.1';
 
@@ -73,6 +75,10 @@ export async function startMonitorUiServer(
   webRoot: string,
   wsUrl: string,
 ): Promise<IMonitorUiServer> {
+  // Canonicalized once: webRoot is a fixed build output for the life of the server, and every
+  // request's containment decision is made against this resolved form.
+  const webRootReal = realpathSync(webRoot);
+
   const server = createServer((req, res) => {
     // Defense-in-depth (SEC-001): reject a non-loopback Host so a DNS-rebinding page cannot read the
     // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
@@ -90,9 +96,33 @@ export async function startMonitorUiServer(
       return;
     }
     const relPath = rawPath === '/' ? '/index.html' : rawPath;
-    const filePath = normalize(join(webRoot, relPath));
-    // Traversal guard: the resolved path must stay within webRoot.
-    if (filePath !== webRoot && !filePath.startsWith(webRoot + sep)) {
+    // Structural containment (SEC-006): split the URL path into segments and admit only plain names.
+    // A request cannot escape `webRoot` because it is never given a component that traverses — `..`,
+    // `.` and embedded separators are rejected outright rather than normalized away afterwards.
+    // This replaces a normalize-then-compare-prefix guard which was correct but only ACCIDENTALLY so:
+    // it depended on `normalize` collapsing every traversal form before the comparison, which is
+    // exactly the kind of reasoning that breaks the next time the path handling is touched.
+    const segments = relPath.split('/').filter((segment) => segment.length > 0);
+    const isPlainSegment = (segment: string): boolean =>
+      segment !== '.' && segment !== '..' && !segment.includes(sep) && !segment.includes('\\');
+    if (segments.length === 0 || !segments.every(isPlainSegment)) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
+    const lexicalPath = join(webRoot, ...segments);
+    // Segment validation alone is NOT containment: `escape` is a perfectly plain segment, and if it
+    // is a symlink pointing outside webRoot then `join` stays inside lexically while the open follows
+    // the link straight out. Only canonicalization sees through that, so containment is decided on
+    // the realpath — the same defect, and the same fix, as the agent-tools file-tool path guard.
+    let filePath: string;
+    try {
+      filePath = realpathSync(lexicalPath);
+    } catch {
+      // allow-fallback: an unresolvable path is simply not a servable asset.
+      res.writeHead(404).end('Not found');
+      return;
+    }
+    if (!isPathInside(webRootReal, filePath)) {
       res.writeHead(403).end('Forbidden');
       return;
     }
