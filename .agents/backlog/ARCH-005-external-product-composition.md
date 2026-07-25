@@ -15,12 +15,19 @@ depends_on: []
 > architecture-auditor + proposal-reviewer) before any code, like REMOTE-001/GUI-001. Owner-approved
 > direction 2026-07-25.
 
-> **Spec drafted (GATE-WRITE, 2026-07-25).** Draft spec authored at
-> [`.agents/spec-docs/draft/ARCH-005-external-product-composition.md`](../spec-docs/draft/ARCH-005-external-product-composition.md)
-> — `type: INFRA` (ARCH is not an accepted SDLC frontmatter type; the ARCH-005 ID keeps its namespace).
-> Awaiting independent GATE-APPROVAL (architecture-auditor + proposal-reviewer). The load-bearing call for
-> review: whether a published, profile-driven `assembleProduct` reconciles with the "no shared product
-> factory" rule (`project-structure.md` L129).
+> **GATE-APPROVAL passed 2026-07-25 (REVISE → folded → approved); spec in `todo/`.** Both independent
+> reviewers (`proposal-reviewer` + `architecture-auditor`) endorsed the direction and returned REVISE with a
+> convergent set of contract/justification refinements (R1–R8); all were folded and the spec moved to
+> [`.agents/spec-docs/todo/ARCH-005-external-product-composition.md`](../spec-docs/todo/ARCH-005-external-product-composition.md)
+> with `status: approved` — `type: INFRA` (ARCH is not an accepted SDLC frontmatter type; the ARCH-005 ID
+> keeps its namespace). Deliverables 2 (`agent-capability-pack`) and 3 (`agent-preset` exposure) were
+> endorsed as correct; deliverable 1 (`agent-product`) is a defensible direction with the folded refinements.
+> The reconciliation with the "no shared product factory" rule (`project-structure.md` L129) now rests on a
+> mechanically-enforced **pure-fold property** (3 P0 guards), not "profile-driven" alone; the coupled L129
+> amendment lands **with P0** as a flagged governance change. See the spec's `[GATE-APPROVAL]` Evidence Log.
+>
+> **Spec drafted (GATE-WRITE, 2026-07-25).** Draft spec authored (now in `todo/`) —
+> awaited GATE-APPROVAL, now passed (above).
 
 ## Problem / Goal
 

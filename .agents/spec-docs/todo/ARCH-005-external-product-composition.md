@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 type: INFRA
 tags: [architecture, product-composition, agent-product, capability-pack, preset, external-consumer, packaging]
 ---
@@ -12,10 +12,20 @@ tags: [architecture, product-composition, agent-product, capability-pack, preset
 > `ARCH-005` filename ID keeps its initiative/domain namespace — only the frontmatter type differs.
 >
 > **Owner-critical placement call — read `## Decision` § Placement first.** The load-bearing decision is
-> whether a *published, profile-driven* `assembleProduct` can exist without violating the existing
+> whether a *published* `assembleProduct` can exist without violating the existing
 > **"Per-product assembly ownership — no shared product factory"** rule
-> (`project-structure.md` L129, `feedback_no_shared_cli_factory`). This spec argues it can, but that
-> reconciliation is exactly what GATE-APPROVAL (architecture-auditor + proposal-reviewer) must scrutinize.
+> (`project-structure.md` L129, `feedback_no_shared_cli_factory`). The reconciliation does **not** rest on
+> "profile-driven" alone (a profile-driven function could still accrete `if (profile.id === 'robota')`
+> branches and become a de-facto shared factory). It rests on a stronger, **mechanically-enforced pure-fold
+> property**: `assembleProduct` is a pure, deterministic, IO-free fold over `IProductProfile` data with zero
+> product-specific branching — a peer of the repo's already-blessed `resolvePreset` / `mergeSettings` /
+> `mergeCapabilityPacks`. See `## Decision` § "The pure-fold property".
+>
+> **GATE-APPROVAL outcome (2026-07-25):** both independent reviewers (`proposal-reviewer` +
+> `architecture-auditor`) **endorsed the direction** and returned **REVISE** with a convergent set of
+> contract/justification refinements (folded into this spec — see the `[GATE-APPROVAL]` Evidence Log
+> entry). The L129 rule amendment carving out the pure-fold assembler is **coupled to the P0 guards** that
+> make it safe and lands *with* P0 — flagged as a governance change for owner visibility.
 
 ## Problem
 
@@ -36,9 +46,15 @@ already exist (`packages/agent-preset/src/{preset-types,resolve-preset,load-exte
 
 ### The linchpin gap — the product-assembly kernel is not a published library
 
-The composition root that turns those libraries into a *runnable product* is **hand-wired inside
-`packages/agent-cli/src/cli.ts`** (`startCli`, ~502 lines) and is **not** exposed by any published
-package. Enumerating exactly what that composition root wires (file `packages/agent-cli/src/cli.ts`):
+A *product-neutral composition kernel* — the glue that turns those libraries into runtime materials — is
+**hand-wired inside `packages/agent-cli/src/cli.ts`** (`startCli`) and is **not** exposed by any published
+package. This is **not** "extract the ~502-line `startCli`": most of `startCli` is legitimate
+**product-shell** — arg parsing, settings/file IO, terminal notices, first-run onboarding,
+`init`/`--configure`/`ensureConfig`, memory/session-resume UX, and print/serve/TUI mode dispatch — all of
+which **stay in `agent-cli`**. The extractable kernel is the narrow neutral subset enumerated below (the
+`## Decision` § "In-kernel vs stays-in-shell" table draws the exact boundary). The value is **not**
+proportional to lines moved; it is that the neutral subset becomes a published, reusable library. What that
+neutral kernel currently wires (file `packages/agent-cli/src/cli.ts`):
 
 | Concern | Wired at | What it does |
 | --- | --- | --- |
@@ -171,10 +187,19 @@ Docs: https://code.visualstudio.com/api/references/contribution-points
 
 > "Contribution Points are a set of JSON declarations that you make in the `contributes` field of the `package.json` Extension Manifest. Your extension registers Contribution Points to extend various functionalities within Visual Studio Code."
 
-*Teaches Robota:* capability contribution is best expressed *declaratively* and enumerable by the host
-without executing the contributor's runtime code. For Robota this argues an `ICapabilityPack` should be
-introspectable metadata (what tools/commands/subagents it brings) that `assembleProduct` can enumerate and
-gate *before* activation — the same isolation that lets the profile/permission layer decide what runs.
+*Teaches Robota — with an important caveat on the analogy's limits.* VS Code's model expresses contribution
+*declaratively* (a `package.json` manifest the host reads without running the contributor's code) because it
+crosses a **serialization boundary** (a separately-installed extension in another process). **Robota packs
+do NOT cross that boundary.** An `ICapabilityPack` is an **in-process composition argument** carrying
+**executable code objects** — `ICommandModule.name` with `systemCommands` handlers
+(`command-module.ts:8-20`), tools with `execute` functions, and profile factory functions. So VS Code's
+"enumerable without running contributor code" property (and the no-function-across-serialization criterion
+that comes with it) is **simply N/A** to Robota — the pack is not a serialized manifest but a live
+composition value. What DOES carry over is the *structural* lesson: a pack is a plain record of **named
+capability buckets** (tools/commands/subagents) that `assembleProduct` can **enumerate** and hand to the
+profile/permission layer, so that contributed commands/tools **execute only through the existing
+permission-gated runtime (`PermissionEnforcer`) at call time** — never by the mere act of being merged.
+That is the honest safety property (see the responsibility-split invariants below), not "inert JSON".
 
 ### Common shape across the references
 
@@ -196,10 +221,16 @@ All five converge on the same three-layer productization pattern:
   configuration to be used. Users must manually include a plugin's configurations." A capability pack must
   not self-activate; the product-profile is the sole authority on what is enabled. Merge semantics should
   be concatenation/override (flat-config style), not silent global mutation.
-- **Contract layer must stay IO-free.** Every contract precedent (ESLint plugin object, VS Code
-  `contributes` JSON, Backstage plugin declaration) is inert data/metadata. `@robota-sdk/agent-capability-pack`
-  should carry declarations that `assembleProduct` enumerates and gates *before* running anything —
-  preserving the "framework/core stay neutral" invariant and the existing permission/profile gating.
+- **Contract layer must stay IO-free — but "IO-free" ≠ "inert JSON".** Every contract precedent (ESLint
+  plugin object, VS Code `contributes` JSON, Backstage plugin declaration) performs no IO/lifecycle at
+  contribution time. `@robota-sdk/agent-capability-pack` matches that *at the package level* (the package
+  declares no classes with IO and does no side-effects on import). But unlike VS Code's serialized manifest,
+  a Robota pack **carries executable code objects** (command handlers, tool `execute` fns) as an in-process
+  composition argument — it is a live value, not a serialized declaration. The honest safety property is
+  therefore **not** "no code, just JSON" but: **packs are OPT-IN (present only when the profile lists them),
+  `assembleProduct` merges them purely (no execution), and any contributed command/tool runs ONLY through
+  the existing permission-gated runtime (`PermissionEnforcer`) at call time** — preserving the
+  "framework/core stay neutral" invariant and the existing permission/profile gating.
 - **The "preset" name collides with industry usage.** Docusaurus's "preset" already means "bundle of
   plugins and themes" (i.e., Robota's pack+profile). Robota is narrowing "preset" to behavior/persona only,
   so the spec should state that distinction loudly to avoid confusing consumers who arrive with the
@@ -220,9 +251,10 @@ All five converge on the same three-layer productization pattern:
 Three published deliverables. **`agent-framework` and `agent-core` are UNCHANGED and stay neutral.**
 
 1. **`@robota-sdk/agent-product` (new, published)** — the product-assembly kernel, exposing
-   `assembleProduct(profile)`. Extract the *product-neutral* composition of runtime materials out of
-   `cli.ts` into a pure, profile-driven library; `agent-cli` becomes a thin caller that binds its own
-   presentation. **(Mode A gateway.)**
+   `assembleProduct(profile)` as a **pure, deterministic, IO-free fold** over `IProductProfile` data (a peer
+   of `resolvePreset` / `mergeSettings` / `mergeCapabilityPacks`; see § "The pure-fold property"). Extract
+   the *product-neutral* composition of runtime materials out of `cli.ts` into that pure library; `agent-cli`
+   becomes a thin caller that resolves settings/args/env and binds its own presentation. **(Mode A gateway.)**
 2. **`@robota-sdk/agent-capability-pack` (new, published)** — the `ICapabilityPack` contract + a pure
    registry merger. Tool/command/subagent bundles as the *additive* composition unit. Mirrors
    `agent-preset` exactly (contract + pure merger, no IO). **(Mode C additive axis.)**
@@ -249,8 +281,10 @@ architecture:
   transport/presentation adapters — arrives as the `IProductProfile` **data argument**. `robota` becomes
   *one* profile among many; an external repo brings its own. This is precisely the rule's own remedy —
   "the reusable, product-agnostic capability lives in the framework/transport layers" and "reuse is
-  achieved by sharing lower-layer materials." A generic profile-driven assembler **is** a lower-layer
-  material (a composition mechanism), not a shared product.
+  achieved by sharing lower-layer materials." A **pure, IO-free, data-driven assembler that hard-codes no
+  product's choices is** a lower-layer material (a composition mechanism), not a shared product.
+
+The carve-out rests on the pure-fold property below — **not** on "profile-driven" alone.
 
 The invariant that keeps this honest: **`agent-product` never imports a concrete transport, presentation,
 or the CLI.** It must NOT depend on `agent-transport-tui`, `agent-transport-ws`, or `agent-cli`. Concrete
@@ -261,11 +295,76 @@ build the neutral runtime materials, then binds its own TUI. That satisfies the 
 "Orchestrator/adapter split" (L122) and "Composable material first" (L120): concrete I/O lives in injected
 adapters; only the neutral assembly kernel is extracted.
 
-> **This is the load-bearing decision GATE-APPROVAL must test.** If the reviewers judge that a
-> profile-driven assembler still counts as a "shared product factory," the fallback is Alternative (iii-b)
-> (keep the composition in `agent-cli` and publish only the *materials* + a documented assembly recipe).
-> Either way, L129 likely needs a one-line clarification carving out the profile-driven-neutral-assembler
-> case — that amendment is proposed here but decided at the gate, not landed unilaterally.
+### The pure-fold property — what makes the carve-out safe (R1)
+
+"Profile-driven" is **not sufficient**: a profile-driven function could still accrete
+`if (profile.id === 'robota') { … }` branches and quietly become a de-facto shared product factory — the
+exact thing L129 forbids. The carve-out therefore rests on a stronger, **mechanically-enforced** property:
+
+> **`assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile` DATA, with ZERO
+> product-specific branching.** It reads only its argument, calls only pure sub-folds
+> (`resolvePreset` / `mergeSettings` / `mergeCapabilityPacks`) and the framework's runtime-construction
+> seam, and returns assembled materials. It is a **peer** of the repo's already-blessed pure folds
+> (`resolve-preset.ts` `resolvePreset`, `command-api/provider/provider-merge.ts` `mergeSettings`), which
+> the architecture already accepts as neutral lower-layer materials.
+
+This property is enforced at **P0** by **three mechanical guards** (all landing with the extraction):
+
+1. **(a) Dependency-graph neutrality.** `agent-product`'s `package.json` declares **no** concrete
+   transport/TUI/agent-cli dependency (`agent-transport-*`, `agent-cli`) — enforced by
+   `check-dependency-direction.mjs` plus the neutrality dependency-graph test in the Test Plan (importing
+   `@robota-sdk/agent-product` pulls no `agent-transport-*` / `agent-cli` code).
+2. **(b) Purity / no-IO assertion.** No `fs`, settings-file, or `process.env` read inside `agent-product` —
+   all resolved data (settings values, env, args) is fed IN from the shell. Enforced by a source scan over
+   the package (`node:fs`/`process.env`/settings-reader imports are disallowed) so the fold cannot silently
+   acquire IO.
+3. **(c) No product-name conditionals.** A guard forbids product-identity conditionals in `agent-product`
+   source (e.g. a `profile.id === '…'` / `agentName === '…'` branch), so the fold cannot special-case any
+   one product. This is what upgrades "profile-driven" into "hard-codes no product's choices".
+
+**Proposed L129 amendment (precise wording — lands WITH P0, coupled to the guards above):** carve out
+
+> "a **pure, IO-free, data-driven assembler that hard-codes no product's choices**"
+
+— explicitly **NOT** "profile-driven assemblers" generally (which would re-open the hole). The amendment is
+deliberately coupled to guards (a)/(b)/(c): the rule relaxation is only ever true while the mechanical
+guards hold, so the rule and its enforcement land together, not the rule alone.
+
+> **Governance flag (owner visibility).** Editing L129 (`feedback_no_shared_cli_factory` in
+> `project-structure.md`) is a **governance change** to a mandatory rule. It is proposed here and, per the
+> GATE-APPROVAL outcome, lands **with P0** (bundled with guards (a)/(b)/(c)) rather than unilaterally
+> ahead of them. If the guards cannot be made to hold, the fallback is Alternative (iii-b) (publish only
+> the materials + a documented assembly recipe, no `assembleProduct`) and L129 stays unchanged.
+
+### Single-runtime-seam invariant — reconcile with RUNTIME-001 (R2)
+
+`agent-product` MUST **delegate runtime construction** to `agent-framework`'s existing seam —
+`buildRuntimeSession` / `createInteractiveRuntime` / `startRuntimeHost`
+(`packages/agent-framework/src/runtime/runtime-host.ts:11-15`,
+`interaction/createInteractiveRuntime.ts:103`) — and **NEVER re-implement it.** RUNTIME-001 already decided
+that the neutral runtime host lives in the framework, "NOT the product shell (`agent-cli`) and NOT a new
+package: it is presentation/product-neutral (takes already-resolved options; settings/first-run/preset
+resolution stay in the consumer)."
+
+The reconciliation, so there is **no competing runtime-construction SSOT**:
+
+- `buildRuntimeSession`/`startRuntimeHost` (framework) = the **runtime-construction seam** — takes
+  *already-resolved* `TInteractiveSessionOptions`. This does not move.
+- `assembleProduct` (agent-product) = the **preset/pack/provider-DEFINITION fold that sits ABOVE that
+  seam** — it resolves presets, merges capability packs, and constructs the provider from
+  `IProviderDefinition[]` + resolved settings, then feeds the result INTO `buildRuntimeSession`. The
+  framework itself cannot host this fold because it would require the framework to depend on
+  `agent-preset` / `agent-capability-pack`, reversing the one-way `preset → framework` edge.
+- **Settings / args / env resolution STILL stays in the shell (`cli.ts`).** `agent-product` receives
+  already-resolved data (per guard (b)); it never reads settings/env itself. So the three layers are
+  disjoint: shell resolves inputs → `assembleProduct` folds definitions into materials → framework's seam
+  constructs the runtime. Each concern has exactly one owner.
+
+> **This was the load-bearing decision GATE-APPROVAL tested — both reviewers endorsed it.** If a future
+> reviewer were to judge that even a pure-fold assembler counts as a "shared product factory," the fallback
+> is Alternative (iii-b) (keep the composition in `agent-cli` and publish only the *materials* + a
+> documented assembly recipe). The L129 amendment above is the coupled governance change; it lands with P0,
+> not unilaterally.
 
 **Dependency direction (no cycles; framework/core untouched):**
 
@@ -283,23 +382,67 @@ agent-cli                        (product shell: brings concrete transports/TUI/
 
 - `agent-capability-pack` placement mirrors the **Preset Package Rule** verbatim: it depends on
   `agent-framework` **for option/contract types only** (`ICommandModule`, `IAgentDefinition`) and on
-  `agent-core` for tool types; it declares no classes with IO and must not re-export `agent-framework`. It
-  is a *contract + pure `mergeCapabilityPacks`* package, the additive analog of `resolvePreset`.
+  `agent-core` for the real tool contract (`FunctionTool`, `agent-core/src/index.ts:175` — R7b, NOT a
+  nonexistent `IToolContribution`); it declares no classes with IO and must not re-export `agent-framework`.
+  It is a *contract + pure `mergeCapabilityPacks`* package, the additive analog of `resolvePreset`.
 - `agent-product` sits **above** `agent-command`/`agent-preset`/`agent-capability-pack` and **below**
   `agent-cli`. Its only workspace deps are `agent-framework` (runtime/session assembly entry),
-  `agent-preset` (resolver), and `agent-capability-pack` (merger). The concrete `createDefault*` runners,
+  `agent-preset` (resolver), `agent-capability-pack` (merger), and **type-only** `agent-interface-transport`
+  (the `ITransportRegistryView` view interface — re-exportable via framework; the concrete
+  `TransportRegistry` class in `agent-transport` is NOT a dep). The concrete `createDefault*` runners,
   `WsTransport`, and TUI are **not** deps — they are injected via the profile.
 - The reverse edges (`agent-framework → agent-product`, `agent-product → agent-cli`,
   `agent-product → agent-transport-*`) must never exist; enforced by
   `check-dependency-direction.mjs` (one-way `package.json` edges, no allowlist entry needed — same
   mechanism that governs `agent-preset`).
 
+### In-kernel vs stays-in-shell — the extraction boundary (R3/R4)
+
+The value of ARCH-005 is **not** proportional to lines moved out of `cli.ts`. Most of `startCli` is
+legitimate product-shell and **stays in `agent-cli`**. Only the narrow product-neutral subset moves into
+`agent-product`. The boundary is drawn precisely so reviewers can confirm the kernel is **closed over
+data**:
+
+| Concern | Destination | Rationale |
+| --- | --- | --- |
+| External-preset registration + preset-resolve glue (`loadExternalPresets` result → per-call resolver) | **In-kernel** (`agent-product`) | pure fold over preset DATA (settings/file read happens in shell, result passed in) |
+| Command-module selection / merge glue | **In-kernel** | pure selection over module DATA |
+| `mergeCapabilityPacks` (additive pack merge) | **In-kernel** | pure fold, additive analog of `resolvePreset` |
+| Provider construction FROM `IProviderDefinition[]` + already-resolved settings | **In-kernel** | pure over definitions + injected settings data (no settings-file read) |
+| Runtime-build **delegation** to `buildRuntimeSession`/`startRuntimeHost` | **In-kernel** (delegates, never re-implements — see R2) | single framework seam |
+| `init` / `--configure` / `ensureConfig` flows | **Stays-in-shell** (`agent-cli`) | interactive IO, file writes |
+| All `terminal.write*` notices / first-run onboarding | **Stays-in-shell** | presentation |
+| Session resume / continue / fork UX | **Stays-in-shell** | interactive UX + store IO |
+| Arg parsing; settings/env reads | **Stays-in-shell** | resolves inputs, feeds resolved DATA into the kernel |
+| Mode dispatch (print / serve / TUI) + `process.exit` | **Stays-in-shell** | presentation + process lifecycle |
+| Concrete transports (`WsTransport`), TUI (`renderApp`/`createDefaultTuiCliAdapter`), remote-control, `createDefault*` adapters | **Stays-in-shell** (injected into the profile) | concrete I/O adapters |
+
+**The DATA seam (what crosses into `assembleProduct` vs what stays behind — R4).** Everything the kernel
+consumes is plain, already-resolved DATA supplied by the shell; nothing the kernel does reaches back out to
+IO. **Crosses IN** (as `IProductProfile` fields): identity/branding values, `IProviderDefinition[]` +
+already-resolved provider settings, `IPreset[]` + `defaultPresetId`, `ICapabilityPack[]` +
+`baseCommandModules`, and injected plumbing (`backgroundTaskRunners`, `subagentRunnerFactory`,
+`transports`). **Stays in `cli.ts`** (never crosses): the settings/env/arg *reads* that produce those
+values, all `terminal.write*`, first-run/onboarding, mode dispatch, and `process.exit`. Because the seam is
+closed over data, the P0 refactor can be verified as a pure move (below).
+
+**P0 byte-identical claim — scoped (R4).** The "byte-identical pure-refactor" bar applies to **the extracted
+neutral subset only** (the In-kernel rows): after the move, `cli.ts` must produce an **identical runtime
+assembly** through `assembleProduct` — same provider, same command-module set, same preset resolution, same
+transport registry — with **zero** behavioral diff. The done-gate is unchanged: `robota` CLI golden + full
+`agent-cli` + `agent-transport-tui` suites green + reviewer confirmation that the assembled runtime is
+identical.
+
 ### Contract sketches (validated/refined at the gate — signatures are directional)
 
 ```ts
 // @robota-sdk/agent-capability-pack — additive capability bundle (contract + pure merger, mirrors agent-preset)
 import type { ICommandModule, IAgentDefinition } from '@robota-sdk/agent-framework';
-import type { /* tool factory/definition type */ IToolContribution } from '@robota-sdk/agent-core';
+// R7(b): the tool field targets a REAL agent-core tool contract — `FunctionTool` / the tool-registration
+// definition (`agent-core/src/index.ts:175`, exported alongside `ToolRegistry`). There is NO
+// `IToolContribution` type; using a real contract is load-bearing for the acyclicity claim and is resolved
+// BEFORE P1 (not deferred to the gate).
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 export interface ICapabilityPack {
   id: string;
@@ -307,26 +450,45 @@ export interface ICapabilityPack {
   description?: string;
   // All additive, all optional — merged INTO the assembled runtime (never subtractive):
   commandModules?: readonly ICommandModule[];
-  tools?: readonly IToolContribution[];
+  tools?: readonly FunctionTool[];
   subagents?: readonly IAgentDefinition[];
 }
 
+// R5: mirror IPresetRegistrationResult (resolve-preset.ts:60-95) — return the merged set AND a rejection
+// channel, never a bare array. `ICommandModule.name` and tool names can collide across packs, against
+// `baseCommandModules`, and against a preset's enabled/disabledCommandModules delta.
 export interface IMergedCapabilities {
-  commandModules: readonly ICommandModule[];
-  tools: readonly IToolContribution[];
-  subagents: readonly IAgentDefinition[];
+  merged: {
+    commandModules: readonly ICommandModule[];
+    tools: readonly FunctionTool[];
+    subagents: readonly IAgentDefinition[];
+  };
+  rejected: readonly { kind: 'commandModule' | 'tool' | 'subagent'; id: string; reason: string }[];
 }
 
-// Pure, deterministic, IO-free — the additive analog of resolvePreset. Conflict policy (id collision
-// across packs) resolved here, mirroring registerExternalPresets' "first wins / report rejection".
-export function mergeCapabilityPacks(packs: readonly ICapabilityPack[]): IMergedCapabilities;
+// Pure, deterministic, IO-free — the additive analog of resolvePreset.
+// Precedence (ONE order, no silent override): `baseCommandModules` < packs in profile order. A later id
+// (across packs, or colliding with a base module / earlier pack) that duplicates an already-claimed id is
+// REJECTED and reported in `rejected` — NEVER silently overridden (mirrors registerExternalPresets'
+// "first registration wins / report rejection"). The preset's enabled/disabledCommandModules delta is
+// applied AFTER this merge by `buildCommandSetup` as it does today — this merger only produces the base
+// ⊕ pack superset that the preset delta then filters; the two compose, they do not fight.
+export function mergeCapabilityPacks(
+  baseCommandModules: readonly ICommandModule[],
+  packs: readonly ICapabilityPack[],
+): IMergedCapabilities;
 ```
 
 ```ts
 // @robota-sdk/agent-product — the product-assembly kernel
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
 import type { ICommandModule, IBackgroundTaskRunner, TSubagentRunnerFactory,
-              ITransportRegistry, IInteractiveRuntime } from '@robota-sdk/agent-framework';
+              IInteractiveRuntime } from '@robota-sdk/agent-framework';
+// R7(a): the transports field targets the READ-ONLY registry VIEW interface
+// `ITransportRegistryView` (from `@robota-sdk/agent-interface-transport`,
+// `transport-config.ts:24`; re-exportable via agent-framework). There is NO `ITransportRegistry` type;
+// the concrete `TransportRegistry` CLASS lives in `agent-transport` and must NOT be a dep of agent-product.
+import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 
@@ -351,18 +513,25 @@ export interface IProductProfile {
   // (5) injected runtime plumbing (concrete I/O stays product-owned — NOT hardcoded in agent-product)
   backgroundTaskRunners?: readonly IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
-  transports?: readonly ITransportRegistry[] | ((...) => ITransportRegistry);
+  transports?: ITransportRegistryView | (() => ITransportRegistryView);
 }
 
 export interface IAssembledProduct {
   provider: IAIProvider;                       // resolved from providerDefinitions + settings
-  commandModules: readonly ICommandModule[];   // baseCommandModules ⊕ merged pack modules
-  resolvePreset: (id: string) => /* IResolvedPresetOptions */ unknown;   // bound over registered presets
-  buildRuntime: (channelBinding: /* … */ unknown) => IInteractiveRuntime; // neutral runtime; product binds presentation
+  commandModules: readonly ICommandModule[];   // baseCommandModules ⊕ merged pack modules (see mergeCapabilityPacks)
+  rejectedCapabilities: readonly { kind: string; id: string; reason: string }[]; // surfaced from the merge
+  // R8: a PER-CALL (instance-scoped) resolver bound over THIS profile's presets. `assembleProduct` MUST
+  // NOT mutate agent-preset's module-level `externalPresets` global (resolve-preset.ts:46,76-103): two
+  // products in one process would share one registry and repeat calls would accumulate / hit duplicate-id
+  // rejections. The fold builds its own instance-scoped registry, keeping it pure w.r.t. process state
+  // (reinforcing the R1 purity property). Single-product-per-process is NOT assumed.
+  resolvePreset: (id: string) => /* IResolvedPresetOptions */ unknown;
+  buildRuntime: (channelBinding: /* … */ unknown) => IInteractiveRuntime; // DELEGATES to buildRuntimeSession (R2)
   // …session store / memory options / transport registry as neutral materials the shell consumes
 }
 
-// The single composition function. Product-agnostic: everything product-specific is in `profile`.
+// The single composition function — a PURE, deterministic, IO-free fold (R1). Product-agnostic:
+// everything product-specific is in `profile`; it reads no settings/env/fs and hard-codes no product's id.
 export function assembleProduct(profile: IProductProfile): IAssembledProduct;
 ```
 
@@ -379,11 +548,31 @@ tools/commands (that is pack territory); the profile carries neither behavior no
 
 Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
 
-- **Packs are opt-in and never self-activate.** Following ESLint ("plugins cannot force a specific
-  configuration to be used"), a pack contributes only when the `IProductProfile` lists it. Merge semantics
-  are additive concatenation/override, never silent global mutation. `ICapabilityPack` stays **inert,
-  introspectable data** so `assembleProduct` can enumerate a pack's contributions and let the
-  profile/permission layer gate them *before* activation.
+- **Packs are opt-in; contributed code runs only through the permission-gated runtime.** Following ESLint
+  ("plugins cannot force a specific configuration to be used"), a pack contributes only when the
+  `IProductProfile` lists it. A pack is **not "inert JSON"** — it carries **executable code objects**
+  (`ICommandModule` with `systemCommands` handlers, tools with `execute` fns; the profile also carries
+  factory fns), passed as an **in-process composition argument** (not a serialization boundary, so the
+  no-function-across-serialization criterion is **N/A** — see the VS Code prior-art caveat). The honest
+  safety property is: **the merge is pure (`assembleProduct` executes none of that code); a contributed
+  command/tool runs ONLY through the existing permission-gated runtime (`PermissionEnforcer`) at call
+  time.** `assembleProduct` enumerates a pack's contributions so the profile/permission layer gates them
+  *before* activation; merge semantics are additive concatenation/override with an explicit rejection
+  channel, never silent global mutation.
+- **The merge has ONE precedence order and a rejection channel (R5).** `mergeCapabilityPacks` returns
+  `{ merged, rejected }` (mirroring `IPresetRegistrationResult`). Order: `baseCommandModules` < packs in
+  profile order; a later id that duplicates an already-claimed id is rejected+reported, never silently
+  overridden. This runs *before* the preset's enabled/disabledCommandModules delta that `buildCommandSetup`
+  already applies — the merge produces the base ⊕ pack superset, the preset delta then filters it; they
+  compose.
+- **Runtime construction is delegated, never re-implemented (R2).** `assembleProduct` DELEGATES to
+  `agent-framework`'s `buildRuntimeSession` / `createInteractiveRuntime` / `startRuntimeHost`
+  (`runtime-host.ts:11-15`) — there is no competing runtime-construction SSOT. The fold sits ABOVE that
+  seam (preset/pack/provider-definition resolution); settings/args/env resolution stays in the shell.
+- **The preset registry is per-call, not a mutated global (R8).** `assembleProduct` builds an
+  instance-scoped preset resolver over the profile's presets; it MUST NOT push into agent-preset's
+  module-level `externalPresets` array (`resolve-preset.ts:46,76-103`), so two products in one process do
+  not share one registry and repeat calls do not accumulate. This keeps the fold pure w.r.t. process state.
 - **"Preset" is deliberately narrowed vs industry usage.** Docusaurus/`create-react-app` "preset" means a
   *bundle of plugins/themes* — i.e. what Robota calls a *pack* + *profile*. ARCH-005 narrows `IPreset` to
   behavior/persona only and splits the bundle role into `ICapabilityPack` (capability) + `IProductProfile`
@@ -404,9 +593,13 @@ Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
 
 ### Staged delivery (no big-bang)
 
-- **P0 — pure refactor.** Extract the product-neutral composition kernel from `cli.ts` into
-  `agent-product`; `cli.ts` calls `assembleProduct` and keeps its own transport/TUI binding. **`robota`
-  behavior byte-identical** (CLI golden + full `agent-cli`/`agent-transport-tui` suites green).
+- **P0 — pure refactor + the guards + the coupled L129 amendment.** Extract *only the neutral In-kernel
+  subset* (see the boundary table) from `cli.ts` into `agent-product`; `cli.ts` calls `assembleProduct` and
+  keeps its own transport/TUI binding, settings/args/env resolution, and mode dispatch. Land the **three
+  R1 guards** (a) dependency-graph neutrality, (b) purity/no-IO scan, (c) no product-name conditionals — and
+  the **coupled L129 amendment** (governance-flagged) in the same stage. **`robota` behavior byte-identical
+  for the extracted subset** (CLI golden + full `agent-cli`/`agent-transport-tui` suites green; reviewer
+  confirms an identical runtime assembly).
 - **P1 — `assembleProduct` + re-express `robota` as a profile.** The CLI's provider/preset/command choices
   become an `IProductProfile` value; publish `agent-product` + document Mode A/B/C imports.
 - **P2 — `ICapabilityPack` + first additive pack.** Land `agent-capability-pack` and its first non-coding
@@ -447,7 +640,7 @@ const acmeReviewer: IPreset = {
 const product = assembleProduct({
   id: 'acme-review-tool',
   providerDefinitions: defaultProviderDefinitions,
-  presets: [acmeReviewer],       // registered via registerExternalPresets under the hood
+  presets: [acmeReviewer],       // resolved via a PER-CALL instance-scoped registry (R8) — not a global mutation
   defaultPresetId: 'acme-reviewer',
 });
 ```
@@ -496,19 +689,22 @@ lives in its own contract. Keeping them separate is what the responsibility-spli
 
 - *(iii-a) Fold it into `agent-framework`.* **Rejected.** `agent-framework` is the neutral assembly layer
   and must stay free of *product-assembly opinion* (provider-default selection, preset registration,
-  capability-pack merging, product identity). Even profile-driven, `assembleProduct` is a higher-altitude
+  capability-pack merging, product identity). Even as a pure fold, `assembleProduct` is a higher-altitude
   concern than session/runtime assembly; folding it in blurs the framework's neutrality and would drag the
   `agent-preset`/`agent-capability-pack` dependency *into* the framework (today `agent-preset → framework`,
-  never the reverse). A dedicated `agent-product` package keeps the direction clean.
+  never the reverse) — the same one-way edge RUNTIME-001 preserves for the runtime host (R2). A dedicated
+  `agent-product` package keeps the direction clean.
 - *(iii-b) Publish only the materials + a documented assembly recipe; no `assembleProduct` at all.*
-  **The fallback if GATE-APPROVAL rules against the profile-driven assembler.** Externals would copy an
+  **The fallback if the pure-fold guards cannot be made to hold.** Externals would copy an
   assembly recipe from a guide/`examples/` (like the current per-product-assembly rule prescribes). Costs:
   every external product re-implements and must *track* the composition root's evolution by hand — the
-  exact maintenance burden `assembleProduct` removes. Chosen only if the reviewers judge a published
-  assembler an unacceptable "shared product factory."
+  exact maintenance burden `assembleProduct` removes. Chosen only if the R1 guards (a)/(b)/(c) prove
+  infeasible, i.e. a pure IO-free assembler that hard-codes no product's choices cannot be enforced.
 
-**Chosen:** deliverable set (1)+(2)+(3) with `assembleProduct` in a new `agent-product`, contingent on
-GATE-APPROVAL affirming the profile-driven-assembler reconciliation of L129.
+**Chosen:** deliverable set (1)+(2)+(3) with `assembleProduct` in a new `agent-product`. GATE-APPROVAL
+(2026-07-25) **affirmed** the pure-fold reconciliation of L129 (both reviewers endorsed the direction; see
+the Evidence Log). The reconciliation rests on the mechanically-enforced pure-fold property + coupled L129
+amendment, NOT on "profile-driven" alone.
 
 ## Licensing
 
@@ -522,19 +718,32 @@ out of scope for ARCH-005 and tracked separately when the owner decides the post
 
 ## Test Plan
 
-**P0 — pure-refactor equivalence (byte-identical `robota`).**
+**P0 — pure-refactor equivalence (byte-identical for the extracted subset, R4) + the R1 guards.**
 - `robota` CLI **golden** output tests unchanged and green (help/version/print-mode goldens).
 - Full `agent-cli` + `agent-transport-tui` suites green with **zero** behavioral diff.
-- Mechanical guard: the P0 extraction is a *move*, not a *change* — reviewers confirm `cli.ts` produces an
-  identical runtime assembly through `assembleProduct` (same provider, same command-module set, same
-  preset resolution, same transport registry).
+- Mechanical guard: the P0 extraction is a *move* of the neutral In-kernel subset only, not a *change* —
+  reviewers confirm `cli.ts` produces an identical runtime assembly through `assembleProduct` (same
+  provider, same command-module set, same preset resolution, same transport registry). The byte-identical
+  bar is scoped to that subset; the shell (init/configure, notices, mode dispatch) is unchanged.
+- **R1 guard (a) — dependency-graph neutrality:** `check-dependency-direction.mjs` + a dependency-graph
+  test that importing `@robota-sdk/agent-product` pulls **no** `agent-transport-*` / `agent-cli` code.
+- **R1 guard (b) — purity/no-IO scan:** a source scan over `agent-product` forbidding `node:fs`,
+  `process.env`, and settings-reader reads (all resolved data is fed in from the shell).
+- **R1 guard (c) — no product-name conditionals:** a scan forbidding product-identity conditionals
+  (`profile.id === '…'` / `agentName === '…'`) in `agent-product` source.
+- **Coupled L129 amendment landed** with the guards (governance-flagged edit to
+  `feedback_no_shared_cli_factory`).
 
 **New public surfaces — red-first contract tests.**
-- `mergeCapabilityPacks`: additive merge, deterministic order, id-collision policy (red-first: assert the
-  merged set contains a pack's contributed module *before* the merger exists).
-- `assembleProduct`: profile → assembled materials (provider resolved, base ⊕ pack modules merged,
-  external presets registered, `defaultPresetId` honored); neutrality assertion — importing
-  `@robota-sdk/agent-product` pulls **no** `agent-transport-*` / `agent-cli` code (dependency-graph test).
+- `mergeCapabilityPacks(baseCommandModules, packs)`: additive merge, deterministic profile-order precedence,
+  and the **`{ merged, rejected }` contract (R5)** — red-first assert (1) the merged set contains a pack's
+  contributed module *before* the merger exists, and (2) a colliding id (across packs / against a base
+  module) appears in `rejected` with a reason and is NOT silently overridden.
+- `assembleProduct`: profile → assembled materials (provider resolved from `IProviderDefinition[]` +
+  injected settings, base ⊕ pack modules merged, `rejectedCapabilities` surfaced, presets resolved via a
+  **per-call instance-scoped registry (R8)** — assert two `assembleProduct` calls in one process do NOT
+  cross-contaminate or accumulate duplicate-id rejections, `defaultPresetId` honored); runtime construction
+  **delegates** to `buildRuntimeSession` (R2 — assert no re-implemented session construction).
 - `check-spec-public-surface` baseline entries for both new packages (Public API tables complete).
 
 **External-consumer smoke — the done-gate agent-run evidence.**
@@ -566,3 +775,71 @@ runs the smoke itself; no owner manual step), per the agent-run capability-verif
 The **external-consumer smoke** (Test Plan) is the backing, agent-run evidence for all three scenarios and
 the done-gate; the scenario catalog entry is authored at implementation time under
 `.agents/evals/scenarios/` and each backing test is run by the agent itself.
+
+## Evidence Log
+
+### [GATE-WRITE] — ✅ PASS | 2026-07-25
+
+- Prior Art Research: substantiated (`prior-art-researcher`: Backstage `createBackend()` composition root,
+  Docusaurus preset=plugin/theme bundle, ESLint plugin `{configs,rules,processors}` + "cannot force"
+  additive rule, Claude Agent SDK `plugins`/`query(options)`, VS Code `contributes`) → `PRIOR_ART_RESEARCH:
+  FOUND`; scan-spec-research green.
+- Frontmatter (status/type INFRA/tags) present; `type: INFRA` chosen because `ARCH` is not one of the 11
+  accepted SDLC types (the `ARCH-005` filename keeps its namespace).
+- Three deliverables framed: `@robota-sdk/agent-product` (`assembleProduct`), `@robota-sdk/agent-capability-pack`
+  (`ICapabilityPack` + merger), existing `agent-preset` for behavior/persona.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-07-25
+
+Two independent reviewers — `proposal-reviewer` + `architecture-auditor` — **both ENDORSED THE DIRECTION**
+and returned **REVISE** with a convergent, complementary set of required spec refinements. Verdict framing:
+
+- **Deliverable 2 (`agent-capability-pack`)** and **deliverable 3 (`agent-preset` external exposure)** were
+  **endorsed as correct**.
+- **Deliverable 1 (`agent-product` / `assembleProduct`)** is a **defensible direction** contingent on the
+  justification/contract refinements below (chiefly: the carve-out must rest on a mechanically-enforced
+  pure-fold property, not "profile-driven" alone).
+
+All eight REVISE items were folded into this spec:
+
+1. **R1 — pure-fold property + 3 P0 guards + precise L129 wording.** Folded into `## Decision` §
+   "The pure-fold property" (new subsection): `assembleProduct` defined as a pure, deterministic, IO-free
+   fold and peer of `resolvePreset`/`mergeSettings`/`mergeCapabilityPacks`, enforced by guards (a)
+   dependency-graph neutrality, (b) purity/no-IO scan, (c) no product-name conditionals. Precise L129
+   amendment wording ("a pure, IO-free, data-driven assembler that hard-codes no product's choices" — NOT
+   "profile-driven assemblers" generally). Amendment coupled to P0 guards + flagged as a governance change.
+   Also reflected in the header note, deliverable-1 blurb, staged-delivery P0, and Test Plan P0 guards.
+2. **R2 — single-runtime-seam invariant + RUNTIME-001 reconciliation.** Folded into `## Decision` §
+   "Single-runtime-seam invariant": `agent-product` delegates to `buildRuntimeSession` /
+   `createInteractiveRuntime` / `startRuntimeHost` (`runtime-host.ts:11-15`) and never re-implements;
+   `assembleProduct` is the fold ABOVE that seam; settings/args/env stay in the shell. No competing SSOT.
+3. **R3 — corrected the "502-line kernel" characterization + boundary table.** Folded into the linchpin-gap
+   intro (most of `startCli` is legitimate product-shell that STAYS) and the new `## Decision` §
+   "In-kernel vs stays-in-shell" table. Framing that value ∝ lines moved removed.
+4. **R4 — P0 byte-identical claim scoped + DATA seam shown.** Folded into the boundary-table section (the
+   DATA seam: what crosses into `assembleProduct` vs what stays in `cli.ts`) and staged-delivery/Test-Plan
+   P0 (bar scoped to the extracted neutral subset; done-gate unchanged).
+5. **R5 — `mergeCapabilityPacks` conflict-resolution contract.** Folded into the capability-pack contract
+   sketch (returns `{ merged, rejected }` mirroring `IPresetRegistrationResult`; takes `baseCommandModules`)
+   and a responsibility-split invariant defining ONE precedence order (`baseCommandModules` < packs in
+   profile order; colliding later id rejected+reported, never silently overridden) and how it composes with
+   the preset enabled/disabled delta `buildCommandSetup` applies.
+6. **R6 — restated the pack safety property honestly (not "inert JSON").** Folded into the VS Code prior-art
+   reference (packs carry executable code objects; no-function-across-serialization criterion N/A because a
+   pack is an in-process composition arg), the "Contract layer must stay IO-free" constraint, and the
+   "packs are opt-in" invariant (contributed commands/tools execute only through the permission-gated
+   runtime `PermissionEnforcer` at call time).
+7. **R7 — fixed seam typing to real/named contracts.** Folded into both contract sketches: (a) `transports`
+   targets `ITransportRegistryView` (`agent-interface-transport`, `transport-config.ts:24`) — not the
+   nonexistent `ITransportRegistry`; concrete `TransportRegistry` stays out of `agent-product`'s deps;
+   (b) pack `tools` use the real `agent-core` `FunctionTool` contract (`agent-core/src/index.ts:175`) — not
+   the nonexistent `IToolContribution`. Both marked resolved BEFORE P1 (load-bearing for acyclicity).
+8. **R8 — per-call preset registry (reentrancy).** Folded into the `IAssembledProduct` sketch + a
+   responsibility-split invariant: `assembleProduct` builds a per-call instance-scoped preset resolver and
+   MUST NOT mutate agent-preset's module-level `externalPresets` global (`resolve-preset.ts:46,76-103`);
+   Mode B example comment corrected; Test Plan asserts two calls in one process do not cross-contaminate.
+
+**L129 governance note:** the amendment to `feedback_no_shared_cli_factory` (`project-structure.md` L129)
+carving out the pure-fold assembler lands **with P0**, coupled to guards (a)/(b)/(c) that make it safe —
+flagged here for owner visibility as a change to a mandatory rule. Status → `approved`; spec moved to
+`todo/`.
