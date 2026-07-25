@@ -11,8 +11,8 @@ import {
   createEditTool,
   createRetrievalTool,
   createComputerTool,
-  globTool,
-  grepTool,
+  createGlobTool,
+  createGrepTool,
   webFetchTool,
   webSearchTool,
 } from '@robota-sdk/agent-tools';
@@ -60,8 +60,11 @@ export function createDefaultTools(
     createReadTool(options) as IToolWithEventService,
     createWriteTool(options) as IToolWithEventService,
     createEditTool(options) as IToolWithEventService,
-    globTool as IToolWithEventService,
-    grepTool as IToolWithEventService,
+    // SEC-007: built per call, NOT the module-level singletons. A singleton is context-free by
+    // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
+    // working directory while `Read`/`Write`/`Edit` were contained.
+    createGlobTool(options) as IToolWithEventService,
+    createGrepTool(options) as IToolWithEventService,
     webFetchTool as IToolWithEventService,
     webSearchTool as IToolWithEventService,
     createAskUserQuestionTool() as IToolWithEventService,

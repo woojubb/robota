@@ -7,6 +7,10 @@
  * - count: return per-file match counts as "path:count" rows
  *
  * headLimit caps the number of result lines; excess is truncated with a marker.
+ *
+ * SEC-007: when a containment root is configured the search is confined to it. Grep is the most
+ * disclosing of the file tools — `content` mode returns the matching LINES — so it must be contained
+ * at least as strictly as `Read`, which it could otherwise stand in for.
  */
 
 import { readFile, readdir, stat } from 'node:fs/promises';
@@ -15,9 +19,10 @@ import { join, resolve } from 'node:path';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
+import { checkPathWithinCwd, isWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
+import type { IContainedBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -75,8 +80,18 @@ function matchesGlob(filename: string, glob: string | undefined): boolean {
   return globToRegex(glob).test(filename);
 }
 
-/** Gather all files under a directory recursively, excluding node_modules/.git. */
-async function collectFiles(dirPath: string, glob: string | undefined): Promise<string[]> {
+/**
+ * Gather all files under a directory recursively, excluding node_modules/.git.
+ *
+ * `containmentRoot` (SEC-007) drops any entry whose CANONICAL path escapes the root, before it is
+ * descended into or read. `stat` follows symlinks, so without this a link inside the root pointing
+ * out of it made the whole target tree readable — including, for a symlinked FILE, its contents.
+ */
+async function collectFiles(
+  dirPath: string,
+  glob: string | undefined,
+  containmentRoot: string | undefined,
+): Promise<string[]> {
   const results: string[] = [];
 
   async function walk(current: string): Promise<void> {
@@ -91,6 +106,7 @@ async function collectFiles(dirPath: string, glob: string | undefined): Promise<
       if (name === 'node_modules' || name === '.git') continue;
 
       const fullPath = join(current, name);
+      if (!isWithinCwd(fullPath, containmentRoot)) continue;
       let fileStat: Awaited<ReturnType<typeof stat>>;
       try {
         fileStat = await stat(fullPath);
@@ -168,7 +184,10 @@ function searchFile(
   return outputLines;
 }
 
-async function grepFileTool(args: TGrepArgs): Promise<string> {
+async function grepFileTool(
+  args: TGrepArgs,
+  options: IContainedBuiltinToolOptions,
+): Promise<string> {
   const {
     pattern,
     path: searchPath,
@@ -177,7 +196,14 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     outputMode = 'files_with_matches',
     headLimit,
   } = args;
-  const targetPath = searchPath ? resolve(searchPath) : process.cwd();
+  const containmentRoot = options.cwd;
+  // As in Glob: a relative `path` anchors to the containment root, so the guard root and the search
+  // root are never two different directories.
+  const searchBase = containmentRoot ?? process.cwd();
+  const targetPath = searchPath ? resolve(searchBase, searchPath) : searchBase;
+
+  const rootError = checkPathWithinCwd(targetPath, containmentRoot);
+  if (rootError) return rootError;
 
   let regex: RegExp;
   try {
@@ -208,7 +234,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
   if (targetStat.isFile()) {
     files = [targetPath];
   } else {
-    files = await collectFiles(targetPath, glob);
+    files = await collectFiles(targetPath, glob, containmentRoot);
   }
 
   // Read/scan files in parallel with bounded concurrency, but collect results
@@ -264,8 +290,8 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
 /** The registered name of the shell tool this package's default assembly ships (NEUT-002). */
 const DEFAULT_SHELL_TOOL_NAME = 'Shell';
 
-/** Options for the grep tool factory: description seam + derived shell-tool reference. */
-export interface IGrepToolOptions extends IBuiltinToolDescriptionOptions {
+/** Options for the grep tool factory: containment root + description seam + shell-tool reference. */
+export interface IGrepToolOptions extends IContainedBuiltinToolOptions {
   /**
    * Registered name of the shell tool the default description references (default: `Shell`).
    * Ignored when `description` overrides the text.
@@ -287,12 +313,15 @@ export function createGrepTool(options: IGrepToolOptions = {}): FunctionTool {
     options.description ?? buildGrepDescription(options.shellToolName ?? DEFAULT_SHELL_TOOL_NAME),
     GrepSchema,
     async (params) => {
-      return grepFileTool(params);
+      return grepFileTool(params, options);
     },
   );
 }
 
 /**
  * GrepTool instance — register with Robota agent tools registry.
+ *
+ * UNCONTAINED, deliberately — see the note on {@link globTool}. Assemblies with a session root build
+ * their own through {@link createGrepTool}.
  */
 export const grepTool = createGrepTool();
