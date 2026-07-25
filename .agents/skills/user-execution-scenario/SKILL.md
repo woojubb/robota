@@ -71,21 +71,21 @@ Entered only when PLAN returned `PLANNED`. If PLAN returned `NOT-APPLICABLE`, th
 run to the user. A scenario carrying an accepted manual label is not executed here — carry its label and
 reason forward instead.
 
-| Outcome                                         | Route                                                                                                                                   |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Observed result matches the expected observable | Record the concrete evidence in the work item's evidence field and advance to step 6.                                                   |
-| Observed result does **not** match              | Take the mismatch routing table below.                                                                                                  |
-| The scenario cannot be run in this environment  | Probe for the missing capability and record the probe before claiming absence — an unprobed absence claim is not a reason. Then `HALT`. |
+| Outcome                                         | Route                                                                                                       |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Observed result matches the expected observable | Record the concrete evidence in the work item's evidence field and advance to step 6.                       |
+| Observed result does **not** match              | Take the mismatch routing table below.                                                                      |
+| The scenario cannot be run in this environment  | Probe for the missing capability and record the probe, per the rule's absence-claim invariant. Then `HALT`. |
 
 **Mismatch routing.** A failed scenario is not automatically a failed implementation. Route by which side
 is wrong, and never by which is easier to change:
 
-| Cause                                                                                                               | Route                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The implementation is wrong                                                                                         | Return `IMPLEMENTATION-DEFECT` to the caller so it re-enters its implementation phase. Bounded: **2 fix-and-re-run rounds per scenario**.                                                |
-| The scenario is wrong — the expected observable was misstated, or the command does not drive the surface it claimed | **Return to step 1** to re-author. Bounded: **1 re-authoring**, then `HALT`. Rewriting the expectation to match observed output is forbidden — that converts the gate into a transcript. |
-| Cause cannot be determined                                                                                          | **Return `HALT`** with both hypotheses and the evidence for each. Guessing here is how a real defect gets renamed a scenario bug.                                                        |
-| Any bound above is exceeded                                                                                         | **Return `HALT`.** Repeated failure past the cap means the diagnosis is wrong, and looping cannot discover that.                                                                         |
+| Cause                                                                                                               | Route                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The implementation is wrong                                                                                         | Return `IMPLEMENTATION-DEFECT` to the caller so it re-enters its implementation phase. Bounded: **2 fix-and-re-run rounds per scenario**.                   |
+| The scenario is wrong — the expected observable was misstated, or the command does not drive the surface it claimed | **Return to step 1** to re-author, which the rule requires happen before a re-run, never after seeing the output. Bounded: **1 re-authoring**, then `HALT`. |
+| Cause cannot be determined                                                                                          | **Return `HALT`** with both hypotheses and the evidence for each. Guessing here is how a real defect gets renamed a scenario bug.                           |
+| Any bound above is exceeded                                                                                         | **Return `HALT`.** Repeated failure past the cap means the diagnosis is wrong, and looping cannot discover that.                                            |
 
 **6. Gate that every scenario was executed and matched.** Dispatch `backlog-gate-guard` for the
 executed-scenario stage.

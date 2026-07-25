@@ -178,7 +178,9 @@ must not leave the status change committed alone.
 
 **Ledger reconciliation — the undercount is systematic, not a one-off.** Phase 1 listed 44 mandatory
 statements for this rule; re-deriving from the live file found **50** (6 additions), against increment
-1's single addition. The six: (a) a coherent work unit belongs in ONE multi-commit PR, not many tiny
+1's single addition — and the review round then found a **51st** the re-derivation had also missed (a
+child PR must match its recommendation gate, not merely have green checks). The six from
+re-derivation: (a) a coherent work unit belongs in ONE multi-commit PR, not many tiny
 ones; (b) a library-only slice must NOT claim the capability done, and its epic is not COMPLETE until
 agent-run verification passes; (c) the agent never delegates the agent-run verification to the user;
 (d) at done time an unexecutable scenario must be labeled `manual-only` AND the PR description must not
@@ -201,6 +203,20 @@ BE-43 Orchestration Skill Rule → `enforcement-architecture.md`, and the Common
 fact has two owners; the two rules keep a pointer to their likely owner. `GATE VERDICT` and
 `SCENARIO DRAFTED` join `CI TRIAGE` as terminal lines not yet in `CLOSED_SIGNAL_VOCAB`, for the same
 reason increment 1 recorded.
+
+**Review round (the new gate, dogfooded on itself):** `proposal-reviewer` was dispatched on this
+increment's own recommendation and returned `REVIEW VERDICT: REVISE` — endorsing all four structural
+calls but finding three real invariant losses the mechanical checks did not catch. All were verified
+against `origin/develop` before acting, and all are fixed: the credential-prerequisite MUST (BE-35) had
+become conditional on an agent being dispatched, and its removal also falsified HARNESS-012's TC-04
+done-spec evidence (`grep -c "Scenario Design Preference Order"` → was 1, would have been 0, is 1
+again); the child-PR "matches its recommendation gate" merge condition was dropped — **a 51st mandatory
+statement neither the ledger nor this increment's own re-derivation caught**; and the rule still carried
+the self-judgement sentence the change exists to remove. Also fixed: the map claimed a mechanical floor
+for the recommendation gate that does not exist, an invariant was newly introduced _inside a skill_
+(now in the rule), and the unprobed-absence rule had three copies. The reviewer catching what a
+50-statement manual re-derivation missed is the strongest available evidence for the gate it was
+reviewing.
 
 **Rehearsed:** `backlog-gate-guard` was dispatched on a real open backlog item for `DONE-GATE-STAGE-1`
 and returned `GATE VERDICT: FAIL` on the correct criteria (missing executability label; non-exact steps

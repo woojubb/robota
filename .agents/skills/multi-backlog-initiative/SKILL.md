@@ -30,6 +30,10 @@ terminal constraint the rule places on it.
 2. More than one item genuinely belongs to it. A single item does not need a base branch — dispatch
    [backlog-execution-orchestrator](../backlog-execution-orchestrator/SKILL.md) directly and stop here.
 3. No other branch from this session is open (the one-branch-at-a-time constraint the rule owns).
+4. The items are **related** — they share files or contracts, so they must serialize. Genuinely disjoint
+   items are not an initiative: they are separate PR units, and running them concurrently is
+   [worktree-parallel-orchestration](../worktree-parallel-orchestration/SKILL.md)'s job, not this
+   pipeline's. The discriminator is the rule's PR Unit Rule § Sequence by relatedness.
 
 If any precondition fails → **terminate** and report which.
 
@@ -54,6 +58,10 @@ PR's target.
 | `COMPLETE`                                          | The child PR is merged into the base. Advance to step 3.                                                                                             |
 | `HALT`                                              | **Return `HALT`** with the item's own reason. Do not start the next item to keep momentum — the one-item-at-a-time constraint is not suspended here. |
 | The item turns out not to belong to this initiative | Drop it from the enumeration, record why, and repeat step 2 with the next item. Do not merge unrelated work into the base.                           |
+
+A child PR merges into the base only when its checks are green **and** its content matches the
+recommendation endorsed for it — the rule makes both conditions, not just the first. A mismatch goes
+back to the item's own pipeline, which re-enters its recommendation gate for the enlarged scope.
 
 A child PR whose checks are red never merges into the base. That failure belongs to the item's own
 pipeline, which owns the fix-and-re-verify loop; this level does not reach into it and does not merge

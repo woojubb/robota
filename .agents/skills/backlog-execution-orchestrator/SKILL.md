@@ -121,8 +121,14 @@ before there was none. What it does **not** change: the reviewer is a guardian, 
 the rule reserves for the user still halt for the user, and an `ENDORSE` never converts a user decision
 into an agent one.
 
-The reviewer's scope is the recommendation — the approach and its fit — not the implementation, which has
-not happened yet. Keep the dispatch that narrow.
+The artifact under review is the recommendation — the approach and its fit — not the implementation,
+which has not happened yet. That bounds what is handed over, not how hard the reviewer looks at it: its
+charter mandates testing premises against real source and checking architecture placement, and neither
+should be curtailed.
+
+**Record the verdict.** The rule requires the `REVIEW VERDICT` and its date to land in the work item or
+the PR description. Until a scan reads it, that record is the only thing distinguishing an endorsed gate
+from a self-approved one — do not skip it because nothing currently fails when you do.
 
 ## Terminate edges that belong to this level
 

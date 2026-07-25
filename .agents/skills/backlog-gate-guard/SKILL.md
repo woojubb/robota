@@ -265,6 +265,9 @@ Applies to a backlog item under `.agents/backlog/` that carries a
       **specific technical reason** — a bare "it is a UI" is not one)
 - [ ] The scenario drives a product surface. A scenario whose observable is a build, typecheck, lint, test
       run, harness check, CI check, or an inspection of repository text is **not** a scenario — FAIL
+- [ ] A scenario requiring live credentials or an external service states that prerequisite **explicitly**
+      (`backlog-execution.md` > Scenario Design Preference Order). An executor must learn the gate cannot
+      run in their environment from the scenario, not from the failure
 
 **Exception:** passes by exception only when writing a scenario is genuinely impossible AND a valid reason
 is recorded explicitly under each unwritten scenario. An unwritten scenario with no stated reason does not

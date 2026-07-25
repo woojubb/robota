@@ -66,8 +66,10 @@ PR-body disclosure only; all required retroactive review).
 
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
-If the recommendation is sound, the agent may proceed. If genuinely uncertain, the agent presents
-two to three options with trade-offs and asks the user to choose.
+A decision that falls inside agent authority by the four criteria above may be acted on; one that does
+not, or that forms part of the work unit's recommendation, goes through the Recommendation Gate below
+and is never self-approved. If genuinely uncertain, the agent presents two to three options with
+trade-offs and asks the user to choose.
 
 ---
 
@@ -96,6 +98,10 @@ revisions) is owned by
 
 An endorsement is not approval. A recommendation that requires product judgment, changes ownership
 boundaries, or introduces a new dependency direction still stops for the user.
+
+**The verdict must be recorded** — the reviewer's `REVIEW VERDICT` and its date go in the backlog item
+or the PR description. A gate whose verdict leaves no trace cannot be audited, and an unrecorded
+`ENDORSE` is indistinguishable from a self-approval.
 
 ## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
 
@@ -135,8 +141,9 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
   fan-out and to independent PR _units_, **not** to concurrently-open feature branches — the
   [One-Branch-At-A-Time rule](git-branch.md) still holds: branches are created and merged one at a time
   to avoid divergence. So: related → serial; unrelated → separate units, still merged in sequence.
-- Every PR description must include the accepted recommendation, rationale, implementation summary,
-  tests run, user execution test scenario gate result or not-applicable reason, and residual risks.
+- Every PR description must include the accepted recommendation, its `REVIEW VERDICT`, rationale,
+  implementation summary, tests run, user execution test scenario gate result or not-applicable reason,
+  and residual risks.
 
 ## User Execution Test Scenario Rule
 
@@ -174,10 +181,21 @@ User execution test scenarios are separate from the agent's engineering test pla
   documented procedure itself. It must not inspect the document to prove the document is well
   written.
 
+### Scenario Design Preference Order (mandatory for new scenarios)
+
 **Which surface a scenario should target**, and the ranked preference between them, is judgement applied
 while authoring — owned by the
 [`user-execution-scenario-author`](../../.claude/agents/user-execution-scenario-author.md) agent, not
-restated here.
+restated here. Two invariants bound that judgement wherever it happens, including when no agent is
+dispatched:
+
+- A scenario that requires live credentials or an external service **MUST state that prerequisite
+  explicitly**, so an executor without it knows the gate cannot run in their environment rather than
+  discovering it mid-gate (counter-example: CLI-053's live-LLM transcript step was unexecutable in the
+  implementing environment).
+- A scenario whose only observable requires credentials the executor may not have is a design smell —
+  restructure toward a provider-free observable or a fixture the work itself ships (worked example:
+  CLI-058's in-repo mock MCP server made the entire scenario machine-executable).
 
 Each user execution test scenario must include:
 
@@ -256,6 +274,10 @@ scenario as a final gate whenever the scenario is command-line, file-system, HTT
 otherwise available from the workspace. The gate passes only when the observed result matches the
 expected observable result, and only when the scenario was run against the completed implementation
 or delivered artifact.
+
+**Rewriting a scenario's expected result to match what was observed is forbidden** — that converts the
+gate into a transcript of whatever happened. A wrong expectation is corrected by re-authoring the
+scenario before the run, never after seeing the output.
 
 Evidence is mandatory. A user execution test scenario gate without captured evidence does not pass.
 Evidence may be command output, exit code, screenshot, log excerpt, rendered UI observation,
@@ -357,8 +379,10 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
 ## Base Branch Workflow
 
 For a multi-backlog initiative: the initiative gets a base branch cut from `develop`, each backlog gets
-a child branch and a PR into that base, and a final PR goes from the base into `develop`. **The final PR
-is never auto-merged — that decision is the user's.**
+a child branch and a PR into that base, and a final PR goes from the base into `develop`. A child PR
+merges into the base only after its checks pass **and its content matches its recommendation gate** —
+green checks alone do not authorize the merge. **The final PR is never auto-merged — that decision is
+the user's.**
 
 The ordering, the drift handling, and the failure edges are owned by
 [`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md).
@@ -398,6 +422,7 @@ Each condition below halts the work. They hold whether or not a pipeline is runn
 skills treat them as terminate edges and do not restate them.
 
 - No recommendation gate was presented for the backlog or work unit.
+- The recommendation was acted on without an independent `ENDORSE`, or with the verdict unrecorded.
 - A required runnable user-facing backlog lacks a user execution test scenario section.
 - A user execution test scenario is abstract, lacks exact commands/UI steps, or lacks expected
   observable results.
