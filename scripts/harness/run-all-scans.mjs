@@ -120,6 +120,7 @@ const SCAN_COMMANDS = [
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
   {
     name: 'composition-neutrality',
     command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],

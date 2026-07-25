@@ -54,6 +54,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { fetchAllPages } from './github-api.mjs';
 import { splitWorkflowJobs, stripComments } from './scan-ci-base-history.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -351,31 +352,19 @@ export function originSlug(root = WORKSPACE_ROOT) {
 export function reconcileLive(root = WORKSPACE_ROOT) {
   const slug = originSlug(root);
   if (!slug) return [{ context: '(live)', detail: 'could not resolve the `origin` remote slug.' }];
-  const response = spawnSync('gh', ['api', `repos/${slug}/rules/branches/${GOVERNED_BRANCH}`], {
-    cwd: root,
-    encoding: 'utf8',
-  });
-  if (response.status !== 0) {
-    return [
-      {
-        context: '(live)',
-        detail: `\`gh api repos/${slug}/rules/branches/${GOVERNED_BRANCH}\` failed: ${(response.stderr ?? '').trim() || 'no stderr'}`,
-      },
-    ];
-  }
+  // SEC-007: `/rules/branches/{branch}` is a PAGINATED collection, and it was read one page at a
+  // time. A ruleset whose rules spilled onto page two would make this scan report that `main` does
+  // not require a check it does in fact require — a false DRIFT finding, and in the other direction a
+  // rule that silently disappeared from the comparison. `fetchAllPages` walks it to exhaustion and
+  // refuses to return a list it cannot prove is complete.
   let rules;
   try {
-    rules = JSON.parse(response.stdout);
+    rules = fetchAllPages(`repos/${slug}/rules/branches/${GOVERNED_BRANCH}`).records;
   } catch (error) {
-    // A zero exit with unparseable stdout is a real shape (an auth prompt, an HTML error page, a
-    // proxy interstitial). Report it as a finding with the response text rather than throwing an
-    // opaque SyntaxError out of a scan whose whole subject is checks that fail informatively.
-    return [
-      {
-        context: '(live)',
-        detail: `\`gh api\` returned unparseable output (${error.message}): ${response.stdout.slice(0, 300)}`,
-      },
-    ];
+    // A failed or unparseable read is a real shape (an auth prompt, an HTML error page, a proxy
+    // interstitial, a truncated walk). Report it as a finding with the message rather than throwing
+    // an opaque error out of a scan whose whole subject is checks that fail informatively.
+    return [{ context: '(live)', detail: error.message }];
   }
   const live = new Set(
     rules

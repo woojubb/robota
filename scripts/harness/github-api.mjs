@@ -1,0 +1,196 @@
+#!/usr/bin/env node
+
+/**
+ * SEC-007 — the ONE way harness code reads a paginated GitHub API, and the count assertion that
+ * makes a truncated read impossible to mistake for a clean result.
+ *
+ * ## The trap this exists to close
+ *
+ * The code-scanning alerts endpoint returns records sorted by `created` DESCENDING and pages at 100.
+ * SEC-005 had just filed 98 `js/unused-local-variable` notes — the newest alerts in the repo — so
+ * they filled the entire first page and every security-severity alert sat on page 2. A single-page
+ * query therefore reported `0 high` on ANY ref, which is byte-for-byte what a genuinely clean
+ * repository looks like. That produced a reported all-clear while 40 high-severity alerts were open,
+ * and it was the SECOND time an unpaginated `gh api` produced a false all-clear in this repo
+ * (SEC-003 measured ~170 alerts only because it happened to paginate).
+ *
+ * The failure mode is what makes it dangerous: truncation is SILENT and its output is
+ * indistinguishable from success. Nothing goes red, nothing is missing, the number is just wrong.
+ *
+ * ## What "must paginate" is not enough on its own
+ *
+ * `--paginate` follows `Link: rel="next"` to exhaustion, so it is the fix — but a caller cannot tell
+ * from the output whether it worked. So every read here is CHECKED, by whichever of two invariants
+ * the endpoint supports:
+ *
+ *  - **Envelope endpoints** (`{ total_count, <items>: [...] }` — check-runs, workflow runs, search)
+ *    report the true total. The record count MUST equal it. This is the strongest form, and it also
+ *    catches a page that failed mid-walk.
+ *  - **Bare-array endpoints** (code-scanning alerts, labels, branch rules) report no total, so the
+ *    end of the walk is proven instead: the LAST page must be SHORT (fewer than `per_page` records).
+ *    A last page that is exactly full means either the walk stopped early or the collection ends on
+ *    an exact multiple — indistinguishable from the outside, and therefore not something to pass.
+ *
+ * Both are assertions, not warnings: a read that cannot prove it is complete throws rather than
+ * returning a number a caller will treat as authoritative.
+ *
+ * Usable two ways — as a module (`fetchAllPages`) and as a CLI for workflow steps:
+ *
+ *   node scripts/harness/github-api.mjs <endpoint> [--per-page N] [--jq <expr>]
+ *
+ * The CLI prints the merged records as JSON (or the `--jq` projection of them) and exits non-zero if
+ * the completeness assertion fails.
+ */
+
+import { spawnSync } from 'node:child_process';
+
+/** GitHub's maximum for `per_page` on the endpoints harness code reads. */
+export const DEFAULT_PER_PAGE = 100;
+
+/**
+ * Merge `gh api --paginate --slurp` output (an array of PAGES) into one record list.
+ *
+ * Two page shapes exist and they are told apart by structure, not by an endpoint allowlist — an
+ * allowlist would silently mis-handle the next endpoint someone reads.
+ */
+export function mergePages(pages, { endpoint = '(endpoint)' } = {}) {
+  if (!Array.isArray(pages)) {
+    throw new Error(
+      `${endpoint}: expected an array of pages from \`--slurp\`, got ${typeof pages}`,
+    );
+  }
+  if (pages.length === 0) return { records: [], total: undefined, pageSizes: [] };
+
+  // Bare-array pages: `[ [...], [...] ]`
+  if (pages.every((page) => Array.isArray(page))) {
+    return {
+      records: pages.flat(),
+      total: undefined,
+      pageSizes: pages.map((page) => page.length),
+    };
+  }
+
+  // Envelope pages: `[ { total_count, <items>: [...] }, ... ]`
+  const first = pages[0];
+  if (first === null || typeof first !== 'object') {
+    throw new Error(
+      `${endpoint}: unrecognised page shape (${JSON.stringify(first).slice(0, 120)})`,
+    );
+  }
+  const itemsKey = Object.keys(first).find((key) => Array.isArray(first[key]));
+  if (itemsKey === undefined) {
+    throw new Error(`${endpoint}: no array property on the response envelope — is it paginated?`);
+  }
+  const total = typeof first['total_count'] === 'number' ? first['total_count'] : undefined;
+  const pageSizes = pages.map((page) =>
+    Array.isArray(page?.[itemsKey]) ? page[itemsKey].length : 0,
+  );
+  return { records: pages.flatMap((page) => page?.[itemsKey] ?? []), total, pageSizes, itemsKey };
+}
+
+/**
+ * Throw unless the read can PROVE it saw every record. See the header for why each branch is the
+ * strongest available check rather than the most convenient one.
+ */
+export function assertComplete({ records, total, pageSizes, perPage, endpoint = '(endpoint)' }) {
+  if (total !== undefined) {
+    if (records.length !== total) {
+      throw new Error(
+        `${endpoint}: read ${records.length} records but the API reports total_count=${total}. ` +
+          `The read is INCOMPLETE — a partial count from a paginated endpoint is not a result.`,
+      );
+    }
+    return;
+  }
+  if (pageSizes.length === 0) return;
+  const lastPage = pageSizes[pageSizes.length - 1];
+  if (lastPage >= perPage) {
+    throw new Error(
+      `${endpoint}: the last page returned ${lastPage} records with per_page=${perPage}, so the end ` +
+        `of the collection was never observed. This endpoint reports no total_count, so a full final ` +
+        `page cannot be distinguished from a walk that stopped early.`,
+    );
+  }
+}
+
+/** Default runner: `gh api --paginate --slurp`. Injected in tests so no network is needed. */
+function ghRunner(args) {
+  return spawnSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+/**
+ * Read EVERY record from a paginated GitHub endpoint, or throw.
+ *
+ * `perPage` is appended when the endpoint does not already carry one, so a caller cannot accidentally
+ * request page size 30 (the API default) and make the completeness check weaker than it looks.
+ */
+export function fetchAllPages(endpoint, { perPage = DEFAULT_PER_PAGE, runner = ghRunner } = {}) {
+  const withPageSize = /[?&]per_page=/.test(endpoint)
+    ? endpoint
+    : `${endpoint}${endpoint.includes('?') ? '&' : '?'}per_page=${perPage}`;
+  const declared = /[?&]per_page=(\d+)/.exec(withPageSize);
+  const effectivePerPage = declared ? Number(declared[1]) : perPage;
+
+  const response = runner(['api', '--paginate', '--slurp', withPageSize]);
+  if (response.status !== 0) {
+    throw new Error(
+      `${endpoint}: \`gh api --paginate --slurp\` failed (exit ${response.status}): ` +
+        `${(response.stderr ?? '').trim() || 'no stderr'}`,
+    );
+  }
+
+  let pages;
+  try {
+    pages = JSON.parse(response.stdout);
+  } catch (error) {
+    // A zero exit with unparseable stdout is a real shape (an auth prompt, an HTML error page, a
+    // proxy interstitial). Reported as itself rather than as an opaque SyntaxError.
+    throw new Error(
+      `${endpoint}: \`gh api\` returned unparseable output (${error.message}): ` +
+        `${(response.stdout ?? '').slice(0, 300)}`,
+    );
+  }
+
+  const { records, total, pageSizes, itemsKey } = mergePages(pages, { endpoint });
+  assertComplete({ records, total, pageSizes, perPage: effectivePerPage, endpoint });
+  return { records, total, pages: pageSizes.length, itemsKey };
+}
+
+function main(argv) {
+  const endpoint = argv.find((arg) => !arg.startsWith('--'));
+  if (!endpoint) {
+    console.error('usage: github-api.mjs <endpoint> [--per-page N] [--jq <expr>]');
+    process.exit(2);
+  }
+  const perPageIdx = argv.indexOf('--per-page');
+  const jqIdx = argv.indexOf('--jq');
+  const perPage = perPageIdx === -1 ? DEFAULT_PER_PAGE : Number(argv[perPageIdx + 1]);
+
+  let result;
+  try {
+    result = fetchAllPages(endpoint, { perPage });
+  } catch (error) {
+    console.error(`::error::${error.message}`);
+    process.exit(1);
+  }
+
+  const json = JSON.stringify(result.records);
+  if (jqIdx === -1) {
+    console.log(json);
+    return;
+  }
+  const jq = spawnSync('jq', ['-r', argv[jqIdx + 1]], {
+    input: json,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (jq.status !== 0) {
+    console.error(`::error::jq failed: ${(jq.stderr ?? '').trim()}`);
+    process.exit(1);
+  }
+  process.stdout.write(jq.stdout);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main(process.argv.slice(2));
+}

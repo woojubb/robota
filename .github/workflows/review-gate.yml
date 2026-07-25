@@ -93,8 +93,17 @@ jobs:
           grace=$(( start + 300 ))
           deadline=$(( start + 900 ))
           while :; do
-            runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-                      --jq '[.check_runs[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
+            # SEC-007: `/check-runs` is PAGINATED (30 per page by default) and this commit already
+            # carries 21 check runs. Read one page at a time, the `Analyze` runs could sit on page two
+            # — and then `total` is 0 and the grace branch below concludes "nothing analysed", or
+            # worse, a partial page makes `total == done_count` and the gate reports COMPLETE while an
+            # analysis is still running. Both read exactly like a legitimate answer.
+            #
+            # `github-api.mjs` paginates AND asserts the record count against the envelope's
+            # `total_count`, so a truncated read throws instead of returning a smaller number.
+            runs="$(node scripts/harness/github-api.mjs \
+                      "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                      --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
             total="$(printf '%s' "$runs" | jq 'length')"
             done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
             echo "code-scanning analyses: ${done_count}/${total} completed"
@@ -134,6 +143,10 @@ jobs:
           # analysis RECORD is checked first. (Observed live on #1434: the alerts query returned 0
           # for the PR ref while `develop` carried 100; the analyses endpoint is what proves the
           # zero is a real, diff-informed result rather than an absence.)
+          #
+          # allow-unpaginated: a single-record EXISTENCE probe — the only question asked of this
+          # response is `length != 0`, i.e. "was this ref analysed at all?". No count is derived from
+          # it, so page two could not change the answer.
           analyses="$(gh api \
             "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=1" \
             --jq 'length' 2>/dev/null || echo 0)"
@@ -148,7 +161,10 @@ jobs:
           gh api --paginate \
             "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/heads/${BASE_REF}&per_page=100" \
             > base-alerts.json || echo "UNAVAILABLE" > base-alerts.json
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '[.[].name] | join(",")' \
+          # SEC-007: `/labels` pages at 30. An acknowledge label that landed on page two would read as
+          # "the label is absent", silently disabling the one documented override this gate has.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            --jq '[.[].name] | join(",")' \
             > pr-labels.txt || echo "" > pr-labels.txt
 
       - name: Decide
