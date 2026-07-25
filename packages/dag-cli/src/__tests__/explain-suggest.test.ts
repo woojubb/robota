@@ -2,7 +2,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { explainCommand } from '../commands/explain.js';
 import type { IExplainCommandOptions } from '../commands/explain.js';
 
-vi.mock('@robota-sdk/dag-node', () => ({
+vi.mock('@robota-sdk/dag-node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-node')>()),
   buildNodeDefinitionAssembly: vi.fn(() => ({
     ok: true,
     value: {
@@ -56,7 +57,8 @@ vi.mock('../commands/run.js', async (importOriginal) => {
   };
 });
 
-vi.mock('@robota-sdk/dag-builder', () => ({
+vi.mock('@robota-sdk/dag-builder', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-builder')>()),
   isWorkflowFileFormat: vi.fn(() => false),
   fromDagWorkflowFile: vi.fn(),
 }));
@@ -101,11 +103,11 @@ function getOutput(opts: { readonly written: string[] }): string {
 
 describe('explainCommand --suggest', () => {
   beforeEach(() => {
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test');
   });
 
   afterEach(() => {
-    delete process.env['ANTHROPIC_API_KEY'];
+    vi.unstubAllEnvs();
   });
 
   it('--help includes --suggest flag', async () => {
@@ -135,7 +137,7 @@ describe('explainCommand --suggest', () => {
   });
 
   it('shows API key hint and exits 0 when --suggest is used without key', async () => {
-    delete process.env['ANTHROPIC_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
     const opts = createOptions();
     const code = await explainCommand(['pipeline.dag.json', '--suggest'], opts);
     expect(code).toBe(0);

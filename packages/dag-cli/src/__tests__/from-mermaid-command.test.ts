@@ -7,7 +7,8 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@robota-sdk/dag-node', () => ({
+vi.mock('@robota-sdk/dag-node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-node')>()),
   buildNodeDefinitionAssembly: vi.fn(() => ({
     ok: true,
     value: {

@@ -4,8 +4,10 @@ import type { IImageGenerationResult, TProviderMediaResult } from '@robota-sdk/a
 import { GeminiImageRuntime, isImageBinaryValue } from './runtime-core.js';
 import { GoogleProvider } from '@robota-sdk/agent-provider-gemini/google';
 
-// Mock GoogleProvider so no real API calls are made
-vi.mock('@robota-sdk/agent-provider-gemini/google', () => ({
+// Partial mock: keep every other export of the module real, override only GoogleProvider so no
+// real API calls are made (the real class is never constructed).
+vi.mock('@robota-sdk/agent-provider-gemini/google', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-provider-gemini/google')>()),
   GoogleProvider: vi
     .fn()
     .mockImplementation((options: { apiKey: string; imageCapableModels: string[] }) => ({
@@ -67,32 +69,17 @@ function makeSuccessComposeResult(): TProviderMediaResult<IImageGenerationResult
 }
 
 describe('GeminiImageRuntime', () => {
-  let savedEnv: Record<string, string | undefined>;
-
   beforeEach(() => {
-    savedEnv = {
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-      DAG_GEMINI_IMAGE_DEFAULT_MODEL: process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL,
-      DAG_GEMINI_IMAGE_ALLOWED_MODELS: process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS,
-      DAG_RUNTIME_BASE_URL: process.env.DAG_RUNTIME_BASE_URL,
-      DAG_PORT: process.env.DAG_PORT,
-    };
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
-    delete process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS;
-    delete process.env.DAG_RUNTIME_BASE_URL;
-    delete process.env.DAG_PORT;
+    vi.stubEnv('GEMINI_API_KEY', undefined);
+    vi.stubEnv('DAG_GEMINI_IMAGE_DEFAULT_MODEL', undefined);
+    vi.stubEnv('DAG_GEMINI_IMAGE_ALLOWED_MODELS', undefined);
+    vi.stubEnv('DAG_RUNTIME_BASE_URL', undefined);
+    vi.stubEnv('DAG_PORT', undefined);
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    for (const [key, value] of Object.entries(savedEnv)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
+    vi.unstubAllEnvs();
   });
 
   // -----------------------------------------------------------------------
@@ -249,7 +236,7 @@ describe('GeminiImageRuntime', () => {
     });
 
     it('uses env GEMINI_API_KEY when no explicit key given', async () => {
-      process.env.GEMINI_API_KEY = 'env-test-key';
+      vi.stubEnv('GEMINI_API_KEY', 'env-test-key');
 
       const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
       vi.mocked(GoogleProvider).mockImplementation(
@@ -271,8 +258,8 @@ describe('GeminiImageRuntime', () => {
     });
 
     it('uses env DAG_GEMINI_IMAGE_DEFAULT_MODEL for default model', async () => {
-      process.env.GEMINI_API_KEY = 'test-key';
-      process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL = 'gemini-2.0-flash-exp';
+      vi.stubEnv('GEMINI_API_KEY', 'test-key');
+      vi.stubEnv('DAG_GEMINI_IMAGE_DEFAULT_MODEL', 'gemini-2.0-flash-exp');
 
       const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
       vi.mocked(GoogleProvider).mockImplementation(
@@ -294,9 +281,9 @@ describe('GeminiImageRuntime', () => {
     });
 
     it('uses env DAG_GEMINI_IMAGE_ALLOWED_MODELS as CSV', async () => {
-      process.env.GEMINI_API_KEY = 'test-key';
-      process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL = 'model-a';
-      process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS = 'model-a, model-b';
+      vi.stubEnv('GEMINI_API_KEY', 'test-key');
+      vi.stubEnv('DAG_GEMINI_IMAGE_DEFAULT_MODEL', 'model-a');
+      vi.stubEnv('DAG_GEMINI_IMAGE_ALLOWED_MODELS', 'model-a, model-b');
 
       const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
       vi.mocked(GoogleProvider).mockImplementation(

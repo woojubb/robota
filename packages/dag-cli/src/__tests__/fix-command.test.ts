@@ -6,7 +6,8 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@robota-sdk/dag-node', () => ({
+vi.mock('@robota-sdk/dag-node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-node')>()),
   buildNodeDefinitionAssembly: vi.fn(() => ({
     ok: true,
     value: {
@@ -63,7 +64,8 @@ vi.mock('../local-runner/index.js', () => ({
   })),
 }));
 
-vi.mock('@robota-sdk/dag-builder', () => ({
+vi.mock('@robota-sdk/dag-builder', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-builder')>()),
   isWorkflowFileFormat: vi.fn(() => false),
   fromDagWorkflowFile: vi.fn(),
 }));
@@ -142,12 +144,12 @@ function getOutput(opts: { readonly written: string[] }): string {
 
 describe('fixCommand', () => {
   beforeEach(() => {
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test');
     vi.mocked(writeFile).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    delete process.env['ANTHROPIC_API_KEY'];
+    vi.unstubAllEnvs();
   });
 
   it('prints help with --help', async () => {
@@ -233,7 +235,7 @@ describe('fixCommand', () => {
   });
 
   it('shows static analysis hint when no API key and no --no-llm', async () => {
-    delete process.env['ANTHROPIC_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
     const opts = createOptions(BROKEN_DAG);
     const code = await fixCommand(['broken.dag.json'], opts);
     expect(code).toBe(0);
