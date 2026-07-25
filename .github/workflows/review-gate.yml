@@ -13,6 +13,15 @@ name: Review Gate
 # INTRODUCES at severity `error` / security-severity high|critical can block. Everything else is
 # printed and counted but never blocking — this repo's ~100 open alerts are all severity `note`,
 # and a gate that went red on those would be bypassed within a day.
+#
+# Not-applicable (the #1436 correction). A docs-only PR never triggers CodeQL (`codeql.yml`
+# `paths-ignore`), so no analysis record is ever written for it. The first version of this gate read
+# that absence as "unreadable" and blocked #1436 — one backlog markdown file, zero code — for
+# 15 m 23 s, which is why the required-check entry had to be rolled back. The classification is NOT
+# re-derived here: it comes from `scripts/harness/classify-changed-paths.mjs`, the same module whose
+# verdict decides whether ci.yml's required build/test matrix runs. A PR can only be treated as
+# not-applicable by the rule that also skipped its entire code pipeline, and if that rule cannot
+# reach a verdict it answers `code=true` — so an undeterminable classification still fails closed.
 
 on:
   pull_request:
@@ -35,19 +44,47 @@ jobs:
     name: review-gate
     runs-on: ubuntu-latest
     steps:
-      # No history is read — this job talks to the code-scanning API, not to git.
+      # INFRA-050: `fetch-depth: 0`. The classify step below reads base-relative history (a merge
+      # base against `origin/<base>`), and a depth-limited checkout GRAFTS the ancestry, which would
+      # make that read fail — and a classification that cannot be determined answers `code=true`,
+      # sending every docs-only PR back into the 15-minute wait this change removes.
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      - name: Classify this PR (code vs docs-only)
+        id: classify
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # THE SAME classifier ci.yml's `changes` job uses — one implementation, two callers, so
+          # the two cannot disagree about whether this PR contains code. Fail-closed by
+          # construction: no merge base, a failed diff or an empty file list all answer `code=true`.
+          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
       - name: Wait for the code-scanning analysis of this PR
+        # Skipped entirely when no code changed: there is nothing to wait for, and waiting is what
+        # cost #1436 fifteen minutes before it was blocked.
+        if: steps.classify.outputs.code == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # The gate must read a COMPLETED analysis. Polling here (rather than assuming) is what
           # keeps "the analysis has not run yet" from being read as "the analysis found nothing".
-          deadline=$(( $(date +%s) + 900 ))
+          #
+          # Two deadlines, because there are two different things being waited for:
+          #   - GRACE (5 min): no `Analyze` check run has been created AT ALL. CodeQL's check runs
+          #     appear within seconds of the PR event, so after five minutes the honest conclusion
+          #     is that no analysis was scheduled for a PR that does contain code. Concluding early
+          #     is NOT assuming success — this exit writes `analysis_complete=false` exactly like
+          #     the long timeout, and the gate blocks. It only stops the job from spending another
+          #     ten minutes to reach the same answer.
+          #   - DEADLINE (15 min): an analysis exists and is still running. That one is worth
+          #     waiting for, and the loop breaks the moment it completes.
+          start=$(date +%s)
+          grace=$(( start + 300 ))
+          deadline=$(( start + 900 ))
           while :; do
             runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
                       --jq '[.check_runs[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
@@ -58,7 +95,14 @@ jobs:
               echo "analysis_complete=true" >> "$GITHUB_ENV"
               break
             fi
-            if [ "$(date +%s)" -ge "$deadline" ]; then
+            now=$(date +%s)
+            if [ "$total" -eq 0 ] && [ "$now" -ge "$grace" ]; then
+              # Deliberately NOT a pass: this PR changes code, and nothing analysed it.
+              echo "::error::review-gate: no code-scanning analysis was scheduled for ${HEAD_SHA} within 5 minutes, and this PR changes code. Nothing has been analysed, so nothing has been cleared."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              break
+            fi
+            if [ "$now" -ge "$deadline" ]; then
               # Deliberately NOT a pass: an analysis that never completed has cleared nothing.
               echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} did not complete within 15 minutes."
               echo "analysis_complete=false" >> "$GITHUB_ENV"
@@ -68,6 +112,7 @@ jobs:
           done
 
       - name: Collect the review output
+        if: steps.classify.outputs.code == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.base_ref }}
@@ -104,12 +149,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          CODE_CHANGED: ${{ steps.classify.outputs.code }}
         run: |
+          # This step always runs — a gate that reports nothing when its inputs are missing is the
+          # INFRA-048 defect itself. `--code-changed` carries the classifier's verdict; only the
+          # literal `false` selects the not-applicable path, so an empty or unexpected value (the
+          # classify step having failed, say) takes the normal path and blocks on the missing alert
+          # files. When it IS `false` the alert files are not read, and were never written.
+          # No labels are needed on the not-applicable path: the acknowledge override only exists to
+          # overrule a block, and not-applicable never blocks.
+          labels=''
+          if [ -f pr-labels.txt ]; then labels="$(cat pr-labels.txt)"; fi
           set +e
           node scripts/harness/check-review-gate.mjs \
+            --code-changed "${CODE_CHANGED}" \
             --alerts-file pr-alerts.json \
             --base-alerts-file base-alerts.json \
-            --labels "$(cat pr-labels.txt)" | tee gate-report.txt
+            --labels "$labels" | tee gate-report.txt
           status=${PIPESTATUS[0]}
           set -e
           {

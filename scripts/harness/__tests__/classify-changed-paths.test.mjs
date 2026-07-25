@@ -1,0 +1,133 @@
+/**
+ * The changed-path classifier is the SINGLE mechanism deciding whether a PR contains code. Two
+ * consumers depend on it and must not be able to disagree:
+ *
+ *   - ci.yml `changes` — whether the required build/test matrix runs.
+ *   - review-gate.yml — whether a code-scanning analysis is expected at all (#1436: a docs-only PR
+ *     was blocked for 15 m 23 s waiting for an analysis CodeQL never schedules).
+ *
+ * Two properties are load-bearing and both are asserted mechanically here: the docs set stays
+ * byte-equivalent to codeql.yml's `paths-ignore`, and every undeterminable case answers CODE.
+ */
+
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  DOCS_ONLY_GLOBS,
+  classifyFiles,
+  classifyRange,
+  isDocsOnlyPath,
+} from '../classify-changed-paths.mjs';
+
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const SCRIPT = path.resolve(import.meta.dirname, '../classify-changed-paths.mjs');
+
+describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
+  // If `paths-ignore` GROWS without this list following, the classifier over-reports code and the
+  // gate waits then blocks — annoying but safe. If it SHRINKS, an analysed PR would be treated as
+  // not-applicable and skip the gate. That second direction is a hole, and this test is what
+  // prevents it.
+  it('DOCS_ONLY_GLOBS equals codeql.yml `paths-ignore`, entry for entry', () => {
+    const yaml = readFileSync(path.join(REPO_ROOT, '.github/workflows/codeql.yml'), 'utf8');
+    const block = /paths-ignore:\n((?:\s*-\s*'[^']*'\n)+)/.exec(yaml);
+    expect(block, 'codeql.yml must still declare a paths-ignore block').not.toBeNull();
+    const pathsIgnore = [...block[1].matchAll(/-\s*'([^']*)'/g)].map((match) => match[1]);
+    expect([...pathsIgnore].sort()).toEqual([...DOCS_ONLY_GLOBS].sort());
+  });
+
+  it('every path codeql.yml ignores is classified docs-only, and code paths are not', () => {
+    for (const file of ['README.md', '.agents/backlog/X.md', 'docs/a/b.mdx', 'content/post.md']) {
+      expect(isDocsOnlyPath(file), file).toBe(true);
+    }
+    for (const file of [
+      'packages/agent-core/src/index.ts',
+      'scripts/harness/check-review-gate.mjs',
+      '.github/workflows/ci.yml',
+      'package.json',
+      'apps/agent-app/src/main.tsx',
+    ]) {
+      expect(isDocsOnlyPath(file), file).toBe(false);
+    }
+  });
+});
+
+describe('classifyFiles', () => {
+  it('classifies a markdown-only change as docs-only — the #1436 shape', () => {
+    const result = classifyFiles(['.agents/backlog/INFRA-053-review-turn-budget.md']);
+    expect(result.code).toBe(false);
+  });
+
+  it('one code file among many docs files is CODE', () => {
+    const result = classifyFiles(['README.md', 'docs/guide.mdx', 'packages/a/src/x.ts']);
+    expect(result.code).toBe(true);
+  });
+
+  it('a workflow or harness script change is CODE, not docs', () => {
+    expect(classifyFiles(['.github/workflows/review-gate.yml']).code).toBe(true);
+    expect(classifyFiles(['scripts/harness/check-review-gate.mjs']).code).toBe(true);
+  });
+
+  // "Nothing classified" must run the checks, not skip them.
+  it('FAIL-CLOSED: an empty file list is CODE', () => {
+    expect(classifyFiles([]).code).toBe(true);
+    expect(classifyFiles(undefined).code).toBe(true);
+  });
+});
+
+describe('classifyRange (fail-closed on git)', () => {
+  const ok = (stdout) => ({ ok: true, stdout, stderr: '' });
+  const fail = () => ({ ok: false, stdout: '', stderr: 'fatal' });
+
+  it('FAIL-CLOSED: no merge base classifies as CODE and reports the reason', () => {
+    const result = classifyRange({ baseRef: 'origin/develop', runGit: () => fail() });
+    expect(result.code).toBe(true);
+    expect(result.error).toContain('no merge base');
+  });
+
+  it('FAIL-CLOSED: a failed diff classifies as CODE', () => {
+    const runGit = (args) => (args[0] === 'merge-base' ? ok('abc123\n') : fail());
+    const result = classifyRange({ baseRef: 'origin/develop', runGit });
+    expect(result.code).toBe(true);
+    expect(result.error).toContain('git diff against merge base abc123 failed');
+  });
+
+  // A criss-cross history (this repo back-merges main <-> develop) can have several merge bases.
+  // Taking the UNION can only over-report code, never silently under-report it.
+  it('unions the diff over every merge base', () => {
+    const runGit = (args) => {
+      if (args[0] === 'merge-base') return ok('base1\nbase2\n');
+      return ok(args[3] === 'base1' ? 'README.md\n' : 'packages/a/src/x.ts\n');
+    };
+    const result = classifyRange({ baseRef: 'origin/develop', runGit });
+    expect(result.bases).toEqual(['base1', 'base2']);
+    expect(result.files).toEqual(['README.md', 'packages/a/src/x.ts']);
+    expect(result.code).toBe(true);
+  });
+});
+
+describe('CLI (the shape both workflows call)', () => {
+  it('prints a `code=` line and exits 0 against the real repository', () => {
+    const result = spawnSync(
+      process.execPath,
+      [SCRIPT, '--base-ref', 'origin/develop', '--head', 'HEAD'],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/^code=(true|false)$/m);
+  });
+
+  it('FAIL-CLOSED: an unresolvable base ref still answers code=true', () => {
+    const result = spawnSync(
+      process.execPath,
+      [SCRIPT, '--base-ref', 'origin/definitely-no-such-ref'],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('code=true');
+    expect(result.stdout).toContain('::error::changes:');
+  });
+});
