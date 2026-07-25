@@ -54,6 +54,14 @@ flowchart TD
     PRF -. auto-loop → 0, bounded .-> PRO
     PRO --> MV[merge-verifier<br/>guardian · MERGE VERIFIED]
   end
+  subgraph BacklogExec["Backlog execution (HARNESS-049)"]
+    MBI[multi-backlog-initiative<br/>orchestrator · outer loop] --> BEO[backlog-execution-orchestrator<br/>orchestrator · one item]
+    BEO --> PR2[proposal-reviewer<br/>guardian · REVIEW VERDICT]
+    BEO --> UES[user-execution-scenario<br/>orchestrator · PLAN + GATE]
+    UES --> UESA[user-execution-scenario-author<br/>worker · SCENARIO DRAFTED]
+    UES --> BGG
+    UES -. IMPLEMENTATION-DEFECT, bounded .-> BEO
+  end
   subgraph Release["Release (HARNESS-049)"]
     RO[release-orchestration<br/>orchestrator] --> SS[source-stabilization<br/>orchestrator · phase 1]
     RO --> VB[version-bump<br/>orchestrator · phase 2]
@@ -70,42 +78,52 @@ flowchart TD
   end
 ```
 
-| Pipeline                    | Orchestrator (skill)                                                                                           | Worker(s)                                                     | Guardian(s) → signal                                                             | Loop-back                                                                                                    | Floor (scan/hook)                                                     |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| **Spec-gate**               | `user-request-gate` → `backlog-pipeline`                                                                       | `backlog-writer`, `prior-art-researcher` (PRIOR_ART_RESEARCH) | `backlog-gate-guard` → PASS/FAIL/NON-COMPLIANCE                                  | halt-for-user                                                                                                | spec-doc-frontmatter, spec-research, backlog-placement, done-evidence |
-| **Architecture refresh**    | `architecture-refresh`                                                                                         | `architecture-fixer`, `architecture-implementer`              | `architecture-auditor`, `architecture-conformance-auditor` → ACTIONABLE FINDINGS | auto → 0                                                                                                     | conformance, check-architecture-conformance                           |
-| **Documentation refresh**   | `documentation-refresh`                                                                                        | `doc-fixer`                                                   | `doc-auditor` → ACTIONABLE FINDINGS                                              | auto → 0                                                                                                     | doc-examples, docs-structure                                          |
-| **Capability extraction**   | `capability-extraction`                                                                                        | `capability-scout` (DECOMPOSITION), `agent-skill-author`      | `proposal-reviewer` → REVIEW VERDICT                                             | gated on ENDORSE                                                                                             | agent-def-convention                                                  |
-| **PR review** (HARNESS-018) | `pr-review-orchestration`                                                                                      | `pr-review-writer`, `pr-review-fixer`                         | `pr-review-reviewer` → ACTIONABLE FINDINGS; `merge-verifier` → MERGE VERIFIED    | auto → 0, bounded (max 3 + progress detection)                                                               | scan-review-findings (018e, pending)                                  |
-| **Backlog execution**       | `backlog-execution-orchestrator`                                                                               | (impl agents)                                                 | recommendation + user-execution-scenario gates                                   | halt-for-user                                                                                                | done-evidence, backlog-placement                                      |
-| **Release** (HARNESS-049)   | `release-orchestration` → `source-stabilization` / `version-bump` / `npm-otp-publish`, sharing `ci-gate-watch` | (release actions run in the phase skills)                     | `ci-failure-triager` → CI TRIAGE; `merge-verifier` → MERGE VERIFIED              | auto → bounded (2 re-runs/phase, 2 triages/signature, 3 OTP requests); halt-for-user at the publish boundary | release-governance, publish-safety, release-run `--publish` check     |
+| Pipeline                            | Orchestrator (skill)                                                                                           | Worker(s)                                                     | Guardian(s) → signal                                                             | Loop-back                                                                                                    | Floor (scan/hook)                                                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **Spec-gate**                       | `user-request-gate` → `backlog-pipeline`                                                                       | `backlog-writer`, `prior-art-researcher` (PRIOR_ART_RESEARCH) | `backlog-gate-guard` → PASS/FAIL/NON-COMPLIANCE                                  | halt-for-user                                                                                                | spec-doc-frontmatter, spec-research, backlog-placement, done-evidence                                              |
+| **Architecture refresh**            | `architecture-refresh`                                                                                         | `architecture-fixer`, `architecture-implementer`              | `architecture-auditor`, `architecture-conformance-auditor` → ACTIONABLE FINDINGS | auto → 0                                                                                                     | conformance, check-architecture-conformance                                                                        |
+| **Documentation refresh**           | `documentation-refresh`                                                                                        | `doc-fixer`                                                   | `doc-auditor` → ACTIONABLE FINDINGS                                              | auto → 0                                                                                                     | doc-examples, docs-structure                                                                                       |
+| **Capability extraction**           | `capability-extraction`                                                                                        | `capability-scout` (DECOMPOSITION), `agent-skill-author`      | `proposal-reviewer` → REVIEW VERDICT                                             | gated on ENDORSE                                                                                             | agent-def-convention                                                                                               |
+| **PR review** (HARNESS-018)         | `pr-review-orchestration`                                                                                      | `pr-review-writer`, `pr-review-fixer`                         | `pr-review-reviewer` → ACTIONABLE FINDINGS; `merge-verifier` → MERGE VERIFIED    | auto → 0, bounded (max 3 + progress detection)                                                               | scan-review-findings (018e, pending)                                                                               |
+| **Backlog execution** (HARNESS-049) | `multi-backlog-initiative` → `backlog-execution-orchestrator` → `user-execution-scenario`                      | `user-execution-scenario-author` (SCENARIO DRAFTED)           | `proposal-reviewer` → REVIEW VERDICT; `backlog-gate-guard` → GATE VERDICT        | auto → bounded (2 recommendation revisions, 2 redesigns, 2 defect rounds); halt-for-user at every cap        | done-evidence, backlog-placement, capability-reachability (gate-guard); **recommendation gate: floor PENDING** (‡) |
+| **Release** (HARNESS-049)           | `release-orchestration` → `source-stabilization` / `version-bump` / `npm-otp-publish`, sharing `ci-gate-watch` | (release actions run in the phase skills)                     | `ci-failure-triager` → CI TRIAGE; `merge-verifier` → MERGE VERIFIED              | auto → bounded (2 re-runs/phase, 2 triages/signature, 3 OTP requests); halt-for-user at the publish boundary | release-governance, publish-safety, release-run `--publish` check                                                  |
 
 ## Agent roster
 
 Every agent below MUST appear in this map (enforced by `scan-orchestration-map.mjs`).
 
-| Agent                              | Role               | Signal              | Tool-scope      |
-| ---------------------------------- | ------------------ | ------------------- | --------------- |
-| `architecture-auditor`             | guardian           | ACTIONABLE FINDINGS | read-only       |
-| `architecture-conformance-auditor` | guardian           | ACTIONABLE FINDINGS | read-only       |
-| `doc-auditor`                      | guardian           | ACTIONABLE FINDINGS | read-only       |
-| `proposal-reviewer`                | guardian           | REVIEW VERDICT      | read-only       |
-| `merge-verifier`                   | guardian           | MERGE VERIFIED      | read-only       |
-| `pr-review-reviewer`               | guardian           | ACTIONABLE FINDINGS | read-only       |
-| `capability-scout`                 | worker (discovery) | DECOMPOSITION       | read-only       |
-| `prior-art-researcher`             | worker (research)  | PRIOR_ART_RESEARCH  | read-only       |
-| `architecture-fixer`               | worker (edit)      | —                   | edit (docs)     |
-| `architecture-implementer`         | worker (edit)      | —                   | edit (code)     |
-| `doc-fixer`                        | worker (edit)      | —                   | edit (docs)     |
-| `agent-skill-author`               | worker (edit)      | —                   | edit            |
-| `pr-review-fixer`                  | worker (edit)      | —                   | edit            |
-| `pr-review-writer`                 | worker (post)      | —                   | Read, Bash (gh) |
-| `ci-failure-triager`               | guardian           | CI TRIAGE (†)       | read-only       |
+| Agent                              | Role               | Signal               | Tool-scope                                            |
+| ---------------------------------- | ------------------ | -------------------- | ----------------------------------------------------- |
+| `architecture-auditor`             | guardian           | ACTIONABLE FINDINGS  | read-only                                             |
+| `architecture-conformance-auditor` | guardian           | ACTIONABLE FINDINGS  | read-only                                             |
+| `doc-auditor`                      | guardian           | ACTIONABLE FINDINGS  | read-only                                             |
+| `proposal-reviewer`                | guardian           | REVIEW VERDICT       | read-only                                             |
+| `merge-verifier`                   | guardian           | MERGE VERIFIED       | read-only                                             |
+| `pr-review-reviewer`               | guardian           | ACTIONABLE FINDINGS  | read-only                                             |
+| `capability-scout`                 | worker (discovery) | DECOMPOSITION        | read-only                                             |
+| `prior-art-researcher`             | worker (research)  | PRIOR_ART_RESEARCH   | read-only                                             |
+| `architecture-fixer`               | worker (edit)      | —                    | edit (docs)                                           |
+| `architecture-implementer`         | worker (edit)      | —                    | edit (code)                                           |
+| `doc-fixer`                        | worker (edit)      | —                    | edit (docs)                                           |
+| `agent-skill-author`               | worker (edit)      | —                    | edit                                                  |
+| `pr-review-fixer`                  | worker (edit)      | —                    | edit                                                  |
+| `pr-review-writer`                 | worker (post)      | —                    | Read, Bash (gh)                                       |
+| `ci-failure-triager`               | guardian           | CI TRIAGE (†)        | read-only                                             |
+| `backlog-gate-guard`               | guardian           | GATE VERDICT (†)     | Read, Grep, Glob, Bash, Edit (evidence surfaces only) |
+| `user-execution-scenario-author`   | worker (edit)      | SCENARIO DRAFTED (†) | edit (work items)                                     |
 
-† `CI TRIAGE` is the agent's terminal output line but is **not yet in `CLOSED_SIGNAL_VOCAB`**, so the
-agent deliberately declares no `signal:` frontmatter field (declaring an unregistered token fails the
-`agent-def-convention` guard). Registering it requires editing `check-agent-def-convention.mjs`, which was
-out of scope for the increment that introduced the agent — tracked in `HARNESS-049`.
+‡ The `proposal-reviewer` dispatch at the recommendation gate has **no mechanical floor yet**. The three
+scans listed beside it back the `backlog-gate-guard` gates, not this one — `enforcement-architecture.md`
+requires a floor per guardian, so this row is knowingly incomplete rather than satisfied. The rule now
+requires the `REVIEW VERDICT` to be recorded in the item or PR, which is what a scan would read; adding
+that scan means editing `scripts/harness/`, outside the file ownership of the increment that introduced
+the gate. Tracked in `HARNESS-049`.
+
+† `CI TRIAGE`, `GATE VERDICT`, and `SCENARIO DRAFTED` are those agents' terminal output lines but are
+**not yet in `CLOSED_SIGNAL_VOCAB`**, so each deliberately declares no `signal:` frontmatter field
+(declaring an unregistered token fails the `agent-def-convention` guard). Registering them requires
+editing `check-agent-def-convention.mjs`, which was out of scope for the increments that introduced the
+agents — tracked in `HARNESS-049`.
 
 ## How to change the structure
 
