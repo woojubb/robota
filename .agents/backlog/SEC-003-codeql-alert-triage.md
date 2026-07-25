@@ -124,6 +124,22 @@ justifications were needed and nothing was mass-dismissed.
 production source (`update-check.ts`, `memory/project-memory-store.ts`, `config/settings-io.ts`,
 `adapters/node-file-system.ts`) — all class B, so they clear when their tests are converted.
 
+### Adjacent finding surfaced by the fix — `js/file-system-race`
+
+Touching `session-logger.ts`'s payload write made CodeQL report a **pre-existing** `js/file-system-race`
+alert (already open on develop at that file) as "new", because the PR gate is diff-scoped: it reports
+any alert on a line the PR changes. The `existsSync`-then-`writeFileSync` pair was a genuine TOCTOU
+race between concurrent sessions externalizing the same payload, so it was fixed rather than
+dismissed — the write now uses the exclusive-create flag `wx`, and since the filename is the sha256 of
+the content, `EEXIST` provably means identical bytes.
+
+**Lesson for the sibling slice and any future sweep:** editing a line that already carries an unrelated
+open alert will fail the CodeQL PR gate even though nothing regressed. Expect it, and fix the adjacent
+finding rather than assuming the diff introduced it. `js/file-system-race` currently has **16** open
+alerts repo-wide (`agent-framework` 3, `agent-cli` 3, `dag-cli` 1, `agent-session` 1 (now fixed),
+`agent-tools` 1, `agent-command` 1, `agent-command-workflows` 1, plus 5 in `scripts/`) — a candidate
+class for a later SEC-003 slice.
+
 ### Follow-up
 
 The grep floor added here (`dag-cli/src/utils/__tests__/no-insecure-temp-path.test.ts`) is scoped to
