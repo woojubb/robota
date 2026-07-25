@@ -50,21 +50,34 @@ it just has not been applied to the rest.
 
 ```
 rule            → the invariant only ("X must hold", "never Y"), plus WHO owns each fact
-orchestration   → the pipeline: phases, ordering, gates, what to dispatch and when — and NOTHING else
-skill
+orchestration   → the pipeline: phases, ordering, gates, what to dispatch and when — and NOTHING else.
+skill             MAY dispatch a lower orchestration skill instead of an agent, when a phase is
+(nestable)        itself a pipeline. Nesting is expected, not an exception.
 agent file      → one role, one file: its charter, its judgement criteria, its tool scope,
 (.claude/agents)  its terminal signal. Reusable by any pipeline that needs that role.
 ```
 
-The orchestration skill must not contain a role's judgement criteria, and an agent file must not
-contain pipeline ordering. If a skill explains _how to judge_, that content belongs in an agent file;
-if an agent file explains _what runs next_, that belongs in the skill.
+**Orchestration nests.** A phase of a high-level pipeline is often a pipeline in its own right, so an
+orchestration skill may own **sub-orchestration skills** as well as agents: a top-level skill routes
+phases, an intermediate skill sequences that phase's own steps, and only the leaves are agents. Each
+level still carries **only** its own ordering — a parent must not restate a child's steps, and a child
+must not know what runs after its parent's phase. Depth is whatever the work actually has; the
+constraint is that every level stays pipeline-only.
+
+The invariant across all levels: an orchestration skill (at any depth) must not contain a role's
+judgement criteria, and an agent file must not contain pipeline ordering. If a skill explains _how to
+judge_, that content belongs in an agent file; if an agent file explains _what runs next_, that belongs
+in the skill above it.
 
 ## What
 
 1. **Inventory and classify** every `.agents/rules/*.md` section as: `invariant` (stays a rule),
    `procedure` (moves to a skill), or `role` (becomes an agent definition). Produce the mapping table
    FIRST — this is the deliverable that makes the rest reviewable, and it is where the judgement is.
+   For each `procedure`, also record its **level**: is it a whole pipeline (top-level skill), one
+   phase of a larger pipeline (sub-orchestration skill), or a single role's work (agent)? The four
+   large rules are likely to yield nested pipelines rather than one flat skill each — e.g. a release
+   procedure whose "verify" phase is itself an ordered sequence worth its own skill.
 2. **Extract roles to `.claude/agents/*.md`**, starting with the three skills above and any role a rule
    describes inline. Each must satisfy the repo's `agent-def-convention` guard.
 3. **Reduce the orchestration skills to pipeline-only**, dispatching the extracted agents. Follow the
