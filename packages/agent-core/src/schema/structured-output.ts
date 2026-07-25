@@ -27,8 +27,7 @@ export interface IJsonSchemaOutput {
 export type TStructuredOutputSchema = IZodSchema | IJsonSchemaOutput;
 
 export type TStructuredOutputValidation =
-  | { success: true; value: unknown }
-  | { success: false; issues: string[] };
+  { success: true; value: unknown } | { success: false; issues: string[] };
 
 /** Internal SSOT representation every `output` value normalizes to. */
 export interface IStructuredOutputSpec {
@@ -219,7 +218,10 @@ export function parseStructuredResponseText(
   text: string,
 ): { success: true; value: unknown } | { success: false; issue: string } {
   const trimmed = text.trim();
-  const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n?```$/.exec(trimmed);
+  // `[^\S\n]*\n` — not `\s*\n`: `\s` also matches `\n`, so the two overlap and an unterminated
+  // fence costs O(n^2) to reject. Restricting the run to horizontal whitespace makes the newline
+  // split point unique. `text` here is raw model output, so it is not trusted to be well-formed.
+  const fenced = /^```(?:json)?[^\S\n]*\n([\s\S]*?)\n?```$/.exec(trimmed);
   const candidate = fenced ? fenced[1] : trimmed;
   try {
     return { success: true, value: JSON.parse(candidate) };
