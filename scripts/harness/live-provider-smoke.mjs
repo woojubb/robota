@@ -1,0 +1,355 @@
+#!/usr/bin/env node
+
+/**
+ * HARNESS-024 — env-gated LIVE provider smoke.
+ *
+ * Every provider/transport boundary in the test suite is scripted or replayed. That is deliberate
+ * (deterministic, free, offline), but it means a whole class of breakage is invisible to CI: the
+ * auth handshake, wire-format drift in the vendor SDK, a required request field the adapter stopped
+ * sending (the Anthropic 400 / maxTokens family), and the shape of a streaming response. Those
+ * regressions were each caught three times by a HUMAN running the CLI by hand. This script is the
+ * mechanical replacement: one minimal REAL turn per credentialed provider.
+ *
+ * Gating (the whole point — it must never be able to fail for lack of credentials):
+ *   - A provider is selected only when its definition's `defaults.apiKey` is an `$ENV:<NAME>`
+ *     reference AND `<NAME>` is present and non-empty in the environment.
+ *   - No credentialed provider at all  →  clean SKIP, exit 0. Never a failure.
+ *   - The provider list and the env-var names are read from the provider DEFINITIONS, so a newly
+ *     added provider is covered automatically and this file holds no provider-name table.
+ *
+ * What each selected provider runs (two tiny calls, `maxTokens` capped — cents, not dollars):
+ *   1. non-streaming `chat()`   — proves auth + request/response wire format.
+ *   2. streaming `chatStream()` — proves the streaming shape (chunks arrive, text assembles).
+ * Both must return non-empty assistant text or the provider is reported FAIL.
+ *
+ * Exit codes: 0 = every selected provider passed (or nothing was selected), 1 = a selected
+ * provider's live call failed, or the workspace is not built.
+ *
+ * A provider that has a key but no model to call (OpenAI ships no default model by design) is
+ * reported WARN, not FAIL, and does not change the exit code: this smoke exists to catch wire
+ * drift, and a red nightly for a missing config value only trains people to ignore the signal.
+ * The warning names the exact env var that fixes it.
+ *
+ * Secrets are never printed. Every line written by this script passes through `redactSecrets`,
+ * which scrubs the resolved key values — vendor SDK errors sometimes echo request headers back.
+ *
+ * Run:
+ *   node scripts/harness/live-provider-smoke.mjs [--provider <type>] [--report-file <path>]
+ * Prerequisite: the provider packages must be built (`pnpm --filter @robota-sdk/agent-provider-defaults... build:js`).
+ */
+
+import { writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+/** The one prompt every provider gets. Short, deterministic to grade, cheap to answer. */
+export const SMOKE_PROMPT = 'Reply with exactly one word: pong';
+/** Hard cap on generated tokens — this is a reachability probe, not a capability test. */
+export const SMOKE_MAX_TOKENS = 32;
+/** Per-call wall-clock budget. A hung provider must not hang the scheduled job. */
+export const SMOKE_TIMEOUT_MS = 60_000;
+
+const ENV_REFERENCE_PREFIX = '$ENV:';
+
+/**
+ * Per-provider model override env var, e.g. `LIVE_SMOKE_MODEL_OPENAI`.
+ * Needed for providers whose definition ships no default model.
+ */
+export function modelOverrideEnvVar(providerType) {
+  return `LIVE_SMOKE_MODEL_${providerType.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+}
+
+/** Name of the env var a definition's `$ENV:` apiKey reference points at, or undefined. */
+export function apiKeyEnvVarOf(definition) {
+  const reference = definition?.defaults?.apiKey;
+  if (typeof reference !== 'string' || !reference.startsWith(ENV_REFERENCE_PREFIX))
+    return undefined;
+  const name = reference.slice(ENV_REFERENCE_PREFIX.length).trim();
+  return name.length > 0 ? name : undefined;
+}
+
+/**
+ * Pure selection: which provider definitions can be smoked with the given environment.
+ *
+ * Returns `{ runnable, unconfigured, skipped }` where
+ *   - runnable     = key present AND a model to call (definition default or override env var)
+ *   - unconfigured = key present but no model → WARN (does not fail the run)
+ *   - skipped      = no credential in this environment → silent, expected, exit 0
+ */
+export function selectLiveProviders(definitions, env, options = {}) {
+  const only = options.only;
+  const runnable = [];
+  const unconfigured = [];
+  const skipped = [];
+
+  for (const definition of definitions) {
+    const type = definition.type;
+    if (only !== undefined && only !== type) continue;
+
+    const apiKeyEnvVar = apiKeyEnvVarOf(definition);
+    if (apiKeyEnvVar === undefined) {
+      // Local/self-hosted definitions carry a literal apiKey and a localhost baseURL. There is no
+      // remote credential to gate on, and no such server in CI, so they are out of scope here.
+      skipped.push({ type, reason: 'no $ENV: apiKey reference (local/self-hosted definition)' });
+      continue;
+    }
+
+    const apiKey = env[apiKeyEnvVar];
+    if (typeof apiKey !== 'string' || apiKey.length === 0) {
+      skipped.push({ type, reason: `${apiKeyEnvVar} not set` });
+      continue;
+    }
+
+    const overrideEnvVar = modelOverrideEnvVar(type);
+    const model = env[overrideEnvVar] || definition.defaults?.model;
+    if (typeof model !== 'string' || model.length === 0) {
+      unconfigured.push({
+        type,
+        apiKeyEnvVar,
+        reason: `${apiKeyEnvVar} is set but this provider ships no default model — set ${overrideEnvVar}`,
+      });
+      continue;
+    }
+
+    runnable.push({ type, apiKeyEnvVar, apiKey, model, definition });
+  }
+
+  return { runnable, unconfigured, skipped };
+}
+
+/** Replace every occurrence of every secret with a fixed marker. */
+export function redactSecrets(text, secrets) {
+  let output = String(text);
+  for (const secret of secrets) {
+    if (typeof secret === 'string' && secret.length >= 8) {
+      output = output.split(secret).join('***REDACTED***');
+    }
+  }
+  return output;
+}
+
+/** Extract plain text from a TUniversalMessage-ish value (content may be string or parts). */
+export function messageText(message) {
+  const content = message?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === 'string' ? part : typeof part?.text === 'string' ? part.text : '',
+      )
+      .join('');
+  }
+  return '';
+}
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** One non-streaming turn. Resolves to `{ chars, ms }`; throws when the reply carries no text. */
+async function runChatProbe(provider, createUserMessage, model) {
+  const started = Date.now();
+  const reply = await withTimeout(
+    provider.chat([createUserMessage(SMOKE_PROMPT)], {
+      model,
+      maxTokens: SMOKE_MAX_TOKENS,
+      temperature: 0,
+    }),
+    SMOKE_TIMEOUT_MS,
+    'chat()',
+  );
+  const text = messageText(reply).trim();
+  if (text.length === 0) throw new Error('chat() returned an empty assistant message');
+  return { chars: text.length, ms: Date.now() - started };
+}
+
+/** One streaming turn. Resolves to `{ chars, chunks, ms }`; throws on an empty/silent stream. */
+async function runStreamProbe(provider, createUserMessage, model) {
+  const started = Date.now();
+  const collect = (async () => {
+    let assembled = '';
+    let chunks = 0;
+    for await (const chunk of provider.chatStream([createUserMessage(SMOKE_PROMPT)], {
+      model,
+      maxTokens: SMOKE_MAX_TOKENS,
+      temperature: 0,
+    })) {
+      chunks += 1;
+      assembled += messageText(chunk);
+    }
+    return { assembled: assembled.trim(), chunks };
+  })();
+
+  const { assembled, chunks } = await withTimeout(collect, SMOKE_TIMEOUT_MS, 'chatStream()');
+  if (chunks === 0) throw new Error('chatStream() yielded no chunks');
+  if (assembled.length === 0) throw new Error('chatStream() assembled no text across its chunks');
+  return { chars: assembled.length, chunks, ms: Date.now() - started };
+}
+
+/** Smoke one selected provider. Never throws — the outcome is the return value. */
+export async function smokeProvider(candidate, createUserMessage) {
+  const { type, model, definition, apiKey } = candidate;
+  const base = { type, model };
+  let provider;
+  try {
+    provider = definition.createProvider({ apiKey, model });
+  } catch (error) {
+    return {
+      ...base,
+      status: 'fail',
+      stage: 'createProvider',
+      error: String(error?.message ?? error),
+    };
+  }
+
+  try {
+    const chat = await runChatProbe(provider, createUserMessage, model);
+
+    if (typeof provider.chatStream !== 'function') {
+      return {
+        ...base,
+        status: 'pass',
+        chat,
+        stream: { skipped: 'provider exposes no chatStream()' },
+      };
+    }
+    const stream = await runStreamProbe(provider, createUserMessage, model);
+    return { ...base, status: 'pass', chat, stream };
+  } catch (error) {
+    return { ...base, status: 'fail', stage: 'liveCall', error: String(error?.message ?? error) };
+  } finally {
+    if (typeof provider?.close === 'function') {
+      await provider.close().catch(() => {});
+    } else if (typeof provider?.dispose === 'function') {
+      await provider.dispose().catch(() => {});
+    }
+  }
+}
+
+/** Render the human-readable report. Pure — the caller redacts and prints. */
+export function formatReport({ runnable, unconfigured, skipped }, results) {
+  const lines = [];
+
+  if (runnable.length === 0) {
+    lines.push('live-provider-smoke: SKIPPED — no provider credentials in this environment.');
+    lines.push("  A provider runs only when its definition's $ENV: apiKey variable is set:");
+    for (const entry of skipped) lines.push(`  - ${entry.type}: ${entry.reason}`);
+    for (const entry of unconfigured) lines.push(`  - ${entry.type}: WARN ${entry.reason}`);
+    lines.push('  This is the expected outcome without credentials and is not a failure.');
+    return lines.join('\n');
+  }
+
+  lines.push(`live-provider-smoke: ${runnable.length} credentialed provider(s).`);
+  for (const result of results) {
+    if (result.status === 'pass') {
+      const stream = result.stream.skipped
+        ? `stream=skipped (${result.stream.skipped})`
+        : `stream=${result.stream.chunks} chunks/${result.stream.chars} chars in ${result.stream.ms}ms`;
+      lines.push(
+        `  PASS ${result.type} (model=${result.model}) chat=${result.chat.chars} chars in ${result.chat.ms}ms, ${stream}`,
+      );
+    } else {
+      lines.push(
+        `  FAIL ${result.type} (model=${result.model}) at ${result.stage}: ${result.error}`,
+      );
+    }
+  }
+  for (const entry of unconfigured) lines.push(`  WARN ${entry.type}: ${entry.reason}`);
+  for (const entry of skipped) lines.push(`  skip ${entry.type}: ${entry.reason}`);
+
+  const failed = results.filter((r) => r.status === 'fail');
+  lines.push(
+    failed.length === 0
+      ? `live-provider-smoke: PASS (${results.length}/${results.length} live providers reachable).`
+      : `live-provider-smoke: FAIL (${failed.length}/${results.length} live providers broken).`,
+  );
+  return lines.join('\n');
+}
+
+function parseArgs(argv) {
+  const options = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--provider') options.only = argv[++i];
+    else if (argv[i] === '--report-file') options.reportFile = argv[++i];
+  }
+  return options;
+}
+
+/** Load the provider definitions + message factory from the BUILT workspace output. */
+async function loadWorkspace() {
+  const defaultsEntry = path.join(
+    WORKSPACE_ROOT,
+    'packages/agent-provider-defaults/dist/node/index.js',
+  );
+  const coreEntry = path.join(WORKSPACE_ROOT, 'packages/agent-core/dist/node/index.js');
+  if (!existsSync(defaultsEntry) || !existsSync(coreEntry)) {
+    return undefined;
+  }
+  const [{ createDefaultProviderDefinitions }, { createUserMessage }] = await Promise.all([
+    import(pathToFileURL(defaultsEntry).href),
+    import(pathToFileURL(coreEntry).href),
+  ]);
+  return { createDefaultProviderDefinitions, createUserMessage };
+}
+
+export async function main(argv = process.argv.slice(2), env = process.env) {
+  const options = parseArgs(argv);
+
+  const workspace = await loadWorkspace();
+  if (workspace === undefined) {
+    process.stdout.write(
+      'live-provider-smoke: workspace is not built — run\n' +
+        '  pnpm --filter @robota-sdk/agent-provider-defaults... build:js\n',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const definitions = workspace.createDefaultProviderDefinitions();
+  const selection = selectLiveProviders(definitions, env, options);
+  const secrets = selection.runnable.map((candidate) => candidate.apiKey);
+
+  const results = [];
+  for (const candidate of selection.runnable) {
+    results.push(await smokeProvider(candidate, workspace.createUserMessage));
+  }
+
+  const report = redactSecrets(formatReport(selection, results), secrets);
+  process.stdout.write(`${report}\n`);
+
+  if (options.reportFile !== undefined) {
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      // The key VALUES never leave this process; only the variable NAMES are recorded.
+      credentialed: selection.runnable.map((c) => ({
+        type: c.type,
+        model: c.model,
+        apiKeyEnvVar: c.apiKeyEnvVar,
+      })),
+      unconfigured: selection.unconfigured,
+      skipped: selection.skipped,
+      results,
+    };
+    const serialized = redactSecrets(JSON.stringify(summary, null, 2), secrets);
+    await mkdir(path.dirname(path.resolve(options.reportFile)), { recursive: true });
+    await writeFile(path.resolve(options.reportFile), `${serialized}\n`, 'utf-8');
+  }
+
+  if (results.some((result) => result.status === 'fail')) {
+    process.exitCode = 1;
+  }
+}
+
+const isDirectExecution =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
+if (isDirectExecution) {
+  await main();
+}
