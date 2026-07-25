@@ -146,8 +146,126 @@ The grep floor added here (`dag-cli/src/utils/__tests__/no-insecure-temp-path.te
 `dag-cli` only. Once the sibling slice lands, promote it to a repo-wide mechanical scan under
 `scripts/harness/` (out of this slice's ownership) so the pattern cannot re-enter any package.
 
-SEC-003 stays **open**: `js/polynomial-redos` (18), the style classes, and the
-advisory→required promotion decision are untouched.
+SEC-003 stays **open**: `js/polynomial-redos` (18 — see its own slice below), the style classes, and
+the advisory→required promotion decision are untouched.
+
+## Slice — `js/polynomial-redos` (2026-07-25)
+
+### Root cause — read from the query, not inferred
+
+From `javascript/ql/src/Performance/PolynomialReDoS.ql` +
+`javascript/ql/lib/semmle/javascript/security/regexp/PolynomialReDoSCustomizations.qll`:
+
+| Element        | Definition                                                                                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Source**     | an `Http::RequestInputAccess` (kind = the request-part name), **or** `Exports::getALibraryInputParameter()` — a parameter of a function the package exports (kind = `"library"`) |
+| **Sink**       | a string flowing into `match`/`split`/`matchAll`/`replace`/`replaceAll`/`search` (arg 0) or `test`/`exec` (receiver) whose regex contains a `PolynomialBackTrackingTerm`         |
+| **Sanitizers** | a global `String.replace` with a non-char-class regex; `substring`/`slice` with ≥2 args; and a `LengthGuard` — **any relational comparison on `.length`**                        |
+
+Two facts that shaped the triage:
+
+1. **All 18 alerts say "depends on library input"** — i.e. every one is source-kind `"library"`, not
+   an HTTP request. CodeQL is claiming "a consumer of this package can pass a hostile string to this
+   exported function", not that a network attacker can. Reachability therefore had to be established
+   by reading the actual call path, which is exactly where the alerts differ from one another.
+2. **The superlinearity itself is not a guess.** `PolynomialBackTrackingTerm` comes from CodeQL's NFA
+   analysis, and the alert message names the pump string. Every one reproduced: measured below.
+3. A `.length` check **is** a real sanitizer for this rule, and for polynomial (not exponential)
+   ReDoS a length cap genuinely does bound the work. It was still not used anywhere here — every
+   regex could be made linear without changing which inputs are accepted, which is strictly better
+   than capping input the parsers are otherwise happy to take.
+
+### Per-alert verdict (8 owned of 18)
+
+Timings are `n = 200_000` unless noted, measured on this host, before → after.
+
+| Alert | File:line                                               | Reachable?                    | Evidence                                                                                                                                             | Action                                                     |
+| ----- | ------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 35    | `agent-command/src/schedule/schedule-spec-parser.ts:53` | **yes — model-composed**      | `createScheduleSystemCommand` declares `modelInvocable: true` (`schedule-command-module.ts`), so `/schedule`'s arg string is written by the model    | fixed: `\s+(.+)$` → `\s+(\S.*)$`; 14.8s → <1ms             |
+| 36    | `agent-command/src/schedule/schedule-command.ts:117`    | **yes — model-composed**      | same, `createMonitorSystemCommand` (`/monitor`)                                                                                                      | fixed: same shape; 14.6s → <1ms                            |
+| 37    | `agent-core/src/schema/structured-output.ts:222`        | **yes — raw model output**    | `parseStructuredResponseText(text)` is called on the model's final text in the structured-output retry loop; provider responses are not trusted data | fixed: `\s*\n` → `[^\S\n]*\n`; 12.7s → 1ms                 |
+| 48,49 | `dag-cli/src/commands/convert.ts:150,154`               | **yes — caller-supplied doc** | `convertCommand` feeds `convertMermaid` from `--input`, a positional file path, or **stdin**; `from-mermaid.ts` also calls it on file content        | fixed: dropped the redundant leading `\s*`; 30.1s → <1ms   |
+| 50    | `dag-cli/src/pipeline-parser.ts:129`                    | **yes — CLI arg**             | `parsePipelineSpec(spec)` is the `--pipeline` value, reached from `pipe.ts`, `save.ts`, `aav.ts`, `run.ts`                                           | fixed: `.split(/\s*\|\s*/)` → `.split('\|')`; 16.4s → <1ms |
+| 44    | `agent-playground/.../agent-config-parser.ts:17`        | **yes — published export**    | `parseAgentConfig(code)` is exported from `@robota-sdk/agent-playground` and takes arbitrary source text; in-app it is the editor buffer             | fixed: `[^\]]+` → `[^\][]+`; 9.3s → 1ms                    |
+| 45    | `agent-playground/.../agent-config-parser.ts:19`        | **yes — published export**    | same call, on the tools-array body                                                                                                                   | fixed: `\w+Tool` → `\b\w+Tool`; 17.2s → <1ms               |
+
+**Dismissed: none.** Every owned alert had an input path that is not a repo-internal constant, so
+none qualified for a dismissal-with-reason. Nothing was mass-dismissed.
+
+### Why each fix is not a length cap
+
+Each is a shape change that removes an ambiguity, and each was checked to accept exactly the same
+inputs and produce the same captures (a differential check over well-formed, edge, and CRLF cases;
+the equivalence tests are committed alongside the timing tests):
+
+- `\s+(.+)$` → `\s+(\S.*)$` — the split between `\s+` and `.` was ambiguous because `.` also matches
+  a space. Requiring a non-space first character pins it. Greedy `\s+` already consumed every leading
+  space, so the accepted set is unchanged.
+- `\s*\n` → `[^\S\n]*\n` — `\s` includes `\n`, so the run and the terminator overlapped. Restricting
+  the run to horizontal whitespace makes the newline position unique. `\r` is still accepted (CRLF).
+- leading `\s*` in `/\s*-->…/` and `/\s*\|\s*/` — **redundant**, because both call sites trim every
+  part after splitting. Removing it means a failed attempt costs O(1) instead of O(n).
+- `[^\]]+` → `[^\][]+` — stops the scan at the next bracket instead of at end-of-input, so repeated
+  unterminated `tools:[` no longer rescans the whole buffer each time. A tools array never nests `[`.
+- `\w+Tool` → `\b\w+Tool` — the `\b` is semantically free: any `\w+Tool` match can be extended left to
+  a word boundary, so the match set is identical, but only boundary offsets start a scan.
+
+### Adjacent finding — same class, NOT reported by CodeQL
+
+`dag-cli/src/commands/from-mermaid.ts:43`, `MERMAID_BLOCK_RE`, had the same
+whitespace-run-overlapping-a-lazy-body shape and is quadratic (3.4s on a 400 KB markdown file with an
+unterminated ` ```mermaid ` fence). CodeQL did not report it — no library-input flow was proven into
+that file — so the alert list is a floor, not the full inventory of this class. Fixed with the same
+reasoning (the leading `\s*` was redundant; the capture is trimmed).
+
+This is the mirror of slice 1's diff-scoped-gate lesson: slice 1 found the gate reports _pre-existing_
+alerts on touched lines as new; this slice found the converse, that the gate misses same-class defects
+it never had a source for. Neither the alert list nor the gate is a complete inventory.
+
+### Red-first evidence
+
+Every fix has a committed timing test that fails before it. Measured with the source reverted
+(`git stash` of the source files only, tests left in place):
+
+| Test                                                         | Pre-fix   | Post-fix |
+| ------------------------------------------------------------ | --------- | -------- |
+| `schedule-redos.test.ts` — pumped `cron` spec                | 14 761 ms | <1 ms    |
+| `schedule-redos.test.ts` — pumped `/monitor` args            | 14 611 ms | <1 ms    |
+| `structured-output.test.ts` — unterminated fence             | 12 702 ms | ~1 ms    |
+| `convert-command.test.ts` — arrow-less line                  | 30 067 ms | <1 ms    |
+| `pipeline-parser.test.ts` — whitespace-only `--pipeline`     | 16 381 ms | <1 ms    |
+| `code-analyzer.test.ts` — repeated unterminated `tools:[`    | 9 276 ms  | ~1 ms    |
+| `code-analyzer.test.ts` — long word-run inside a tools array | 17 238 ms | <1 ms    |
+| `from-mermaid-command.test.ts` — unterminated ` ```mermaid ` | 3 365 ms  | ~1 ms    |
+
+Each asserts `< 250 ms`, so the margin over the pre-fix time is 13×–120× and over the post-fix time
+is >250×; these are not tight thresholds. Each fix also ships an equivalence test pinning the parse
+result for well-formed input, so the regex shape cannot be loosened back.
+
+### Remaining `js/polynomial-redos` — 10 alerts, sibling/other-owner packages
+
+Not touched here (outside this slice's file ownership). All are the same three shapes — an unanchored
+leading `\s*`/`\w+`/`[^x]+` run, or a `\s`-vs-`\n` overlap — and none of them has an HTTP source
+either, so the same reachability question (who supplies the string?) has to be answered per site:
+
+| Alert | File:line                                                               |
+| ----- | ----------------------------------------------------------------------- |
+| 34    | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts:139`         |
+| 38    | `agent-framework/src/command-api/provider/provider-profile-names.ts:30` |
+| 39    | `agent-framework/src/commands/skill-source.ts:35`                       |
+| 40    | `agent-framework/src/context/task-context.ts:136`                       |
+| 41    | `agent-framework/src/memory/project-memory-store.ts:83`                 |
+| 42    | `agent-framework/src/tools/model-command-tool-projection.ts:56`         |
+| 43    | `agent-framework/src/update-check/update-check.ts:279`                  |
+| 46    | `agent-remote-pairing/src/pairing.ts:95`                                |
+| 47    | `agent-tools/src/sandbox/workspace-manifest.ts:204`                     |
+| 51    | `dag-framework/src/http-dag-runtime-provider.ts:121`                    |
+
+Alert 46 (`pairing.ts`, pump `a=fingerprint:`) is worth prioritising: SDP text arrives over the
+signalling channel, so unlike the rest it plausibly has a genuine remote source.
+
+SEC-003 stays **open**: those 10 alerts, the style classes, and the advisory→required promotion
+decision remain.
 
 ## Test Plan
 
