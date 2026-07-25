@@ -1,8 +1,7 @@
 ---
 title: 'INFRA-055: every required check on a promotion PR was vacuous, and the real one is optional'
-status: done
+status: todo
 created: 2026-07-26
-completed: 2026-07-26
 priority: high
 urgency: soon
 area: repo rulesets, .github/workflows
@@ -71,16 +70,16 @@ came back **ENDORSE**. Both are summarised under _Review_.
 
 ### What `protect-main` now requires
 
-| Context                     | Added / removed | Why                                                                                                                                                    |
-| --------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `promotion ancestry`        | kept            | INFRA-051 A1/A2/A3.                                                                                                                                    |
-| `main PR source guard`      | **added**       | The #1216 recurrence guard can now block. Also hardened to reject fork heads.                                                                          |
-| `release-grade verification`| **added**       | The only required context that executes the repository's code on a promotion.                                                                          |
-| `build`                     | **removed**     | 5s echo on a `main` PR. Subsumed by `release-grade verification`; still required on `protect-develop`.                                                  |
-| `quality`                   | **removed**     | 5s echo. As above.                                                                                                                                     |
-| `scans`                     | **removed**     | 6s echo. As above.                                                                                                                                     |
-| `security audit`            | **removed**     | 3s echo. `release-grade verification`'s osv-scanner step is unconditional, where this job's is gated on a manifest diff — the replacement is stronger.  |
-| `commitlint`                | **removed**     | Skipped wholesale on `main` by design. A promotion's merge-commit subject is GitHub-generated and every promoted commit was linted on its own PR.       |
+| Context                      | Added / removed | Why                                                                                                                                                    |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `promotion ancestry`         | kept            | INFRA-051 A1/A2/A3.                                                                                                                                    |
+| `main PR source guard`       | **added**       | The #1216 recurrence guard can now block. Also hardened to reject fork heads.                                                                          |
+| `release-grade verification` | **added**       | The only required context that executes the repository's code on a promotion.                                                                          |
+| `build`                      | **removed**     | 5s echo on a `main` PR. Subsumed by `release-grade verification`; still required on `protect-develop`.                                                 |
+| `quality`                    | **removed**     | 5s echo. As above.                                                                                                                                     |
+| `scans`                      | **removed**     | 6s echo. As above.                                                                                                                                     |
+| `security audit`             | **removed**     | 3s echo. `release-grade verification`'s osv-scanner step is unconditional, where this job's is gated on a manifest diff — the replacement is stronger. |
+| `commitlint`                 | **removed**     | Skipped wholesale on `main` by design. A promotion's merge-commit subject is GitHub-generated and every promoted commit was linted on its own PR.      |
 
 Also set `strict_required_status_checks_policy: true`, so the promotion's green run must have been
 produced against the current `main` rather than a stale one.
@@ -170,7 +169,7 @@ affected-scope-selective via `--base-ref` and gate their vulnerability scan on a
   check, not the analysis job (`Analyze (javascript-typescript)` passed, 4m10s). It is diff-scoped —
   but a promotion's diff is the entire `develop`→`main` delta, and GitHub's own summary on #1427 says
   `Alerts not introduced by this pull request might have been detected because the code changes were
-  too large`. Its verdict therefore scales with promotion size rather than with anything the promotion
+too large`. Its verdict therefore scales with promotion size rather than with anything the promotion
   decides.
 
 This is not an analysis gap: CodeQL already runs on push to `main`/`develop` and on every code PR to
@@ -197,14 +196,14 @@ this drift survived. `.github/required-status-checks.json` is now the **source**
 `protect-main` must require, and `scripts/harness/scan-main-required-checks.mjs` (registered in
 `pnpm harness:scan`) asserts offline that every context it names can actually fail on a `main` PR:
 
-| Assertion | What it prevents |
-| --------- | ----------------- |
-| R1 | The context resolves to exactly one job that publishes that display name — a context nothing publishes never reports. |
-| R2 | The workflow triggers on `pull_request` for `main` with no `paths`/`paths-ignore` — the #1436 never-reports shape. |
-| R3 | No `github.base_ref` condition at job or step level — the #1427 echo shape verbatim. |
-| R4 | At least one unconditional step, so the job cannot become an all-conditional shell. |
-| R5 | No `continue-on-error` on the job or any step — the one **fail-open** rot: command fails, check reports success. |
-| R6 | No `needs:` on a job that is itself main-excluded — GitHub then skips the required job, and skipped is accepted. |
+| Assertion | What it prevents                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------- |
+| R1        | The context resolves to exactly one job that publishes that display name — a context nothing publishes never reports. |
+| R2        | The workflow triggers on `pull_request` for `main` with no `paths`/`paths-ignore` — the #1436 never-reports shape.    |
+| R3        | No `github.base_ref` condition at job or step level — the #1427 echo shape verbatim.                                  |
+| R4        | At least one unconditional step, so the job cannot become an all-conditional shell.                                   |
+| R5        | No `continue-on-error` on the job or any step — the one **fail-open** rot: command fails, check reports success.      |
+| R6        | No `needs:` on a job that is itself main-excluded — GitHub then skips the required job, and skipped is accepted.      |
 
 A missing or empty declaration is a hard failure, not a pass. The scan is hermetic (checked-in files
 only), so it always reaches a verdict, never prints SKIP, and no GitHub API outage can redden the

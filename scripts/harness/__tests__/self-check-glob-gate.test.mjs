@@ -49,12 +49,28 @@ describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
 
     expect(stepIndex).toBeGreaterThanOrEqual(0);
 
-    // The step must execute the directory-globbed script, on the develop path
-    // (skipped only for main-targeted release PRs, which run release-grade
-    // verification instead).
+    // The step must execute the directory-globbed script. INFRA-055 moved the main-PR exclusion
+    // from this step to the `scans` job's own `if:`, so the step itself is now unconditional.
     const stepBlock = content.slice(stepIndex, stepIndex + 300);
     expect(stepBlock).toContain('pnpm harness:test');
-    expect(stepBlock).toContain("github.base_ref != 'main'");
+    expect(stepBlock).not.toContain('github.base_ref');
+
+    const scansHeader = content.slice(
+      content.indexOf('\n  scans:\n'),
+      content.indexOf('steps:', content.indexOf('\n  scans:\n')),
+    );
+    expect(scansHeader).toContain("if: github.base_ref != 'main'");
+  });
+
+  // INFRA-055: on a main PR the `scans` job no longer runs at all, so the release gate is the only
+  // place the harness suite can run there — and it did not run it. `pnpm test` is
+  // `pnpm run -r --if-present test`, which excludes the workspace root, so `harness:test` was
+  // outside `harness:verify:release` entirely. Dropping `scans` from `protect-main`'s required list
+  // is only safe because the release gate now runs the suite itself.
+  it('release-grade verification runs the globbed harness suite too', () => {
+    const packageJson = JSON.parse(read('package.json'));
+
+    expect(packageJson.scripts?.['harness:verify:release']).toContain('pnpm harness:test');
   });
 
   it('pre-push runs harness:verify, whose harness-tests check uses the globbed run', () => {
