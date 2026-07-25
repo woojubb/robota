@@ -129,6 +129,30 @@ export function selectProductCommandModules(
   ];
 }
 
+/**
+ * INFRA-032: report every preset command-module name that matched no module — a short form like `"editor"`
+ * instead of `agent-command-editor`, or a typo. Non-fatal: surfaced, never silently dropped, never an
+ * abort, mirroring the external-preset skip reporting.
+ *
+ * Computed from the base ⊕ pack NAME superset, so no assembly is needed and the notice still fires BEFORE
+ * the `init`/`--configure`/provider-config early-returns, exactly where it did before ARCH-005 S2.
+ */
+export function reportUnknownPresetModules(
+  writeError: (message: string) => void,
+  baseCommandModules: readonly ICommandModule[],
+  packCommandModuleNames: readonly string[],
+  preset: Pick<IResolvedPresetOptions, 'enabledCommandModules' | 'disabledCommandModules'>,
+): void {
+  for (const { name, kind } of findUnknownPresetModuleNames(
+    mergedCommandModuleNames(baseCommandModules, packCommandModuleNames),
+    preset,
+  )) {
+    writeError(
+      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
+    );
+  }
+}
+
 /** The shell-resolved inputs `robota` hands to the kernel's runtime seam. */
 export interface IRobotaRuntimeSeamInput {
   /** The assembled product whose overlay lays the product-owned materials on top. */
@@ -157,18 +181,12 @@ export interface IRobotaRuntimeSeamInput {
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
   commandModules: readonly ICommandModule[];
-  additionalTools: IToolWithEventService[];
   agentDefinitions: readonly IAgentDefinition[];
-  /**
-   * ARCH-006: the framework's `createDefaultTools()` tier, REPLACED. `robota` passes
-   * `ROBOTA_PACKS_OWN_TOOL_SURFACE` (empty), so every tool the session runs arrives from a capability pack
-   * via `additionalTools` — dropping a pack drops its tools from the product.
-   *
-   * Deliberately NOT defaulted to `[]` on the way out: an ABSENT tier (the framework builds its own) and a
-   * SUPPRESSED tier (the packs own it) are different products, and collapsing them would let the
-   * acceptance gate pass while the suppression was silently gone.
-   */
-  defaultTools?: readonly IToolWithEventService[];
+  /** The tool surface, grouped so every presentation channel is handed the SAME pair. */
+  toolOptions: {
+    additionalTools: IToolWithEventService[];
+    defaultTools?: readonly IToolWithEventService[];
+  };
   permissionMode?: TPermissionMode;
 }
 
@@ -201,7 +219,13 @@ export function buildRobotaRuntimeOptions(input: IRobotaRuntimeSeamInput): IRobo
   return {
     ...options,
     commandModules: options.commandModules ?? [],
-    additionalTools: options.additionalTools ?? [],
     agentDefinitions: options.agentDefinitions ?? [],
+    // ARCH-006: `defaultTools` is deliberately NOT defaulted to `[]` here. An ABSENT tier (the framework
+    // builds its own) and a SUPPRESSED tier (the packs own it) are different products, and collapsing them
+    // would let the acceptance gate pass while the suppression was silently gone.
+    toolOptions: {
+      additionalTools: options.additionalTools ?? [],
+      ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
+    },
   };
 }

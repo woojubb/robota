@@ -33,9 +33,8 @@ import {
 import {
   buildRobotaRuntimeOptions,
   createDefaultTransportRegistry,
-  findUnknownPresetModuleNames,
   loadReplayProvider,
-  mergedCommandModuleNames,
+  reportUnknownPresetModules,
   selectProductCommandModules,
 } from './product/robota-plumbing.js';
 import {
@@ -201,9 +200,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   // session's runtime active-preset state. Pure state — no option re-application here.
   const selectedPresetId = selectPresetId(args, settingsPreset);
 
-  // ARCH-006: the packs are built HERE, from the shell's resolved `cwd`, because `pack-coding`'s file
-  // tools are scoped to it — a context-free pack would carry a disarmed working-directory path guard.
-  const packs = createRobotaPacks({ cwd });
+  const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
   const packCommandModules = packCommandModuleNames(packs);
   const {
     commandHostAdapters,
@@ -221,19 +218,12 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     createRemoteControlController(transportRegistry);
   commandHostAdapters.remoteControl = buildRemoteControlHostAdapter(remoteControlController);
 
-  // INFRA-032: a preset command-module name that matched no module (a short form like "editor"
-  // instead of agent-command-editor, or a typo) is surfaced as a non-fatal notice — never a silent
-  // drop, never an abort — mirroring the external-preset skip reporting above. Computed from the
-  // base ⊕ pack NAME superset (no assembly needed), so it still fires before the init/--configure
-  // early-returns exactly as it did before ARCH-005 S2.
-  for (const { name, kind } of findUnknownPresetModuleNames(
-    mergedCommandModuleNames(baseCommandModules, packCommandModules),
+  reportUnknownPresetModules(
+    (message) => terminal.writeError(message),
+    baseCommandModules,
+    packCommandModules,
     resolvedPreset,
-  )) {
-    terminal.writeError(
-      `Preset command-module "${name}" (${kind}) matched no module — expected the agent-command-* form; ignored.`,
-    );
-  }
+  );
 
   if (args.positional[0] === 'init') {
     try {
@@ -293,9 +283,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `robota` is declared as DATA
-  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct` — provider construction,
-  // the base ⊕ pack capability merge, and the instance-scoped preset registry all happen in the kernel.
-  // What remains below is product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
+  // in `createRobotaProfile` and folded by the product-neutral `assembleProduct`. What remains below is
+  // product SHELL only: notices, session-resume UX, memory UX, and mode dispatch.
   //
   // INFRA-018: `--session-log` injects a replay provider that overrides settings-based construction — it
   // replays the recorded log deterministically instead of calling a model. Provider settings/model still
@@ -324,7 +313,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   }
 
   // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
-  const { commandModules, agentDefinitions, additionalTools, defaultTools, permissionMode } =
+  const { commandModules, agentDefinitions, toolOptions, permissionMode } =
     buildRobotaRuntimeOptions({
       product,
       cwd,
@@ -381,7 +370,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      { additionalTools, defaultTools },
+      toolOptions,
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
@@ -417,8 +406,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      additionalTools,
-      defaultTools,
+      ...toolOptions,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -488,8 +476,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
-    additionalTools,
-    defaultTools,
+    ...toolOptions,
     commandModules,
     commandHostAdapters,
     remoteCommandPolicy,
