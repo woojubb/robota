@@ -16,10 +16,11 @@ skill/rule linked below.
    [spec-code-conformance](../spec-code-conformance/SKILL.md). Do not proceed until SPECs are
    updated and committed.
 2. **Build and test.** `pnpm build` + `pnpm test` for modified packages must pass; check for stale
-   references (deleted files, renamed types, removed exports). If any part was delegated to a
-   subagent, independently re-verify the "green" claim (typecheck, relevant scans,
-   `pnpm install --frozen-lockfile` when the lockfile was touched) →
-   [delegated-refactor-green-gate](../delegated-refactor-green-gate/SKILL.md).
+   references (deleted files, renamed types, removed exports). If any part was delegated, the
+   delegated "green" must be independently reproduced before it counts →
+   [verification.md](../../rules/verification.md) > Delegated Verification Claims (the pipeline for a
+   single delegated mechanical change is
+   [delegated-refactor-green-gate](../delegated-refactor-green-gate/SKILL.md)).
 3. **README.** Update each modified package's `README.md` to match the SPEC changes (create it for
    new packages).
 4. **Commit + PR.** Commit SPEC + README + code; keep one coherent work-unit in ONE multi-commit PR

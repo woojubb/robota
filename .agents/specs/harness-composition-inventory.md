@@ -347,6 +347,17 @@ commands with no branching — it is not a pipeline at all. **Recommendation: fo
 `architecture-conformance-audit` as step 1**, or into the `architecture-conformance-auditor` agent's
 own procedure, and delete the file. Creating an agent for it would be worse than the status quo.
 
+> **RESOLVED in increment 5**, by the recommended path, with the artifact kind now named. Under the
+> four-kind test the file was a **fact catalogue**: an enumeration a skill consults (which manifests hold
+> the edge set, which commands are the mechanical guards, what their output markers are), stating no
+> mandate of its own — delete it and no _force_ is lost, only an enumeration whose force lives in
+> `project-structure.md` and in `architecture-conformance-audit`'s own step 1. It did **not** become a
+> standalone `.agents/specs/*.md` catalogue: two of its three facts were already duplicated verbatim in
+> its only caller, so a new file would have manufactured an artifact _and_ left the duplication standing.
+> The one non-duplicated fact (how the workspace-internal edge set is derived) moved into that step and
+> the file was deleted. The `INFRA-003` records that count it among "all 5 skills" are archival and were
+> deliberately left untouched.
+
 ---
 
 ## 5. Nesting proposal
@@ -915,7 +926,8 @@ which is itself the argument for leaving it alone.
 **10. `dependency-graph-extraction` — a skill that is not a pipeline.** It has no branches, no gates,
 and no routing: three commands run unconditionally. By the design's definitions it is neither an
 orchestration skill (no control flow) nor an agent (no judgement). The honest classification is that
-it should not be a standalone artifact at all — see §4.
+it should not be a standalone artifact at all — see §4. **Resolved in increment 5:** it was a fact
+catalogue, folded into `architecture-conformance-audit` step 1 and deleted. This entry is historical.
 
 **11. Rules that should not change at all.** `frontend.md`, `code-quality.md`, `naming-style.md`,
 `testing-layering.md`, `memory-mirroring.md`, `common-mistakes.md`, and the three pointer stubs are

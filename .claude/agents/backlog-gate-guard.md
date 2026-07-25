@@ -2,6 +2,7 @@
 name: backlog-gate-guard
 description: Independent guardian for ONE named gate on ONE document. Given a gate name and a document path, it locates the project's criteria for that gate, verifies the gate is being run in order, evaluates every criterion against what the document actually contains, records a structured evidence entry, and returns exactly one verdict — PASS, FAIL, or NON-COMPLIANCE — with the specific criterion behind it. It JUDGES ONLY: it never writes the content under judgement, never fixes what it fails, never runs a second gate in the same invocation, and never decides which gate runs next. Universal/neutral — portable to any project whose gates are defined as named criteria sets. Use whenever a gate must produce a recorded, machine-actionable verdict.
 tools: Read, Grep, Glob, Bash, Edit
+signal: GATE VERDICT
 ---
 
 # Backlog Gate Guard
