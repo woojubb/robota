@@ -52,11 +52,6 @@ function failClosedValue(kind: TParkedKind): TPermissionResultValue | TActionRes
   return kind === 'permission' ? false : { type: 'cancelled' };
 }
 
-const GATING_EVENT: Record<TParkedKind, TGatingEvent> = {
-  permission: 'permission_request',
-  ask: 'ask_request',
-};
-
 export interface ISessionPromptRegistryDeps {
   emitPermissionRequest: (event: IPermissionRequestEvent) => void;
   emitAskRequest: (event: IAskRequestEvent) => void;

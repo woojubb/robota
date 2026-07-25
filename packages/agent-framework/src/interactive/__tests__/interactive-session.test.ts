@@ -6,7 +6,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 
@@ -536,7 +536,7 @@ describe('InteractiveSession', () => {
       // We verify by checking that injectMessage is NOT called during construction
       // (because session is unavailable), confirming deferred path is used
       const mockSession = createMockSession();
-      const session = new InteractiveSession({
+      new InteractiveSession({
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
