@@ -72,6 +72,6 @@ Use the gate pipeline skills to advance documents:
 
 - [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) — orchestrator (start here)
 - [`backlog-writer`](../skills/backlog-writer/SKILL.md) — content authoring
-- [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md) — gate validation
+- [gate catalogue](../specs/gate-catalogue.md) — the gate criteria, applied by the `backlog-gate-guard` agent
 
 See [spec-workflow rules](../rules/spec-workflow.md) for the HARD GATE policy.

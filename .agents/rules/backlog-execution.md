@@ -11,7 +11,7 @@ itself dispatched once per item by
 [`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md) when work spans several items.
 The judgement of _whether a recommendation is right_ is owned by the `proposal-reviewer` agent; _whether a
 gate passes_ by the [`backlog-gate-guard`](../../.claude/agents/backlog-gate-guard.md) agent against the
-[gate catalogue](../skills/backlog-gate-guard/SKILL.md); _what a scenario should verify_ by the
+[gate catalogue](../specs/gate-catalogue.md); _what a scenario should verify_ by the
 [`user-execution-scenario-author`](../../.claude/agents/user-execution-scenario-author.md) agent. This
 document states only what must hold, wherever those run.
 
@@ -314,7 +314,7 @@ execution is genuinely impossible AND a valid, specific reason is stated under t
 not be executed.
 
 **The criteria each stage checks** are the `DONE-GATE-STAGE-1` / `DONE-GATE-STAGE-2` entries in the
-[gate catalogue](../skills/backlog-gate-guard/SKILL.md); the verdict is produced by the
+[gate catalogue](../specs/gate-catalogue.md); the verdict is produced by the
 [`backlog-gate-guard`](../../.claude/agents/backlog-gate-guard.md) agent, never by the actor that did the
 work.
 
