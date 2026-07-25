@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, appendFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isSensitiveKey } from './scrub-sensitive.js';
@@ -177,11 +177,17 @@ function maybeExternalizePayload(
   const payloadDir = join(logDir, payloadDirName);
   const payloadPath = join(logDir, relativePath);
   mkdirSync(payloadDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
-  if (!existsSync(payloadPath)) {
+  // The payload is content-addressed by its own sha256, so an existing file necessarily holds
+  // identical bytes. Create it exclusively ('wx') rather than testing existsSync first: the
+  // check-then-write pair is a TOCTOU race between concurrent sessions writing the same payload.
+  try {
     writeFileSync(payloadPath, serialized, {
       encoding: 'utf-8',
       mode: OWNER_ONLY_FILE_MODE,
+      flag: 'wx',
     });
+  } catch {
+    // allow-fallback: EEXIST means the identical content-addressed payload is already on disk
   }
   return {
     kind: 'external-payload',

@@ -277,6 +277,11 @@ world-writable location, while the JSONL entries and externalized payloads hold 
 mode `0700`, and the `{sessionId}.jsonl` and payload files with mode `0600`, instead of inheriting the
 process umask. This is a permissions contract only; paths, names, and formats are unchanged.
 
+Externalized payloads are written with the exclusive-create flag (`wx`) rather than an `existsSync`
+check followed by a write, which was a TOCTOU race between concurrent sessions externalizing the same
+payload. Because the filename is the sha256 of the content, an `EEXIST` failure means the identical
+bytes are already on disk and is safely ignored.
+
 `session-log-replay.ts` owns replay readers and validators. `replaySessionLogEntries()` reconstructs provider messages and chat history from `history_mutation` events. `validateSessionReplayLogEntries()` reports missing provider-native raw payloads, missing provider-normalized raw responses, missing normalized responses, unmatched tool requests/results, and invalid external payload references. Every `provider_request` must be paired with at least one `provider_native_raw_payload` event for the same `executionId`/`round` whose `payloadKind` is `response` or `stream_event`, plus the existing `provider_response_raw` and `provider_response_normalized` events.
 
 ## Hook Lifecycle
