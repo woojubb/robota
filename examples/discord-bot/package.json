@@ -9,7 +9,7 @@
     "start": "node dist/bot.js",
     "dev": "tsx src/bot.ts",
     "deploy": "tsx src/deploy-commands.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@discordjs/rest": "^2.6.3",

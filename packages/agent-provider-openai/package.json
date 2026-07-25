@@ -42,7 +42,7 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src/ --ext .ts",

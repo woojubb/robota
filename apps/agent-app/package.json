@@ -14,7 +14,7 @@
     "start": "electron dist/electron/main.js",
     "bundle:runtime": "node scripts/bundle-runtime.mjs",
     "dist:app": "pnpm build && pnpm bundle:runtime && electron-builder --publish never",
-    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo -p electron/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "xvfb-run -a node e2e/run-e2e.mjs",

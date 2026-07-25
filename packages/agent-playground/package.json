@@ -41,7 +41,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

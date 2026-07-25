@@ -27,7 +27,7 @@
     "build": "tsdown",
     "build:js": "tsdown --no-dts",
     "build:types": "tsdown --dts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "clean": "rimraf dist",
