@@ -82,24 +82,19 @@ work, and before a `develop → main` release. See
 
 **When status is `draft` through `verifying`:**
 
-Invoke `backlog-gate-guard` as a **subagent** (Agent tool). Use this exact prompt template — fill in `<GATE>` and `<PATH>`:
+Dispatch the [`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md) (Agent tool),
+one gate per invocation. The agent owns how to judge; give it only the two inputs it needs:
 
 ```
-You are running as a backlog-gate-guard subagent. Your sole job is to validate one gate.
-
-Gate: <GATE>          (e.g. GATE-WRITE)
-Spec document: <PATH>  (e.g. .agents/spec-docs/draft/CLI-050-some-feature.md)
-
-Instructions:
-1. Read the backlog-gate-guard skill: .agents/skills/backlog-gate-guard/SKILL.md
-2. Read the spec document at <PATH>
-3. Check every criterion for <GATE> as listed in the skill
-4. Append the result entry to the ## Evidence Log section using the Edit tool
-5. Return exactly one of: PASS | FAIL | NON-COMPLIANCE
-   followed by a one-line reason
+Gate: <GATE>            (e.g. GATE-WRITE)
+Document: <PATH>        (e.g. .agents/spec-docs/draft/CLI-050-some-feature.md)
+Criteria catalogue: .agents/skills/backlog-gate-guard/SKILL.md
 ```
 
-Wait for subagent result: PASS | FAIL | NON-COMPLIANCE
+Do not restate the criteria in the prompt — the catalogue is their single owner, and a prompt-side copy
+drifts from it silently.
+
+Wait for its terminal line: `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE`
 
 ### Step 3 — Handle gate result
 
