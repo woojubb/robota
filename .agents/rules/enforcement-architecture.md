@@ -30,7 +30,16 @@ Therefore:
 - **Every guardian MUST be backed by a mechanical floor** — a `pnpm harness:scan` FAIL condition or a hook — so
   the machine signal, not the model's discretion, is the floor. A prose-only guardian ("should check X") buys
   nothing; it is the failure mode this rule exists to prevent.
-- Do NOT add orchestration tiers or nesting to gain reliability. Reuse the flat `backlog-pipeline` shape.
+- **Never add a tier to gain reliability.** Depth buys no enforcement, so "make it a sub-skill so the step
+  gets run" is always the wrong fix; the fix is a verdict plus a script.
+
+**Nesting for responsibility separation is a different question, and it is sanctioned.** A phase of a
+pipeline that is itself a pipeline SHOULD be its own orchestration skill — that is a composition decision
+about who owns which ordering, governed by
+[`harness-composition-design.md`](../specs/harness-composition-design.md), and it is expected rather than
+exceptional. What this rule bans is nesting justified by _reliability_. The two are told apart by the
+reason given: "a phase has its own ordering, or two callers would otherwise each carry a copy" is
+responsibility separation; "wrapping it makes the agent more likely to do it" is the banned one.
 
 ## Loop-back is hybrid
 
@@ -49,4 +58,6 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
    **orchestrator** (routes on the verdict). Keep them separate.
 2. Give the guardian a **mechanical floor** (a scan/hook) — not just a prose criterion.
 3. Choose the **loop-back kind** (auto-re-drive vs halt) by whether the gate is completeness or human-decision.
-4. Reuse the `backlog-pipeline` / `backlog-gate-guard` shape. Do not invent new tiers.
+4. Reuse the `backlog-pipeline` / `backlog-gate-guard` shape: an orchestrator that only routes, a worker
+   that only produces, a guardian that only judges. Add a tier only when a phase owns its own ordering
+   (see the nesting note above) — never to make a step more likely to run.
