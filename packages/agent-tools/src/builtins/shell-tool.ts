@@ -7,6 +7,25 @@
  *
  * Returns an IToolInvocationResult JSON string. A non-zero exit is returned as success:true with
  * exitCode set (the command ran, it just exited non-zero — the LLM decides what to do with that).
+ *
+ * ## SEC-007 — why `workingDirectory` is NOT path-contained (a deliberate decision, not an omission)
+ *
+ * `Read`/`Write`/`Edit` are contained by `checkPathWithinCwd`, and SEC-007 extended that to `Glob`
+ * and `Grep`. This tool is deliberately excluded, and the reason is what the tool IS: it runs an
+ * arbitrary command in a shell. A guard on `cwd` is undone by the first `cd ..` — or by an absolute
+ * path in the command itself — so it would constrain nothing an attacker-controlled command cannot
+ * trivially step around, while LOOKING like a boundary in the code and in review.
+ *
+ * That appearance is the actual hazard. SEC-006's R9 lesson was "'the guard is still there' is not a
+ * verdict": a check that reads as containment but is not one is worse than no check, because the next
+ * reviewer stops asking. The real boundary for this tool is the permission layer (every invocation is
+ * permission-gated at call time) and the sandbox seam below — which is why SEC-006 already recorded
+ * `js/indirect-command-line-injection` at the spawn site as a false positive on those same grounds.
+ *
+ * What the containment root DOES do here: it supplies the DEFAULT working directory. Binding a tool
+ * to a session root and then silently running its commands in `process.cwd()` was a real defect — an
+ * assembly that scoped its file tools to a workspace still ran `Shell` wherever the host process
+ * happened to be started.
  */
 
 import { spawn } from 'node:child_process';
@@ -132,8 +151,12 @@ async function runShell(
 ): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
   const timeout = Math.min(rawTimeout, 600_000);
+  // SEC-007: the configured containment root is the DEFAULT working directory (see the file header
+  // for why it is not a boundary). Without this, an assembly that scoped its file tools to a
+  // workspace still ran every shell command in whatever directory the host process was started in.
+  const effectiveCwd = workingDirectory ?? options.cwd ?? process.cwd();
   if (options.sandboxClient) {
-    return runInSandbox(command, timeout, workingDirectory, options);
+    return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
 
   const shell = resolvePlatformShell();
@@ -150,7 +173,7 @@ async function runShell(
     let settled = false;
 
     const child = spawn(shell.command, shell.commandArgs(command), {
-      cwd: workingDirectory ?? process.cwd(),
+      cwd: effectiveCwd,
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
       detached: SPAWN_DETACHED,
