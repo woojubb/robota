@@ -24,6 +24,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+// HARNESS-046: frontmatter is read by the harness's ONE parser. `tools:` is legitimately a YAML flow
+// array, and prettier reflows a long one onto several indented lines — which the hand-rolled per-line
+// regex this replaced read as '', blinding the read-only/edit-tool check entirely.
+import { asScalar, isBlank, splitFrontmatter } from './frontmatter.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
 const SKILLS_INDEX = path.join(WORKSPACE_ROOT, '.agents/skills/index.md');
@@ -39,19 +44,13 @@ export const CLOSED_SIGNAL_VOCAB = new Set([
 
 const EDIT_TOOLS = ['Edit', 'Write'];
 
-/** Split a markdown file into its YAML-ish frontmatter map + body. */
+/**
+ * Split a markdown file into its frontmatter map + body. Values are a string (scalar) or a
+ * string[] (`tools: [Read, Write]`, in any of the shapes prettier may leave it in).
+ */
 export function parseAgentFile(text) {
-  const map = {};
-  let body = text;
-  const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  if (fmMatch) {
-    body = text.slice(fmMatch[0].length);
-    for (const line of fmMatch[1].split(/\r?\n/)) {
-      const m = line.match(/^([A-Za-z0-9_-]+):\s?(.*)$/);
-      if (m) map[m[1].trim()] = m[2].trim();
-    }
-  }
-  return { frontmatter: map, body };
+  const { entries, body } = splitFrontmatter(text);
+  return { frontmatter: entries ? Object.fromEntries(entries) : {}, body };
 }
 
 /**
@@ -63,14 +62,17 @@ export function analyzeAgent(text, { referencedInIndex = true } = {}) {
   const { frontmatter, body } = parseAgentFile(text);
 
   for (const key of ['name', 'description', 'tools']) {
-    if (!frontmatter[key]) findings.push(`missing frontmatter field: ${key}`);
+    if (isBlank(frontmatter[key])) findings.push(`missing frontmatter field: ${key}`);
   }
 
-  const tools = (frontmatter.tools ?? '')
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const isDeclaredReadOnly = /read-only/i.test(frontmatter.description ?? '');
+  // `tools` is either a flow/block sequence (already a list) or the comma-separated scalar form.
+  const tools = Array.isArray(frontmatter.tools)
+    ? frontmatter.tools
+    : asScalar(frontmatter.tools)
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+  const isDeclaredReadOnly = /read-only/i.test(asScalar(frontmatter.description));
   if (isDeclaredReadOnly) {
     const carried = EDIT_TOOLS.filter((t) => tools.includes(t));
     if (carried.length > 0) {
@@ -87,7 +89,7 @@ export function analyzeAgent(text, { referencedInIndex = true } = {}) {
   }
 
   if (Object.prototype.hasOwnProperty.call(frontmatter, 'signal')) {
-    const token = frontmatter.signal;
+    const token = asScalar(frontmatter.signal);
     if (!CLOSED_SIGNAL_VOCAB.has(token)) {
       findings.push(
         `signal "${token}" is not in the closed vocabulary (${[...CLOSED_SIGNAL_VOCAB].join(' | ')})`,
@@ -114,7 +116,7 @@ export function findAgentDefFindings(agentsDir = AGENTS_DIR, skillsIndexPath = S
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
     const text = readFileSync(path.join(agentsDir, entry.name), 'utf8');
     const { frontmatter } = parseAgentFile(text);
-    const agentName = frontmatter.name || entry.name.replace(/\.md$/, '');
+    const agentName = asScalar(frontmatter.name) || entry.name.replace(/\.md$/, '');
     const referencedInIndex = indexText.includes(agentName);
     const findings = analyzeAgent(text, { referencedInIndex });
     if (findings.length > 0) results.push({ file: entry.name, findings });

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { collectOrchestrationMapFindings } from '../scan-orchestration-map.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-orchestration-map.mjs', import.meta.url));
+const FRONTMATTER_MODULE = fileURLToPath(new URL('../frontmatter.mjs', import.meta.url));
 
 const GREEN_MAP = `# Orchestration Map
 
@@ -78,6 +79,40 @@ describe('collectOrchestrationMapFindings', () => {
     expect(findings[0]).toContain('agent "nameless"');
   });
 
+  /**
+   * HARNESS-046 — the agent name must come from the FRONTMATTER block, not from the first `^name:`
+   * line anywhere in the file. The forked `/^name:\s*(\S+)$/m` regex was unanchored to the block, so
+   * a `name:` inside a body example (agent definitions routinely quote frontmatter samples) silently
+   * became the identity the map is checked against.
+   */
+  it('ignores a `name:` line that lives in the BODY, not the frontmatter', async () => {
+    const root = await createFixture({
+      '.agents/specs/orchestration-map.md': GREEN_MAP,
+      '.claude/agents/body-name.md': [
+        'An agent definition whose frontmatter is absent.',
+        '',
+        'Its body shows a sample block:',
+        '',
+        'name: impostor-agent',
+        '',
+      ].join('\n'),
+    });
+
+    const { findings } = collectOrchestrationMapFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('agent "body-name"');
+    expect(findings[0]).not.toContain('impostor-agent');
+  });
+
+  it('reads a quoted frontmatter name', async () => {
+    const root = await createFixture({
+      '.agents/specs/orchestration-map.md': GREEN_MAP,
+      '.claude/agents/fixture-worker.md': '---\nname: "fixture-worker"\n---\n\nWorker agent.\n',
+    });
+
+    expect(collectOrchestrationMapFindings(root)).toEqual({ mapMissing: false, findings: [] });
+  });
+
   it('passes when there is no agents directory at all', async () => {
     const root = await createFixture({
       '.agents/specs/orchestration-map.md': GREEN_MAP,
@@ -89,12 +124,14 @@ describe('collectOrchestrationMapFindings', () => {
 
 describe('scan-orchestration-map CLI', () => {
   // The scan anchors its default root at `<script dir>/../..`, so the CLI is exercised by copying
-  // the (unmodified) script into the fixture's scripts/harness/ and running that copy.
+  // the (unmodified) script — and the frontmatter parser it imports — into the fixture's
+  // scripts/harness/ and running that copy.
   async function createCliFixture(files) {
     const root = await createFixture(files);
     const scriptCopy = path.join(root, 'scripts/harness/scan-orchestration-map.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(FRONTMATTER_MODULE, path.join(path.dirname(scriptCopy), 'frontmatter.mjs'));
     return { root, scriptCopy };
   }
 

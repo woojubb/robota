@@ -32,22 +32,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+// HARNESS-046: frontmatter is read by the harness's ONE parser. This scan used to hand-roll a
+// per-line regex, which read any value prettier had wrapped onto the next line as '' — turning a
+// fully-evidenced capability spec into a false "dodged the user-execution gate" failure.
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const DONE_DIR = '.agents/spec-docs/done';
-
-/** Read the `---` frontmatter block into a flat key→value map (string values). */
-export function parseFrontmatter(source) {
-  const m = /^---\n([\s\S]*?)\n---/.exec(source);
-  if (!m) return {};
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    const kv = /^([A-Za-z_]+):\s*(.*)$/.exec(line);
-    // Strip a single layer of surrounding quotes so `key: "value"` resolves to `value` (a quoted
-    // path would otherwise fail existsSync and yield a confusing "does not exist" for a real file).
-    if (kv) fm[kv[1]] = kv[2].trim().replace(/^(['"])(.*)\1$/, '$2');
-  }
-  return fm;
-}
 
 /**
  * Pure evaluation of one spec's capability declaration. `scenarioExists(path)` reports whether the named
@@ -55,13 +46,13 @@ export function parseFrontmatter(source) {
  * null if clean / not a declared capability.
  */
 export function evaluateSpec(frontmatter, filename, scenarioExists) {
-  if (String(frontmatter.capability).toLowerCase() !== 'true') return null; // opt-in: only declared capabilities
-  const ux = (frontmatter.user_execution ?? '').toLowerCase();
+  if (asScalar(frontmatter.capability).toLowerCase() !== 'true') return null; // opt-in: only declared capabilities
+  const ux = asScalar(frontmatter.user_execution).toLowerCase();
   if (ux === '' || ux === 'none' || ux === 'n/a') {
-    return `capability spec '${filename}' records no user-execution (user_execution: ${frontmatter.user_execution ?? '<missing>'}) — a shipped user-facing capability must NOT dodge the user-execution gate (no library-seam N/A). Verify it AGENT-RUN and set 'user_execution: agent-run' + 'user_execution_scenario: <path>'.`;
+    return `capability spec '${filename}' records no user-execution (user_execution: ${asScalar(frontmatter.user_execution) || '<missing>'}) — a shipped user-facing capability must NOT dodge the user-execution gate (no library-seam N/A). Verify it AGENT-RUN and set 'user_execution: agent-run' + 'user_execution_scenario: <path>'.`;
   }
   if (ux === 'agent-run') {
-    const scenario = frontmatter.user_execution_scenario;
+    const scenario = asScalar(frontmatter.user_execution_scenario) || undefined;
     if (!scenario) {
       return `capability spec '${filename}' declares 'user_execution: agent-run' but names no 'user_execution_scenario: <path>' evidence file.`;
     }
@@ -79,7 +70,7 @@ export function findCapabilityReachabilityFindings(root = WORKSPACE_ROOT) {
   const scenarioExists = (rel) => existsSync(path.join(root, rel));
   for (const entry of readdirSync(doneDir)) {
     if (!entry.endsWith('.md')) continue;
-    const fm = parseFrontmatter(readFileSync(path.join(doneDir, entry), 'utf8'));
+    const fm = frontmatterObject(readFileSync(path.join(doneDir, entry), 'utf8'));
     const finding = evaluateSpec(fm, entry, scenarioExists);
     if (finding) findings.push(finding);
   }
