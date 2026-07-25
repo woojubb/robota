@@ -60,7 +60,7 @@ export type TAuthoringOutcome =
  * authoring so the node doesn't silently hardcode-default to anthropic and fail for other providers.
  * The chosen provider is persisted in the node manifest for a deterministic reload.
  */
-export function buildPromptNode(
+function buildPromptNode(
   spec: IAuthoredPromptNode,
   fallbackProvider: TInstantNodeProvider | undefined,
 ): IDagNodeDefinition {
@@ -81,7 +81,7 @@ export function buildPromptNode(
  * self-contained (reproduces on a bare `/workflows run`). Returns the definition unchanged when there
  * is no input to bake or no `input` node.
  */
-export function bakeInputIntoDefinition(
+function bakeInputIntoDefinition(
   definition: IDagDefinition,
   runInputs: Record<string, string>,
 ): IDagDefinition {
