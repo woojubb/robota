@@ -119,7 +119,7 @@ jobs:
 
       - name: Fetch both integration branches
         run: |
-          git fetch origin --no-tags \
+          git fetch origin --no-tags --depth=50 \
             +refs/heads/main:refs/remotes/origin/main \
             +refs/heads/develop:refs/remotes/origin/develop
 
