@@ -23,8 +23,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
