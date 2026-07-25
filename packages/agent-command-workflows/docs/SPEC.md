@@ -125,6 +125,14 @@ existing `validate` and `run` executors; invalid/unassemblable spec → failed r
 no provider → actionable error + no write; `newNodes` manifests persisted inert under
 `<root>/nodes/` without execution.
 
+`src/__tests__/workspace-writer.test.ts` covers the instant-node persistence round-trip on real fs:
+a prompt node save→reload; a **composite (DAG-wrapping) node** save→reload→**run** (WORKFLOW-005 P2 —
+the reloaded composite executes its inner DAG on the in-process runtime via the injected sub-runner
+`loadInstantNodes` builds, and its exposed output flows through); and a non-instant (built-in) node is
+skipped. Prompt and composite nodes both persist through the shared
+`@robota-sdk/dag-node-instant-node` `toPersisted()`/`parse`/`rehydrate` abstraction — a composite's
+behavioral sub-runner is never serialized, it is rebuilt on reload.
+
 `src/__tests__/create-command.live.test.ts` is an **opt-in live suite** hitting a REAL provider — it
 runs only when `RUN_LIVE_LLM=1` AND a provider key are both present, so normal `pnpm test` / CI skip
 it (no network, cost, or key). Run it with `pnpm --filter @robota-sdk/agent-command-workflows

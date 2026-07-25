@@ -232,3 +232,39 @@ sessionId, baseCredits(=0) }`. `SkillResolverRuntime` loads skills via `@robota-
 possible future addition).** Next phases per the phasing plan: P2 (dynamic authoring — instant-node
 Phase C + unified persistence + composite reload fix), P3 (surface unification — expose create/save/build
 through `/workflows` + WORKFLOW-004 build).
+
+## P2 progress log
+
+- **composite reload fix + unified persistence (agent `/workflows` path) — DONE (2026-07-25).** The
+  agent-slash-command persistence path (`packages/agent-command-workflows/src/persistence/`) previously
+  **refused** composite (DAG-wrapping) instant nodes: `saveInstantNodeFile` returned `null` for them and
+  `loadInstantNodes` skipped them with a "composite reload is not supported in this workspace" warning —
+  so a composite authored via that path was dropped on reload. It now round-trips both prompt AND
+  composite instant nodes through the shared `@robota-sdk/dag-node-instant-node`
+  `toPersisted()`/`parsePersistedInstantNode`/`rehydrateInstantNode` abstraction (DATA-003/004) — the
+  same single abstraction dag-cli's persistence store uses, closing the divergence where the two paths
+  had diverged (dag-cli supported composites, the agent path did not).
+  - **Composite sub-runner** (behavioral, never serialized) is rebuilt on reload by `loadInstantNodes`,
+    backed by `dag-framework`'s `LocalDagRuntimeProvider` (already a dep — no new package edge; the agent
+    path stays free of any `dag-cli` dependency). The runner closes over the live reloaded-defs array so
+    an inner DAG can reference other reloaded instant nodes regardless of load order. Because the provider
+    consumes the ComfyUI workflow-file format (and runs `fromDagWorkflowFile(file, undefined)`, re-keying
+    nodes to `node-<numId>`), the runner remaps runtime ids back to the inner DAG's original node ids via
+    the companion `toDagWorkflowFile` emits, and reshapes the provider's flat `"<id>.<port>"` output map
+    into the nested `outputs[nodeId][portKey]` shape the composite contract reads.
+  - **TDD**: red-first. New `workspace-writer.test.ts` case saves a composite, reloads it after a
+    simulated restart, and RUNS the reloaded composite end-to-end on the in-process runtime (pure inner
+    `input` node → no credentials) asserting its exposed output flows through. Verified RED before the fix
+    (`saveInstantNodeFile` returned `null` → composite dropped), GREEN after. Full `agent-command-workflows`
+    suite green (37 pass / 5 skipped live).
+  - Files: `persistence/workspace-writer.ts` (drop the composite refusal), `persistence/instant-node-loader.ts`
+    (build the sub-runner + reload composites), `__tests__/workspace-writer.test.ts`, `docs/SPEC.md`.
+  - Branch: `feat/workflow-005-p2-reload-persistence`.
+
+- **instant-node Phase C (arbitrary code node via API) — NOT STARTED; awaits owner phasing confirmation.**
+  Phase C is a NEW capability with security implications (runtime-defined executable code, persistable).
+  The doc notes it as "explicitly out of scope today" (Current state) yet lists it under P2 (phasing) —
+  this inconsistency needs an explicit OWNER decision on phasing/sandboxing before implementation. Do NOT
+  build it until confirmed.
+
+- **P3 surface-unification (expose create/save/build through `/workflows`) — deferred (unchanged).**
