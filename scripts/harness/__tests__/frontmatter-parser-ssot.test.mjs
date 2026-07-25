@@ -29,6 +29,10 @@ import {
 
 const HARNESS_DIR = fileURLToPath(new URL('..', import.meta.url));
 
+/** SEC-004 timing floor: the fixed scan is sub-millisecond, the pre-fix one took 14.5 s. */
+const REDOS_BUDGET_MS = 250;
+const REDOS_RED_TIMEOUT_MS = 120_000;
+
 /** The one module allowed to own the frontmatter key regex. */
 const SSOT_MODULE = 'frontmatter.mjs';
 
@@ -45,13 +49,23 @@ const ALLOWLIST = new Map([
   ],
 ]);
 
-/** Regex literals in a source file, as their raw pattern text. */
+/**
+ * Regex literals in a source file, as their raw pattern text.
+ *
+ * SEC-004 (`js/redos`): the character-class body was `(?:\\.|[^\]])*`, whose two branches both match
+ * a backslash — `\\.` takes it with the character after it, `[^\]]` takes it alone. A run of
+ * backslashes inside a `[…]` that never closes therefore has 2^n parses, and the engine tries all of
+ * them before failing: 42 backslashes took 14.5 s. Excluding the backslash from the second branch
+ * (`[^\]\\]`) makes exactly one branch match at every position, so the run is scanned once. Inside a
+ * regex character class a backslash always begins an escape, so `\\.` already covers every
+ * well-formed input and the extracted literals are unchanged.
+ */
 function regexLiterals(source) {
   // A regex literal: `/pattern/flags`, not preceded by an identifier/`)`/`]` (which would make `/`
   // a division), and not a `//` comment or a `/*` block opener.
   const literals = [];
   const pattern =
-    /(^|[=(,:[!&|?{};+\-*%<>~^\s])\/((?:\\.|\[(?:\\.|[^\]])*\]|[^/\\\n[])+)\/[dgimsuvy]*/g;
+    /(^|[=(,:[!&|?{};+\-*%<>~^\s])\/((?:\\.|\[(?:\\.|[^\]\\])*\]|[^/\\\n[])+)\/[dgimsuvy]*/g;
   for (const match of source.matchAll(pattern)) literals.push(match[2]);
   return literals;
 }
@@ -155,6 +169,32 @@ describe('HARNESS-046 anti-fork floor — one frontmatter parser', () => {
       expect(() => statSync(path.join(HARNESS_DIR, file))).not.toThrow();
       expect(reason.length).toBeGreaterThan(40);
     }
+  });
+
+  it(
+    'SEC-004: an unclosed character class full of backslashes is scanned in linear time',
+    () => {
+      // The catastrophic shape: `[` opens a class, a run of backslashes follows, and no `]` ever
+      // arrives — so every one of the 2^n ways to split that run gets tried before the match fails.
+      // 42 backslashes cost 14.5 s against the pre-fix pattern and 0.1 ms against this one.
+      const source = ` /[${'\\'.repeat(42)}!`;
+      const started = performance.now();
+      expect(regexLiterals(source)).toEqual([]);
+      expect(performance.now() - started).toBeLessThan(REDOS_BUDGET_MS);
+    },
+    REDOS_RED_TIMEOUT_MS,
+  );
+
+  it('SEC-004: extracts the same literals as before, character classes included', () => {
+    // A class holding an escaped `]`, an escaped `\`, and a `/` — the cases the class branch exists
+    // for. Each must still be read as ONE literal, ending at the real closing delimiter.
+    expect(regexLiterals('const a = /[^\\]]+/g;')).toEqual(['[^\\]]+']);
+    expect(regexLiterals('const b = /[\\\\/]+/;')).toEqual(['[\\\\/]+']);
+    expect(regexLiterals('const c = /a\\/b/;')).toEqual(['a\\/b']);
+    expect(regexLiterals('const d = /^\\s*tags:\\s*(.+)$/;')).toEqual(['^\\s*tags:\\s*(.+)$']);
+    expect(regexLiterals('const e = /[a-z]/ + /[0-9]/;')).toEqual(['[a-z]', '[0-9]']);
+    // Not literals: a division and a comment.
+    expect(regexLiterals('const f = total / count;')).toEqual([]);
   });
 
   it('the converged scans import the SSOT parser', () => {
