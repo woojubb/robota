@@ -1,6 +1,7 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { resolve, dirname, basename, join, sep } from 'node:path';
 import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
 import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
@@ -43,14 +44,77 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+// SEC-006: no `Access-Control-Allow-Origin`. The studio UI is served from `/` on this very origin, so it
+// needs no CORS grant; a wildcard here let any web page the developer visited read these responses.
 function jsonReply(res: ServerResponse, status: number, data: unknown): void {
   const body = JSON.stringify(data);
   res.writeHead(status, {
     'Content-Type': JSON_CT,
     'Content-Length': Buffer.byteLength(body),
-    'Access-Control-Allow-Origin': '*',
   });
   res.end(body);
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/**
+ * Whether the request `Host` header is a loopback name (port stripped) — closes DNS rebinding.
+ * A missing `Host` is rejected (a well-formed HTTP/1.1 client always sends one).
+ */
+function isLoopbackHostHeader(host: string | undefined): boolean {
+  if (!host) return false;
+  const name = host.startsWith('[')
+    ? host.slice(0, host.indexOf(']') + 1)
+    : host.slice(0, host.lastIndexOf(':') === -1 ? host.length : host.lastIndexOf(':'));
+  return LOOPBACK_HOSTS.has(name);
+}
+
+/**
+ * Canonicalize `p` so symlinks are resolved, tolerating a path that does not exist yet.
+ *
+ * `realpathSync` throws on a missing path, but a client may legitimately reference a file that is not
+ * there (the caller then reports a read error). So we walk up to the deepest ancestor that DOES exist,
+ * canonicalize that, and re-attach the remaining segments — the re-attached tail cannot itself be a
+ * symlink, since it does not exist.
+ */
+function canonicalize(p: string): string {
+  const tail: string[] = [];
+  let current = p;
+  for (;;) {
+    try {
+      return join(realpathSync(current), ...tail);
+    } catch {
+      const parent = dirname(current);
+      // allow-fallback: nothing along the chain exists (or is readable) — fall back to the lexical
+      // path, which is still fully normalized by `resolve()` and therefore safe to compare.
+      if (parent === current) return p;
+      tail.unshift(basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * Resolve a CLIENT-SUPPLIED `file` against `cwd` and refuse anything that escapes it.
+ *
+ * SEC-006: `/api/dag`, `/api/run` and `/api/validate` all took an arbitrary path from the request, so a
+ * caller could read any JSON file on the machine — and, via `/api/run`, EXECUTE any DAG on it. Containment
+ * is decided on the CANONICAL (symlink-resolved) paths: `resolve()` alone is purely lexical, so
+ * `<cwd>/link/x.dag.json` where `link -> /etc` passed a `startsWith` check while the subsequent `readFile`
+ * followed the link out of the working directory. Both sides are canonicalized so a cwd that is itself
+ * behind a symlink (macOS `/tmp` -> `/private/tmp`) still matches.
+ */
+function resolveContainedFile(
+  file: string,
+  cwd: string,
+): { ok: true; path: string } | { ok: false; message: string } {
+  const resolved = resolve(cwd, file);
+  const canonical = canonicalize(resolved);
+  const canonicalCwd = canonicalize(resolve(cwd));
+  if (canonical !== canonicalCwd && !canonical.startsWith(canonicalCwd + sep)) {
+    return { ok: false, message: `Access denied: "${file}" is outside the working directory` };
+  }
+  return { ok: true, path: resolved };
 }
 
 function sendSSE(res: ServerResponse, data: unknown): void {
@@ -96,7 +160,12 @@ async function routeDag(req: IncomingMessage, res: ServerResponse, cwd: string):
     jsonReply(res, 400, { error: 'Missing ?file= parameter' });
     return;
   }
-  const result = await parseDagFile(resolve(cwd, fileParam));
+  const contained = resolveContainedFile(fileParam, cwd);
+  if (!contained.ok) {
+    jsonReply(res, 400, { error: contained.message });
+    return;
+  }
+  const result = await parseDagFile(contained.path);
   if (!result.ok) {
     jsonReply(res, 400, { error: result.message });
     return;
@@ -143,11 +212,11 @@ async function routeNodes(res: ServerResponse): Promise<void> {
 }
 
 async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string): Promise<void> {
+  // SEC-006: no `Access-Control-Allow-Origin` — the studio UI streams this from the same origin.
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
   });
   // Disable Nagle's algorithm so each SSE event is sent as its own TCP packet.
   res.socket?.setNoDelay(true);
@@ -179,7 +248,14 @@ async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string):
     return;
   }
 
-  const dagResult = await parseDagFile(resolve(cwd, file));
+  const contained = resolveContainedFile(file, cwd);
+  if (!contained.ok) {
+    sendSSE(res, { type: 'error', message: contained.message });
+    res.end();
+    return;
+  }
+
+  const dagResult = await parseDagFile(contained.path);
   if (!dagResult.ok) {
     sendSSE(res, { type: 'error', message: dagResult.message });
     res.end();
@@ -187,7 +263,7 @@ async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string):
   }
   const dagDefinition = dagResult.value;
 
-  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(resolve(cwd, file)) });
+  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(contained.path) });
   const builtIn = createCliNodeRegistry();
   const localTypes = new Set(localNodes.map((n) => n.nodeType));
   const nodeDefinitions = [...builtIn.filter((n) => !localTypes.has(n.nodeType)), ...localNodes];
@@ -286,7 +362,17 @@ async function routeValidate(
     return;
   }
 
-  const dagResult = await parseDagFile(resolve(cwd, file));
+  const contained = resolveContainedFile(file, cwd);
+  if (!contained.ok) {
+    jsonReply(res, 400, {
+      ok: false,
+      errors: [{ code: 'PATH_NOT_ALLOWED', message: contained.message }],
+      warnings: [],
+    });
+    return;
+  }
+
+  const dagResult = await parseDagFile(contained.path);
   if (!dagResult.ok) {
     jsonReply(res, 200, {
       ok: false,
@@ -297,7 +383,7 @@ async function routeValidate(
   }
 
   const dag = dagResult.value;
-  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(resolve(cwd, file)) });
+  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(contained.path) });
   const builtIn = createCliNodeRegistry();
   const localTypes = new Set(localNodes.map((n) => n.nodeType));
   const nodeDefinitions = [...builtIn.filter((n) => !localTypes.has(n.nodeType)), ...localNodes];
@@ -409,17 +495,21 @@ async function routeProvidersNodes(res: ServerResponse): Promise<void> {
 const MAX_PORT_ATTEMPTS = 10;
 
 function buildRequestHandler(cwd: string) {
-  const CORS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-
   return (req: IncomingMessage, res: ServerResponse): void => {
+    // SEC-006: reject a non-loopback Host so a DNS-rebinding page cannot reach this API even though the
+    // server binds 127.0.0.1 only. Mirrors the monitor-UI serve host's check.
+    if (!isLoopbackHostHeader(req.headers.host)) {
+      res.writeHead(403, { 'Content-Type': JSON_CT });
+      res.end(JSON.stringify({ error: 'Forbidden host' }));
+      return;
+    }
+
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
 
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, CORS);
+      // SEC-006: no CORS grant is issued. The studio UI is same-origin, so cross-origin callers get a
+      // 204 with no `Access-Control-*` headers and the browser blocks their request.
+      res.writeHead(204);
       res.end();
       return;
     }
