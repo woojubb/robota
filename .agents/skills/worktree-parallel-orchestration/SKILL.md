@@ -90,15 +90,13 @@ The orchestrator — never the implementer — merges, and **one PR at a time**,
 the git rules permit (the merge-time branch-deletion flag is banned there; do not reintroduce it). On a
 stale base or a CI flake, **rebase the branch onto the freshly-fetched integration branch and re-arm**.
 Diagnose real failures; a known fresh-worktree environment artifact (e.g. build outputs absent because
-that worktree was never built) is not a code failure. Confirm each merge actually landed (Merge Landing
-Verification) before releasing any item held in step 3.
+that worktree was never built) is not a code failure.
 
-**Clean up each landed branch as you go** — that is the orchestrator's call, not something to wait for a
-human to request. Once a merge is confirmed, delete the branch (and prune its worktree) unless something
-still depends on it: commits on the branch that the merge did not take, a follow-up planned from it, an
-agent still holding its worktree, or an integration/release branch. Deferring this is how a hundred stale
-branches and tens of gigabytes of worktrees accumulate. The deletion guardrails — merge confirmed first,
-integration branches never — are owned by the git rules; follow them, do not restate them.
+**After each merge, run [post-merge-cycle](../post-merge-cycle/SKILL.md)** — it confirms the merge actually
+landed, and only then deletes the branch and prunes its worktree. Release an item held in step 3 only once
+that cycle reports the landing confirmed; the occupant's files are not free until then. Run it **per merge,
+as you go** — that is the orchestrator's call, not something to wait for a human to request, and deferring
+it is how a hundred stale branches and tens of gigabytes of worktrees accumulate.
 
 **Read the review output BEFORE arming the merge.** Review-producing automation is typically _advisory_:
 its findings arrive as PR comments, while the checks that actually gate a merge are a different set. So an
@@ -145,12 +143,13 @@ The shared registry is owned by exactly one agent (a3). A fourth item touching `
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                      | Owner                                          |
-| ----------------------------------------- | ---------------------------------------------- |
-| Define git/branch/merge/worktree policy   | `.agents/rules/git-branch.md`                  |
-| Name the CI-equivalent verification entry | `.agents/rules/git-branch.md`                  |
-| Define the spec gate pipeline             | `spec-workflow.md` / `backlog-execution.md`    |
-| Define red-before-green / verification    | `tdd-and-planning.md` / `verification.md`      |
-| Do the implementation or judge the PR     | the spawned implementer / the code-review gate |
+| Not this skill's job                      | Owner                                            |
+| ----------------------------------------- | ------------------------------------------------ |
+| Define git/branch/merge/worktree policy   | `.agents/rules/git-branch.md`                    |
+| Name the CI-equivalent verification entry | `.agents/rules/git-branch.md`                    |
+| Define the spec gate pipeline             | `spec-workflow.md` / `backlog-execution.md`      |
+| Define red-before-green / verification    | `tdd-and-planning.md` / `verification.md`        |
+| Verify a merge landed / delete a branch   | [post-merge-cycle](../post-merge-cycle/SKILL.md) |
+| Do the implementation or judge the PR     | the spawned implementer / the code-review gate   |
 
 If you find yourself restating a rule here, stop — link the rule instead.
