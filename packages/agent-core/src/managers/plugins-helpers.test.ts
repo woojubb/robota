@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { validateDependenciesHelper, resolveDependencyOrderHelper } from './plugins-helpers';
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
 import { ConfigurationError } from '../utils/errors';

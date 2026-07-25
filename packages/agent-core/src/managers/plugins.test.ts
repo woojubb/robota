@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Plugins } from './plugins';
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
-import { PluginError, ConfigurationError } from '../utils/errors';
 
 class TestPlugin extends AbstractPlugin {
   name = 'test-plugin';

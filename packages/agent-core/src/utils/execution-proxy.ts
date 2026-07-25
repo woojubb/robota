@@ -7,7 +7,6 @@ import {
   type TExecutionProxyArgs,
 } from './execution-proxy-types';
 import { AGENT_EVENTS } from '../agents/constants';
-import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 
 import type { IBaseEventData, IEventService } from '../interfaces/event-service';

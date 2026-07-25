@@ -7,7 +7,6 @@ import {
   createAssistantMessage,
   createToolMessage,
   createUserMessage,
-  createSystemMessage,
 } from './conversation-history-manager';
 
 describe('ConversationStore append-only retention (HIST-001)', () => {
