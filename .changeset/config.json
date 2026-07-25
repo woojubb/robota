@@ -16,8 +16,7 @@
       "@robota-sdk/agent-session",
       "@robota-sdk/agent-subagent-runner",
       "@robota-sdk/agent-tools",
-      "@robota-sdk/agent-transport",
-      "@robota-sdk/agent-web-ui"
+      "@robota-sdk/agent-transport"
     ]
   ],
   "linked": [],
