@@ -127,6 +127,8 @@ Types consumed from other packages (not owned here):
 | `CompactionError`                 | Class                | Thrown when a compaction summary is invalid — history is preserved untouched (see Compaction Failure Contract)                     |
 | `DEFAULT_COMPACTION_PROMPT`       | Constant             | Domain-neutral base template of the compaction summarization prompt; replaceable via `ISessionOptions.compactionBasePrompt`        |
 | `SessionStore`                    | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                                                  |
+| `isSafeSessionId`                 | Function             | SEC-006: whether a session id is safe to use as a single filesystem path component                                                 |
+| `assertSafeSessionId`             | Function             | SEC-006: throws unless the session id is a safe path component — the guard `SessionStore` applies to every id it joins into a path |
 | `CheckpointTree`                  | Class                | SELFHOST-007 neutral, I/O-free branch tree over `{id,parentId}` checkpoint nodes (fork/switch/listBranches/ancestors/activeLeaf)   |
 | `FileSessionLogger`               | Class                | JSONL file-based session event logger                                                                                              |
 | `SilentSessionLogger`             | Class                | No-op session logger                                                                                                               |

@@ -1,7 +1,6 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
-import { resolve, dirname, basename, join, sep } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import type { IDagDefinition, TRunProgressEvent } from '@robota-sdk/dag-core';
 import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
@@ -11,12 +10,14 @@ import {
   loadLocalNodeDefinitions,
 } from '../local-runner/index.js';
 import { extractFinalOutput } from '../commands/run.js';
-import { listAvailableProviders, resolveProvider } from '../providers/index.js';
+import { jsonReply, readBody, sendSSE } from './http-io.js';
+import {
+  routeProvidersConnect,
+  routeProvidersList,
+  routeProvidersNodes,
+} from './provider-routes.js';
+import { isLoopbackHostHeader, resolveContainedFile } from './request-guards.js';
 import { buildStudioHtml } from './ui-html.js';
-
-interface IStudioProviderState {
-  providerId: string;
-}
 
 interface IValidationError {
   code: string;
@@ -24,105 +25,10 @@ interface IValidationError {
   nodeId?: string;
 }
 
-const JSON_CT = 'application/json; charset=utf-8';
 const HTML_CT = 'text/html; charset=utf-8';
 
 export interface IStudioServerOptions {
   cwd: string;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((res, rej) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => {
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      res(Buffer.concat(chunks).toString('utf8'));
-    });
-    req.on('error', rej);
-  });
-}
-
-// SEC-006: no `Access-Control-Allow-Origin`. The studio UI is served from `/` on this very origin, so it
-// needs no CORS grant; a wildcard here let any web page the developer visited read these responses.
-function jsonReply(res: ServerResponse, status: number, data: unknown): void {
-  const body = JSON.stringify(data);
-  res.writeHead(status, {
-    'Content-Type': JSON_CT,
-    'Content-Length': Buffer.byteLength(body),
-  });
-  res.end(body);
-}
-
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
-/**
- * Whether the request `Host` header is a loopback name (port stripped) — closes DNS rebinding.
- * A missing `Host` is rejected (a well-formed HTTP/1.1 client always sends one).
- */
-function isLoopbackHostHeader(host: string | undefined): boolean {
-  if (!host) return false;
-  const name = host.startsWith('[')
-    ? host.slice(0, host.indexOf(']') + 1)
-    : host.slice(0, host.lastIndexOf(':') === -1 ? host.length : host.lastIndexOf(':'));
-  return LOOPBACK_HOSTS.has(name);
-}
-
-/**
- * Canonicalize `p` so symlinks are resolved, tolerating a path that does not exist yet.
- *
- * `realpathSync` throws on a missing path, but a client may legitimately reference a file that is not
- * there (the caller then reports a read error). So we walk up to the deepest ancestor that DOES exist,
- * canonicalize that, and re-attach the remaining segments — the re-attached tail cannot itself be a
- * symlink, since it does not exist.
- */
-function canonicalize(p: string): string {
-  const tail: string[] = [];
-  let current = p;
-  for (;;) {
-    try {
-      return join(realpathSync(current), ...tail);
-    } catch {
-      const parent = dirname(current);
-      // allow-fallback: nothing along the chain exists (or is readable) — fall back to the lexical
-      // path, which is still fully normalized by `resolve()` and therefore safe to compare.
-      if (parent === current) return p;
-      tail.unshift(basename(current));
-      current = parent;
-    }
-  }
-}
-
-/**
- * Resolve a CLIENT-SUPPLIED `file` against `cwd` and refuse anything that escapes it.
- *
- * SEC-006: `/api/dag`, `/api/run` and `/api/validate` all took an arbitrary path from the request, so a
- * caller could read any JSON file on the machine — and, via `/api/run`, EXECUTE any DAG on it. Containment
- * is decided on the CANONICAL (symlink-resolved) paths: `resolve()` alone is purely lexical, so
- * `<cwd>/link/x.dag.json` where `link -> /etc` passed a `startsWith` check while the subsequent `readFile`
- * followed the link out of the working directory. Both sides are canonicalized so a cwd that is itself
- * behind a symlink (macOS `/tmp` -> `/private/tmp`) still matches.
- */
-function resolveContainedFile(
-  file: string,
-  cwd: string,
-): { ok: true; path: string } | { ok: false; message: string } {
-  const resolved = resolve(cwd, file);
-  const canonical = canonicalize(resolved);
-  const canonicalCwd = canonicalize(resolve(cwd));
-  if (canonical !== canonicalCwd && !canonical.startsWith(canonicalCwd + sep)) {
-    return { ok: false, message: `Access denied: "${file}" is outside the working directory` };
-  }
-  return { ok: true, path: resolved };
-}
-
-function sendSSE(res: ServerResponse, data: unknown): void {
-  try {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  } catch {
-    // allow-fallback: client disconnected mid-stream; write errors are silently dropped
-  }
 }
 
 async function parseDagFile(
@@ -441,57 +347,6 @@ async function routeValidate(
   jsonReply(res, 200, { ok: errors.length === 0, errors, warnings: [] });
 }
 
-// PROVIDER-010: studio provider state — defaults to local; switched via POST /api/providers/connect.
-const studioProviderState: IStudioProviderState = {
-  providerId: 'local',
-};
-
-async function routeProvidersList(res: ServerResponse): Promise<void> {
-  jsonReply(res, 200, {
-    providers: listAvailableProviders(),
-    active: studioProviderState,
-  });
-}
-
-async function routeProvidersConnect(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  let bodyText: string;
-  try {
-    bodyText = await readBody(req);
-  } catch {
-    // allow-fallback: body read error returns a structured 400 to the studio UI
-    jsonReply(res, 400, { error: 'Failed to read request body.' });
-    return;
-  }
-  let parsed: { providerId?: string; serverUrl?: string };
-  try {
-    parsed = JSON.parse(bodyText) as typeof parsed;
-  } catch {
-    // allow-fallback: invalid JSON from client returns a structured 400
-    jsonReply(res, 400, { error: 'Invalid JSON body.' });
-    return;
-  }
-  const { providerId } = parsed;
-  if (typeof providerId !== 'string' || providerId.length === 0) {
-    jsonReply(res, 400, { error: 'providerId is required.' });
-    return;
-  }
-  studioProviderState.providerId = providerId;
-  jsonReply(res, 200, { ok: true, active: studioProviderState });
-}
-
-async function routeProvidersNodes(res: ServerResponse): Promise<void> {
-  try {
-    // allow-fallback: provider connection failure returns 502 with the underlying error message
-    const provider = await resolveProvider({ provider: studioProviderState.providerId });
-    const nodes = await provider.listNodes();
-    jsonReply(res, 200, { providerId: provider.providerId, nodes });
-  } catch (err) {
-    // allow-fallback: surface upstream error so the studio can show a connection failure
-    const message = err instanceof Error ? err.message : String(err);
-    jsonReply(res, 502, { error: message });
-  }
-}
-
 const MAX_PORT_ATTEMPTS = 10;
 
 function buildRequestHandler(cwd: string) {
@@ -499,8 +354,7 @@ function buildRequestHandler(cwd: string) {
     // SEC-006: reject a non-loopback Host so a DNS-rebinding page cannot reach this API even though the
     // server binds 127.0.0.1 only. Mirrors the monitor-UI serve host's check.
     if (!isLoopbackHostHeader(req.headers.host)) {
-      res.writeHead(403, { 'Content-Type': JSON_CT });
-      res.end(JSON.stringify({ error: 'Forbidden host' }));
+      jsonReply(res, 403, { error: 'Forbidden host' });
       return;
     }
 
