@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -49,5 +50,71 @@ describe('checkPathWithinCwd', () => {
     expect(result).not.toBeUndefined();
     const parsed = JSON.parse(result!);
     expect(parsed.success).toBe(false);
+  });
+});
+
+/**
+ * SEC-006 — the guard is the ONLY sandbox boundary for `Read`/`Write`/`Edit` when no provider sandbox
+ * is injected (see `pack-coding`'s `ICodingPackOptions.cwd`). It compared `path.resolve()` output,
+ * which performs pure lexical normalization and does NOT resolve symlinks — so a symlink *inside* the
+ * working directory pointing outside it satisfied `startsWith(cwd + sep)` while `readFile`/`writeFile`
+ * followed the link to the real target. A symlink is ordinary committed git content, so merely cloning
+ * an untrusted repository and pointing the agent at it was enough to arm this.
+ *
+ * These tests use the REAL filesystem: the previous suite only ever passed fictional path strings, which
+ * is precisely why the hole survived — a lexical-only test can never observe a symlink.
+ */
+describe('checkPathWithinCwd — symlink containment (SEC-006)', () => {
+  let root: string;
+  let workdir: string;
+  let outside: string;
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'path-guard-'));
+    workdir = join(root, 'workdir');
+    outside = join(root, 'outside');
+    mkdirSync(workdir, { recursive: true });
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(join(outside, 'secret.txt'), 'top-secret');
+    // an ordinary committed-symlink shape: a link inside the workdir escaping to a sibling tree
+    symlinkSync(outside, join(workdir, 'escape'));
+    symlinkSync(join(outside, 'secret.txt'), join(workdir, 'secret-link.txt'));
+  });
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('blocks reading through a symlinked DIRECTORY that escapes cwd', () => {
+    const result = checkPathWithinCwd(join(workdir, 'escape', 'secret.txt'), workdir);
+    expect(result).not.toBeUndefined();
+    expect(JSON.parse(result!).success).toBe(false);
+  });
+
+  it('blocks a symlinked FILE whose target is outside cwd', () => {
+    const result = checkPathWithinCwd(join(workdir, 'secret-link.txt'), workdir);
+    expect(result).not.toBeUndefined();
+    expect(JSON.parse(result!).success).toBe(false);
+  });
+
+  it('blocks WRITING a new file through an escaping symlinked directory', () => {
+    // write/edit tools pass paths that do not exist yet — the guard must still canonicalize the parent
+    const result = checkPathWithinCwd(join(workdir, 'escape', 'planted.sh'), workdir);
+    expect(result).not.toBeUndefined();
+    expect(JSON.parse(result!).success).toBe(false);
+  });
+
+  it('still ALLOWS a real file inside cwd', () => {
+    writeFileSync(join(workdir, 'ok.txt'), 'fine');
+    expect(checkPathWithinCwd(join(workdir, 'ok.txt'), workdir)).toBeUndefined();
+  });
+
+  it('still ALLOWS a not-yet-created file inside cwd (write/edit path)', () => {
+    expect(checkPathWithinCwd(join(workdir, 'nested', 'new.txt'), workdir)).toBeUndefined();
+  });
+
+  it('still ALLOWS cwd itself when cwd is reached through a symlink (e.g. /tmp on macOS)', () => {
+    // `mkdtemp(tmpdir())` is itself behind a symlink on macOS (/tmp -> /private/tmp); canonicalizing
+    // both sides must not turn that into a spurious denial.
+    expect(checkPathWithinCwd(workdir, workdir)).toBeUndefined();
   });
 });
