@@ -2473,6 +2473,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@3.25.76)
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/agent-provider-defaults':
         specifier: workspace:*
         version: link:../agent-provider-defaults
