@@ -423,7 +423,18 @@ the four large rules, so phase 2 can prove no behavioural loss by showing each o
 home. **153 statements.** A statement whose home is "stays" must remain textually in the rule; a
 statement pointing at a skill or agent must be _referenced_ from the rule, never duplicated there.
 
-### 7.1 `backlog-execution.md` — 44 invariants
+> ⚠️ **This ledger is known to UNDERCOUNT — audit it against the live rule before each increment.**
+> The `publish.md` increment (#1423) found **40** mandatory statements where this ledger listed 39: it
+> omitted the `REL-022` invariant that a version-bump PR must carry a _regenerated_ changelog. The
+> extraction nearly dropped it, and the loss surfaced only because the increment diffed the rule's
+> invariants before/after rather than trusting the list — reading did not catch it.
+>
+> Treat every section below as a **starting point, not a manifest**. Before extracting a rule, re-derive
+> its mandatory statements from the current file on the integration branch (a stale worktree is how the
+> `publish.md` gap arose) and reconcile against the ledger. Report any additions found; the counts here
+> are provisional until an increment confirms them.
+
+### 7.1 `backlog-execution.md` — 44 invariants (unaudited)
 
 | ID    | Invariant                                                                                               | Post-change home                                                               |
 | ----- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -741,3 +752,4 @@ churn is not the goal.
 | Date       | Change                                                                                                                                                                                                                                                                                  |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-26 | Created as `HARNESS-049` phase 1. 142 sections across 22 rule files classified (116 invariant / 21 procedure / 5 role); reuse check against the 14 existing agents; nesting trees for the four large rules; 14 routing gaps; 153-statement invariant ledger; sequencing recommendation. |
+| 2026-07-26 | Phase 2 increment 1 (`publish.md`, #1423) confirmed the nesting tree and step ranges, added a shared `ci-gate-watch` phase, and **found the invariant ledger undercounts** (40 vs 39 for `publish.md`) — ledger marked provisional, per-increment audit now required.                   |
