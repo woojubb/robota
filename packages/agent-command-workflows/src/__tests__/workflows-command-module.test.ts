@@ -6,6 +6,7 @@ import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 import { describe, expect, it } from 'vitest';
 
 import { executeWorkflowsCatalog } from '../catalog-command.js';
+import { subcommandUsage, WORKFLOWS_SUBCOMMANDS } from '../subcommands.js';
 import { executeWorkflowsValidate } from '../validate-command.js';
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
@@ -68,6 +69,33 @@ describe('workflows command module', () => {
     const cmd = workflowsCommand();
     expect((await cmd.execute(FAKE_CONTEXT, '')).message).toContain('Usage');
     expect((await cmd.execute(FAKE_CONTEXT, 'bogus')).success).toBe(false);
+  });
+
+  // WORKFLOW-005 P3 anti-drift: `subcommands.ts` is the SSOT for the surface. Every registered
+  // subcommand must be dispatched (no advertised-but-unroutable verb), every registered
+  // argumentHint must match the `Usage:` line its executor emits, and the hint must be advertised
+  // to the CLI verbatim.
+  it('dispatches every registered subcommand (no advertised-but-unroutable verb)', async () => {
+    const cmd = workflowsCommand();
+    for (const sub of WORKFLOWS_SUBCOMMANDS) {
+      const result = await cmd.execute(FAKE_CONTEXT, sub.name);
+      expect(result.message, `subcommand "${sub.name}" is not dispatched`).not.toContain(
+        'Unknown subcommand',
+      );
+    }
+  });
+
+  it('advertises each subcommand hint verbatim and derives its usage line from it', () => {
+    const advertised = new Map(
+      (workflowsCommand().subcommands ?? []).map((s) => [s.name, s.argumentHint]),
+    );
+    for (const sub of WORKFLOWS_SUBCOMMANDS) {
+      expect(advertised.get(sub.name)).toBe(sub.argumentHint);
+      const expected = sub.argumentHint
+        ? `Usage: /workflows ${sub.name} ${sub.argumentHint}`
+        : `Usage: /workflows ${sub.name}`;
+      expect(subcommandUsage(sub.name)).toBe(expected);
+    }
   });
 
   it('reports a usage error when `run`/`validate` are given no file', async () => {

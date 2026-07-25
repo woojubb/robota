@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 import { isLegacyDefinitionFormat, toDagWorkflowFile } from '@robota-sdk/dag-builder';
 
 import {
@@ -10,7 +9,8 @@ import {
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
-import { loadInstantNodes } from './persistence/instant-node-loader.js';
+import { parseFileArg } from './args.js';
+import { createWorkspaceRuntime } from './workspace-runtime.js';
 
 /**
  * Read a workflow file in either supported on-disk format and return the runtime workflow-file shape.
@@ -27,17 +27,22 @@ async function readDagFile(absPath: string): Promise<IDagWorkflowFile> {
 }
 
 /**
- * `/workflows run <file.dag.json>` — execute a workflow file on the in-process DAG runtime.
- * Composes `dag-framework`'s local provider; no dependency on the `dag-cli` product.
+ * `/workflows run <file.json>` — execute a workflow file on the in-process DAG runtime. The node
+ * catalog is resolved through the shared workspace runtime (built-ins + the instant nodes saved
+ * under `<root>/nodes/`), the same one `validate` and `list` see (WORKFLOW-005 P3), and the argument
+ * shares the `/workflows` grammar (`parseFileArg`). Composes `dag-framework`'s local provider; no
+ * dependency on the `dag-cli` product.
  */
 export async function executeWorkflowsRun(
-  filePath: string,
+  argStr: string,
   cwd: string,
   workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
-  if (!filePath) {
-    return { success: false, message: 'Usage: /workflows run <file.json>' };
+  const parsedArgs = parseFileArg(argStr, 'run');
+  if (!parsedArgs.ok) {
+    return { success: false, message: parsedArgs.error };
   }
+  const filePath = parsedArgs.value;
 
   // The read/parse error is surfaced as a failed command result, not silently swallowed.
   const dag = await readDagFile(resolve(cwd, filePath)).catch((err: unknown) => {
@@ -48,13 +53,8 @@ export async function executeWorkflowsRun(
     return { success: false, message: dag.message };
   }
 
-  // Reload any prompt-backed nodes from `<root>/nodes/` so workflows referencing them can run.
-  const instantNodes = await loadInstantNodes(cwd, workspace);
-  const provider = new LocalDagRuntimeProvider({
-    workspace,
-    projectDir: cwd,
-    ...(instantNodes.length > 0 ? { instantNodes } : {}),
-  });
+  // Shared workspace runtime: built-ins + any prompt/composite nodes saved under `<root>/nodes/`.
+  const { provider } = await createWorkspaceRuntime(cwd, workspace);
   const result = await provider.execute(dag, {});
   if (!result.ok) {
     return {

@@ -14,7 +14,7 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
 import { executeWorkflowsBuild } from '../build-command.js';
-import type { IWorkflowsCreateDeps } from '../create-command.js';
+import type { IWorkflowsAuthoringDeps } from '../authoring/args.js';
 import { executeWorkflowsRun } from '../run-command.js';
 import { executeWorkflowsValidate } from '../validate-command.js';
 
@@ -45,12 +45,34 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-function baseDeps(specJson: string): IWorkflowsCreateDeps {
+function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
   return {
     resolveProvider: () => stubProvider(specJson),
     now: () => '2026-07-25T00:00:00.000Z',
   };
 }
+
+describe('build never-executes: static import guard (WORKFLOW-004 × P3)', () => {
+  /**
+   * `build` shares the authoring pipeline with `create` (WORKFLOW-005 P3). The runtime canary below
+   * proves no execution happened in these runs; this proves it structurally for ALL inputs — no
+   * module on `build`'s import path can construct a DAG runtime, because none of them imports
+   * `authoring/execute-workflow.ts`. Fails the moment the shared pipeline grows an execution step.
+   */
+  it('neither build-command nor the shared pipeline imports the DAG execution module', async () => {
+    const srcDir = join(import.meta.dirname, '..');
+    for (const file of ['build-command.ts', 'authoring/pipeline.ts']) {
+      const source = await readFile(join(srcDir, file), 'utf-8');
+      const imports = [...source.matchAll(/^\s*import\s[^;]*?from\s+'([^']+)'/gm)].map((m) => m[1]);
+      expect(imports, `${file} must not import the DAG execution module`).not.toContain(
+        './authoring/execute-workflow.js',
+      );
+      expect(imports, `${file} must not import the DAG execution module`).not.toContain(
+        './execute-workflow.js',
+      );
+    }
+  });
+});
 
 describe('executeWorkflowsBuild (TC-01: author + save, never execute)', () => {
   it('saves .workflows/<name>.json, reports the path + next steps, and produces NO run output', async () => {

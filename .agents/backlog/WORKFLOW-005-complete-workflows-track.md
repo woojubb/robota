@@ -267,4 +267,64 @@ through `/workflows` + WORKFLOW-004 build).
   this inconsistency needs an explicit OWNER decision on phasing/sandboxing before implementation. Do NOT
   build it until confirmed.
 
-- **P3 surface-unification (expose create/save/build through `/workflows`) — deferred (unchanged).**
+## P3 progress log
+
+- **Surface unification — DONE (2026-07-25).** P3's original wording ("expose create/save/build
+  through `/workflows` + WORKFLOW-004 build") was **already satisfied for the exposure half** by the
+  time it was picked up: `create` shipped with FLOW-007 P4 and `build` shipped with WORKFLOW-004
+  (#1358). Assessment against the code found the remaining P3 work was not _exposure_ but genuine
+  **unification** — the six subcommands had drifted into six ad-hoc executors. What was exposed vs
+  what was missing:
+
+  | Verb       | Exposed before P3?               | Gap found                                                 |
+  | ---------- | -------------------------------- | --------------------------------------------------------- |
+  | `create`   | ✅ (FLOW-007 P4)                 | owned a private copy of the authoring pipeline            |
+  | `build`    | ✅ (WORKFLOW-004 #1358)          | ~90-line verbatim copy of `create`'s pipeline             |
+  | `save`     | ✅ transitively (create + build) | no standalone verb needed — see below                     |
+  | `list`     | ✅                               | **blind to workspace-saved instant nodes**                |
+  | `catalog`  | ✅                               | none                                                      |
+  | `validate` | ✅                               | **blind to workspace-saved nodes** + raw, ungrammared arg |
+  | `run`      | ✅                               | raw, ungrammared arg                                      |
+
+  Four seams now have exactly one owner (`packages/agent-command-workflows/docs/SPEC.md` §"One
+  surface, four shared seams"):
+  - **Node catalog** (`src/workspace-runtime.ts`) — the headline **bug**: `create`/`build`/`run`
+    reloaded `<root>/nodes/`, but `validate` and `list` built a bare provider. So `build`'s own
+    printed hand-off "Next steps: `/workflows validate <path>`" **failed** with
+    `unknown node type "<authored-node>"` for every workflow `build` authored with a `newNodes`
+    prompt node, and `list` hid the nodes the user had just created. One provider factory now serves
+    `list`/`validate`/`run`, so the catalog a workflow is validated against is the one it runs against.
+  - **Argument grammar** (`src/args.ts`) — the quote-aware tokenizer was private to `create`/`build`;
+    `validate`/`run` took the arg raw, so a quoted path was opened verbatim and surplus tokens were
+    folded into the filename (`ENOENT: 'a.json b.json'`). `parseFileArg` now serves both.
+  - **Subcommand registry** (`src/subcommands.ts`) — list, hints, usage block and every
+    per-subcommand `Usage:` line derive from one array (`validate` advertised `<file.json>` while
+    emitting `<file.dag.json>`). Two mechanical anti-drift guards: an advertised verb cannot be
+    unroutable; a hint cannot drift from its usage line.
+  - **Authoring pipeline** (`src/authoring/pipeline.ts`) — `create` and `build` now share
+    `authorAndSaveWorkflow`; `create` alone adds the run step.
+  - **`save` assessed, deliberately NOT added as a verb.** Persisting is not a user-facing operation
+    on this surface: `create`/`build` both end in a save and `list`/`catalog` read it back. A
+    standalone `save <json>` would be an _import_ of externally-supplied graph/node data — a new
+    capability (dag-cli's MCP `dag_import` / `dag_instant_node_save` already cover the MCP-side
+    need), outside P3's intent. Recorded in the package SPEC.
+  - **WORKFLOW-004 contract intact and now proven twice**: the runtime execute-canary (0 calls) plus
+    a new **static import guard** that neither `build-command.ts` nor the shared pipeline imports the
+    execution module — so no module on `build`'s import path can construct a DAG runtime, for any
+    input, not just the tested ones.
+  - **TDD**: red-first. The 4 new `surface-unification.test.ts` cases were verified RED for the right
+    reasons before the fix (`unknown node type "pirate-speak"`; `pirate-speak` absent from `list`;
+    quoted path rejected; surplus args swallowed into the path). Both anti-drift guards were proven
+    to bite by temporarily introducing the drift each guards against. The pipeline dedupe is
+    behavior-preserving — the pre-existing `create`/`build` suites (incl. the non-execution canary)
+    stayed green across it.
+  - Verification: `pnpm harness:verify-like-ci` **PASS (4/4 stages)**; `pnpm -w typecheck` clean;
+    suites green — agent-command-workflows 45 (was 37), dag-framework 107, dag-cli 1007,
+    agent-cli 248. Package lint warnings 29 → 24. No changeset (`private: true`).
+  - Branch: `feat/workflow-005-p3-surface-unification`.
+
+**WORKFLOW-005 status: P1 ✅, P2 ✅ (except Phase C), P3 ✅. The item stays OPEN for exactly one
+thing — instant-node Phase C (arbitrary code node via API), which is OWNER-GATED (see the P2 log
+entry above), not deferred by engineering judgement.** Everything in the item that is not
+owner-gated is now done; archive it once the owner rules on Phase C's phasing/sandboxing (or drops
+it).
