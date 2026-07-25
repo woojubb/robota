@@ -11,8 +11,15 @@ name: Review Gate
 #
 # Severity split (see check-review-gate.mjs for the full rationale): only findings this PR
 # INTRODUCES at severity `error` / security-severity high|critical can block. Everything else is
-# printed and counted but never blocking — this repo's ~100 open alerts are all severity `note`,
-# and a gate that went red on those would be bypassed within a day.
+# printed and counted but never blocking, because a gate that went red on the standing backlog would
+# be bypassed within a day.
+#
+# The original note here claimed that backlog was "~100 alerts, all severity `note`". That was
+# measured without `--paginate`, so it read only the first page — which happened to be entirely
+# notes while 40 `high` alerts sat on page two. Corrected 2026-07-26: `develop` carries 84 open
+# alerts, 40 of them security-severity `high` (SEC-006 is triaging them). The severity split is
+# still the right design, but its justification is "a standing backlog exists", not "the backlog is
+# harmless". Re-measure with `--paginate` before citing a count here.
 #
 # Not-applicable (the #1436 correction). A docs-only PR never triggers CodeQL (`codeql.yml`
 # `paths-ignore`), so no analysis record is ever written for it. The first version of this gate read
