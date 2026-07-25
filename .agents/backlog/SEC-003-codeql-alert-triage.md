@@ -303,6 +303,164 @@ signalling channel, so unlike the rest it plausibly has a genuine remote source.
 SEC-003 stays **open**: those 10 alerts, the style classes, and the advisory→required promotion
 decision remain.
 
+### Slice 4 — the remaining 10 (2026-07-25)
+
+The methodology above was reused as-is; nothing was re-derived. Scope: the 10 alerts the previous
+slice could not touch, plus the same-shape sweep of the five packages they live in.
+
+#### Alert 46 confirmed remote-reachable, pre-authentication — and it was binding free text
+
+The prioritisation was right, and the finding is larger than DoS. Two call paths, both citing the
+remote SDP:
+
+| Peer                 | Path                                                                                                                                                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host (Node, offerer) | `WsSignalingClient` → relay `signal` frame → `WebRtcTransport.start`'s `onSignal` handler (`webrtc-transport.ts:125-138`) → `startPairingIfConfigured(…, message.data)` → `extractDtlsFingerprint(sdp)` at `webrtc-transport.ts:172`, whose result is `PairingGate`'s `remoteFingerprint` |
+| Browser (answerer)   | `RtcSignaling` → `handleOffer(offer)` (`rtc-session-client.ts:265`) → `extractDtlsFingerprint(offer.sdp ?? '')` at line 267 — the **first** statement, before `setRemoteDescription`                                                                                                      |
+
+The relay (`apps/remote-signaling/src/relay.ts`) is content-blind and forwards `offer`/`answer`/`ice`
+payloads verbatim; its only auth seam, `onJoinAttempt`, is optional and unset by default. The pairing
+module's own header states the threat model — a relay that substitutes a DTLS fingerprint must be
+detected — so the SDP is attacker-controlled **by design**. And the extraction is necessarily the
+first thing that happens: it produces the value the confirmation binds, so nothing can gate it.
+
+That makes this a genuine **pre-authentication remote** vector, not a library-input one:
+
+- **DoS.** 400 KB of `a=fingerprint:` blocked the event loop for 5.0 s. The relay's own
+  `maxFrameBytes` (64 KB) is not a bound — the threat model's attacker is the relay.
+- **Channel-binding surface (the bigger half).** The regex was unanchored, so it returned the first
+  `a=fingerprint:` **substring**, including one sitting inside another line's free text. Proven in
+  `pairing-redos.test.ts`: for `s=room a=fingerprint:sha-256 DE:AD:BE:EF\r\na=fingerprint:sha-256 AB:CD:EF`
+  the pre-fix code returned `DE:AD:BE:EF` — the smuggled value — while every DTLS stack negotiates
+  against the real attribute. A relay could therefore choose each peer's `remoteFingerprint`
+  independently of the certificate it actually terminates, which is exactly what the directional HMAC
+  confirmation exists to prevent.
+
+Fixed by anchoring to the start of an SDP line: `/^a=fingerprint:\S+\s+([0-9A-Fa-f:]+)/m`. Linear
+(line starts are the only start offsets, and their costs sum to the input length) and structurally
+correct (`<type>=<value>` is the SDP line grammar; a mid-line occurrence is not an attribute). The
+real two-peer werift suite (`agent-transport-webrtc`, 29 tests including `pairing-e2e` and
+`dtls-fingerprint-binding`) passes unchanged.
+
+**Residual, deliberately not fixed here:** it still returns the FIRST fingerprint line, not the one
+the DTLS stack verified for the negotiated m-section, so a relay-inserted **session-level** line can
+still shadow a media-level one. Closing that needs structural SDP parsing or a fail-closed check that
+all fingerprint lines agree — a behaviour change to the live WebRTC path that this slice did not want
+to make on a regex ticket. **Recorded as a follow-up for owner visibility (see below).**
+
+#### Per-alert verdict (10 of 10)
+
+Pumps are `n = 200_000` (`n = 400_000` for alert 46), measured on this host through the **exported
+entry point** named in each row — no private function was imported.
+
+| Alert | File:line                                                               | Reachable?                        | Evidence (call path / input source)                                                                                                                | Action                                                     | Red → green      |
+| ----- | ----------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------- |
+| 46    | `agent-remote-pairing/src/pairing.ts:95`                                | **yes — REMOTE, pre-auth**        | signaling relay → `webrtc-transport.ts:172` / `rtc-session-client.ts:267`, before any confirmation (table above)                                   | fixed: anchored `/^…/m`                                    | 5 040 ms → <1 ms |
+| 41    | `agent-framework/src/memory/project-memory-store.ts:83`                 | **yes — model/user topic string** | `ProjectMemoryStore.readTopic`/`append` take the topic verbatim; `-` is inside the KEPT class, so the collapse does not shorten a dash run         | fixed: `trimEdgeChars`                                     | 11 842 ms → 1 ms |
+| 43    | `agent-framework/src/update-check/update-check.ts:279`                  | **yes — public option**           | `checkForCliUpdate({ registryUrl })` → `buildPackageMetadataUrl`                                                                                   | fixed: `trimTrailingChars`                                 | 11 872 ms → 1 ms |
+| 39    | `agent-framework/src/commands/skill-source.ts:35`                       | **yes — on-disk skill file**      | `parseFrontmatter` ← `scanSkillsDir` over `.claude/skills`, `.agents/skills`, `~/.robota/skills` — content the agent itself writes and installs    | fixed: split on `','`                                      | 12 619 ms → 1 ms |
+| 40    | `agent-framework/src/context/task-context.ts:136`                       | **yes — `.git` file content**     | `readCurrentGitBranch(cwd)` → `resolveGitDirectory` reads a `.git` **file** and matches `/^gitdir:\s*(.+)$/`                                       | fixed: `(\S.*)`                                            | 14 489 ms → 1 ms |
+| 34    | `agent-cli/src/subagents/git-worktree-isolation-adapter.ts:139`         | **yes — public options/request**  | `prepare({ jobId })` and the `idFactory` option both flow into `sanitizePathSegment`; `-` is inside the KEPT class                                 | fixed: local `trimDashes`                                  | 11 836 ms → 1 ms |
+| 47    | `agent-tools/src/sandbox/workspace-manifest.ts:204`                     | **yes — public option**           | `applyWorkspaceManifest(client, manifest, { targetRoot })` → `normalizeSandboxRoot`; the backslash conversion manufactures the run                 | fixed: local `trimTrailingSlashes`                         | 12 037 ms → 1 ms |
+| 51    | `dag-framework/src/http-dag-runtime-provider.ts:121`                    | **yes — public constructor arg**  | `new HttpDagRuntimeProvider({ baseUrl })`                                                                                                          | fixed: local `trimTrailingSlashes`                         | 11 965 ms → 1 ms |
+| 38    | `agent-framework/src/command-api/provider/provider-profile-names.ts:30` | reachable, **not exploitable**    | `sanitizeProviderProfileName(value)` is exported, but the preceding `replace(/[^a-z0-9]+/g, '-')` collapses every run, so `-+$` can match one char | fixed anyway: `trimEdgeChars`                              | 0 ms (see below) |
+| 42    | `agent-framework/src/tools/model-command-tool-projection.ts:56`         | reachable, **not exploitable**    | same shape; `replace(/_+/g, '_')` collapses the underscore run first                                                                               | fixed anyway: `trimEdgeChars` + `trimTrailingChars` at :85 | 1 ms (see below) |
+
+**Dismissed: none — 10 of 10 fixed at the source.** Zero dismissals across all four slices.
+
+Alerts 38 and 42 deserve the honest note: their timing tests are **green against the pre-fix source**,
+because a collapse earlier in the same expression makes the quadratic term unreachable. They were not
+dismissed, because 41 and 34 are literally the same three-line pattern with `-` moved into the kept
+class — the shape is one character-class edit away from live, and 34 proves that edit gets made. They
+are fixed and their tests stand as equivalence pins rather than timing floors.
+
+#### Sweep — same shapes, no CodeQL alert
+
+The previous slice's "the alert list is a floor" lesson held again. Sweeping the five owned packages
+for the three shapes (trailing-run trim, `\s*<lit>\s*` split, `\s`/`.` overlap) found four more, one
+of which is the most severe defect in this slice:
+
+| Site                                                            | Shape                                    | Measured  | Verdict                                                                                               |
+| --------------------------------------------------------------- | ---------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `agent-tools/src/builtins/web-fetch-tool.ts:29-31`              | `<[^>]+>`, `<script[\s\S]*?</script>`, … | 12 635 ms | **fixed — input is a live response body from an arbitrary URL**, capped only at 5 MB (≈ hours)        |
+| `agent-framework/src/agents/agent-definition-loader.ts:26`      | `/\s*,\s*/` — a literal copy of alert 39 | 12 635 ms | fixed identically                                                                                     |
+| `agent-framework/src/context/task-context.ts:88`                | `\s+(.+)$` on a task-file line           | 15 385 ms | fixed — a lone `\r` survives the `/\r?\n/` split, so a "line" can hold a run that never reaches `$`   |
+| `agent-framework/src/tools/model-command-tool-projection.ts:85` | `[_-]+$`                                 | 0 ms      | bounded by `slice(0, ≤64)` three statements earlier — converted anyway rather than left resting on it |
+
+Measured and cleared (no change made): `task-context.ts:61` `extractMetadata` (the `m` flag lets `$`
+match at end-of-line, so it succeeds immediately — 0.2 ms), `memory-candidate-extractor.ts:40-43`
+(no `$` anchor, so the capture succeeds on its first character — 0.2 ms), `skill-prompt.ts:62`
+(3.6 ms), and every `^…` leading-run trim (a start anchor gives one start offset).
+
+`web-fetch-tool.ts` is the sharpest illustration of why the sweep is mandatory: CodeQL flagged eight
+`agent-framework` sanitisers whose worst input is a config string, and did not flag the one function
+in these five packages that parses **HTML fetched from an arbitrary URL**.
+
+#### Why these fixes are index scans, not cleverer regexes
+
+A lookbehind guard (`/(?<!-)-+$/`) was measured and is equally linear (1.1 ms vs 52 s at 400 K) and
+exhaustively equivalent. It was **rejected**: CodeQL's `PolynomialBackTrackingTerm` is an NFA property
+of the regex, and whether it models a lookbehind's pruning of start offsets is not something this
+slice could verify before merge (a PR's diff-scoped analysis only reports NEW alerts, so it cannot
+confirm an old one cleared). An index scan removes the regex, and the rule cannot flag what is not
+there. This is the same reasoning the previous slice used when its simplified arrow regex tripped
+`js/bad-tag-filter` and it deleted the regex instead of dismissing.
+
+Each replacement was proven equivalent to the regex it replaced by exhaustive comparison, not by
+example — every string over the relevant alphabet up to length 12 (`trim-char.test.ts`: `^-+|-+$`,
+`^_+|_+$`, `\/+$`, `[_-]+$`), ~12 M strings for the `<script>` stripper, ~800 K for the tag stripper,
+and 349 526 trimmed inputs for `gitdir:`. Those comparisons are committed, so the shapes cannot be
+loosened back silently.
+
+#### Red-first evidence
+
+Measured by stashing the **source** files only and re-running the committed tests, so every red is an
+assertion failure carrying its own elapsed time, not a timeout.
+
+| Test                                                                | Pre-fix                | Post-fix           |
+| ------------------------------------------------------------------- | ---------------------- | ------------------ |
+| `pairing-redos` — one-line `a=fingerprint:` pump                    | 5 040 ms               | <1 ms              |
+| `pairing-redos` — pump inside an `s=` line's free text              | 5 060 ms               | <1 ms              |
+| `pairing-redos` — smuggled fingerprint is not returned              | returned `DE:AD:BE:EF` | returns `AB:CD:EF` |
+| `polynomial-redos` (fw) — `ProjectMemoryStore.readTopic` dash run   | 11 842 ms              | <1 ms              |
+| `polynomial-redos` (fw) — `checkForCliUpdate` registry slash run    | 11 872 ms              | <1 ms              |
+| `polynomial-redos` (fw) — skill frontmatter list, whitespace run    | 12 619 ms              | <1 ms              |
+| `polynomial-redos` (fw) — agent-definition list (unflagged twin)    | 12 635 ms              | <1 ms              |
+| `polynomial-redos` (fw) — `readCurrentGitBranch` `gitdir:` run      | 14 489 ms              | <1 ms              |
+| `polynomial-redos` (fw) — task open items, CR-only line (unflagged) | 15 385 ms              | <1 ms              |
+| `git-worktree-isolation-redos` — `prepare()` delta over baseline    | 11 836 ms              | <1 ms              |
+| `polynomial-redos` (tools) — `applyWorkspaceManifest` targetRoot    | 12 037 ms              | <1 ms              |
+| `polynomial-redos` (tools) — `WebFetch` unclosed `<` (unflagged)    | 12 635 ms              | ~5 ms              |
+| `polynomial-redos` (tools) — `WebFetch` unclosed `<script`          | 2 662 ms               | ~2 ms              |
+| `http-dag-runtime-provider-redos` — `baseUrl` slash run             | 11 965 ms              | <1 ms              |
+
+Every timing test asserts `< 250 ms`, so the margin over the pre-fix time is 10×–60× and over the
+post-fix time is >50×. The `agent-cli` case asserts the **delta** against an identical `prepare()` run
+with a short id, because `git init` + `worktree add` dominate that call and vary by filesystem.
+
+The 14 equivalence tests all pass against the **pre-fix** source as well — that is what makes them
+pins rather than restatements of the new behaviour. The two exceptions are the `pairing` smuggling
+tests, which are red pre-fix by design: they assert the deliberate behaviour change.
+
+#### Class state
+
+`js/polynomial-redos` is **closed**: 8 (slice 3) + 10 (slice 4) = **18 of 18** fixed at the source,
+plus 5 same-shape defects CodeQL never reported (1 in slice 3, 4 here). **Zero dismissals in any
+slice of SEC-003.**
+
+#### Follow-up opened by this slice
+
+**`extractDtlsFingerprint` should bind the fingerprint the DTLS stack verified, not the first one in
+the SDP.** Anchoring closed free-text smuggling, but a relay can still add a session-level
+`a=fingerprint` line that a media-level line overrides for the actual DTLS association — the extractor
+would bind the shadowed value. Two candidate fixes, both a behaviour change to the live WebRTC path:
+fail closed when the SDP carries more than one distinct fingerprint value (RFC 8122 + BUNDLE make a
+single value the norm; both committed fixtures satisfy it), or parse the m-section structurally. This
+needs owner sign-off and a real two-peer run, so it is **not** in this slice.
+
+SEC-003 remains **open** for `js/file-system-race` (16), the style classes (~130), and the
+advisory→required promotion decision. Both high-severity classes it opened with are now closed.
+
 ## Slice 2 — finish `js/insecure-temporary-file` (2026-07-25)
 
 Slice 1's analysis was used as-is; nothing was re-derived. Scope: the remaining **88** alerts in
