@@ -20,7 +20,7 @@
     "test:coverage": "pnpm run -r --if-present test:coverage",
     "test:coverage:packages": "pnpm --filter \"./packages/**\" run --if-present test:coverage",
     "test:coverage:apps": "pnpm --filter \"./apps/**\" run --if-present test:coverage",
-    "typecheck": "pnpm run -r --if-present typecheck",
+    "typecheck": "pnpm run -r --workspace-concurrency=-1 --if-present typecheck",
     "lint": "eslint packages apps --ext .ts,.tsx --cache",
     "lint:fix": "eslint packages apps --ext .ts,.tsx --cache --fix",
     "dev": "pnpm run -r --if-present dev",

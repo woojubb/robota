@@ -1,6 +1,7 @@
 ---
 title: 'PERF-002: raise pnpm workspace concurrency for typecheck (no-risk, compiler-independent)'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: medium
 urgency: soon
@@ -66,3 +67,57 @@ deliberate type error in a dependency must still surface downstream, not race pa
 
 Expect _higher_ instantaneous power and fan speed — the win is much shorter duration, so total heat and
 noise duration drop. That trade is intended, not a regression.
+
+## Outcome (DONE 2026-07-25)
+
+Applied `--workspace-concurrency=-1` (NOT a fixed number — see below).
+
+```diff
+-"typecheck": "pnpm run -r --if-present typecheck"
++"typecheck": "pnpm run -r --workspace-concurrency=-1 --if-present typecheck"
+```
+
+### Measured (20-core host, 3 runs each, wall-clock)
+
+| Setting               | Time                                                               |
+| --------------------- | ------------------------------------------------------------------ |
+| default (baseline)    | 36.5 s / 36.9 s / 36.5 s                                           |
+| `=4`                  | 36.3 s — identical to default, confirming the default behaves as 4 |
+| `=6`                  | 31.8 s                                                             |
+| `=8`                  | 30.2 s                                                             |
+| `=10`                 | 29.9 s                                                             |
+| `=12` / `=16` / `=20` | 29.9 s / 30.2 s / 30.6 s — no further gain, mild regression        |
+| **`=-1` (applied)**   | **30.3 s / 30.0 s / 30.8 s**                                       |
+
+**~18% faster, and the curve is flat from 8 upward** — the exact number barely matters, which is why a
+machine-proportional value is right and a hand-tuned constant is not.
+
+### Why `-1` instead of the `12` this item originally proposed
+
+Owner directive (2026-07-25): the repo runs on varied multi-core machines (this Intel host, a MacBook, CI
+runners) — **do not tune to one machine; just use multi-core generally.** A fixed `12` under-uses a
+64-core box and oversubscribes a 4-core runner. pnpm's negative value is core-relative, so it scales by
+itself.
+
+Verified empirically rather than trusted from docs (the semantics are not in `pnpm run --help` for
+8.15.4): on this 20-core host `-1` runs ~20 concurrent `tsc` vs ~5 at the default, and it exits 0 under
+`taskset`-simulated **1-, 2- and 4-core** machines — so it degrades safely on small hosts.
+
+### Ordering preserved (the constraint this item flagged)
+
+`--parallel` was NOT used. Proof that topological order still holds: a deliberate type error injected into
+`packages/agent-core/src/index.ts` (a base dependency) made `pnpm typecheck` exit **1** and report
+`src/index.ts(353,14): error TS2322` — it did not race past. Restored → exit 0.
+
+### Correction to this item's premise
+
+The source investigation observed "2–4 concurrent `tsc`". Re-measured here: the default yields ~5 real
+concurrent `tsc` on a 20-core host (a naive `pgrep -fc tsc` double-counts the wrapper, reading ~10). The
+gap was therefore smaller than estimated, and so is the win.
+
+### Ceiling — why it saturates at ~30 s
+
+66 workspace projects each spawn their own `tsc`; per-process startup is ~0.28 s on the current compiler
+(source doc §4-3) ≈ 18 s of pure startup that concurrency cannot remove. Breaking that floor needs the
+native compiler's 0.09 s startup — **PERF-003 / PERF-004**, which per the owner directive run serially,
+one at a time, on an empty queue.
