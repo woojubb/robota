@@ -60,6 +60,7 @@ export type {
 } from './session-log-replay.js';
 
 // Session persistence
+export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 export { SessionStore } from './session-store.js';
 export type { ISessionRecord, ISessionStore } from './session-store.js';
 

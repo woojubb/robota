@@ -3,6 +3,7 @@
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession } from './interactive/index.js';
+export { assertSafeSessionId, isSafeSessionId } from './interactive/index.js';
 
 // ── Autonomous goal pursuit (GOAL-001) ──────────────────────
 export {

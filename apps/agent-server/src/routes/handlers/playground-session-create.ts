@@ -1,6 +1,6 @@
 import { createAgentCommandModule } from '@robota-sdk/agent-command';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agent-core';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, isSafeSessionId } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
@@ -144,8 +144,16 @@ export async function playgroundSessionCreateHandler(req: Request, res: Response
 
   const sessionStore = getPlaygroundSessionStore();
 
+  // SEC-006: `resumeSessionId` arrives in an unauthenticated HTTP body and is used as a filesystem
+  // path component by the session store, the JSONL logger and the replay-log reader. A `typeof`
+  // check is not validation — reject a malformed id here so the caller gets a 400 rather than the
+  // store's 500, and so no traversing value ever reaches those sinks.
   const resolvedResumeSessionId =
     typeof resumeSessionId === 'string' && resumeSessionId ? resumeSessionId : undefined;
+  if (resolvedResumeSessionId !== undefined && !isSafeSessionId(resolvedResumeSessionId)) {
+    res.status(400).json({ error: 'Invalid "resumeSessionId" field' });
+    return;
+  }
 
   const restoredMessages: IRestoredMessage[] = [];
   if (resolvedResumeSessionId) {

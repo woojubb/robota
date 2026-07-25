@@ -11,6 +11,7 @@ import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isSensitiveKey } from './scrub-sensitive.js';
+import { isSafeSessionId } from './session-id.js';
 
 /** Session log event data — extensible record of event metadata. */
 export type TSessionLogValue = string | number | boolean | object | null | undefined;
@@ -79,6 +80,11 @@ export class FileSessionLogger implements ISessionLogger {
   }
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
+    // SEC-006: `sessionId` becomes a path component below. This is a second sink on the same value the
+    // session store guards, and it is reachable with a remote-supplied id via the playground resume
+    // path, so it must not rely on the store having been called first. Logging must never break a
+    // session, so a rejected id drops the line rather than throwing — the store raises the loud error.
+    if (!isSafeSessionId(sessionId)) return;
     try {
       const normalizedData = normalizeLogData(sessionId, this.logDir, data, this.options);
       const entry = JSON.stringify({
