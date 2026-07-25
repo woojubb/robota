@@ -93,6 +93,13 @@ Diagnose real failures; a known fresh-worktree environment artifact (e.g. build 
 that worktree was never built) is not a code failure. Confirm each merge actually landed (Merge Landing
 Verification) before releasing any item held in step 3.
 
+**Clean up each landed branch as you go** — that is the orchestrator's call, not something to wait for a
+human to request. Once a merge is confirmed, delete the branch (and prune its worktree) unless something
+still depends on it: commits on the branch that the merge did not take, a follow-up planned from it, an
+agent still holding its worktree, or an integration/release branch. Deferring this is how a hundred stale
+branches and tens of gigabytes of worktrees accumulate. The deletion guardrails — merge confirmed first,
+integration branches never — are owned by the git rules; follow them, do not restate them.
+
 **Read the review output BEFORE arming the merge.** Review-producing automation is typically _advisory_:
 its findings arrive as PR comments, while the checks that actually gate a merge are a different set. So an
 auto-merge armed early fires on the gating checks and carries the review's findings straight into the
