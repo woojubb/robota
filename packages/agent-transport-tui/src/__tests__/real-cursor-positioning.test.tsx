@@ -63,11 +63,20 @@ class FakeStdin extends EventEmitter {
   }
 }
 
-function Harness({ focus = true }: { focus?: boolean }): React.ReactElement {
+function Harness({
+  focus = true,
+  bannerLines = 1,
+}: {
+  focus?: boolean;
+  /** Rows rendered above the input — the layout the measured y must follow. */
+  bannerLines?: number;
+}): React.ReactElement {
   const [value, setValue] = useState('');
   return (
     <Box flexDirection="column">
-      <Text>banner line</Text>
+      {Array.from({ length: bannerLines }, (_, index) => (
+        <Text key={index}>banner line {index}</Text>
+      ))}
       <Box>
         <Text>{PROMPT}</Text>
         <CjkTextInput value={value} onChange={setValue} availableWidth={COLS - 2} focus={focus} />
@@ -83,17 +92,23 @@ interface IScenario {
   unmount: () => void;
 }
 
-function renderScenario(focus?: boolean): IScenario {
+function renderScenario(focus?: boolean, bannerLines?: number): IScenario {
   const stdout = new FakeTtyStdout();
   const stdin = new FakeStdin();
-  const instance = render(<Harness {...(focus === undefined ? {} : { focus })} />, {
-    // Cast: ink wants real process streams; the fakes implement the parts its render loop uses.
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    interactive: true,
-    exitOnCtrlC: false,
-    patchConsole: false,
-  });
+  const instance = render(
+    <Harness
+      {...(focus === undefined ? {} : { focus })}
+      {...(bannerLines === undefined ? {} : { bannerLines })}
+    />,
+    {
+      // Cast: ink wants real process streams; the fakes implement the parts its render loop uses.
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      interactive: true,
+      exitOnCtrlC: false,
+      patchConsole: false,
+    },
+  );
   return { stdout, stdin, unmount: instance.unmount };
 }
 
@@ -156,6 +171,38 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
     expect(stderrSpy).not.toHaveBeenCalled();
 
     unmount();
+  });
+
+  /**
+   * SIGSEGV regression guard, as a test rather than an argument.
+   *
+   * The Terminal.app Korean-IME crash was root-caused to `setCursorPosition({x, y: 0})` — a
+   * CONSTANT row that pointed the hardware cursor at the logo area. The mechanical statement that
+   * the bug class is gone is not "the literal is absent from the source" but "the emitted row is a
+   * function of the layout": move the input box down and the positioned row must move with it. A
+   * hardcoded `y: 0` — or any other constant — cannot satisfy both halves of this test.
+   */
+  it('SIGSEGV guard: the positioned row FOLLOWS the layout, so a constant y (the y:0 bug) is unrepresentable', async () => {
+    const rowsSeen: number[] = [];
+    for (const bannerLines of [1, 4]) {
+      const { stdout, stdin, unmount } = renderScenario(true, bannerLines);
+      await settle();
+      stdin.send('안녕');
+      await settle();
+
+      const vt = interpretVtStream(stdout.stream(), ROWS, COLS);
+      expect(vt.showEvents.length, `banner=${bannerLines}`).toBeGreaterThan(0);
+      const row = vt.showEvents.at(-1)!.row;
+      // The input box starts immediately below the banner, so its measured row IS bannerLines.
+      expect(row, `banner=${bannerLines}`).toBe(bannerLines);
+      // ...and never the top of the frame while any banner occupies it (the crash geometry).
+      expect(row, `banner=${bannerLines}`).toBeGreaterThan(0);
+      rowsSeen.push(row);
+      unmount();
+      await settle();
+    }
+    // Two different layouts must yield two different rows — a constant cannot pass both.
+    expect(new Set(rowsSeen).size).toBe(2);
   });
 
   it('I4: unfocused input never positions the cursor (and keeps the fallback drawn-cursor path off)', async () => {
