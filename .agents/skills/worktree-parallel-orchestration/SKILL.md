@@ -26,6 +26,15 @@ rules below and must not be restated here**.
   speedup of running them concurrently is worth the partition overhead.
 - **Do NOT use** for a **single item** (just do it on one branch) or for **tightly-coupled changes** that
   cannot be split into non-overlapping file sets — run those sequentially on one branch instead.
+- **Do NOT use — and drain everything else first — for a "shared-ground" change:** anything that alters
+  the toolchain or configuration every other task is verified against (the type-checker version or
+  `tsconfig`, the test runner, the lint/format config, the build pipeline, a workspace-wide dependency
+  bump). File ownership cannot make these disjoint: they are disjoint in _files_ but shared in _effect_.
+  Landing one while other branches are in flight makes every downstream failure ambiguous — an agent
+  cannot tell its own defect from fallout, and bisecting afterwards costs far more than waiting.
+  Run such an item **serially, on an empty queue**: no other open PRs, no running implementation agents,
+  `develop` green on `pnpm harness:verify-like-ci`. Re-check that the queue is still empty immediately
+  before starting.
 
 ## The Procedure
 
