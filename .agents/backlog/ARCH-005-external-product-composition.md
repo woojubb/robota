@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-005: external product composition — publishable assembleProduct + capability-pack + product-profile'
-status: todo
+status: in-progress
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -78,12 +78,32 @@ Staged (owner-directed full vertical slice, 2026-07-25 — supersedes the earlie
   ADDITIVE `agentDefinitions` injection seam in `agent-framework` so pack subagents reach the runtime.
   `pack-coding` is load-bearing: `/shell` + `/editor` now come from the pack, not the base set.
   Equivalence proven against literals captured from the pre-change assembly.
-- **S3 — REMAINING.** The external-consumer proof (done-gate): a throwaway package OUTSIDE the monorepo
-  installs the `pnpm pack` tarballs and exercises Modes A/B/C. Plus the one carried-over item S2 scoped out:
-  the pack **tool** axis is declared but not additive for `robota`, because `agent-framework`'s
-  `createSession` hard-codes `createDefaultTools()` and concatenates `additionalTools` without dedupe —
-  making that default set injectable/suppressible is what would put the tool axis on par with the
-  command/subagent axes.
+- **S3 — ✅ IMPLEMENTED (this PR).** The external-consumer proof: `scripts/external-proof/` +
+  `pnpm proof:external` packs the 17-package dependency closure, `npm install`s the tarballs into a temp dir
+  OUTSIDE the repo (`npm overrides` pin every `@robota-sdk/*` specifier so nothing resolves from the
+  registry), type-checks with `skipLibCheck: false` against the shipped `.d.ts`, and runs **65 assertions**
+  across Modes A/B/C — all green, exit 0, with a mutation run proving it is not accidentally green
+  (7 failures when the rejection channel and the `agentDefinitions` injection are removed). **No product
+  source change was needed.** Three non-blocking published-surface findings recorded (F1 union return type,
+  F2 required `provider`, F3 `ICommandResult` not re-exported).
+
+## Status: spec stays ACTIVE, not done
+
+Modes A/B/C all work from a genuinely external consumer, so the linchpin gap is closed. Two Completion
+Criteria are honestly NOT met, so the spec is **not** moved to `spec-docs/done/`:
+
+- **TC-4 — the pack TOOL axis is half-additive.** A pack tool the framework does not already ship IS additive
+  through `buildRuntime`/`buildRuntimeOptions` (proven). But `createSession` assembles
+  `[...createDefaultTools(), ...additionalTools]` with no dedupe and no suppression hook, so a pack can
+  neither remove nor replace a framework default, and `pack-coding` (whose tools are name-identical to the
+  defaults by design) would be listed twice — which is why `robota`'s surfaces still take their tools from
+  `createDefaultTools()`. → **[ARCH-006](ARCH-006-framework-tool-axis-neutrality.md)**.
+- **TC-7 — `robota` does not eat its own runtime seam.** `cli.ts` consumes the kernel's MATERIALS but not
+  `product.buildRuntime`/`buildRuntimeOptions` nor `product.resolvePreset` (the S2 B1/B2 disclosure). S3 had
+  to FILE these: the S2 evidence claimed they were "tracked by the follow-up backlog items filed from the
+  review" and no such items existed. → **[ARCH-007](ARCH-007-robota-consumes-kernel-runtime-seam.md)**.
+
+ARCH-005 closes when ARCH-006 and ARCH-007 land.
 
 ## Deferred (owner decision, NOT part of this architecture)
 
