@@ -112,7 +112,7 @@ openai|gemini>` already exists (`packages/dag-cli/src/commands/init.ts`) and is 
 All audit items (1–5) and every low fold-in are resolved across three PRs:
 `#1347` (wave 1 — agent-core dead templates + empty default + neutral capacity notice/seam +
 compaction base-prompt seam), `#1351` (item 5 — agent-framework session-naming Unicode-aware
-sanitizer + prompt/sanitizer injection), and this PR (wave 2 — surface-tier `/compact` hint
+sanitizer + prompt/sanitizer injection), and `#1370` (wave 2 — surface-tier `/compact` hint
 injection via the core seam, interface-transport comment twin, dag-cli/`DEFAULT_AGENT_NAME`
 dispositions). Verified: affected package builds + vitest (agent-session 131, agent-framework 1258,
 agent-interface-transport 21, agent-cli 238 — all green) + `pnpm -w typecheck` clean + all 60
