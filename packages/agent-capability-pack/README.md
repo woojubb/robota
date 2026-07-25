@@ -9,16 +9,21 @@ preset dials **behavior** (persona, permission posture, subtractive tool/command
 contributes **capability** (new tools, command modules, subagents).
 
 ```ts
-import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
+import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { ICommandModule } from '@robota-sdk/agent-framework';
+
+declare const baseCommandModules: readonly ICommandModule[];
 
 const jiraPack: ICapabilityPack = {
   id: 'acme-jira',
-  tools: [/* their Jira FunctionTool */],
-  commandModules: [/* their /jira command module */],
+  tools: [], // their Jira FunctionTool[]
+  commandModules: [], // their /jira command module
 };
 
 const { merged, rejected } = mergeCapabilityPacks(baseCommandModules, [jiraPack]);
+void merged;
+void rejected;
 ```
 
 `mergeCapabilityPacks` is a **pure, deterministic, IO-free fold**. It produces the `base ⊕ pack` superset

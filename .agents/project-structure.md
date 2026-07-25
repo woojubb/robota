@@ -10,6 +10,8 @@ packages/
 ├── agent-tool-mcp/              # MCP tool implementations
 ├── agent-framework/             # SDK assembly layer: InteractiveSession, command contracts/common APIs
 ├── agent-preset/                # Preset contract (IPreset) + resolvePreset + built-in presets (depends on agent-framework only)
+├── agent-capability-pack/       # Additive capability-bundle contract (ICapabilityPack) + pure mergeCapabilityPacks merger; additive analog of agent-preset (deps: agent-framework + agent-core types only, no IO)
+├── agent-product/               # Product-assembly kernel: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework (deps: agent-framework + agent-preset + agent-capability-pack + type-only agent-interface-transport + agent-core types; NO concrete transport/TUI/CLI). ARCH-005; neutrality mechanically enforced by scan-composition-neutrality
 ├── agent-subagent-runner/       # Optional: child-process subagent runner + worker (depends on agent-framework + agent-provider-defaults)
 ├── agent-command/               # Command modules: agent, background, compact, context, exit, help, language, memory, mode, model, permissions, plugin, provider, reset, rewind, session, settings, skills, statusline, user-local
 ├── agent-command-*/             # Command-module bridge packages to other subsystems (e.g. agent-command-workflows: surfaces the DAG engine as `/workflows`, composing dag-framework)
@@ -26,6 +28,7 @@ packages/
 ├── agent-testing/               # General test framework: domain-free test-environment tooling (PTY runner spawnPty/spawnPtyFixture); zero @robota-sdk deps, devDependency. Charter+placement rule in its SPEC (contracts→agent-interface-*, doubles→owner /testing, drivers→owning module)
 ├── agent-process/               # Domain-free child-process termination primitives (killProcessTree: SIGTERM→grace→SIGKILL, process-group aware); zero @robota-sdk deps, leaf. Consumed by agent-executor/agent-tools/agent-subagent-runner (CORE-023)
 ├── agent-plugin/                # Plugins: conversation-history, logging, usage, performance, execution-analytics, error-handling, limits, event-emitter, webhook
+├── pack-*/                      # Capability packs (`@robota-sdk/pack-*`): additive ICapabilityPack bundles composed by agent-product's assembleProduct. e.g. pack-coding — robota's coding capability (built-in tools + /shell + /editor command modules + coding subagents); imports agent-tools/agent-command/agent-framework, re-implements nothing (ARCH-005)
 │
 │   # DAG subsystem (workflow engine; absorbed via WORKFLOW-001, decoupled from the external workflow runtime)
 ├── dag-core/                    # DAG foundation: runtime-provider + workflow-file contracts, engine types, lifecycle services

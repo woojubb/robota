@@ -6,12 +6,16 @@ additive-axis proof for ARCH-005 and robota's first capability pack.
 ```ts
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { codingPack } from '@robota-sdk/pack-coding';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider;
 
 const product = assembleProduct({
   id: 'acme-assistant',
   provider,
   packs: [codingPack], // robota's coding tools, /shell + /editor commands, and coding subagents
 });
+void product;
 ```
 
 `codingPack` bundles:

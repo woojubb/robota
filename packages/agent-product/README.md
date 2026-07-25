@@ -8,17 +8,24 @@ composition mechanism a third party imports to build their OWN product on Robota
 
 ```ts
 import { assembleProduct } from '@robota-sdk/agent-product';
+import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+
+declare const provider: IAIProvider; // already-constructed, product-owned
+declare const acmeJiraPack: ICapabilityPack;
+declare const cwd: string;
 
 const product = assembleProduct({
   id: 'acme-assistant',
   agentName: 'acme',
-  provider, // already-constructed, product-owned
+  provider,
   packs: [acmeJiraPack], // additive capability
   defaultPresetId: 'careful-reviewer', // Robota's built-in preset, reused
 });
 
 // The external repo binds product.buildRuntime(...) to ITS OWN presentation/transport.
 const session = product.buildRuntime({ session: { cwd, provider } });
+void session;
 ```
 
 `assembleProduct` hard-codes no product's choices — everything product-specific arrives as `profile` data.
