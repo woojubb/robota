@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SessionPermissionGate, parseSessionPermissionsFromEnv } from '../session/session-gate.js';
 
 describe('SessionPermissionGate', () => {
@@ -90,10 +90,10 @@ describe('SessionPermissionGate', () => {
 
 describe('parseSessionPermissionsFromEnv', () => {
   beforeEach(() => {
-    delete process.env['DAG_SESSION_PERMISSIONS'];
+    vi.stubEnv('DAG_SESSION_PERMISSIONS', undefined);
   });
   afterEach(() => {
-    delete process.env['DAG_SESSION_PERMISSIONS'];
+    vi.unstubAllEnvs();
   });
 
   it('returns undefined when env var is not set', () => {
@@ -101,17 +101,20 @@ describe('parseSessionPermissionsFromEnv', () => {
   });
 
   it('parses valid JSON permissions', () => {
-    process.env['DAG_SESSION_PERMISSIONS'] = JSON.stringify({
-      allowedNodeTypes: ['input', 'text-output'],
-      maxCostUsd: 0.5,
-    });
+    vi.stubEnv(
+      'DAG_SESSION_PERMISSIONS',
+      JSON.stringify({
+        allowedNodeTypes: ['input', 'text-output'],
+        maxCostUsd: 0.5,
+      }),
+    );
     const perms = parseSessionPermissionsFromEnv();
     expect(perms?.allowedNodeTypes).toEqual(['input', 'text-output']);
     expect(perms?.maxCostUsd).toBe(0.5);
   });
 
   it('returns undefined for invalid JSON', () => {
-    process.env['DAG_SESSION_PERMISSIONS'] = 'not-valid-json{';
+    vi.stubEnv('DAG_SESSION_PERMISSIONS', 'not-valid-json{');
     expect(parseSessionPermissionsFromEnv()).toBeUndefined();
   });
 });

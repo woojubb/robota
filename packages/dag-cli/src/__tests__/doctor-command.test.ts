@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
@@ -28,6 +28,10 @@ function getOutput(opts: { written: string[] }): string {
 }
 
 describe('doctorCommand', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('--json flag outputs JSON', async () => {
     const opts = createOptions();
     const code = await doctorCommand(['--json'], opts);
@@ -98,11 +102,9 @@ describe('doctorCommand', () => {
     const workflowsDir = join(dagDir, 'workflows');
     await mkdir(workflowsDir, { recursive: true });
     await writeFile(join(dagDir, '.env'), 'placeholder=value\n', 'utf8');
-    const savedAnthropic = process.env['ANTHROPIC_API_KEY'];
-    const savedOpenai = process.env['OPENAI_API_KEY'];
     // Set both required keys so errorCount = 0
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-api03-validkeyformat1234567890123456';
-    process.env['OPENAI_API_KEY'] = 'sk-validopenaikeyformat1234567890123456789';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-api03-validkeyformat1234567890123456');
+    vi.stubEnv('OPENAI_API_KEY', 'sk-validopenaikeyformat1234567890123456789');
     const opts: IDoctorCommandOptions & { written: string[] } = {
       io: {
         write: (t) => {
@@ -118,32 +120,17 @@ describe('doctorCommand', () => {
       written: [],
     };
     await doctorCommand([], opts);
-    if (savedAnthropic !== undefined) process.env['ANTHROPIC_API_KEY'] = savedAnthropic;
-    else delete process.env['ANTHROPIC_API_KEY'];
-    if (savedOpenai !== undefined) process.env['OPENAI_API_KEY'] = savedOpenai;
-    else delete process.env['OPENAI_API_KEY'];
     const output = opts.written.join('');
     expect(output).toContain('All checks passed');
   });
 
   it('outputs url hint when API key is missing (covers check.url branch in renderPretty)', async () => {
-    const saved = {
-      anthropic: process.env['ANTHROPIC_API_KEY'],
-      openai: process.env['OPENAI_API_KEY'],
-      gemini: process.env['GEMINI_API_KEY'],
-      deepseek: process.env['DEEPSEEK_API_KEY'],
-    };
-    delete process.env['ANTHROPIC_API_KEY'];
-    delete process.env['OPENAI_API_KEY'];
-    delete process.env['GEMINI_API_KEY'];
-    delete process.env['DEEPSEEK_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
+    vi.stubEnv('OPENAI_API_KEY', undefined);
+    vi.stubEnv('GEMINI_API_KEY', undefined);
+    vi.stubEnv('DEEPSEEK_API_KEY', undefined);
     const opts = createOptions();
     await doctorCommand([], opts);
-    // restore
-    if (saved.anthropic !== undefined) process.env['ANTHROPIC_API_KEY'] = saved.anthropic;
-    if (saved.openai !== undefined) process.env['OPENAI_API_KEY'] = saved.openai;
-    if (saved.gemini !== undefined) process.env['GEMINI_API_KEY'] = saved.gemini;
-    if (saved.deepseek !== undefined) process.env['DEEPSEEK_API_KEY'] = saved.deepseek;
     const output = getOutput(opts);
     // renderPretty should have output the url hint
     expect(output).toContain('https://');

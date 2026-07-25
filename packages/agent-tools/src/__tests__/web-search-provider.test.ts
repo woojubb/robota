@@ -29,6 +29,7 @@ describe('web-search provider port (NEUT-008)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     globalThis.fetch = originalFetch;
   });
 
@@ -77,7 +78,7 @@ describe('web-search provider port (NEUT-008)', () => {
   });
 
   it('default missing-key error names the env var but carries no vendor signup URL', async () => {
-    delete process.env['BRAVE_API_KEY'];
+    vi.stubEnv('BRAVE_API_KEY', undefined);
     const { webSearchTool } = await import('../builtins/web-search-tool.js');
 
     const result = await callTool(webSearchTool, 'anything');

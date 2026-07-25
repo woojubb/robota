@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   ENV_REFERENCE_PREFIX,
   isEnvReference,
@@ -43,23 +43,17 @@ describe('env-ref utilities', () => {
   });
 
   describe('resolveEnvReference', () => {
-    const originalEnv = process.env;
-
-    beforeEach(() => {
-      process.env = { ...originalEnv };
-    });
-
     afterEach(() => {
-      process.env = originalEnv;
+      vi.unstubAllEnvs();
     });
 
     it('returns the env value when set', () => {
-      process.env['TEST_API_KEY'] = 'sk-test-value';
+      vi.stubEnv('TEST_API_KEY', 'sk-test-value');
       expect(resolveEnvReference('$ENV:TEST_API_KEY')).toBe('sk-test-value');
     });
 
     it('returns undefined when env var is not set', () => {
-      delete process.env['MISSING_KEY'];
+      vi.stubEnv('MISSING_KEY', undefined);
       expect(resolveEnvReference('$ENV:MISSING_KEY')).toBeUndefined();
     });
 
@@ -72,20 +66,14 @@ describe('env-ref utilities', () => {
     });
 
     it('trims whitespace from the env var name', () => {
-      process.env['SPACED_KEY'] = 'spaced-value';
+      vi.stubEnv('SPACED_KEY', 'spaced-value');
       expect(resolveEnvReference('$ENV:  SPACED_KEY  ')).toBe('spaced-value');
     });
   });
 
   describe('hasUsableSecretReference', () => {
-    const originalEnv = process.env;
-
-    beforeEach(() => {
-      process.env = { ...originalEnv };
-    });
-
     afterEach(() => {
-      process.env = originalEnv;
+      vi.unstubAllEnvs();
     });
 
     it('returns true for a plain non-empty string', () => {
@@ -93,7 +81,7 @@ describe('env-ref utilities', () => {
     });
 
     it('returns true when env reference resolves to a value', () => {
-      process.env['MY_KEY'] = 'resolved-value';
+      vi.stubEnv('MY_KEY', 'resolved-value');
       expect(hasUsableSecretReference('$ENV:MY_KEY')).toBe(true);
     });
 
@@ -106,7 +94,7 @@ describe('env-ref utilities', () => {
     });
 
     it('returns false when env reference does not resolve', () => {
-      delete process.env['MISSING_KEY'];
+      vi.stubEnv('MISSING_KEY', undefined);
       expect(hasUsableSecretReference('$ENV:MISSING_KEY')).toBe(false);
     });
   });
