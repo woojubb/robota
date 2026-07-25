@@ -100,7 +100,8 @@
     "harness:scan:conflict-markers": "node scripts/harness/scan-conflict-markers.mjs",
     "harness:scan:deprecated-markers": "node scripts/harness/scan-deprecated-markers.mjs",
     "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs",
-    "test:mutation": "stryker run"
+    "test:mutation": "stryker run",
+    "proof:external": "node scripts/external-proof/run-external-proof.mjs"
   },
   "keywords": [
     "ai",

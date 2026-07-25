@@ -1,5 +1,5 @@
 ---
-status: approved
+status: in-progress
 type: INFRA
 tags: [architecture, product-composition, packaging]
 ---
@@ -871,6 +871,54 @@ The **external-consumer smoke** (Test Plan) is the backing, agent-run evidence f
 the done-gate; the scenario catalog entry is authored at implementation time under
 `.agents/evals/scenarios/` and each backing test is run by the agent itself.
 
+**Delivered (S3, 2026-07-25):** [`arch-005-external-consumer-proof-agent-run.md`](../../evals/scenarios/arch-005-external-consumer-proof-agent-run.md),
+backed by `scripts/external-proof/` (`pnpm proof:external`) — 65 assertions, agent-run, exit 0.
+
+> **One deliberate reduction against Scenario 1's wording.** Scenario 1 said "drive one prompt turn through
+> the assembled runtime → expect a model response". The proof constructs the provider IN-KERNEL and builds a
+> live `InteractiveSession` through the framework seam, but does **not** issue a model call: that would make
+> the done-gate depend on a paid vendor credential and a network round-trip, which no CI or offline agent run
+> can reproduce. What the proof asserts instead is strictly stronger where it matters and honest about the
+> rest — the provider is a real `IAIProvider` code object built by the kernel from the definitions, and
+> `buildRuntime` returns a real framework `InteractiveSession`. The model round-trip itself is already
+> covered by the in-repo scripted-provider e2e suites.
+
+## Completion Criteria
+
+- [x] **TC-1 (Mode A)** — from outside the monorepo, a profile carrying only `providerDefinitions` +
+      branding assembles, and a profile that adds `providerSettings` gets its **provider constructed
+      IN-KERNEL** (the consumer builds none and depends on no `agent-provider-*` package); the assembled
+      materials (commands/tools/subagents/agentName) are exposed and reach a live framework session.
+- [x] **TC-2 (Mode B)** — a hand-authored `IPreset` layered by an external consumer drives the resolved
+      options (persona/model/effort/denied tools + the permission posture DERIVED from `autonomy`), reaches
+      the session options, and — R8 — does **not** leak into a second `assembleProduct` call or into
+      `agent-preset`'s module-level registry.
+- [x] **TC-3 (Mode C: preset reuse + additive merge)** — a Robota built-in preset is reusable by id with
+      nothing registered, a consumer-authored `ICapabilityPack` merges additively in `base ⊕ packs` order,
+      and a deliberate id collision is **reported on the rejection channel** (distinct base-vs-pack reasons,
+      first registration wins) rather than silently dropped or overridden.
+- [ ] **TC-4 (Mode C: tool axis)** — **PARTIALLY MET, and deliberately not checked.** A pack tool the
+      framework does not already ship IS additive through `buildRuntime`/`buildRuntimeOptions` (proven). But
+      `createSession` assembles `[...createDefaultTools(), ...additionalTools]` with no dedupe and no
+      suppression hook, so a pack can neither remove nor replace a framework default, and a pack whose tools
+      duplicate the defaults (as `pack-coding`'s do by design) would be listed twice — which is why
+      `robota`'s own surfaces still take their tools from `createDefaultTools()`. Tracked by
+      **[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**.
+- [x] **TC-5 (published-surface sufficiency)** — the proof installs real `pnpm pack` tarballs via
+      `npm install` (no workspace link, no relative import, `npm overrides` pinning every `@robota-sdk/*`
+      specifier so nothing resolves from the registry) and type-checks with `skipLibCheck: false` against the
+      SHIPPED `.d.ts` files. No product source change was needed to make it pass.
+- [x] **TC-6 (reproducible + opt-in)** — the fixture and runner are committed at `scripts/external-proof/`
+      and re-runnable with `pnpm proof:external`; they are excluded from the default test suite because they
+      pack and install.
+- [ ] **TC-7 (robota eats its own runtime seam)** — **NOT MET, carried from the S2 disclosure.** `cli.ts`
+      consumes the kernel's MATERIALS but not `product.buildRuntime`/`buildRuntimeOptions` nor
+      `product.resolvePreset`. Neither is a kernel defect and neither affects any external mode, but the
+      dogfooding claim is weaker than the boundary table states. Tracked by
+      **[ARCH-007](../../backlog/ARCH-007-robota-consumes-kernel-runtime-seam.md)** — which S3 had to FILE,
+      because the S2 entry's "tracked by the follow-up backlog items filed from the review (B1/B2)" pointed
+      at items that were never actually created.
+
 ## Evidence Log
 
 ### [GATE-WRITE] — ✅ PASS | 2026-07-25
@@ -1110,3 +1158,94 @@ ROBOTA_PACK_COMMAND_MODULE_NAMES)`. Byte-identity on the early-return paths AND 
 - `packages/agent-transport` and `packages/agent-transport-tui` each took a 2-line optional pass-through so
   the Decision-2 seam reaches robota's real surfaces; two files that the threading pushed past the file-size
   ratchet were SPLIT (not extended) per the ratchet's own remedy.
+
+### [S3] — ✅ IMPLEMENTED (external-consumer proof) | 2026-07-25
+
+**Status: `approved` → `in-progress` (spec `todo/` → `active/`). NOT `done` — see the disposition below.**
+
+Stage S3 built the external-consumer proof: a throwaway package **outside the monorepo tree** that installs
+the `pnpm pack` tarballs and exercises Modes A/B/C against the PUBLISHED surface. Committed and re-runnable
+at `scripts/external-proof/` via **`pnpm proof:external`** (opt-in — it packs and installs, so it is outside
+the default test suite, following the `*.bintest.ts` precedent).
+
+**It is a real external install, not a dressed-up in-repo test.** The runner derives the workspace dependency
+closure of the entry packages (**17 packages**), refuses to run if any lacks build output, `pnpm pack`s each
+one, materialises the fixture into a temp directory it **hard-fails on if it is inside the repo**, and
+`npm install`s the tarballs. `npm overrides` pin every `@robota-sdk/*` specifier to a local tarball —
+load-bearing, because `@robota-sdk/agent-core@3.0.0-beta.79` IS published, so without the pin npm would
+silently install the REGISTRY build for the transitive deps and the proof would measure the wrong tree. The
+consumer then type-checks with **`skipLibCheck: false`** against the shipped `.d.ts` files before running.
+
+**Result: `EXTERNAL PROOF PASSED — 65 assertions across Modes A, B and C.` (exit 0), `tsc` clean.**
+
+- **Mode A (TC-1).** The literal spec-sketch profile (branding + `providerDefinitions` only) assembles and
+  honestly yields nothing else — no hidden product opinion. Adding `providerSettings` gets a provider
+  **constructed IN-KERNEL** (owner Decision 1 verified from outside): a real `IAIProvider` with
+  `name === 'openai'` and a callable `chat`, from a consumer that builds no provider and depends on **no**
+  `agent-provider-*` package; an unknown provider name is rejected by the kernel naming the supported types.
+  Adding `pack-coding` surfaces the 2 coding command modules, the 10 coding tools and the 3 coding subagents,
+  and `buildRuntime` returns a value that is `instanceof` the framework's `InteractiveSession` — which also
+  proves there is exactly ONE framework copy in the install.
+- **Mode B (TC-2).** A hand-authored `IPreset` drives persona/model/effort/`deniedTools`/`selfVerification`,
+  and its permission posture is **derived** from the `autonomy: 'ask-first'` dial (→ `permissionMode:
+'default'`) by the published resolver. The posture is overlaid onto the session options, and an explicit
+  shell `permissionMode` is NOT overwritten. **R8 verified from outside:** a second `assembleProduct` call
+  cannot see the preset (`getPreset` → `undefined`, `resolvePreset` throws), `agent-preset`'s module-level
+  global was never mutated (the globally-imported `resolvePreset` throws too), and the FIRST product still
+  resolves it — per-call registries, not per-process.
+- **Mode C (TC-3).** `careful-reviewer` is reused by id with nothing registered (its shipped persona/autonomy/
+  effort/`selfVerification` all arrive). A consumer-authored pack (own `FunctionTool`, own `ICommandModule`
+  with a `systemCommands` handler, own `IAgentDefinition`) merges additively in `base ⊕ packs` order. A
+  deliberate 4-way id collision is **reported**, with `duplicate commandModule id` and `collides with base
+command module` as DISTINCT reasons, exactly one surviving module per id, and the FIRST definition surviving
+  (asserted by inspecting the survivor's contents, not just its count).
+- **TC-5/TC-6.** No product source change was needed — S3 required none, as the staging predicted. The
+  fixture + runner are committed and re-runnable.
+
+**Proven NOT accidentally green.** Two mutations were planted in the shipped source and the packages rebuilt:
+dropping the rejection channel from `mergeCapabilityPacks` (silently skip instead of report) and dropping the
+`agentDefinitions` injection from `assembleProduct`'s overlay → `FAILED — 7 failed, 58 passed`. Reverted and
+rebuilt → back to 65/65.
+
+**Published-surface findings — none blocking, all recorded** in
+`scripts/external-proof/fixture/src/surface-notes.ts` rather than silently worked around:
+
+- **F1** — `buildRuntimeOptions` returns the UNION `TInteractiveSessionOptions`, so a consumer must narrow it
+  before reading back `additionalTools`/`agentDefinitions` — the very fields the overlay just added. The
+  return type does not track the branch of the input that produced it. (Discovered as a hard `tsc` failure.)
+- **F2** — `IAssembledProduct.provider` is optional while `IInteractiveSessionStandardOptions.provider` is
+  required, so a consumer relying on in-kernel construction still asserts non-null at the call site.
+- **F3** — `ICommandResult` is not re-exported from `agent-framework`; authoring a command module works
+  (contextual typing) but naming the handler's return type requires `@robota-sdk/agent-interface-transport`.
+
+**THE HONEST GAP (TC-4) — the pack TOOL axis is half-additive, and the proof MEASURES it rather than
+asserting it in prose.** Section C5 verifies from the published surface that (a) a pack tool the framework
+does not ship IS additive and reaches the runtime, (b) `pack-coding`'s tools are name-identical to
+`createDefaultTools()`, and (c) the overlay only APPENDS to `additionalTools`. Combined with
+`create-session.ts`'s `[...defaultTools, ...additionalTools]` (no dedupe, no suppression hook), the precise
+statement is: **a NEW pack tool is fully additive; a pack can neither remove nor replace a framework default;
+a pack duplicating a default would be listed twice** — which is exactly why `robota`'s own surfaces still
+take their tools from `createDefaultTools()`. Filed as
+**[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**. Nothing stronger is claimed.
+
+**A dangling reference S3 had to fix.** The S2 entry above says the B1/B2 disclosures are "tracked by the
+follow-up backlog items filed from the review". They were never filed — neither in `.agents/backlog/` nor as
+issues. S3 filed them as
+**[ARCH-007](../../backlog/ARCH-007-robota-consumes-kernel-runtime-seam.md)**.
+
+**Verification (all foreground).** `pnpm build` green; `pnpm proof:external` 65/65 exit 0 (plus the mutation
+run and the revert); `pnpm harness:verify-like-ci` green. Scenario catalog entry:
+[`arch-005-external-consumer-proof-agent-run.md`](../../evals/scenarios/arch-005-external-consumer-proof-agent-run.md).
+
+**DISPOSITION — the spec stays `active`, deliberately.** Modes A, B and C all work from a genuinely external
+consumer against the published surface; the linchpin gap the spec was written to close IS closed. But two
+Completion Criteria are not met and the done-gate is not a place to round up:
+
+- **TC-4** — the tool axis is additive only for NEW tools and only through the `buildRuntime` seam
+  (→ **ARCH-006**).
+- **TC-7** — `robota` itself consumes the kernel's materials but not its runtime seam or preset resolver, so
+  the dogfooding claim is weaker than the boundary table reads (→ **ARCH-007**).
+
+Neither blocks an external consumer, which is why S3 is recorded as ✅ IMPLEMENTED. Both are real gaps against
+what THIS spec claims, which is why the spec is **not** moved to `done/`. It moves `todo/` → `active/` with
+`status: in-progress` and closes when ARCH-006 and ARCH-007 land.
