@@ -22,8 +22,6 @@ export interface IPlaygroundConfig {
  * Validate and parse playground configuration from environment variables
  */
 export function validatePlaygroundConfig(): IPlaygroundConfig {
-  const errors: string[] = [];
-
   // Playground is always enabled - no environment variable check needed
   const enabled = true;
 

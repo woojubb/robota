@@ -2,10 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { eventsToFlow } from '../events-to-flow';
 import type { IConversationEvent } from '../../../../lib/playground/robota-executor';
 
-function edge(source: string, target: string) {
-  return expect.objectContaining({ source, target });
-}
-
 function hasEdge(edges: { source: string; target: string }[], src: string, tgt: string): boolean {
   return edges.some((e) => e.source === src && e.target === tgt);
 }

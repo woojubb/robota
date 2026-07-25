@@ -18,12 +18,7 @@ import type { IResolveUserLocalStorageRootOptions } from './storage.js';
 import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
 
 type TJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | readonly TJsonValue[]
-  | { readonly [key: string]: TJsonValue };
+  string | number | boolean | null | readonly TJsonValue[] | { readonly [key: string]: TJsonValue };
 type TJsonRecord = { readonly [key: string]: TJsonValue };
 
 const MEMORY_STORAGE_CATEGORY = 'memory-projections';
@@ -203,7 +198,7 @@ export async function setUserLocalMemoryItem(
   const now = formatIsoDate((options.now ?? (() => new Date()))());
   const { root, memoryRoot } = await resolveMemoryRoot(options);
   const storageLocation = path.join(memoryRoot, memoryFileName(category, key));
-  let createdAt = now;
+  let createdAt: string;
 
   try {
     const existing = parseMemoryRecord(

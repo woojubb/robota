@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 const NonEmptyString = z.string().trim().min(1);
-const ReferenceTypeSchema = z.enum(['asset', 'uri']);
 
 const AssetReferenceSchema = z.object({
   referenceType: z.literal('asset'),

@@ -1,6 +1,6 @@
 import type { IDagDefinition, IDagRobotaCompanion, IDagNode } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
-import { FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
+import { USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import { createCliFailure } from '../json.js';
 import { parseDagMd, DAG_MD_SUFFIX } from '../dag-md-parser/parse-dag-md.js';
 import { isWorkflowFileFormat, fromDagWorkflowFile } from '@robota-sdk/dag-builder';

@@ -23,7 +23,6 @@ import {
   sendWorkerMessage,
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
-import { getDefaultSubagentWorkerPath } from './worker-path-resolver.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';

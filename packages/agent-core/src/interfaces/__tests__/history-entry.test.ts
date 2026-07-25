@@ -10,7 +10,6 @@ import {
   getMessagesForAPI,
   createUserMessage,
   createAssistantMessage,
-  createSystemMessage,
   createToolMessage,
 } from '../../index';
 import type { IHistoryEntry } from '../../index';

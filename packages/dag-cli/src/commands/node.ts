@@ -555,10 +555,6 @@ function parseNodeArgv(args: readonly string[]): TParseResult {
   };
 }
 
-function resolveErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
 function groupByCategory(manifests: INodeManifest[]): Map<string, INodeManifest[]> {
   const map = new Map<string, INodeManifest[]>();
   for (const manifest of manifests) {

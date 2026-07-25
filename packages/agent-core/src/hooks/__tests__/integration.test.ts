@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runHooks } from '../hook-runner.js';
 import { CommandExecutor } from '../executors/command-executor.js';
-import { HttpExecutor } from '../executors/http-executor.js';
 import type { THooksConfig, IHookInput, IHookTypeExecutor, THookDefinition } from '../types.js';
 
 describe('Hook flow integration', () => {

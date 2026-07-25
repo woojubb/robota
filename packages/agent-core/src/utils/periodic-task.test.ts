@@ -12,13 +12,6 @@ function createMockLogger(): ILogger {
   };
 }
 
-// Helper to flush microtasks created by the void async IIFE inside setInterval
-function flushMicrotasks(): Promise<void> {
-  return new Promise((resolve) => {
-    queueMicrotask(resolve);
-  });
-}
-
 describe('startPeriodicTask', () => {
   beforeEach(() => {
     vi.useFakeTimers();

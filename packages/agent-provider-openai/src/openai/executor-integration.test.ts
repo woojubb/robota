@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import { OpenAIProvider } from './provider';
 import { LocalExecutor } from '@robota-sdk/agent-core';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';

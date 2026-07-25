@@ -5,7 +5,7 @@
  * flush timer and the maxSize-overflow flush must never float a rejecting promise.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { EventEmitterPlugin } from './event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from './event-emitter/types';

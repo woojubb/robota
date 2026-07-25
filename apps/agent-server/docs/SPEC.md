@@ -66,7 +66,6 @@ This app is SSOT for:
 - `ISkillCatalogEntry` -- skill metadata with `skillMdContent`. `src/catalog/skills.ts`
 - `ISkillCatalogResponse` -- response envelope for skill catalog endpoint. `src/catalog/skills.ts`
 - `IRestoredMessage` -- serialised message shape returned on session resume. `src/routes/handlers/playground-session-create.ts`
-- `resolveApiDocsEnabled` -- environment flag resolution utility. `src/utils/env-flags.ts`
 
 ## Public API Surface
 

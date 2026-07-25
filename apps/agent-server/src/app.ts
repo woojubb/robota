@@ -10,7 +10,6 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
 import { playgroundRouter } from './routes/playground.js';
-import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
 import type { IAIProvider } from '@robota-sdk/agent-core';

@@ -125,7 +125,7 @@ describe('PairingGate E3 reconnect (REMOTE-012 TC-05)', () => {
 
   it('admits a pinned device via mutual reconnect and exposes the session (no re-enroll)', async () => {
     const device = await pinnedDevice();
-    const { cfg, hostKeyPair } = await hostConfig({
+    const { cfg } = await hostConfig({
       resolveDevicePublicKey: async (id) => (id === device.deviceId ? device.publicKey : undefined),
     });
     const hostPublicKey = await importPublicKey(cfg.hostPublicSpki);

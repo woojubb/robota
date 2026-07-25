@@ -194,18 +194,6 @@ describe('ExecutionService', () => {
     });
 
     it('should execute a conversation with tool calls', async () => {
-      const toolInput = 'Use the test tool';
-      const toolMessages: TUniversalMessage[] = [];
-      const toolConfig: IAgentConfig = {
-        name: 'test-agent',
-        aiProviders: [mockProvider],
-        defaultModel: {
-          provider: 'openai',
-          model: 'gpt-4',
-        },
-        systemMessage: 'You are a helpful assistant.',
-      };
-
       // Mock provider to return tool calls
       mockProvider.chat = vi
         .fn()

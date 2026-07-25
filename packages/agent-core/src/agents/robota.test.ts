@@ -10,7 +10,7 @@ import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
 import type { TUniversalMessage } from '../interfaces/messages';
 
-import { ConfigurationError, ValidationError } from '../utils/errors';
+import { ConfigurationError } from '../utils/errors';
 
 // Mock AI Provider for testing
 class MockAIProvider extends AbstractAIProvider {
