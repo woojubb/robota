@@ -15,7 +15,6 @@ import {
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
-import { DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
