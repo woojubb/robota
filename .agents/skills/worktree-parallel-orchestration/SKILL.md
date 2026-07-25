@@ -10,15 +10,23 @@ Procedure for the orchestrator that fans out several **independent** backlog ite
 routing/procedure only — every git, spec, TDD, and verification constraint it invokes is **owned by the
 rules below and must not be restated here**.
 
+Where the procedure needs a concrete command, script, branch name, or threshold, it **points at the rule
+that owns it** instead of naming it. The only names used literally are the agent-tooling primitives the
+procedure is built on (the `Agent` tool's worktree isolation and `SendMessage`), because they _are_ the
+mechanism.
+
 ## Rule Anchor
 
 - `AGENTS.md` > "Rules and Skills Boundary" — skills are procedure; rules win on conflict.
-- `.agents/rules/git-branch.md` — Git Worktree (isolation + guardrails); One-Branch-At-A-Time Rule
-  (Exception 2 authorizes concurrent worktree branches on a **disjoint file set**);
-  `--delete-branch` ban; Merge Landing Verification; Delete Merged Branches; PR Batching (DX-001).
-- `.agents/rules/spec-workflow.md` + `.agents/rules/backlog-execution.md` — spec gate pipeline for code work.
-- `.agents/rules/tdd-and-planning.md` — red-before-green (HARNESS-041).
-- `.agents/rules/verification.md` — build / test / typecheck / scan gates.
+- [git-branch.md](../../rules/git-branch.md) — "Git Worktree" (isolation + guardrails);
+  "One-Branch-At-A-Time Rule" (Exception 2 authorizes concurrent worktree branches on a **disjoint file
+  set**, and names the branch-guard override that permits them); "Clean Working Tree Before Every Commit
+  and Push" (names the CI-equivalent verification entry point); the merge-time branch-deletion ban;
+  "Merge Landing Verification"; "Delete Merged Branches"; "PR Batching".
+- [spec-workflow.md](../../rules/spec-workflow.md) + [backlog-execution.md](../../rules/backlog-execution.md)
+  — the spec gate pipeline for code work.
+- [tdd-and-planning.md](../../rules/tdd-and-planning.md) — "Prove the regression test RED" (red-before-green).
+- [verification.md](../../rules/verification.md) — build / test / typecheck / scan gates.
 
 ## When to Use / When NOT to Use
 
@@ -27,14 +35,14 @@ rules below and must not be restated here**.
 - **Do NOT use** for a **single item** (just do it on one branch) or for **tightly-coupled changes** that
   cannot be split into non-overlapping file sets — run those sequentially on one branch instead.
 - **Do NOT use — and drain everything else first — for a "shared-ground" change:** anything that alters
-  the toolchain or configuration every other task is verified against (the type-checker version or
-  `tsconfig`, the test runner, the lint/format config, the build pipeline, a workspace-wide dependency
-  bump). File ownership cannot make these disjoint: they are disjoint in _files_ but shared in _effect_.
-  Landing one while other branches are in flight makes every downstream failure ambiguous — an agent
-  cannot tell its own defect from fallout, and bisecting afterwards costs far more than waiting.
+  the toolchain or configuration every other task is verified against (the type-checker or its
+  configuration, the test runner, the lint/format configuration, the build pipeline, a workspace-wide
+  dependency bump). File ownership cannot make these disjoint: they are disjoint in _files_ but shared in
+  _effect_. Landing one while other branches are in flight makes every downstream failure ambiguous — an
+  agent cannot tell its own defect from fallout, and bisecting afterwards costs far more than waiting.
   Run such an item **serially, on an empty queue**: no other open PRs, no running implementation agents,
-  `develop` green on `pnpm harness:verify-like-ci`. Re-check that the queue is still empty immediately
-  before starting.
+  and the integration branch green on the project's CI-equivalent verification entry point. Re-check that
+  the queue is still empty immediately before starting.
 
 ## The Procedure
 
@@ -42,16 +50,16 @@ rules below and must not be restated here**.
 
 Before any agent is spawned, assign every candidate item an explicit **OWNED path list** and a
 **FORBIDDEN path list**. The partition invariant: **no two concurrent agents may write the same file.**
-Shared/central files (index registries, baselines, cross-cutting rule docs) are the usual collision
-points — give each such file to at most one agent, or defer edits to it (see step 8). This is the
-mechanism the git-branch.md One-Branch-At-A-Time Exception 2 depends on; without a clean partition, do
-not run in parallel.
+Shared/central files (index registries, generated baselines, cross-cutting rule docs) are the usual
+collision points — give each such file to at most one agent, or defer edits to it (see step 8). This is
+the mechanism the git rules' One-Branch-At-A-Time exception depends on; without a clean partition, do not
+run in parallel.
 
 ### 2. Isolate each implementer in its own worktree
 
 Spawn each parallel implementer with the `Agent` tool's `isolation: "worktree"`. Each carries its own
-concurrent feature branch cut from a freshly-fetched `origin/develop` (branch-guard override:
-`BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1`). Hand each agent its OWNED + FORBIDDEN lists verbatim.
+concurrent feature branch cut from a **freshly-fetched integration branch**, created with the branch-guard
+override the git rules define for exactly this case. Hand each agent its OWNED + FORBIDDEN lists verbatim.
 
 ### 3. Sequence overlapping work behind occupants
 
@@ -63,27 +71,34 @@ run two agents that touch the same file concurrently.
 
 Each implementer produces exactly one PR and does **not** self-merge:
 
-- Red-before-green (HARNESS-041): prove the new/changed test fails pre-fix.
-- **Foreground** self-verification on a BUILT tree (`pnpm build` first): `pnpm harness:verify-like-ci`
-  — the CI-equivalent entry (harness self-test, prettier check, full scan suite incl. the
-  dist-dependent scans, typecheck) — plus `pnpm test`; all green, evidence reported. A bare
-  `run-all-scans` is NOT the CI gate: it reports baseline notices and an unbuilt `dist` as a pass, and
-  a fresh worktree has no husky/prettier toolchain (HARNESS-045).
-- Correct commit footers; `gh pr create --base develop`.
+- **Prove it fails first.** A new or changed regression test does not count as verification until it has
+  been demonstrated to FAIL against the pre-change state, then pass. Never skip this because the test is
+  green now.
+- **Self-verify in the FOREGROUND, on a fully built tree, using the project's CI-equivalent verification
+  entry point** — the single entry that reproduces what CI asserts — plus the project's test suite. All
+  green, evidence reported. **A partial check is not the gate:** a narrower scan-only or hook-only run can
+  report a pass where CI fails, because it treats baseline notices and missing build outputs as clean, and
+  a freshly-created worktree may not carry the installed hook/formatter toolchain the project's checks
+  assume. Never substitute a narrower command for the CI-equivalent one, and never background the
+  verification and report before it finishes.
+- Correct commit footers; open **exactly one** PR against the integration branch.
 - Stop-and-report on a blocker rather than merging or leaving a broken commit.
 
 ### 5. Orchestrator merges serially
 
-Merge PRs one at a time via armed auto-merge: `gh pr merge --auto --squash` (never `--delete-branch`).
-On a stale base or CI flake, **rebase the branch onto fresh `origin/develop` and re-arm**. Diagnose real
-failures; treat known fresh-worktree env artifacts (e.g. a missing `dist`) as non-blocking. Confirm each
-merge actually landed (Merge Landing Verification) before releasing any item held in step 3.
+The orchestrator — never the implementer — merges, and **one PR at a time**, via the armed auto-merge form
+the git rules permit (the merge-time branch-deletion flag is banned there; do not reintroduce it). On a
+stale base or a CI flake, **rebase the branch onto the freshly-fetched integration branch and re-arm**.
+Diagnose real failures; a known fresh-worktree environment artifact (e.g. build outputs absent because
+that worktree was never built) is not a code failure. Confirm each merge actually landed (Merge Landing
+Verification) before releasing any item held in step 3.
 
 ### 6. Spec-gated (code) work clears its gate BEFORE implementation
 
-For code items requiring a spec, run draft → GATE-WRITE → independent GATE-APPROVAL (proposal-reviewer +
-architecture-auditor) first; fold REVISE items, then approve — all per `spec-workflow.md` /
-`backlog-execution.md`. Only APPROVED items enter the parallel implementation wave.
+For code items requiring a spec, run draft → GATE-WRITE → **independent** GATE-APPROVAL first — independent
+meaning a reviewer that did not author the spec (the `proposal-reviewer` / `architecture-auditor` roles).
+Fold every REVISE finding, then approve — all per the spec-workflow / backlog-execution rules. Only
+APPROVED items enter the parallel implementation wave.
 
 ### 7. Resume, don't respawn
 
@@ -93,9 +108,10 @@ worktree state.
 
 ### 8. Baseline reconciliation once
 
-When several concurrent PRs each tighten the same ratchet baseline (spec-surface, file-size,
-prompt-prose), do **not** regenerate the baseline per-PR (each regen races the others). Let the earlier
-PRs land, then regenerate the baseline **once on the last-merging PR**.
+When several concurrent PRs each tighten **the same ratchet baseline** — any generated allowlist or
+threshold file the project derives from the whole tree — do **not** regenerate that baseline per-PR: each
+regeneration races the others and freezes a tree the sibling PRs are about to change. Let the earlier PRs
+land, then regenerate the baseline **once, on the last-merging PR**.
 
 ## Worked Example — the partition step
 
@@ -112,11 +128,12 @@ The shared registry is owned by exactly one agent (a3). A fourth item touching `
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                    | Owner                                          |
-| --------------------------------------- | ---------------------------------------------- |
-| Define git/branch/merge/worktree policy | `.agents/rules/git-branch.md`                  |
-| Define the spec gate pipeline           | `spec-workflow.md` / `backlog-execution.md`    |
-| Define red-before-green / verification  | `tdd-and-planning.md` / `verification.md`      |
-| Do the implementation or judge the PR   | the spawned implementer / the code-review gate |
+| Not this skill's job                      | Owner                                          |
+| ----------------------------------------- | ---------------------------------------------- |
+| Define git/branch/merge/worktree policy   | `.agents/rules/git-branch.md`                  |
+| Name the CI-equivalent verification entry | `.agents/rules/git-branch.md`                  |
+| Define the spec gate pipeline             | `spec-workflow.md` / `backlog-execution.md`    |
+| Define red-before-green / verification    | `tdd-and-planning.md` / `verification.md`      |
+| Do the implementation or judge the PR     | the spawned implementer / the code-review gate |
 
 If you find yourself restating a rule here, stop — link the rule instead.
