@@ -37,11 +37,9 @@ Rank the candidate surfaces and take the highest one that can actually observe t
 2. **Fixtures the work itself ships** — a local mock server, a sample project, seeded settings the change
    introduces. If the work can make itself verifiable, that is a design win, not overhead.
 3. **Runs requiring live credentials or external services** — legitimate **only** when the behavior under
-   verification is inherently coupled to that service. When you land here, the scenario must state the
-   credential or service prerequisite explicitly, so an executor without it knows the scenario cannot run
-   in their environment rather than discovering it mid-gate.
+   verification is inherently coupled to that service, and subject to the project's own rule that such a
+   scenario state its prerequisite explicitly.
 
-A scenario whose only observable requires a credential the executor may not have is a **design smell**.
 Before settling for 3, say what would have to change for 1 or 2 to work, and report it — sometimes the
 right output of this role is "the design should expose an observable", not a scenario.
 
