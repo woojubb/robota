@@ -21,6 +21,34 @@ const FileWriteConfigSchema = z.object({
   createDirs: z.boolean().default(true),
 });
 
+/** Refuse a path that escapes the invocation directory. See {@link FileWriteNodeDefinition} for why. */
+function containmentDenial(
+  inputPath: string,
+  resolvedPath: string,
+  nodeId: string,
+): IDagError | undefined {
+  if (isPathInside(process.cwd(), resolvedPath)) return undefined;
+  return buildValidationError(
+    'DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT',
+    `path "${inputPath}" resolves outside the working directory`,
+    { nodeId },
+  );
+}
+
+/**
+ * SEC-007 — path containment, the write side of `file-read`'s hole and the more serious one.
+ *
+ * A `.dag.json` is a shareable, LLM-authorable document, and this node's `path` reached
+ * `writeFile`/`appendFile` with NO containment check. With `createDirs: true` — the DEFAULT — it also
+ * `mkdir -p`s the parent first, so a downloaded or agent-authored workflow could create and populate
+ * a file anywhere the process could reach: a shell profile, an `authorized_keys`. That turns "run
+ * this workflow" into code execution on the next login.
+ *
+ * Boundary and rationale as in `file-read`: the invocation directory, decided canonically through
+ * agent-core's shared `isPathInside` SSOT so an escaping symlink is refused. The check runs BEFORE
+ * `mkdir`, which would otherwise leave a directory behind as the side effect of a request that was
+ * about to be denied.
+ */
 export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileWriteConfigSchema> {
   public readonly nodeType = 'file-write';
   public readonly displayName = 'File Write';
@@ -69,27 +97,9 @@ export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileW
       };
     }
 
-    // SEC-007: the write side of the same hole, and the more serious one. With `createDirs: true`
-    // (the default) this node `mkdir -p`s the parent before writing, so an uncontained path let a
-    // downloaded or agent-authored workflow create and populate a file anywhere the process could
-    // reach — a shell profile, an `authorized_keys` — turning "run this workflow" into code execution.
-    //
-    // Boundary and rationale as in `file-read`; canonical via agent-core's shared `isPathInside`, so
-    // an escaping symlink is refused and the check happens BEFORE `mkdir`, which would otherwise be
-    // a side effect of a request that is about to be denied.
-    const invocationRoot = process.cwd();
-    const resolvedPath = resolve(invocationRoot, inputPath);
-
-    if (!isPathInside(invocationRoot, resolvedPath)) {
-      return {
-        ok: false,
-        error: buildValidationError(
-          'DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT',
-          `path "${inputPath}" resolves outside the working directory`,
-          { nodeId: context.nodeDefinition.nodeId },
-        ),
-      };
-    }
+    const resolvedPath = resolve(process.cwd(), inputPath);
+    const denial = containmentDenial(inputPath, resolvedPath, context.nodeDefinition.nodeId);
+    if (denial) return { ok: false, error: denial };
 
     try {
       // allow-fallback: fs errors are caught and converted to structured Result

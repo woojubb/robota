@@ -16,7 +16,7 @@ import fg from 'fast-glob';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
-import { checkPathWithinCwd, isWithinCwd } from './path-guard.js';
+import { isWithinCwd, resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { IContainedBuiltinToolOptions } from './tool-options.js';
@@ -50,19 +50,50 @@ interface IFileWithMtime {
   mtime: number;
 }
 
+/** Cap on concurrent `stat` calls during the mtime sort, so a large match set cannot storm the FS. */
+const STAT_CONCURRENCY_LIMIT = 100;
+
+/**
+ * Drop every match whose CANONICAL path escapes the containment root, then stat the survivors for the
+ * mtime sort, newest first.
+ *
+ * Containment is decided per RESULT as well as per root (SEC-007): a `..` in the pattern, or an
+ * absolute pattern, produces a match the search root never vouched for. Decided canonically through
+ * the shared guard — a symlink named `escape` is a plain segment, so no amount of segment validation
+ * would catch it.
+ */
+async function containedMatchesByMtime(
+  matches: readonly string[],
+  cwd: string,
+  containmentRoot: string | undefined,
+): Promise<IFileWithMtime[]> {
+  const limit = pLimit(STAT_CONCURRENCY_LIMIT);
+  const stated = await Promise.all(
+    matches.map((p) =>
+      limit(async (): Promise<IFileWithMtime | undefined> => {
+        const absPath = resolve(cwd, p);
+        if (!isWithinCwd(absPath, containmentRoot)) return undefined;
+        try {
+          return { path: p, mtime: (await stat(absPath)).mtimeMs };
+        } catch {
+          // allow-fallback: stat failure on a matched path returns mtime=0 (sort-last), not a logic fallback
+          return { path: p, mtime: 0 };
+        }
+      }),
+    ),
+  );
+  return stated
+    .filter((entry): entry is IFileWithMtime => entry !== undefined)
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
 async function globFileTool(
   args: TGlobArgs,
   options: IContainedBuiltinToolOptions,
 ): Promise<string> {
   const { pattern, path: basePath } = args;
   const containmentRoot = options.cwd;
-  // A relative `path` from the model resolves against the CONTAINMENT ROOT when one is configured.
-  // Resolving it against `process.cwd()` would mean the guard root and the search root are anchored
-  // to two different directories, which is how a "contained" search silently starts somewhere else.
-  const searchBase = containmentRoot ?? process.cwd();
-  const cwd = basePath ? resolve(searchBase, basePath) : searchBase;
-
-  const rootError = checkPathWithinCwd(cwd, containmentRoot);
+  const { root: cwd, error: rootError } = resolveSearchRoot(basePath, containmentRoot);
   if (rootError) return rootError;
 
   let matches: string[];
@@ -86,32 +117,7 @@ async function globFileTool(
     return JSON.stringify(result);
   }
 
-  // Sort by mtime (most recent first); cap concurrent stat calls to avoid I/O explosion
-  const limit = pLimit(100);
-  const stated: Array<IFileWithMtime | undefined> = await Promise.all(
-    matches.map((p) =>
-      limit(async () => {
-        const absPath = resolve(cwd, p);
-        // Containment is decided per RESULT as well as per root: a `..` in the pattern, or an
-        // absolute pattern, produces a match the search root never vouched for. Decided on the
-        // canonical path via the shared guard — a symlink named `escape` is a plain segment, so
-        // no amount of segment validation would catch it.
-        if (!isWithinCwd(absPath, containmentRoot)) return undefined;
-        try {
-          const s = await stat(absPath);
-          return { path: p, mtime: s.mtimeMs };
-        } catch {
-          // allow-fallback: stat failure on a matched path returns mtime=0 (sort-last), not a logic fallback
-          return { path: p, mtime: 0 };
-        }
-      }),
-    ),
-  );
-  const withMtime: IFileWithMtime[] = stated.filter(
-    (entry): entry is IFileWithMtime => entry !== undefined,
-  );
-
-  withMtime.sort((a, b) => b.mtime - a.mtime);
+  const withMtime = await containedMatchesByMtime(matches, cwd, containmentRoot);
 
   const maxResults = args.limit ?? DEFAULT_MAX_RESULTS;
   const totalMatches = withMtime.length;

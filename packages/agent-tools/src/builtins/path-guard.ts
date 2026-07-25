@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import { isPathInside } from '@robota-sdk/agent-core';
 
 import type { IToolInvocationResult } from '../types/tool-result.js';
@@ -49,4 +51,21 @@ export function checkPathWithinCwd(filePath: string, cwd: string | undefined): s
   }
 
   return undefined;
+}
+
+/**
+ * Resolve an LLM-supplied search root for an ENUMERATING tool, and refuse one that escapes (SEC-007).
+ *
+ * A relative `requested` anchors to the CONTAINMENT ROOT when one is configured, not to
+ * `process.cwd()`: anchoring them to two different directories is how a "contained" search silently
+ * starts somewhere else. `error` carries the tool-result JSON to return, or is `undefined` when the
+ * root is allowed.
+ */
+export function resolveSearchRoot(
+  requested: string | undefined,
+  cwd: string | undefined,
+): { root: string; error: string | undefined } {
+  const base = cwd ?? process.cwd();
+  const root = requested ? resolve(base, requested) : base;
+  return { root, error: checkPathWithinCwd(root, cwd) };
 }
