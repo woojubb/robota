@@ -135,6 +135,10 @@ const SCAN_COMMANDS = [
     name: 'capability-reachability',
     command: ['node', 'scripts/harness/scan-capability-reachability.mjs'],
   },
+  {
+    name: 'progress-report-quantification',
+    command: ['node', 'scripts/harness/scan-progress-report-quantification.mjs'],
+  },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
