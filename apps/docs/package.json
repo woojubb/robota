@@ -7,7 +7,7 @@
     "dev": "next dev --port 3020",
     "build": "next build && pagefind --site out",
     "start": "next start --port 3020",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "lint": "next lint",
     "deploy": "pnpm build && wrangler pages deploy out --project-name robota-docs --branch main"
   },

@@ -46,7 +46,7 @@
     "test": "vitest run --passWithNoTests",
     "test:bin": "vitest run --config vitest.bin.config.ts",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
