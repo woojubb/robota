@@ -82,8 +82,22 @@ gh pr merge 670 --squash --delete-branch
 gh pr merge 670 --squash --auto
 ```
 
-Branches must only be deleted by explicit user request. Use `git branch -D <name>` (local) or
-`gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name>` (remote) when the user says to delete a branch.
+**Deleting a merged branch is the agent's own call — no user request needed.** Once a branch's PR is
+confirmed `MERGED` and nothing further is pending on it, clean it up: `git branch -D <name>` (local) or
+`gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name>` (remote). Leaving merged branches to pile
+up is its own defect; 105 of them had accumulated by 2026-07-25.
+
+Judgement is required precisely because deletion is not always right the moment a PR merges. Do **not**
+delete when any of these hold:
+
+- the branch carries commits that are **not** in the merge (e.g. a review fix pushed after auto-merge
+  fired — see the #1409/#1410 sequence), or a follow-up PR is planned from the same branch;
+- an agent still has it checked out in a worktree, or its worktree is `locked`;
+- it is an integration branch (`develop`, `main`) or a `release/*` / `hotfix/*` branch still in flight.
+
+Repository-level _automatic_ deletion on merge (`delete_branch_on_merge`) is deliberately **off**: it
+fires before any of the above can be considered. Keeping deletion agent-driven preserves that judgement
+while the guardrails below keep it safe.
 
 **Confirm the merge landed BEFORE deleting the remote branch. Zero exceptions.** A remote branch deleted
 while its PR is still open CLOSES/orphans that PR. So a remote-branch deletion is allowed only once
@@ -94,7 +108,7 @@ which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --
 `git push <remote> :<name>` unless the branch has a merged PR (override for an intentional abandon:
 `BRANCH_GUARD_ALLOW_DELETE=1`).
 
-**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). Deletion is safe only after the merge is confirmed, never for integration branches.
+**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). Deletion is safe only after the merge is confirmed, never for integration branches. Note the two hazards differ in cost: a deleted `develop` is **recoverable** (re-cut it from `main`), whereas a branch deleted while its PR is unmerged **orphans work**. That asymmetry is why the ban targets the blind, automatic form — not deletion itself, which the agent should do routinely once a merge is confirmed.
 
 ### Branch Policy
 
