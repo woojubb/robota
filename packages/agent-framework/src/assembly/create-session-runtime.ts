@@ -4,6 +4,7 @@ import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-execut
 import { fireSubagentLifecycleHook } from './background-task-hooks.js';
 import { DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
+import { BUILT_IN_AGENTS } from '../agents/built-in-agents.js';
 import { createExecutionOriginMetadata } from '../background-tasks/index.js';
 import { storeSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -46,7 +47,18 @@ export function buildAgentRuntime(
   // PRESET-004: a preset opting into parallel subagents activates the agent runtime
   // (subagent/background dispatch) exactly like an explicit enableAgentRuntime.
   if (options.enableAgentRuntime || options.enableParallelSubagents) {
-    const agentLoader = new AgentDefinitionLoader(cwd);
+    // ARCH-005 (owner Decision 2): the subagent roster is INJECTABLE. Definitions contributed by a
+    // capability pack compose into the built-in tier ahead of `BUILT_IN_AGENTS`, so a pack's subagents
+    // actually reach the runtime. Precedence, highest → lowest: discovered project/user definitions >
+    // injected `agentDefinitions` > `BUILT_IN_AGENTS`. Absent ⇒ exactly the previous behavior.
+    const agentLoader = new AgentDefinitionLoader(
+      cwd,
+      undefined,
+      undefined,
+      options.agentDefinitions !== undefined
+        ? [...options.agentDefinitions, ...BUILT_IN_AGENTS]
+        : BUILT_IN_AGENTS,
+    );
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {
       config: options.config,

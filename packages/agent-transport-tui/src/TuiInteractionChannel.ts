@@ -37,6 +37,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
+  IAgentDefinition,
   TShellExecFn,
   IMemoryStore,
   IAutomaticMemoryConfig,
@@ -81,6 +82,11 @@ export interface ITuiInteractionChannelOptions {
   onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (the capability packs
+   * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -200,6 +206,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
       sessionName: opts.sessionName,
       backgroundTaskRunners: opts.backgroundTaskRunners,
       subagentRunnerFactory: opts.subagentRunnerFactory,
+      ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
       commandModules: opts.commandModules,
       commandHostAdapters: opts.commandHostAdapters,
       shellExec: opts.shellExec,
