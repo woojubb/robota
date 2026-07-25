@@ -1,24 +1,16 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import * as core from '@actions/core';
 
-async function run(): Promise<void> {
-  const task = core.getInput('task', { required: true });
-  const model = core.getInput('model');
-  const apiKey = core.getInput('api-key');
-  const output = core.getInput('output') || 'text';
-  const maxTurns = core.getInput('max-turns');
+import { buildCliInvocation } from './build-invocation.js';
 
-  const args: string[] = [
-    'npx',
-    '--yes',
-    '@robota-sdk/agent-cli',
-    '-p',
-    task,
-    '--output-format',
-    output,
-  ];
-  if (model) args.push('--model', model);
-  if (maxTurns) args.push('--max-turns', maxTurns);
+async function run(): Promise<void> {
+  const apiKey = core.getInput('api-key');
+  const invocation = buildCliInvocation({
+    task: core.getInput('task', { required: true }),
+    model: core.getInput('model'),
+    output: core.getInput('output') || 'text',
+    maxTurns: core.getInput('max-turns'),
+  });
 
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (apiKey) {
@@ -26,7 +18,9 @@ async function run(): Promise<void> {
   }
 
   try {
-    const result = execSync(args.join(' '), {
+    // SEC-006: execFileSync with no `shell` option execs the binary directly, so argv elements are
+    // never re-parsed by a shell. The previous `execSync(args.join(' '))` did the opposite.
+    const result = execFileSync(invocation.file, invocation.args, {
       env,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],

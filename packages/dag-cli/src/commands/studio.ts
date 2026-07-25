@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import type { IDagCliIo } from '../types.js';
 import { SUCCESS_EXIT_CODE, FAILURE_EXIT_CODE } from '../types.js';
@@ -11,17 +11,33 @@ export interface IStudioCommandOptions {
   readonly io: IDagCliIo;
 }
 
+/**
+ * Open `url` in the user's default browser.
+ *
+ * SEC-006: the URL embeds a user-supplied file path, so it is passed as its own ARGV element and the
+ * child is spawned WITHOUT a shell — `exec()` always runs its argument through a shell, which made the
+ * command a string a crafted path could break out of. On win32 `start` is a `cmd` builtin rather than an
+ * executable, so we invoke `cmd` directly with `['/c', 'start', '', url]` (the empty string is `start`'s
+ * window-title argument). No `shell` option on any platform: `cmd.exe` is itself an executable, and
+ * setting `shell: true` would make Node re-join these argv elements into a command string — exactly the
+ * concatenation this change removes.
+ */
 function openBrowser(url: string): void {
-  const platform = process.platform;
-  const cmd =
-    platform === 'darwin'
-      ? `open "${url}"`
-      : platform === 'win32'
-        ? `start "${url}"`
-        : `xdg-open "${url}"`;
-  exec(cmd, () => {
+  const isWindows = process.platform === 'win32';
+  const command = isWindows ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const args = isWindows ? ['/c', 'start', '', url] : [url];
+  try {
+    const child = spawn(command, args, {
+      stdio: 'ignore',
+      detached: true,
+    });
+    child.on('error', () => {
+      // allow-fallback: browser open failure is non-fatal; user can open the URL manually
+    });
+    child.unref();
+  } catch {
     // allow-fallback: browser open failure is non-fatal; user can open the URL manually
-  });
+  }
 }
 
 function waitForSigint(): Promise<void> {

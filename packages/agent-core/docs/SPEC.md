@@ -244,6 +244,21 @@ Per-operation timing SOURCE. agent-core measures the operation duration (e.g. `F
 | `ISpanCompletionEventData` | type     | Span-completion payload joining `spanId` + `durationMs` + `op` (raw scalars; no transport dependency)    |
 | `generateSpanId`           | function | Mint a unique `span_…` id for distributed-tracing correlation (also used to seed `IEventContext.spanId`) |
 
+### Path Containment Public API (SEC-006)
+
+The SSOT for "is this path inside that root?" whenever the answer is a SECURITY decision.
+`path.resolve` and `path.normalize` are purely lexical and never consult the filesystem, so they
+cannot see a symlink: a link sitting inside a root but pointing outside it satisfies a
+`startsWith(root + sep)` check while the syscall that follows escapes the boundary. Every
+security-boundary containment check in the monorepo routes through these two functions — the file-tool
+sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the studio HTTP API
+(`dag-cli`) — because two containment checks that can disagree are their own defect.
+
+| Export             | Kind     | Description                                                                                        |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------- |
+| `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
+| `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
+
 ### Schema (CORE-015)
 
 | Export                                                                                                    | Kind     | Description                                                                                                               |

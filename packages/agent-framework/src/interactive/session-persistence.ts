@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 
 import {
+  isSafeSessionId,
   loadSessionLogEntries,
   replaySessionLogEntries,
   SessionStore,
@@ -122,6 +123,9 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
 
   private loadFromReplayLog(id: string): IInteractiveSessionRecord | undefined {
     if (!this.logsDir) return undefined;
+    // SEC-006: third sink on the same id the session store guards — `id` is interpolated into a path
+    // component below, and reaches here from `load()` with a remote-supplied value.
+    if (!isSafeSessionId(id)) return undefined;
     const replay = replaySessionLogEntries(
       loadSessionLogEntries(join(this.logsDir, `${id}.jsonl`)),
     );

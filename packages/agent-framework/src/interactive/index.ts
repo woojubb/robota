@@ -7,6 +7,9 @@ export {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
 } from './session-persistence.js';
+// SEC-006: re-exported so a consumer holding a session id from an untrusted source (e.g. an HTTP
+// body) can reject it BEFORE it reaches the store, without taking a direct agent-session dependency.
+export { assertSafeSessionId, isSafeSessionId } from '@robota-sdk/agent-session';
 export { generateSessionName } from './session-naming.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';
 export type {
