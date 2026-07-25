@@ -23,12 +23,36 @@ function makeWorkerLoop(
   };
 }
 
+const MAX_IDLE_DELAY_MS = 500;
+
+/** The faked `setTimeout` captured by `beforeEach`, so the spy can delegate to it. */
+let fakedSetTimeout: typeof setTimeout;
+
+/**
+ * Record every idle sleep the driver schedules. Must be called AFTER `vi.useFakeTimers()`
+ * so the spy wraps the faked `setTimeout` the driver will actually call.
+ */
+function recordSleepDurations(): number[] {
+  const durations: number[] = [];
+  vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+    handler: TimerHandler,
+    timeout?: number,
+    ...args: unknown[]
+  ) => {
+    durations.push(timeout ?? 0);
+    return (fakedSetTimeout as (...a: unknown[]) => unknown)(handler, timeout, ...args);
+  }) as unknown as typeof setTimeout);
+  return durations;
+}
+
 describe('WorkerLoopDriver', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    fakedSetTimeout = globalThis.setTimeout;
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -97,8 +121,8 @@ describe('WorkerLoopDriver', () => {
     expect(calls).toBeGreaterThanOrEqual(2);
   });
 
-  it('applies exponential backoff when idle', async () => {
-    const sleepDurations: number[] = [];
+  it('applies exponential backoff when idle, capped at MAX_IDLE_DELAY_MS', async () => {
+    const sleepDurations = recordSleepDurations();
     let calls = 0;
     const loop: IRuntimeWorkerLoopPort = {
       async processOnce() {
@@ -111,12 +135,16 @@ describe('WorkerLoopDriver', () => {
     // Advance time to trigger several idle sleeps
     await vi.advanceTimersByTimeAsync(2000);
     await driver.stop();
-    // Driver ran multiple idle cycles; we just verify it didn't crash and iterated > 1 times
+
     expect(calls).toBeGreaterThan(1);
+    // The delay must actually DOUBLE from MIN each idle round and saturate at MAX —
+    // asserting only that the loop iterated would pass with backoff removed entirely.
+    expect(sleepDurations.slice(0, 5)).toEqual([50, 100, 200, 400, 500]);
+    expect(Math.max(...sleepDurations)).toBe(MAX_IDLE_DELAY_MS);
   });
 
   it('resets backoff delay after processing work', async () => {
-    let calls = 0;
+    const sleepDurations = recordSleepDurations();
     const responses = [
       { ok: true, processed: false }, // idle → backoff grows
       { ok: true, processed: false },
@@ -128,7 +156,9 @@ describe('WorkerLoopDriver', () => {
     await driver.start();
     await vi.advanceTimersByTimeAsync(1000);
     await driver.stop();
-    // Verify driver didn't crash and processed expected sequence
-    expect(true).toBe(true);
+
+    // 50, 100 while idle; the processed round sleeps not at all and resets the delay,
+    // so the next idle round must sleep 50 again — not 200.
+    expect(sleepDurations.slice(0, 4)).toEqual([50, 100, 50, 100]);
   });
 });
