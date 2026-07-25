@@ -7,17 +7,22 @@
  * - count: return per-file match counts as "path:count" rows
  *
  * headLimit caps the number of result lines; excess is truncated with a marker.
+ *
+ * SEC-007: when a containment root is configured the search is confined to it. Grep is the most
+ * disclosing of the file tools — `content` mode returns the matching LINES — so it must be contained
+ * at least as strictly as `Read`, which it could otherwise stand in for.
  */
 
-import { readFile, readdir, stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
+import { collectFiles, searchFile } from './grep-search.js';
+import { resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
+import type { IContainedBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -60,115 +65,10 @@ type TGrepArgs = z.infer<typeof GrepSchema>;
 /** Cap on concurrent file reads during the content scan (CLI-042). */
 const READ_CONCURRENCY_LIMIT = 50;
 
-/** Convert a simple glob to a RegExp for file name filtering. */
-function globToRegex(glob: string): RegExp {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '.+')
-    .replace(/\*/g, '[^/]*');
-  return new RegExp(`^${escaped}$`);
-}
-
-/** Check if a file name matches an optional glob filter. */
-function matchesGlob(filename: string, glob: string | undefined): boolean {
-  if (glob === undefined) return true;
-  return globToRegex(glob).test(filename);
-}
-
-/** Gather all files under a directory recursively, excluding node_modules/.git. */
-async function collectFiles(dirPath: string, glob: string | undefined): Promise<string[]> {
-  const results: string[] = [];
-
-  async function walk(current: string): Promise<void> {
-    let entryNames: string[];
-    try {
-      entryNames = await readdir(current);
-    } catch {
-      return;
-    }
-
-    for (const name of entryNames) {
-      if (name === 'node_modules' || name === '.git') continue;
-
-      const fullPath = join(current, name);
-      let fileStat: Awaited<ReturnType<typeof stat>>;
-      try {
-        fileStat = await stat(fullPath);
-      } catch {
-        continue;
-      }
-
-      if (fileStat.isDirectory()) {
-        await walk(fullPath);
-      } else if (fileStat.isFile()) {
-        if (matchesGlob(name, glob)) {
-          results.push(fullPath);
-        }
-      }
-    }
-  }
-
-  await walk(dirPath);
-  return results;
-}
-
-/** Search a single file for lines matching the regex. */
-function searchFile(
-  content: string,
-  filePath: string,
-  regex: RegExp,
-  contextLines: number,
-  outputMode: 'files_with_matches' | 'content' | 'count',
-): string[] {
-  const lines = content.split('\n');
-  const matchingIndices: number[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (regex.test(lines[i])) {
-      matchingIndices.push(i);
-    }
-  }
-
-  if (matchingIndices.length === 0) return [];
-
-  if (outputMode === 'files_with_matches') {
-    return [filePath];
-  }
-
-  if (outputMode === 'count') {
-    return [`${filePath}:${matchingIndices.length}`];
-  }
-
-  // content mode — include context lines
-  const includedIndices = new Set<number>();
-  for (const idx of matchingIndices) {
-    for (
-      let c = Math.max(0, idx - contextLines);
-      c <= Math.min(lines.length - 1, idx + contextLines);
-      c++
-    ) {
-      includedIndices.add(c);
-    }
-  }
-
-  const outputLines: string[] = [];
-  const sortedIndices = Array.from(includedIndices).sort((a, b) => a - b);
-
-  let prevIdx: number | undefined;
-  for (const idx of sortedIndices) {
-    if (prevIdx !== undefined && idx > prevIdx + 1) {
-      outputLines.push('--');
-    }
-    const lineNum = idx + 1;
-    const marker = matchingIndices.includes(idx) ? ':' : '-';
-    outputLines.push(`${filePath}:${lineNum}${marker}${lines[idx]}`);
-    prevIdx = idx;
-  }
-
-  return outputLines;
-}
-
-async function grepFileTool(args: TGrepArgs): Promise<string> {
+async function grepFileTool(
+  args: TGrepArgs,
+  options: IContainedBuiltinToolOptions,
+): Promise<string> {
   const {
     pattern,
     path: searchPath,
@@ -177,7 +77,9 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     outputMode = 'files_with_matches',
     headLimit,
   } = args;
-  const targetPath = searchPath ? resolve(searchPath) : process.cwd();
+  const containmentRoot = options.cwd;
+  const { root: targetPath, error: rootError } = resolveSearchRoot(searchPath, containmentRoot);
+  if (rootError) return rootError;
 
   let regex: RegExp;
   try {
@@ -208,7 +110,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
   if (targetStat.isFile()) {
     files = [targetPath];
   } else {
-    files = await collectFiles(targetPath, glob);
+    files = await collectFiles(targetPath, glob, containmentRoot);
   }
 
   // Read/scan files in parallel with bounded concurrency, but collect results
@@ -264,8 +166,8 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
 /** The registered name of the shell tool this package's default assembly ships (NEUT-002). */
 const DEFAULT_SHELL_TOOL_NAME = 'Shell';
 
-/** Options for the grep tool factory: description seam + derived shell-tool reference. */
-export interface IGrepToolOptions extends IBuiltinToolDescriptionOptions {
+/** Options for the grep tool factory: containment root + description seam + shell-tool reference. */
+export interface IGrepToolOptions extends IContainedBuiltinToolOptions {
   /**
    * Registered name of the shell tool the default description references (default: `Shell`).
    * Ignored when `description` overrides the text.
@@ -287,12 +189,15 @@ export function createGrepTool(options: IGrepToolOptions = {}): FunctionTool {
     options.description ?? buildGrepDescription(options.shellToolName ?? DEFAULT_SHELL_TOOL_NAME),
     GrepSchema,
     async (params) => {
-      return grepFileTool(params);
+      return grepFileTool(params, options);
     },
   );
 }
 
 /**
  * GrepTool instance — register with Robota agent tools registry.
+ *
+ * UNCONTAINED, deliberately — see the note on {@link globTool}. Assemblies with a session root build
+ * their own through {@link createGrepTool}.
  */
 export const grepTool = createGrepTool();

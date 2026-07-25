@@ -2776,6 +2776,9 @@ importers:
 
   packages/dag-nodes/file-read:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../../agent-core
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -2807,6 +2810,9 @@ importers:
 
   packages/dag-nodes/file-write:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../../agent-core
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core

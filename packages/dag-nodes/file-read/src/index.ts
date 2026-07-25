@@ -9,6 +9,7 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
+import { isPathInside } from '@robota-sdk/agent-core';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
@@ -18,6 +19,35 @@ const FileReadConfigSchema = z.object({
   encoding: z.enum(['utf8', 'base64']).default('utf8'),
 });
 
+/** Refuse a path that escapes the invocation directory. See {@link FileReadNodeDefinition} for why. */
+function containmentDenial(
+  inputPath: string,
+  resolvedPath: string,
+  nodeId: string,
+): IDagError | undefined {
+  if (isPathInside(process.cwd(), resolvedPath)) return undefined;
+  return buildValidationError(
+    'DAG_VALIDATION_FILE_READ_PATH_OUTSIDE_ROOT',
+    `path "${inputPath}" resolves outside the working directory`,
+    { nodeId },
+  );
+}
+
+/**
+ * SEC-007 — path containment.
+ *
+ * A `.dag.json` is a shareable, LLM-authorable document, and this node's `path` was previously read
+ * with NO containment check whatsoever: an absolute path was honoured outright, so a downloaded or
+ * agent-authored workflow could read `~/.ssh/id_rsa` on the machine that ran it.
+ *
+ * The boundary is the directory the run was invoked from — the anchor this node already used for
+ * relative paths. `INodeExecutionContext` carries no workspace root to use instead, so this makes
+ * explicit the boundary the node was already implicitly claiming rather than inventing a new concept.
+ *
+ * Decided on the CANONICAL path through agent-core's shared `isPathInside` SSOT, so a symlink inside
+ * the root pointing out of it is refused too. A lexical check would pass it and `readFile` would
+ * follow it — the defect SEC-006 fixed in the agent file tools (`utils/path-containment.ts`).
+ */
 export class FileReadNodeDefinition extends AbstractNodeDefinition<typeof FileReadConfigSchema> {
   public readonly nodeType = 'file-read';
   public readonly displayName = 'File Read';
@@ -62,6 +92,8 @@ export class FileReadNodeDefinition extends AbstractNodeDefinition<typeof FileRe
     }
 
     const resolvedPath = resolve(process.cwd(), inputPath);
+    const denial = containmentDenial(inputPath, resolvedPath, context.nodeDefinition.nodeId);
+    if (denial) return { ok: false, error: denial };
 
     try {
       // allow-fallback: fs errors are caught and converted to structured Result

@@ -9,6 +9,7 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
+import { isPathInside } from '@robota-sdk/agent-core';
 import { writeFile, appendFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { z } from 'zod';
@@ -20,6 +21,34 @@ const FileWriteConfigSchema = z.object({
   createDirs: z.boolean().default(true),
 });
 
+/** Refuse a path that escapes the invocation directory. See {@link FileWriteNodeDefinition} for why. */
+function containmentDenial(
+  inputPath: string,
+  resolvedPath: string,
+  nodeId: string,
+): IDagError | undefined {
+  if (isPathInside(process.cwd(), resolvedPath)) return undefined;
+  return buildValidationError(
+    'DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT',
+    `path "${inputPath}" resolves outside the working directory`,
+    { nodeId },
+  );
+}
+
+/**
+ * SEC-007 — path containment, the write side of `file-read`'s hole and the more serious one.
+ *
+ * A `.dag.json` is a shareable, LLM-authorable document, and this node's `path` reached
+ * `writeFile`/`appendFile` with NO containment check. With `createDirs: true` — the DEFAULT — it also
+ * `mkdir -p`s the parent first, so a downloaded or agent-authored workflow could create and populate
+ * a file anywhere the process could reach: a shell profile, an `authorized_keys`. That turns "run
+ * this workflow" into code execution on the next login.
+ *
+ * Boundary and rationale as in `file-read`: the invocation directory, decided canonically through
+ * agent-core's shared `isPathInside` SSOT so an escaping symlink is refused. The check runs BEFORE
+ * `mkdir`, which would otherwise leave a directory behind as the side effect of a request that was
+ * about to be denied.
+ */
 export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileWriteConfigSchema> {
   public readonly nodeType = 'file-write';
   public readonly displayName = 'File Write';
@@ -69,6 +98,8 @@ export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileW
     }
 
     const resolvedPath = resolve(process.cwd(), inputPath);
+    const denial = containmentDenial(inputPath, resolvedPath, context.nodeDefinition.nodeId);
+    if (denial) return { ok: false, error: denial };
 
     try {
       // allow-fallback: fs errors are caught and converted to structured Result

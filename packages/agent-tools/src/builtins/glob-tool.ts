@@ -3,6 +3,10 @@
  *
  * Excludes node_modules and .git by default.
  * Results are sorted by modification time (most recently modified first).
+ *
+ * SEC-007: when a containment root is configured the enumeration is confined to it. Listing the
+ * filesystem is a disclosure in its own right — a sandbox that stops the model reading a file but
+ * lets it map everything around that file is not a sandbox.
  */
 
 import { stat } from 'node:fs/promises';
@@ -12,9 +16,10 @@ import fg from 'fast-glob';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
+import { isWithinCwd, resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
+import type { IContainedBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -45,9 +50,51 @@ interface IFileWithMtime {
   mtime: number;
 }
 
-async function globFileTool(args: TGlobArgs): Promise<string> {
+/** Cap on concurrent `stat` calls during the mtime sort, so a large match set cannot storm the FS. */
+const STAT_CONCURRENCY_LIMIT = 100;
+
+/**
+ * Drop every match whose CANONICAL path escapes the containment root, then stat the survivors for the
+ * mtime sort, newest first.
+ *
+ * Containment is decided per RESULT as well as per root (SEC-007): a `..` in the pattern, or an
+ * absolute pattern, produces a match the search root never vouched for. Decided canonically through
+ * the shared guard — a symlink named `escape` is a plain segment, so no amount of segment validation
+ * would catch it.
+ */
+async function containedMatchesByMtime(
+  matches: readonly string[],
+  cwd: string,
+  containmentRoot: string | undefined,
+): Promise<IFileWithMtime[]> {
+  const limit = pLimit(STAT_CONCURRENCY_LIMIT);
+  const stated = await Promise.all(
+    matches.map((p) =>
+      limit(async (): Promise<IFileWithMtime | undefined> => {
+        const absPath = resolve(cwd, p);
+        if (!isWithinCwd(absPath, containmentRoot)) return undefined;
+        try {
+          return { path: p, mtime: (await stat(absPath)).mtimeMs };
+        } catch {
+          // allow-fallback: stat failure on a matched path returns mtime=0 (sort-last), not a logic fallback
+          return { path: p, mtime: 0 };
+        }
+      }),
+    ),
+  );
+  return stated
+    .filter((entry): entry is IFileWithMtime => entry !== undefined)
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
+async function globFileTool(
+  args: TGlobArgs,
+  options: IContainedBuiltinToolOptions,
+): Promise<string> {
   const { pattern, path: basePath } = args;
-  const cwd = basePath ? resolve(basePath) : process.cwd();
+  const containmentRoot = options.cwd;
+  const { root: cwd, error: rootError } = resolveSearchRoot(basePath, containmentRoot);
+  if (rootError) return rootError;
 
   let matches: string[];
   try {
@@ -56,6 +103,10 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
       ignore: ['**/node_modules/**', '**/.git/**'],
       dot: true,
       absolute: false,
+      // Contained: a symlinked directory is a BOUNDARY, not a doorway. Descending through one both
+      // escapes the sandbox and turns a single Glob call into a whole-disk walk when the link points
+      // at `/`. Unarmed (no containment root), fast-glob's default traversal is unchanged.
+      followSymbolicLinks: containmentRoot === undefined,
     });
   } catch (err) {
     const result: IToolInvocationResult = {
@@ -66,24 +117,7 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
     return JSON.stringify(result);
   }
 
-  // Sort by mtime (most recent first); cap concurrent stat calls to avoid I/O explosion
-  const limit = pLimit(100);
-  const withMtime: IFileWithMtime[] = await Promise.all(
-    matches.map((p) =>
-      limit(async () => {
-        const absPath = resolve(cwd, p);
-        try {
-          const s = await stat(absPath);
-          return { path: p, mtime: s.mtimeMs };
-        } catch {
-          // allow-fallback: stat failure on a matched path returns mtime=0 (sort-last), not a logic fallback
-          return { path: p, mtime: 0 };
-        }
-      }),
-    ),
-  );
-
-  withMtime.sort((a, b) => b.mtime - a.mtime);
+  const withMtime = await containedMatchesByMtime(matches, cwd, containmentRoot);
 
   const maxResults = args.limit ?? DEFAULT_MAX_RESULTS;
   const totalMatches = withMtime.length;
@@ -109,18 +143,22 @@ const DEFAULT_GLOB_DESCRIPTION =
 /**
  * Create a GlobTool instance — register with Robota agent tools registry.
  */
-export function createGlobTool(options: IBuiltinToolDescriptionOptions = {}): FunctionTool {
+export function createGlobTool(options: IContainedBuiltinToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Glob',
     options.description ?? DEFAULT_GLOB_DESCRIPTION,
     GlobSchema,
     async (params) => {
-      return globFileTool(params);
+      return globFileTool(params, options);
     },
   );
 }
 
 /**
  * GlobTool instance — register with Robota agent tools registry.
+ *
+ * UNCONTAINED, deliberately: a module-level singleton can only ever be context-free. Assemblies that
+ * have a session root MUST build their own via {@link createGlobTool} (`createDefaultTools`,
+ * `createCodingPack`) — that is exactly what SEC-007 changed.
  */
 export const globTool = createGlobTool();

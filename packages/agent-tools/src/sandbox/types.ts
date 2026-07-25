@@ -119,6 +119,14 @@ export interface ISandboxClient {
 
 export interface ISandboxToolOptions {
   sandboxClient?: ISandboxClient;
-  /** When set, Read/Write/Edit operations on the host (non-sandbox) are restricted to this directory. */
+  /**
+   * The tool's working-directory root on the host (non-sandbox) path.
+   *
+   * For the tools that read and enumerate — `Read`/`Write`/`Edit` and, since SEC-007, `Glob`/`Grep` —
+   * this is a CONTAINMENT boundary: access outside it is refused, decided on canonical (symlink-
+   * resolved) paths. For `Shell`/`Bash` it is the DEFAULT working directory and deliberately not a
+   * boundary — a cwd guard on arbitrary command execution is undone by the first `cd` (see the
+   * shell-tool file header).
+   */
   cwd?: string;
 }
