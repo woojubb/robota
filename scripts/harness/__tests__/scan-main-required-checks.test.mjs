@@ -95,6 +95,87 @@ describe('scan-main-required-checks', () => {
     expect(details.join('\n')).toContain('github.base_ref');
   });
 
+  // The three fixtures below were GREEN against the first draft, which blacklisted the single
+  // spelling `base_ref != 'main'`. Each is one character or one omission away from a shape that
+  // already caused a real incident, which is why the rule is now a whitelist.
+  it('[R3] is RED for `!= "main"` in double quotes (the #1427 vacuous shape, one quote away)', async () => {
+    const workflow = `${TRIGGER}  build:
+    name: build
+    runs-on: ubuntu-latest
+    if: github.base_ref != "main"
+    steps:
+      - run: pnpm build
+`;
+    const root = await fixture({ workflow, contexts: [entry('build', 'build')] });
+    const details = findRequiredCheckFindings(root).map((finding) => finding.detail);
+    expect(details.some((detail) => detail.includes('[R3]'))).toBe(true);
+  });
+
+  it("[R3] is RED for `== 'develop'` (the #1436 permanent-pending shape)", async () => {
+    const workflow = `${TRIGGER}  release-grade-verify:
+    name: release-grade verification
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'develop'
+    steps:
+      - run: pnpm harness:verify:release
+`;
+    const root = await fixture({
+      workflow,
+      contexts: [entry('release-grade verification', 'release-grade-verify')],
+    });
+    const details = findRequiredCheckFindings(root).map((finding) => finding.detail);
+    expect(details.some((detail) => detail.includes('[R3]'))).toBe(true);
+  });
+
+  it('[R3] accepts `== "main"` in double quotes — the whitelist is quote-style agnostic', async () => {
+    const workflow = `${TRIGGER}  release-grade-verify:
+    name: release-grade verification
+    runs-on: ubuntu-latest
+    if: github.base_ref == "main"
+    steps:
+      - run: pnpm harness:verify:release
+`;
+    const root = await fixture({
+      workflow,
+      contexts: [entry('release-grade verification', 'release-grade-verify')],
+    });
+    expect(findRequiredCheckFindings(root)).toEqual([]);
+  });
+
+  it('[R7] is RED when `types:` is ABSENT — the default set omits `edited` (PR #1442)', async () => {
+    const workflow = `name: CI
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+${SUBSTANTIVE_JOB}`;
+    const root = await fixture({
+      workflow,
+      contexts: [entry('release-grade verification', 'release-grade-verify')],
+    });
+    const details = findRequiredCheckFindings(root).map((finding) => finding.detail);
+    expect(details.some((detail) => detail.includes('[R7]'))).toBe(true);
+    expect(details.join('\n')).toContain('#1442');
+  });
+
+  it('[R7] is RED when `types:` is present but omits `edited`', async () => {
+    const workflow = `name: CI
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+${SUBSTANTIVE_JOB}`;
+    const root = await fixture({
+      workflow,
+      contexts: [entry('release-grade verification', 'release-grade-verify')],
+    });
+    const details = findRequiredCheckFindings(root).map((finding) => finding.detail);
+    expect(details.some((detail) => detail.includes('[R7]'))).toBe(true);
+  });
+
   it('[R3] is RED when the job itself is excluded on a main PR', async () => {
     const workflow = `${TRIGGER}  commitlint:
     name: commitlint
@@ -221,10 +302,17 @@ describe('scan-main-required-checks parsing helpers', () => {
     expect(jobNeeds('    runs-on: ubuntu-latest\n')).toEqual([]);
   });
 
-  it('classifies only a `!= main` job condition as an exclusion', () => {
-    expect(jobExcludesMain("    if: github.base_ref != 'main'\n")).toBe(true);
-    expect(jobExcludesMain("    if: github.base_ref == 'main'\n")).toBe(false);
+  it('whitelists job conditions rather than blacklisting one spelling', () => {
+    // Admissible: no condition, or exactly `== main` in either quote style.
     expect(jobExcludesMain('    runs-on: ubuntu-latest\n')).toBe(false);
+    expect(jobExcludesMain("    if: github.base_ref == 'main'\n")).toBe(false);
+    expect(jobExcludesMain('    if: github.base_ref == "main"\n')).toBe(false);
+    // Everything else, including spellings never anticipated, fails closed.
+    expect(jobExcludesMain("    if: github.base_ref != 'main'\n")).toBe(true);
+    expect(jobExcludesMain('    if: github.base_ref != "main"\n')).toBe(true);
+    expect(jobExcludesMain("    if: github.base_ref == 'develop'\n")).toBe(true);
+    expect(jobExcludesMain("    if: needs.changes.outputs.code == 'true'\n")).toBe(true);
+    expect(jobExcludesMain('    if: false\n')).toBe(true);
   });
 
   it('splits steps and reads their conditions', () => {
@@ -237,13 +325,23 @@ describe('scan-main-required-checks parsing helpers', () => {
   it('reads the pull_request trigger, inline and block branch lists', () => {
     expect(pullRequestTrigger(TRIGGER)).toEqual({
       branches: ['main', 'develop'],
+      types: ['opened', 'synchronize', 'reopened', 'edited'],
       hasPathFilter: false,
     });
     expect(
       pullRequestTrigger('on:\n  pull_request:\n    branches:\n      - main\n      - develop\n'),
-    ).toEqual({ branches: ['main', 'develop'], hasPathFilter: false });
+    ).toEqual({ branches: ['main', 'develop'], types: undefined, hasPathFilter: false });
     expect(
       pullRequestTrigger("on:\n  pull_request:\n    paths-ignore:\n      - '**/*.md'\n"),
-    ).toEqual({ branches: [], hasPathFilter: true });
+    ).toEqual({ branches: [], types: undefined, hasPathFilter: true });
+  });
+
+  // The scoping-bug class this suite already caught once (a `paths-ignore:` block list parsed as
+  // branch names). Every block-list reader must be anchored to its own key.
+  it("never reads a sibling block list as another key's values", () => {
+    const trigger = pullRequestTrigger(
+      "on:\n  pull_request:\n    branches:\n      - main\n    types:\n      - edited\n    paths-ignore:\n      - '**/*.md'\n",
+    );
+    expect(trigger).toEqual({ branches: ['main'], types: ['edited'], hasPathFilter: true });
   });
 });

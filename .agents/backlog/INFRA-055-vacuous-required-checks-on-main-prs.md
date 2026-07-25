@@ -52,9 +52,9 @@ always`, so an admin can bypass every rule including INFRA-051's two gates. Deci
 
 ## Acceptance
 
-- [x] `protect-main`'s required contexts include at least one check that verifies the promotion's
+- [ ] `protect-main`'s required contexts include at least one check that verifies the promotion's
       content, proven by a deliberately-broken promotion branch being blocked.
-- [x] The bypass-actor decision recorded explicitly (kept, narrowed, or removed) with its reason.
+- [ ] The bypass-actor decision recorded explicitly (kept, narrowed, or removed) with its reason.
 
 ---
 
@@ -63,10 +63,9 @@ always`, so an admin can bypass every rule including INFRA-051's two gates. Deci
 Items 1–4 are closed. Item 5 is **not applied** — narrowing admin bypass is the repository owner's
 call and a wrong move can lock them out during an incident. The recommendation is recorded below.
 
-Reviewed by `proposal-reviewer` before anything was applied to the live ruleset. The first pass came
-back **REVISE** with five MUST-fixes, one of which (a base-retarget bypass that defeats the entire
-scheme, including INFRA-051's already-live gate) turned out to be real and live; the second pass
-came back **ENDORSE**. Both are summarised under _Review_.
+> **STATUS: IN PROGRESS.** Nothing below marked "applied" has been applied to the live ruleset yet.
+> This section is the plan of record; the required-list table, the `### Proof` section and the
+> terminal status are filled in from real runs, after the runs.
 
 ### What `protect-main` now requires
 
@@ -81,8 +80,9 @@ came back **ENDORSE**. Both are summarised under _Review_.
 | `security audit`             | **removed**     | 3s echo. `release-grade verification`'s osv-scanner step is unconditional, where this job's is gated on a manifest diff — the replacement is stronger. |
 | `commitlint`                 | **removed**     | Skipped wholesale on `main` by design. A promotion's merge-commit subject is GitHub-generated and every promoted commit was linted on its own PR.      |
 
-Also set `strict_required_status_checks_policy: true`, so the promotion's green run must have been
-produced against the current `main` rather than a stale one.
+To be set in the same call: `strict_required_status_checks_policy: true`, so a promotion's green run
+must have been produced against the current `main` rather than a stale one — A1 is computed against
+`origin/main` at run time, so a stale run can assert ancestry against a `main` that has since moved.
 
 ### Unconditional-execution evidence for each added context
 
@@ -216,9 +216,9 @@ Writing them found a real parser bug — the block-list branch reader matched ev
 trigger body, so a `paths-ignore:` list parsed as branch names and a path-filtered workflow would have
 looked like it covered `main`, masking the exact R2 finding the scan exists to raise.
 
-### Proof: a deliberately-broken promotion is BLOCKED
+### Proof
 
-See _Proof_ below (filled in from the live runs).
+_Filled in from the live runs once the ruleset is applied._
 
 ### Follow-ups recorded, not done here
 

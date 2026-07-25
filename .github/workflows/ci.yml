@@ -19,7 +19,24 @@ on:
     # than the disease — a skipped job publishes a `skipped` check run that REPLACES the previous
     # `success` for the same head sha, so editing a PR's title would erase its verification and leave
     # it mergeable on skipped required checks. Re-running is the only conclusion-preserving option.
+    #
+    # That same property has ONE benign instance here, and it is benign only for a reason that could
+    # be undone by accident: a develop→main retarget re-dispatches this workflow, and the four
+    # develop-side jobs then publish `skipped` over the `success` they had earned against `develop`.
+    # That is harmless ONLY because `build`/`quality`/`scans`/`security audit` are no longer required
+    # on `protect-main`. Putting any of them back in that required list would make a retarget erase
+    # its own evidence. `scan-main-required-checks.mjs` is what refuses that combination.
     types: [opened, synchronize, reopened, edited]
+
+# One in-flight run per PR. `edited` makes a second dispatch for the same head sha routine (this
+# harness edits PR bodies after opening), and two runs publishing a check run per context means a
+# flake in EITHER decides the merge verdict — nondeterminism in the required-check set, in the change
+# whose whole subject is required-check integrity. Keyed on the PR number, not the ref, so a retarget
+# supersedes the previous run rather than racing it. Fails closed: a cancelled run reports
+# `cancelled`, which is not `success` and does not satisfy a required check.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   # Recurrence guard for the #1216 incident: a feature branch was PR'd straight to `main`, skipping `develop`,
@@ -41,23 +58,30 @@ jobs:
       # PASS/FAIL conclusion. A job-level condition would report `skipping`, which branch protection ACCEPTS
       # — the INFRA-050 property that makes a required check a no-op.
       - name: Only develop / release / hotfix from this repository may target main
+        # Attacker-controlled values reach this job through `env:`, never through `${{ }}` inside
+        # `run:`. A `${{ }}` expression is substituted into the script BEFORE the shell parses it, and
+        # a git ref may contain backticks, `$`, `;`, `&` and `|` — so interpolating `github.head_ref`
+        # directly is remote code execution on the runner, openable by anyone on a public repo with
+        # forking enabled. Making this job a REQUIRED check is what obliges the fix now.
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
         run: |
           # `github.head_ref` is the BARE branch name and carries no owner, so a fork branch literally named
           # `develop` satisfies the name check below. The repository identity has to be asserted separately.
           # (.agents/memory/oss-contribution-policy.md: external contributions are not accepted while the
           # architecture is in flux — this is the mechanical half of that policy for the `main` path.)
-          head_repo="${{ github.event.pull_request.head.repo.full_name }}"
-          if [ "$head_repo" != "${{ github.repository }}" ]; then
-            echo "::error::A PR to 'main' must come from a branch in ${{ github.repository }}, not from fork '$head_repo'. Promotions are a release action performed inside this repository."
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "::error::A PR to 'main' must come from a branch in $THIS_REPO, not from fork '$HEAD_REPO'. Promotions are a release action performed inside this repository."
             exit 1
           fi
 
-          head="${{ github.head_ref }}"
-          case "$head" in
+          case "$HEAD_REF" in
             develop|release/*|hotfix/*)
-              echo "OK: '$head' (in $head_repo) → main (allowed promotion source)" ;;
+              echo "OK: '$HEAD_REF' (in $HEAD_REPO) → main (allowed promotion source)" ;;
             *)
-              echo "::error::A PR to 'main' must come from 'develop' (or a release/* / hotfix/* promotion branch), not '$head'. Feature work flows feature→develop→main — never feature→main. See .agents/rules/git-branch.md (#1216 incident)."
+              echo "::error::A PR to 'main' must come from 'develop' (or a release/* / hotfix/* promotion branch), not '$HEAD_REF'. Feature work flows feature→develop→main — never feature→main. See .agents/rules/git-branch.md (#1216 incident)."
               exit 1 ;;
           esac
 
