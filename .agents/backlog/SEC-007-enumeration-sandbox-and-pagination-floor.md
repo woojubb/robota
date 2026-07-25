@@ -292,6 +292,25 @@ CI does not reproduce it — every job installs with `pnpm install --frozen-lock
 separate backlog item is warranted: nothing in the repository is broken.** The remediation is
 `pnpm rebuild better-sqlite3` in a worktree installed with `--ignore-scripts`.
 
+### Found while landing this: `windows-shell` was a flaky REQUIRED check
+
+Fixed here rather than filed, because a required gate that flakes is a gate that gets bypassed —
+which is the same governance failure the pagination floor above exists to prevent.
+
+`shell-tool.test.ts:25` ("executes a command via the resolved host shell") SPAWNS A REAL SHELL while
+relying on vitest's 10 s default, which is sized for in-process units. The `windows-shell` job exists
+precisely to run that case against PowerShell, whose cold start on a Windows runner is routinely
+several seconds by itself, so the bound was always marginal.
+
+It went red on this PR at `Test timed out in 10000ms`, file duration **10.19 s** against the 10.00 s
+wall. Not a regression from this work, and the evidence is decisive rather than inferred: the
+immediately preceding run of the same PR **passed** that job on a commit whose `agent-tools` tree is
+byte-identical, with only a `.yml` file changed between the two runs.
+
+Bounded by spawn cost (60 s) instead. This does not mask a hang — a hung spawn still fails, only
+later. What is under test is that the resolved shell round-trips a command, never how fast the OS can
+start one.
+
 ## Carried onward from SEC-006, still open
 
 Not in this item's scope; recorded so they are not lost:
