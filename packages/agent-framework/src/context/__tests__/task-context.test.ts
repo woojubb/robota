@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,7 +12,7 @@ import {
   selectRelevantTasks,
 } from '../task-context.js';
 
-const TMP_BASE = join(tmpdir(), `robota-task-context-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-task-context-'));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

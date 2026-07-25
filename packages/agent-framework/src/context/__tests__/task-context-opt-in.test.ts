@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +7,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import { SettingsSchema } from '../../config/config-types.js';
 import { loadContext } from '../context-loader.js';
 
-const TMP_BASE = join(tmpdir(), `robota-task-context-opt-in-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-task-context-opt-in-'));
 
 function makeWorkspace(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

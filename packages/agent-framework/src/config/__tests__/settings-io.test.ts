@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, readFileSync, statSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,7 +11,7 @@ import {
   deleteSettings,
 } from '../settings-io.js';
 
-const TEST_DIR = join(tmpdir(), 'robota-settings-io-test');
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-settings-io-test-'));
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });
@@ -47,6 +47,14 @@ describe('writeSettings', () => {
     const path = join(TEST_DIR, 'nested', 'deep', 'settings.json');
     writeSettings(path, { ok: true });
     expect(existsSync(path)).toBe(true);
+  });
+
+  // SEC-003: a settings file may hold a plaintext `provider.apiKey`, so it must not be
+  // created world-readable by the ambient umask.
+  it('creates the file owner-readable only', () => {
+    const path = join(TEST_DIR, 'credentialed.json');
+    writeSettings(path, { provider: { name: 'openai', apiKey: 'sk-secret' } });
+    expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
   it('overwrites existing file', () => {
