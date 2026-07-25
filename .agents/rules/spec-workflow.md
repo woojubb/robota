@@ -10,7 +10,9 @@ package. The spec is the canonical description of what the package is _right now
 when it was first written.
 
 **Universal update mandate.** Every PR that introduces any of the following MUST update the
-governing `docs/SPEC.md` in the same PR:
+governing `docs/SPEC.md` in the same PR. **This table is the single owner of the mandate's triggers**;
+[`spec-writing-standard`](../skills/spec-writing-standard/SKILL.md) applies it when authoring the edit
+and does not carry its own copy of these rows.
 
 | What changed                                   | SPEC section to update                  |
 | ---------------------------------------------- | --------------------------------------- |
@@ -35,8 +37,10 @@ the spec after implementation is a process violation — the spec must come firs
 
 **Spec drift is a process violation.** If `docs/SPEC.md` no longer accurately describes the
 current state of its package, every subsequent PR on that package is incomplete. When drift is
-detected, schedule a SPEC catch-up as a dedicated backlog item before continuing normal work. See
-[`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) for the drift resolution loop.
+detected, schedule a SPEC catch-up as a dedicated backlog item before continuing normal work. That
+catch-up is [`spec-writing-standard`](../skills/spec-writing-standard/SKILL.md) Mode C (drift
+recovery) — **not** [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md), which fixes
+code against a spec it treats as correct and explicitly disclaims correcting the spec.
 
 ### Spec-First Development
 
@@ -119,14 +123,10 @@ or modifications, the agent MUST follow this sequence regardless of how the requ
 - Creating new source code files
 - Running code generation commands
 
-**Sequence for any user-requested code change:**
-
-1. Read-only exploration to understand the codebase (allowed immediately)
-2. Create backlog draft: `.agents/spec-docs/draft/<TYPE>-NNN-<slug>.md`
-   - Use [`backlog-writer`](../skills/backlog-writer/SKILL.md)
-   - All required frontmatter and sections must be present
-3. Run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) through GATE-APPROVAL
-4. Implement only after GATE-APPROVAL passes
+**Sequence.** No implementation may begin before GATE-APPROVAL passes, and the draft must exist
+before the gate can run. The ordering itself — explore, draft, gate, implement — is owned by
+[`user-request-gate`](../skills/user-request-gate/SKILL.md); this rule states only that it is
+mandatory and that the gate is the boundary.
 
 **Waiver**: If the user explicitly says "skip the spec" or "just fix it now", the agent must
 acknowledge the waiver in its response before proceeding, and note it as a process exception.
@@ -142,14 +142,41 @@ Any gap, improvement, or fix discovered during development MUST follow this sequ
 2. **Spec document** — write to `.agents/spec-docs/draft/` using [`backlog-writer`](../skills/backlog-writer/SKILL.md). All required sections and frontmatter must be present.
 3. **Gate pipeline** — run [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) to advance through GATE-WRITE → GATE-APPROVAL before any implementation.
 4. **User approval** — GATE-APPROVAL requires an explicit user sign-off quoted in the Evidence Log.
-5. **Implement** — code only after GATE-APPROVAL passes. Use [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md) for GATE-IMPLEMENT, GATE-VERIFY, and GATE-COMPLETE.
+5. **Implement** — code only after GATE-APPROVAL passes, and GATE-IMPLEMENT, GATE-VERIFY and
+   GATE-COMPLETE must each run on the document afterwards. Their criteria are the
+   [gate catalogue](../specs/gate-catalogue.md); which one runs when is
+   [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md).
 
 No exceptions. One-line fixes, evaluation findings, and "obvious" improvements all require this gate.
 A spec update is also required for any change touching a contract boundary (see Spec-First Development).
 
-**Status levels (frontmatter `status:` field):** `draft → review-ready → approved → in-progress → verifying → done`
-**Lifecycle folders:** `spec-docs/draft/` → `spec-docs/backlog/` → `spec-docs/todo/` → `spec-docs/active/` → `spec-docs/done/`
-Each status transition is a gate. Every gate must leave an Evidence Log entry (PASS / FAIL / NON-COMPLIANCE).
+### Spec-Document Status and Lifecycle Folders
+
+The status vocabulary and the folder each status lives in are **facts this rule owns**. A pipeline
+reads the mapping to decide where a document belongs; it does not redefine it.
+
+| `status:` (frontmatter) | Folder                        | Meaning                                   |
+| ----------------------- | ----------------------------- | ----------------------------------------- |
+| `draft`                 | `.agents/spec-docs/draft/`    | Written, not yet through GATE-WRITE       |
+| `review-ready`          | `.agents/spec-docs/backlog/`  | GATE-WRITE passed, awaiting approval      |
+| `approved`              | `.agents/spec-docs/todo/`     | GATE-APPROVAL passed, not yet started     |
+| `in-progress`           | `.agents/spec-docs/active/`   | GATE-IMPLEMENT passed, work under way     |
+| `verifying`             | `.agents/spec-docs/active/`   | GATE-VERIFY passed — **no folder change** |
+| `done`                  | `.agents/spec-docs/done/`     | GATE-COMPLETE passed                      |
+| `rejected`              | `.agents/spec-docs/rejected/` | Closed deliberately; not a gate FAIL      |
+
+A gate PASS that changes the status and the folder does both or neither: a document left in the wrong
+folder for its status is treated as NON-COMPLIANCE **on its next gate run**. (That is the force this
+mapping has always carried, from `backlog-pipeline`; there is no mechanical floor asserting
+folder ↔ status agreement, and documents already in `spec-docs/done/` predate the rule — see
+`HARNESS-049` for the reported gap.) Each status transition is a gate, and every gate must leave an
+Evidence Log entry (PASS / FAIL / NON-COMPLIANCE) in the format the
+[gate catalogue](../specs/gate-catalogue.md) defines.
+
+This vocabulary governs **spec documents** under `.agents/spec-docs/`. Backlog items under
+`.agents/backlog/` use a different one — see
+[backlog-execution.md](backlog-execution.md) > Status Invariants. The two share tokens
+(`in-progress`, `done`) but not meaning, and neither overrides the other.
 
 ### Spec-Code Conformance Verification
 
@@ -172,6 +199,11 @@ Each status transition is a gate. Every gate must leave an Evidence Log entry (P
   3. Confirm the SPEC is accurate
   4. Restart code verification from scratch against the corrected SPEC
 - The key distinction: fixing a genuinely wrong SPEC is acceptable. Changing a correct SPEC to avoid fixing code is not.
+- **Where the correction itself happens.** The four steps above are the rule's; the procedure for the
+  correction is [`spec-writing-standard`](../skills/spec-writing-standard/SKILL.md) Mode C (drift
+  recovery), which runs as its own dedicated PR — never inside a conformance loop. Mode C is the only
+  context in which a SPEC may be edited to describe existing code, and it exists because this rule
+  requires the correction to be a separate deliberate action.
 
 ### Reverse Spec Verification (Code → Spec)
 
@@ -244,7 +276,8 @@ Content promotion rules:
   `run-all-scans.mjs`), so they gate every PR and release. JSON summary on demand via
   `pnpm harness:conformance`.
 - **PASS/FAIL:** PASS when `harness:conformance` exits 0 and no unresolved P0 finding remains; FAIL
-  otherwise. Run via [`backlog-gate-guard`](../skills/backlog-gate-guard/SKILL.md).
+  otherwise. Judged by the [`backlog-gate-guard`](../../.claude/agents/backlog-gate-guard.md) agent
+  against the [gate catalogue](../specs/gate-catalogue.md).
 
 ### Cross-Package SPEC Reference Policy
 
