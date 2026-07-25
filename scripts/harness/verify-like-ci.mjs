@@ -21,6 +21,15 @@
  *      silently no-ops without it; CI restores `dist` before running it (ci.yml → `quality`). Locally
  *      an unbuilt tree makes that scan a no-op that LOOKS like a pass — so a missing `dist` is a
  *      hard FAIL here with an actionable message, never a silent skip.
+ *   4. The DIST-FREE half of the same suite (HARNESS-047). CI's `scans` job runs the
+ *      dist-independent scans on a fresh checkout that has NO `dist/` at all, so a scan whose verdict
+ *      depends on a path NOT existing sees a different tree than any built developer worktree does.
+ *      `check-harness-config-paths.mjs` is exactly that shape: a hardcoded
+ *      `packages/<pkg>/dist/node/index.js` literal resolves locally and is a GHOST path in CI — how
+ *      HARNESS-024 (#1381) passed a full local `run-all-scans` and then failed CI. Item 3 above makes
+ *      a built tree MANDATORY, so it structurally cannot reproduce this class; this stage runs the
+ *      same scans against a build-output-free copy of the working tree. Both halves run; neither
+ *      replaces the other.
  *
  * Every stage below is derived from the real definitions — `.github/workflows/ci.yml` and
  * `.lintstagedrc.json` — not from a hand-copied guess.
@@ -36,11 +45,23 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const LINT_STAGED_CONFIG = '.lintstagedrc.json';
+const CI_WORKFLOW = path.join('.github', 'workflows', 'ci.yml');
 const DEFAULT_BASE_REF = 'origin/develop';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +140,62 @@ export function findMissingDist(dirs, exists = existsSync, root = WORKSPACE_ROOT
 }
 
 // ---------------------------------------------------------------------------
+// dist-free scan mirror (pure)
+// ---------------------------------------------------------------------------
+
+/** The `pnpm harness:scan -- --skip …` invocation ci.yml's `scans` job runs on a fresh checkout. */
+const CI_DIST_INDEPENDENT_SCAN_STEP =
+  /pnpm\s+harness:scan\s+--\s+((?:--skip\s+[A-Za-z0-9_-]+\s*)+)/g;
+
+/**
+ * Derive the scan names ci.yml's dist-independent `scans` job skips, from the workflow text itself.
+ * Hardcoding them here would re-create the very drift this entry exists to catch, so an unparseable
+ * or ambiguous workflow is a loud error — never an assumed default.
+ */
+export function parseDistIndependentScanSkips(ciYaml) {
+  const matches = [...String(ciYaml ?? '').matchAll(CI_DIST_INDEPENDENT_SCAN_STEP)];
+  if (matches.length === 0)
+    throw new Error(
+      `no \`pnpm harness:scan -- --skip …\` step found in ${CI_WORKFLOW} — the dist-free stage cannot mirror a job it cannot read.`,
+    );
+  if (matches.length > 1)
+    throw new Error(
+      `more than one \`pnpm harness:scan -- --skip …\` step in ${CI_WORKFLOW} — ambiguous mirror target; the dist-free stage must name exactly one.`,
+    );
+  return [...matches[0][1].matchAll(/--skip\s+([A-Za-z0-9_-]+)/g)].map((skip) => skip[1]);
+}
+
+/** Read `.github/workflows/ci.yml` from disk and derive the dist-independent skip set. */
+export function readDistIndependentScanSkips(root = WORKSPACE_ROOT) {
+  const workflowPath = path.join(root, CI_WORKFLOW);
+  if (!existsSync(workflowPath))
+    throw new Error(`${CI_WORKFLOW} not found — cannot derive the dist-independent scan set.`);
+  return parseDistIndependentScanSkips(readFileSync(workflowPath, 'utf8'));
+}
+
+/**
+ * Every directory that owns an installed `node_modules`, relative to `root` (`''` = the repo root).
+ * The dist-free tree is a bare `git worktree` checkout with no installs, so these are symlinked into
+ * it — installing again would cost minutes for a tree that lives for seconds.
+ */
+export function listNodeModulesOwners(root = WORKSPACE_ROOT, maxDepth = 5) {
+  const owners = [];
+  const skip = new Set(['node_modules', 'dist', '.git']);
+  const walk = (dir, depth) => {
+    const entries = readdirSync(dir, { withFileTypes: true });
+    if (entries.some((entry) => entry.name === 'node_modules'))
+      owners.push(path.relative(root, dir));
+    if (depth >= maxDepth) return;
+    for (const entry of entries) {
+      if (!entry.isDirectory() || skip.has(entry.name)) continue;
+      walk(path.join(dir, entry.name), depth + 1);
+    }
+  };
+  walk(root, 0);
+  return owners.sort();
+}
+
+// ---------------------------------------------------------------------------
 // stage table + summary (pure)
 // ---------------------------------------------------------------------------
 
@@ -142,6 +219,11 @@ export const CI_STAGES = [
     ciSource:
       'ci.yml → scans "Harness scan suite" + quality "Build-output contracts scan" (built dist)',
     why: 'the dist-dependent scans silently no-op on an unbuilt tree',
+  },
+  {
+    name: 'scan-suite-dist-free',
+    ciSource: 'ci.yml → scans → "Harness scan suite (dist-independent)" (fresh checkout, no dist/)',
+    why: 'a hardcoded packages/<pkg>/dist/... literal resolves on a built tree and is a GHOST path in CI',
   },
   {
     name: 'typecheck',
@@ -192,9 +274,9 @@ export function parseArgs(argv) {
 // execution
 // ---------------------------------------------------------------------------
 
-function run(command, args) {
+function run(command, args, cwd = WORKSPACE_ROOT) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, { cwd: WORKSPACE_ROOT, stdio: 'inherit', shell: false });
+    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: false });
     child.on('close', (code) => resolve(code ?? 1));
     child.on('error', (error) => {
       process.stderr.write(`${error?.message ?? error}\n`);
@@ -258,10 +340,105 @@ async function runScanSuite() {
   return { code, note: 'full suite incl. build-contracts + dist (built tree)' };
 }
 
+/** Run a git command that MUST succeed; its failure is a stage failure, never a silent skip. */
+function gitOrThrow(args, cwd = WORKSPACE_ROOT) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  if (result.status !== 0)
+    throw new Error(`git ${args.join(' ')} failed (${result.status}): ${result.stderr?.trim()}`);
+  return result.stdout ?? '';
+}
+
+/**
+ * Materialise the working tree WITHOUT any build output, the way CI's `scans` job sees it:
+ * a detached `git worktree` of HEAD (~0.3s — no clone, no copy of dist/node_modules), plus the
+ * uncommitted diff and the untracked files, plus symlinks to the existing installs. `dist/` is
+ * never checked in, so it is absent by construction rather than by deletion.
+ */
+function createDistFreeTree(treeDir, patchFile) {
+  gitOrThrow(['worktree', 'add', '--detach', treeDir, 'HEAD']);
+  const patch = gitOrThrow(['diff', 'HEAD', '--binary']);
+  if (patch.trim().length > 0) {
+    writeFileSync(patchFile, patch);
+    gitOrThrow(['apply', '--whitespace=nowarn', patchFile], treeDir);
+  }
+  const untracked = parseGitFileList(gitOrThrow(['ls-files', '--others', '--exclude-standard']));
+  for (const file of untracked) {
+    const source = path.join(WORKSPACE_ROOT, file);
+    if (!existsSync(source)) continue;
+    const target = path.join(treeDir, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    copyFileSync(source, target);
+  }
+  const links = [];
+  for (const owner of listNodeModulesOwners()) {
+    const link = path.join(treeDir, owner, 'node_modules');
+    if (!existsSync(path.dirname(link))) continue;
+    symlinkSync(path.join(WORKSPACE_ROOT, owner, 'node_modules'), link, 'junction');
+    links.push(link);
+  }
+  return { links, untracked: untracked.length };
+}
+
+/** Unlink the borrowed installs FIRST, so removing the tree can never reach the real node_modules. */
+function destroyDistFreeTree(treeDir, links, tempRoot) {
+  for (const link of links) {
+    try {
+      rmSync(link, { force: true });
+    } catch (error) {
+      process.stderr.write(
+        `[scan-suite-dist-free] could not unlink ${link}: ${error?.message ?? error}\n` +
+          `[scan-suite-dist-free] leaving ${tempRoot} in place — removing a tree that still borrows\n` +
+          `[scan-suite-dist-free] the real node_modules is not worth the risk. Delete it by hand.\n`,
+      );
+      return;
+    }
+  }
+  const removal = spawnSync('git', ['worktree', 'remove', '--force', treeDir], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+  if (removal.status !== 0)
+    process.stderr.write(
+      `[scan-suite-dist-free] leftover worktree at ${treeDir}: ${removal.stderr?.trim()}\n` +
+        `[scan-suite-dist-free] clean up with: git worktree remove --force ${treeDir}\n`,
+    );
+  rmSync(tempRoot, { recursive: true, force: true });
+}
+
+async function runDistFreeScanSuite() {
+  const skips = readDistIndependentScanSkips();
+  const tempRoot = mkdtempSync(path.join(tmpdir(), 'verify-like-ci-dist-free-'));
+  const treeDir = path.join(tempRoot, 'tree');
+  let links = [];
+  try {
+    const prepared = createDistFreeTree(treeDir, path.join(tempRoot, 'working-tree.patch'));
+    links = prepared.links;
+    const args = [
+      'scripts/harness/run-all-scans.mjs',
+      ...skips.flatMap((skip) => ['--skip', skip]),
+    ];
+    const code = await run('node', args, treeDir);
+    if (code !== 0)
+      process.stderr.write(
+        `\n[scan-suite-dist-free] These scans ran on a build-output-FREE copy of this branch — the\n` +
+          `[scan-suite-dist-free] tree CI's \`scans\` job checks out. A finding here that passes the\n` +
+          `[scan-suite-dist-free] built-tree stage means the code depends on dist/ existing (e.g. a\n` +
+          `[scan-suite-dist-free] hardcoded build-output path literal), and CI will fail on it.\n`,
+      );
+    return { code, note: `dist-free worktree of HEAD+changes, skips: ${skips.join(', ')}` };
+  } catch (error) {
+    process.stderr.write(`\n[scan-suite-dist-free] ${error?.message ?? error}\n`);
+    return { code: 1, note: 'could not materialise the dist-free tree' };
+  } finally {
+    destroyDistFreeTree(treeDir, links, tempRoot);
+  }
+}
+
 const STAGE_RUNNERS = {
   'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test']) }),
   'format-check': runFormatCheck,
   'scan-suite': runScanSuite,
+  'scan-suite-dist-free': runDistFreeScanSuite,
   typecheck: async () => ({ code: await run('pnpm', ['-w', 'typecheck']) }),
 };
 
