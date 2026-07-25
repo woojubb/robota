@@ -3,23 +3,59 @@ name: CI
 on:
   pull_request:
     branches: [main, develop]
+    # INFRA-055: `edited` is NOT in GitHub's default activity set (`opened`, `synchronize`,
+    # `reopened`), and retargeting a PR's BASE BRANCH fires `edited` — not `synchronize`. Without it
+    # the whole `main`-only pipeline is bypassable through the GitHub UI in two clicks, MEASURED on
+    # throwaway PR #1442 (2026-07-26): a feature branch was opened against `develop`, went green, and
+    # was then retargeted to `main`. No workflow re-dispatched (the four run ids for head sha
+    # `e4806e4f` were identical before and after), so `main PR source guard`, `promotion ancestry` and
+    # `release-grade verification` kept the `SKIPPED` conclusions they had earned as a develop PR —
+    # and a skipped required check is ACCEPTED by branch protection (INFRA-050). `gh pr view 1442`
+    # then reported `mergeStateStatus: CLEAN, mergeable: MERGEABLE`: a feature branch, one click from
+    # landing on `main`, past every gate INFRA-051 and INFRA-055 exist to enforce.
+    #
+    # A title/body edit therefore re-dispatches the full workflow. That cost is deliberate: gating the
+    # jobs on `github.event.changes.base != null` so a title edit skips them instead would be WORSE
+    # than the disease — a skipped job publishes a `skipped` check run that REPLACES the previous
+    # `success` for the same head sha, so editing a PR's title would erase its verification and leave
+    # it mergeable on skipped required checks. Re-running is the only conclusion-preserving option.
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   # Recurrence guard for the #1216 incident: a feature branch was PR'd straight to `main`, skipping `develop`,
   # which swept the whole develop delta onto main and diverged the branches. The feature→develop→main flow is
   # fixed (git-branch.md); this makes it MECHANICAL — a PR to `main` must come from `develop` (or a
   # `release/*` / `hotfix/*` promotion branch), never a feature branch.
+  #
+  # INFRA-055: this is now a REQUIRED status check on `protect-main`. It qualifies because its verdict is a
+  # pure function of the PR's own head — no checkout, no network, no install, nothing that can fail for a
+  # reason unrelated to the change — and it always reaches a conclusion on every PR to `main` (the workflow
+  # carries no `paths` filter and this job has no `needs`). A red verdict is always satisfiable by the author,
+  # by renaming the branch or re-routing through `develop`.
   main-pr-source-guard:
     name: main PR source guard
     if: github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
-      - name: Only develop / release / hotfix may target main
+      # Two assertions, both inside the step rather than in the job `if:`, so the job always reports a real
+      # PASS/FAIL conclusion. A job-level condition would report `skipping`, which branch protection ACCEPTS
+      # — the INFRA-050 property that makes a required check a no-op.
+      - name: Only develop / release / hotfix from this repository may target main
         run: |
+          # `github.head_ref` is the BARE branch name and carries no owner, so a fork branch literally named
+          # `develop` satisfies the name check below. The repository identity has to be asserted separately.
+          # (.agents/memory/oss-contribution-policy.md: external contributions are not accepted while the
+          # architecture is in flux — this is the mechanical half of that policy for the `main` path.)
+          head_repo="${{ github.event.pull_request.head.repo.full_name }}"
+          if [ "$head_repo" != "${{ github.repository }}" ]; then
+            echo "::error::A PR to 'main' must come from a branch in ${{ github.repository }}, not from fork '$head_repo'. Promotions are a release action performed inside this repository."
+            exit 1
+          fi
+
           head="${{ github.head_ref }}"
           case "$head" in
             develop|release/*|hotfix/*)
-              echo "OK: '$head' → main (allowed promotion source)" ;;
+              echo "OK: '$head' (in $head_repo) → main (allowed promotion source)" ;;
             *)
               echo "::error::A PR to 'main' must come from 'develop' (or a release/* / hotfix/* promotion branch), not '$head'. Feature work flows feature→develop→main — never feature→main. See .agents/rules/git-branch.md (#1216 incident)."
               exit 1 ;;
@@ -31,10 +67,10 @@ jobs:
   # package.json files plus pnpm-lock.yaml). This job blocks the promotion BEFORE it lands; the merge METHOD
   # is enforced separately by the `protect-main` ruleset (`allowed_merge_methods: ["merge"]`).
   #
-  # It is a REQUIRED status check on `protect-main`. Of the required contexts it is the only one that
-  # verifies anything on a main PR — build/quality/scans/security-audit are all no-op echoes there and
-  # commitlint is skipped outright. `release-grade verification` does substantive work (and runs this
-  # same gate through `harness:scan`) but is NOT a required check; INFRA-055 tracks that.
+  # It is a REQUIRED status check on `protect-main`, alongside `main PR source guard` and
+  # `release-grade verification` (INFRA-055). Those three are the whole required list for `main`: the
+  # former no-op contexts (build/quality/scans/security audit/commitlint) were dropped, because on a
+  # `main` PR they asserted nothing — see the note above the `build` job.
   promotion-ancestry:
     name: promotion ancestry
     if: github.base_ref == 'main'
@@ -74,9 +110,12 @@ jobs:
         run: node scripts/harness/scan-promotion-ancestry.mjs
 
   # Proportional CI (DX): classify whether a PR touches CODE or is documentation-only, so a docs/harness-markdown
-  # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks (required =
-  # build/quality/scans/security-audit/commitlint, which always run), so skipping them is safe for branch
-  # protection — a skipped non-required job does not block the merge.
+  # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks on `protect-main`
+  # (required there = promotion ancestry / main PR source guard / release-grade verification), so skipping them
+  # is safe for branch protection — a skipped non-required job does not block the merge. On `protect-develop`
+  # tui-e2e / examples-typecheck / windows-shell ARE required and DO skip on a docs-only PR; that is deliberate
+  # and predates this file — a skipped required check is accepted, which is exactly why the `changes` classifier
+  # is fail-safe (every undeterminable case classifies as CODE).
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -118,48 +157,55 @@ jobs:
           # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
           node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
+  # INFRA-055: `build` / `quality` / `scans` / `security audit` are DEVELOP-side gates. They used to run on a
+  # `main` PR too, as a "Skip duplicate …" echo with every real step gated on `base_ref != 'main'` — a 3–6
+  # second job that asserted nothing. That shape existed for one reason: all four were REQUIRED contexts on
+  # `protect-main`, so they had to resolve rather than linger pending. Measured on promotion #1427 they
+  # reported 5s / 5s / 6s / 3s of echo, and branch protection reported green from jobs that deliberately did
+  # no work, while the job that actually verifies a promotion (`release-grade verification`) was not required.
+  #
+  # The required list was moved to match (`promotion ancestry`, `main PR source guard`, `release-grade
+  # verification`), so the reason for the echo shape is gone and these jobs are simply excluded on a `main`
+  # PR at the JOB level. `harness:verify:release` subsumes them there: it runs the FULL build, the FULL scan
+  # suite (plus `harness:test`), the FULL test/typecheck/lint sweep and an UNCONDITIONAL osv-scanner, where
+  # these four are affected-scope-selective via `--base-ref`.
+  #
+  # Do not re-add work to these jobs for `main` without adding the job back to `protect-main`'s required list
+  # AND to `.github/required-status-checks.json` — `scan-main-required-checks.mjs` enforces the converse
+  # direction (nothing vacuous may be required).
   build:
     name: build
+    if: github.base_ref != 'main'
     runs-on: ubuntu-latest
     outputs:
       package_dist_required: ${{ steps.build_requirement.outputs.required }}
 
     steps:
-      - name: Skip duplicate build for main PR
-        if: github.base_ref == 'main'
-        run: echo "build is covered by release-grade verification"
-
       # INFRA-050: full history, no `--depth` fetch — `harness:plan --base-ref origin/<base>`
       # resolves the affected scopes from a merge-base diff, so a grafted ancestry changes which
       # checks this PR is planned to run at all.
       - uses: actions/checkout@v7
-        if: github.base_ref != 'main'
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
       - name: Show verification plan
-        if: github.base_ref != 'main'
         run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
-        if: github.base_ref != 'main'
         uses: actions/upload-artifact@v4
         with:
           name: verification-plan
@@ -169,7 +215,6 @@ jobs:
 
       - name: Detect build requirement
         id: build_requirement
-        if: github.base_ref != 'main'
         run: |
           node --input-type=module <<'EOF'
           import { appendFileSync, readFileSync } from 'node:fs';
@@ -189,15 +234,15 @@ jobs:
           EOF
 
       - name: Build monorepo
-        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        if: steps.build_requirement.outputs.required == 'true'
         run: pnpm build
 
       - name: Archive package build output
-        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        if: steps.build_requirement.outputs.required == 'true'
         run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
 
       - name: Upload package build output
-        if: github.base_ref != 'main' && steps.build_requirement.outputs.required == 'true'
+        if: steps.build_requirement.outputs.required == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: package-dist
@@ -206,57 +251,49 @@ jobs:
           retention-days: 1
 
       - name: Skip monorepo build when no build output is required
-        if: github.base_ref != 'main' && steps.build_requirement.outputs.required != 'true'
+        if: steps.build_requirement.outputs.required != 'true'
         run: echo "No package or app verification requires build output."
 
   quality:
     name: quality
+    if: github.base_ref != 'main'
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Skip duplicate quality checks for main PR
-        if: github.base_ref == 'main'
-        run: echo "quality is covered by release-grade verification"
-
       # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
       # selects the affected scopes from a merge-base diff; a grafted ancestry silently changes
       # what this REQUIRED check verifies.
       - uses: actions/checkout@v7
-        if: github.base_ref != 'main'
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
       - name: Download package build output
-        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        if: needs.build.outputs.package_dist_required == 'true'
         uses: actions/download-artifact@v8
         with:
           name: package-dist
           path: .artifacts/package-dist
 
       - name: Restore package build output
-        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        if: needs.build.outputs.package_dist_required == 'true'
         run: tar -xzf .artifacts/package-dist/package-dist.tgz
 
       - name: Verify affected quality checks
-        if: github.base_ref != 'main'
         run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
 
       # INFRA-037: build-contracts is the ONE scan that reads packages/*/dist (validates that declared
@@ -265,7 +302,6 @@ jobs:
       # harness test suite moved to the `needs`-less `scans` job (parallel with build). The full scan
       # suite remains a develop-merge gate (INFRA-026) — split across `scans` + this step, both required.
       - name: Build-output contracts scan (dist-dependent)
-        if: github.base_ref != 'main'
         run: pnpm harness:scan:build-contracts
 
       # RUNTIME-001: build-gated black-box e2e for the real `robota --serve` binary (+ the cross-fidelity
@@ -273,53 +309,46 @@ jobs:
       # here rather than in the dist-independent `scans` job. Deterministic (replay provider over loopback
       # WS; no model key, no network). Gated on dist actually being restored so unrelated PRs skip cleanly.
       - name: Binary e2e (agent-cli bintests, dist-dependent)
-        if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
+        if: needs.build.outputs.package_dist_required == 'true'
         run: pnpm --filter @robota-sdk/agent-cli test:bin
 
   # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
   # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that
-  # never consumed dist). Shaped like build/quality (main-base no-op + step-level `if`) so this REQUIRED
-  # check always resolves and never lingers pending.
+  # never consumed dist). INFRA-055: develop-side only — see the note above `build`.
   scans:
     name: scans
+    if: github.base_ref != 'main'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Skip duplicate scans for main PR
-        if: github.base_ref == 'main'
-        run: echo "scans are covered by release-grade verification"
-
       # INFRA-050: full history. `harness:scan` contains a base-history gate
       # (check-document-authority.mjs diffs `origin/$GITHUB_BASE_REF...HEAD`). On the former
       # depth-50 checkout `origin/<base>` did not exist at all, so that scan fell back to its own
       # `--depth=50` fetch — a graft — and then reported SKIPPED ("not a pass") while the suite
       # still exited 0. A complete checkout makes the ref resolve directly and the gate enforce.
       - uses: actions/checkout@v7
-        if: github.base_ref != 'main'
         with:
           fetch-depth: 0
 
       - name: Install pnpm
-        if: github.base_ref != 'main'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
-        if: github.base_ref != 'main'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
-        if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
 
       # HARNESS-021: the harness scans' own unit suite runs in full — per-scan test selection
       # (verify-change) cannot see suite-wide drift, which let 5 stale fixtures sit silent.
+      # INFRA-055 added the same command to `harness:verify:release`, so the release gate is no
+      # longer blind to a scan whose own tests have rotted.
       - name: Harness scan test suite
-        if: github.base_ref != 'main'
         run: pnpm harness:test
 
       # INFRA-026: the full scan suite is a develop-merge gate, not a release-only one.
@@ -327,29 +356,23 @@ jobs:
       # never silent); `build-contracts` (INFRA-037) is dist-dependent and runs in the `quality` job after
       # dist restore, so it is skipped here rather than silently no-op'ing on a source/build-change PR.
       - name: Harness scan suite (dist-independent)
-        if: github.base_ref != 'main'
         run: pnpm harness:scan -- --skip dist --skip build-contracts
 
   security-audit:
     name: security audit
+    if: github.base_ref != 'main'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Skip duplicate audit for main PR
-        if: github.base_ref == 'main'
-        run: echo "security audit is covered by release-grade verification"
-
-      # INFRA-050: full history, no `--depth` fetch. This is a REQUIRED check whose only real work
-      # is gated on a merge-base diff — a grafted ancestry could gate the vulnerability scan off a
-      # wrong file list and pass in seconds having scanned nothing.
+      # INFRA-050: full history, no `--depth` fetch. This is a REQUIRED check (on `protect-develop`)
+      # whose only real work is gated on a merge-base diff — a grafted ancestry could gate the
+      # vulnerability scan off a wrong file list and pass in seconds having scanned nothing.
       - uses: actions/checkout@v7
-        if: github.base_ref != 'main'
         with:
           fetch-depth: 0
 
       - name: Detect dependency graph changes
         id: dependency_changes
-        if: github.base_ref != 'main'
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -382,12 +405,20 @@ jobs:
       # directly (OSV.dev DB) — no pnpm/node install needed; it fails on any un-ignored vuln; re-accepts live in
       # osv-scanner.toml (single SSOT).
       - name: Vulnerability scan (osv-scanner) for dependency graph changes
-        if: github.base_ref != 'main' && steps.dependency_changes.outputs.changed == 'true'
+        if: steps.dependency_changes.outputs.changed == 'true'
         run: |
           curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
+  # INFRA-055: the REQUIRED content gate for a promotion. It is the only required context on `protect-main`
+  # that executes the repository's code, and it qualifies as required because it always reaches a conclusion
+  # on every PR to `main`: the workflow carries no `paths`/`paths-ignore` filter, this job has no `needs:`,
+  # no matrix and no `continue-on-error`, and every step below is unconditional. Diff shape cannot change
+  # that — a docs-only promotion, an enormous promotion, a merge-commit head and a tree identical to
+  # `develop` all run the same steps. An infrastructure failure (install, artifact download) turns it RED
+  # and blocks the promotion until it is re-run, which is the correct direction for a release gate and is
+  # always satisfiable; what disqualifies a required check is being unable to REPORT, not being able to fail.
   release-grade-verify:
     name: release-grade verification
     runs-on: ubuntu-latest
@@ -437,6 +468,10 @@ jobs:
   # compat-node18 was removed: its first REAL Node 18 run (promotion #1306) proved the build chain
   # (rolldown, engines ^20.19 || >=22.12) cannot run on Node 18 at all, and Node 18 has been EOL since
   # 2025-04 — the engines floor is now >=20.19.0, making a separate compat job redundant with `build`.
+  # INFRA-055: develop-side only, and no longer a required context on `protect-main`. A promotion's merge
+  # commit subject is generated by GitHub, and every commit it promotes was linted on its own PR to
+  # `develop` — so on a `main` PR this job has nothing to assert. It was previously REQUIRED there while
+  # skipping wholesale, which branch protection accepts.
   commitlint:
     name: commitlint
     runs-on: ubuntu-latest
