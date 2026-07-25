@@ -137,6 +137,12 @@ scripts/audit/output/
 # One-off analysis reports (local-only, regenerated on demand)
 .agents/reports/
 
+# INFRA-042 mutation testing (Stryker): sandbox + generated reports (regenerated per run, uploaded
+# as a CI artifact — never committed).
+.stryker-tmp/
+reports/mutation/
+stryker.log
+
 .worktrees/
 .claude/worktrees/
 .gstack/
