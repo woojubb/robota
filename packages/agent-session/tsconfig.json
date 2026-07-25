@@ -6,7 +6,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "skipLibCheck": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
     "noEmit": false
   },
