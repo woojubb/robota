@@ -69,9 +69,33 @@ judgement criteria, and an agent file must not contain pipeline ordering. If a s
 judge_, that content belongs in an agent file; if an agent file explains _what runs next_, that belongs
 in the skill above it.
 
+## Phase 1 — DONE (2026-07-26)
+
+Step 1 below is complete. The classification table and everything derived from it live in
+[`.agents/specs/harness-composition-inventory.md`](../specs/harness-composition-inventory.md) —
+the companion to the design doc. Phase 2 picks up from there. Headline results:
+
+- **142 sections across 22 rule files: 116 `invariant`, 21 `procedure`, 5 `role`.** 82% of rule
+  content should not move at all; the work is concentrated in the four large rules.
+- **3 net-new agent files**, none duplicating an existing agent: `backlog-gate-guard` (an
+  _extraction_ of a role that already exists as a skill and is already dispatched as a subagent),
+  `user-execution-scenario-author`, `ci-failure-triager`. Four other role classifications reuse
+  `merge-verifier`, `proposal-reviewer`, and `architecture-auditor` unchanged.
+- **Nesting confirmed for `publish.md`, `git-branch.md`, `backlog-execution.md`; refuted for
+  `spec-workflow.md`**, whose procedures already have owner skills — that increment is deletion and
+  pointing, not extraction.
+- **14 routing gaps** flagged: procedures with no defined failure edge, which must have routing
+  decided during extraction rather than inherited.
+- **153-statement invariant ledger** for the four large rules, with each statement's proposed
+  post-change home — the no-behavioural-loss safety net for the whole refactor.
+- **Recommended extraction order: `publish.md` → `backlog-execution.md` → `git-branch.md` →
+  `spec-workflow.md`.** `publish.md` first because it has zero inbound skill references and no
+  existing owner skill to negotiate with (`git-branch.md` has ten skill references plus eight
+  enforcement surfaces).
+
 ## What
 
-1. **Inventory and classify** every `.agents/rules/*.md` section as: `invariant` (stays a rule),
+1. ~~**Inventory and classify**~~ **(DONE — see Phase 1 above)** every `.agents/rules/*.md` section as: `invariant` (stays a rule),
    `procedure` (moves to a skill), or `role` (becomes an agent definition). Produce the mapping table
    FIRST — this is the deliverable that makes the rest reviewable, and it is where the judgement is.
    For each `procedure`, also record its **level**: is it a whole pipeline (top-level skill), one
