@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: SCREEN
 tags: [tui, ink, color, palette, tokens, motion, accessibility, no-color]
 ---
@@ -276,11 +276,18 @@ terminal smoke):
 
 1. **NO_COLOR legibility:** run the built CLI with `NO_COLOR=1` in a real pty through a replayed
    conversation → output is legible, zero raw color-escape artifacts, no animation (WaveText static).
-   Evidence: `screen-006-no-color.ptytest.ts` S1 — _to fill at IMPLEMENT/VERIFY._
+   Evidence: `screen-006-no-color.ptytest.ts` S1 — **GREEN 2026-07-25** (agent-run, full raw-pty
+   transcript scanned: zero SGR color params; RED first — 184 params, see GATE-VERIFY note on the
+   chalk/NO_COLOR gap). Details: `.agents/evals/scenarios/screen-006-palette-motion-agent-run.md`.
 2. **Normal-run consistency:** run with color on → status colors across the streaming indicator,
    background panel, and workspace pane all come from `STATUS_GLYPH`→`PALETTE.status` (denied is
    `yellowBright` everywhere), markdown/diff styling from `tui-ansi-palette`.
-   Evidence: `screen-006-no-color.ptytest.ts` S2 — _to fill at IMPLEMENT/VERIFY._
+   Evidence: `screen-006-no-color.ptytest.ts` S2 — **GREEN 2026-07-25** (agent-run: `✓ Shell` in
+   `ESC[32m` from `STATUS_GLYPH`→`PALETTE.status`, `Robota:` in accent `ESC[36m`, diff block with
+   the `48;5;22`+`38;5;120` pair). Deviation recorded at GATE-VERIFY: the denied kind is pinned at
+   component level, not in the pty run — a permission DENY short-circuits before tool-start, so the
+   framework emits no persisted tool-summary entry for it (framework-side, outside this spec's
+   package scope). Details: `.agents/evals/scenarios/screen-006-palette-motion-agent-run.md`.
 
 Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-006-palette-motion-agent-run.md`.
 
@@ -313,3 +320,66 @@ Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-006
      in TS helpers not caught) recorded as a deliberate decision in the Test Plan.
 - Approved on the reviewer's conditional ("after one factual correction... then approve");
   `status: approved`, moved draft → todo.
+
+### [GATE-IMPLEMENT] — red-before-green implementation | 2026-07-25
+
+- RED pastes (all four fail against pre-change `origin/develop`, run before implementing):
+  - `palette-consistency.test.ts`: attr-literal floor **62 findings** (54 `color=` + 8
+    `borderColor=`), hex floor **4 findings** (`WaveText.tsx:13` ×4) — matches the Problem tables.
+  - `tui-palette.test.ts`: `Error: Cannot find module '../tui-palette.js'` (module absent).
+  - `message-list-rendering.test.tsx` denied test: `expected '…⊘ Edit(file.ts)…' to contain
+'\u001b[93m'` (the hand-rolled mapping rendered plain yellow `ESC[33m`).
+  - `wave-text.test.tsx`: `Cannot find module '../tui-palette.js'` (token source absent).
+- Implemented per Decision: `src/tui-palette.ts` (PALETTE.text/border/status + MOTION, values =
+  today's colors, ramp widened `#555555→#bbbbbb`); `status-glyph.ts` colors → `PALETTE.status.*`;
+  `MessageList` hand-rolled duplicate DELETED (unified via `toolStateStatusKind` + `STATUS_GLYPH`;
+  helpers extracted to `src/tool-summary-status.ts` for the file-size ratchet);
+  62 literal sites + derived helpers (`getContextColor`, `formatStatusActivity`,
+  `SlashAutocomplete.nameColor`, `InputArea` border ternary, selection-row `'cyan'` ternaries)
+  tokenized; `SessionPicker.tsx` `color="gray"` → `dimColor` per the de-emphasis rule;
+  StatusBar `'  |  '` ×6 → one `SEP` constant; `docs/SPEC.md` "Color & Motion Contract
+  (SCREEN-006)" added (incl. the floor known-limit sentence).
+
+### [GATE-VERIFY] — agent-run verification + two recorded deviations | 2026-07-25
+
+- Green: package vitest **525/525** (68 files, incl. the 4 new/extended suites); full pty suite
+  **19/19** (12 files) on the rebuilt binary; `pnpm -w typecheck` clean;
+  `node scripts/harness/run-all-scans.mjs` **60/60** (scan-prompt-prose baseline untouched);
+  no new lint/scan suppressions beyond 4 reasoned `no-control-regex` disables in tests
+  (existing repo precedent for raw-SGR assertions).
+- **Deviation 1 (product gap found by S1, fixed inside the package):** the Decision's "Fallback
+  declaration: none" assumed Ink/chalk already honored NO_COLOR — false: chalk 5's vendored
+  supports-color reads only FORCE_COLOR/TTY/TERM, so on a real pty `NO_COLOR=1` still colored
+  every component (S1 RED: 184 SGR color params). Fix: one-line sync in `src/render.tsx` —
+  `chalk.level = 0` when `isInteractiveColorTerminal()` is false. Gate ownership unchanged
+  (`terminal-capabilities.ts` stays the SSOT); gate-on behavior unchanged. Without this, the
+  Test Plan's S1 (a named RED criterion) is unsatisfiable.
+- **Deviation 2 (S2 denied-kind reachability):** a permission DENY short-circuits before
+  tool-start, so `interactive-session-streaming.ts` (framework — out of scope) emits no persisted
+  `tool-summary` entry for the denied tool; the pty S2 therefore evidences the
+  `STATUS_GLYPH`→`PALETTE.status` sourcing via the success kind, and the denied `yellowBright`
+  unification is pinned by the component-level test (RED→GREEN above). "Denied is yellowBright
+  everywhere" holds at every render site (single SSOT path); the end-to-end denied SURFACE is
+  framework-gated.
+- Evidence file: `.agents/evals/scenarios/screen-006-palette-motion-agent-run.md`.
+- Status `verifying`, stays in `active/` — GATE-COMPLETE deliberately NOT self-certified: the two
+  deviations above amend the approved Decision text and should be accepted at review before the
+  move to `done/`.
+
+### [GATE-COMPLETE] — deviations reviewed and ACCEPTED | 2026-07-25
+
+- Orchestrator review under the session's pre-approval framework (reasoned recommendation =
+  pre-approved), applying the HARNESS-028 taxonomy:
+  1. **Deviation 1 ACCEPTED.** The `chalk.level = 0` sync is CAPABILITY GATING (mechanical
+     environment honoring, same class as `isInteractiveColorTerminal()` itself), not a
+     catch→default error fallback — the Fallback Declaration's "none" refers to the HARNESS-028
+     swallow class and remains true. The sync closes a real product gap (chalk 5 ignores
+     NO_COLOR) that S1 was specifically designed to catch; finding it is the Test Plan working
+     as intended. Gate SSOT unchanged.
+  2. **Deviation 2 ACCEPTED.** The denied-kind end-to-end surface is framework-gated (deny
+     short-circuits before tool-start — out of this spec's scope by its own Affected Scope);
+     the component-level RED→GREEN pin plus the single-SSOT sourcing path is the correct
+     evidence tier. If the framework ever persists denied tool-summaries, the existing pty
+     harness covers it with no palette change.
+- All completion criteria + User Execution scenarios otherwise satisfied with agent-run
+  evidence (525/525, pty 19/19, 60/60 scans). `status: done`, moved active/ → done/.

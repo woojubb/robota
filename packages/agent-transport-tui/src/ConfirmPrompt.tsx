@@ -18,6 +18,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 /**
  * Footer for the confirm prompt. Names the canonical keys for a horizontal row (←→; the reducer
@@ -65,13 +66,18 @@ export default function ConfirmPrompt({
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow">{message}</Text>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.attention}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning}>{message}</Text>
       <Box marginTop={1}>
         {options.map((opt, i) => (
           <Box key={opt} marginRight={2}>
             <Text
-              color={i === state.selectedIndex ? 'cyan' : undefined}
+              color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
               bold={i === state.selectedIndex}
             >
               {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}

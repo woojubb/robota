@@ -17,6 +17,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IActionOption } from '@robota-sdk/agent-core';
 
@@ -90,8 +91,13 @@ export default function MultiSelectList({
   const canConfirm = selected.size >= minSelect;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow" bold>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.attention}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning} bold>
         {title}
       </Text>
       {description !== undefined && description.length > 0 && <Text dimColor>{description}</Text>}
@@ -99,7 +105,7 @@ export default function MultiSelectList({
         const isCursor = index === cursor;
         const isChecked = selected.has(option.value);
         return (
-          <Text key={option.value} color={isCursor ? 'cyan' : undefined}>
+          <Text key={option.value} color={isCursor ? PALETTE.text.accent : undefined}>
             {isCursor ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {isChecked ? '[x] ' : '[ ] '}
             {option.label}

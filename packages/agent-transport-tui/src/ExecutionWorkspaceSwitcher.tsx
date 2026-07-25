@@ -16,6 +16,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 import type {
   IExecutionWorkspaceEntry,
@@ -58,8 +59,13 @@ export default function ExecutionWorkspaceSwitcher({
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
-      <Text color="cyan" bold>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.focused}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.accent} bold>
         Execution workspace
       </Text>
       <Box flexDirection="column" marginTop={1}>
@@ -187,11 +193,14 @@ function ExecutionWorkspaceSwitcherRow({
   const row = formatExecutionWorkspaceEntryRow(entry, { selectedEntryId });
   return (
     <Text>
-      <Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
+      <Text color={isFocused ? PALETTE.text.accent : undefined} bold={isFocused}>
         {isFocused ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
       </Text>
       <Text color={row.color}>{row.radio}</Text>
-      <Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>{` ${row.title}`}</Text>
+      <Text
+        color={isFocused ? PALETTE.text.accent : undefined}
+        bold={isFocused}
+      >{` ${row.title}`}</Text>
       <Text dimColor>{` · ${row.statusLabel}`}</Text>
       {row.subtitle ? <Text dimColor>{` · ${row.subtitle}`}</Text> : null}
       {row.preview ? <Text dimColor>{` · ${row.preview}`}</Text> : null}

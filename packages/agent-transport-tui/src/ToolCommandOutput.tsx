@@ -3,6 +3,7 @@ import React from 'react';
 
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { STATUS_GLYPH } from './status-glyph.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { ICommandOutputInput } from './command-output-summary.js';
 
@@ -24,7 +25,7 @@ export default function ToolCommandOutput({ tool }: IProps): React.ReactElement 
   ) {
     return null;
   }
-  const color = summary.status === 'error' ? STATUS_GLYPH.error.color : 'white';
+  const color = summary.status === 'error' ? STATUS_GLYPH.error.color : PALETTE.text.emphasis;
 
   return (
     <Box flexDirection="column" marginLeft={4}>

@@ -14,6 +14,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IPendingPermissionRequest } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -72,13 +73,18 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow" bold>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={PALETTE.border.attention}
+      paddingX={1}
+    >
+      <Text color={PALETTE.text.warning} bold>
         [Permission Required]
       </Text>
       <Text>
         Tool:{' '}
-        <Text color="cyan" bold>
+        <Text color={PALETTE.text.accent} bold>
           {request.toolName}
         </Text>
       </Text>
@@ -87,7 +93,7 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
         {PERMISSION_PROMPT_OPTIONS.map((opt, i) => (
           <Box key={opt} marginRight={2}>
             <Text
-              color={i === state.selectedIndex ? 'cyan' : undefined}
+              color={i === state.selectedIndex ? PALETTE.text.accent : undefined}
               bold={i === state.selectedIndex}
             >
               {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}

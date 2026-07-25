@@ -2,6 +2,7 @@ import { Box, Text } from 'ink';
 import React from 'react';
 
 import { formatBackgroundTaskRow } from './background-task-row-format.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-transport';
 
@@ -24,7 +25,7 @@ export default function BackgroundTaskPanel({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="cyan" bold>
+        <Text color={PALETTE.text.accent} bold>
           Background work
         </Text>
         <Text dimColor>{hint}</Text>

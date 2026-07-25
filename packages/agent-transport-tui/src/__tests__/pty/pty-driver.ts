@@ -77,6 +77,12 @@ export interface ISpawnTuiOptions {
   rows?: number;
   /** Extra CLI args appended after the binary (e.g. `['--session-log', path]`). */
   args?: readonly string[];
+  /**
+   * Extra environment variables merged over the driver's minimal base env
+   * (e.g. `{ NO_COLOR: '1' }` for the SCREEN-006 no-color scenario). The base stays
+   * explicit — real provider keys are never inherited into PTY runs.
+   */
+  env?: Readonly<Record<string, string>>;
 }
 
 export function writeTuiProviderSettings(projectDir: string): void {
@@ -113,6 +119,7 @@ export function spawnTui(options: ISpawnTuiOptions): IPtySession {
       HOME: options.homeDir,
       TERM: 'xterm-256color',
       // Never inherit real provider keys into PTY runs.
+      ...(options.env ?? {}),
     },
     ...(options.cols !== undefined ? { cols: options.cols } : {}),
     ...(options.rows !== undefined ? { rows: options.rows } : {}),

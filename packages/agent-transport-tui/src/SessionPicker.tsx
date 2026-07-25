@@ -8,6 +8,7 @@ import React from 'react';
 
 import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-transport';
 
@@ -27,7 +28,7 @@ export default function SessionPicker({
 }: IProps): React.ReactElement {
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
-      <Text bold color="cyan">
+      <Text bold color={PALETTE.text.accent}>
         Select a session to resume:
       </Text>
       <ListPicker<IResumableSessionSummary>
@@ -55,7 +56,7 @@ export default function SessionPicker({
               {preview ? (
                 <>
                   {'\n    '}
-                  <Text color="gray">{preview}</Text>
+                  <Text dimColor>{preview}</Text>
                 </>
               ) : null}
             </Text>

@@ -7,6 +7,7 @@ import {
   SELECTION_INDICATOR_NONE,
   type IKeyHint,
 } from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { ICommand } from '@robota-sdk/agent-interface-transport';
 
@@ -65,7 +66,7 @@ function CommandRow(props: {
 }): React.ReactElement {
   const { cmd, isSelected, showSlash, rowWidth, nameColWidth } = props;
   const indicator = isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE;
-  const nameColor = isSelected ? 'cyan' : undefined;
+  const nameColor = isSelected ? PALETTE.text.accent : undefined;
   const dimmed = !isSelected;
   const namePart = capName(cmd.name, nameColWidth);
   const text = showSlash
@@ -101,7 +102,7 @@ export default function SlashAutocomplete({
   );
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={PALETTE.border.muted} paddingX={1}>
       {visibleCommands.map((cmd, i) => (
         <CommandRow
           key={cmd.name}
