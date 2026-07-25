@@ -92,6 +92,42 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
     }
   }
 
+  findings.push(...(await findDuplicateIdFindings(root)));
+
+  return findings;
+}
+
+/**
+ * A backlog ID must exist in exactly ONE place. An item filed in the root and separately
+ * archived in `completed/` (e.g. the orchestrator files the item, the implementing agent
+ * writes its own copy straight into `completed/`) leaves a stale open-looking duplicate that
+ * makes finished work read as outstanding. The status⇔directory checks above cannot see this:
+ * each file is individually consistent. Observed 2026-07-25 (HARNESS-043).
+ */
+export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
+  const findings = [];
+  // The ID includes any phase suffix (`-P3`, `-P4-P5`): a phase follow-up filed while its parent
+  // is archived (e.g. open `SELFHOST-008-P5-…` alongside completed `SELFHOST-008-…`) is the
+  // intended convention, NOT a duplicate — only an identical ID in both places is.
+  const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
+
+  const completedById = new Map();
+  for (const name of await listMarkdown(path.join(root, COMPLETED_DIR))) {
+    const id = idOf(name);
+    if (id !== null) completedById.set(id, name);
+  }
+
+  for (const name of await listMarkdown(path.join(root, BACKLOG_DIR))) {
+    const id = idOf(name);
+    if (id === null) continue;
+    const archived = completedById.get(id);
+    if (archived === undefined) continue;
+    findings.push({
+      file: path.join(BACKLOG_DIR, name),
+      problem: `duplicate backlog ID ${id} — also archived at ${path.join(COMPLETED_DIR, archived)}; keep exactly one`,
+    });
+  }
+
   return findings;
 }
 
