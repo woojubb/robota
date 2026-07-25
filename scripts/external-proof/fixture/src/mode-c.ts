@@ -18,7 +18,7 @@ import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
 import { createDefaultTools, InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
-import { codingPack } from '@robota-sdk/pack-coding';
+import { createCodingPack } from '@robota-sdk/pack-coding';
 
 import {
   ACME_PROVIDER_SETTINGS,
@@ -29,11 +29,18 @@ import {
   acmeTicketTool,
 } from './acme.js';
 import { check, checkEqual, mode, note, section } from './harness.js';
+
+/**
+ * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
+ * would carry a disarmed working-directory path guard on its file tools. A consumer builds it exactly as
+ * robota's own shell does, with the cwd it assembles the session under.
+ */
+const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 
-export function runModeC(): void {
+export async function runModeC(): Promise<void> {
   mode("MODE C — our preset by id + the consumer's own capability pack");
 
   const providerDefinitions = createDefaultProviderDefinitions();
@@ -221,6 +228,29 @@ export function runModeC(): void {
     0,
   );
 
+  // The property that makes suppression SAFE, measured from outside: because the pack is built by a
+  // factory bound to a cwd, the file tools it contributes are scoped to it. A context-free pack would
+  // hand a product that suppresses the framework tier an UNSANDBOXED Read/Write/Edit.
+  const packRead = (packOwnedOptions.additionalTools ?? []).find(
+    (tool) => tool.getName() === 'Read',
+  );
+  const readOutcome = await packRead!.execute(
+    { filePath: '/etc/hostname' } as never,
+    {
+      toolName: 'Read',
+      parameters: {},
+    } as never,
+  );
+  const readResult = JSON.parse(String((readOutcome as { data?: unknown }).data)) as {
+    success: boolean;
+    error?: string;
+  };
+  check(
+    'and the pack-owned Read is SCOPED — it denies a path outside the cwd the pack was built with',
+    readResult.success === false &&
+      (readResult.error ?? '').includes('outside the working directory'),
+  );
+
   note(
     'THEREFORE, precisely: `createSession` assembles `defaultTools ⊕ additionalTools ⊕ goalTool` and ' +
       'deduplicates by tool name (FIRST occurrence wins). A pack contributing a NEW tool is additive; a ' +
@@ -228,6 +258,12 @@ export function runModeC(): void {
       'that wants its packs to OWN the tool surface passes `defaultTools: []`. Removing a pack from such ' +
       'a profile removes its tools from the product — the same load-bearing property the command and ' +
       'subagent axes already had.',
+  );
+  note(
+    'SAFETY: a pack that owns the tool surface MUST carry the session context. `createCodingPack` takes a ' +
+      'REQUIRED `cwd` for exactly that reason — `agent-tools` disarms its working-directory path guard ' +
+      'when `cwd` is undefined, so a context-free pack paired with `defaultTools: []` would ship an ' +
+      'unsandboxed Read/Write/Edit. There is deliberately no context-free `codingPack` constant.',
   );
   note(
     'PRECEDENCE, and why it points this way: a name collision keeps the FRAMEWORK default and drops the ' +
@@ -243,7 +279,10 @@ export function runModeC(): void {
       'tool list, so the dedupe ITSELF is measured in-repo (agent-framework ' +
       'src/__tests__/create-session-default-tools.test.ts, 8 red-first cases). What this proof measures ' +
       'from the published surface is the seam that makes it reachable: the `defaultTools` option on the ' +
-      'shipped session-options type, and the overlay that carries the pack tools into it.',
+      'shipped session-options type, the overlay that carries the pack tools into it, and the scoping of ' +
+      'the pack-owned file tools. `robota` itself now consumes exactly this shape — its profile builds ' +
+      'pack-coding with the shell cwd and passes `defaultTools: []`, so its coding tools come FROM the ' +
+      'pack (asserted in-repo by agent-cli src/__tests__/robota-runtime-seam.test.ts).',
   );
   note(
     'COMMAND + SUBAGENT AXES: fully additive — command modules are passed as data and subagents arrive ' +

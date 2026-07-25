@@ -19,5 +19,5 @@ process.stdout.write(
 
 runModeA();
 runModeB();
-runModeC();
+await runModeC();
 report();
