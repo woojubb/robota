@@ -102,7 +102,11 @@
     {
       "$comment": "ARCH-005 composition-neutrality POLICY (scan-composition-neutrality.mjs). Enforces the three R1 guards that make the agent-product L129 carve-out safe: the shared assembler stays pure, IO-free, and product-neutral. The amended project-structure L129 rule is COUPLED to these guards. A missing scan target is a hard finding, not a silent pass.",
       "dir": "packages/agent-product",
-      "forbiddenDependencies": ["@robota-sdk/agent-cli", "@robota-sdk/agent-transport"],
+      "forbiddenDependencies": [
+        "@robota-sdk/agent-cli",
+        "@robota-sdk/agent-transport",
+        "@robota-sdk/agent-executor"
+      ],
       "forbiddenDependencyPrefixes": [
         "@robota-sdk/agent-transport",
         "@robota-sdk/agent-interface-tui"
@@ -110,6 +114,7 @@
       "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
       "forbiddenIdentifiers": [
         "process.env",
+        "globalThis.process",
         "readSettings",
         "readProviderSettings",
         "readMergedProviderSettings",

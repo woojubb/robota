@@ -14,9 +14,11 @@
  *      transport, the TUI, or the CLI — those are injected via the profile.
  *  (b) Purity / no-IO — no `src/` file imports a forbidden IO module (`node:fs`, …) or uses a forbidden
  *      IO identifier (`process.env`, settings/file readers). All resolved data is fed IN from the shell.
- *  (c) No product-name conditionals — no `src/` file branches on a product identity: `X.id === '…'` /
- *      `X.agentName === '…'` (and `!==`). This is what upgrades "profile-driven" into "hard-codes no
- *      product's choices".
+ *  (c) No product-name conditionals — no `src/` file branches on a product identity (`.id` / `.agentName`).
+ *      Four forms are banned, because equality is only the most obvious way to special-case one product:
+ *      equality against a literal (`X.id === '…'`, `!==`, backticks), a `switch` on the identity, a string
+ *      predicate (`X.id.startsWith/includes/endsWith/match(…)`), and a lookup table keyed by the identity
+ *      (`TABLE[X.id]`). This is what upgrades "profile-driven" into "hard-codes no product's choices".
  *
  * A configured package whose `src/` or `package.json` is missing is a hard SCAN-TARGET-MISSING finding, not
  * a silent pass (mirrors the check-dependency-direction purity guard — a dead guard is a defect).
@@ -109,8 +111,28 @@ export function findIoViolations(source, file, rule) {
   return findings;
 }
 
-/** A product-identity conditional: `X.id === '…'` / `X.agentName !== '…'` (equality against a string literal). */
-const PRODUCT_NAME_CONDITIONAL = /\.(id|agentName)\s*(?:===|!==)\s*['"]/;
+/**
+ * The ways a fold can special-case ONE product by its identity (`.id` / `.agentName`). Equality is only the
+ * most obvious of them — a `switch`, a string predicate, or a lookup table keyed by the identity reaches the
+ * same "hard-codes a product's choices" outcome, so all four forms are banned. Reading the identity as DATA
+ * (`id: profile.id`, passing it through, comparing two ids to each other) stays legal: the guard bans
+ * BRANCHING on a product's identity, not touching it.
+ */
+const PRODUCT_IDENTITY = String.raw`\.(?:id|agentName)(?![\w$])`;
+const PRODUCT_NAME_CONDITIONALS = [
+  // `profile.id === 'robota'` / `opts.agentName !== "acme"` / backtick form.
+  // `\u0060` is the backtick, spelled as an escape so the pattern can live in a template literal.
+  { form: 'equality', re: new RegExp(String.raw`${PRODUCT_IDENTITY}\s*(?:===|!==)\s*['"\u0060]`) },
+  // `switch (profile.id) {` — a switch discriminated on the product identity.
+  { form: 'switch', re: new RegExp(String.raw`switch\s*\(\s*[\w$.]*${PRODUCT_IDENTITY}\s*\)`) },
+  // `profile.id.startsWith('robota')` / `.includes(…)` / `.endsWith(…)` — prefix/substring identity tests.
+  {
+    form: 'string-predicate',
+    re: new RegExp(String.raw`${PRODUCT_IDENTITY}\s*\.\s*(?:startsWith|endsWith|includes|match)\s*\(`),
+  },
+  // `PRODUCT_WIRING[profile.id]` — a lookup table keyed by the product identity.
+  { form: 'identity-index', re: new RegExp(String.raw`\[\s*[\w$]+${PRODUCT_IDENTITY}\s*\]`) },
+];
 
 /** (c) Product-name conditionals in a source string. Pure. */
 export function findProductNameConditionals(source, file) {
@@ -118,14 +140,18 @@ export function findProductNameConditionals(source, file) {
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    const m = PRODUCT_NAME_CONDITIONAL.exec(line);
-    if (m && !inComment(line, m.index)) {
-      findings.push({
-        kind: 'product-name-conditional',
-        file,
-        line: i + 1,
-        text: line.trim().slice(0, 120),
-      });
+    for (const { form, re } of PRODUCT_NAME_CONDITIONALS) {
+      const m = re.exec(line);
+      if (m && !inComment(line, m.index)) {
+        findings.push({
+          kind: 'product-name-conditional',
+          id: form,
+          file,
+          line: i + 1,
+          text: line.trim().slice(0, 120),
+        });
+        break; // one finding per line — the fix is the same regardless of how many forms match
+      }
     }
   }
   return findings;
@@ -178,7 +204,8 @@ function main() {
     '\nThe ARCH-005 L129 carve-out holds ONLY while the assembler stays pure, IO-free, and product-neutral:\n' +
       '  (a) no concrete transport/TUI/CLI dependency,\n' +
       '  (b) no fs/env/settings read in src (resolved data is fed in from the shell),\n' +
-      '  (c) no product-identity conditional (`X.id === "…"` / `X.agentName === "…"`).\n' +
+      '  (c) no product-identity BRANCH — equality (`X.id === "…"`), `switch (X.id)`,\n' +
+      '      `X.id.startsWith/includes/endsWith(…)`, or a lookup table keyed by `X.id`.\n' +
       'Fix the assembler, not the guard.',
   );
   process.exit(1);
