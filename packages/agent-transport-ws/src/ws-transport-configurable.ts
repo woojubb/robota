@@ -3,18 +3,31 @@
  * Owns the WebSocket server lifecycle (ws package), started/stopped via the transport registry.
  */
 
-import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { WebSocketServer, WebSocket } from 'ws';
 
+import { PayloadChannelRegistry } from './payload-channels.js';
+import {
+  hostAllowed,
+  mintToken,
+  originAllowed,
+  presentedToken,
+  tokenMatches,
+} from './ws-connection-guards.js';
+
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
+  IChannelDescriptor,
   IConfigurableTransport,
   IInteractiveSession,
+  IPayloadChannel,
+  IPayloadChannelHost,
+  TChannelEventMap,
 } from '@robota-sdk/agent-interface-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
+import type { RawData } from 'ws';
 
 const DEFAULT_PORT = 7070;
 const DEFAULT_MAX_RETRIES = 20;
@@ -50,16 +63,6 @@ export interface IWsTransportConfig {
   allowedOrigins?: readonly string[];
 }
 
-/** Mint a random per-launch loopback token. Throws (never returns empty) if entropy is unavailable → the
- * transport then fails to construct/start rather than binding OPEN (SEC-001 fail-closed). */
-function mintToken(): string {
-  return randomBytes(32).toString('hex');
-}
-
-/** Host names that are always loopback (port stripped by the caller). IPv4 bind only, so `[::1]` inbound is
- * moot, but accepting it is harmless. */
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
 /**
  * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after
  * every client socket is gone, so a still-connected client would hang `stop()` forever. We send a close frame
@@ -68,61 +71,24 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
  */
 const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
 
-/** Strip the `:port` suffix from a Host/authority (port-agnostic — `bindWithRetry` can walk the port). */
-function hostname(hostHeader: string | undefined): string | null {
-  if (!hostHeader) return null;
-  if (hostHeader.startsWith('[')) return hostHeader.slice(0, hostHeader.indexOf(']') + 1) || null;
-  const colon = hostHeader.lastIndexOf(':');
-  return colon === -1 ? hostHeader : hostHeader.slice(0, colon);
-}
-
-/** The upgrade `Host` must be a loopback name (port-agnostic) or an explicitly allowed host — closes DNS
- * rebinding. A missing `Host` is rejected (a well-formed HTTP/1.1 client always sends one). */
-function hostAllowed(req: IncomingMessage, allowedHosts: ReadonlySet<string>): boolean {
-  const host = hostname(req.headers.host);
-  if (host === null) return false;
-  return LOOPBACK_HOSTS.has(host) || allowedHosts.has(host);
-}
-
-/** A browser sends an unforgeable `Origin`; require it to be loopback or explicitly allowed. A non-browser
- * client omits `Origin` (allowed here — the token is its gate). Closes the browser drive-by hole. */
-function originAllowed(req: IncomingMessage, allowedOrigins: ReadonlySet<string>): boolean {
-  const origin = req.headers.origin;
-  if (origin === undefined) return true; // non-browser client; token still required
-  if (allowedOrigins.has(origin)) return true;
-  try {
-    return LOOPBACK_HOSTS.has(new URL(origin).hostname);
-  } catch {
-    return false; // malformed Origin → reject
-  }
+/**
+ * Normalize the `ws` inbound payload shapes (Buffer | ArrayBuffer | Buffer[]) to a single
+ * `Uint8Array` view. `ws` delivers a fragmented message as an array of Buffers.
+ */
+function toBytes(data: RawData): Uint8Array {
+  if (Array.isArray(data)) return new Uint8Array(Buffer.concat(data));
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
 /**
- * Constant-time token comparison. Returns false on any length mismatch (never throws), so an
- * absent/short/long presented token is a plain reject, not an error.
+ * TRANS-001: the WS transport is a payload-agnostic CARRIER that routes by WebSocket frame opcode —
+ * TEXT frames go to the text-agent protocol profile (`createWsHandler`), BINARY frames go to the
+ * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
-function tokenMatches(expected: string, presented: string | null | undefined): boolean {
-  if (!presented) return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(presented);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-/** Read the presented token from the upgrade request: `?token=` query param, else the WS subprotocol. */
-function presentedToken(req: IncomingMessage): string | null {
-  try {
-    const url = new URL(req.url ?? '', 'ws://127.0.0.1');
-    const q = url.searchParams.get('token');
-    if (q) return q;
-  } catch {
-    // malformed URL → fall through to the subprotocol header
-  }
-  const proto = req.headers['sec-websocket-protocol'];
-  return typeof proto === 'string' ? proto.split(',')[0]?.trim() || null : null;
-}
-
-export class WsTransport implements IConfigurableTransport<IInteractiveSession> {
+export class WsTransport
+  implements IConfigurableTransport<IInteractiveSession>, IPayloadChannelHost
+{
   readonly name = 'ws';
   readonly defaultEnabled = true;
   readonly optionsSchema = {
@@ -141,6 +107,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
   private readonly token?: string;
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
+  private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
   constructor(config: IWsTransportConfig = {}) {
@@ -159,6 +126,18 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
 
   attach(session: IInteractiveSession): void {
     this.session = session;
+  }
+
+  /**
+   * TRANS-001: declare an app-level channel carried on this transport's connections. The channel's
+   * events and opaque binary frames ride alongside the text-agent protocol on the SAME socket — the
+   * transport never inspects the payloads. Register before or after `start()`; a channel opened
+   * later is served by every already-connected client.
+   */
+  registerChannel<TEvents extends TChannelEventMap>(
+    descriptor: IChannelDescriptor<TEvents>,
+  ): IPayloadChannel<TEvents> {
+    return this.channels.registerChannel(descriptor);
   }
 
   /**
@@ -228,6 +207,7 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
       const expectedToken = this.token;
       const allowedHosts = this.allowedHosts;
       const allowedOrigins = this.allowedOrigins;
+      const channels = this.channels;
       httpServer.listen(port, '127.0.0.1', () => {
         const wss = new WebSocketServer({
           server: httpServer,
@@ -265,9 +245,28 @@ export class WsTransport implements IConfigurableTransport<IInteractiveSession> 
 
           const { onMessage, cleanup } = createWsHandler({ session, send });
 
-          ws.on('message', (data) => onMessage(String(data)));
-          ws.on('close', cleanup);
-          ws.on('error', cleanup);
+          // TRANS-001: this connection becomes a sink for every declared channel's outbound frames.
+          const detachSink = channels.addSink((frame: Uint8Array) => {
+            if (ws.readyState === WebSocket.OPEN) ws.send(frame, { binary: true });
+          });
+          const closeConnection = (): void => {
+            detachSink();
+            cleanup();
+          };
+
+          // Route by frame opcode: TEXT → the text-agent protocol profile, BINARY → the
+          // payload-agnostic channels. An unroutable channel frame is answered with an explicit
+          // `protocol_error` rather than silently dropped.
+          ws.on('message', (data: RawData, isBinary: boolean) => {
+            if (!isBinary) {
+              onMessage(String(data));
+              return;
+            }
+            const result = channels.receive(toBytes(data));
+            if (!result.ok) send({ type: 'protocol_error', message: result.error });
+          });
+          ws.on('close', closeConnection);
+          ws.on('error', closeConnection);
 
           send({ type: 'messages', messages: session.getMessages() });
           send({
