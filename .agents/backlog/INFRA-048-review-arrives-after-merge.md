@@ -59,6 +59,13 @@ So for every PR since 2026-07-24 the "review" check was green and empty. That is
 in its purest form — a check reporting success for work it did not do — and it is invisible from
 outside the run log.
 
+**It is a recurring window, not a one-off.** The condition opens whenever that file changes on
+`develop`, and closes silently on the next develop→main promotion. It closed mid-investigation: the
+routine promotion #1427 merged at `2026-07-25T17:27:54Z`, carrying `@v7` to `main`, which restored
+parity by itself. Nothing announced either edge. That is exactly why the fix is a scan rather than a
+one-line correction — the drift will recur on the next workflow edit, and only a mechanical check
+makes the window visible while it is open.
+
 ## Decision
 
 Three levers were on the table (the original item's options 1–3). What shipped, and why.
@@ -69,10 +76,11 @@ Three levers were on the table (the original item's options 1–3). What shipped
    in `run-all-scans` → runs inside the REQUIRED `scans` job). Every workflow that invokes
    `anthropics/claude-code-action` must match the default branch's copy exactly; drift fails the
    scan with the reason. Governed workflows are discovered by the action they invoke, never by a
-   hardcoded filename. `.github/workflows/claude-code-review.yml` is restored to byte-identity, so
-   the reviewer runs again. FAIL-CLOSED: if the default branch's copy cannot be read, the scan
-   fails. Not applicable on a PR whose base IS the default branch — that PR is the promotion which
-   restores parity.
+   hardcoded filename. FAIL-CLOSED: if the default branch's copy cannot be read, the scan fails. Not
+   applicable on a PR whose base IS the default branch — that PR is the promotion which restores
+   parity. The scan caught the drift twice during this work: once against the original `@v7`/`@v4`
+   split, and once again the other way after #1427 landed `@v7` on `main` mid-session. This PR
+   carries no net change to that workflow — the correction it needs is the guard, not the byte.
 
 2. **`review-gate` check** (`.github/workflows/review-gate.yml` + the pure, unit-tested decision
    module `scripts/harness/check-review-gate.mjs`). It waits for the code-scanning analysis of the
@@ -120,15 +128,22 @@ admin bypass nobody can audit.
 
 ## Red / green evidence
 
-**Parity — against the real repository:**
+**Parity — against the real repository, in both drift directions, on the live tree:**
 
 ```
-BEFORE  review-workflow-parity scan failed (INFRA-048):
-          - .github/workflows/claude-code-review.yml: differs from origin/main. … skips the review
-            and exits 0 — the check reports `success` having reviewed nothing.          EXIT=1
-AFTER   review-workflow-parity scan passed: .github/workflows/claude-code-review.yml
-          match origin/main.                                                            EXIT=0
+RED    (develop @v7 vs main @v4 — the state at the start of this work)
+       review-workflow-parity scan failed (INFRA-048):
+         - .github/workflows/claude-code-review.yml: differs from origin/main. … skips the review
+           and exits 0 — the check reports `success` having reviewed nothing.           EXIT=1
+GREEN  review-workflow-parity scan passed … match origin/main.                          EXIT=0
+
+RED    (again, unprompted: #1427 landed @v7 on main at 17:27:54Z, so the tree drifted the OTHER
+        way and the scan re-fired — the same finding, opposite direction)                EXIT=1
+GREEN  re-synced to the current default branch                                           EXIT=0
 ```
+
+The second RED was not staged. It is the guard catching a real, live drift mid-session — the
+recurrence this scan exists to make visible.
 
 **The gate.** The `Decide` step body is EXTRACTED from `review-gate.yml` itself and run under
 GitHub's `bash -e -o pipefail` semantics with `gh` stubbed. Before: `develop` has no `review-gate`
