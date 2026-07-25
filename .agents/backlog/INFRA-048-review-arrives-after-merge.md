@@ -86,17 +86,26 @@ Three levers were on the table (the original item's options 1–3). What shipped
    module `scripts/harness/check-review-gate.mjs`). It waits for the code-scanning analysis of the
    PR head, reads the alerts for the PR ref and for the base branch, and decides:
 
-   | class        | rule                                                          | blocks?                         |
-   | ------------ | ------------------------------------------------------------- | ------------------------------- |
-   | blocking     | introduced by this PR, severity `error` or security high/crit | **yes**                         |
-   | advisory     | any other alert introduced by this PR                         | no, but printed on the check    |
-   | pre-existing | already open on the base branch                               | no                              |
-   | unavailable  | analysis incomplete, API error, unparseable payload           | **yes**                         |
-   | acknowledged | PR carries `review-findings-acknowledged`                     | no, override recorded on the PR |
+   | class        | rule                                                            | blocks?                         |
+   | ------------ | --------------------------------------------------------------- | ------------------------------- |
+   | blocking     | introduced by this PR, severity `error` or security high/crit   | **yes**                         |
+   | advisory     | any other alert introduced by this PR                           | no, but printed on the check    |
+   | pre-existing | already open on the base branch                                 | no                              |
+   | unavailable  | no analysis record, analysis incomplete, API error, unparseable | **yes**                         |
+   | acknowledged | PR carries `review-findings-acknowledged`                       | no, override recorded on the PR |
 
    On a block it also runs `gh pr merge --disable-auto`, because a red **non-required** check does
    not stop an armed auto-merge — which is precisely the #1409 hole. The disarm is the lever that
    works today; the ruleset entry (below) is the durable one.
+
+   **A fail-open caught in the gate itself, live.** On the first run (#1434) the alerts query
+   returned **0** for the PR ref while `develop` carried 100 — and the gate reported `PASS (clean)`.
+   The zero turned out to be genuine (CodeQL's PR analyses are diff-informed: `results_count = 0` on
+   `refs/pull/1434/merge`), but the gate had no way to know that: the alerts endpoint answers `[]`
+   both for "analysed and clean" and for "never analysed". Same conflation, one level down. The
+   Collect step now checks the analysis RECORD first (`/code-scanning/analyses?ref=refs/pull/N/merge`)
+   and writes the `UNAVAILABLE` sentinel when none exists, so an empty list can only mean a real
+   result.
 
 **Why this design survives the NIT-bypass failure mode.** A gate that hard-fails on any review
 finding blocks merges on NITs and gets routinely bypassed, which is worse than advisory — a bypassed
@@ -176,6 +185,19 @@ blocking finding + the acknowledge label
 
 Every case also writes the report to `$GITHUB_STEP_SUMMARY`, so the findings are on the PR's check
 page rather than only in a log.
+
+**The gate, live on a real runner** (#1434, run `30168092423`, 3 m 32 s):
+
+```
+code-scanning analyses: 0/1 completed      <- polled; "not analysed yet" is never read as "clean"
+… (11 polls, 20 s apart) …
+code-scanning analyses: 1/1 completed
+review-gate: PASS (clean)
+no findings introduced by this PR.
+```
+
+So the check exists, waits for the analysis, and decides — where before there was no review signal
+on the merge decision at all.
 
 ## Test Plan
 

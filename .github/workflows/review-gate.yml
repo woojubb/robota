@@ -75,7 +75,18 @@ jobs:
         run: |
           # `UNAVAILABLE` is the fail-closed sentinel the decision module blocks on. Every failure
           # path below writes it — none of them writes an empty list, which would read as "clean".
-          if [ "${analysis_complete}" != "true" ]; then
+          #
+          # An empty alert list is only meaningful if an analysis actually produced it. The alerts
+          # endpoint answers `[]` both for "this ref was analysed and is clean" and for "this ref
+          # was never analysed" — the same conflation this whole change exists to remove — so the
+          # analysis RECORD is checked first. (Observed live on #1434: the alerts query returned 0
+          # for the PR ref while `develop` carried 100; the analyses endpoint is what proves the
+          # zero is a real, diff-informed result rather than an absence.)
+          analyses="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=1" \
+            --jq 'length' 2>/dev/null || echo 0)"
+          echo "code-scanning analyses recorded for refs/pull/${PR_NUMBER}/merge: ${analyses}"
+          if [ "${analysis_complete}" != "true" ] || [ "${analyses}" = "0" ]; then
             echo "UNAVAILABLE" > pr-alerts.json
           else
             gh api --paginate \
