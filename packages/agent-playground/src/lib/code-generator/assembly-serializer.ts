@@ -45,10 +45,6 @@ function buildSkillCommandSourceLines(state: IAssemblyState): string[] {
 
   if (skills.length === 0) return [];
 
-  const skillEntries = skills
-    .map((s) => `    { name: '${s.id}', content: \`${escapeTemplateLiteral(s.skillMdContent)}\` },`)
-    .join('\n');
-
   return [
     '  commandModules: [',
     '    {',
