@@ -10,6 +10,25 @@ depends_on: []
 
 # PERF-002: `pnpm typecheck` only runs 2–4 packages at a time
 
+## ⛔ Execution constraint — SERIAL ONLY, after other work is drained
+
+**Owner directive (2026-07-25): the TypeScript items must NOT run in parallel with any other work.**
+
+A compiler/tsconfig change moves the ground every other task stands on: `pnpm typecheck` is the shared
+gate every agent and every CI job runs. If a TS change lands while other branches are in flight, a
+failure in those branches is ambiguous — nobody can tell whether it is their own defect or fallout from
+the version/config change. Bisecting that after the fact is far more expensive than waiting.
+
+**Preconditions before starting any PERF-002/003/004 work:**
+
+1. No other backlog item is in flight (no open PRs, no running implementation agents).
+2. `develop` is green on a full `pnpm harness:verify-like-ci`.
+3. The work runs as a **single serial track** — one item at a time, each merged and verified before the
+   next starts. Do not fan these three out to parallel agents even among themselves: PERF-003 and
+   PERF-004 both touch the typecheck path.
+
+Re-verify precondition 1 immediately before starting; other work may have been queued in the meantime.
+
 ## Problem
 
 Source investigation: [`TYPESCRIPT-7-TYPECHECK-PERFORMANCE.md`](../../TYPESCRIPT-7-TYPECHECK-PERFORMANCE.md)
