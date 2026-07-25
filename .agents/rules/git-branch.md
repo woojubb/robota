@@ -147,7 +147,8 @@ This rule applies even when:
    not apply because each branch edits a **disjoint file set** (the orchestrator MUST partition file ownership
    before spawning) and the PRs are merged **sequentially** after CI. Create such a branch with the inline
    override the `branch-guard` hook honors: `BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 git checkout -b <type>/<slug>`.
-   In the main clone (outside a parallel wave) the rule stands as written.
+   In the main clone (outside a parallel wave) the rule stands as written. Procedure:
+   [`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md).
 
 ### PR Batching — appropriately-sized PRs (DX-001)
 
