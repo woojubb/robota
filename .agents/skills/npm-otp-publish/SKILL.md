@@ -29,7 +29,7 @@ password.
 | #   | Gate                                                                                                           | On failure                                                                                                                                |
 | --- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Sync to the release target's latest remote head; confirm the target version is **not already fully published** | Already fully published → return `COMPLETE` with that finding (nothing to do). **Partially** published → go to **Partial publish** below. |
-| 2   | Build passes. The agent verifies this; the publish script does not run it                                      | Dispatch `ci-failure-triager`, apply the minimal fix off this branch, then **repeat step 1** — a fix changes the SHA.                     |
+| 2   | Build passes, verified as the rule's Publish Safety Gate requires                                              | Dispatch `ci-failure-triager`, apply the minimal fix off this branch, then **repeat step 1** — a fix changes the SHA.                     |
 | 3   | The release-run state artifact exists for this version and its publish-readiness fields are set                | Create or update it through the entry point the rule names, then repeat step 3.                                                           |
 | 4   | The publish preflight check on the state artifact passes                                                       | **Fix it here.** Never advance while this is failing — the rule makes asking for a password past a failing preflight a violation.         |
 | 5   | Registry authentication confirmed                                                                              | Tell the user to authenticate, **wait for their confirmation**, re-check, then repeat step 5. Do not run this as the flow's first step.   |
@@ -69,7 +69,7 @@ out — obtain it during preflight, not after the password is in hand.
 ## Partial publish
 
 The publish script is idempotent: already-published packages are skipped, so recovery is **re-running the
-same script**, never publishing a package by hand — the rule forbids that outright.
+same script**, never publishing a package by hand (a Publish Boundary prohibition).
 
 1. Classify the interruption with `ci-failure-triager` before retrying (an expired password and a registry
    outage need different responses, and guessing wastes another password).

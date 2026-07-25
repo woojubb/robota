@@ -28,8 +28,7 @@ the failure this step exists to prevent.
 | The remote head does not contain phase 1's merge | Return `REGRESSED` — stabilization did not land what it claimed; do not bump on top of it. |
 
 **2. Apply the version bump.** Dispatch [version-management](../version-management/SKILL.md). When package
-manifests change, run the project's install so the lockfile is regenerated — never hand-edit it (the
-rule's invariant).
+manifests change, run the project's install so the lockfile is regenerated — never hand-edit it.
 
 | Outcome                                              | Route                                                                                                                  |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -53,7 +52,7 @@ branch contains the bump and nothing else).
 | All clean                                            | Advance to step 5.                                                                                                                                                                           |
 | Build or the publish-safety scan fails               | Dispatch `ci-failure-triager`; take the triage routing table below.                                                                                                                          |
 | Diff hygiene fails on **lockfile churn from step 2** | This is expected output of the bump, not contamination: confirm it is exactly the install's regeneration, keep it, advance. If it is anything more, **return to step 1** and re-cut cleanly. |
-| Diff hygiene fails on **unrelated changes**          | Remove them from this branch (the rule forbids mixing process fixes into a bump PR) and **repeat step 4**. If they cannot be separated, **return to step 1**.                                |
+| Diff hygiene fails on **unrelated changes**          | Remove them from this branch (a Release State Machine constraint) and **repeat step 4**. If they cannot be separated, **return to step 1**.                                                  |
 
 **5. Open the bump PR against the release target and wait for CI on the exact SHA.**
 
