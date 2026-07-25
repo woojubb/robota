@@ -48,6 +48,31 @@ flagged that a full sweep was needed. The sweep: **9 `from '@/…'` imports, all
 `packages/agent-playground`.** So the removal is contained to one package, but it is not zero — that
 package needs its alias strategy settled (relative imports, or `paths` re-expressed without `baseUrl`).
 
+## Measured baseline — how much of the machine the current compiler leaves idle
+
+Sampled 2026-07-26 on a 20-core box, during a real `pnpm typecheck` of the whole workspace (already on
+`--workspace-concurrency=-1`, i.e. core-relative, from PERF-002):
+
+| Metric                     | Measured  | Reading                                                     |
+| -------------------------- | --------- | ----------------------------------------------------------- |
+| mean utilisation, 20 cores | **9.1 %** | roughly 1.8 cores' worth of work spread over 20             |
+| busiest single core        | 36.6 %    | nothing is pinned — this is not one core saturated          |
+| concurrent `tsc` processes | **1**     | the dependency graph serialises most of the run             |
+| cores above 70 %           | **0**     | no core is the bottleneck                                   |
+| load average               | 13.5      | the queue is long while the CPUs are idle — the wait is I/O |
+| iowait                     | 21 %      | each worktree reads its own `node_modules` from disk        |
+| CPU package temperature    | 68 °C     | enough to spin the fan up, for 1.8 cores of useful work     |
+
+Two distinct facts sit in that table, and only the first is PERF-004's to fix:
+
+1. **`tsc` is single-threaded per project, and `pnpm -r` must honour topological order**, so raising
+   workspace concurrency only overlaps _independent_ packages — it cannot break a dependency chain. That
+   is the ceiling the native compiler is expected to lift, and it is the measured justification for this
+   item.
+2. **The remaining wait is disk, not CPU** — concurrent worktrees each reading a separate `node_modules`.
+   The native compiler does not address this; it is a function of how many isolated worktrees run at
+   once. Recorded here only so a post-migration measurement is not misread as a partial win.
+
 ## What
 
 1. Migrate the three option classes above. `downlevelIteration` is a 38-file mechanical sweep — verify
@@ -66,6 +91,12 @@ compiler's error list must match the old one (PERF-003's criterion) on the real 
 harness scans must pass throughout. `pnpm harness:verify-like-ci` green at every step.
 Red-first where a behavior can regress: assert `agent-playground` still resolves its imports after the
 alias change (a build + its test suite, not just typecheck).
+
+**Prove the win, do not assume it.** After the switch, re-take the baseline measurement above on the same
+machine and report mean core utilisation, busiest core, and concurrent compiler processes alongside wall
+time. Wall-clock alone cannot distinguish "the compiler now uses the machine" from "the disk happened to
+be quieter". A migration that leaves mean utilisation near 9 % has not delivered what this item is for,
+whatever the stopwatch says.
 
 ## Note (desktop responsiveness — optional side item)
 
