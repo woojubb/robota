@@ -58,30 +58,24 @@ describe('readTelemetryConfig', () => {
 });
 
 describe('isTelemetryEnabled', () => {
-  const originalCI = process.env['CI'];
-  const originalOpt = process.env['ROBOTA_DAG_TELEMETRY'];
-
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env['CI'];
-    delete process.env['ROBOTA_DAG_TELEMETRY'];
+    vi.stubEnv('CI', undefined);
+    vi.stubEnv('ROBOTA_DAG_TELEMETRY', undefined);
   });
 
   afterEach(() => {
-    if (originalCI !== undefined) process.env['CI'] = originalCI;
-    else delete process.env['CI'];
-    if (originalOpt !== undefined) process.env['ROBOTA_DAG_TELEMETRY'] = originalOpt;
-    else delete process.env['ROBOTA_DAG_TELEMETRY'];
+    vi.unstubAllEnvs();
   });
 
   it('returns false when CI=true', async () => {
-    process.env['CI'] = 'true';
+    vi.stubEnv('CI', 'true');
     const enabled = await isTelemetryEnabled();
     expect(enabled).toBe(false);
   });
 
   it('returns false when ROBOTA_DAG_TELEMETRY=0', async () => {
-    process.env['ROBOTA_DAG_TELEMETRY'] = '0';
+    vi.stubEnv('ROBOTA_DAG_TELEMETRY', '0');
     const enabled = await isTelemetryEnabled();
     expect(enabled).toBe(false);
   });
@@ -147,20 +141,17 @@ describe('disableTelemetry', () => {
 });
 
 describe('recordTelemetry', () => {
-  const originalCI = process.env['CI'];
-
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env['CI'];
+    vi.stubEnv('CI', undefined);
   });
 
   afterEach(() => {
-    if (originalCI !== undefined) process.env['CI'] = originalCI;
-    else delete process.env['CI'];
+    vi.unstubAllEnvs();
   });
 
   it('does not call fetch when telemetry is disabled', async () => {
-    process.env['CI'] = 'true';
+    vi.stubEnv('CI', 'true');
     await recordTelemetry({ command: 'run', success: true, durationMs: 100 });
     // Allow fire-and-forget to settle
     await new Promise((r) => setTimeout(r, 10));

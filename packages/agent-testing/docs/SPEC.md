@@ -12,6 +12,8 @@ Current surface:
 - **PTY runner** (TEST-007): `spawnPty` / `spawnPtyFixture` — drive any command (or a TSX fixture) in
   a real pseudo-terminal so Ink renders and reads input exactly as in a user terminal. Per-key paced
   input, marker/exit waiting, ANSI-stripped snapshots.
+- **Isolated HOME** (HARNESS-025): `createPtyEnv` / `createIsolatedHome` — a throwaway `HOME` for every
+  PTY child, so a suite never depends on whatever happens to be in the developer's home directory.
 
 This package is published (`@robota-sdk/*` scope) so any package — or an external consumer — can import
 the tooling as a `devDependency`.
@@ -77,6 +79,9 @@ paced), `write`, `pressEnter`, `waitFor`, `waitForSince`, `snapshot`/`snapshotSi
 | `IPtyRunOptions`       | type     | `spawnPty` options                                                                                                                |
 | `IPtyRunSession`       | type     | Driving session: `sendKeys`/`write`/`pressEnter`/`waitFor`/`waitForSince`/`snapshot`/`snapshotSince`/`raw`/`expectExit`/`dispose` |
 | `ISpawnFixtureOptions` | type     | `spawnPtyFixture` options                                                                                                         |
+| `createPtyEnv`         | function | Build a PTY child env: isolated `HOME`, real `PATH`, known `TERM`, plus caller overrides                                          |
+| `createIsolatedHome`   | function | Create one throwaway HOME directory and return its path                                                                           |
+| `disposeIsolatedHomes` | function | Remove every directory handed out by `createIsolatedHome` (also runs on process exit)                                             |
 
 ## Extension Points
 

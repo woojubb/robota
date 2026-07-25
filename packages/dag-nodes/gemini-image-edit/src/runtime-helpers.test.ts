@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IMediaOutputRef } from '@robota-sdk/agent-core';
 import type { IPortBinaryValue } from '@robota-sdk/dag-core';
 import {
@@ -42,47 +42,32 @@ describe('parseCsv', () => {
 // resolveRuntimeBaseUrl
 // ---------------------------------------------------------------------------
 describe('resolveRuntimeBaseUrl', () => {
-  let savedEnv: Record<string, string | undefined>;
-
   beforeEach(() => {
-    savedEnv = {
-      DAG_RUNTIME_BASE_URL: process.env.DAG_RUNTIME_BASE_URL,
-      DAG_PORT: process.env.DAG_PORT,
-    };
-    delete process.env.DAG_RUNTIME_BASE_URL;
-    delete process.env.DAG_PORT;
+    vi.stubEnv('DAG_RUNTIME_BASE_URL', undefined);
+    vi.stubEnv('DAG_PORT', undefined);
   });
 
   afterEach(() => {
-    if (savedEnv.DAG_RUNTIME_BASE_URL === undefined) {
-      delete process.env.DAG_RUNTIME_BASE_URL;
-    } else {
-      process.env.DAG_RUNTIME_BASE_URL = savedEnv.DAG_RUNTIME_BASE_URL;
-    }
-    if (savedEnv.DAG_PORT === undefined) {
-      delete process.env.DAG_PORT;
-    } else {
-      process.env.DAG_PORT = savedEnv.DAG_PORT;
-    }
+    vi.unstubAllEnvs();
   });
 
   it('returns DAG_RUNTIME_BASE_URL when set', () => {
-    process.env.DAG_RUNTIME_BASE_URL = 'https://my-runtime.example.com';
+    vi.stubEnv('DAG_RUNTIME_BASE_URL', 'https://my-runtime.example.com');
     expect(resolveRuntimeBaseUrl()).toBe('https://my-runtime.example.com');
   });
 
   it('strips trailing slash from DAG_RUNTIME_BASE_URL', () => {
-    process.env.DAG_RUNTIME_BASE_URL = 'https://my-runtime.example.com/';
+    vi.stubEnv('DAG_RUNTIME_BASE_URL', 'https://my-runtime.example.com/');
     expect(resolveRuntimeBaseUrl()).toBe('https://my-runtime.example.com');
   });
 
   it('ignores whitespace-only DAG_RUNTIME_BASE_URL', () => {
-    process.env.DAG_RUNTIME_BASE_URL = '   ';
+    vi.stubEnv('DAG_RUNTIME_BASE_URL', '   ');
     expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
   });
 
   it('uses DAG_PORT when DAG_RUNTIME_BASE_URL is not set', () => {
-    process.env.DAG_PORT = '4000';
+    vi.stubEnv('DAG_PORT', '4000');
     expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:4000');
   });
 
@@ -91,17 +76,17 @@ describe('resolveRuntimeBaseUrl', () => {
   });
 
   it('falls back to default port when DAG_PORT is not a valid number', () => {
-    process.env.DAG_PORT = 'notanumber';
+    vi.stubEnv('DAG_PORT', 'notanumber');
     expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
   });
 
   it('falls back to default port when DAG_PORT is zero', () => {
-    process.env.DAG_PORT = '0';
+    vi.stubEnv('DAG_PORT', '0');
     expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
   });
 
   it('falls back to default port when DAG_PORT is negative', () => {
-    process.env.DAG_PORT = '-1';
+    vi.stubEnv('DAG_PORT', '-1');
     expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
   });
 });

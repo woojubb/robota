@@ -17,6 +17,8 @@ import { createRequire } from 'node:module';
 
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
 
+import { createPtyEnv } from './isolated-home.js';
+
 import type { IPty } from '@homebridge/node-pty-prebuilt-multiarch';
 
 // eslint-disable-next-line no-control-regex
@@ -33,6 +35,11 @@ export interface IPtyRunOptions {
   command: string;
   args: string[];
   cwd: string;
+  /**
+   * Environment for the child. Defaults to {@link createPtyEnv} — a minimal env with an ISOLATED
+   * HOME. Build overrides with `createPtyEnv({ ... })` rather than by hand, so a caller cannot
+   * reintroduce the real `process.env.HOME` (which makes the suite depend on the host's `~`).
+   */
   env?: NodeJS.ProcessEnv;
   cols?: number;
   rows?: number;
@@ -88,11 +95,9 @@ export function spawnPty(options: IPtyRunOptions): IPtyRunSession {
     cols: options.cols ?? 100,
     rows: options.rows ?? 32,
     cwd: options.cwd,
-    env: options.env ?? {
-      PATH: process.env['PATH'] ?? '',
-      HOME: process.env['HOME'] ?? '',
-      TERM: 'xterm-256color',
-    },
+    // HARNESS-025: the default HOME is a throwaway directory, never the developer's real one — a
+    // PTY child that reads `~/.robota` (or any user rc) must not make the suite machine-dependent.
+    env: options.env ?? createPtyEnv(),
   });
 
   pty.onData((data) => {

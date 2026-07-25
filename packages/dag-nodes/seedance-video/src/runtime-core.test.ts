@@ -22,7 +22,7 @@ const { createVideo, getVideoJob, cancelVideoJob, bytedanceMockFactory } = vi.ho
 });
 
 // Full replacement avoids loading the ByteDance HTTP client; only the video job methods are exercised.
-vi.mock('@robota-sdk/agent-provider-bytedance', bytedanceMockFactory); // allow-module-mock: BytedanceProvider hits the real ModelArk API
+vi.mock('@robota-sdk/agent-provider-bytedance', bytedanceMockFactory); // allow-module-mock: keeps the ByteDance HTTP client out of this leaf test's import graph, which reaches no other export
 
 const MODEL = 'seedance-2.0';
 
@@ -54,24 +54,16 @@ function req(overrides?: Partial<ISeedanceVideoRequest>): ISeedanceVideoRequest 
 }
 
 describe('SeedanceVideoRuntime', () => {
-  let savedEnv: Record<string, string | undefined>;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    savedEnv = {
-      SEEDANCE_API_KEY: process.env.SEEDANCE_API_KEY,
-      SEEDANCE_BASE_URL: process.env.SEEDANCE_BASE_URL,
-      DAG_SEEDANCE_VIDEO_DEFAULT_MODEL: process.env.DAG_SEEDANCE_VIDEO_DEFAULT_MODEL,
-      DAG_SEEDANCE_VIDEO_ALLOWED_MODELS: process.env.DAG_SEEDANCE_VIDEO_ALLOWED_MODELS,
-    };
-    for (const key of Object.keys(savedEnv)) delete process.env[key];
+    vi.stubEnv('SEEDANCE_API_KEY', undefined);
+    vi.stubEnv('SEEDANCE_BASE_URL', undefined);
+    vi.stubEnv('DAG_SEEDANCE_VIDEO_DEFAULT_MODEL', undefined);
+    vi.stubEnv('DAG_SEEDANCE_VIDEO_ALLOWED_MODELS', undefined);
   });
 
   afterEach(() => {
-    for (const [key, value] of Object.entries(savedEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    vi.unstubAllEnvs();
   });
 
   it('returns validation error when default model is missing', async () => {

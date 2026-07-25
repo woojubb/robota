@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { spawnPtyFixture } from '@robota-sdk/agent-testing';
+import { createPtyEnv, spawnPtyFixture } from '@robota-sdk/agent-testing';
 
 import type { IPtyRunSession } from '@robota-sdk/agent-testing';
 
@@ -50,11 +50,9 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['shell', outputPath, 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"'],
         cwd: PACKAGE_DIR,
-        env: {
-          PATH: process.env['PATH'] ?? '',
-          HOME: process.env['HOME'] ?? '',
-          TERM: 'xterm-256color',
-        },
+        // HARNESS-025: isolated HOME — the subshell must not read the developer's `~` (a real
+        // shell rc there would otherwise change what the handoff child does).
+        env: createPtyEnv(),
       });
       sessions.push(session);
 
@@ -82,12 +80,9 @@ describe('command handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: ['editor', outputPath, ''],
         cwd: PACKAGE_DIR,
-        env: {
-          PATH: process.env['PATH'] ?? '',
-          HOME: process.env['HOME'] ?? '',
-          TERM: 'xterm-256color',
-          EDITOR: `sh ${FAKE_EDITOR}`,
-        },
+        // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
+        // `~/.selected_editor` (or similar) on the host cannot influence the assertion.
+        env: createPtyEnv({ EDITOR: `sh ${FAKE_EDITOR}` }),
       });
       sessions.push(session);
 

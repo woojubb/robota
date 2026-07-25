@@ -1,5 +1,18 @@
 import { SimpleCache } from './cache';
 
+// HARNESS-025: TTL expiry is driven by the fake clock, never by a real wall-clock sleep.
+// `SimpleCache` compares `Date.now()` against the entry timestamp, and Jest's modern fake timers
+// mock `Date` alongside the timer queue — so advancing the fake clock is what makes an entry
+// expire. A real `setTimeout` sleep made these two cases both slow and load-dependent (a stalled
+// CI box could overshoot, and a coarse clock could undershoot, the 50ms TTL).
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe('SimpleCache', () => {
   it('stores and retrieves values within TTL', () => {
     const cache = new SimpleCache<string>();
@@ -12,10 +25,16 @@ describe('SimpleCache', () => {
     expect(cache.get('nonexistent')).toBeNull();
   });
 
-  it('expires values after TTL', async () => {
+  it('expires values after TTL', () => {
     const cache = new SimpleCache<string>();
     cache.set('key1', 'value1', 50); // 50ms TTL
-    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Still inside the TTL window: the entry must survive.
+    jest.advanceTimersByTime(49);
+    expect(cache.get('key1')).toBe('value1');
+
+    // Past the TTL window: the entry must be gone.
+    jest.advanceTimersByTime(2);
     expect(cache.get('key1')).toBeNull();
   });
 
@@ -57,11 +76,18 @@ describe('SimpleCache', () => {
     expect(callCount).toBe(1); // factory called only once
   });
 
-  it('cleans up expired entries', async () => {
+  it('cleans up expired entries', () => {
     const cache = new SimpleCache<string>();
     cache.set('short', 'v', 50); // expires quickly
     cache.set('long', 'v2', 60000); // stays valid
-    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Before the short TTL elapses, cleanup() must evict nothing.
+    jest.advanceTimersByTime(49);
+    cache.cleanup();
+    expect(cache.size()).toBe(2);
+
+    // Once the short TTL has elapsed, cleanup() drops only the expired entry.
+    jest.advanceTimersByTime(2);
     cache.cleanup();
     expect(cache.size()).toBe(1);
     expect(cache.get('long')).toBe('v2');
