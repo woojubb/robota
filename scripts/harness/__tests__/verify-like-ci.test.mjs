@@ -11,8 +11,11 @@ import {
   globExtensions,
   lintStagedExtensions,
   listBuildablePackageDirs,
+  listNodeModulesOwners,
   parseArgs,
+  parseDistIndependentScanSkips,
   parseGitFileList,
+  readDistIndependentScanSkips,
   readLintStagedExtensions,
   selectFormatTargets,
   summarize,
@@ -161,17 +164,105 @@ describe('findMissingDist', () => {
 });
 
 // ---------------------------------------------------------------------------
+// dist-free tree (HARNESS-047): the scans CI runs on a checkout with NO dist
+// ---------------------------------------------------------------------------
+
+const CI_SCANS_JOB_FIXTURE = `
+  scans:
+    name: scans
+    steps:
+      - name: Harness scan test suite
+        run: pnpm harness:test
+      - name: Harness scan suite (dist-independent)
+        run: pnpm harness:scan -- --skip dist --skip build-contracts
+`;
+
+describe('parseDistIndependentScanSkips', () => {
+  it("derives the skip set from ci.yml's scans job instead of hardcoding it", () => {
+    expect(parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE)).toEqual([
+      'dist',
+      'build-contracts',
+    ]);
+  });
+
+  it('follows CI drift — a third skip in ci.yml is picked up automatically', () => {
+    const drifted = CI_SCANS_JOB_FIXTURE.replace(
+      '--skip build-contracts',
+      '--skip build-contracts --skip docs-structure',
+    );
+    expect(parseDistIndependentScanSkips(drifted)).toEqual([
+      'dist',
+      'build-contracts',
+      'docs-structure',
+    ]);
+  });
+
+  it('throws when no dist-independent scan step exists — never silently scans nothing', () => {
+    expect(() => parseDistIndependentScanSkips('jobs:\n  scans:\n    steps: []\n')).toThrow(
+      /harness:scan/,
+    );
+  });
+
+  it('throws when ci.yml has more than one such invocation (ambiguous mirror target)', () => {
+    expect(() => parseDistIndependentScanSkips(CI_SCANS_JOB_FIXTURE.repeat(2))).toThrow(
+      /more than one/i,
+    );
+  });
+
+  it('reads the LIVE ci.yml — the stage mirrors the real job, not a copy of it', () => {
+    expect(readDistIndependentScanSkips(WORKSPACE_ROOT)).toEqual(['dist', 'build-contracts']);
+  });
+});
+
+describe('listNodeModulesOwners', () => {
+  it('lists every dir owning an installed node_modules (linked so the scans can run)', () => {
+    const root = createFixture({
+      'node_modules/vitest/index.js': '',
+      'packages/a/node_modules/dep/index.js': '',
+      'packages/a/dist/index.js': '',
+      'packages/b/src/index.ts': '',
+    });
+    expect(listNodeModulesOwners(root)).toEqual(['', 'packages/a']);
+  });
+
+  it('never descends into node_modules or dist (their inner installs are irrelevant)', () => {
+    const root = createFixture({
+      'node_modules/dep/node_modules/nested/index.js': '',
+      'packages/a/dist/node_modules/ghost/index.js': '',
+    });
+    expect(listNodeModulesOwners(root)).toEqual(['']);
+  });
+
+  it('finds the live workspace installs (root + packages)', () => {
+    const owners = listNodeModulesOwners(WORKSPACE_ROOT);
+    expect(owners).toContain('');
+    expect(owners.some((dir) => dir.startsWith('packages/'))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // stage table + summary + args
 // ---------------------------------------------------------------------------
 
 describe('CI_STAGES', () => {
-  it('covers the four gates a bare run-all-scans misses', () => {
+  it('covers the five gates a bare run-all-scans misses', () => {
     expect(CI_STAGES.map((stage) => stage.name)).toEqual([
       'harness-self-test',
       'format-check',
       'scan-suite',
+      'scan-suite-dist-free',
       'typecheck',
     ]);
+  });
+
+  it('mirrors BOTH CI scan halves — the built-tree job and the dist-free job (neither replaces the other)', () => {
+    const built = CI_STAGES.find((stage) => stage.name === 'scan-suite');
+    const distFree = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
+    // `quality` restores dist before the build-dependent scans; `scans` runs on a fresh checkout.
+    expect(built.ciSource).toMatch(/quality/);
+    expect(distFree.ciSource).toMatch(/scans/);
+    expect(distFree.ciSource).toMatch(/dist/);
+    expect(built.ciSource).not.toEqual(distFree.ciSource);
   });
 
   it('names the real CI/lint-staged definition each stage mirrors (traceable, not guessed)', () => {
