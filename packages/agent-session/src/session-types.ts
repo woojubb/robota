@@ -117,6 +117,14 @@ export interface ISessionOptions {
    * layer own the compaction prompt wording entirely.
    */
   compactionBasePrompt?: string;
+  /**
+   * Concrete remediation wording for the core's hard-capacity notice, forwarded to the Robota
+   * agent config as `IAgentConfig.contextCapacityHint`. The zero-dependency core emits a
+   * product-neutral default; a surface tier that owns a real remediation command (e.g. a
+   * `/compact` slash command) injects its own actionable hint here. Absent ⇒ the neutral
+   * `DEFAULT_CONTEXT_CAPACITY_HINT` applies.
+   */
+  contextCapacityHint?: string;
   /** Override context max tokens (otherwise derived from model name) */
   contextMaxTokens?: number;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */

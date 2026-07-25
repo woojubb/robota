@@ -96,6 +96,10 @@ export function buildRobota(
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     // CMD-005: the "ask the user" port rides the agent config into tool execution contexts.
     ...(options.ask ? { ask: options.ask } : {}),
+    // NEUT-005: surface-injected remediation wording for the core's hard-capacity notice.
+    ...(options.contextCapacityHint !== undefined
+      ? { contextCapacityHint: options.contextCapacityHint }
+      : {}),
   };
   return new Robota(agentConfig);
 }

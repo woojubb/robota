@@ -116,6 +116,12 @@ export interface ICreateSessionOptions {
   onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
+  /**
+   * NEUT-005: concrete remediation wording for the core's hard-capacity notice, forwarded to the
+   * session's Robota config. Absent ⇒ derived from the composed command set (see
+   * `deriveContextCapacityHint`); if that yields nothing, the neutral core default applies.
+   */
+  contextCapacityHint?: string;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
   autoCompactThreshold?: TAutoCompactThreshold;
   /** Custom system prompt builder function */
