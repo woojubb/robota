@@ -1,0 +1,127 @@
+name: Review Gate
+
+# INFRA-048. The checks that gate a merge on `develop` produce no review feedback, and the two jobs
+# that do (`Claude review`, CodeQL `Analyze`) report `success` whether or not they found anything —
+# so an armed auto-merge carries the findings straight into the integration branch (#1409). This
+# job is the missing half: a DISTINCT check that READS the review output and reports the truth.
+#
+# It is deliberately NOT the reviewer itself. A reviewer's own pass/fail is model judgment and, as
+# INFRA-048 measured, a reviewer can report `success` without having run at all; a gate must be
+# something whose execution is verifiable.
+#
+# Severity split (see check-review-gate.mjs for the full rationale): only findings this PR
+# INTRODUCES at severity `error` / security-severity high|critical can block. Everything else is
+# printed and counted but never blocking — this repo's ~100 open alerts are all severity `note`,
+# and a gate that went red on those would be bypassed within a day.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    # `labeled`/`unlabeled` are included so applying the acknowledge label re-runs the gate rather
+    # than requiring a push.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: read
+  pull-requests: write
+
+jobs:
+  review-gate:
+    name: review-gate
+    runs-on: ubuntu-latest
+    steps:
+      # No history is read — this job talks to the code-scanning API, not to git.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Wait for the code-scanning analysis of this PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The gate must read a COMPLETED analysis. Polling here (rather than assuming) is what
+          # keeps "the analysis has not run yet" from being read as "the analysis found nothing".
+          deadline=$(( $(date +%s) + 900 ))
+          while :; do
+            runs="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                      --jq '[.check_runs[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
+            total="$(printf '%s' "$runs" | jq 'length')"
+            done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
+            echo "code-scanning analyses: ${done_count}/${total} completed"
+            if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
+              echo "analysis_complete=true" >> "$GITHUB_ENV"
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              # Deliberately NOT a pass: an analysis that never completed has cleared nothing.
+              echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} did not complete within 15 minutes."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              break
+            fi
+            sleep 20
+          done
+
+      - name: Collect the review output
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # `UNAVAILABLE` is the fail-closed sentinel the decision module blocks on. Every failure
+          # path below writes it — none of them writes an empty list, which would read as "clean".
+          if [ "${analysis_complete}" != "true" ]; then
+            echo "UNAVAILABLE" > pr-alerts.json
+          else
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
+              > pr-alerts.json || echo "UNAVAILABLE" > pr-alerts.json
+          fi
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/heads/${BASE_REF}&per_page=100" \
+            > base-alerts.json || echo "UNAVAILABLE" > base-alerts.json
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '[.[].name] | join(",")' \
+            > pr-labels.txt || echo "" > pr-labels.txt
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          node scripts/harness/check-review-gate.mjs \
+            --alerts-file pr-alerts.json \
+            --base-alerts-file base-alerts.json \
+            --labels "$(cat pr-labels.txt)" | tee gate-report.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo '### Review gate'
+            echo
+            echo '```'
+            cat gate-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            # Until `review-gate` is listed in the branch ruleset's required checks, a red
+            # non-required check does NOT stop an armed auto-merge — which is the exact hole
+            # INFRA-048 is about. Disarming is the lever that works today; the ruleset entry is
+            # the durable one. `--disable-auto` is a no-op error when auto-merge was never armed.
+            gh pr merge --disable-auto "$PR_NUMBER" \
+              || echo "auto-merge was not armed; nothing to disarm."
+            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: BLOCKED** — auto-merge has been disarmed.
+
+          \`\`\`
+          $(cat gate-report.txt)
+          \`\`\`
+          EOF
+            echo "::error::review-gate blocked this PR. See the job summary."
+            exit 1
+          fi
