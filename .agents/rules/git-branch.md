@@ -172,6 +172,12 @@ commit's tree, so `main`'s side of the three-way merge is empty. If it is **not*
 `develop` never integrated (a `hotfix/*`, a direct push, a conflict-resolving merge) — back-merge `main` into
 `develop` on its own PR, **merged as a merge commit**, then re-run. Never resolve that inside the promotion.
 
+**Never update a promotion PR with GitHub's "Update branch" button.** Both of its modes destroy what
+the promotion asserts: the merge form adds a `main` merge commit the tool did not place, and the rebase
+form rewrites the promotion's history so `main`'s ancestry is no longer carried. Either way the
+`promotion ancestry` gate goes red — fail-closed, so nothing unsafe merges, but the branch is then
+unrecoverable by button. Re-run `promote.mjs` instead; it rebuilds the branch from current refs.
+
 **Merge the promotion PR with `gh pr merge <n> --merge`. Never `--squash`.**
 
 **Enforcement — two mechanical layers, both pre-merge:**
