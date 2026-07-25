@@ -156,11 +156,24 @@ export function resolvePreset(
   id: string,
   context: IResolvePresetContext = {},
 ): IResolvedPresetOptions {
-  const preset = getPreset(id);
+  return resolvePresetFrom(allPresets(), id, context);
+}
+
+/**
+ * Pure resolve over an explicit preset list — the shared core of both the module-global
+ * {@link resolvePreset} and the instance-scoped {@link createPresetRegistry} resolvers. Reads only its
+ * arguments; performs the same precedence merge + permission-mode derivation.
+ *
+ * @throws Error when `id` does not match a preset in `presets`.
+ */
+function resolvePresetFrom(
+  presets: readonly IPreset[],
+  id: string,
+  context: IResolvePresetContext = {},
+): IResolvedPresetOptions {
+  const preset = presets.find((p) => p.id === id);
   if (!preset) {
-    const available = allPresets()
-      .map((p) => p.id)
-      .join(', ');
+    const available = presets.map((p) => p.id).join(', ');
     throw new Error(`Unknown preset: "${id}". Available presets: ${available}.`);
   }
 
@@ -168,6 +181,48 @@ export function resolvePreset(
   resolved = mergeDefined(resolved, context.cliOverrides);
   resolved = mergeDefined(resolved, context.explicit);
   return derivePermissionMode(resolved);
+}
+
+/**
+ * A per-call, instance-scoped preset registry (ARCH-005 R8). Unlike the module-global
+ * {@link registerExternalPresets} / {@link resolvePreset} path, a registry created here holds its OWN
+ * merged list `[built-ins, ...externalPresets]` and never touches the module-level `externalPresets`
+ * global — so two products in one process do not share one registry and repeat construction does not
+ * accumulate. The `@robota-sdk/agent-product` assembler builds one of these per `assembleProduct` call,
+ * keeping its fold pure w.r.t. process state.
+ */
+export interface IPresetRegistry {
+  /** Resolve a preset id against this registry's presets (same precedence/derivation as the global). */
+  resolvePreset(id: string, context?: IResolvePresetContext): IResolvedPresetOptions;
+  /** Look up a preset by id within this registry, or `undefined`. */
+  getPreset(id: string): IPreset | undefined;
+  /** `{ id, title, description }` summaries of every preset in this registry. */
+  listPresets(): readonly IPresetSummary[];
+}
+
+/**
+ * Build an instance-scoped {@link IPresetRegistry} over `[built-ins, ...externalPresets]`.
+ *
+ * Conflict policy mirrors {@link registerExternalPresets} but is applied to the instance list only:
+ * built-ins always win (an external preset whose id collides with a built-in is dropped), and among the
+ * external presets the first registration wins (a later duplicate id is dropped). No module-level state is
+ * read or mutated — this is a pure factory.
+ */
+export function createPresetRegistry(externalPresets: readonly IPreset[] = []): IPresetRegistry {
+  const builtInIds = new Set(BUILT_IN_PRESETS.map((preset) => preset.id));
+  const registered: IPreset[] = [];
+  for (const preset of externalPresets) {
+    if (builtInIds.has(preset.id)) continue; // built-ins win
+    if (registered.some((existing) => existing.id === preset.id)) continue; // first registration wins
+    registered.push(preset);
+  }
+  const merged: readonly IPreset[] = [...BUILT_IN_PRESETS, ...registered];
+
+  return {
+    resolvePreset: (id, context = {}) => resolvePresetFrom(merged, id, context),
+    getPreset: (id) => merged.find((preset) => preset.id === id),
+    listPresets: () => merged.map(({ id, title, description }) => ({ id, title, description })),
+  };
 }
 
 /**
