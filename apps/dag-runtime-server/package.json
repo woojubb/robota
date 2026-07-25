@@ -34,7 +34,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.7",
+    "@hono/node-server": "^2.0.11",
     "@robota-sdk/dag-builder": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-framework": "workspace:*",
