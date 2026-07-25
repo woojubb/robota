@@ -114,7 +114,10 @@ const MONITOR_USAGE = 'Usage: /monitor "<command>" "<pattern>" <instruction>';
 function parseMonitorArgs(
   args: string,
 ): { command: string; matchPattern: string; instruction: string } | null {
-  const match = /^["']([^"']+)["']\s+["']([^"']+)["']\s+(.+)$/.exec(args.trim());
+  // `(\S.*)` — not `(.+)`: `\s+(.+)` is ambiguous (`.` also matches spaces), so a failing input
+  // runs in O(n^2). Requiring a non-space first character pins the split point after the greedy
+  // `\s+` and makes the match linear, without changing which inputs are accepted.
+  const match = /^["']([^"']+)["']\s+["']([^"']+)["']\s+(\S.*)$/.exec(args.trim());
   if (!match) return null;
   const instruction = match[3]!.trim();
   if (instruction.length === 0) return null;
