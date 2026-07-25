@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-006: make the framework default tool set injectable so the pack TOOL axis is additive everywhere'
-status: todo
+status: in-progress
 created: 2026-07-25
 priority: medium
 urgency: soon
@@ -81,3 +81,55 @@ product's preferred tool set. The composition-neutrality guards over `agent-prod
   `pack-coding` instead of the framework default.
 - The ARCH-005 external proof (`pnpm proof:external`) upgraded from "a NEW pack tool is additive" to
   "a pack fully owns the product's tool surface", with the C5 limitation notes removed.
+
+## Progress — framework half DONE (2026-07-25); one hop remains
+
+**DONE (landed with ARCH-007; see the ARCH-005 spec's `[ARCH-006 + ARCH-007]` evidence entry).** Proposed
+direction **3 (both)** was taken:
+
+- **`defaultTools`** on `ICreateSessionOptions` / `IInitOptions` / `IInteractiveSessionStandardOptions`
+  REPLACES the `createDefaultTools()` tier; `[]` suppresses it entirely — the tool-axis mirror of NEUT-003's
+  `builtInAgents`, reconciled with it explicitly in `packages/agent-framework/docs/SPEC.md`.
+- **Name dedupe** over `defaultTools ⊕ additionalTools ⊕ goalTool`, **first occurrence wins** — the rule
+  `AgentDefinitionLoader` already applies within the subagent built-in tier. Absent `defaultTools` and
+  absent a duplicate name, every path is byte-identical.
+- The edit-checkpoint wrap now covers the assembled set, so a pack-contributed `Write`/`Edit` is
+  checkpointed.
+- `pnpm proof:external` § C5 rewritten from "the tool axis's limitation" to "the tool axis at PARITY" —
+  **68 assertions, exit 0** (was 65).
+
+**PRECEDENCE — answered, and the answer is the opposite of the sketch above.** This item proposed
+"`additionalTools` wins over a default of the same name". It must NOT: the framework default tier is
+constructed WITH the session context, and `cwd` is what arms `agent-tools`' working-directory path guard.
+Measured directly — `createDefaultTools({cwd}).Read('/etc/hostname')` → `Access denied: … is outside the
+working directory`; `codingPack.tools`' `Read` on the same path → **reads the file**, because
+`checkPathWithinCwd` is a no-op when `cwd` is `undefined` and a pack builds its tools at module load with no
+options. Letting a name collision silently swap a context-free instance in for a context-bound one would
+have shipped a silent security regression. Replacement stays fully expressible — through the EXPLICIT
+`defaultTools` seam, never as a side effect of a collision (`mergeCapabilityPacks`' own rule, applied to
+tools).
+
+**REMAINING — `robota` does not yet SOURCE its tools from `pack-coding`.** The seam that would let it is
+landed and proven (a profile passing `defaultTools: []` hands its packs the whole tool surface; removing a
+pack then removes its tools — asserted in `agent-cli`'s `robota-runtime-seam.test.ts` and in the external
+proof's C5). `robota` does not use it yet for exactly the reason above: `ICapabilityPack.tools` is a list of
+PRE-CONSTRUCTED instances, so suppressing the framework tier today would hand robota `Read`/`Write`/`Edit`
+with the path guard disarmed.
+
+The fix is small and its shape is already anticipated by `pack-coding`'s own SPEC comment ("if a future
+contribution carries per-product mutable state, export a `createCodingPack()` factory instead of widening
+this constant"):
+
+1. `@robota-sdk/pack-coding` exports `createCodingPack(options?: { cwd?: string; sandboxClient?: ISandboxClient })`
+   that passes those options into the `agent-tools` factories it already calls. `codingPack` stays as the
+   zero-context constant for consumers that do not need it.
+2. `robota`'s profile builds its pack with the shell's `cwd` and passes `defaultTools: []` in the kernel's
+   runtime-seam input, so the coding tools come from the pack. The equivalence bar is unchanged: the ten
+   tool names, the CLI golden output, and the full `agent-cli` / `agent-transport-tui` suites.
+3. `agent-transport` + `agent-transport-tui` each take the same one-line optional `additionalTools`
+   pass-through the Decision-2 `agentDefinitions` seam already has, so the pack's tools reach the print and
+   TUI channels (today the overlay's tools reach `--serve` only, which is behaviourally inert while the
+   pack's tools are name-identical to the defaults).
+
+None of the three files above was inside the ownership boundary of the change that landed the seam, which
+is why this item stays open rather than being marked done.

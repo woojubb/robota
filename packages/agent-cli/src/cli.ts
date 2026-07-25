@@ -27,6 +27,7 @@ import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/
 import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
 import { createRobotaProfile, ROBOTA_PACK_COMMAND_MODULE_NAMES } from './product/robota-profile.js';
 import {
+  buildRobotaRuntimeOptions,
   createDefaultTransportRegistry,
   findUnknownPresetModuleNames,
   loadReplayProvider,
@@ -313,12 +314,19 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // The preset's module-selection delta filters the base ⊕ pack superset the kernel merged; the fixed
-  // modules are appended outside the delta, as before.
-  const commandModules = selectProductCommandModules(product, fixedCommandModules, resolvedPreset);
-  // ARCH-005 (owner Decision 2): the packs' subagents reach the runtime through the framework's
-  // `agentDefinitions` seam, so removing a pack genuinely removes its subagents from the product.
-  const agentDefinitions = product.subagents;
+  // ARCH-007 (B1): the kernel's RUNTIME SEAM — every surface below binds to THIS one result.
+  const { commandModules, agentDefinitions, additionalTools, permissionMode } =
+    buildRobotaRuntimeOptions({
+      product,
+      cwd,
+      provider,
+      selectedCommandModules: selectProductCommandModules(
+        product,
+        fixedCommandModules,
+        resolvedPreset,
+      ),
+      ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
+    });
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
@@ -372,9 +380,8 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
-        ...(resolvedPreset.permissionMode !== undefined
-          ? { permissionMode: resolvedPreset.permissionMode }
-          : {}),
+        // ARCH-007: the posture the KERNEL resolved (explicit --permission-mode, else the preset's).
+        ...(permissionMode !== undefined ? { permissionMode } : {}),
         ...(resolvedPreset.enableParallelSubagents !== undefined
           ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
           : {}),
@@ -400,6 +407,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
+      additionalTools,
       commandModules,
       commandHostAdapters,
       transportRegistry,
@@ -419,9 +427,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
         agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
         activePresetId: selectedPresetId,
         persona: resolvedPreset.persona,
-        ...(resolvedPreset.permissionMode !== undefined
-          ? { permissionMode: resolvedPreset.permissionMode }
-          : {}),
+        ...(permissionMode !== undefined ? { permissionMode } : {}),
         ...(resolvedPreset.enableParallelSubagents !== undefined
           ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
           : {}),
@@ -458,7 +464,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode: args.permissionMode ?? resolvedPreset.permissionMode,
+    permissionMode,
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),

@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-007: robota consumes the product kernel MATERIALS but not its runtime seam or preset resolver'
-status: todo
+status: done
 created: 2026-07-25
+completed: 2026-07-25
 priority: medium
 urgency: soon
 area: packages/agent-cli, packages/agent-product, packages/agent-preset
@@ -62,3 +63,32 @@ spec's In-kernel/stays-in-shell table must be corrected to match.
   suites, and the `robota-assembly-equivalence` test.
 - B2: whichever option is chosen, a test that a preset registered through the chosen path is visible to BOTH
   the startup module-selection delta and the in-session `/preset` command — the split-SSOT failure mode.
+
+## Outcome (2026-07-25)
+
+Both halves landed; see the ARCH-005 spec's `[ARCH-006 + ARCH-007]` evidence entry for the full record.
+
+- **B1 — runtime-build delegation. DONE.** `startCli` calls `product.buildRuntimeOptions(...)` once,
+  through the shipped `buildRobotaRuntimeOptions` helper. The shell resolves its own session inputs (the
+  preset's module-selection delta over the merged `base ⊕ packs` superset, and the explicit
+  `--permission-mode`); the kernel lays the product-owned materials on top — pack tools →
+  `additionalTools`, pack subagents → `agentDefinitions`, and the default preset's `permissionMode` when
+  the shell left it unset. All three surfaces bind to that one result. The hand-threaded
+  `const agentDefinitions = product.subagents` and the three per-surface
+  `args.permissionMode ?? resolvedPreset.permissionMode` expressions are deleted. `agent-product`'s
+  overlay was corrected to stop overwriting a caller-supplied `commandModules`, which would otherwise have
+  silently undone robota's preset delta.
+- **B2 — preset-resolve glue. DECIDED (option iii) + documented.** The shell KEEPS `agent-preset`'s
+  module-global registry as its preset SSOT, because the resolved preset is needed BEFORE the base command
+  modules are built and the in-session `/preset` command reads that same registry — moving only the shell
+  to the instance registry would split it. `IAssembledProduct.resolvePreset` is the external-consumer
+  path. The ARCH-005 In-kernel/stays-in-shell table row is corrected accordingly, and an anti-split test
+  asserts an external preset resolves identically through both paths.
+
+Red-first (all 6 new cases failed before the helper existed), mutation-proven, 255 agent-cli tests green
+including the unchanged ARCH-005 equivalence suite. ARCH-005 **TC-7** is now checked.
+
+One residual belongs to ARCH-006, not here: `additionalTools` reaches `--serve` (whose session options
+`agent-cli` owns) but not the print/TUI channels, which build theirs inside `agent-transport` /
+`agent-transport-tui` and still need the same one-line optional pass-through the `agentDefinitions` seam
+already has. Behaviourally inert today under first-wins dedupe.
