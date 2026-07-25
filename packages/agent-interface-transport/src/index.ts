@@ -14,6 +14,18 @@ export type {
   ITransportRegistryView,
 } from './transport-config.js';
 
+// ── Payload-agnostic channel contracts (TRANS-001) ───────────
+export type {
+  IBinaryFrame,
+  IChannelDescriptor,
+  IChannelEventFrame,
+  IPayloadChannel,
+  IPayloadChannelHost,
+  TChannelEventMap,
+  TChannelFrame,
+  TChannelReceiveResult,
+} from './channel-contracts.js';
+
 // ── Capability descriptor contracts ──────────────────────────
 export type {
   ICapabilityDescriptor,
