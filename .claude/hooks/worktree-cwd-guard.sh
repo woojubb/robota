@@ -76,22 +76,32 @@ if [[ "$IS_DESTRUCTIVE" != "true" ]]; then
   exit 0
 fi
 
-# --- Resolve the EFFECTIVE repo the command will actually run in ---------------------------------
-# Precedence (worktree-aware, same as branch-guard/pre-push-check): `git -C <path>` in the command >
-# hook-input `cwd` > CLAUDE_PROJECT_DIR.
+# --- Resolve the EFFECTIVE dir the command will actually run in ----------------------------------
+# Precedence (worktree-aware, same intent as branch-guard/pre-push-check): `git -C <path>` in the
+# command > hook-input `cwd` > CLAUDE_PROJECT_DIR. Unlike branch-guard, we do NOT fall back to `.`
+# (the hook's OWN process dir): `.` is wherever the hook binary runs, not where the tool command runs
+# — resolving its toplevel would judge an unrelated checkout (this caused a fail-safe bug: a non-git
+# cwd fell back to `.`, which resolved to the hook's own checkout and blocked). If no concrete dir can
+# be named, we cannot positively confirm anything → FAIL-SAFE, do not block.
 HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
 GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
-EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
-if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  EFFECTIVE_DIR="$HOOK_CWD"
-fi
-if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+EFFECTIVE_DIR=""
+if [[ -n "$GIT_C_PATH" ]]; then
   EFFECTIVE_DIR="$GIT_C_PATH"
+elif [[ -n "$HOOK_CWD" ]]; then
+  EFFECTIVE_DIR="$HOOK_CWD"
+elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  EFFECTIVE_DIR="$CLAUDE_PROJECT_DIR"
+fi
+
+# No nameable effective dir → cannot positively confirm main-checkout → FAIL-SAFE.
+if [[ -z "$EFFECTIVE_DIR" ]]; then
+  exit 0
 fi
 
 # --- (a) is the effective repo the MAIN checkout? -----------------------------------------------
-# Resolve the repo toplevel. If we cannot resolve it → cannot positively confirm main-checkout →
-# FAIL-SAFE, do not block.
+# Positively resolve the repo toplevel of the EFFECTIVE dir. If the dir is not inside a git work tree
+# (empty/error) → cannot positively confirm main-checkout → FAIL-SAFE, do not block.
 TOPLEVEL=$(git -C "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
 if [[ -z "$TOPLEVEL" ]]; then
   exit 0
