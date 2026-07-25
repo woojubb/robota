@@ -31,7 +31,9 @@ function kebabToCamel(key: string): string {
 }
 
 function parseListValue(rawValue: string): string[] {
-  const separator = rawValue.includes(',') ? /\s*,\s*/ : /\s+/;
+  // A plain `','` rather than `/\s*,\s*/`: the padding that regex absorbed is stripped by the `.trim()` below
+  // anyway, and `\s*,` retried its whitespace run from every offset — quadratic on a long run (SEC-003).
+  const separator = rawValue.includes(',') ? ',' : /\s+/;
   return rawValue
     .split(separator)
     .map((value) => value.trim())

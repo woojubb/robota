@@ -83,10 +83,14 @@ function extractSection(content: string, title: string): string | undefined {
 }
 
 function extractOpenItems(content: string): string[] {
-  return content
-    .split(/\r?\n/)
-    .map((line) => /^- \[ \]\s+(.+)$/.exec(line)?.[1]?.trim())
-    .filter((item): item is string => item !== undefined && item.length > 0);
+  return (
+    content
+      .split(/\r?\n/)
+      // `(\S.*)` rather than `(.+)` — same `\s`/`.` ambiguity as the `gitdir:` line above. A lone `\r` (a CR-only
+      // line ending) survives the `/\r?\n/` split, so a "line" can hold a long space run that never reaches `$`.
+      .map((line) => /^- \[ \]\s+(\S.*)$/.exec(line)?.[1]?.trim())
+      .filter((item): item is string => item !== undefined && item.length > 0)
+  );
 }
 
 function taskSortScore(task: ITaskContextFile, currentBranch?: string): number {
@@ -118,7 +122,10 @@ function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
       const stats = fs.statSync(gitPath);
       if (stats.isDirectory()) return gitPath;
       const content = fs.readFileSync(gitPath, 'utf8').trim();
-      const gitdir = content.match(/^gitdir:\s*(.+)$/)?.[1];
+      // `(\S.*)` rather than `(.+)`: `\s*` and `.` both match a space, so the split between them was ambiguous
+      // and a `.git` file with a long space run cost O(n²) (SEC-003). Greedy `\s*` already consumed every
+      // leading space, so pinning the capture to start non-space accepts exactly the same (trimmed) content.
+      const gitdir = content.match(/^gitdir:\s*(\S.*)$/)?.[1];
       if (gitdir) return isAbsolute(gitdir) ? gitdir : resolve(current, gitdir);
     }
 
