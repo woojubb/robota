@@ -180,6 +180,19 @@ docs: read PR review output before arming auto-merge (#1412)      code=false
 Every code PR classifies `code=true`, every docs PR `code=false`. The fix does not make every PR run
 everything.
 
+**Fail-closed, exercised.** Both step bodies run against a history with no reachable merge base
+(`origin/<base>` repointed at an unrelated root commit):
+
+```
+changes        -> ::error::… Classifying as CODE so no required check is silently skipped.
+                  STEP EXIT=0  ->  code=true
+security-audit -> ::error::… Running the vulnerability scan rather than skipping it.
+                  STEP EXIT=0  ->  changed=true
+```
+
+and the same `security-audit` body still discriminates normally: `package.json` changed →
+`changed=true`, docs-only → `changed=false`.
+
 **The guard is red-first too.** `findBaseHistoryFindings()` run against the **pre-fix** workflows
 restored from `origin/develop` reports **16 findings across 8 jobs** (the table above); against the
 fixed tree it reports **0**. It does not flag `commitlint` (INFRA-049 already fixed it) nor
@@ -222,7 +235,11 @@ residual INFRA-049 recorded.
   scripts rather than workflow text; worth a follow-up item.
 - **The gitleaks range is still two-dot** (`origin/<base>..HEAD`), so a back-merge re-scans commits
   already merged into the base. With complete history that is noise, not a miss — it over-scans.
-- **Not reproduced end-to-end in live CI.** Everything above is measured locally against the real
-  step bodies and real checkout shapes. What remains unproven by direct observation is only that a
-  live GitHub runner behaves as the local reproduction does; the mechanism (`.git/shallow`
-  truncation) and the acceptance of skipped required checks (#1424) are both directly measured.
+- **The RED direction is not reproduced on a live runner**, and deliberately so — forcing it would
+  mean shipping the broken config to `develop`. The GREEN direction _is_ observed live: on the PR
+  that carries this change (a code PR), the fixed `changes` job passed in 9 s and `tui-e2e`,
+  `examples-typecheck` and `windows-shell` all **ran** rather than reporting `skipping`, and `scans`
+  passed at full depth with `check-document-authority` no longer falling back to its own shallow
+  fetch. What remains unobserved is only that a live runner reproduces the _failure_ the local
+  fixture does; the mechanism (`.git/shallow` truncation) and the acceptance of skipped required
+  checks (#1424) are both directly measured.
