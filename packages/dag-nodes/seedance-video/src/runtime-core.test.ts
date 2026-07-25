@@ -5,7 +5,6 @@ import type {
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
 import { SeedanceVideoRuntime, type ISeedanceVideoRequest } from './runtime-core.js';
-import { BytedanceProvider } from '@robota-sdk/agent-provider-bytedance';
 
 // Shared job mocks so every constructed BytedanceProvider uses the same fns. The factory lives in
 // vi.hoisted so the vi.mock() call stays a single line (keeps the allow-module-mock escape attached).
