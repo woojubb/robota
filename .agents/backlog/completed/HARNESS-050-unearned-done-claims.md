@@ -131,8 +131,9 @@ to see it.
 | `findU3` | 5             | yes                          |
 | `findU4` | 3             | yes                          |
 
-**Zero false positives across the completed corpus.** Swept over all 699 files in
-`.agents/backlog/completed/` (675 of which carry `status: done`): **0 findings**. Getting there took
+**Zero false positives across the completed corpus.** Swept over all 700 files in
+`.agents/backlog/completed/` (676 of which carry `status: done`, this item included): **0 findings**.
+The pre-archival sweep, over the 699/675 corpus that excluded this item, was also 0. Getting there took
 four rule fixes, not four suppressions — the first draft fired on 111 files, of which the audit found
 53 to be rule defects.
 
@@ -163,7 +164,7 @@ a markdown scan**, for a reason that is categorical rather than a false-positive
 itself permits the receipt to live in the **PR description** instead of the item, so a document-only
 scan cannot be fail-closed — a green result would prove nothing.
 
-The measurement is also decisive on its own: **zero** of the 675 completed done items contain the
+The measurement is also decisive on its own: **zero** of the completed done items contain the
 string `REVIEW VERDICT`, while at least **nine** claim a verdict in prose (SCREEN-004, HARNESS-027,
 REMOTE-001, INFRA-051, CMD-004, ARCH-005, CLI-061, SCREEN-006, and INFRA-055 itself). Requiring the
 receipt would fire on nine legitimate documents, including the corrected form of the very document
@@ -219,7 +220,7 @@ document unreliable — a completion record written before the work, citing noth
 - [x] A deliberate decision on tell 5, recorded either way. — NOT implemented; hermeticity,
       code-execution and wrong-vehicle reasoning under _Tell 5_ above.
 - [x] No false positive across the existing `.agents/backlog/completed/` corpus — run it over every
-      completed item and report the count. — 699 files swept, 675 with `status: done`, **0 findings**;
+      completed item and report the count. — 700 files swept, 676 with `status: done`, **0 findings**;
       58 pre-existing genuine-debt items enumerated in `LEGACY_EVIDENCE_DEBT` with an anti-rot check.
 
 ## Follow-ups recorded, not done here
