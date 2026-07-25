@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { FileCostMetaStorage } from '../file-cost-meta-storage.js';
 import type { ICostMeta } from '@robota-sdk/dag-cost';
 
-const TEST_DIR = '/tmp/robota-cost-meta-test';
-
 describe('FileCostMetaStorage', () => {
+  // SEC-003: a fixed '/tmp/...' path is world-guessable and world-writable — another
+  // local user could pre-create or symlink it. Let the OS pick a private 0700 dir.
+  let TEST_DIR: string;
   let storage: FileCostMetaStorage;
 
   const sampleMeta: ICostMeta = {
@@ -19,8 +22,7 @@ describe('FileCostMetaStorage', () => {
   };
 
   beforeEach(() => {
-    if (existsSync(TEST_DIR)) rmSync(TEST_DIR, { recursive: true });
-    mkdirSync(TEST_DIR, { recursive: true });
+    TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-cost-meta-test-'));
     storage = new FileCostMetaStorage(TEST_DIR);
   });
 

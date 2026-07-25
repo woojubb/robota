@@ -30,6 +30,10 @@ Every runtime export of the package entry (`src/index.ts`). Provider option/conf
 
 `FilePayloadLogger` and `ConsolePayloadLogger` are surfaced via the `./loggers` sub-path entry (`src/openai/loggers/index.ts`).
 
+`FilePayloadLogger` writes prompt/response content to a caller-supplied `logDir`, so it creates that
+directory with mode `0700` and each payload file with mode `0600` rather than inheriting the process
+umask (SEC-003 / CWE-377). Paths, names, and formats are unchanged.
+
 ## Dependencies
 
 | Package                                        | Role                                             |

@@ -36,6 +36,14 @@ const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES =
 const DEFAULT_REDACTED_VALUE = '[REDACTED]';
 
 /**
+ * Session logs and externalized payloads carry conversation content, so they are created
+ * owner-only rather than inheriting the process umask (SEC-003 / CWE-377). `logDir` is
+ * caller-supplied and may be a shared or world-writable location.
+ */
+const OWNER_ONLY_FILE_MODE = 0o600;
+const OWNER_ONLY_DIR_MODE = 0o700;
+
+/**
  * Session logger interface — injected into Session for pluggable logging.
  *
  * Implementations decide where and how to persist session events.
@@ -64,7 +72,7 @@ export class FileSessionLogger implements ISessionLogger {
       redactedValue: options.redactedValue ?? DEFAULT_REDACTED_VALUE,
     };
     try {
-      mkdirSync(logDir, { recursive: true });
+      mkdirSync(logDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
     } catch {
       // Best-effort: logging disabled if directory cannot be created
     }
@@ -80,7 +88,7 @@ export class FileSessionLogger implements ISessionLogger {
         ...normalizedData,
       });
       const logFile = join(this.logDir, `${sessionId}.jsonl`);
-      appendFileSync(logFile, entry + '\n');
+      appendFileSync(logFile, entry + '\n', { mode: OWNER_ONLY_FILE_MODE });
     } catch {
       // Logging failure must never break the session
     }
@@ -168,9 +176,12 @@ function maybeExternalizePayload(
   const relativePath = join(payloadDirName, payloadFileName);
   const payloadDir = join(logDir, payloadDirName);
   const payloadPath = join(logDir, relativePath);
-  mkdirSync(payloadDir, { recursive: true });
+  mkdirSync(payloadDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
   if (!existsSync(payloadPath)) {
-    writeFileSync(payloadPath, serialized, 'utf-8');
+    writeFileSync(payloadPath, serialized, {
+      encoding: 'utf-8',
+      mode: OWNER_ONLY_FILE_MODE,
+    });
   }
   return {
     kind: 'external-payload',
