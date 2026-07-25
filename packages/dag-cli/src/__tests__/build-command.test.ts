@@ -1,4 +1,4 @@
-import { writeFile, unlink } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, afterEach } from 'vitest';
@@ -159,18 +159,25 @@ describe('buildCommand', () => {
   });
 
   describe('--spec with file path', () => {
-    const tmpFiles: string[] = [];
+    // SEC-003: spec fixtures live in an OS-chosen 0700 dir, never at a guessable
+    // path directly under the world-writable OS temp dir.
+    const tmpDirs: string[] = [];
+
+    async function specDir(): Promise<string> {
+      const dir = await mkdtemp(join(tmpdir(), 'dag-build-spec-'));
+      tmpDirs.push(dir);
+      return dir;
+    }
 
     afterEach(async () => {
-      for (const f of tmpFiles) {
-        await unlink(f).catch(() => undefined);
+      for (const d of tmpDirs) {
+        await rm(d, { recursive: true, force: true }).catch(() => undefined);
       }
-      tmpFiles.length = 0;
+      tmpDirs.length = 0;
     });
 
     it('reads spec from a .json file path', async () => {
-      const specPath = join(tmpdir(), `test-spec-${Date.now()}.json`);
-      tmpFiles.push(specPath);
+      const specPath = join(await specDir(), 'test-spec.json');
       await writeFile(
         specPath,
         JSON.stringify({
@@ -189,8 +196,7 @@ describe('buildCommand', () => {
     });
 
     it('reads spec from a .spec file path', async () => {
-      const specPath = join(tmpdir(), `test-spec-${Date.now()}.spec`);
-      tmpFiles.push(specPath);
+      const specPath = join(await specDir(), 'test-spec.spec');
       await writeFile(
         specPath,
         JSON.stringify({
