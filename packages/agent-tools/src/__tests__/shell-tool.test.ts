@@ -22,11 +22,21 @@ describe('createShellTool / createBashTool', () => {
     expect(createBashTool().getDescription()).toBe(createShellTool().getDescription());
   });
 
+  /**
+   * SEC-007: an explicit timeout, because this case SPAWNS A REAL SHELL and vitest's 10 s default is
+   * sized for in-process units. The `windows-shell` CI job exists to run exactly this test against
+   * PowerShell, whose cold start on a Windows runner is routinely several seconds on its own — and it
+   * flaked at precisely that wall (`Test timed out in 10000ms`, file duration 10.19 s) on a commit
+   * whose `agent-tools` tree was byte-identical to the run that had just passed.
+   *
+   * This is not masking a hang: a hung spawn still fails here, only later. What is under test is that
+   * the resolved shell round-trips a command, never how fast the OS can start it.
+   */
   it('executes a command via the resolved host shell (POSIX round-trip)', async () => {
     const raw = await createShellTool().execute({ command: 'echo shell-ok' });
     const result = JSON.parse(raw.data as string) as IToolInvocationResult;
     expect(result.success).toBe(true);
     expect(result.output.trim()).toContain('shell-ok');
     expect(result.exitCode).toBe(0);
-  });
+  }, 60_000);
 });

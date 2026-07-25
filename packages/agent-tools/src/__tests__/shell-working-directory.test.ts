@@ -26,6 +26,13 @@ import { createShellTool } from '../builtins/shell-tool.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, TToolParameters } from '@robota-sdk/agent-core';
 
+/**
+ * Every case here SPAWNS A REAL SHELL, so vitest's 10 s default — sized for in-process units — is the
+ * wrong bound; `shell-tool.test.ts` flaked at exactly that wall against PowerShell on a Windows
+ * runner. What is under test is which directory the command runs in, never how fast the OS starts it.
+ */
+const SPAWN_TIMEOUT_MS = 60_000;
+
 let root: string;
 let workdir: string;
 let sibling: string;
@@ -48,46 +55,66 @@ afterAll(() => {
 });
 
 describe('Shell — the configured containment root is the DEFAULT working directory (SEC-007)', () => {
-  it('runs in the configured cwd, not the host process cwd', async () => {
-    const result = await runTool(createShellTool({ cwd: workdir }), { command: 'pwd' });
-    expect(result.success).toBe(true);
-    expect(realpathSync(result.output.trim())).toBe(workdir);
-    expect(realpathSync(result.output.trim())).not.toBe(realpathSync(process.cwd()));
-  });
+  it(
+    'runs in the configured cwd, not the host process cwd',
+    async () => {
+      const result = await runTool(createShellTool({ cwd: workdir }), { command: 'pwd' });
+      expect(result.success).toBe(true);
+      expect(realpathSync(result.output.trim())).toBe(workdir);
+      expect(realpathSync(result.output.trim())).not.toBe(realpathSync(process.cwd()));
+    },
+    SPAWN_TIMEOUT_MS,
+  );
 
-  it('still honours an explicit workingDirectory over the default', async () => {
-    const result = await runTool(createShellTool({ cwd: workdir }), {
-      command: 'pwd',
-      workingDirectory: sibling,
-    });
-    expect(realpathSync(result.output.trim())).toBe(sibling);
-  });
+  it(
+    'still honours an explicit workingDirectory over the default',
+    async () => {
+      const result = await runTool(createShellTool({ cwd: workdir }), {
+        command: 'pwd',
+        workingDirectory: sibling,
+      });
+      expect(realpathSync(result.output.trim())).toBe(sibling);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
 
-  it('falls back to the host process cwd when no root is configured', async () => {
-    const result = await runTool(createShellTool(), { command: 'pwd' });
-    expect(realpathSync(result.output.trim())).toBe(realpathSync(process.cwd()));
-  });
+  it(
+    'falls back to the host process cwd when no root is configured',
+    async () => {
+      const result = await runTool(createShellTool(), { command: 'pwd' });
+      expect(realpathSync(result.output.trim())).toBe(realpathSync(process.cwd()));
+    },
+    SPAWN_TIMEOUT_MS,
+  );
 });
 
 describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC-007)', () => {
-  it('an explicit out-of-root workingDirectory still runs', async () => {
-    // Not a defect to fix by adding `checkPathWithinCwd` here: the very next line demonstrates why
-    // such a guard would be cosmetic.
-    const result = await runTool(createShellTool({ cwd: workdir }), {
-      command: 'pwd',
-      workingDirectory: sibling,
-    });
-    expect(result.success).toBe(true);
-    expect(realpathSync(result.output.trim())).toBe(sibling);
-  });
+  it(
+    'an explicit out-of-root workingDirectory still runs',
+    async () => {
+      // Not a defect to fix by adding `checkPathWithinCwd` here: the very next line demonstrates why
+      // such a guard would be cosmetic.
+      const result = await runTool(createShellTool({ cwd: workdir }), {
+        command: 'pwd',
+        workingDirectory: sibling,
+      });
+      expect(result.success).toBe(true);
+      expect(realpathSync(result.output.trim())).toBe(sibling);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
 
-  it('a guard on workingDirectory would be undone by the command itself', async () => {
-    // The command escapes without touching `workingDirectory` at all. Any containment check on the
-    // cwd argument is therefore not a boundary — it is a boundary-shaped comment.
-    const result = await runTool(createShellTool({ cwd: workdir }), {
-      command: `cd ${JSON.stringify(sibling)} && pwd`,
-    });
-    expect(result.success).toBe(true);
-    expect(realpathSync(result.output.trim())).toBe(sibling);
-  });
+  it(
+    'a guard on workingDirectory would be undone by the command itself',
+    async () => {
+      // The command escapes without touching `workingDirectory` at all. Any containment check on the
+      // cwd argument is therefore not a boundary — it is a boundary-shaped comment.
+      const result = await runTool(createShellTool({ cwd: workdir }), {
+        command: `cd ${JSON.stringify(sibling)} && pwd`,
+      });
+      expect(result.success).toBe(true);
+      expect(realpathSync(result.output.trim())).toBe(sibling);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
 });
