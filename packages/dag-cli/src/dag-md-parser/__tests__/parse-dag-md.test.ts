@@ -2,31 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { parseDagMd, DAG_MD_SUFFIX } from '../parse-dag-md.js';
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeDagMd(opts: {
-  dagId?: string;
-  meta?: string;
-  nodes: string;
-  mermaid?: string;
-}): string {
-  const dagId = opts.dagId ?? 'test-dag';
-  const metaBlock = opts.meta ?? '';
-  const mermaidBlock = opts.mermaid !== undefined ? `\`\`\`mermaid\n${opts.mermaid}\n\`\`\`` : '';
-
-  return `---
-dagId: ${dagId}
-${metaBlock}dag:
-  nodes:
-${opts.nodes}
----
-
-${mermaidBlock}
-`.trim();
-}
-
-// ---------------------------------------------------------------------------
 // DAG_MD_SUFFIX constant
 // ---------------------------------------------------------------------------
 

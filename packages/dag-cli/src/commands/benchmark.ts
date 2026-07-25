@@ -1,4 +1,4 @@
-import { writeFile, mkdir, readFile, access } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { IDagDefinition, IDagRobotaCompanion } from '@robota-sdk/dag-core';
 import type { IDagCliIo } from '../types.js';
