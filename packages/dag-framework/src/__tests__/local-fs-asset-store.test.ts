@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalFsAssetStore } from '../adapters/local-fs-asset-store.js';
 
 let tmpDir: string;
@@ -152,5 +152,125 @@ describe('LocalFsAssetStore.getContent', () => {
     }
     const combined = Buffer.concat(chunks.map((c) => Buffer.from(c)));
     expect(combined.equals(content)).toBe(true);
+  });
+});
+
+/**
+ * SSRF guard. `sourceUri` is attacker-influenceable: it is whatever URI an upstream DAG node emitted
+ * (`asset-aware-executor` persists `value.uri`), so dereferencing it unguarded would let a task
+ * executor read cloud-metadata credentials, loopback admin ports, or local files through this store.
+ */
+describe('LocalFsAssetStore.getContent SSRF guard', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function saveRef(sourceUri: string): Promise<string> {
+    const metadata = await store.saveReference({
+      fileName: 'ref.bin',
+      mediaType: 'application/octet-stream',
+      sourceUri,
+      binaryKind: 'file',
+    });
+    return metadata.assetId;
+  }
+
+  async function drain(stream: AsyncIterable<Uint8Array>): Promise<Buffer> {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+  }
+
+  it.each([['file:///etc/passwd'], ['data:text/plain;base64,c2VjcmV0'], ['ftp://example.com/x']])(
+    'rejects the non-http scheme %s without issuing a request',
+    async (uri) => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+      const assetId = await saveRef(uri);
+
+      await expect(store.getContent(assetId)).rejects.toThrow(/scheme is not allowed/);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['http://127.0.0.1:8080/admin'],
+    ['http://127.1.2.3/admin'],
+    ['http://localhost:8080/admin'],
+    ['http://169.254.169.254/latest/meta-data/iam/security-credentials/'],
+    ['http://10.0.0.1/internal'],
+    ['http://192.168.0.5/internal'],
+    ['http://172.16.3.4/internal'],
+    ['http://0.0.0.0:9000/internal'],
+    ['http://[::1]:8080/admin'],
+    ['http://[fd00::1]/internal'],
+    ['http://[fe80::1]/internal'],
+    ['http://[::ffff:127.0.0.1]/admin'],
+    // Obfuscated IPv4 forms — the WHATWG URL parser normalizes these to dotted-quad before the check.
+    ['http://2130706433/admin'],
+    ['http://0177.0.0.1/admin'],
+    ['http://127.1/admin'],
+  ])('rejects the private/loopback host %s without issuing a request', async (uri) => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const assetId = await saveRef(uri);
+
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('allows a public https URI and streams the response body', async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve(new Response('remote payload')));
+    vi.stubGlobal('fetch', fetchSpy);
+    const assetId = await saveRef('https://example.com/image.jpg');
+
+    const result = await store.getContent(assetId);
+    expect(result).not.toBeUndefined();
+    expect((await drain(result!.stream)).toString('utf-8')).toBe('remote payload');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes an abort signal so a hung remote cannot pin the request open', async () => {
+    const fetchSpy = vi.fn((_input: URL | string, _init?: RequestInit) =>
+      Promise.resolve(new Response('ok')),
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+    const assetId = await saveRef('https://example.com/image.jpg');
+
+    await store.getContent(assetId);
+    expect(fetchSpy.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('does not follow a redirect that lands on a private address', async () => {
+    const fetchSpy = vi.fn(() =>
+      Promise.resolve(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        }),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+    const assetId = await saveRef('https://example.com/image.jpg');
+
+    await expect(store.getContent(assetId)).rejects.toThrow(/host is not allowed/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('follows a redirect that stays on a public host', async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { location: 'https://cdn.example.com/i.jpg' } }),
+      )
+      .mockResolvedValueOnce(new Response('redirected payload'));
+    vi.stubGlobal('fetch', fetchSpy);
+    const assetId = await saveRef('https://example.com/image.jpg');
+
+    const result = await store.getContent(assetId);
+    expect((await drain(result!.stream)).toString('utf-8')).toBe('redirected payload');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });
