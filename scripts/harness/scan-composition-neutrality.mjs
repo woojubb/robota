@@ -155,16 +155,33 @@ function accessPath(node, aliases) {
 
 const IDENTITY_PROPS = new Set(['id', 'agentName']);
 
-/** Bind each name a destructuring pattern introduces: to its full path, and to the identity set when apt. */
+function isBindingPattern(node) {
+  return ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node);
+}
+
+/**
+ * Bind each name a destructuring pattern introduces: to its full path, and to the identity set when apt.
+ * Recurses into nested patterns, so `const { profile: { id } } = opts` is as visible as `const { id } =
+ * profile`. An ARRAY pattern binds by position and so contributes no named segment — the path stops being
+ * resolvable there, but the identity binding is still tracked.
+ */
 function bindPattern(pattern, basePath, aliases, identityLocals) {
+  const bindsByName = ts.isObjectBindingPattern(pattern);
   for (const element of pattern.elements) {
     if (!ts.isBindingElement(element) || element.dotDotDotToken !== undefined) continue;
-    if (!ts.isIdentifier(element.name)) continue;
-    const keyNode = element.propertyName ?? element.name;
-    const key = ts.isIdentifier(keyNode) ? keyNode.text : staticString(keyNode);
-    if (key === undefined) continue;
-    if (basePath !== undefined) aliases.set(element.name.text, [...basePath, key]);
-    if (IDENTITY_PROPS.has(key)) identityLocals.add(element.name.text);
+    let key;
+    if (bindsByName) {
+      const keyNode = element.propertyName ?? element.name;
+      key = ts.isIdentifier(keyNode) ? keyNode.text : staticString(keyNode);
+      if (key === undefined) continue;
+    }
+    const childPath = basePath === undefined || key === undefined ? undefined : [...basePath, key];
+    if (ts.isIdentifier(element.name)) {
+      if (childPath !== undefined) aliases.set(element.name.text, childPath);
+      if (key !== undefined && IDENTITY_PROPS.has(key)) identityLocals.add(element.name.text);
+    } else if (isBindingPattern(element.name)) {
+      bindPattern(element.name, childPath, aliases, identityLocals);
+    }
   }
 }
 
@@ -181,10 +198,10 @@ function collectAliases(nodes) {
       const basePath = accessPath(node.initializer, aliases);
       if (ts.isIdentifier(node.name)) {
         if (basePath !== undefined) aliases.set(node.name.text, basePath);
-      } else if (ts.isObjectBindingPattern(node.name)) {
+      } else if (isBindingPattern(node.name)) {
         bindPattern(node.name, basePath, aliases, identityLocals);
       }
-    } else if (ts.isParameter(node) && ts.isObjectBindingPattern(node.name)) {
+    } else if (ts.isParameter(node) && isBindingPattern(node.name)) {
       bindPattern(node.name, undefined, aliases, identityLocals);
     }
   }

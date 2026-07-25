@@ -207,6 +207,18 @@ describe('HARNESS-048 — evasions of the line-regex guard (AST hardening)', () 
     ).not.toEqual([]);
   });
 
+  it('FLAGS a NESTED destructured identity (`const { profile: { id } } = opts`)', () => {
+    const source = "const {\n  profile: { id },\n} = opts;\nif (id === 'robota') doThing();";
+    expect(findProductNameConditionals(source, 'x.ts').map((f) => f.id)).toContain('equality');
+    // …and through an array pattern, where the binding carries no named path segment.
+    expect(
+      findProductNameConditionals(
+        'const [{ agentName }] = profiles;\nswitch (agentName) {\n}',
+        'x.ts',
+      ),
+    ).not.toEqual([]);
+  });
+
   it('FLAGS an ALIASED identity string predicate (`const a = profile.id; a.startsWith(…)`)', () => {
     const source = "const alias = profile.id;\nif (alias.startsWith('acme')) doThing();";
     expect(findProductNameConditionals(source, 'x.ts').map((f) => f.id)).toContain(

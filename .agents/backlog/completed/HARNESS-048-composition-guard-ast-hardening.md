@@ -81,18 +81,20 @@ MISS a real one.
 
 **Red → green, per evasion** (all pinned as fixtures in the guard's test file):
 
-| Evasion                                           | Before | After                         |
-| ------------------------------------------------- | ------ | ----------------------------- |
-| `const { id } = profile; if (id === 'robota')`    | passed | FLAGGED `equality`            |
-| `const { id: which } = profile; which !== 'acme'` | passed | FLAGGED `equality`            |
-| `const a = profile.id; a.startsWith('acme')`      | passed | FLAGGED `string-predicate`    |
-| `const { agentName } = p; switch (agentName)`     | passed | FLAGGED `switch`              |
-| `table[profile['id']]`                            | passed | FLAGGED `identity-index`      |
-| `globalThis['process'].env['HOME']`               | passed | FLAGGED `globalThis.process`  |
-| `const proc = process; proc.env['HOME']`          | passed | FLAGGED `process.env`         |
-| `await import('node:fs')` / `require(…)`          | passed | FLAGGED `forbidden-io-import` |
-| member access split across lines                  | passed | FLAGGED `process.env`         |
-| identity equality split across lines              | passed | FLAGGED `equality`            |
+| Evasion                                             | Before | After                         |
+| --------------------------------------------------- | ------ | ----------------------------- |
+| `const { id } = profile; if (id === 'robota')`      | passed | FLAGGED `equality`            |
+| `const { id: which } = profile; which !== 'acme'`   | passed | FLAGGED `equality`            |
+| `const { profile: { id } } = opts; id === 'robota'` | passed | FLAGGED `equality`            |
+| `const [{ agentName }] = ps; switch (agentName)`    | passed | FLAGGED `switch`              |
+| `const a = profile.id; a.startsWith('acme')`        | passed | FLAGGED `string-predicate`    |
+| `const { agentName } = p; switch (agentName)`       | passed | FLAGGED `switch`              |
+| `table[profile['id']]`                              | passed | FLAGGED `identity-index`      |
+| `globalThis['process'].env['HOME']`                 | passed | FLAGGED `globalThis.process`  |
+| `const proc = process; proc.env['HOME']`            | passed | FLAGGED `process.env`         |
+| `await import('node:fs')` / `require(…)`            | passed | FLAGGED `forbidden-io-import` |
+| member access split across lines                    | passed | FLAGGED `process.env`         |
+| identity equality split across lines                | passed | FLAGGED `equality`            |
 
 The four already-caught forms (literal equality, `switch (X.id)`, string predicate, identity index)
 keep failing — the 14 pre-existing assertions were left untouched and stayed green through the
@@ -120,8 +122,8 @@ configured package that does not exist yields two hard findings (`src/`, `packag
 silent pass.
 
 **Verification.** `pnpm harness:verify-like-ci` → PASS, all 4 CI-mirroring stages (harness-self-test,
-format-check, scan-suite on a built tree, typecheck). `pnpm harness:test` → 74 files / 797 tests
-passed. The guard's own suite → 29/29 (13 of them red before the fix).
+format-check, scan-suite on a built tree, typecheck). `pnpm harness:test` → 74 files / 798 tests
+passed. The guard's own suite → 30/30 (14 of them proven red before the corresponding fix).
 
 The `.agents/project-structure.md` L129 carve-out text is unchanged by design — this strengthens its
 mechanism, it does not edit the rule.
