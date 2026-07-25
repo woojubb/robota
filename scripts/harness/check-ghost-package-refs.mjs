@@ -75,7 +75,13 @@ function listMarkdownFiles(root) {
   function walk(dir) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === '.git' || entry.name === 'node_modules') continue;
+      // Skip VCS/deps and `.claude` (agent tooling + transient git worktrees under
+      // `.claude/worktrees/*`): worktrees are checked-out copies of OTHER branches whose new,
+      // not-yet-merged packages do not resolve against develop — walking them yields false
+      // ghost-package-ref failures locally (never in CI, which has no worktrees). Not a repo
+      // content source for this scan.
+      if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === '.claude')
+        continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile() && entry.name.endsWith('.md')) out.push(full);
