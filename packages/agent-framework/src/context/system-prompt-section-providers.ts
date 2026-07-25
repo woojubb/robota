@@ -1,3 +1,5 @@
+import { PROJECT_MEMORY_TRUST_NOTE } from '../memory/memory-trust-framing.js';
+
 import type { IProjectInfo } from './project-detector.js';
 import type { ISystemPromptSection } from './system-prompt-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -114,13 +116,21 @@ export function createProjectNotesSection(
   );
 }
 
+/**
+ * SEC-007 — project memory is MODEL-WRITABLE (`/memory add` is `modelInvocable`), and it lands in the
+ * same `project-instructions` band as the operator-authored `AGENTS.md` and `CLAUDE.md`. Without the
+ * trust note the model cannot tell which of the three it wrote itself, and text it wrote on an
+ * earlier turn reads back as an operator instruction. The title says whose voice this is; the note
+ * says what the content is for. See `memory/memory-trust-framing.ts` for why this is defence in
+ * depth rather than a boundary.
+ */
 export function createProjectMemorySection(memoryMd?: string): ISystemPromptSection | undefined {
   if (memoryMd === undefined || memoryMd.trim().length === 0) return undefined;
   return createSection(
     'project-memory',
-    'Project Memory',
+    'Project Memory (recorded data)',
     PROJECT_MEMORY_PRIORITY,
-    memoryMd,
+    `${PROJECT_MEMORY_TRUST_NOTE}\n\n${memoryMd}`,
     'project-instructions',
   );
 }
