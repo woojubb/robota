@@ -32,7 +32,9 @@ agent-interface-transport          ← this package (contracts only, zero deps)
   ├── IConfigurableTransport       ← extends ITransportAdapter with enable/disable + options
   ├── ITransportConfig             ← persisted transport configuration shape
   ├── ITransportEntry              ← (transport, config) pairing for registry storage
-  └── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
+  ├── ITransportRegistryView       ← read/write registry of IConfigurableTransport instances
+  └── IPayloadChannelHost          ← TRANS-001: consumer-declared binary/event channels carried
+                                     alongside a transport's own protocol profile
 
 agent-transport-tui (TuiTransport), agent-transport-ws (WsTransport)
   └── implements IConfigurableTransport<TSession>
@@ -72,6 +74,7 @@ groups, each in its own file (all re-exported from `src/index.ts`):
 | Background job-group contracts         | `background-group-contracts.ts` | `IBackgroundJobGroupState`/`Summary`/`CreateRequest`, `IBackgroundJobResultEnvelope`, job-group event + status/wait contracts                                                                                                                                                                                                                                                       |
 | Execution-workspace contracts          | `workspace-contracts.ts`        | `IExecutionWorkspaceEntry`/`Snapshot`/`Event`/`Filter`, execution-detail page/record contracts, and their enum kinds                                                                                                                                                                                                                                                                |
 | Interactive-session contracts          | `session-contracts.ts`          | `IInteractiveSession` (whose `executeCommand` carries the optional CMD-004 command-origin driver id), `IInteractiveSessionEvents` (incl. the CMD-004 `ui_intent` + `session_renamed` + `history_cleared` events), `IExecutionResult`, `IToolState`/`Summary`, `IInteractiveSessionStore`                                                                                            |
+| Payload-agnostic channel contracts     | `channel-contracts.ts`          | TRANS-001: `IBinaryFrame` (opaque bytes + per-channel `seq`), `IChannelEventFrame` (consumer-declared structured event), `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`. Content-neutral carrier mechanics — no payload domain (audio/file/image) appears here                                        |
 | Driver identity + driver-routed events | `driver-contracts.ts`           | REMOTE-014 E5 co-drive attribution: `TDriverId`, `ISubmitOptions`, and the runtime driver-id constants `OWNER_DRIVER_ID` / `AGENT_DRIVER_ID` (display-only attribution, never authorization — OWNER PRINCIPLE); CMD-004 Phase 2 driver-routed events `IUiIntentEvent` (requester-routed UI intents) + `ISessionRenamedEvent` (broadcast title update)                               |
 
 These contract interfaces use generic type parameters where applicable. The package imports a
@@ -96,6 +99,7 @@ are type-only except for the four pure accessor functions re-exported from `inte
 
 | Contract group (file)                                         | Exported contracts                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payload-agnostic channels (`channel-contracts`, TRANS-001)    | `IBinaryFrame`, `IChannelEventFrame`, `TChannelFrame`, `TChannelEventMap`, `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelReceiveResult`                                                                                                                                                     |
 | Capability descriptors (`capability-contracts`)               | `ICapabilityDescriptor`, `TCapabilityKind`, `TCapabilitySafety`                                                                                                                                                                                                                                                        |
 | Command system (`command-contracts`)                          | `ICommand`, `ICommandSource`, `ICommandResult` (+ CMD-004 `hostActions`/`uiIntents`), `TCommandInvocationSource` (REMOTE-003), `TCommandHostAction`, `TCommandUiIntent`, plugin-adapter + status-line command settings contracts                                                                                       |
 | Interaction channel (`interaction-contracts`)                 | `IInteractionChannel`, `IAgentDriver`, `IToolCallObservation`, `ITerminalHandoff`, `InteractionEvent`, `ICommandInfo` (+ the accessor functions above)                                                                                                                                                                 |
@@ -167,6 +171,36 @@ export interface ITransportRegistryView<TSession = unknown> {
 it never rejects — each transport is stopped independently and any per-transport failure is reported
 in the returned `IDestroyResult` rather than thrown (CORE-013).
 
+### `IPayloadChannelHost` / `IPayloadChannel<TEvents>` (TRANS-001)
+
+The payload-agnostic carrier seam. A transport that implements `IPayloadChannelHost` can carry
+**consumer-declared channels** alongside its own protocol profile, so the text-agent protocol
+(`text_delta`/`submit`/… owned by `agent-transport-protocol`) becomes ONE profile on the transport
+rather than being the transport itself — the CMD-004 precedent of contracts below, per-environment
+behavior above.
+
+```typescript
+export interface IPayloadChannelHost {
+  registerChannel<TEvents extends TChannelEventMap>(
+    descriptor: IChannelDescriptor<TEvents>,
+  ): IPayloadChannel<TEvents>;
+}
+```
+
+- `IChannelDescriptor` — the declaration: channel `name` (1..255 UTF-8 bytes, unique per host), the
+  `events` names it carries, and an opt-in `binary` flag for opaque frames.
+- `IBinaryFrame` — `{ kind, channel, seq, payload: Uint8Array }`. The `payload` is bytes the
+  transport never inspects; `seq` is a sender-assigned monotonic per-channel counter so a chunked
+  payload reassembles in order independently of delivery order.
+- `IChannelEventFrame` — a structured event on the same `seq` space, so interleaved binary and event
+  frames have a total order.
+- `TChannelReceiveResult` — routing outcome. An unroutable frame (unknown channel, undeclared event,
+  binary on a text-only channel, malformed envelope) is a STATED error, never a silent drop.
+
+Content-neutrality is a hard boundary: nothing here knows about audio, files, or images. Domain
+adapters (a voice app's STT/TTS bridge, a file uploader) are assembled by consumers on top —
+never inside the library (ROOM-001 principle).
+
 ## Extension Points
 
 This package defines contracts that consumers implement or extend:
@@ -176,6 +210,7 @@ This package defines contracts that consumers implement or extend:
 | `ITransportAdapter`      | Interface | `createHttpTransport` (http), `createMcpTransport` (mcp), `createHeadlessTransport` (agent-transport/headless), `createWsTransport` factory (ws) — all return a bare adapter | Implement to create a transport with attach/start/stop lifecycle |
 | `IConfigurableTransport` | Interface | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                                 | Extend `ITransportAdapter` to support enable/disable and options |
 | `ITransportRegistryView` | Interface | `agent-transport` (`TransportRegistry`, structurally compatible — no declared `implements`)                                                                                  | Provide registry management for configurable transports          |
+| `IPayloadChannelHost`    | Interface | `WsTransport` (`agent-transport-ws`, via its `PayloadChannelRegistry`)                                                                                                       | Carry consumer-declared binary/event channels on the connection  |
 
 No abstract classes or base classes are exported — all extension is through interface implementation.
 
@@ -211,6 +246,7 @@ implementors must satisfy:
 | `ITransportAdapter`      | `createHttpTransport`/`createMcpTransport`/`createHeadlessTransport`/`createWsTransport` factories (bare adapters); also satisfied via `IConfigurableTransport` | `agent-transport-*`, `agent-transport` |
 | `IConfigurableTransport` | `TuiTransport` (`agent-transport-tui`), `WsTransport` (`agent-transport-ws`)                                                                                    | `agent-transport-*` packages           |
 | `ITransportRegistryView` | `TransportRegistry` (structurally compatible, no declared `implements`)                                                                                         | `agent-transport`                      |
+| `IPayloadChannelHost`    | `WsTransport` (declared `implements`) and `PayloadChannelRegistry`                                                                                              | `agent-transport-ws`                   |
 
 No `extends` chains exist within this package — `IConfigurableTransport` extends `ITransportAdapter`
 and is the only intra-package inheritance.
