@@ -1,3 +1,8 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +11,7 @@ import {
   messageText,
   modelOverrideEnvVar,
   redactSecrets,
+  resolveBuiltEntry,
   selectLiveProviders,
   smokeProvider,
 } from '../live-provider-smoke.mjs';
@@ -100,6 +106,51 @@ describe('selectLiveProviders (HARNESS-024 gating)', () => {
     );
 
     expect(selection.runnable.map((c) => c.type)).toEqual(['openai']);
+  });
+});
+
+describe('resolveBuiltEntry', () => {
+  /** Fixture workspace: one package, its manifest, and optionally its built entry file. */
+  async function workspace({ built }) {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-live-smoke-'));
+    const packageDir = path.join(root, 'packages', 'agent-core');
+    mkdirSync(packageDir, { recursive: true });
+    writeFileSync(
+      path.join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: '@robota-sdk/agent-core',
+        exports: { '.': { node: { import: './dist/node/index.js' } } },
+      }),
+      'utf8',
+    );
+    if (built) {
+      const distDir = path.join(packageDir, 'dist', 'node');
+      mkdirSync(distDir, { recursive: true });
+      writeFileSync(path.join(distDir, 'index.js'), 'export const x = 1;\n', 'utf8');
+    }
+    return root;
+  }
+
+  it('reads the entry location from the owning package manifest, not a hardcoded path', async () => {
+    const root = await workspace({ built: true });
+
+    expect(resolveBuiltEntry('@robota-sdk/agent-core', root)).toBe(
+      path.join(root, 'packages', 'agent-core', 'dist', 'node', 'index.js'),
+    );
+  });
+
+  // A fresh CI checkout has no build output. This is the case that must NOT be mistaken for a
+  // working workspace — the caller turns it into an explicit "not built" message, never a silent pass.
+  it('returns undefined when the package is declared but not built', async () => {
+    const root = await workspace({ built: false });
+
+    expect(resolveBuiltEntry('@robota-sdk/agent-core', root)).toBeUndefined();
+  });
+
+  it('returns undefined for a package name no workspace manifest claims', async () => {
+    const root = await workspace({ built: true });
+
+    expect(resolveBuiltEntry('@robota-sdk/does-not-exist', root)).toBeUndefined();
   });
 });
 

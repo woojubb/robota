@@ -39,11 +39,15 @@
  */
 
 import { writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+
+/** Packages the smoke loads at runtime, by manifest name — never by build-output path. */
+const PROVIDER_DEFAULTS_PACKAGE = '@robota-sdk/agent-provider-defaults';
+const CORE_PACKAGE = '@robota-sdk/agent-core';
 
 /** The one prompt every provider gets. Short, deterministic to grade, cheap to answer. */
 export const SMOKE_PROMPT = 'Reply with exactly one word: pong';
@@ -282,14 +286,40 @@ function parseArgs(argv) {
   return options;
 }
 
+/**
+ * Locate a workspace package by its manifest `name`, and return its built Node ESM entry as
+ * declared by that manifest's own `exports['.'].node.import`.
+ *
+ * The build-output location is NOT hardcoded here: it is read from the package that owns it, so a
+ * change to the build layout moves this loader with it. Returns undefined when the package is not
+ * built yet (a fresh checkout has no build output).
+ */
+export function resolveBuiltEntry(packageName, root = WORKSPACE_ROOT) {
+  const packagesRoot = path.join(root, 'packages');
+  if (!existsSync(packagesRoot)) return undefined;
+
+  for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const packageDir = path.join(packagesRoot, entry.name);
+    const manifestPath = path.join(packageDir, 'package.json');
+    if (!existsSync(manifestPath)) continue;
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+    if (manifest.name !== packageName) continue;
+
+    const nodeImport = manifest.exports?.['.']?.node?.import;
+    if (typeof nodeImport !== 'string') return undefined;
+    const absolute = path.join(packageDir, nodeImport);
+    return existsSync(absolute) ? absolute : undefined;
+  }
+  return undefined;
+}
+
 /** Load the provider definitions + message factory from the BUILT workspace output. */
 async function loadWorkspace() {
-  const defaultsEntry = path.join(
-    WORKSPACE_ROOT,
-    'packages/agent-provider-defaults/dist/node/index.js',
-  );
-  const coreEntry = path.join(WORKSPACE_ROOT, 'packages/agent-core/dist/node/index.js');
-  if (!existsSync(defaultsEntry) || !existsSync(coreEntry)) {
+  const defaultsEntry = resolveBuiltEntry(PROVIDER_DEFAULTS_PACKAGE);
+  const coreEntry = resolveBuiltEntry(CORE_PACKAGE);
+  if (defaultsEntry === undefined || coreEntry === undefined) {
     return undefined;
   }
   const [{ createDefaultProviderDefinitions }, { createUserMessage }] = await Promise.all([
