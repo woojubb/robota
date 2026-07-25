@@ -109,4 +109,32 @@ describe('parseStructuredResponseText', () => {
       expect(result.issue).toContain('not valid JSON');
     }
   });
+
+  /**
+   * SEC-003 (`js/polynomial-redos`). The argument here is raw model output, so its shape is not
+   * under our control. The pre-fix fence regex used `\s*\n`; since `\s` also matches `\n` the two
+   * overlapped, and an unterminated fence full of blank lines was rejected in O(n^2) — measured
+   * ~3s for the input below, versus ~1ms after the fix.
+   */
+  it('rejects an unterminated fence full of blank lines in linear time', () => {
+    const hostile = '```' + ' \n'.repeat(200_000) + 'x';
+
+    const started = performance.now();
+    const result = parseStructuredResponseText(hostile);
+    const took = performance.now() - started;
+
+    expect(result.success).toBe(false);
+    expect(took).toBeLessThan(250);
+  });
+
+  it('still tolerates trailing spaces and CRLF around the fence markers', () => {
+    expect(parseStructuredResponseText('```json  \r\n{"a": 1}\r\n```')).toEqual({
+      success: true,
+      value: { a: 1 },
+    });
+    expect(parseStructuredResponseText('```\n\n{"a": 1}\n\n```')).toEqual({
+      success: true,
+      value: { a: 1 },
+    });
+  });
 });
