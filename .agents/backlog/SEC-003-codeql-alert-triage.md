@@ -1,5 +1,5 @@
 ---
-title: 'SEC-002: triage ~170 open CodeQL alerts (109 high-severity) accumulated behind an advisory gate'
+title: 'SEC-003: triage ~170 open CodeQL alerts (109 high-severity) accumulated behind an advisory gate'
 status: todo
 created: 2026-07-25
 priority: high
@@ -8,7 +8,7 @@ area: packages, scripts
 depends_on: []
 ---
 
-# SEC-002: CodeQL alert backlog triage
+# SEC-003: CodeQL alert backlog triage
 
 ## Problem
 
