@@ -41,3 +41,9 @@ before it.
 
 Fixture-based: single-line tags (green), multi-line prettier-wrapped tags (RED before, green after),
 genuinely-missing tags (still fails). `pnpm harness:test` + `run-all-scans` green.
+
+## Related
+
+- **HARNESS-045** — a single local verification entry that reproduces the CI scans/quality gate
+  exactly. This item is a member of that broader "green locally ≠ green in CI" class (the
+  formatter-drift-not-caught-locally instance).
