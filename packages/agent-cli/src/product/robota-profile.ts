@@ -26,8 +26,8 @@ import type {
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IPreset } from '@robota-sdk/agent-preset';
 import type { IProductProfile } from '@robota-sdk/agent-product';
+import type { IShellPresetResolution } from '../startup/preset-selection.js';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
 
 /**
@@ -76,10 +76,13 @@ export interface IRobotaProfileInput {
   providerSettings?: IProviderDefinitionConfig;
   /** Pre-built provider that overrides `providerSettings` — `--session-log` replay uses this. */
   provider?: IAIProvider;
-  /** User-authored external presets the shell loaded from disk (`~/.robota/presets/*.json`). */
-  presets: readonly IPreset[];
-  /** The preset id selected for this run (`--preset` > `settings.preset` > `'default'`). */
-  defaultPresetId: string;
+  /**
+   * The shell's single preset resolution (ARCH-008) — the per-call registry it ran over, the selected id,
+   * and the override context. Taken as ONE value so the profile cannot carry a registry/id/context other
+   * than the ones the shell actually resolved with; `assembleProduct` adopts the same registry and replays
+   * the same context, so `product.defaultPreset` IS `preset.options`.
+   */
+  preset: IShellPresetResolution;
   /** The base command modules (defaults minus the pack-supplied ones); packs merge on top. */
   baseCommandModules: readonly ICommandModule[];
   /** Concrete background-task runners the shell injects. */
@@ -101,8 +104,9 @@ export function createRobotaProfile(input: IRobotaProfileInput): IProductProfile
     providerDefinitions: input.providerDefinitions,
     ...(input.providerSettings !== undefined ? { providerSettings: input.providerSettings } : {}),
     ...(input.provider !== undefined ? { provider: input.provider } : {}),
-    presets: input.presets,
-    defaultPresetId: input.defaultPresetId,
+    presetRegistry: input.preset.registry,
+    presetContext: input.preset.context,
+    defaultPresetId: input.preset.presetId,
     packs: input.packs,
     baseCommandModules: input.baseCommandModules,
     backgroundTaskRunners: input.backgroundTaskRunners,

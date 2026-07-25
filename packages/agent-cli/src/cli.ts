@@ -22,9 +22,10 @@ import {
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { parseCliArgs, parseToolList, printHelp } from './utils/cli-args.js';
 import type { IParsedCliArgs } from './utils/cli-args.js';
-import { resolveCliPreset, selectPresetId } from './startup/preset-selection.js';
+import { resolveShellPreset } from './startup/preset-selection.js';
+import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
-import type { IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type { IPreset } from '@robota-sdk/agent-preset';
 import {
   createRobotaPacks,
   createRobotaProfile,
@@ -169,36 +170,33 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // PRESET-002/004: thin shell — select preset id (flag > settings.preset > 'default') and forward
-  // the resolved framework options. The precedence merge + posture mapping lives in
-  // agent-preset.resolvePreset; the CLI owns none of that logic. Resolved before command setup so
-  // the preset's module-selection delta can reach createDefaultCommandModules.
+  // PRESET-002/004/007/011 + ARCH-008: the shell's ONE preset resolution. `loadExternalPresets` reads
+  // `~/.robota/presets/*.json` (per-file problems are warnings, never fatal) and also registers them into
+  // agent-preset's module-global registry — which is now the in-session `/preset` DISCOVERY surface only,
+  // NOT this resolution path. `resolveShellPreset` builds the kernel's per-call registry (R8) over the
+  // same loaded presets and resolves the selected id over it, returning registry + id + override context
+  // as one value that travels whole into the profile, so `assembleProduct` adopts that same registry. Both
+  // surfaces come from this one load, so they cannot disagree (anti-split gate). Resolved before command
+  // setup so the preset's module-selection delta can reach createDefaultCommandModules.
   const userSettings = readSettings(getUserSettingsPath());
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  // PRESET-007: register user-authored external presets (~/.robota/presets/*.json) into the
-  // shared registry before resolution so `--preset <id>` and `/preset` can see them. Per-file
-  // load/validation problems are non-fatal and surfaced as warnings; the run still proceeds.
   const externalPresetLoad = loadExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
-  // ARCH-005 S2: the loaded presets also travel as DATA into the product profile, where `assembleProduct`
-  // builds an instance-scoped registry over them (R8). The module-global registration above stays — it is
-  // what `/preset` and `listPresets` read at runtime.
   const externalPresets = externalPresetLoad.loaded
     .map((id) => getPreset(id))
-    .filter((preset): preset is IPreset => preset !== undefined);
-  let resolvedPreset: IResolvedPresetOptions;
+    .filter((entry): entry is IPreset => entry !== undefined);
+  let preset: IShellPresetResolution;
   try {
-    resolvedPreset = resolveCliPreset(args, settingsPreset);
+    preset = resolveShellPreset(externalPresets, args, settingsPreset);
   } catch (error) {
     // allow-fallback: unknown preset id is terminal — surface available list, exit
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   }
-  // PRESET-011: the selected preset id (same selection glue as resolveCliPreset) becomes the
-  // session's runtime active-preset state. Pure state — no option re-application here.
-  const selectedPresetId = selectPresetId(args, settingsPreset);
+  const resolvedPreset = preset.options;
+  const selectedPresetId = preset.presetId;
 
   const packs = createRobotaPacks({ cwd }); // ARCH-006: scoped to the cwd they are built with.
   const packCommandModules = packCommandModuleNames(packs);
@@ -296,8 +294,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
-      presets: externalPresets,
-      defaultPresetId: selectedPresetId,
+      preset,
       baseCommandModules,
       packs,
       backgroundTaskRunners,

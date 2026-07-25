@@ -52,7 +52,9 @@ Enforced at all times by the three composition-neutrality guards
   supplies one in the `buildRuntime` session options — the Mode A shape, which carries only
   `providerDefinitions`.
 - Does **not** mutate agent-preset's module-level `externalPresets` global. It builds a **per-call
-  instance-scoped** preset registry via `createPresetRegistry` (R8).
+  instance-scoped** preset registry via `createPresetRegistry` (R8) — or ADOPTS the instance-scoped
+  registry the caller already built and handed in as `profile.presetRegistry` (ARCH-008), which is still
+  instance-scoped and still reads no module-level state.
 
 ## Architecture Overview
 
@@ -108,9 +110,15 @@ profile.packs ?? [])`. Precedence: base < packs in profile order; a colliding la
   modules are the base ⊕ pack superset; a preset's `enabledCommandModules`/`disabledCommandModules` delta
   is applied AFTER this merge by the shell's command-setup (they compose — this widens, the preset delta
   filters).
-- **Preset resolution:** an instance-scoped `IPresetRegistry` over `[built-ins, ...profile.presets]`; the
-  default preset (`profile.defaultPresetId`) is resolved to seed `IAssembledProduct.defaultPreset` and the
-  `permissionMode` default `buildRuntime` applies when the shell leaves it unset.
+- **Preset resolution:** an instance-scoped `IPresetRegistry` over `[built-ins, ...profile.presets]` —
+  unless the profile supplies `presetRegistry`, which WINS over `presets` and is used as-is. That seam
+  exists because a preset can carry the `model`/`agentName` a profile is itself constructed from, so a
+  shell may have to resolve BEFORE it can build the profile; handing its registry in keeps that
+  resolution and this one on ONE registry rather than two equivalent-but-separate ones (ARCH-008).
+  The default preset (`profile.defaultPresetId`) is resolved over that registry with
+  `profile.presetContext` (the same `cliOverrides`/`explicit` layers the caller applied), seeding
+  `IAssembledProduct.defaultPreset` — the caller's resolution, not a variant missing its override
+  layers — and the `permissionMode` default `buildRuntime` applies when the shell leaves it unset.
 - **Provider resolution:** `profile.provider` (injected override) > `createProviderFromConfig(
 profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consumer supplies one at
   `buildRuntime` time). An unknown provider `name` THROWS naming the supported types — never a silent
@@ -131,7 +139,9 @@ profile.providerSettings, profile.providerDefinitions)` > `undefined` (the consu
 
 `src/__tests__/assemble-product.test.ts` (vitest) covers: the capability fold (base ⊕ pack command
 modules, pack tools, pack subagents) and surfaced rejections; instance-scoped preset resolution honoring
-`defaultPresetId` with no module-global cross-contamination across two calls (R8); and runtime-construction
+`defaultPresetId` with no module-global cross-contamination across two calls (R8); adoption of a
+caller-supplied `presetRegistry` (identity-asserted, and winning over `presets`) plus `presetContext`
+replay into `defaultPreset` and the runtime overlay (ARCH-008); and runtime-construction
 delegation — `buildRuntime` returns an `InteractiveSession` built via `buildRuntimeSession` (R2), threading
 the assembled command modules + pack tools. The `test` script runs `vitest run --passWithNoTests`.
 

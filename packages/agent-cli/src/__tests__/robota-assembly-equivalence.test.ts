@@ -21,7 +21,14 @@
  */
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS, createDefaultTools } from '@robota-sdk/agent-framework';
-import { DEFAULT_AGENT_NAME, resolvePreset } from '@robota-sdk/agent-preset';
+import {
+  DEFAULT_AGENT_NAME,
+  clearExternalPresets,
+  getPreset,
+  listPresets,
+  registerExternalPresets,
+  resolvePreset,
+} from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 import { describe, expect, it } from 'vitest';
@@ -37,9 +44,11 @@ import {
   packCommandModuleNames,
 } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
+import { resolveShellPreset } from '../startup/preset-selection.js';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
+import type { IPreset } from '@robota-sdk/agent-preset';
 
 /* ── PRE-CHANGE BASELINE (captured from the hand-wired root before the collapse) ──────────────────── */
 
@@ -119,18 +128,31 @@ const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(ROBOTA_PACKS);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
+/** The shell inputs that vary between cases — everything else is `startCli`'s fixed wiring. */
+interface IAssembleOverrides {
+  /** CLI args, as `parseCliArgs` would produce them. */
+  args?: IParsedCliArgs;
+  /** External presets the shell loaded from `~/.robota/presets/*.json`. */
+  externalPresets?: readonly IPreset[];
+  /** `settings.preset`, when the user configured one. */
+  settingsPreset?: string;
+}
+
 /** Re-derive the shell's assembly for a given preset delta, mirroring `startCli` step for step. */
 function assembleRobota(
   presetDelta: {
     enabledCommandModules?: readonly string[];
     disabledCommandModules?: readonly string[];
   } = {},
+  overrides: IAssembleOverrides = {},
 ): {
   commandModules: readonly ICommandModule[];
   unknownModuleNames: readonly { name: string; kind: string }[];
   moduleNameSuperset: readonly string[];
   product: ReturnType<typeof assembleProduct>;
+  preset: ReturnType<typeof resolveShellPreset>;
 } {
+  const args = overrides.args ?? MINIMAL_ARGS;
   const { providerDefinitions, baseCommandModules, fixedCommandModules } = buildCommandSetup(
     '/tmp/equivalence',
     MINIMAL_ARGS,
@@ -139,14 +161,22 @@ function assembleRobota(
     ROBOTA_PACK_COMMAND_MODULE_NAMES,
   );
 
+  // ARCH-008: the SHIPPED shell resolution — one per-call registry, one resolve, handed whole to the
+  // profile. Re-deriving it here (a fresh `createPresetRegistry` + a hand-built context) is exactly the
+  // S2 F4 hole that let a mutation pass 247 tests, so this calls `resolveShellPreset` instead.
+  const preset = resolveShellPreset(
+    overrides.externalPresets ?? [],
+    args,
+    overrides.settingsPreset,
+  );
+
   const product = assembleProduct(
     createRobotaProfile({
       version: '0.0.0-test',
       agentName: DEFAULT_AGENT_NAME,
       providerDefinitions,
       provider: createScriptedProvider([{ text: 'ok' }]).provider,
-      presets: [],
-      defaultPresetId: 'default',
+      preset,
       baseCommandModules,
       packs: ROBOTA_PACKS,
       backgroundTaskRunners: [],
@@ -170,6 +200,7 @@ function assembleRobota(
     unknownModuleNames: findUnknownPresetModuleNames(moduleNameSuperset, presetDelta),
     moduleNameSuperset,
     product,
+    preset,
   };
 }
 
@@ -266,8 +297,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
         agentName: DEFAULT_AGENT_NAME,
         providerDefinitions,
         providerSettings: { name: 'anthropic', model: 'claude-test', apiKey: 'sk-test' },
-        presets: [],
-        defaultPresetId: 'default',
+        preset: resolveShellPreset([], MINIMAL_ARGS, undefined),
         baseCommandModules: [],
         packs: ROBOTA_PACKS,
         backgroundTaskRunners: [],
@@ -317,5 +347,119 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
     expect(carefulReviewer).toMatchObject(BASELINE_CAREFUL_REVIEWER_POSTURE);
     // …and identical to the module-global resolver the `/preset` command still reads.
     expect(carefulReviewer).toEqual(resolvePreset('careful-reviewer'));
+  });
+});
+
+/* ── ARCH-008 — ONE preset resolution path ────────────────────────────────────────────────────────── */
+
+/** An external preset with a posture no built-in has, so a resolution can be traced to its source. */
+const ARCH_008_EXTERNAL: IPreset = {
+  id: 'arch-008-external',
+  title: 'ARCH-008 probe',
+  description: 'external preset used to trace which registry a resolution came from',
+  persona: 'arch-008 persona',
+  autonomy: 'act-first',
+};
+
+describe('ARCH-008 — robota resolves presets through the kernel’s per-call registry', () => {
+  it('assembles the product over the SAME registry instance the shell resolved with', () => {
+    // Not "an equivalent registry" — the same object. Two equivalent registries are two resolution
+    // paths that agree today and can diverge tomorrow; this is what makes it one path.
+    const { product, preset } = assembleRobota();
+
+    expect(product.presets).toBe(preset.registry);
+  });
+
+  it('gives product.defaultPreset the shell’s resolution, CLI override layers included', () => {
+    const args = {
+      ...MINIMAL_ARGS,
+      model: 'flag-model',
+      permissionMode: 'plan',
+    } as unknown as IParsedCliArgs;
+    const { product, preset } = assembleRobota({}, { args });
+
+    expect(product.defaultPreset).toEqual(preset.options);
+    // …and the overrides really are in there (a resolution that dropped `cliOverrides` would return {}).
+    expect(product.defaultPreset).toMatchObject({ model: 'flag-model', permissionMode: 'plan' });
+  });
+
+  it('resolves the SELECTED preset id, not a hard-coded default', () => {
+    const { product, preset } = assembleRobota(
+      {},
+      { args: { ...MINIMAL_ARGS, preset: 'careful-reviewer' } as unknown as IParsedCliArgs },
+    );
+
+    expect(preset.presetId).toBe('careful-reviewer');
+    expect(product.defaultPresetId).toBe('careful-reviewer');
+    expect(product.defaultPreset).toMatchObject(BASELINE_CAREFUL_REVIEWER_POSTURE);
+  });
+
+  it('reaches the shell’s external presets through the product resolver', () => {
+    const { product, preset } = assembleRobota(
+      {},
+      {
+        externalPresets: [ARCH_008_EXTERNAL],
+        args: { ...MINIMAL_ARGS, preset: ARCH_008_EXTERNAL.id } as unknown as IParsedCliArgs,
+      },
+    );
+
+    expect(preset.options.persona).toBe('arch-008 persona');
+    expect(product.resolvePreset(ARCH_008_EXTERNAL.id)).toMatchObject({
+      persona: 'arch-008 persona',
+      // `act-first` maps to acceptEdits in agent-preset's posture derivation.
+      permissionMode: 'acceptEdits',
+    });
+    expect(product.presets.listPresets().map((p) => p.id)).toContain(ARCH_008_EXTERNAL.id);
+  });
+
+  it('keeps two assembleProduct calls in one process from contaminating each other (R8)', () => {
+    const withExternal = assembleRobota({}, { externalPresets: [ARCH_008_EXTERNAL] }).product;
+    const withoutExternal = assembleRobota().product;
+
+    expect(withExternal.presets.getPreset(ARCH_008_EXTERNAL.id)).toBeDefined();
+    expect(withoutExternal.presets.getPreset(ARCH_008_EXTERNAL.id)).toBeUndefined();
+    expect(() => withoutExternal.resolvePreset(ARCH_008_EXTERNAL.id)).toThrow(/Unknown preset/);
+    // Order-independent: the second call does not inherit the first, in EITHER direction.
+    expect(
+      assembleRobota({}, { externalPresets: [ARCH_008_EXTERNAL] }).product.presets.getPreset(
+        ARCH_008_EXTERNAL.id,
+      ),
+    ).toBeDefined();
+    // …and no external preset ever leaked into the module-global registry the `/preset` command reads.
+    expect(listPresets().map((p) => p.id)).not.toContain(ARCH_008_EXTERNAL.id);
+  });
+
+  it('does not resolve robota’s startup preset from the module-global registry', () => {
+    // Same id, two different postures: one registered in the module-global registry, one handed to the
+    // shell. A resolution that read the global would return 'FROM-THE-GLOBAL'. Asserting the VALUE (not
+    // just that something resolved) is what makes this fail when the global is back on the path — an
+    // "unknown id throws" assertion would still pass, thrown one layer later by the kernel.
+    const id = 'arch-008-dual';
+    registerExternalPresets([
+      {
+        id,
+        title: 'global copy',
+        description: 'module-global posture',
+        persona: 'FROM-THE-GLOBAL',
+      },
+    ]);
+    try {
+      expect(getPreset(id)?.persona).toBe('FROM-THE-GLOBAL');
+
+      const { product, preset } = assembleRobota(
+        {},
+        {
+          externalPresets: [
+            { id, title: 'shell copy', description: 'shell posture', persona: 'FROM-THE-SHELL' },
+          ],
+          args: { ...MINIMAL_ARGS, preset: id } as unknown as IParsedCliArgs,
+        },
+      );
+
+      expect(preset.options.persona).toBe('FROM-THE-SHELL');
+      expect(product.defaultPreset?.persona).toBe('FROM-THE-SHELL');
+    } finally {
+      clearExternalPresets();
+    }
   });
 });

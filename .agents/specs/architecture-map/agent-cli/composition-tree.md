@@ -30,10 +30,12 @@ packages/agent-cli/src/bin.ts
    |- preset selection (thin shell — PRESET-002/004/007/011)
    |  |- readSettings(getUserSettingsPath()).preset -> settingsPreset  (agent-framework)
    |  |- loadExternalPresets()  (agent-preset) — register ~/.robota/presets/*.json; per-file errors non-fatal
-   |  |- resolveCliPreset(args, settingsPreset)  (startup/preset-selection.ts)
+   |  |- resolveShellPreset(externalPresets, args, settingsPreset)  (startup/preset-selection.ts)
+   |  |  |- createPresetRegistry(externalPresets)  (agent-preset) — per-call instance registry (R8)
    |  |  |- selectPresetId(args, settingsPreset)  (--preset > settings.preset > 'default')
-   |  |  `- resolvePreset(id, { cliOverrides })  (agent-preset) — precedence merge owned by agent-preset
-   |  `- selectedPresetId = selectPresetId(args, settingsPreset)  (PRESET-011 runtime active-preset state)
+   |  |  `- registry.resolvePreset(id, { cliOverrides })  — precedence merge owned by agent-preset
+   |  `- ARCH-008: {registry, presetId, context, options} travels whole into createRobotaProfile,
+   |     so assembleProduct ADOPTS this registry; options = resolvedPreset, presetId = activePresetId
    |- buildCommandSetup()  (startup/command-setup.ts)
    |  |  (receives resolvedPreset.enabledCommandModules / disabledCommandModules selection delta)
    |  |- commandHostAdapters
@@ -146,7 +148,7 @@ modules below hold the extracted behavior helpers (verified against `src/startup
 
 | Module                            | Concern                                                                          |
 | --------------------------------- | -------------------------------------------------------------------------------- |
-| `startup/preset-selection.ts`     | Preset id selection glue + `resolveCliPreset` (thin shell over agent-preset)     |
+| `startup/preset-selection.ts`     | Preset id selection glue + `resolveShellPreset` (the shell's single resolution)  |
 | `startup/command-setup.ts`        | Command modules + host adapters assembly (`buildCommandSetup`)                   |
 | `startup/provider-startup.ts`     | Interactive provider config + `ensureConfig` / `handleProviderConfigurationArgs` |
 | `startup/append-system-prompt.ts` | `buildAppendSystemPrompt` (task-file + flag composition)                         |

@@ -14,7 +14,12 @@ import type {
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IPresetRegistry, IPreset, IResolvedPresetOptions } from '@robota-sdk/agent-preset';
+import type {
+  IPresetRegistry,
+  IPreset,
+  IResolvePresetContext,
+  IResolvedPresetOptions,
+} from '@robota-sdk/agent-preset';
 
 /**
  * A declarative "this is my product" object — the sole argument of {@link assembleProduct}. Everything
@@ -63,10 +68,31 @@ export interface IProductProfile {
   providerOverride?: string;
 
   // (3) behavior axis — external presets to register + the default id
-  /** External presets to register into a PER-CALL instance-scoped registry (R8). */
+  /**
+   * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when
+   * {@link presetRegistry} is supplied — that registry is then used as-is.
+   */
   presets?: readonly IPreset[];
+  /**
+   * An ALREADY-BUILT instance-scoped registry (from `agent-preset`'s `createPresetRegistry`) to use
+   * instead of building one from {@link presets}. When supplied it WINS over `presets`.
+   *
+   * This is the seam for a shell that must resolve a preset BEFORE it can build the profile — a preset
+   * can carry the `model` and `agentName` the profile itself is constructed from, so "resolve, then
+   * assemble" is a real ordering constraint, not a robota quirk. Handing the registry in (rather than the
+   * presets) is what keeps that pre-assembly resolution and `assembleProduct`'s own resolution on ONE
+   * registry instead of two equivalent-but-separate ones (ARCH-008). R8 is unaffected: the registry is
+   * still instance-scoped and no module-level state is read or mutated.
+   */
+  presetRegistry?: IPresetRegistry;
   /** The default preset id, resolved to seed the assembled product's default posture. */
   defaultPresetId?: string;
+  /**
+   * The override layers applied when resolving {@link defaultPresetId} (`cliOverrides` / `explicit`).
+   * A shell that resolved the same id with overrides passes the SAME context here, so
+   * {@link IAssembledProduct.defaultPreset} is the shell's resolution, not a half-resolved variant of it.
+   */
+  presetContext?: IResolvePresetContext;
 
   // (4) capability axis — additive packs + the product's own base command modules
   /** Additive capability packs (merged via `mergeCapabilityPacks`). */
@@ -125,14 +151,21 @@ export interface IAssembledProduct {
   /** Contributions the merge rejected for a colliding id (surfaced, never silently dropped). */
   rejectedCapabilities: readonly IRejectedCapability[];
 
-  /** The per-call instance-scoped preset registry (R8 — no module-global mutation). */
+  /**
+   * The per-call instance-scoped preset registry (R8 — no module-global mutation). This is the SAME
+   * object the profile supplied as `presetRegistry`, when it supplied one.
+   */
   presets: IPresetRegistry;
   /** Convenience resolver bound over `presets` (equivalent to `presets.resolvePreset`). */
   resolvePreset: (
     id: string,
     context?: Parameters<IPresetRegistry['resolvePreset']>[1],
   ) => IResolvedPresetOptions;
-  /** The default preset id (passthrough) and its resolved posture, when a `defaultPresetId` was given. */
+  /**
+   * The default preset id (passthrough) and its resolved posture — resolved over {@link presets} with the
+   * profile's `presetContext`, so a shell that resolved the same id with the same overrides gets the same
+   * value here (ARCH-008), not a variant missing its override layers.
+   */
   defaultPresetId?: string;
   defaultPreset?: IResolvedPresetOptions;
 

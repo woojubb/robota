@@ -1,7 +1,7 @@
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { getPreset, resolvePreset } from '@robota-sdk/agent-preset';
+import { createPresetRegistry, getPreset, resolvePreset } from '@robota-sdk/agent-preset';
 import { describe, expect, it } from 'vitest';
 
 import { assembleProduct } from '../assemble-product.js';
@@ -123,6 +123,77 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
 
     expect(getPreset('acme-reviewer')).toBeUndefined();
     expect(() => resolvePreset('acme-reviewer')).toThrow(/Unknown preset/);
+  });
+
+  // ARCH-008: a consumer that had to resolve a preset BEFORE it could build the profile (a preset can
+  // carry the `model`/`agentName` the profile is constructed from) hands its own instance registry in,
+  // so the pre-assembly resolution and the assembler's resolution are ONE path, not two equivalent ones.
+  it('ADOPTS a caller-supplied registry instead of building a second, equivalent one', () => {
+    const registry = createPresetRegistry([acmeReviewer]);
+    const product = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      presetRegistry: registry,
+      defaultPresetId: 'acme-reviewer',
+    });
+
+    // The same object — an equal-but-separate registry would be a second resolution path.
+    expect(product.presets).toBe(registry);
+    expect(product.resolvePreset('acme-reviewer').persona).toBe(
+      'You are a meticulous code reviewer.',
+    );
+  });
+
+  it('lets the supplied registry WIN over `presets` (they are not merged)', () => {
+    const product = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      presets: [acmeReviewer],
+      presetRegistry: createPresetRegistry([]),
+    });
+
+    expect(product.presets.getPreset('acme-reviewer')).toBeUndefined();
+  });
+
+  it('resolves defaultPresetId with the profile’s presetContext (override layers included)', () => {
+    const product = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      presets: [acmeReviewer],
+      defaultPresetId: 'acme-reviewer',
+      presetContext: { cliOverrides: { model: 'flag-model', permissionMode: 'plan' } },
+    });
+
+    // Without the context this would be the bare preset posture — persona + permissionMode 'default'
+    // (from `autonomy: 'ask-first'`) and no model. `defaultPreset` must be the CALLER's resolution.
+    expect(product.defaultPreset).toEqual(
+      createPresetRegistry([acmeReviewer]).resolvePreset('acme-reviewer', {
+        cliOverrides: { model: 'flag-model', permissionMode: 'plan' },
+      }),
+    );
+    expect(product.defaultPreset).toMatchObject({ model: 'flag-model', permissionMode: 'plan' });
+  });
+
+  it('carries the context-resolved permission posture into the runtime overlay', () => {
+    // The overlay applies `defaultPreset.permissionMode` when the caller left it unset. A defaultPreset
+    // resolved WITHOUT the context would carry 'default' here instead of the override's 'plan'.
+    const product = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      presets: [acmeReviewer],
+      defaultPresetId: 'acme-reviewer',
+      presetContext: { cliOverrides: { permissionMode: 'plan' } },
+    });
+
+    const options = product.buildRuntimeOptions({
+      session: { cwd: process.cwd(), provider: testProvider() },
+    });
+
+    expect((options as { permissionMode?: string }).permissionMode).toBe('plan');
   });
 });
 
