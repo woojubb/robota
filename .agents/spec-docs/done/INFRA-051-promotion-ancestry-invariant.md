@@ -157,11 +157,47 @@ owner decision (**INFRA-054**).
 
 ### Test Strategy
 
-`scripts/harness/__tests__/scan-promotion-ancestry.test.mjs` builds **real** throwaway git repositories —
-the property under test is a property of the commit graph, so a mocked git would only test the mock. 11
-tests: the squashed back-merge red (A1), the prescribed construction green, a 3-cycle steady-state green,
-the squashed-previous-promotion red (A2), the evil-merge red with A2's blindness demonstrated in the same
-assertion (A3), baseline-unreachable and missing-ref hard failures, and the `refs/pull/N/merge` refusal.
+Both suites build **real** throwaway git repositories — the property under test is a property of the commit
+graph, so a mocked git would only test the mock. 20 tests total.
+
+`scan-promotion-ancestry.test.mjs` (13): the squashed back-merge red (A1), the prescribed construction
+green, a 3-cycle steady-state green, the squashed-previous-promotion red (A2), the evil-merge red with A2's
+blindness demonstrated in the same assertion (A3), **the amnesty cutting in exactly one direction**
+(pre-baseline debt absolved, post-baseline debt still reported), **fail-closed on a git error backing
+A2/A3**, baseline-unreachable and missing-ref hard failures, and the `refs/pull/N/merge` refusal.
+
+`promote.test.mjs` (7): dirty-tree refusal, nothing-to-promote, `--dry-run` creating no branch, the ready
+branch (asserting `main` is an ancestor and the tree equals develop's), a conflicting `main`, a
+**non-conflicting** `main` that still drags content across (the case a conflict check alone waves through),
+and a git error not being misreported as a conflict.
+
+**Mutation-verified.** The code-review pass mutation-tested the first suite and found the amnesty exclusion
+was _not_ red-proof — deleting `^${baseline}` left all 11 tests green. The fixture above was added and the
+same mutation now fails it. A1, A2 and A3 were each independently confirmed red-proof by the same method.
+
+### Code-review round (a second gate after the proposal gate)
+
+`pr-review-reviewer` on #1438 returned 5 actionable findings; all were fixed in the same PR.
+
+1. **MUST — the gate broke `release-grade verification` on every promotion PR.** Registering the scan in
+   `run-all-scans` makes it fire inside `pnpm harness:verify:release`, where the runner sets
+   `GITHUB_BASE_REF=main` and `GITHUB_EVENT_NAME=pull_request` but **not** the PR head sha — so the
+   `refs/pull/N/merge` refusal (correctly) fired and the 7.5-minute job went red even on a correctly built
+   promotion. Fixed by supplying `PR_HEAD_SHA` to that job. Deliberately **not** fixed by making the gate
+   skip when it cannot resolve a head: that is INFRA-050's silently-skipped-but-green shape.
+2. **A2 and A3 failed open.** `runGit` maps any git failure to `{ code: 1, stdout: '' }`, and empty stdout
+   is exactly what "assertion satisfied" looks like — a broken git (e.g. `--no-commit-header` on git < 2.33)
+   would have printed "passed — A1/A2/A3 hold" having asserted nothing. Both now fail closed, with a test.
+3. **The amnesty was untested in the widening direction.** Beyond the new fixture, `ADOPTION_BASELINE_DEBT`
+   now pins how many commits the amnesty may cover, so advancing the baseline to bury fresh debt is red.
+4. **`promote.mjs` left a half-built branch** on a post-`checkout -B` failure. It now aborts the merge,
+   restores the previous branch, deletes the branch it created, and says so.
+5. **`promote.mjs` was untestable by construction** — `git` was hard-bound to the workspace root. `main()`
+   now takes `cwd`/`out`/`fetch` seams and returns an exit code, and has the 7 tests above.
+
+Also fixed: `merge-tree` exit 1 (conflict) is no longer conflated with any other non-zero (git error) —
+the remedies differ; the CI job pins Node 22.x like its siblings; and the job comment no longer claims to be
+the only substantive check on a main PR.
 
 ## Scope
 

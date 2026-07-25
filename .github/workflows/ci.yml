@@ -31,8 +31,10 @@ jobs:
   # package.json files plus pnpm-lock.yaml). This job blocks the promotion BEFORE it lands; the merge METHOD
   # is enforced separately by the `protect-main` ruleset (`allowed_merge_methods: ["merge"]`).
   #
-  # It is a REQUIRED status check on `protect-main`, and it is the only substantive one for a main PR —
-  # build/quality/scans/security-audit are all no-op echoes there and commitlint is skipped outright.
+  # It is a REQUIRED status check on `protect-main`. Of the required contexts it is the only one that
+  # verifies anything on a main PR — build/quality/scans/security-audit are all no-op echoes there and
+  # commitlint is skipped outright. `release-grade verification` does substantive work (and runs this
+  # same gate through `harness:scan`) but is NOT a required check; INFRA-054 tracks that.
   promotion-ancestry:
     name: promotion ancestry
     if: github.base_ref == 'main'
@@ -46,6 +48,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      # The gate is dependency-free (node:child_process + node:path only, so no `pnpm install`), but it
+      # uses `import.meta.dirname` (Node >= 20.11) and top-level await — pin the runtime like every
+      # sibling job rather than inheriting whatever the runner image ships.
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
 
       - name: Fetch both integration branches
         run: |
@@ -420,7 +430,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # INFRA-051: this job runs `harness:scan`, which now includes the promotion-ancestry gate, and
+      # this job only runs when `base_ref == 'main'` — i.e. always in a promotion context. The runner
+      # sets GITHUB_BASE_REF and GITHUB_EVENT_NAME but NOT the PR head sha, and the gate REFUSES to
+      # evaluate `HEAD` on a pull_request event (it is refs/pull/N/merge, whose first parent is the
+      # base — A1/A3 would pass vacuously). Without this env the gate would fail closed here and turn
+      # this job red on every promotion PR, including a correctly built one. Supplying the head sha is
+      # the fix; making the gate skip when it cannot resolve a head would recreate INFRA-050's
+      # silently-skipped-but-green shape.
       - name: Run release-grade verification
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: pnpm harness:verify:release
 
       # INFRA-038: osv-scanner (pnpm-lockfile-based) — the retired npm audit endpoint broke `pnpm audit`.

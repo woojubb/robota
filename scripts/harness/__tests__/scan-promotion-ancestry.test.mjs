@@ -227,6 +227,45 @@ describe('promotion-ancestry gate (INFRA-051)', () => {
     expect(findings.find((f) => f.id === 'A3').detail).toMatch(/resolved\.txt/);
   });
 
+  /**
+   * The amnesty must cut in exactly one direction. Without this fixture, deleting the `^${baseline}`
+   * exclusion from A2 leaves every other test green — the exclusion would be guarding nothing
+   * (measured by mutation during PR review). One commit on each side of the baseline pins both edges.
+   */
+  it('amnesties PRE-baseline debt on main and still reports POST-baseline debt', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'README.md', 'root\n', 'chore: root');
+    git(['branch', 'main']);
+
+    // Pre-baseline: a direct landing on `main`, then freeze the baseline at that commit.
+    git(['checkout', '--quiet', 'main']);
+    commit(root, git, 'legacy.json', '{"legacy":true}\n', 'chore(deps): legacy direct landing');
+    const baseline = git(['rev-parse', 'HEAD']).stdout;
+
+    // Post-baseline: a NEW direct landing, which no amnesty may cover.
+    commit(root, git, 'fresh.json', '{"fresh":true}\n', 'chore(deps): fresh direct landing');
+
+    git(['checkout', '--quiet', 'develop']);
+    commit(root, git, 'feature.txt', 'develop work\n', 'feat: develop work');
+    git(['checkout', '--quiet', '-B', 'release/promote', 'develop']);
+    git(['merge', '--no-ff', '--no-edit', 'main']);
+    const head = git(['rev-parse', 'HEAD']).stdout;
+
+    const { findings } = evaluatePromotion({
+      git,
+      head,
+      mainRef: 'main',
+      developRef: 'develop',
+      baseline,
+    });
+
+    const a2 = findings.find((finding) => finding.id === 'A2');
+    expect(a2).toBeDefined();
+    expect(a2.detail).toMatch(/fresh direct landing/);
+    expect(a2.detail).not.toMatch(/legacy direct landing/);
+    expect(a2.detail).toMatch(/carries 1 non-merge commit/);
+  });
+
   it('fails loudly when the frozen baseline is unreachable rather than widening the amnesty', async () => {
     const { root, git } = await newRepo();
     commit(root, git, 'README.md', 'root\n', 'chore: root');
@@ -254,6 +293,38 @@ describe('promotion-ancestry gate (INFRA-051)', () => {
       baseline,
     });
     expect(ids(findings)).toEqual(['REF']);
+  });
+
+  /**
+   * A2 and A3 gather their evidence with commands whose EMPTY output means "assertion satisfied".
+   * `runGit` maps any git failure to `{ code: 1, stdout: '' }`, so an unchecked exit code would turn a
+   * broken git into a silent pass — a real trigger being `--no-commit-header` on git < 2.33.
+   */
+  it('fails closed when the git commands backing A2/A3 error out', async () => {
+    const { root, git: realGit } = await newRepo();
+    const baseline = commit(root, realGit, 'README.md', 'root\n', 'chore: root');
+    realGit(['branch', 'main']);
+    commit(root, realGit, 'feature.txt', 'develop work\n', 'feat: develop work');
+    const head = realGit(['rev-parse', 'develop']).stdout;
+
+    const brokenGit = (args) => {
+      if (args[0] === 'rev-list' || args[0] === 'diff') {
+        return { code: 128, stdout: '', stderr: 'fatal: unknown option' };
+      }
+      return realGit(args);
+    };
+
+    const { findings } = evaluatePromotion({
+      git: brokenGit,
+      head,
+      mainRef: 'main',
+      developRef: 'develop',
+      baseline,
+    });
+    expect(ids(findings)).toEqual(['A2', 'A3']);
+    for (const finding of findings) {
+      expect(finding.detail).toMatch(/Refusing to report a pass for an assertion that never ran/);
+    }
   });
 });
 

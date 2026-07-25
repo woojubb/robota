@@ -54,11 +54,21 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * #1427 promoted, so nothing is lost by excluding them; only their ancestry is unrecoverable
  * without rewriting `main`, which `non_fast_forward` forbids.
  *
- * ANTI-ROT: this is a one-time amnesty, not a growing allowlist. `baselineDebt()` reports the count,
- * and the gate FAILS if the baseline commit is unreachable — a moved or truncated baseline cannot
- * silently widen the amnesty.
+ * ANTI-ROT: this is a one-time amnesty, not a growing allowlist, and it is defended from BOTH sides.
+ * Truncation — the gate FAILS hard if the baseline commit is unreachable, rather than evaluating A2
+ * without an exclusion. Widening — `ADOPTION_BASELINE_DEBT` pins how many commits the amnesty is
+ * allowed to cover, and `evaluatePromotion` reports a finding if the real count differs, so advancing
+ * the baseline to a newer `main` commit to bury fresh squash debt goes red instead of silently
+ * passing. (A test asserts a post-baseline commit is NOT amnestied.)
  */
 export const ADOPTION_BASELINE = 'a1a6bb830acf60097304de1f4a96f9f50ecd2503';
+
+/**
+ * How many non-merge commits the frozen amnesty covers. Measured at adoption:
+ * `git rev-list origin/main ^origin/develop --no-merges --count` = 10. If the baseline moves forward,
+ * this count changes and the gate says so.
+ */
+export const ADOPTION_BASELINE_DEBT = 10;
 
 /** How the gate learns it is looking at a promotion. */
 export const PROMOTION_BASE = 'main';
@@ -82,7 +92,7 @@ export function revExists(git, rev) {
  * Evaluate A1/A2/A3 against a promotion head. Pure with respect to the repository: `git` is the
  * only I/O, so tests drive it against throwaway repositories.
  *
- * @returns {{ findings: {id: string, detail: string}[], baselineDebt: number }}
+ * @returns {{ findings: {id: string, detail: string}[], currentDebt: number }}
  */
 export function evaluatePromotion({
   git,
@@ -105,7 +115,7 @@ export function evaluatePromotion({
       });
     }
   }
-  if (findings.length > 0) return { findings, baselineDebt: 0 };
+  if (findings.length > 0) return { findings, currentDebt: 0 };
 
   const baselineReachable = revExists(git, baseline);
   if (!baselineReachable) {
@@ -113,7 +123,22 @@ export function evaluatePromotion({
       id: 'BASELINE',
       detail: `the frozen adoption baseline \`${baseline}\` is unreachable. It is the one-time amnesty for the ten pre-adoption commits on \`main\`; without it A2 cannot distinguish that legacy debt from a NEW squashed promotion, so the gate refuses to run rather than pass vacuously.`,
     });
-    return { findings, baselineDebt: 0 };
+    return { findings, currentDebt: 0 };
+  }
+
+  // ANTI-ROT, widening side: how much the amnesty actually covers must equal what was frozen at
+  // adoption. Advancing ADOPTION_BASELINE to a newer `main` commit would bury fresh squash debt inside
+  // the exclusion and every assertion would still read green; this makes that move red. Only enforced
+  // for the real baseline — fixtures pass their own.
+  if (baseline === ADOPTION_BASELINE) {
+    const amnesty = git(['rev-list', baseline, `^${developRef}`, '--no-merges', '--count']);
+    const covered = amnesty.code === 0 ? Number(amnesty.stdout || '0') : -1;
+    if (covered !== ADOPTION_BASELINE_DEBT) {
+      findings.push({
+        id: 'BASELINE',
+        detail: `the frozen amnesty covers ${covered} non-merge commit(s), but ${ADOPTION_BASELINE_DEBT} were frozen at adoption. The baseline is a ONE-TIME amnesty, not a growing allowlist — if it was advanced to a newer \`main\` commit it would silently absolve new squash debt. Restore \`ADOPTION_BASELINE\` (${ADOPTION_BASELINE.slice(0, 9)}) or, if the change is deliberate, update \`ADOPTION_BASELINE_DEBT\` in the same commit with the reason.`,
+      });
+    }
   }
 
   // A1 — the promotion carries main's ancestry.
@@ -138,6 +163,15 @@ export function evaluatePromotion({
     '--format=%h %s',
     '--no-commit-header',
   ]);
+  // FAIL CLOSED. `runGit` maps any spawn/git failure to `{ code: 1, stdout: '' }`, and empty stdout is
+  // exactly what "assertion satisfied" looks like — so an unchecked exit code turns a broken git into a
+  // silent pass. `--no-commit-header` needs git >= 2.33, which is a real way to reach this branch.
+  if (unseen.code !== 0) {
+    findings.push({
+      id: 'A2',
+      detail: `\`git rev-list\` failed (exit ${unseen.code}), so A2 could not be evaluated: ${unseen.stderr || '(no stderr)'}. Refusing to report a pass for an assertion that never ran.`,
+    });
+  }
   const unseenLines = unseen.stdout.split('\n').filter((line) => line.length > 0);
   if (unseenLines.length > 0) {
     findings.push({
@@ -158,6 +192,14 @@ export function evaluatePromotion({
     });
   } else {
     const introduced = git(['diff', '--name-only', forkPoint.stdout, head]);
+    // Fail closed for the same reason as A2 above: an empty stdout from a FAILED diff is
+    // indistinguishable from an empty diff.
+    if (introduced.code !== 0) {
+      findings.push({
+        id: 'A3',
+        detail: `\`git diff\` failed (exit ${introduced.code}), so A3 could not be evaluated: ${introduced.stderr || '(no stderr)'}. Refusing to report a pass for an assertion that never ran.`,
+      });
+    }
     const files = introduced.stdout.split('\n').filter((line) => line.length > 0);
     if (files.length > 0) {
       findings.push({
@@ -174,13 +216,19 @@ export function evaluatePromotion({
     }
   }
 
+  // Reported for visibility only — it gates nothing. This is the CURRENT debt (non-merge commits on
+  // `main` that `develop`'s ancestry lacks), which at adoption equals the frozen amnesty and grows if
+  // new debt lands. A2 is what actually blocks; this number is how a reader notices drift.
   const debt = git(['rev-list', mainRef, `^${developRef}`, '--no-merges', '--count']);
-  return { findings, baselineDebt: Number(debt.stdout || '0') };
+  return { findings, currentDebt: debt.code === 0 ? Number(debt.stdout || '0') : -1 };
 }
 
 /** Resolve the promotion head, refusing GitHub's synthetic merge ref. */
 export function resolveHead({ argv = [], env = process.env } = {}) {
   const flagIndex = argv.indexOf('--head');
+  if (flagIndex >= 0 && argv[flagIndex + 1] === undefined) {
+    return { head: undefined, error: '`--head` was passed with no value.' };
+  }
   const fromFlag = flagIndex >= 0 ? argv[flagIndex + 1] : undefined;
   const fromEnv = env.PR_HEAD_SHA || env.GITHUB_PR_HEAD_SHA;
   const explicit = fromFlag || fromEnv;
@@ -198,7 +246,7 @@ export function resolveHead({ argv = [], env = process.env } = {}) {
 /** Resolve the PR base ref (`--base`, else `GITHUB_BASE_REF`). */
 export function resolveBase({ argv = [], env = process.env } = {}) {
   const flagIndex = argv.indexOf('--base');
-  if (flagIndex >= 0) return argv[flagIndex + 1];
+  if (flagIndex >= 0) return argv[flagIndex + 1] ?? '';
   return env.GITHUB_BASE_REF || '';
 }
 
@@ -220,7 +268,7 @@ export async function main({ argv = process.argv.slice(2), env = process.env, cw
     return;
   }
 
-  const { findings, baselineDebt } = evaluatePromotion({ git, head });
+  const { findings, currentDebt } = evaluatePromotion({ git, head });
   if (findings.length > 0) {
     process.stdout.write('promotion-ancestry scan failed (INFRA-051):\n');
     for (const finding of findings) {
@@ -237,7 +285,7 @@ export async function main({ argv = process.argv.slice(2), env = process.env, cw
   }
 
   process.stdout.write(
-    `promotion-ancestry scan passed — A1/A2/A3 hold for ${head} (pre-adoption baseline debt on \`main\`: ${baselineDebt} commit(s), frozen at ${ADOPTION_BASELINE.slice(0, 9)}).\n`,
+    `promotion-ancestry scan passed — A1/A2/A3 hold for ${head} (current non-merge debt on \`main\`: ${currentDebt} commit(s); ${ADOPTION_BASELINE_DEBT} amnestied at the frozen baseline ${ADOPTION_BASELINE.slice(0, 9)}).\n`,
   );
 }
 

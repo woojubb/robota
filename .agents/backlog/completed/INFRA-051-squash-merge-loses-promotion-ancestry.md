@@ -149,7 +149,7 @@ EXIT=1
 $ git merge-tree --write-tree origin/develop origin/main   # exit 0, tree == origin/develop^{tree}
 $ GITHUB_BASE_REF=main PR_HEAD_SHA=c59fb01541b234a2b8927b3fcab1f01d788717ee \
     node scripts/harness/scan-promotion-ancestry.mjs
-promotion-ancestry scan passed — A1/A2/A3 hold for c59fb015… (pre-adoption baseline debt on `main`: 10 commit(s), frozen at a1a6bb830).
+promotion-ancestry scan passed — A1/A2/A3 hold for c59fb015… (current non-merge debt on `main`: 10 commit(s); 10 amnestied at the frozen baseline a1a6bb830).
 EXIT=0
 ```
 
@@ -161,10 +161,43 @@ promotion-ancestry scan failed (INFRA-051): refusing to evaluate `HEAD` on a `pu
 EXIT=1
 ```
 
-**Unit suite — 11 tests over real throwaway git repositories**, covering the squashed back-merge red,
-the prescribed construction green, a 3-cycle steady-state green, the squashed-previous-promotion red,
-the evil-merge red (with A2's blindness asserted in the same test), and the two hard-failure modes:
-`scripts/harness/__tests__/scan-promotion-ancestry.test.mjs`.
+**Unit suites — 20 tests over real throwaway git repositories**
+(`scripts/harness/__tests__/scan-promotion-ancestry.test.mjs`, `…/promote.test.mjs`): the squashed
+back-merge red, the prescribed construction green, a 3-cycle steady-state green, the
+squashed-previous-promotion red, the evil-merge red (with A2's blindness asserted in the same test),
+the amnesty cutting in one direction only, fail-closed on a git error, the hard-failure modes, and
+`promote.mjs`'s seven decision branches.
+
+**Mutation-verified.** The code-review pass mutation-tested the suite and proved A1, A2 and A3 each
+genuinely red-proof — and found that the **amnesty exclusion was not**: deleting `^${baseline}` left
+all 11 tests green. The fixture was added; the same mutation now fails it:
+
+```
+$ # with `^${baseline}` deleted from A2's rev-list
+× amnesties PRE-baseline debt on main and still reports POST-baseline debt
+  Tests  1 failed | 12 passed (13)
+$ # restored
+  Tests  20 passed (20)
+```
+
+## Code-review round — 5 actionable findings, all fixed
+
+`pr-review-reviewer` on #1438. The first is a defect this work itself introduced:
+
+1. **MUST — the gate broke `release-grade verification` on every promotion PR.** Registering the scan
+   in `run-all-scans` makes it fire inside `pnpm harness:verify:release`, where the runner sets
+   `GITHUB_BASE_REF=main` and `GITHUB_EVENT_NAME=pull_request` but **not** the head sha — so the
+   `refs/pull/N/merge` refusal fired and the 7.5-minute job went red even on a correct promotion.
+   Reproduced and fixed by supplying `PR_HEAD_SHA` to that job. Deliberately **not** fixed by letting
+   the gate skip when it cannot resolve a head — that is INFRA-050's silently-skipped-but-green shape.
+2. **A2/A3 failed open** — an unchecked exit code made a broken git indistinguishable from a satisfied
+   assertion. Both now fail closed, with a test that injects a failing git.
+3. **The amnesty had no widening defence** — `ADOPTION_BASELINE_DEBT` now pins its size, so advancing
+   the baseline to bury fresh debt is red.
+4. **`promote.mjs` left a half-built branch** on a post-`checkout -B` failure; it now aborts the merge
+   and restores the previous branch.
+5. **`promote.mjs` was untestable by construction**; `main()` now takes `cwd`/`out`/`fetch` seams and
+   returns an exit code, with 7 tests.
 
 ## What remains manual (filed, not hidden)
 
