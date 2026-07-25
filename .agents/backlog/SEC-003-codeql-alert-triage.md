@@ -242,6 +242,42 @@ Each asserts `< 250 ms`, so the margin over the pre-fix time is 13×–120× and
 is >250×; these are not tight thresholds. Each fix also ships an equivalence test pinning the parse
 result for well-formed input, so the regex shape cannot be loosened back.
 
+### The diff-scoped gate fired — `js/bad-tag-filter`, and it was a false positive
+
+Slice 1 predicted the gate would surface a **pre-existing** alert on a touched line. This slice hit
+the other variant: the gate reported **two genuinely new** alerts (`js/bad-tag-filter`, high) caused
+by the fix itself. Simplifying the mermaid arrow regex to `-->(?:\|[^|]*\|)?` made it match the
+probe strings that query uses.
+
+Read from `shared/regex/codeql/regex/nfa/BadTagFilterQuery.qll`, the rule is purely syntactic: an
+`HtmlMatchingRegExp` is any regex that matches the literals `<!-- foo -->`, `<!-- foo --!>`,
+`<foo>`, `<script>` …, and `isBadRegexpFilter` then compares **which capture groups fill** for each.
+It never asks whether the code is parsing HTML. An unanchored pattern that tokenizes a bare `-->`
+matches inside `<!-- foo -->`, so it is flagged. `convert.ts` parses mermaid edges and never sees a
+tag — a false positive. The pre-branch regex escaped only incidentally: its `\s*-->[|][^|]*[|]\s*`
+alternative required a `|` immediately after the arrow.
+
+Resolved by **removing the regex**, not by dismissing: `splitByArrows` is now an `indexOf` scan.
+That is linear by construction rather than by argument about backtracking, and it drops the
+regex-engine surface that produced both this alert and the original ReDoS one. Verified equivalent
+to the **original pre-branch** regex across 23 cases (unclosed `|`, doubled `||`, a label containing
+`|`, bare/chained/adjacent arrows, empty segments), and linear at 200 K characters.
+
+**Generalisable lesson:** a ReDoS fix that _simplifies_ a regex can move it into another regex
+query's probe set. Re-read the PR gate after the fix — the diff-scoped gate is noisy in both
+directions (slice 1: reports old alerts as new; this slice: the fix creates a real new one), and
+neither direction can be assumed away.
+
+### Also closed here — the last `join(tmpdir(), <fixed>)` in `agent-command`
+
+`packages/agent-command/src/memory/__tests__/memory-command-module.test.ts:12`, left behind by slice
+2 because this package belonged to another wave. It carried no alert of its own (CodeQL did not
+track the taint across the package boundary) but imports `@robota-sdk/agent-framework`, making it
+the remaining candidate cause for any `agent-framework` production alert that survives re-analysis.
+Converted to `mkdtempSync(join(tmpdir(), 'robota-command-memory-'))` per slice 2's rule of converting
+**every** such site rather than only those CodeQL completed a flow for, so the grep floor stays
+enforceable. It was the only such site in `agent-command`; the other four already used `mkdtemp`.
+
 ### Remaining `js/polynomial-redos` — 10 alerts, sibling/other-owner packages
 
 Not touched here (outside this slice's file ownership). All are the same three shapes — an unanchored
