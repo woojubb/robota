@@ -1,5 +1,5 @@
 ---
-title: 'CLI-063: `robota eval` composes its own provider outside the product profile'
+title: 'CLI-078: `robota eval` composes its own provider outside the product profile'
 status: todo
 created: 2026-07-25
 priority: low
@@ -8,7 +8,7 @@ area: packages/agent-cli
 depends_on: [ARCH-005]
 ---
 
-# CLI-063: the eval surface bypasses the product profile
+# CLI-078: the eval surface bypasses the product profile
 
 ## Problem
 
