@@ -9,6 +9,7 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
+import { isPathInside } from '@robota-sdk/agent-core';
 import { writeFile, appendFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { z } from 'zod';
@@ -68,7 +69,27 @@ export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileW
       };
     }
 
-    const resolvedPath = resolve(process.cwd(), inputPath);
+    // SEC-007: the write side of the same hole, and the more serious one. With `createDirs: true`
+    // (the default) this node `mkdir -p`s the parent before writing, so an uncontained path let a
+    // downloaded or agent-authored workflow create and populate a file anywhere the process could
+    // reach — a shell profile, an `authorized_keys` — turning "run this workflow" into code execution.
+    //
+    // Boundary and rationale as in `file-read`; canonical via agent-core's shared `isPathInside`, so
+    // an escaping symlink is refused and the check happens BEFORE `mkdir`, which would otherwise be
+    // a side effect of a request that is about to be denied.
+    const invocationRoot = process.cwd();
+    const resolvedPath = resolve(invocationRoot, inputPath);
+
+    if (!isPathInside(invocationRoot, resolvedPath)) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT',
+          `path "${inputPath}" resolves outside the working directory`,
+          { nodeId: context.nodeDefinition.nodeId },
+        ),
+      };
+    }
 
     try {
       // allow-fallback: fs errors are caught and converted to structured Result
