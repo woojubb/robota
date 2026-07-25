@@ -35,18 +35,49 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
+      # INFRA-050: `fetch-depth: 0`, and NO depth-limited fetch anywhere in this job. A `--depth`
+      # fetch GRAFTS the whole repository (INFRA-049 measured 109 commits locally vs 97 — a
+      # different set — in CI), and this job's verdict is computed from the MERGE BASE. Once the
+      # base's ancestry is truncated past the merge base, `git diff origin/<base>...HEAD` stops
+      # being a diff and starts being an error ("no merge base"), which fails this job — and
+      # because `changes` is not itself a required check while tui-e2e / examples-typecheck /
+      # windows-shell are, its dependents then report `skipping`, which branch protection accepts.
+      # A code PR would merge having never been e2e'd. Full history is ~3s on this repo.
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
-      - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }} --depth=50
+          fetch-depth: 0
       - id: filter
         name: Classify changed paths (code vs docs-only)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          files="$(git diff --name-only --diff-filter=ACMRD origin/${{ github.base_ref }}...HEAD)"
+          # The merge base is computed EXPLICITLY (not via the `...` shorthand) so it is visible in
+          # the log, and over `--all` because a criss-cross history (this repo back-merges
+          # main <-> develop) can have several: a file changed against ANY of them counts as
+          # changed, so an ambiguous history can only over-report, never silently under-report.
+          bases="$(git merge-base --all "origin/${BASE_REF}" HEAD)" || bases=''
+          echo "merge base(s) vs origin/${BASE_REF}:"; printf '%s\n' "$bases"
+          if [ -z "$bases" ]; then
+            echo "::error::changes: no merge base between origin/${BASE_REF} and HEAD. Classifying as CODE so no required check is silently skipped."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=''
+          for base in $bases; do
+            if ! diff_files="$(git diff --name-only --diff-filter=ACMRD "$base" HEAD)"; then
+              echo "::error::changes: git diff against merge base $base failed. Classifying as CODE so no required check is silently skipped."
+              echo "code=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            files="${files}${diff_files}
+          "
+          done
+          files="$(printf '%s\n' "$files" | sed '/^$/d' | sort -u)"
           echo "changed files:"; printf '%s\n' "$files"
           # 'code' = ANY changed file that is not pure documentation (markdown / docs site / versioned content).
           # A .agents/**/*.md harness-content PR is docs-only; a scripts/**, packages/**, .github/** change is code.
+          # An EMPTY list also lands here as code=true (the empty line fails the docs pattern) — deliberate:
+          # "nothing classified" must run the checks, not skip them.
           if printf '%s\n' "$files" | grep -qvE '(\.mdx?$|^docs/|^content/)'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "→ code changes present: full matrix runs."
@@ -66,10 +97,13 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "build is covered by release-grade verification"
 
+      # INFRA-050: full history, no `--depth` fetch — `harness:plan --base-ref origin/<base>`
+      # resolves the affected scopes from a merge-base diff, so a grafted ancestry changes which
+      # checks this PR is planned to run at all.
       - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         if: github.base_ref != 'main'
@@ -87,10 +121,6 @@ jobs:
       - name: Install dependencies
         if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
-
-      - name: Fetch base branch
-        if: github.base_ref != 'main'
-        run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Show verification plan
         if: github.base_ref != 'main'
@@ -157,10 +187,13 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "quality is covered by release-grade verification"
 
+      # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
+      # selects the affected scopes from a merge-base diff; a grafted ancestry silently changes
+      # what this REQUIRED check verifies.
       - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         if: github.base_ref != 'main'
@@ -178,10 +211,6 @@ jobs:
       - name: Install dependencies
         if: github.base_ref != 'main'
         run: pnpm install --frozen-lockfile
-
-      - name: Fetch base branch
-        if: github.base_ref != 'main'
-        run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Download package build output
         if: github.base_ref != 'main' && needs.build.outputs.package_dist_required == 'true'
@@ -228,10 +257,15 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "scans are covered by release-grade verification"
 
+      # INFRA-050: full history. `harness:scan` contains a base-history gate
+      # (check-document-authority.mjs diffs `origin/$GITHUB_BASE_REF...HEAD`). On the former
+      # depth-50 checkout `origin/<base>` did not exist at all, so that scan fell back to its own
+      # `--depth=50` fetch — a graft — and then reported SKIPPED ("not a pass") while the suite
+      # still exited 0. A complete checkout makes the ref resolve directly and the gate enforce.
       - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         if: github.base_ref != 'main'
@@ -273,21 +307,39 @@ jobs:
         if: github.base_ref == 'main'
         run: echo "security audit is covered by release-grade verification"
 
+      # INFRA-050: full history, no `--depth` fetch. This is a REQUIRED check whose only real work
+      # is gated on a merge-base diff — a grafted ancestry could gate the vulnerability scan off a
+      # wrong file list and pass in seconds having scanned nothing.
       - uses: actions/checkout@v7
         if: github.base_ref != 'main'
         with:
-          fetch-depth: 50
-
-      - name: Fetch base branch
-        if: github.base_ref != 'main'
-        run: git fetch origin ${{ github.base_ref }} --depth=50
+          fetch-depth: 0
 
       - name: Detect dependency graph changes
         id: dependency_changes
         if: github.base_ref != 'main'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          changed_files="$(git diff --name-only --diff-filter=ACMRD origin/${{ github.base_ref }}...HEAD)"
-          if printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
+          # Explicit merge base(s), union over all of them, and any failure classifies as CHANGED —
+          # an unscannable history must run the scan, never silently skip it.
+          bases="$(git merge-base --all "origin/${BASE_REF}" HEAD)" || bases=''
+          changed_files=''
+          scan=''
+          if [ -z "$bases" ]; then
+            echo "::error::security audit: no merge base between origin/${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
+            scan=forced
+          fi
+          for base in $bases; do
+            if ! diff_files="$(git diff --name-only --diff-filter=ACMRD "$base" HEAD)"; then
+              echo "::error::security audit: git diff against merge base $base failed. Running the vulnerability scan rather than skipping it."
+              scan=forced
+              break
+            fi
+            changed_files="${changed_files}${diff_files}
+          "
+          done
+          if [ "$scan" = forced ] || printf '%s\n' "$changed_files" | grep -Eq '(^pnpm-lock.yaml$|(^|/)package.json$)'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -310,9 +362,11 @@ jobs:
     if: github.base_ref == 'main'
 
     steps:
+      # INFRA-050: full history — `harness:verify:release` runs the scan suite, which contains a
+      # base-history gate (see the `scans` job note above).
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -526,9 +580,11 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
+      # INFRA-050: full history, no `--depth` fetch — check-regression-red-proof.mjs resolves the
+      # PR's source hunks from `git merge-base <base> HEAD`, which a graft can truncate away.
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -543,9 +599,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Fetch the base branch (for merge-base + reverse-diff)
-        run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Prove regression tests are RED without the fix
         env:
@@ -567,9 +620,11 @@ jobs:
     if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
 
     steps:
+      # INFRA-050: full history, no `--depth` fetch — check-patch-coverage.mjs takes its changed
+      # LINES from `git diff -U0 <merge-base>..HEAD`, which a graft can truncate away.
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
@@ -584,9 +639,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Fetch the base branch (for merge-base + changed-line diff)
-        run: git fetch origin ${{ github.base_ref }} --depth=50
 
       - name: Detect packages with coverable changed lines
         id: detect
