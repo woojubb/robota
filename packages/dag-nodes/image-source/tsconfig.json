@@ -6,7 +6,6 @@
     "composite": false,
     "declaration": true,
     "declarationMap": true,
-    "downlevelIteration": true,
     "baseUrl": "../../..",
     "paths": {
       "@robota-sdk/dag-core": ["packages/dag-core/src/index.ts"],

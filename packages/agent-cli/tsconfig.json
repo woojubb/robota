@@ -6,7 +6,6 @@
     "composite": false,
     "declaration": true,
     "declarationMap": true,
-    "downlevelIteration": true,
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
     "lib": ["ES2023"],
