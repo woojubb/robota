@@ -98,6 +98,24 @@
       }
     ]
   },
+  "compositionNeutrality": [
+    {
+      "$comment": "ARCH-005 composition-neutrality POLICY (scan-composition-neutrality.mjs). Enforces the three R1 guards that make the agent-product L129 carve-out safe: the shared assembler stays pure, IO-free, and product-neutral. The amended project-structure L129 rule is COUPLED to these guards. A missing scan target is a hard finding, not a silent pass.",
+      "dir": "packages/agent-product",
+      "forbiddenDependencies": ["@robota-sdk/agent-cli", "@robota-sdk/agent-transport"],
+      "forbiddenDependencyPrefixes": ["@robota-sdk/agent-transport", "@robota-sdk/agent-interface-tui"],
+      "forbiddenImports": ["node:fs", "fs", "node:fs/promises", "fs/promises", "node:os", "os"],
+      "forbiddenIdentifiers": [
+        "process.env",
+        "readSettings",
+        "readProviderSettings",
+        "readMergedProviderSettings",
+        "createProviderFromSettings",
+        "loadExternalPresets"
+      ],
+      "reason": "agent-product is the pure, IO-free, product-neutral assembler (assembleProduct). Its L129 carve-out holds ONLY while it takes no concrete transport/TUI/CLI dep (a), reads no fs/env/settings (b — resolved data is fed in from the shell), and branches on no product identity (c)."
+    }
+  ],
   "neutrality": {
     "$comment": "Per-subsystem library-neutrality policy DATA (HARNESS-DIET-002). The neutrality scan ENGINES live in scripts/harness/scan-*-neutrality.mjs; their Robota-specific target paths / allowlists / forbidden terms live here so the engines stay repo-agnostic.",
     "agentToolsRuntimeAllowlist": ["fast-glob", "p-limit", "zod"],
