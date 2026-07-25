@@ -16,14 +16,24 @@
  * PRs touching every package.json) where no owner-doc change is warranted, so it can only ever be
  * noise as a gate. Spec currency is governed by spec-workflow + audit-spec-coverage instead.
  *
- * Base-ref resolution (works in the base-ref-less CI `scans` job, which checks out with
- * `fetch-depth: 50` and no `origin/develop` ref):
+ * Base-ref resolution:
  * 1. `--base-ref <ref>` CLI argument, if given.
- * 2. `origin/$GITHUB_BASE_REF` (PR events), fetching the branch shallowly when the ref is absent.
- * 3. `origin/develop` (default), with the same fetch fallback.
- * When no base can be resolved, the scan SKIPS with an explicit log line — never a silent pass.
+ * 2. `origin/$GITHUB_BASE_REF` (PR events).
+ * 3. `origin/develop` (default).
  *
- * Exit code 0 = clean (or explicit SKIP), 1 = findings.
+ * FAIL-CLOSED (INFRA-048-B). When no base resolves, or the diff against it cannot run, this scan
+ * exits **1**. It previously printed `SKIPPED … Not a pass` and exited **0** — which every caller
+ * reads as a pass, so a required CI gate stopped enforcing while reporting success (INFRA-050
+ * measured exactly that on the depth-50 `scans` checkout). "Cannot determine the answer" is not
+ * "there is nothing to report": a tree carrying a real violation passed. Unblock by naming a base
+ * (`--base-ref <ref>`), not by ignoring the exit code.
+ *
+ * The former `git fetch --depth=50` fallback is GONE (INFRA-050): a depth fetch GRAFTS the
+ * repository, truncating ancestry `actions/checkout` already fetched, so the fallback that was
+ * meant to rescue a shallow checkout was itself the thing that broke base resolution. Every job
+ * that runs this scan now checks out with `fetch-depth: 0`, so `origin/<base>` is already present.
+ *
+ * Exit code 0 = clean, 1 = findings OR the gate could not be evaluated.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -86,10 +96,11 @@ function refExists(ref, options) {
 
 /**
  * Resolve the base ref to diff against. Candidates in priority order: an explicit `--base-ref`
- * argument, `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. For `origin/<branch>`
- * candidates missing locally (shallow CI checkout), a targeted shallow fetch with an explicit
- * refspec is attempted before giving up. Returns the resolved ref, or `undefined` when none
- * resolves (the caller must SKIP loudly, not pass silently).
+ * argument, `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. Returns the resolved ref,
+ * or `undefined` when none resolves — which the caller must treat as a FAILURE, not a pass.
+ *
+ * No fetch is attempted here (INFRA-048-B/INFRA-050): the only fetch that could help is a full one,
+ * and a depth-limited one grafts the history it is trying to supply. Callers check out complete.
  */
 export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env, cwd } = {}) {
   const options = { cwd };
@@ -104,15 +115,6 @@ export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env
 
   for (const candidate of candidates) {
     if (refExists(candidate, options)) return candidate;
-
-    const branchMatch = /^origin\/(.+)$/.exec(candidate);
-    if (!branchMatch) continue;
-    const branch = branchMatch[1];
-    const fetched = tryGit(
-      ['fetch', '--depth=50', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`],
-      options,
-    );
-    if (fetched !== undefined && refExists(candidate, options)) return candidate;
   }
   return undefined;
 }
@@ -213,19 +215,25 @@ export async function main() {
   const baseRef = resolveBaseRef();
   if (baseRef === undefined) {
     process.stdout.write(
-      'document authority scan SKIPPED: no base ref could be resolved ' +
-        '(tried --base-ref, origin/$GITHUB_BASE_REF, origin/develop — including a shallow fetch). ' +
-        'Not a pass — provide a base ref to enforce this gate.\n',
+      'document authority scan FAILED: no base ref could be resolved ' +
+        '(tried --base-ref, origin/$GITHUB_BASE_REF, origin/develop). ' +
+        'This gate cannot report a pass it did not compute — an unresolvable base used to exit 0 ' +
+        'and silently stop enforcing (INFRA-048). Check out with full history ' +
+        '(`fetch-depth: 0`) or pass `--base-ref <ref>`.\n',
     );
+    process.exitCode = 1;
     return;
   }
 
   const changedFiles = getChangedFiles(baseRef);
   if (changedFiles === undefined) {
     process.stdout.write(
-      `document authority scan SKIPPED: git diff against ${baseRef} failed ` +
-        '(no reachable merge-base in this checkout). Not a pass — deepen the fetch to enforce this gate.\n',
+      `document authority scan FAILED: git diff against ${baseRef} failed ` +
+        '(no reachable merge-base in this checkout). This gate cannot report a pass it did not ' +
+        'compute (INFRA-048). Check out with full history (`fetch-depth: 0`) or pass a reachable ' +
+        '`--base-ref <ref>`.\n',
     );
+    process.exitCode = 1;
     return;
   }
 

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -154,6 +154,22 @@ describe('check-agent-def-convention (INFRA-030) — real corpus', () => {
   it('exposes the closed signal vocabulary including DECOMPOSITION', () => {
     expect(CLOSED_SIGNAL_VOCAB.has('DECOMPOSITION')).toBe(true);
     expect(CLOSED_SIGNAL_VOCAB.has('REVIEW VERDICT')).toBe(true);
+  });
+
+  // INFRA-048-D. Two HARNESS-049 increments shipped agents that end on a terminal signal but could
+  // not register it (`scripts/**` was outside their file ownership), so the token stayed outside the
+  // closed vocabulary and the agent had to omit its `signal:` field — a machine contract nothing
+  // could check. Each pair is asserted BOTH ways so the entry cannot rot into dead vocabulary: the
+  // token is registered, AND the agent that emits it still emits it.
+  it.each([
+    ['CI TRIAGE', 'ci-failure-triager.md'],
+    ['GATE VERDICT', 'backlog-gate-guard.md'],
+    ['SCENARIO DRAFTED', 'user-execution-scenario-author.md'],
+  ])('registers %s and its emitting agent %s still emits it', (token, agentFile) => {
+    expect(CLOSED_SIGNAL_VOCAB.has(token)).toBe(true);
+    const agentPath = path.resolve(import.meta.dirname, '../../../.claude/agents', agentFile);
+    expect(existsSync(agentPath)).toBe(true);
+    expect(readFileSync(agentPath, 'utf8')).toContain(`${token}:`);
   });
 });
 
