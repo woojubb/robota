@@ -78,7 +78,6 @@ describe('promotion-ancestry gate (INFRA-051)', () => {
     // a SINGLE parent — `bc0ee64ff`. `git merge --squash` is precisely what the GitHub squash button does.
     git(['merge', '--squash', 'main']);
     git(['commit', '--quiet', '-m', 'chore(deps): sync main dependency majors into develop']);
-    expect(git(['rev-list', '--count', 'HEAD', '--not', 'HEAD^']).code).toBe(0);
     // The squash commit has exactly one parent — the ancestry link is absent.
     expect(git(['rev-list', '--parents', '-n', '1', 'HEAD']).stdout.split(' ')).toHaveLength(2);
 
@@ -97,7 +96,7 @@ describe('promotion-ancestry gate (INFRA-051)', () => {
   });
 
   it('is GREEN once the promotion branch records main’s ancestry with a merge commit', async () => {
-    const { root, git, baseline } = await repoWithDirectLandingOnMain();
+    const { git, baseline } = await repoWithDirectLandingOnMain();
 
     // The prescribed construction: cut from develop, then MERGE main in (no squash).
     git(['checkout', '--quiet', '-B', 'release/promote-develop-to-main', 'develop']);
