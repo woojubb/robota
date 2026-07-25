@@ -29,9 +29,10 @@ export async function saveWorkflowFile(
 
 /**
  * Persist a prompt-backed / instant node to `<cwd>/<root>/nodes/<type>.node.json`. Nodes without a
- * `toPersisted()` (built-ins) are skipped and return `null`. Composite nodes are refused (this
- * workspace cannot rebuild their sub-runner on reload, so writing one would create an orphan the
- * loader can never reconstruct — see `loadInstantNodes`); they return `null` too.
+ * `toPersisted()` (built-ins) are skipped and return `null`. Both prompt AND composite instant nodes
+ * are persisted through the shared `toPersisted()` round-trip (`@robota-sdk/dag-node-instant-node`);
+ * a composite's behavioral sub-runner is not serialized — `loadInstantNodes` rebuilds it on reload
+ * (WORKFLOW-005 P2) — so a written composite is fully reloadable, not an orphan.
  */
 export async function saveInstantNodeFile(
   cwd: string,
@@ -41,7 +42,6 @@ export async function saveInstantNodeFile(
 ): Promise<string | null> {
   if (!isPersistableInstantNode(node)) return null;
   const record = { ...node.toPersisted(), createdAt };
-  if (record.kind === 'composite') return null;
   const dir = resolve(cwd, join(layout.root, 'nodes'));
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${node.nodeType}${NODE_MANIFEST_EXT}`);
