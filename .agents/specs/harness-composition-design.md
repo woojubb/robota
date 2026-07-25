@@ -17,6 +17,24 @@
 agent file explains _what runs next_, that belongs in the skill above it. If a rule explains _how_
 rather than _what must hold_, it belongs in a skill.
 
+### …and the fourth kind the boundary test keeps producing: the fact catalogue
+
+Applying the boundary test to real files repeatedly turns up content that is **none of the three**: an
+enumeration of repo-specific facts that a rule, a skill, or an agent _consults_. It states no new
+mandate (the rules already mandate what it enumerates), it has no phases and no routing, and it holds
+no judgement discipline. Forcing it into one of the three kinds is what put a gate-criteria catalogue
+under `.agents/skills/` as a "skill" nothing ever invoked.
+
+| Artifact                                  | Owns                                                                         | Must NOT contain                          |
+| ----------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| **Fact catalogue** (`.agents/specs/*.md`) | An enumeration a rule/skill/agent reads: criteria sets, registries, matrices | Mandates of its own; pipelines; judgement |
+
+Members today: [`gate-catalogue.md`](gate-catalogue.md) (every named gate's criteria),
+[`orchestration-map.md`](orchestration-map.md) (every pipeline and agent),
+[`deployment-matrix.md`](deployment-matrix.md) (surface × runtime × transport). The test that
+distinguishes it from a rule: **delete it and ask what is lost.** Losing a rule loses force; losing a
+fact catalogue loses an enumeration whose force lives elsewhere.
+
 ## Orchestration nests
 
 A phase of a high-level pipeline is frequently a pipeline in its own right. So an orchestration skill
@@ -65,6 +83,13 @@ rather than leaving it implicit.
   to the destination rather than the source. Measured three times now, a deliberate self-re-derivation
   still misses statements an independent reviewer finds — so the review round is part of the method, not a
   formality.
+- **No unexamined behavioral GAIN either.** The loss-only ledger is blind in one direction, and a
+  de-duplication is the easiest place to widen a mandate by accident: merging a richer copy into the
+  authoritative one silently promotes its extra rows. Every increment must therefore also declare what it
+  **added or strengthened**, and justify each on its own merits — never as a side effect of "the other
+  copy had it". (Measured in increment 4: absorbing an authoring-aid table into a mandate table would
+  have made every coverage-changing PR require a SPEC edit.) A new mandate also needs a mechanical floor
+  or an explicit deferral; shipping a prose-only one contradicts `enforcement-architecture.md`.
 - **A precondition of a gate is an invariant, not a step.** Relocating one into a skill weakens it: a rule
   binds every actor, a skill binds only whoever invokes it. If a sentence states what must be true before a
   gate may run, it stays in the rule even when the waiting or looping around it becomes procedure.
@@ -150,4 +175,5 @@ skill). Manufacturing a skill to match a prediction, or to hit a line-reduction 
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-07-26 | Created. Three-artifact split, boundary test, nesting, neutrality, working agreements — captured from the `HARNESS-049` framing and the `worktree-parallel-orchestration` neutrality pass.                                                                                                                                                                                                                                                                   |
 | 2026-07-26 | Owner clarifications: the router IS a skill; intermediate orchestrators follow the orchestrator rules unchanged; and a pipeline is a **state machine** — an orchestrator routes on each step's outcome (advance / repeat / go back / terminate), which is control flow, not the judgement that belongs to agents. Two open questions closed, one added (what bounds a loop).                                                                                 |
+| 2026-07-26 | Learned from `HARNESS-049` increment 4. Named the **fourth artifact kind — the fact catalogue** — after the boundary test kept producing content that is none of the three (a gate-criteria catalogue had been filed as a skill nothing invoked). Added the "no unexamined behavioral GAIN" working agreement: the ledger is loss-only, so a de-duplication can widen a mandate invisibly.                                                                   |
 | 2026-07-26 | Learned from `HARNESS-049` increments 1–3. Added two discovery signals for a missing skill (two callers with divergent partial copies; prose adjacency encoding the wrong order), the "not every predicted extraction should happen" agreement, and one settled corollary: **mechanically decidable preconditions are gate conditions an orchestrator evaluates, not verdicts needing a role** — without it the boundary test spawns an agent per checklist. |

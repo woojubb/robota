@@ -47,6 +47,7 @@
       "AGENTS.md",
       ".agents/rules",
       ".agents/skills",
+      ".agents/specs",
       ".agents/backlog"
     ],
     "skillPhraseChecks": [

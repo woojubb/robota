@@ -105,11 +105,11 @@ This skill is the procedural companion to that reminder.
 
 ## Orchestrated Skills
 
-| Skill                    | Role                                         |
-| ------------------------ | -------------------------------------------- |
-| `backlog-writer`         | Author the spec draft document               |
-| `backlog-pipeline`       | Gate pipeline orchestrator                   |
-| `backlog-gate-guard`     | Validate individual gates                    |
-| `spec-first-development` | Update package SPEC.md before implementation |
-| `tdd-red-green-refactor` | Implementation cycle                         |
-| `repo-change-loop`       | Build and verify after implementation        |
+| Skill                      | Role                                                                        |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `backlog-writer`           | Author the spec draft document                                              |
+| `backlog-pipeline`         | Gate pipeline orchestrator                                                  |
+| `backlog-gate-guard` agent | Validate individual gates ([gate catalogue](../../specs/gate-catalogue.md)) |
+| `spec-first-development`   | Update package SPEC.md before implementation                                |
+| `tdd-red-green-refactor`   | Implementation cycle                                                        |
+| `repo-change-loop`         | Build and verify after implementation                                       |

@@ -1,21 +1,23 @@
----
-name: backlog-gate-guard
-description: This repository's gate catalogue — the named gates, their criteria, their ordering, and the evidence-entry format the backlog-gate-guard agent applies. Facts only; the judgement role that reads them lives in `.claude/agents/backlog-gate-guard.md` and the pipelines that dispatch it are backlog-pipeline and user-execution-scenario.
----
+# Gate Catalogue
 
-# Backlog Gate Guard — the gate catalogue
+This repository's gate catalogue: **which gates exist here, what each one requires, what precedes it, and
+the format its evidence entry takes.** It is a **fact catalogue** — the same artifact kind as
+[orchestration-map.md](orchestration-map.md) and [deployment-matrix.md](deployment-matrix.md), and
+deliberately none of the three composition kinds in
+[harness-composition-design.md](harness-composition-design.md): it is not a rule (it states no new
+mandate — it enumerates the criteria the rules already mandate), not an orchestration skill (it has no
+phases and no routing), and not an agent charter (it holds no judgement discipline).
 
 **The role is not here.** How to judge a gate — apply every criterion, check ordering first, never soften a
 verdict, record specific evidence, emit `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE` — is owned by the
-[`backlog-gate-guard` agent](../../../.claude/agents/backlog-gate-guard.md).
-
-This file is the repository-specific half the agent reads: **which gates exist here, what each one
-requires, what precedes it, and the format its evidence entry takes.** It is a fact catalogue, not a
-procedure and not a charter.
+[`backlog-gate-guard` agent](../../.claude/agents/backlog-gate-guard.md). **The pipelines are not here
+either**: [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) dispatches the spec-document gates and
+[`user-execution-scenario`](../skills/user-execution-scenario/SKILL.md) dispatches the two done-gate stages.
 
 ## Rule Anchor
 
 - `.agents/rules/spec-workflow.md` > HARD GATE: No Immediate Implementation — the spec-document gate mandate
+- `.agents/rules/spec-workflow.md` > Spec-Document Status and Lifecycle Folders — the status ↔ folder mapping
 - `.agents/rules/backlog-execution.md` > Done Gate — the done-gate mandate
 - `backlog-pipeline` skill > State Machine — the gate order for spec documents
 
@@ -235,7 +237,7 @@ After all criteria:
 
 Unlike the WRITE→COMPLETE gates, GATE-CONFORMANCE does not move a spec between folders. It validates
 that the canonical architecture documents match code reality (see
-[`spec-workflow.md` > GATE-CONFORMANCE](../../rules/spec-workflow.md)). Run on demand, after any
+[`spec-workflow.md` > GATE-CONFORMANCE](../rules/spec-workflow.md)). Run on demand, after any
 cross-package change, and before a `develop → main` release.
 
 - [ ] `pnpm harness:conformance` was run; its exit code and `CONFORMANCE_JSON_*` summary are captured
@@ -244,7 +246,7 @@ cross-package change, and before a `develop → main` release.
 
 **Mechanical core:** `scripts/harness/check-architecture-conformance.mjs` (composes
 `check-dependency-direction.mjs` + the workspace-package-name guard).
-**Analytic layer:** the [`architecture-conformance-audit`](../architecture-conformance-audit/SKILL.md)
+**Analytic layer:** the [`architecture-conformance-audit`](../skills/architecture-conformance-audit/SKILL.md)
 skill set, producing `.design/architecture-audit/<date>/`.
 
 **PASS:** `harness:conformance` exits 0 and no unresolved P0. **FAIL:** otherwise — surface the JSON
@@ -257,7 +259,7 @@ until those land, a FAIL here is expected and is not a release blocker.)
 
 Applies to a backlog item under `.agents/backlog/` that carries a
 `## User Execution Test Scenarios` section. Mandate and definitions:
-[`backlog-execution.md`](../../rules/backlog-execution.md) > Done Gate.
+[`backlog-execution.md`](../rules/backlog-execution.md) > Done Gate.
 
 - [ ] Every scenario is written with exact commands or UI steps, prerequisites, an expected observable
       result, and an evidence field
@@ -287,7 +289,7 @@ pass.
 All three must hold. Two additional checks that turn a PASS into a FAIL:
 
 - **Engineering verification cited as evidence** — see the authoritative statement in
-  [`backlog-execution.md`](../../rules/backlog-execution.md) > Done Gate. Build/test/lint/harness/CI output
+  [`backlog-execution.md`](../rules/backlog-execution.md) > Done Gate. Build/test/lint/harness/CI output
   is never user-execution evidence. FAIL.
 - **An unprobed capability-absence claim** — "the environment lacks the key/tool/device" is not a valid
   exception reason unless the probe itself is recorded (which surfaces were checked, and what they

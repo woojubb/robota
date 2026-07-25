@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-049: refactor rules into thin orchestration skills + extracted agent definitions'
-status: todo
+status: in-progress
 created: 2026-07-26
 priority: high
 urgency: soon
@@ -399,6 +399,165 @@ this increment and neither was introduced by it.
 exercised agent, but the full verify → delete → re-base cycle needs a real merge to exercise, and this
 increment's own PR must not be merged by the agent.
 
+## Phase 2, increment 4 — `spec-workflow.md` — DONE (2026-07-26)
+
+The last increment, and the one phase 1 called correctly: **zero new skills, zero new agents.** The rule
+went 253 → 287 lines. Growing again is the right result for the third time — this is the most
+invariant-dense of the four (91 mandatory statements in 253 lines), and what left it was one restated
+sequence while what arrived was a mapping table the rule should always have owned.
+
+**What moved, in full — only four statements changed home:**
+
+| Statement                                       | New home                                                                           |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| § User Request Gate's 4-step sequence           | [`user-request-gate`](../skills/user-request-gate/SKILL.md) (mandate kept in rule) |
+| Status ↔ folder mapping                         | **stays in the rule, now richer** — gained `rejected` + the shared-`active/` fact  |
+| Change → SPEC-section mapping                   | **stays in the rule** as the mandate's triggers; the skill keeps 2 authoring rows  |
+| GATE-IMPLEMENT/VERIFY/COMPLETE criteria + order | gate catalogue (moved file) + `backlog-pipeline` (mandate kept in rule)            |
+
+Everything else — 87 of 91 — stays textually. Nothing is dropped.
+
+### The three items deferred to this increment, resolved
+
+**1. The gate catalogue was filed as the wrong artifact kind — MOVED, and it named a fourth kind.**
+`.agents/skills/backlog-gate-guard/SKILL.md` was a fact catalogue wearing a skill's frontmatter: nothing
+ever invoked it (`backlog-pipeline` passes it as a _data input_: `Criteria catalogue: <path>`). It is now
+[`.agents/specs/gate-catalogue.md`](../specs/gate-catalogue.md), alongside `orchestration-map.md` and
+`deployment-matrix.md`. All eight inbound links repointed; the skill row removed from
+`.agents/skills/index.md` (the **agent** stays registered there, which is what `agent-def-convention`
+requires); rows added to `.agents/specs/README.md`.
+
+The move forced a governance question the increment did not duck: if this is none of the three kinds,
+what is it? **`harness-composition-design.md` now names the fact catalogue as a fourth artifact kind**,
+with the test that separates it from a rule — delete it and ask what is lost; losing a rule loses force,
+losing a catalogue loses an enumeration whose force lives elsewhere. It is registered in
+`document-standards/index.md` as `partial` (no shared shape/coverage gate). The review round caught a
+side effect: `.agents/specs` was not in `consistency.guidancePhraseScanTargets`, so the move would have
+dropped the catalogue out of the terminology blocklist — exactly the guard that matters for a file that
+now solely owns the `DONE-GATE-STAGE-1/2` criteria. `.agents/specs` was added to the target list and the
+scan passes.
+
+**2. Status levels / lifecycle folders — the rule owns the mapping, and richness was the wrong tiebreaker.**
+The prior increment's proposal was tested and adopted: the rule gains
+§ Spec-Document Status and Lifecycle Folders; `backlog-pipeline` drops its `Folder` and `Folder move on
+PASS` columns and **derives** each move. Verified all six transitions still resolve. The old arrow-list
+in the rule was worse than duplicated — it implied a 1:1 status↔folder correspondence that is false
+(`in-progress` and `verifying` share `active/`), and it omitted `rejected` entirely.
+
+**Verified before merging, as instructed:** this is a different vocabulary from `backlog-execution.md`
+
+> Status Invariants (spec-doc lifecycle vs `.agents/backlog/` item placement). They share the tokens
+> `in-progress`/`done` but not their meaning; neither overrides the other, and the rule now says so.
+
+**Reported, not closed:** no mechanical floor asserts folder ↔ status agreement, and **six documents in
+`spec-docs/done/` violate it today** (`INFRA-016`/`INFRA-019`/`INFRA-020` at `draft`,
+`PM-026`/`PM-030` at `approved`, `DATA-002` at `in-progress`). The increment's first draft promoted the
+agreement to a repo-wide NON-COMPLIANCE — the review round caught that this ships six live violations
+and a prose-only mandate in the same PR that strengthens `enforcement-architecture.md`'s
+"a prose-only guardian buys nothing". Reverted to the pre-existing force (NON-COMPLIANCE **on the next
+gate run**). The floor belongs in `check-spec-doc-frontmatter.mjs`; `scripts/**` was outside ownership.
+
+**3. § Deployment — the relocation is REFUTED. It is a deletion, not a move.**
+Three findings settle it, and none was visible without reading the destination:
+`architecture-map/apps-and-deployment.md` **already owns** bullets 1–2 (Cloudflare Pages auto-deploy from
+`main` for blog + docs; the manual `deploy-cloudflare-pages.mjs` upload), so those are duplication to
+delete; bullets 3–4 are branch policy and belong in `git-branch.md`; and the three documents quoting the
+literal Cloudflare sentence are all **archival** (a `completed/` backlog item and two dated
+architecture-audit records), so rewriting them would falsify the historical record — which makes the
+"must update the documents that quote these sentences" instruction in the live rule itself wrong.
+The residual 2-bullet deletion needs `git-branch.md`, outside this increment's ownership.
+
+**A real bug found on the way, with the stale side backwards from increment 3's note.** `git-branch.md`
+and `scripts/docs/deploy-cloudflare-pages.mjs` both target `apps/docs/.vitepress/dist`; `apps/docs` has
+**no `.vitepress` directory** and builds with `next build && pagefind --site out`. **`pnpm docs:deploy`
+cannot succeed.** `apps-and-deployment.md` is the correct side. Fixing it needs `scripts/**`.
+
+### Phase 1 was wrong about two structural things inside its own refutation
+
+- **The ABSOLUTE RULE's four-step wrong-SPEC exception has no owner where phase 1 sent it.**
+  `spec-code-conformance` **explicitly disclaims** spec correction. The real owner is
+  `spec-writing-standard` **Mode C**. The four steps stayed in the rule (they are the exception's
+  conditions, invariant-shaped) and both documents gained the interlock — Mode C read as a flat
+  contradiction of the ABSOLUTE RULE ("fix the spec to match the current code") with neither naming the
+  other. § Live Spec Policy pointed at the same wrong skill; the review round caught that half of the
+  mis-routing was still live after the first fix.
+- **Phase 1 missed a duplication entirely**: the rule's change→section table and `spec-writing-standard`
+  Mode B Step 1's table are the same mapping, already drifted in wording. Resolved with the rule owning
+  the seven mandate rows; the skill keeps its two extra rows **labelled authoring-only, by design**.
+
+**The near-miss worth recording.** The first draft merged the skill's richer table into the rule's, on
+the argument that the two extra rows were "refinements of the existing behaviour/semantics row". The
+review round showed that is **false for `Test Strategy`**: a test-only PR changes no behaviour, so no row
+of the old table fired — and the merged table would have made every coverage-changing PR an "incomplete
+change, treated the same as a build failure". A de-duplication had silently widened a mandate. This is a
+new failure mode: **the ledger method is loss-only and structurally cannot see it.** The design doc now
+carries a "no unexamined behavioral GAIN" working agreement, and §7.3 records that a table-coarse ledger
+cannot register a mandate change that is a table-ROW addition.
+
+### The orchestration-nesting contradiction is CLOSED
+
+`enforcement-architecture.md` banned the nesting three increments had already shipped. Two increments
+reported it and neither could reach the file; this one owns it. Resolved with the proposed wording:
+**nesting for responsibility separation is sanctioned** (governed by `harness-composition-design.md`),
+**nesting for reliability stays banned**, and the two are told apart by the reason given — "a phase has
+its own ordering, or two callers would otherwise each carry a copy" versus "wrapping it makes the agent
+more likely to do it". Step 4 of "Applying it to a new enforced step" was rewritten to match.
+
+### Refuted, and why the asymmetry is principled
+
+§ HARD GATE's five-step sequence was **kept**; § User Request Implementation Gate's four-step sequence
+was **removed**. The separator is **destination availability**, not "the items name their owners" (they
+both did): `user-request-gate` Phases 1–4 already own the user-requested ordering end to end, whereas
+HARD GATE covers the **agent-discovered** trigger and its step 1 (Architecture review) has no owning
+skill anywhere. Under "move, never duplicate", content cannot be relocated into a destination that does
+not exist, and manufacturing one to match a prediction is the failure mode §5.4 warns about.
+
+### Ledger reconciliation — 35 → 91, the largest ratio of the four (2.6×)
+
+Re-derived from the live file at the granularity increments 2 and 3 settled on. Statements with no row at
+any granularity include the User Request gate's zero-exception clause; "No exceptions. One-line fixes …";
+**every enforcement fact** (the `spec-first-gate.sh` hook, `harness:conformance`'s exit-code contract and
+its `deps`-scan trigger) — increment 3 predicted this rule would have exactly that gap and it did; the
+four-item "Authority order by question" list; "authority is determined by path and role, not by a broad
+word in the filename"; the three named structural documents; the package-local `docs/ARCHITECTURE-MAP.md`
+mandate; three of five content-promotion rules; and both Cross-Package follow-on clauses.
+
+**First increment where the review round found no missing statement.** All 11 of its candidate additions
+were already among the 91. It found two additions of _force_ instead — which is the more interesting
+result, and is why the ledger method itself changed.
+
+### Minor defects fixed in passing
+
+`spec-code-conformance`'s Rule Anchor pointed at `process.md` for a section that lives in
+`spec-workflow.md` (`process.md` is a routing stub — the anchor had been dead since the rules split);
+`spec-first-development` Step 6's link `../skills/spec-code-conformance/SKILL.md` resolved to
+`.agents/skills/skills/…`.
+
+### Review round
+
+`proposal-reviewer` returned `REVIEW VERDICT: REVISE` — endorsing the direction of all seven
+recommendations and finding one **false premise** (the `Test Strategy` broadening), one clause that
+would have shipped **six live NON-COMPLIANCEs with no floor**, a **half-fixed mis-routing**, a **scan
+coverage set the move silently left**, an **unregistered fourth artifact kind**, an **inverted stale-side
+diagnosis** masking a broken script, and `backlog-pipeline` keeping two copies of facts it had just
+disclaimed. All were verified against the tree before acting; all are fixed or recorded above. Three
+increments, three REVISE verdicts, three times the reviewer caught something the increment's own careful
+pass did not — the gate has never once been a formality.
+
+### Reported, not reached
+
+- **`pnpm docs:deploy` is broken** (`.vitepress/dist` no longer exists) — needs `scripts/**`.
+- **No mechanical floor for folder ↔ status agreement**, six live violations — needs `scripts/**`.
+- **§ Deployment's 2 duplicated bullets** — needs `git-branch.md`.
+- Increment 2's two deferrals are **still open** for the same ownership reason: BE-42 Layering Rule →
+  `project-structure.md`, BE-43 Orchestration Skill Rule → `enforcement-architecture.md`. The target of
+  BE-43 is now in ownership, but the source (`backlog-execution.md`) is not, and a move needs both ends.
+- `CI TRIAGE`, `GATE VERDICT` and `SCENARIO DRAFTED` are still absent from `CLOSED_SIGNAL_VOCAB`
+  (`scripts/**`).
+
+**Not rehearsed:** nothing new to rehearse — this increment created no agent and no skill. The moved
+catalogue was verified by reading it end to end after the move and confirming every link resolves.
+
 ## User Execution Test Scenarios
 
 **Not applicable.** This item changes only rules, skills, agent definitions, and registry indexes — no
@@ -408,6 +567,29 @@ verification evidence in the engineering test plan instead. Verification evidenc
 `pnpm harness:verify-like-ci` green plus the invariant-preservation reconciliation recorded per increment
 above; the agent rehearsals are governance evidence and are recorded as such, not as user-execution
 evidence.
+
+## Status after the four planned increments (2026-07-26)
+
+**NOT complete — deliberately not archived.** The four-rule programme (`publish.md`,
+`backlog-execution.md`, `git-branch.md`, `spec-workflow.md`) is finished and every increment is merged
+and verified. But the item's own defect #2 named **three** skills that inline roles, and only one has
+been resolved:
+
+| Skill                           | Status                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `backlog-pipeline`              | **DONE** (increments 2 + 4) — dispatches the extracted agent; the criteria are a fact catalogue  |
+| `delegated-refactor-green-gate` | **NOT STARTED** — two inlined roles (worker charter + a guardian duty asked of the orchestrator) |
+| `dependency-graph-extraction`   | **NOT STARTED** — not a pipeline at all; §4 recommends folding it in and deleting the file       |
+
+Both are analysed in [inventory §4](../specs/harness-composition-inventory.md#4-skills-that-inline-roles)
+with concrete recommendations, and `dependency-graph-extraction` is additionally recorded in §9.10.
+Neither needs a new agent; both are single-increment work. **Closing this item without them would close
+it on two thirds of its own problem statement.**
+
+Also open, each blocked only on file ownership and each recorded under its increment: the `git-branch.md`
+§ Deployment 2-bullet deletion, the folder ↔ status mechanical floor (+ six live violations), the broken
+`pnpm docs:deploy` path, BE-42/BE-43's relocations, and the three terminal signals missing from
+`CLOSED_SIGNAL_VOCAB`.
 
 ## What
 

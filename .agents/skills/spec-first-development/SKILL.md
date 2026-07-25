@@ -75,7 +75,7 @@ Use [`contract-audit`](../contract-audit/SKILL.md) for contract consistency chec
 
 Run the full conformance verification loop after implementation:
 
-- See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md)
+- See [`spec-code-conformance`](../spec-code-conformance/SKILL.md)
 - Implementation is not complete until conformance is verified with zero gaps and regression tests
   pass
 
