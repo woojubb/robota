@@ -15,6 +15,10 @@ vi.mock('fs', () => {
   };
 });
 
+// SEC-003: `fs` is mocked, so this is an inert fixture path; it deliberately does not
+// live under the OS temp dir.
+const LOG_DIR = '/var/robota-test/openai-payload-logs';
+
 function createMockLogger(): ILogger {
   return {
     info: vi.fn(),
@@ -46,37 +50,37 @@ describe('FilePayloadLogger', () => {
 
   describe('constructor', () => {
     it('should create logger with required logDir option', () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       expect(logger.isEnabled()).toBe(true);
     });
 
     it('should default to enabled when not specified', () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       expect(logger.isEnabled()).toBe(true);
     });
 
     it('should respect enabled false option', () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs', enabled: false });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR, enabled: false });
       expect(logger.isEnabled()).toBe(false);
     });
 
     it('should create log directory if it does not exist and enabled', () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      new FilePayloadLogger({ logDir: '/tmp/logs' });
+      new FilePayloadLogger({ logDir: LOG_DIR });
 
-      expect(fs.mkdirSync).toHaveBeenCalledWith('/tmp/logs', { recursive: true });
+      expect(fs.mkdirSync).toHaveBeenCalledWith(LOG_DIR, { recursive: true, mode: 0o700 });
     });
 
     it('should not create log directory when disabled', () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
-      new FilePayloadLogger({ logDir: '/tmp/logs', enabled: false });
+      new FilePayloadLogger({ logDir: LOG_DIR, enabled: false });
 
       expect(fs.mkdirSync).not.toHaveBeenCalled();
     });
 
     it('should not create log directory if it already exists', () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      new FilePayloadLogger({ logDir: '/tmp/logs' });
+      new FilePayloadLogger({ logDir: LOG_DIR });
 
       expect(fs.mkdirSync).not.toHaveBeenCalled();
     });
@@ -100,32 +104,33 @@ describe('FilePayloadLogger', () => {
 
   describe('isEnabled', () => {
     it('should return true when enabled', () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs', enabled: true });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR, enabled: true });
       expect(logger.isEnabled()).toBe(true);
     });
 
     it('should return false when disabled', () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs', enabled: false });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR, enabled: false });
       expect(logger.isEnabled()).toBe(false);
     });
   });
 
   describe('logPayload', () => {
     it('should write payload to a JSON file', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'chat');
 
       expect(fs.promises.writeFile).toHaveBeenCalledWith(
-        expect.stringContaining('/tmp/logs/openai-chat-'),
+        expect.stringContaining(`${LOG_DIR}/openai-chat-`),
         expect.any(String),
-        'utf8',
+        // SEC-003: payload logs hold prompt content, so they must be owner-only.
+        { encoding: 'utf8', mode: 0o600 },
       );
     });
 
     it('should write valid JSON content', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'chat');
@@ -141,7 +146,7 @@ describe('FilePayloadLogger', () => {
     });
 
     it('should use stream type in filename when type is stream', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'stream');
@@ -153,7 +158,7 @@ describe('FilePayloadLogger', () => {
 
     it('should include timestamp in filename when includeTimestamp is true', async () => {
       const logger = new FilePayloadLogger({
-        logDir: '/tmp/logs',
+        logDir: LOG_DIR,
         includeTimestamp: true,
       });
       const payload = createSamplePayload();
@@ -168,7 +173,7 @@ describe('FilePayloadLogger', () => {
 
     it('should use Date.now() in filename when includeTimestamp is false', async () => {
       const logger = new FilePayloadLogger({
-        logDir: '/tmp/logs',
+        logDir: LOG_DIR,
         includeTimestamp: false,
       });
       const payload = createSamplePayload();
@@ -182,7 +187,7 @@ describe('FilePayloadLogger', () => {
     });
 
     it('should skip logging when disabled', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs', enabled: false });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR, enabled: false });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'chat');
@@ -194,7 +199,7 @@ describe('FilePayloadLogger', () => {
       const mockLogger = createMockLogger();
       vi.mocked(fs.promises.writeFile).mockRejectedValue(new Error('Disk full'));
 
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs', logger: mockLogger });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR, logger: mockLogger });
       const payload = createSamplePayload();
 
       // Should not throw
@@ -206,7 +211,7 @@ describe('FilePayloadLogger', () => {
     });
 
     it('should sanitize payload before writing', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'chat');
@@ -225,7 +230,7 @@ describe('FilePayloadLogger', () => {
     });
 
     it('should default type to chat', async () => {
-      const logger = new FilePayloadLogger({ logDir: '/tmp/logs' });
+      const logger = new FilePayloadLogger({ logDir: LOG_DIR });
       const payload = createSamplePayload();
 
       await logger.logPayload(payload, 'chat');

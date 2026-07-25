@@ -22,6 +22,25 @@ Local-first command-line workflow tool for building, running, and inspecting Rob
 - `@robota-sdk/dag-builder` supplies pipeline/spec build and workflow-file conversion helpers (`buildDagFromPipeline`, `fromDagWorkflowFile`, `isWorkflowFileFormat`) used by the build/convert/explain/view/migrate/cost commands.
 - `@robota-sdk/dag-orchestration-client` owns the shared `DagOrchestrationHttpClient` used for HTTP server-mode calls.
 - `json.ts` owns JSON parsing, file input decoding, and JSON output formatting.
+- `src/utils/temp-workspace.ts` owns `withTempWorkspace(prefix, fn)` — the single sanctioned way for
+  this package to obtain a scratch directory (see Temporary Files).
+
+## Temporary Files (SEC-003)
+
+Commands that must materialize a DAG on disk before handing it to `dag run` (`node run-example`,
+`template run`) obtain their scratch directory from `withTempWorkspace(prefix, fn)`, which wraps
+`fs.mkdtemp` and removes the whole directory when `fn` settles.
+
+Building a path by string-joining a name onto `os.tmpdir()` is **forbidden** in this package. The OS
+temp dir is world-writable (`0777` + sticky), so a file placed there directly is created
+world-readable under the process umask, at a path another local user can guess and pre-create — that
+is CWE-377, and CodeQL reports it as `js/insecure-temporary-file`. Randomizing only the _filename_
+does not fix it; the directory must be private. `mkdtemp` creates the directory `0700` with an
+OS-chosen name, so neither the contents nor the path are exposed.
+
+The rule is mechanically enforced by `src/utils/__tests__/no-insecure-temp-path.test.ts`, which fails
+if any `.ts` file under `src/` reintroduces `join(tmpdir(), …)` outside an `mkdtemp` call, or
+hardcodes a `'/tmp/…'` path in non-test source.
 
 ## Command Surface
 

@@ -31,6 +31,9 @@
 | `FileRunDraftStore`     | Class | `IRunDraftStore`       | File-based JSON storage for execution drafts                    |
 | `FileCostMetaStorage`   | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata                       |
 
+`FileCostMetaStorage` writes `cost-meta.json` into a caller-supplied `dataDir` that may be shared, so
+the file is created with mode `0600` rather than inheriting the process umask (SEC-003 / CWE-377).
+
 ### `./testing` entry — test-support ports (Public API)
 
 Exported from the dedicated `@robota-sdk/dag-adapters-local/testing` subpath (kept out of the package's
