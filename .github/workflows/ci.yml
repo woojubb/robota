@@ -51,40 +51,24 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # The merge base is computed EXPLICITLY (not via the `...` shorthand) so it is visible in
-          # the log, and over `--all` because a criss-cross history (this repo back-merges
-          # main <-> develop) can have several: a file changed against ANY of them counts as
-          # changed, so an ambiguous history can only over-report, never silently under-report.
-          bases="$(git merge-base --all "origin/${BASE_REF}" HEAD)" || bases=''
-          echo "merge base(s) vs origin/${BASE_REF}:"; printf '%s\n' "$bases"
-          if [ -z "$bases" ]; then
-            echo "::error::changes: no merge base between origin/${BASE_REF} and HEAD. Classifying as CODE so no required check is silently skipped."
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          files=''
-          for base in $bases; do
-            if ! diff_files="$(git diff --name-only --diff-filter=ACMRD "$base" HEAD)"; then
-              echo "::error::changes: git diff against merge base $base failed. Classifying as CODE so no required check is silently skipped."
-              echo "code=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            files="${files}${diff_files}
-          "
-          done
-          files="$(printf '%s\n' "$files" | sed '/^$/d' | sort -u)"
-          echo "changed files:"; printf '%s\n' "$files"
-          # 'code' = ANY changed file that is not pure documentation (markdown / docs site / versioned content).
-          # A .agents/**/*.md harness-content PR is docs-only; a scripts/**, packages/**, .github/** change is code.
-          # An EMPTY list also lands here as code=true (the empty line fails the docs pattern) — deliberate:
-          # "nothing classified" must run the checks, not skip them.
-          if printf '%s\n' "$files" | grep -qvE '(\.mdx?$|^docs/|^content/)'; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            echo "→ code changes present: full matrix runs."
-          else
-            echo "code=false" >> "$GITHUB_OUTPUT"
-            echo "→ docs-only PR: heavy build/test/e2e jobs are skipped."
-          fi
+          # The classification lives in scripts/harness/classify-changed-paths.mjs — ONE
+          # implementation with two callers. `review-gate.yml` invokes the same module to decide
+          # whether a code-scanning analysis is expected for this PR at all, and if it re-derived
+          # "no code changed" with its own rule, that rule would be the bypass: a PR could skip the
+          # review gate without skipping this matrix. Extracting it is what makes the two verdicts
+          # the same verdict by construction.
+          #
+          # Unchanged behaviour (asserted in __tests__/classify-changed-paths.test.mjs): the merge
+          # base is computed explicitly and over `--all` for this repo's criss-cross history, and
+          # every undeterminable case — no merge base, a failed diff, an empty file list —
+          # classifies as CODE so no required check is silently skipped.
+          #
+          # No `setup-node`: the runner's preinstalled Node runs this (the script imports only
+          # node: builtins), and adding a network-dependent setup step to the job that GATES the
+          # required matrix would trade a real risk for a cosmetic one — a flake here makes
+          # tui-e2e / examples-typecheck / windows-shell report `skipping`, which branch protection
+          # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
+          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
   build:
     name: build
