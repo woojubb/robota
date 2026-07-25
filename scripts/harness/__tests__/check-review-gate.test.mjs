@@ -137,6 +137,55 @@ describe('decideReviewGate', () => {
   });
 });
 
+// #1436: a docs-only PR (one backlog markdown file, zero code) was BLOCKED as
+// `verdict-unavailable` after 15 m 23 s of polling, and the required-check entry had to be rolled
+// back. "No analysis exists because there was nothing to analyse" is a THIRD state — not the same
+// as "the analysis exists and could not be read".
+describe('not-applicable (no code changed)', () => {
+  it('PASSES a docs-only PR and says why, without needing any alert data', () => {
+    const decision = decideReviewGate({
+      codeChanged: false,
+      prAlerts: UNAVAILABLE,
+      baseAlerts: [],
+    });
+    expect(decision.blocked).toBe(false);
+    expect(decision.reason).toBe('not-applicable');
+    expect(renderDecision(decision)).toContain('review-gate: PASS (not-applicable)');
+    expect(renderDecision(decision)).toContain('no code changed');
+  });
+
+  it('does NOT reclassify a real block: an error finding on a code PR still blocks', () => {
+    const decision = decideReviewGate({
+      codeChanged: true,
+      prAlerts: [alert({ number: 60, severity: 'error' })],
+      baseAlerts: [],
+    });
+    expect(decision.blocked).toBe(true);
+    expect(decision.reason).toBe('blocking-findings');
+  });
+
+  // The whole point of routing this through the `changes` classifier is that a code PR can never
+  // land here. These assert the module's half of that: only the literal `false` is not-applicable,
+  // so an undeterminable classification fails closed onto the INFRA-048 path.
+  it('FAIL-CLOSED: an omitted classification is treated as "code changed"', () => {
+    const decision = decideReviewGate({ prAlerts: UNAVAILABLE, baseAlerts: [] });
+    expect(decision.blocked).toBe(true);
+    expect(decision.reason).toBe('verdict-unavailable');
+  });
+
+  for (const value of [undefined, null, 'false', 0, '', 'unknown']) {
+    it(`FAIL-CLOSED: codeChanged=${JSON.stringify(value)} is NOT not-applicable`, () => {
+      const decision = decideReviewGate({
+        codeChanged: value,
+        prAlerts: UNAVAILABLE,
+        baseAlerts: [],
+      });
+      expect(decision.reason).toBe('verdict-unavailable');
+      expect(decision.blocked).toBe(true);
+    });
+  }
+});
+
 describe('CLI (the shape the workflow calls)', () => {
   async function fixture(files) {
     const root = await mkdtemp(path.join(tmpdir(), 'robota-review-gate-'));
@@ -192,6 +241,33 @@ describe('CLI (the shape the workflow calls)', () => {
     const result = run(root, ['--alerts-file', 'pr.json', '--base-alerts-file', 'base.json']);
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('verdict-unavailable');
+  });
+
+  it('--code-changed false exits 0 without reading the alert files, which do not exist', async () => {
+    // Exactly the workflow's not-applicable shape: the Collect step is skipped, so pr-alerts.json
+    // and base-alerts.json were never written. The gate must still report — a check that produces
+    // nothing when its inputs are absent is the INFRA-048 defect itself.
+    const root = await fixture({});
+    const result = run(root, ['--code-changed', 'false']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('review-gate: PASS (not-applicable)');
+    expect(result.stdout).toContain('no code changed');
+  });
+
+  it('FAIL-CLOSED: --code-changed with an unexpected value takes the normal path', async () => {
+    const root = await fixture({ 'pr.json': 'UNAVAILABLE\n', 'base.json': '[]' });
+    for (const value of ['', 'true', 'False', 'unknown', 'no']) {
+      const result = run(root, [
+        '--code-changed',
+        value,
+        '--alerts-file',
+        'pr.json',
+        '--base-alerts-file',
+        'base.json',
+      ]);
+      expect(result.status, `--code-changed ${JSON.stringify(value)}`).toBe(1);
+      expect(result.stdout).toContain('verdict-unavailable');
+    }
   });
 
   it('exits 0 when the acknowledge label is passed', async () => {

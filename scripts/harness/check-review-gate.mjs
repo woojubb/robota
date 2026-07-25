@@ -28,6 +28,18 @@
  *   - **Unavailable** = the analysis has not completed, or the alert list could not be read. This
  *     BLOCKS. A review whose output cannot be read has not cleared anything; reporting a pass for
  *     it is the same defect one level up (cf. INFRA-048-B/C).
+ *   - **Not applicable** = this PR changes no code, so no analysis is produced for it and none is
+ *     expected. PASSES. This is a THIRD state, and conflating it with `unavailable` is what blocked
+ *     #1436 — a single backlog markdown file — for 15 m 23 s and forced the required-check entry to
+ *     be rolled back. "Not applicable" is not "unreadable": one means the answer does not exist,
+ *     the other means the answer exists and could not be read.
+ *
+ *     The caller must NOT decide this for itself. `codeChanged` is supplied by
+ *     `classify-changed-paths.mjs` — the SAME module whose verdict decides whether the required
+ *     build/test matrix runs at all — so a PR can only reach this branch by being the kind of PR
+ *     that also skipped its whole code pipeline. Only the literal value `false` selects it;
+ *     anything else (missing, unknown, unparseable) is treated as "code changed" and takes the
+ *     normal path, so an undeterminable classification still fails closed.
  *   - **Acknowledged** = the PR carries the acknowledge label. Passes, with the overridden findings
  *     printed in full so the decision is recorded on the PR rather than exercised as a silent
  *     admin bypass. One auditable escape beats a gate people learn to route around.
@@ -37,10 +49,13 @@
  *
  * Usage:
  *   node scripts/harness/check-review-gate.mjs \
- *     --alerts-file <pr-alerts.json> --base-alerts-file <base-alerts.json> [--labels a,b]
+ *     --alerts-file <pr-alerts.json> --base-alerts-file <base-alerts.json> [--labels a,b] \
+ *     [--code-changed true|false]
  *
  * Either alerts file may contain the literal string `UNAVAILABLE` (the workflow writes that when
- * the API call fails), which is what triggers the fail-closed path.
+ * the API call fails), which is what triggers the fail-closed path. `--code-changed false` selects
+ * the not-applicable path, and is the only value that does; the alert files are then not read at
+ * all, because no analysis exists to have produced them.
  *
  * Exit code 0 = the merge decision may proceed, 1 = blocked.
  */
@@ -93,11 +108,31 @@ function describeAlert(alert) {
  * @param {Array<object>|'UNAVAILABLE'} input.prAlerts     open alerts on the PR's merge ref
  * @param {Array<object>|'UNAVAILABLE'} input.baseAlerts   open alerts on the base branch
  * @param {string[]} [input.labels]                        labels currently on the PR
+ * @param {boolean} [input.codeChanged]                    the `changes` classifier's verdict;
+ *                                                         only literal `false` is not-applicable
  * @returns {{blocked: boolean, reason: string, blocking: object[], advisory: object[],
  *            preExisting: object[], acknowledged: boolean, summary: string}}
  */
-export function decideReviewGate({ prAlerts, baseAlerts, labels = [] }) {
+export function decideReviewGate({ prAlerts, baseAlerts, labels = [], codeChanged = true }) {
   const acknowledged = labels.includes(ACKNOWLEDGE_LABEL);
+
+  // Checked FIRST, and only on the literal `false`. A docs-only PR never triggers CodeQL
+  // (`codeql.yml` `paths-ignore`), so its alert lists are legitimately absent — reaching the
+  // UNAVAILABLE branch below would block it on the absence of an analysis that was never owed.
+  if (codeChanged === false) {
+    return {
+      blocked: false,
+      reason: 'not-applicable',
+      blocking: [],
+      advisory: [],
+      preExisting: [],
+      acknowledged,
+      summary:
+        'no code changed — this PR touches documentation only, so CodeQL never analyses it and no ' +
+        'review verdict exists to read. Nothing was skipped: the same classification also skipped ' +
+        'this PR’s build and test matrix. A PR that changes code cannot reach this outcome.',
+    };
+  }
 
   if (prAlerts === UNAVAILABLE || baseAlerts === UNAVAILABLE) {
     const which = prAlerts === UNAVAILABLE ? "the PR's" : "the base branch's";
@@ -208,25 +243,39 @@ function argValue(argv, flag) {
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const alertsFile = argValue(argv, '--alerts-file');
-  const baseAlertsFile = argValue(argv, '--base-alerts-file');
-  if (!alertsFile || !baseAlertsFile) {
-    process.stderr.write(
-      'usage: check-review-gate.mjs --alerts-file <json> --base-alerts-file <json> [--labels a,b]\n',
-    );
-    process.exitCode = 1;
-    return;
-  }
-
   const labels = (argValue(argv, '--labels') ?? '')
     .split(',')
     .map((label) => label.trim())
     .filter(Boolean);
 
+  // Fail-closed parsing: ONLY the literal `false` is "no code changed". A missing flag, an empty
+  // value, or anything the classifier could not determine leaves this `true`, which requires a
+  // readable analysis — the INFRA-048 invariant.
+  const codeChanged = (argValue(argv, '--code-changed') ?? '').trim() !== 'false';
+
+  if (!codeChanged) {
+    // The alert files are not read, and need not exist: no analysis was produced for this PR.
+    process.stdout.write(renderDecision(decideReviewGate({ codeChanged: false, labels })));
+    process.exitCode = 0;
+    return;
+  }
+
+  const alertsFile = argValue(argv, '--alerts-file');
+  const baseAlertsFile = argValue(argv, '--base-alerts-file');
+  if (!alertsFile || !baseAlertsFile) {
+    process.stderr.write(
+      'usage: check-review-gate.mjs --alerts-file <json> --base-alerts-file <json> [--labels a,b] ' +
+        '[--code-changed true|false]\n',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const decision = decideReviewGate({
     prAlerts: readAlerts(alertsFile),
     baseAlerts: readAlerts(baseAlertsFile),
     labels,
+    codeChanged,
   });
 
   process.stdout.write(renderDecision(decision));
