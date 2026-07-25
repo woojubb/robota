@@ -15,6 +15,13 @@ depends_on: []
 > architecture-auditor + proposal-reviewer) before any code, like REMOTE-001/GUI-001. Owner-approved
 > direction 2026-07-25.
 
+> **Spec drafted (GATE-WRITE, 2026-07-25).** Draft spec authored at
+> [`.agents/spec-docs/draft/ARCH-005-external-product-composition.md`](../spec-docs/draft/ARCH-005-external-product-composition.md)
+> — `type: INFRA` (ARCH is not an accepted SDLC frontmatter type; the ARCH-005 ID keeps its namespace).
+> Awaiting independent GATE-APPROVAL (architecture-auditor + proposal-reviewer). The load-bearing call for
+> review: whether a published, profile-driven `assembleProduct` reconciles with the "no shared product
+> factory" rule (`project-structure.md` L129).
+
 ## Problem / Goal
 
 A third party must be able to, **from a separate repo**, (A) build a specific product on our published
