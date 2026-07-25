@@ -312,6 +312,8 @@ The session log records structured events to a JSONL file for diagnostics and re
 
     **`ISessionOptions.compactionBasePrompt`** -- Replaces the base instruction template of the compaction summarization prompt wholesale (default: the exported, domain-neutral `DEFAULT_COMPACTION_PROMPT`). This is the seam for a consuming layer that wants product- or domain-specific compaction wording.
 
+    **`ISessionOptions.contextCapacityHint`** (NEUT-005) -- Concrete remediation wording forwarded to the Robota agent config as `IAgentConfig.contextCapacityHint`. The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice; a surface tier that owns a real remediation command (e.g. a `/compact` slash command) injects its actionable hint here. Not model-facing prompt text this package authors -- it is an opaque string passed through to the core seam; absent, the neutral core default (`DEFAULT_CONTEXT_CAPACITY_HINT`) applies.
+
 11. **`ISessionOptions.maxTurns`** -- Optional model/tool round cap passed to the underlying Robota run. Omitted means unlimited for the session layer.
 
 12. **`ISessionOptions.autoCompactThreshold`** -- Optional automatic compaction threshold. A number is interpreted as a fraction of the context window; `false` disables automatic compaction.

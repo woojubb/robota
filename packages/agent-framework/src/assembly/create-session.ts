@@ -254,8 +254,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     const currentAllow = Array.isArray(settings.permissions)
       ? []
       : (((settings.permissions as Record<string, unknown> | undefined)?.allow as
-          | string[]
-          | undefined) ?? []);
+          string[] | undefined) ?? []);
     if (!currentAllow.includes(pattern)) {
       writeSettings(projectSettingsPath, {
         ...settings,
@@ -293,6 +292,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     onCompact: options.onCompact,
     onCompactEvent: options.onCompactEvent,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
+    contextCapacityHint: options.contextCapacityHint,
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
@@ -301,7 +301,6 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
   });
-
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
 
   return { session, rebuildSystemMessage };

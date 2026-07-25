@@ -4,6 +4,7 @@
 
 export { createSession } from './create-session.js';
 export type { ICreateSessionOptions, ICreateSessionResult } from './create-session.js';
+export { deriveContextCapacityHint } from './context-capacity-hint.js';
 export { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 export {
   getSubagentSuffix,

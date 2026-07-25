@@ -19,6 +19,7 @@ import {
   restoreInteractiveSandboxSnapshot,
 } from './interactive-session-init-workspace.js';
 import { injectSavedMessage } from './interactive-session-restore.js';
+import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -131,6 +132,11 @@ export async function createInteractiveSession(
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
 
+  // NEUT-005: the core hard-capacity notice is product-neutral; derive an actionable remediation
+  // hint from THIS surface's registered command set (e.g. a `/compact` command) so the notice
+  // regains a concrete next step without baking product vocabulary into the neutral core.
+  const contextCapacityHint = deriveContextCapacityHint(options.commandModules);
+
   const { session, rebuildSystemMessage } = createSession({
     config: mergedConfig,
     cwd,
@@ -188,6 +194,7 @@ export async function createInteractiveSession(
     // --goal can drive autonomous pursuit. It is inert unless a goal is active.
     includeGoalTool: true,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
+    ...(contextCapacityHint !== undefined ? { contextCapacityHint } : {}),
   });
 
   return {

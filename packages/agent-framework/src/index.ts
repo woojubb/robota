@@ -414,6 +414,7 @@ export {
   createSubagentSession,
   createSubagentLogger,
   resolveSubagentLogDir,
+  deriveContextCapacityHint,
 } from './assembly/index.js';
 export type {
   ISubagentPromptOptions,

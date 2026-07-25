@@ -1,7 +1,8 @@
 ---
 title: 'NEUT-005: core/session prompt hygiene (dead templates, defaults, /compact leak, compaction & naming seams)'
-status: in-progress
+status: done
 created: 2026-07-25
+completed: 2026-07-25
 priority: medium
 urgency: soon
 area: packages/agent-core, packages/agent-session, packages/agent-framework
@@ -74,3 +75,45 @@ custom naming prompt and/or sanitizer (default prompt de-Latinized: titles follo
 language). SPEC updated. With wave 1 (items 1–4, #1347) already landed, only the wave-2 leftovers
 above (surface-tier wording injection, interface-transport comment twin, dag-cli/preset items)
 remain.
+
+## Wave 2 (surface-tier injection + fold-ins) — DONE (branch `feat/neut-005-remainder`)
+
+- **`/compact` hint at the CLI tier — DONE.** The core seam (`IAgentConfig.contextCapacityHint`,
+  #1347) is now wired end-to-end WITHOUT baking product vocabulary into a neutral library:
+  - `agent-session`: `ISessionOptions.contextCapacityHint` → forwarded into the Robota agent config
+    by `buildRobota` (red-first `context-capacity-hint-forwarding.test.ts`). SPEC updated.
+  - `agent-framework`: new exported `deriveContextCapacityHint(commandModules)` derives the concrete
+    wording from the surface's OWN registered command set — a registered `compact` command yields
+    `"Run /compact and retry."`, none yields `undefined` (neutral core default stands). Applied in
+    interactive session assembly (`createInteractiveSession`), so ALL surfaces (TUI, print,
+    `--serve`) inherit it. Red-first `assembly/__tests__/context-capacity-hint.test.ts`; SPEC +
+    public-surface table updated. The derived string is not a hardcoded prose literal in a neutral
+    library (built from the command name), so the prompt-prose floor passes untouched — no baseline
+    change needed.
+  - `agent-cli`: the default command set registers `/compact`, so the derived hint is non-empty in
+    the real CLI. Red-first `__tests__/context-capacity-hint-cli-tier.test.ts` asserts the
+    CLI-built module set → `"Run /compact and retry."`.
+- **`agent-interface-transport/src/session-contracts.ts` comment twin — DONE.** The
+  `'allow-project'` comment no longer hardcodes `.robota/settings.local.json`; storage location is
+  owned by the consuming layer (mirrors W's `agent-session/permission-types.ts` rewording).
+- **dag-cli scaffold provider param — NO CHANGE (verified).** `dag init --provider <anthropic|
+openai|gemini>` already exists (`packages/dag-cli/src/commands/init.ts`) and is user-overridable;
+  the `'anthropic'` default is a consumer-CLI scaffolding default (it produces a runnable example
+  DAG for the end user), not neutral-library prompt prose — no neutral "provider-less" default is
+  possible. The existing scaffold `systemPrompt` literal is pre-baselined in the prompt-prose floor
+  and untouched here. Kept as-is.
+- **`DEFAULT_AGENT_NAME='robota-cli'` — NO CHANGE (verified).** Already owned by the chartered
+  `@robota-sdk/agent-preset` defaults package (prompt-prose EXEMPT path; TC-07-pinned), which is the
+  correct home for a product identity default. Out of this PR's owned scope (agent-preset) and no
+  change warranted — the earlier "reconsideration" resolves to: correctly placed.
+
+## Outcome — NEUT-005 COMPLETE 2026-07-25
+
+All audit items (1–5) and every low fold-in are resolved across three PRs:
+`#1347` (wave 1 — agent-core dead templates + empty default + neutral capacity notice/seam +
+compaction base-prompt seam), `#1351` (item 5 — agent-framework session-naming Unicode-aware
+sanitizer + prompt/sanitizer injection), and this PR (wave 2 — surface-tier `/compact` hint
+injection via the core seam, interface-transport comment twin, dag-cli/`DEFAULT_AGENT_NAME`
+dispositions). Verified: affected package builds + vitest (agent-session 131, agent-framework 1258,
+agent-interface-transport 21, agent-cli 238 — all green) + `pnpm -w typecheck` clean + all 60
+harness scans pass (prompt-prose floor untouched — no baseline change).

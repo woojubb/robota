@@ -72,7 +72,7 @@ export type {
 
 /** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
  *  true = allow, false = deny, 'allow-session' = allow and remember for this session,
- *  'allow-project' = allow and persist to .robota/settings.local.json. */
+ *  'allow-project' = allow and persist to the project's local settings (location owned by the consuming layer). */
 export type TPermissionResultValue = boolean | 'allow-session' | 'allow-project';
 
 /** A single diff line for Edit tool display. */
