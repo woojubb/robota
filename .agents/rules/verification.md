@@ -50,6 +50,19 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   PASS on the fix. A test that passes on both the buggy and fixed code is accidental-green and guards nothing.
   Owner rule + procedure: [tdd-and-planning.md](tdd-and-planning.md) "Prove the regression test RED".
 
+### Delegated Verification Claims
+
+- A "green" you did not observe is a **hypothesis, not a fact**. A verification result reported by a
+  delegated worker (a subagent, a script, a summary of a run you did not watch) does not satisfy any gate
+  in this file until the actor who will act on it has independently reproduced it.
+- Before staging, committing, pushing, or reporting delegated work as done, re-run the affected gates in
+  your own context — at minimum the CI-equivalent verification entry point named in
+  [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, plus
+  `pnpm install --frozen-lockfile` when the lockfile was touched.
+- This binds whoever consumes the claim, not only whoever invoked a delegation procedure. The pipeline
+  that applies it to one delegated mechanical change is
+  [delegated-refactor-green-gate](../skills/delegated-refactor-green-gate/SKILL.md).
+
 ### Headless CLI Verification Requirement
 
 - Any change that affects CLI execution, transport adapters, `InteractiveSession` behavior used by the CLI, slash/built-in commands, model-invocable commands, tool-call routing, provider setup, session persistence, streaming output, or permission mode behavior MUST include or run a headless verification path.

@@ -2,6 +2,7 @@
 name: ci-failure-triager
 description: Independent, read-only triager of a RED continuous-integration check or a stalled gate. Given a failing (or suspiciously pending) check on a branch/PR, it reads the actual run logs, classifies the failure into exactly one class from a closed vocabulary, and returns a triage note — failure signature, local reproduction status, owning layer or file, minimal fix recommendation, and the validation command or gate that would prove the fix. It JUDGES ONLY: it does not edit code, push, re-run CI, or apply the fix it recommends. Universal/neutral — portable to any repo with a CI system whose logs can be read from a CLI. Use before any code change is made to fix a failing gate.
 tools: Read, Grep, Glob, Bash
+signal: CI TRIAGE
 ---
 
 ## Working-tree safety (read-only)

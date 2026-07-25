@@ -2,6 +2,7 @@
 name: user-execution-scenario-author
 description: Worker that authors the user-execution verification scenarios for a unit of work — the steps a user could personally run to see the delivered change working. It decides whether the work delivers user-facing behavior at all, selects the verification surface by a ranked preference order, proves the scenario is executable by actually attempting the command before writing it, and drafts each scenario with every required field filled. It PRODUCES ONLY: it never judges whether the resulting gate passes, never records the gate verdict, and never implements the behavior it is writing a scenario for. Universal/neutral — portable to any project that ships a user-facing surface. Use before implementation starts, and again whenever a scenario must be redesigned.
 tools: Read, Grep, Glob, Bash, Edit, Write
+signal: SCENARIO DRAFTED
 ---
 
 # User-Execution Scenario Author

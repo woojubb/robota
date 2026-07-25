@@ -570,6 +570,13 @@ evidence.
 
 ## Status after the four planned increments (2026-07-26)
 
+> **Superseded by increment 5 below**, which resolved both remaining skills. Two of this section's
+> claims did not survive contact: `delegated-refactor-green-gate` **did** need a new agent (the
+> "neither needs a new agent" prediction was wrong — see the reuse conflict recorded there), and
+> `dependency-graph-extraction` needed an artifact-kind ruling, not just a fold. Kept as written
+> because the verdict it reached — do not archive — is still the right one, for a reason it did not
+> have.
+
 **NOT complete — deliberately not archived.** The four-rule programme (`publish.md`,
 `backlog-execution.md`, `git-branch.md`, `spec-workflow.md`) is finished and every increment is merged
 and verified. But the item's own defect #2 named **three** skills that inline roles, and only one has
@@ -590,6 +597,173 @@ Also open, each blocked only on file ownership and each recorded under its incre
 § Deployment 2-bullet deletion, the folder ↔ status mechanical floor (+ six live violations), the broken
 `pnpm docs:deploy` path, BE-42/BE-43's relocations, and the three terminal signals missing from
 `CLOSED_SIGNAL_VOCAB`.
+
+## Phase 2, increment 5 — defect #2's two remaining skills — DONE (2026-07-26)
+
+The two skills the four-rule programme left are resolved, and they resolved **differently from each
+other** — which is the point. One was a pipeline with a role trapped inside it; the other was not a skill
+at all.
+
+### `delegated-refactor-green-gate` — one role extracted, one role REUSED, one predicted role REFUTED
+
+Three pieces of content, three different homes:
+
+| Content                                                       | Kind                      | New home                                                    |
+| ------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| § The Delegation Contract 1–4 ("give this to the subagent")   | worker charter            | **NEW** `.claude/agents/mechanical-refactor-worker.md`      |
+| § Orchestrator Responsibilities — "review the diff for creep" | role (a judgement)        | `pr-review-reviewer` (existing agent, **reused unchanged**) |
+| § Orchestrator Responsibilities — treat green as a hypothesis | **invariant**, not a step | `verification.md` § Delegated Verification Claims (**NEW**) |
+
+**The new agent, and why reuse was refused.** Inventory §4 recommended reusing `architecture-implementer`
+and splitting only "if a real conflict appears". The conflict is decisive and is in that agent's own
+text: `architecture-implementer.md` lines 42–45 instruct it to **refuse** exactly this class of work —
+"If realizing a finding requires a large, cross-cutting … refactor that cannot be done safely as a
+minimal edit, do not start hacking. Stop and return a remediation plan." A mass rename _is_ that.
+Reusing it would mean dispatching an agent chartered to decline the task. Its input contract also differs
+in kind: a findings list, not a specification. All 17 agent files were checked; none is a
+specification-driven bulk-edit worker.
+
+> **A weaker argument was withdrawn in review.** The first draft also argued that folding the
+> never-commit rule into `architecture-implementer` would change behaviour for `architecture-refresh`,
+> "where implementers commit". That is **false**: `architecture-implementer.md:41` says "You do not
+> merge; you produce a verified change for review", and `architecture-refresh/SKILL.md:33` reserves
+> landing to the orchestrator. Recorded because a wrong fact about a neighbouring pipeline, left in a
+> rationale, is what a later increment reads as settled.
+
+**The refuted extraction.** Inventory §4 also wanted a guardian that "re-runs the gates and emits a
+verdict". **Refuted**, on the design doc's own settled corollary: running a verification entry point and
+reading its exit code is a _mechanically decidable gate condition_, not a verdict, so it is control flow
+the orchestrator evaluates itself. A guardian here would additionally have shipped with no mechanical
+floor, which `enforcement-architecture.md` forbids. This is the second time the corollary has prevented
+an agent-per-checklist; it is doing real work.
+
+**But the obligation is not a step.** "A delegated green is a hypothesis until independently reproduced"
+binds every actor who receives such a claim, not only whoever invokes this skill — so per the
+"a precondition of a gate is an invariant" agreement it became a rule, not skill prose. Verified first
+that no rule already owned it (exhaustive grep of `.agents/rules/` for delegation/self-report/re-verify:
+only build-after-commit and merge-landing, neither of which is this). `post-implementation-checklist`
+step 2, which had pointed at the _skill_ for the obligation, now points at the rule.
+
+### `dependency-graph-extraction` — a FACT CATALOGUE, and the file is deleted
+
+By the four-kind test: not an orchestration skill (three unconditional commands — no phases, no gates,
+no routing); not an agent (it forms no verdict and says so); not a rule (delete it and no _force_ is
+lost). It is the fourth kind — an enumeration a skill consults, whose force lives elsewhere.
+
+It did **not** become a standalone `.agents/specs/*.md` catalogue. Its three facts split by owner, which
+a single new file would have obscured:
+
+- **The invariant** — "the dependency graph's ground truth is the manifests, never a document" — went to
+  `.agents/project-structure.md`, which already owns the package listing and the dependency-direction
+  rules the guard enforces. That is a rule gaining a rule, not a catalogue.
+- **The runnable procedure** — the two commands, the `CONFORMANCE_JSON_BEGIN`/`END` markers, capturing
+  `harness:scan`'s full output as the consistency baseline, and the `name → [deps]` derivation — went
+  into `architecture-conformance-audit` step 1, which already carried two thirds of it. The step now
+  states **why** it is concrete rather than pointing (it is the one part of an audit that must be
+  reproducible byte-for-byte), as the neutrality section requires.
+
+**Overruling a previous decision, explicitly.** `HARNESS-DIET-005` (line 59) deliberately **kept** this
+file — "kept as the mechanical-floor leaf" — in the same pass where four siblings became pointer stubs
+"(files kept so inbound links resolve)". That decision is overruled here on a ground DIET-005 did not
+have: the artifact-kind test, which did not exist then. A pointer stub would have preserved a link at
+the cost of a file whose kind is wrong; nothing links to it from `scripts/`, `.claude/`, or `.github/`,
+so deletion costs no resolution.
+
+**Archival records left untouched**, per increment 4's precedent (it retired the `backlog-gate-guard`
+skill and did not rewrite INFRA-015). The specific claim that goes stale is `INFRA-003`'s TC-01, "all 5
+skills present" — named here rather than silently left. Increment 2's opposite precedent does not govern:
+there the restored text was an independently **mandatory statement** whose loss was the defect, and the
+`grep -c` evidence merely corroborated it. Nothing mandatory is lost here.
+
+### Declared behavioral GAINS and narrowings (the ledger is loss-only; this is the other direction)
+
+1. **A mandatory `pr-review-reviewer` dispatch** replaces "the orchestrator reviews the diff". Justified
+   on its own merits: forming a quality verdict is judgement the design forbids an orchestrator, and an
+   existing guardian serves it. Mirrors increment 2's recommendation-gate precedent. Binds only this
+   skill's invoker.
+2. **A file-set scope check (step 3b)** is new. It is the mechanically decidable half of "scope creep",
+   so the corollary applied in the refutation above is applied here too rather than handed to the
+   guardian — the review round caught the first draft applying it in one place and not the other.
+3. **Bounded loop caps** (2 re-specifications / 2 re-verify rounds / 2 review rounds) are new control
+   flow. Required by the design doc's "a loop with no stated termination condition is a defect".
+4. **Step 1 is now a gated step**, where the old file had "can be specified precisely enough" as a mere
+   use-precondition. It is what step 3b compares against, so it must be written down to be checkable.
+5. **A generic terminate edge** into `backlog-execution.md`'s Stop Conditions — increments 1–2's
+   precedent, applied to a non-backlog pipeline, which widens their reach.
+
+**And the one that was a LOSS wearing a gain's clothes.** The first draft replaced the old four hardcoded
+commands (`pnpm build` / `typecheck` / `test` / `harness:scan`) with "the project's CI-equivalent
+verification entry point" and declared it a _strengthening_. It is not: `verify-like-ci.mjs`'s
+`CI_STAGES` are harness-self-test, format-check, scan-suite, scan-suite-dist-free, typecheck — there is
+**no `pnpm test` stage and no `pnpm build` stage**. The substitution would have dropped the package test
+suite from the delegation gate, on precisely the class of change that compiles while behaving wrongly.
+The gate is now stated as the entry point **plus** the build + test suite for the affected scope, in both
+the agent charter and the skill's steps 2 and 3a. The supporting citation had said so all along —
+`worktree-parallel-orchestration` step 4 reads "…entry point … **plus the project's test suite**" — and
+the first draft quoted it while dropping its second half.
+
+### A narrowing that was WITHDRAWN in review
+
+The first draft made the worker's hand-back rule conditional ("unstaged when you share the caller's
+tree"), on the argument that an absolute form contradicts `worktree-parallel-orchestration` step 4. The
+contradiction is **not live** — no dispatch path connects the two skills — and the conditional created a
+real one _inside the new agent_, whose isolated-checkout branch said "follow the project's normal change
+process" (which means opening a PR) two paragraphs above "do not open a pull request". The rule is
+absolute again; `worktree-parallel-orchestration` owns the isolated case.
+
+### The three terminal signals — CLOSED, and the live state was not what either report said
+
+Two increments reported `CI TRIAGE` / `GATE VERDICT` / `SCENARIO DRAFTED` as missing from
+`CLOSED_SIGNAL_VOCAB`; a later report claimed to have registered them. Read from the tree, **both were
+half right**: INFRA-048 (`7abc5bbfc`, #1434) registered all three tokens in
+`check-agent-def-convention.mjs`, but the three agents still declared **no `signal:` frontmatter field**,
+so nothing was mechanically checked — and `orchestration-map.md`'s `†` footnote still asserted the tokens
+were unregistered. The scripts half was already done, so the rest needed no `scripts/**`: the three
+agents now declare their field (the guard's second condition, that the body instructs ending with the
+token, was already satisfied at `ci-failure-triager.md:83`, `backlog-gate-guard.md:90`,
+`user-execution-scenario-author.md:108`), and the stale footnote is replaced. `agent-def-convention`
+passes with `violations=0`.
+
+### Review round
+
+`proposal-reviewer` returned `REVIEW VERDICT: REVISE` — the fifth REVISE in five increments, and again it
+caught what the increment's own careful pass did not. It found the dropped test suite (a declared _gain_
+that was a **loss**), two rationales resting on **false premises** (the `architecture-implementer`
+commit claim; the "live contradiction" behind the withdrawn narrowing), a **contradiction inside the new
+agent file** that the withdrawn narrowing had introduced, the corollary applied inconsistently between
+the refutation and the reviewer dispatch, an **out-of-charter ask** (missed sites are not in a reviewer's
+changed set), a **floor over-claim** in the map (`scan-review-findings` reads only two files, neither of
+them this pipeline's), the `CONFORMANCE_JSON_*` / baseline-capture **residue** the "already duplicated"
+claim had glossed over, a prior decision this increment was silently overruling (`HARNESS-DIET-005`), and
+the archival blocker below. Every finding was verified against the tree before acting; all are folded.
+
+### Why this item is STILL NOT archived — a mechanical reason, not a feeling
+
+`backlog-execution.md` requires that a "tracked as follow-on" claim name an **existing** file. Three
+**live** documents currently name `HARNESS-049` as the tracker for open work:
+
+| Document                                   | What it defers to this item                        |
+| ------------------------------------------ | -------------------------------------------------- |
+| `.agents/specs/orchestration-map.md` (‡)   | the recommendation gate's missing mechanical floor |
+| `.agents/rules/git-branch.md` § Deployment | the deployment-topology relocation                 |
+| `.agents/rules/spec-workflow.md`           | the folder ↔ status floor gap                      |
+
+Archiving without repointing all three would leave live rule and spec pointers aimed into
+`.agents/backlog/completed/`. Two of the three are `.agents/rules/**` edits beyond this increment's
+declared ownership, and closing the underlying gaps needs `scripts/**`. So the correct disposition is
+unchanged from increment 4's: **leave the item open with the remainder tabled.** Defect #2 is now fully
+discharged — all three named skills are resolved — and what remains is a set of independent follow-ups
+that happen to point here.
+
+**Tabled remainder** (each blocked on ownership, not on judgement): the recommendation-gate mechanical
+floor; the folder ↔ status floor and its six live violations; the broken `pnpm docs:deploy` path;
+BE-42 / BE-43's relocations; `git-branch.md` § Deployment's 2-bullet deletion. Each should become its own
+backlog file, at which point the three pointers above can be repointed and this item archived.
+
+**Not rehearsed:** `mechanical-refactor-worker`. There is no mechanical refactor to run it on inside this
+increment's file ownership, and manufacturing one to satisfy the test plan would be worse evidence than
+none. `pr-review-reviewer` and `proposal-reviewer` are existing, exercised agents; the reviewer was
+dispatched for real on this increment and its findings are folded above.
 
 ## What
 
