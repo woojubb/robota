@@ -7,48 +7,64 @@
  */
 
 import type {
-  TBackgroundPrimitive,
-  TBackgroundTaskIsolation,
-  TBackgroundTaskTimeoutReason,
+  IBackgroundTaskState,
+  TBackgroundTaskMode,
+  TBackgroundTaskStatus,
 } from './background-task-contracts';
 
-export type TSubagentJobStatus =
-  | 'queued'
-  | 'running'
-  | 'waiting_permission'
-  | 'sleeping'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+/**
+ * TYPE-003: derived from the background-task status SSOT ({@link TBackgroundTaskStatus}) instead of
+ * a second hand-maintained union — a status added to the SSOT now flows here mechanically (the
+ * prior manual copy silently missed `paused` when SELFHOST-012 added it). `paused` is excluded on
+ * purpose: it is a scheduled-task-only status and a subagent is never a scheduled task
+ * (`SubagentManager.toSubagentState` maps it to `sleeping`).
+ */
+export type TSubagentJobStatus = Exclude<TBackgroundTaskStatus, 'paused'>;
 
-export type TSubagentJobMode = 'foreground' | 'background';
+/** TYPE-003: alias of the background-task mode SSOT — the job mode is the same foreground/background pair. */
+export type TSubagentJobMode = TBackgroundTaskMode;
 
-export interface ISubagentJobState {
-  id: string;
+/**
+ * Subagent-job projection of {@link IBackgroundTaskState}.
+ *
+ * TYPE-003: every field a subagent job shares with the background-task SSOT is derived via `Pick`
+ * (previously a ~20-field manual mirror that could drift silently). Only the genuinely
+ * subagent-specific fields are declared here:
+ * - `type` — the agent-definition type (the task-side counterpart is the optional `agentType`);
+ * - `status` — the derived {@link TSubagentJobStatus} (no `paused`);
+ * - `promptPreview` — required here (every subagent job is created from a prompt; optional on tasks);
+ * - `currentTool` — the job-level projection of the task's free-form `currentAction`;
+ * - `result`/`error` — flattened display strings (the task carries structured
+ *   `IBackgroundTaskResult`/`IBackgroundTaskError` objects).
+ */
+export interface ISubagentJobState extends Pick<
+  IBackgroundTaskState,
+  | 'id'
+  | 'label'
+  | 'parentSessionId'
+  | 'mode'
+  | 'depth'
+  | 'pid'
+  | 'cwd'
+  | 'isolation'
+  | 'worktreePath'
+  | 'branchName'
+  | 'worktreeStatus'
+  | 'worktreeNextAction'
+  | 'worktreeBaseRevision'
+  | 'parentWorktreeStatus'
+  | 'logPath'
+  | 'transcriptPath'
+  | 'startedAt'
+  | 'updatedAt'
+  | 'completedAt'
+  | 'timeoutReason'
+  | 'metadata'
+> {
   type: string;
-  label: string;
-  parentSessionId: string;
   status: TSubagentJobStatus;
-  mode: TSubagentJobMode;
-  depth: number;
-  pid?: number;
-  cwd: string;
-  isolation?: TBackgroundTaskIsolation;
-  worktreePath?: string;
-  branchName?: string;
-  worktreeStatus?: string;
-  worktreeNextAction?: string;
-  worktreeBaseRevision?: string;
-  parentWorktreeStatus?: string;
   promptPreview: string;
   currentTool?: string;
-  logPath?: string;
-  transcriptPath?: string;
-  startedAt?: string;
-  updatedAt: string;
-  completedAt?: string;
-  timeoutReason?: TBackgroundTaskTimeoutReason;
   result?: string;
   error?: string;
-  metadata?: Record<string, TBackgroundPrimitive>;
 }

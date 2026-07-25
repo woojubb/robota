@@ -48,7 +48,7 @@ function walkMarkdown(dir) {
 }
 
 /** Classify a doc's markdown links relative to its own directory. */
-function classifyLinks(filePath, text) {
+function classifyLinks(filePath, text, mapDir) {
   const dir = path.dirname(filePath);
   let intraMapMd = 0;
   let hasRootMapLink = false;
@@ -58,16 +58,16 @@ function classifyLinks(filePath, text) {
     if (/ARCHITECTURE-MAP\.md$/.test(raw)) hasRootMapLink = true;
     const resolved = path.resolve(dir, raw);
     if (resolved === filePath) continue; // self
-    if (resolved.startsWith(MAP_DIR + path.sep) && resolved.endsWith('.md')) intraMapMd += 1;
+    if (resolved.startsWith(mapDir + path.sep) && resolved.endsWith('.md')) intraMapMd += 1;
   }
   return { intraMapMd, hasRootMapLink };
 }
 
-function analyze(filePath, lines) {
+function analyze(filePath, lines, mapDir) {
   const blocking = [];
   const warnings = [];
   const text = lines.join('\n');
-  const { intraMapMd, hasRootMapLink } = classifyLinks(filePath, text);
+  const { intraMapMd, hasRootMapLink } = classifyLinks(filePath, text, mapDir);
 
   const h1Idx = lines.findIndex((l) => /^#\s+\S/.test(l));
   if (h1Idx === -1) blocking.push('missing H1 title');
@@ -111,14 +111,18 @@ function analyze(filePath, lines) {
   return { blocking, warnings };
 }
 
-export function findArchitectureMapCompletenessFindings(target = MAP_DIR) {
+export function findArchitectureMapCompletenessFindings(target = MAP_DIR, mapDir = MAP_DIR) {
   const blocking = [];
   const warnings = [];
   const files = existsSync(target) && statSync(target).isFile() ? [target] : walkMarkdown(target);
   for (const file of files) {
     if (SKIP_FILES.has(path.basename(file))) continue;
     const rel = path.relative(WORKSPACE_ROOT, file);
-    const { blocking: b, warnings: w } = analyze(file, readFileSync(file, 'utf8').split('\n'));
+    const { blocking: b, warnings: w } = analyze(
+      file,
+      readFileSync(file, 'utf8').split('\n'),
+      mapDir,
+    );
     for (const m of b) blocking.push({ file: rel, detail: m });
     for (const m of w) warnings.push({ file: rel, detail: m });
   }

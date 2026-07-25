@@ -10,7 +10,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
 
@@ -38,25 +38,19 @@ function installFakeEditor(content: string): string {
   return script;
 }
 
-const origEditor = process.env.EDITOR;
-const origVisual = process.env.VISUAL;
-
 let h: ScriptedSessionHarness | undefined;
 afterEach(async () => {
   await h?.dispose();
   h = undefined;
-  if (origEditor === undefined) delete process.env.EDITOR;
-  else process.env.EDITOR = origEditor;
-  if (origVisual === undefined) delete process.env.VISUAL;
-  else process.env.VISUAL = origVisual;
+  vi.unstubAllEnvs();
 });
 
 describe('/editor command (framework functional)', () => {
   it(
     'opens the editor via the handoff and returns the saved text',
     async () => {
-      delete process.env.VISUAL;
-      process.env.EDITOR = installFakeEditor('composed in editor');
+      vi.stubEnv('VISUAL', undefined);
+      vi.stubEnv('EDITOR', installFakeEditor('composed in editor'));
       h = scriptedSession({
         turns: [{ text: 'unused' }],
         terminalHandoff: fakeHandoff(true),
@@ -75,7 +69,7 @@ describe('/editor command (framework functional)', () => {
   it(
     'is unavailable when there is no interactive terminal',
     async () => {
-      process.env.EDITOR = installFakeEditor('unused');
+      vi.stubEnv('EDITOR', installFakeEditor('unused'));
       h = scriptedSession({
         turns: [{ text: 'unused' }],
         commandModules: [createEditorCommandModule()],

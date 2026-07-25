@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
+import { trimEdgeChars, trimTrailingChars } from '../utils/trim-char.js';
+
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandResult } from '../commands/index.js';
 
@@ -53,10 +55,11 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
     throw new Error('Model command descriptor name must not be empty.');
   }
 
-  const safeBody = normalizedCommandName
-    .replace(/[^A-Za-z0-9_-]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
+  // `trimEdgeChars` rather than `/^_+|_+$/g`: the trailing half of that alternation is quadratic (SEC-003).
+  const safeBody = trimEdgeChars(
+    normalizedCommandName.replace(/[^A-Za-z0-9_-]/g, '_').replace(/_+/g, '_'),
+    '_',
+  );
   if (!safeBody) {
     throw new Error(`Model command descriptor name cannot be projected safely: ${commandName}`);
   }
@@ -79,7 +82,9 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
     throw new Error('Model command tool prefix leaves no room for command names.');
   }
 
-  const truncatedBody = safeBody.slice(0, maxBodyLength).replace(/[_-]+$/g, '') || 'command';
+  // Same reason as `safeBody` above. `slice(0, maxBodyLength)` (≤ 64) does bound this one, but the bound lives
+  // three statements away — the shape is removed rather than left resting on it.
+  const truncatedBody = trimTrailingChars(safeBody.slice(0, maxBodyLength), '_-') || 'command';
   const toolName = `${MODEL_COMMAND_TOOL_PREFIX}${truncatedBody}_${hash}`;
   if (!PROVIDER_SAFE_TOOL_NAME_PATTERN.test(toolName)) {
     throw new Error(`Projected model command tool name is not provider-safe: ${toolName}`);

@@ -4,9 +4,9 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 /**
  * `/remote-control` (REMOTE-008) — enable/stop P2P remote control and report status.
  *
- * The command is a declarative trigger: `enable` and `stop` return typed host effects
- * (`remote-control-enable-requested` / `-stop-requested`) that the host wires to the composition root
- * (commands never construct transports). `status` reads the injected
+ * The command is a declarative trigger: `enable` and `stop` return typed HOST ACTIONS
+ * (`remote-control-enable` / `remote-control-stop`) executed by the session via the composition-root
+ * adapter (commands never construct transports). `status` reads the injected
  * `ICommandHostAdapters.remoteControl.getStatus()` view — absent ⇒ the feature is unavailable in this host.
  */
 
@@ -90,7 +90,7 @@ export function executeRemoteControlCommand(
     return {
       message: 'Stopping remote control...',
       success: true,
-      effects: [{ type: 'remote-control-stop-requested' as const }],
+      hostActions: [{ type: 'remote-control-stop' as const }],
     };
   }
 
@@ -99,7 +99,7 @@ export function executeRemoteControlCommand(
     return {
       message: 'Enabling remote control...',
       success: true,
-      effects: [{ type: 'remote-control-enable-requested' as const }],
+      hostActions: [{ type: 'remote-control-enable' as const }],
     };
   }
 

@@ -1,7 +1,19 @@
 # Backlog Execution Rules
 
-Mandatory rules for executing backlog-driven work through recommendation gates and focused PRs.
+The backlog invariants: what must hold while executing backlog-driven work through recommendation gates,
+user-execution gates, and focused PRs — and **who owns each fact**.
 Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
+
+**The ordering is not here.** Which phase runs when, and what each outcome routes to, is owned by
+[`backlog-execution-orchestrator`](../skills/backlog-execution-orchestrator/SKILL.md), which dispatches
+[`user-execution-scenario`](../skills/user-execution-scenario/SKILL.md) for the scenario lifecycle and is
+itself dispatched once per item by
+[`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md) when work spans several items.
+The judgement of _whether a recommendation is right_ is owned by the `proposal-reviewer` agent; _whether a
+gate passes_ by the [`backlog-gate-guard`](../../.claude/agents/backlog-gate-guard.md) agent against the
+[gate catalogue](../skills/backlog-gate-guard/SKILL.md); _what a scenario should verify_ by the
+[`user-execution-scenario-author`](../../.claude/agents/user-execution-scenario-author.md) agent. This
+document states only what must hold, wherever those run.
 
 ## Agent Decision Authority
 
@@ -54,17 +66,17 @@ PR-body disclosure only; all required retroactive review).
 
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
-If the recommendation is sound, the agent may proceed. If genuinely uncertain, the agent presents
-two to three options with trade-offs and asks the user to choose.
+A decision that falls inside agent authority by the four criteria above may be acted on; one that does
+not, or that forms part of the work unit's recommendation, goes through the Recommendation Gate below
+and is never self-approved. If genuinely uncertain, the agent presents two to three options with
+trade-offs and asks the user to choose.
 
 ---
 
 ## Recommendation Gate
 
-Before starting each backlog or meaningful work unit inside a backlog, present a recommendation with
-the reasoning needed to judge whether it should proceed.
-
-The recommendation must include:
+A recommendation gate must be presented before starting each backlog or meaningful work unit inside a
+backlog. The recommendation must include:
 
 - the proposed implementation or documentation approach;
 - why it matches the backlog intent;
@@ -76,22 +88,27 @@ The recommendation must include:
 - open decisions within agent authority (with the agent's recommendation and reasoning) or, if
   genuinely outside agent authority, a clearly stated question with two to three concrete options.
 
-If the recommendation is coherent with repository rules, layering, architecture, and the backlog
-intent, the agent may proceed with that recommendation. If the recommendation is weak, conflicts
-with rules, changes ownership boundaries, introduces new dependency direction, or requires product
-judgment, stop and ask the user for a decision.
+**The recommendation is not judged by the actor that formed it.** Whether it is coherent with repository
+rules, layering, architecture, and the backlog intent is an independent verdict, produced by the
+`proposal-reviewer` agent — a role that both produces and judges violates
+[enforcement-architecture.md](enforcement-architecture.md). Work proceeds on `ENDORSE`; a `REVISE` is
+folded in and re-reviewed; a `REJECT` is never overridden. The gate's routing (including the bound on
+revisions) is owned by
+[`backlog-execution-orchestrator`](../skills/backlog-execution-orchestrator/SKILL.md).
+
+An endorsement is not approval. A recommendation that requires product judgment, changes ownership
+boundaries, or introduces a new dependency direction still stops for the user.
+
+**The verdict must be recorded** — the reviewer's `REVIEW VERDICT` and its date go in the backlog item
+or the PR description. A gate whose verdict leaves no trace cannot be audited, and an unrecorded
+`ENDORSE` is indistinguishable from a self-approval.
 
 ## One-Backlog-At-A-Time Rule (mandatory, zero exceptions)
 
-**Finish one backlog completely before starting the next.**
-
-The sequence is:
-
-1. Complete all implementation, tests, and verification for the current backlog.
-2. Commit every changed file — the working tree must be clean (`git status` shows no modified or
-   staged files) before creating the PR.
-3. Open the PR, merge it into `develop` (or the initiative base branch).
-4. Only after the PR is merged may the next backlog begin.
+**Finish one backlog completely before starting the next.** Complete means: implementation, tests, and
+verification done; every changed file committed so the working tree is clean before the PR is created; the
+PR opened and merged into `develop` (or the initiative base branch). Only after the merge may the next
+backlog begin.
 
 **Violations:**
 
@@ -124,8 +141,9 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
   fan-out and to independent PR _units_, **not** to concurrently-open feature branches — the
   [One-Branch-At-A-Time rule](git-branch.md) still holds: branches are created and merged one at a time
   to avoid divergence. So: related → serial; unrelated → separate units, still merged in sequence.
-- Every PR description must include the accepted recommendation, rationale, implementation summary,
-  tests run, user execution test scenario gate result or not-applicable reason, and residual risks.
+- Every PR description must include the accepted recommendation, its `REVIEW VERDICT`, rationale,
+  implementation summary, tests run, user execution test scenario gate result or not-applicable reason,
+  and residual risks.
 
 ## User Execution Test Scenario Rule
 
@@ -142,7 +160,7 @@ User execution test scenarios are separate from the agent's engineering test pla
 
 - The engineering test plan covers unit, integration, type, harness, CI, build, and internal
   verification commands. A user execution test scenario is what the user can personally execute to
-  see the product change working — never any of those (authoritative statement: Done Gate Stage 2).
+  see the product change working — never any of those (authoritative statement: Done Gate below).
 - The user execution test scenario describes the exact product command, UI interaction, browser
   flow, TUI flow, or public SDK/example flow a user can run after the work is implemented to confirm
   the implemented code or delivered artifact behaves as intended.
@@ -163,6 +181,37 @@ User execution test scenarios are separate from the agent's engineering test pla
   documented procedure itself. It must not inspect the document to prove the document is well
   written.
 
+### Scenario Design Preference Order (mandatory for new scenarios)
+
+**Which surface a scenario should target**, and the ranked preference between them, is judgement applied
+while authoring — owned by the
+[`user-execution-scenario-author`](../../.claude/agents/user-execution-scenario-author.md) agent, not
+restated here. Two invariants bound that judgement wherever it happens, including when no agent is
+dispatched:
+
+- A scenario that requires live credentials or an external service **MUST state that prerequisite
+  explicitly**, so an executor without it knows the gate cannot run in their environment rather than
+  discovering it mid-gate (counter-example: CLI-053's live-LLM transcript step was unexecutable in the
+  implementing environment).
+- A scenario whose only observable requires credentials the executor may not have is a design smell —
+  restructure toward a provider-free observable or a fixture the work itself ships (worked example:
+  CLI-058's in-repo mock MCP server made the entire scenario machine-executable).
+
+Each user execution test scenario must include:
+
+- the agent-executability decision (`agent-executable` or `manual-only: <reason>`);
+- prerequisite state, sample setup, fixture data, server startup, environment variables, or other
+  test environment requirements;
+- exact Bash command (for agent-executable) or exact UI steps (for manual-only) in order;
+- expected observable result, including exit code, output substring, visible UI state, or file
+  change;
+- any cleanup or reset step;
+- the evidence field that must be updated after implementation when the agent runs the scenario.
+
+If the scenario requires a test fixture, demo command, local server, test project, seed data, or other
+environment that does not exist yet, the agent must either build that environment as part of the
+backlog, propose it in the recommendation gate, or ask the user for a decision before proceeding.
+
 ### Capability Reachability — no library-seam "N/A" dodge — MANDATORY
 
 When a backlog delivers a **user-facing capability** (something a user would experience — e.g. memory,
@@ -174,8 +223,7 @@ capability is not done until it is BOTH:
    (injects/enables it), so a user can reach the behavior; and
 2. **Verified by an AGENT-RUN end-to-end scenario the agent executes itself** — the agent drives the real
    product surface with a real provider, exercises the capability end-to-end, and captures the evidence.
-   The agent never delegates this run to the user (see the Agent Executability Requirement below and the
-   agent-owned-verification principle).
+   **The agent never delegates this run to the user.**
 
 The spec/backlog **PLAN must include the surface-wiring + the agent-run verification step from the start.**
 Splitting surface-wiring into a later slice is allowed, but an intermediate **library-only** slice records
@@ -198,51 +246,38 @@ declared. Set these keys on every user-facing capability spec (add `user_executi
 
 ### Agent Executability Requirement — MANDATORY
 
-**Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"**
+**Before writing a scenario, the agent must ask: "Can I execute this via Bash right now?"** This question
+must be answered before the scenario is written, not after.
 
-This question must be answered before the scenario is written, not after. The answer determines how
-the scenario is written:
-
-- **Yes — agent-executable:** Write the scenario with the exact Bash command. This is the default.
-  Agent-executable scenarios use non-interactive CLI flags (`--version`, `--check-update`, `-p`,
-  `--no-session-persistence`), pipe-friendly invocations, or scripted HTTP/file operations.
-- **No — not agent-executable:** The scenario must be redesigned to be agent-executable before
-  writing it. If a scenario requires interactive TTY (Ink raw mode), browser UI, hardware input, or
-  another agent-inaccessible surface, the agent must first attempt to find an equivalent
-  agent-executable path that exercises the same implemented code. Example: interactive TUI cannot be
-  automated, but `--version` (module load), `-p` (CLI assembly), and `--check-update` (startup +
-  shutdown) together cover the same code paths without requiring interactive input.
-- **Genuinely not redesignable:** Only when no agent-executable equivalent exists may a scenario be
-  labeled `manual-only:` with a specific technical reason (e.g., "Ink requires TTY raw mode which
-  is unavailable in non-interactive agent execution"). This is the exception, not the default.
+- **Agent-executable** is the default and the expected answer. Agent-executable scenarios use
+  non-interactive CLI flags (`--version`, `--check-update`, `-p`, `--no-session-persistence`),
+  pipe-friendly invocations, or scripted HTTP/file operations.
+- **Not agent-executable** — the scenario must be redesigned before it is written, by finding an
+  equivalent agent-executable path that exercises the same implemented code. Example: interactive TUI
+  cannot be automated, but `--version` (module load), `-p` (CLI assembly), and `--check-update`
+  (startup + shutdown) together cover the same code paths without interactive input.
+- **`manual-only:` requires a specific technical reason** (e.g. "Ink requires TTY raw mode which is
+  unavailable in non-interactive agent execution") and is the exception, not the default.
 
 **Writing scenarios that the agent cannot execute is a process violation.** An unexecutable scenario
-that is not labeled `manual-only:` at write time means the agent already knows the Done Gate Stage 2
-will fail before implementation even begins. That is not acceptable — the scenario must be redesigned
-first.
+that is not labeled `manual-only:` at write time means the agent already knows the done gate will fail
+before implementation even begins. A scenario the agent cannot execute and has not labeled `manual-only:`
+is not acceptable.
 
-Each user execution test scenario must include:
+The bound on the redesign search, and what happens when it is exhausted, are routing owned by
+[`user-execution-scenario`](../skills/user-execution-scenario/SKILL.md).
 
-- the agent-executability decision (`agent-executable` or `manual-only: <reason>`);
-- prerequisite state, sample setup, fixture data, server startup, environment variables, or other
-  test environment requirements;
-- exact Bash command (for agent-executable) or exact UI steps (for manual-only) in order;
-- expected observable result, including exit code, output substring, visible UI state, or file
-  change;
-- any cleanup or reset step;
-- the evidence field that must be updated after implementation when the agent runs the scenario.
-
-The planned user execution test scenario is part of the backlog before implementation starts. If
-the scenario requires a test fixture, demo command, local server, test project, seed data, or other
-environment that does not exist yet, the agent must either build that environment as part of the
-backlog, propose it in the recommendation gate, or ask the user for a decision before proceeding. A
-scenario that the agent cannot execute and has not labeled `manual-only:` is not acceptable.
+## Evidence
 
 Before declaring a backlog or work unit complete, the agent must execute the user execution test
 scenario as a final gate whenever the scenario is command-line, file-system, HTTP, browser, or
 otherwise available from the workspace. The gate passes only when the observed result matches the
 expected observable result, and only when the scenario was run against the completed implementation
 or delivered artifact.
+
+**Rewriting a scenario's expected result to match what was observed is forbidden** — that converts the
+gate into a transcript of whatever happened. A wrong expectation is corrected by re-authoring the
+scenario before the run, never after seeing the output.
 
 Evidence is mandatory. A user execution test scenario gate without captured evidence does not pass.
 Evidence may be command output, exit code, screenshot, log excerpt, rendered UI observation,
@@ -258,35 +293,30 @@ repo file that no longer exists fails the scan. When a later refactor legitimate
 referenced artifact, annotate the reference with `<!-- evidence-superseded: <reason> -->` on the
 same or the preceding line — exemptions are reported on every run, never silent.
 
-**Done gate — ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section
-must not have its status set to `done` (or equivalent completion marker) until BOTH gate stages
-below pass. Setting `status: done` before both stages pass is a process violation with no exception
-other than the explicit `manual-only` or `not-writable` exception documented in the scenario itself.
+## Done Gate
+
+**ABSOLUTE RULE.** A backlog item with a `## User Execution Test Scenarios` section must not have its
+status set to `done` (or equivalent completion marker) until BOTH stages below pass. Setting
+`status: done` before both stages pass is a process violation with no exception other than the explicit
+`manual-only` or `not-writable` exception documented in the scenario itself.
 
 ### Done Gate Stage 1 — Scenario Written
 
-```
-[ ] Every scenario is written with exact commands/steps, prerequisites,
-    expected observable result, and an evidence field
-```
-
-Gate passes when every scenario is fully written.
-Gate passes by exception only when writing is genuinely impossible AND a valid reason is recorded
-explicitly under each unwritten scenario. An unwritten scenario with no stated reason does not pass.
+Every scenario is fully written. Passes by exception only when writing is genuinely impossible AND a
+valid reason is recorded explicitly under each unwritten scenario; an unwritten scenario with no stated
+reason does not pass.
 
 ### Done Gate Stage 2 — Scenario Executed
 
-```
-[ ] The agent directly executed every scenario against the completed implementation
-[ ] The observed result matched the expected observable result for every scenario
-[ ] Concrete evidence (command output, exit code, screenshot, log excerpt, diff, or another
-    artifact) was recorded in the backlog file under the evidence field of every scenario
-```
+Every scenario was directly executed by the agent against the completed implementation, the observed
+result matched, and concrete evidence was recorded in the backlog item. Passes by exception only when
+execution is genuinely impossible AND a valid, specific reason is stated under the scenario that could
+not be executed.
 
-All three checkboxes must be `[x]` for the gate to pass.
-
-Gate passes by exception only when execution is genuinely impossible AND a valid, specific reason
-is stated explicitly under the scenario that could not be executed.
+**The criteria each stage checks** are the `DONE-GATE-STAGE-1` / `DONE-GATE-STAGE-2` entries in the
+[gate catalogue](../skills/backlog-gate-guard/SKILL.md); the verdict is produced by the
+[`backlog-gate-guard`](../../.claude/agents/backlog-gate-guard.md) agent, never by the actor that did the
+work.
 
 **Capability-absence claims require a probe.** "The environment lacks X" (an API key, credential,
 tool, or device) is not a valid exception reason unless the agent actually probed for it and records
@@ -300,47 +330,33 @@ typecheck, lint, unit tests (any count), harness checks, CI checks, static/docum
 inspection, and `rg` checks are engineering or governance verification: they belong in `## Test Plan`,
 have zero influence on whether a user can run the product and observe the expected behavior, and must
 never be cited as gate evidence, exception reasons, or in a final response as user execution test
-scenario evidence. Every other mention of this rule in this file, in checklists, and in
+scenario evidence. Every other mention of this rule in this file, in the gate catalogue, and in
 `common-mistakes.md` #56 refers back to this statement.
 
 If the scenario cannot be executed (genuinely manual-only or terminal-interactive-only), the item
 must be labeled `manual-only` with the specific reason before status is set to `done`, and the PR
 description must not claim the gate passed by execution.
 
-When the user execution test scenario gate passes, the final user-facing response must tell the user
-that the scenario was verified, provide the concrete command or UI steps the user can run, state the
-expected result, and summarize the evidence already observed by the agent. If the user execution
-test scenario gate does not pass, the work is not complete and the agent must fix the issue or ask
-for a decision.
-
-## Scenario Design Preference Order (mandatory for new scenarios)
-
-When authoring `## User Execution Test Scenarios`, choose the verification surface in this
-order:
-
-1. **Provider-free product observables** — exit codes, created files, provider-free commands
-   (e.g. `robota diagnose`, `robota init`, direct command output).
-2. **Fixtures built by the work itself** — local mock servers, sample projects, seeded settings
-   the implementation ships with (worked example: CLI-058's in-repo mock MCP server made the
-   entire scenario machine-executable).
-3. **Live-credential runs only when the verified behavior is inherently provider-coupled** —
-   and then the scenario MUST state the credential prerequisite explicitly so an executor
-   without keys knows the gate cannot run in that environment (counter-example: CLI-053's
-   live-LLM transcript step was unexecutable in the implementing environment).
-
-A scenario whose only observable requires credentials the executor may not have is a design
-smell — restructure toward 1 or 2 before falling back to 3.
+When the gate passes, the final user-facing response must tell the user that the scenario was verified,
+provide the concrete command or UI steps the user can run, state the expected result, and summarize the
+evidence already observed by the agent. If the gate does not pass, the work is not complete — the routing
+for a failed gate is owned by [`user-execution-scenario`](../skills/user-execution-scenario/SKILL.md), and
+no route from it ends in `status: done`.
 
 ## Completion Steps
 
-When all gates pass and the work is fully done, follow these steps **in order**:
+Completion is a single atomic act, not a sequence that usually finishes:
 
 1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
    file's frontmatter. For items that will not be implemented, use `status: wontfix` or
    `status: skipped` instead.
 2. **Move the file** — `git mv .agents/backlog/<file>.md .agents/backlog/completed/<file>.md`.
-3. **Single commit** — include the frontmatter update and the `git mv` in the same commit.
-   Do not commit or push before both the status update and the move are staged together.
+   Always `git mv`, never `cp` — the root must be left with no duplicate.
+3. **Single commit** — the frontmatter update and the move land in the SAME commit. Do not commit or
+   push before both are staged together.
+
+Recovery when only one half lands, and what to do when the move conflicts, are routing owned by
+[`backlog-execution-orchestrator`](../skills/backlog-execution-orchestrator/SKILL.md).
 
 ### Status Invariants
 
@@ -351,37 +367,25 @@ When all gates pass and the work is fully done, follow these steps **in order**:
 - `status: done` must not be set before the User Execution Test Scenario gate passes (Stage 2).
 - `wontfix`, `skipped`, and `superseded` are valid terminal statuses for items that were
   deliberately not implemented.
+- Closing the loop (evidence, status, move, gates) happens in the SAME change as the work. A "tracked
+  as follow-on" claim must name an existing backlog/task file.
 - **Mechanized:** the `backlog-placement` scan (`scripts/harness/check-backlog-placement.mjs`, in
   `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
   `completed/`, or `status: done` without a `completed:` date. The `task-archival` scan additionally
   fails a fully-checked task file whose spec never reached `spec-docs/done/` (gates overdue). These
   invariants held only as prose until 2026-07-02, when 8 shipped items were found with stale
-  placement — closing the loop (evidence, status, move, gates) happens in the SAME change as the
-  work, and a "tracked as follow-on" claim must name an existing backlog/task file.
-
-### Common Mistakes to Avoid
-
-| Mistake                                                                | Correct action                                                      |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Moving file to `completed/` before updating `status:` in frontmatter   | Update frontmatter first, then `git mv`                             |
-| Leaving `status: done` in frontmatter but file still in `backlog/`     | Move with `git mv` immediately after the status update              |
-| Splitting the status update and the move into separate commits         | Stage both changes and commit together                              |
-| Writing `## Status` section in body instead of using frontmatter       | Use frontmatter `status:` field only                                |
-| Setting `status: done` before user execution test scenario gate passes | Run the scenario, record evidence, then set done                    |
-| Copying (not moving) to `completed/`, leaving a duplicate in root      | Always use `git mv` — never `cp`. Root must have no duplicate files |
+  placement.
 
 ## Base Branch Workflow
 
-For a multi-backlog initiative:
+For a multi-backlog initiative: the initiative gets a base branch cut from `develop`, each backlog gets
+a child branch and a PR into that base, and a final PR goes from the base into `develop`. A child PR
+merges into the base only after its checks pass **and its content matches its recommendation gate** —
+green checks alone do not authorize the merge. **The final PR is never auto-merged — that decision is
+the user's.**
 
-1. Create an initiative base branch from `develop`.
-2. For each backlog, create a child branch from the initiative base branch.
-3. Open a PR from the child branch into the initiative base branch.
-4. After checks pass and the PR content matches its recommendation gate, merge that PR into the
-   initiative base branch.
-5. Repeat until all backlog PRs are merged into the initiative base branch.
-6. Open a final PR from the initiative base branch into `develop`.
-7. Do not auto-merge the final PR into `develop`; leave that decision to the user.
+The ordering, the drift handling, and the failure edges are owned by
+[`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md).
 
 ## Layering Rule
 
@@ -407,15 +411,24 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 - It must delegate package-specific, testing, branch, writing, architecture, and verification work
   to the relevant owner skills.
 
+See [enforcement-architecture.md](enforcement-architecture.md) for the orchestrator / worker / guardian
+split this rule follows, and
+[`harness-composition-design.md`](../specs/harness-composition-design.md) for the artifact-kind
+boundaries.
+
 ## Stop Conditions
 
+Each condition below halts the work. They hold whether or not a pipeline is running; the orchestration
+skills treat them as terminate edges and do not restate them.
+
 - No recommendation gate was presented for the backlog or work unit.
+- The recommendation was acted on without an independent `ENDORSE`, or with the verdict unrecorded.
 - A required runnable user-facing backlog lacks a user execution test scenario section.
 - A user execution test scenario is abstract, lacks exact commands/UI steps, or lacks expected
   observable results.
 - A scenario uses engineering/governance verification (static review, tests, harness commands, CI
   checks, source or document inspection) instead of a product surface — see the authoritative
-  statement in Done Gate Stage 2.
+  statement in the Done Gate.
 - The required test environment for the user execution test scenario is missing and was neither built,
   proposed, nor decided with the user.
 - The gate was not executed when the agent reasonably could, has no captured evidence, or the
@@ -427,31 +440,3 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 - The final initiative PR would be auto-merged into `develop`.
 - An orchestration skill duplicates implementation details from invoked skills instead of only
   coordinating them.
-
-## Checklist
-
-- [ ] Recommendation gate presented before work begins.
-- [ ] Recommendation includes rationale, ownership, affected scope, engineering tests, user
-      execution test scenarios or not-applicable reason, and open decisions.
-- [ ] Backlog includes user execution test scenarios only when runnable user-facing behavior changes.
-- [ ] PR scope maps to exactly one backlog or explicitly split work unit.
-- [ ] User execution test scenario targets the completed implementation or delivered artifact via a
-      product surface (not tests, internal repository checks, or backlog quality).
-- [ ] User execution test scenario includes exact commands or UI steps, required environment setup,
-      and expected observable results.
-- [ ] Missing test environment for the user execution test scenario was built, proposed, or
-      explicitly decided.
-
-**Done Gate — must verify both stages before `status: done`** (full stage definitions and the
-authoritative never-cite-engineering-verification statement are in the Done Gate sections above):
-
-- [ ] Stage 1 — every scenario fully written (commands, prerequisites, expected result, evidence
-      field) OR a documented valid reason per unwritten scenario
-- [ ] Stage 2 — every scenario directly executed by the agent against the completed implementation,
-      observed result matched, and concrete evidence recorded OR a `manual-only:` label with a
-      documented valid reason
-
-- [ ] Child PR targets the initiative base branch.
-- [ ] Final initiative PR targets `develop` and is not auto-merged.
-- [ ] PR description records the accepted recommendation, verification evidence, and user execution
-      test scenario gate result (both stages) or not-applicable reason.

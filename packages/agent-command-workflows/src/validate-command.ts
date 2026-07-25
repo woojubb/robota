@@ -6,24 +6,33 @@ import {
   isLegacyDefinitionFormat,
   isWorkflowFileFormat,
 } from '@robota-sdk/dag-builder';
-import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
+import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
+
+import { parseFileArg } from './args.js';
+import { createWorkspaceRuntime } from './workspace-runtime.js';
 
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
 
 /**
- * `/workflows validate <file.dag.json>` — structurally validate a workflow file against the
- * in-process node catalog: recognized format, known node types, and edges that reference real
- * nodes. Composes `dag-builder` (format detection + conversion) + `dag-framework` (node catalog);
- * no dependency on the `dag-cli` product.
+ * `/workflows validate <file.json>` — structurally validate a workflow file against the workspace's
+ * node catalog: recognized format, known node types, and edges that reference real nodes. The
+ * catalog is the SAME one `run` executes against — built-ins plus the instant nodes saved under
+ * `<root>/nodes/` (WORKFLOW-005 P3) — so a workflow `build` just authored with a new prompt node
+ * validates instead of failing on its own node. Argument parsing shares the `/workflows` grammar
+ * (`parseFileArg`). Composes `dag-builder` (format detection + conversion) + `dag-framework` (node
+ * catalog); no dependency on the `dag-cli` product.
  */
 export async function executeWorkflowsValidate(
-  filePath: string,
+  argStr: string,
   cwd: string,
+  layout: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
 ): Promise<ICommandResult> {
-  if (!filePath) {
-    return { success: false, message: 'Usage: /workflows validate <file.dag.json>' };
+  const parsedArgs = parseFileArg(argStr, 'validate');
+  if (!parsedArgs.ok) {
+    return { success: false, message: parsedArgs.error };
   }
+  const filePath = parsedArgs.value;
 
   // The read/parse error is surfaced as a failed command result, not silently swallowed.
   const parsed = await readFile(resolve(cwd, filePath), 'utf-8')
@@ -48,7 +57,7 @@ export async function executeWorkflowsValidate(
     };
   }
 
-  const provider = new LocalDagRuntimeProvider();
+  const { provider } = await createWorkspaceRuntime(cwd, layout);
   const manifests = await provider.listNodes();
   const knownTypes = new Set(manifests.map((m) => m.nodeType));
   const nodeIds = new Set(definition.nodes.map((n) => n.nodeId));

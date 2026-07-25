@@ -1,10 +1,19 @@
 ---
 title: 'PM-033: robota init 완료 후 프로바이더 설정 인라인 연결'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: medium
 category: ux
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place: `robota init` ends with an inline
+"Would you like to set up a provider now?" confirm that launches provider setup, with `--yes`/CI
+defaulting and a non-TTY hard error (`packages/agent-cli/src/init/init-command.ts` L94-L113,
+L205-L207). Prompt/`--yes` behavior was later fixed by CLI-049 (#684) and CLI-065 (both done).
+Verified 2026-07-25 (PROC-001).
 
 ## 문제
 

@@ -7,6 +7,7 @@ import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 
 import { isTerminalStatus, mapRunToResult } from './run-result-mapping.js';
+import { trimTrailingSlashes } from './trim-trailing-slashes.js';
 
 import type {
   IDagNodeManifest,
@@ -118,7 +119,7 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
   private readonly client: DagOrchestrationHttpClient;
 
   public constructor(options: IHttpDagRuntimeProviderOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    this.baseUrl = trimTrailingSlashes(options.baseUrl);
     this.fetchImpl = options.fetch ?? fetch;
     this.displayName = `HTTP (${this.baseUrl})`;
     this.client = new DagOrchestrationHttpClient({ baseUrl: this.baseUrl, fetch: this.fetchImpl });

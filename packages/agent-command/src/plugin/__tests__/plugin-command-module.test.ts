@@ -119,7 +119,7 @@ describe('executePluginCommand', () => {
     await expect(executePluginCommand(createCommandHostContext(), '')).resolves.toEqual({
       success: true,
       message: 'Opening plugin manager...',
-      effects: [{ type: 'plugin-tui-requested' }],
+      uiIntents: [{ type: 'show-plugin-manager' }],
     });
   });
 
@@ -193,7 +193,7 @@ describe('executeReloadPluginsCommand', () => {
     ).resolves.toEqual({
       success: true,
       message: 'Reloaded 3 plugin resources.',
-      effects: [{ type: 'plugin-registry-reload-requested' }],
+      data: { pluginRegistryReloaded: true },
     });
     expect(adapter.reloadPlugins).toHaveBeenCalled();
   });

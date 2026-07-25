@@ -21,6 +21,8 @@ import {
 } from './flows/input-area-flow.js';
 import { useAutocomplete } from './hooks/useAutocomplete.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
+import { PALETTE } from './tui-palette.js';
+import { buildInputTopBorder } from './utils/input-top-border.js';
 import { expandPasteLabels } from './utils/paste-labels.js';
 import WaveText from './WaveText.js';
 
@@ -240,24 +242,14 @@ export default function InputArea({
   );
 
   const borderColor = isAborting
-    ? 'yellow'
+    ? PALETTE.border.attention
     : pendingPrompt
-      ? 'cyan'
+      ? PALETTE.border.focused
       : isDisabled
-        ? 'gray'
-        : 'green';
+        ? PALETTE.border.muted
+        : PALETTE.border.active;
   const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
-
-  // Build top border with optional session name title (right-aligned, 2 chars from edge)
-  const topBorder = (() => {
-    if (sessionName) {
-      const label = ` "${sessionName}" `;
-      const rightPad = 2;
-      const leftLen = Math.max(0, innerWidth - label.length - rightPad);
-      return { left: '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) };
-    }
-    return { left: '─'.repeat(innerWidth), label: '', right: '' };
-  })();
+  const topBorder = buildInputTopBorder(innerWidth, sessionName);
 
   return (
     <Box flexDirection="column">
@@ -272,7 +264,7 @@ export default function InputArea({
       <Text color={borderColor}>
         {topBorder.left}
         {topBorder.label ? (
-          <Text backgroundColor={borderColor} color="black" bold>
+          <Text backgroundColor={borderColor} color={PALETTE.text.onAccent} bold>
             {topBorder.label}
           </Text>
         ) : null}
@@ -280,9 +272,9 @@ export default function InputArea({
       </Text>
       <Box paddingLeft={1}>
         {isAborting ? (
-          <Text color="yellow"> Interrupting...</Text>
+          <Text color={PALETTE.text.warning}> Interrupting...</Text>
         ) : pendingPrompt ? (
-          <Text color="cyan">
+          <Text color={PALETTE.text.accent}>
             {' '}
             Queued:{' '}
             {pendingPrompt.length > PENDING_PROMPT_DISPLAY_MAX
@@ -297,7 +289,7 @@ export default function InputArea({
           <WaveText text="  Waiting for response... (ESC to interrupt)" />
         ) : (
           <Box>
-            <Text color="green" bold>
+            <Text color={PALETTE.text.success} bold>
               {'> '}
             </Text>
             <CjkTextInput

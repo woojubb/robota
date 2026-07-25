@@ -15,8 +15,8 @@
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "next": "^15.5.19",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@types/node": "^22.19.21",

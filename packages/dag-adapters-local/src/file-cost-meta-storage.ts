@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import type { ICostMetaStoragePort } from '@robota-sdk/dag-cost';
 import type { ICostMeta } from '@robota-sdk/dag-cost';
 
+/** Owner read/write only — no group or other access (SEC-003 / CWE-377). */
+const OWNER_ONLY_FILE_MODE = 0o600;
+
 export class FileCostMetaStorage implements ICostMetaStoragePort {
   private readonly filePath: string;
   private cache: Map<string, ICostMeta>;
@@ -38,6 +41,11 @@ export class FileCostMetaStorage implements ICostMetaStoragePort {
 
   private writeToFile(): void {
     const data = Array.from(this.cache.values());
-    writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8');
+    // SEC-003: `dataDir` is caller-supplied and may be a shared location, so pin the
+    // file to owner-only permissions instead of inheriting the process umask.
+    writeFileSync(this.filePath, JSON.stringify(data, null, 2), {
+      encoding: 'utf-8',
+      mode: OWNER_ONLY_FILE_MODE,
+    });
   }
 }

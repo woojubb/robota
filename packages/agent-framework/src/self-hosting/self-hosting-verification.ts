@@ -1,9 +1,5 @@
 export type TSelfHostingVerificationPhase =
-  | 'checkpoint'
-  | 'edit'
-  | 'handoff'
-  | 'verify'
-  | 'recover';
+  'checkpoint' | 'edit' | 'handoff' | 'verify' | 'recover';
 
 export type TSelfHostingLoopState =
   | 'idle'
@@ -24,10 +20,29 @@ export type TSelfHostingLoopEvent =
   | 'rollback_completed'
   | 'cancelled';
 
+/**
+ * Repo-process command templates injected by the composition root (NEUT-001).
+ *
+ * The library ships NO default commands: which package manager, verification
+ * commands, or CI-like gate a repository uses is the host project's policy.
+ * Placeholders: `{scope}` in `packageVerify` templates is replaced with each
+ * package scope; `{baseRef}` in the `repoVerify` template is replaced with the
+ * plan's base ref.
+ */
+export interface ISelfHostingCommandTemplates {
+  /** Per-scope verification commands, applied to every package scope in order. */
+  packageVerify: readonly { name: string; template: string }[];
+  /** Optional repo-wide verification gate appended after the per-scope steps. */
+  repoVerify?: { description: string; template: string };
+}
+
 export interface ISelfHostingVerificationPlanInput {
   changedFiles: readonly string[];
   packageScopes?: readonly string[];
-  baseRef?: string;
+  /** Base git ref to verify against. Required — the library has no repo-specific default. */
+  baseRef: string;
+  /** Verification command templates. Required — the library has no repo-specific default. */
+  commandTemplates: ISelfHostingCommandTemplates;
 }
 
 export interface ISelfHostingVerificationStep {
@@ -44,9 +59,6 @@ export interface ISelfHostingVerificationPlan {
   baseRef: string;
   steps: readonly ISelfHostingVerificationStep[];
 }
-
-const DEFAULT_BASE_REF = 'origin/develop';
-const PACKAGE_VERIFY_COMMANDS = ['test', 'typecheck', 'build'] as const;
 
 const TRANSITIONS: Record<
   TSelfHostingLoopState,
@@ -88,17 +100,16 @@ function normalizePackageScopes(packageScopes: readonly string[] | undefined): r
 
 function packageVerificationSteps(
   packageScopes: readonly string[],
+  commandTemplates: ISelfHostingCommandTemplates,
 ): ISelfHostingVerificationStep[] {
   return packageScopes.flatMap((scope) =>
-    PACKAGE_VERIFY_COMMANDS.map(
-      (commandName): ISelfHostingVerificationStep => ({
-        id: `package-${commandName}:${scope}`,
-        phase: 'verify',
-        description: `Run ${commandName} for ${scope} in a child process against the new on-disk tree.`,
-        required: true,
-        command: `pnpm --filter ${scope} ${commandName}`,
-      }),
-    ),
+    commandTemplates.packageVerify.map(({ name, template }): ISelfHostingVerificationStep => ({
+      id: `package-${name}:${scope}`,
+      phase: 'verify',
+      description: `Run ${name} for ${scope} in a child process against the new on-disk tree.`,
+      required: true,
+      command: template.replaceAll('{scope}', scope),
+    })),
   );
 }
 
@@ -127,13 +138,16 @@ function preVerificationSteps(): ISelfHostingVerificationStep[] {
   ];
 }
 
-function harnessVerificationStep(baseRef: string): ISelfHostingVerificationStep {
+function repoVerificationStep(
+  baseRef: string,
+  repoVerify: NonNullable<ISelfHostingCommandTemplates['repoVerify']>,
+): ISelfHostingVerificationStep {
   return {
-    id: 'harness-verify',
+    id: 'repo-verify',
     phase: 'verify',
-    description: 'Run Robota harness verification as the local CI-like gate.',
+    description: repoVerify.description,
     required: true,
-    command: `pnpm harness:verify -- --base-ref ${baseRef} --skip-record-check`,
+    command: repoVerify.template.replaceAll('{baseRef}', baseRef),
   };
 }
 
@@ -153,12 +167,14 @@ export function planSelfHostingVerification(
     throw new Error('Self-hosting verification requires at least one changed file.');
   }
 
-  const baseRef = input.baseRef ?? DEFAULT_BASE_REF;
+  const { baseRef, commandTemplates } = input;
   const packageScopes = normalizePackageScopes(input.packageScopes);
   const steps: ISelfHostingVerificationStep[] = [
     ...preVerificationSteps(),
-    ...packageVerificationSteps(packageScopes),
-    harnessVerificationStep(baseRef),
+    ...packageVerificationSteps(packageScopes, commandTemplates),
+    ...(commandTemplates.repoVerify
+      ? [repoVerificationStep(baseRef, commandTemplates.repoVerify)]
+      : []),
     rollbackRecoveryStep(),
   ];
 

@@ -14,7 +14,9 @@ import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const DEFAULT_MAX_RESULTS = 1000;
 
@@ -101,14 +103,24 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
   return JSON.stringify(result);
 }
 
+const DEFAULT_GLOB_DESCRIPTION =
+  "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.";
+
+/**
+ * Create a GlobTool instance — register with Robota agent tools registry.
+ */
+export function createGlobTool(options: IBuiltinToolDescriptionOptions = {}): FunctionTool {
+  return createZodFunctionTool(
+    'Glob',
+    options.description ?? DEFAULT_GLOB_DESCRIPTION,
+    GlobSchema,
+    async (params) => {
+      return globFileTool(params);
+    },
+  );
+}
+
 /**
  * GlobTool instance — register with Robota agent tools registry.
  */
-export const globTool = createZodFunctionTool(
-  'Glob',
-  "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns. When doing an open-ended search that may require multiple rounds, use the Agent tool instead.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.",
-  GlobSchema,
-  async (params) => {
-    return globFileTool(params);
-  },
-);
+export const globTool = createGlobTool();

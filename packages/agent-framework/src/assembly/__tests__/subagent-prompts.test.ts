@@ -42,7 +42,7 @@ describe('Subagent prompts', () => {
   it('includes CLAUDE.md and AGENTS.md when provided', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'Agent body.',
-      claudeMd: '# Project Rules\nUse TypeScript.',
+      projectNotesMd: '# Project Rules\nUse TypeScript.',
       agentsMd: '# Agent Guidelines\nFollow TDD.',
       isForkWorker: false,
     });
@@ -53,7 +53,7 @@ describe('Subagent prompts', () => {
   it('omits CLAUDE.md/AGENTS.md sections when empty', () => {
     const withEmpty = assembleSubagentPrompt({
       agentBody: 'Body.',
-      claudeMd: '',
+      projectNotesMd: '',
       agentsMd: '',
       isForkWorker: false,
     });
@@ -61,10 +61,10 @@ describe('Subagent prompts', () => {
     expect(withEmpty).not.toContain('\n\n\n\n');
   });
 
-  it('assembly order: body → claudeMd → agentsMd → suffix', () => {
+  it('assembly order: body → projectNotesMd → agentsMd → suffix', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'BODY_MARKER',
-      claudeMd: 'CLAUDE_MARKER',
+      projectNotesMd: 'CLAUDE_MARKER',
       agentsMd: 'AGENTS_MARKER',
       isForkWorker: false,
     });
@@ -80,19 +80,39 @@ describe('Subagent prompts', () => {
   it('parts separated by double newline', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'Body.',
-      claudeMd: 'Claude.',
+      projectNotesMd: 'Claude.',
       agentsMd: 'Agents.',
       isForkWorker: false,
     });
     expect(prompt).toContain('Body.\n\nClaude.\n\nAgents.\n\n');
   });
 
-  it('no extra spacing when claudeMd/agentsMd are undefined', () => {
+  it('no extra spacing when projectNotesMd/agentsMd are undefined', () => {
     const prompt = assembleSubagentPrompt({
       agentBody: 'Body.',
       isForkWorker: false,
     });
     expect(prompt).toMatch(/^Body\.\n\n/);
     expect(prompt).not.toContain('\n\n\n');
+  });
+
+  it('NEUT-003: a caller-supplied string suffix replaces the default suffix', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      isForkWorker: false,
+      suffix: 'CUSTOM SUFFIX TEXT',
+    });
+    expect(prompt).toContain('CUSTOM SUFFIX TEXT');
+    expect(prompt).not.toContain(getSubagentSuffix());
+  });
+
+  it('NEUT-003: a caller-supplied suffix function receives the fork context', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      isForkWorker: true,
+      suffix: (ctx) => (ctx.isForkWorker ? 'FORK SUFFIX' : 'STANDARD SUFFIX'),
+    });
+    expect(prompt).toContain('FORK SUFFIX');
+    expect(prompt).not.toContain(getForkWorkerSuffix());
   });
 });

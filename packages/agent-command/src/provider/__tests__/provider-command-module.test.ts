@@ -190,9 +190,7 @@ describe('createProviderCommandModule', () => {
       'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
     );
     expect(readTarget().currentProvider).toBe('openai');
-    expect(result?.effects).toEqual([
-      { type: 'provider-hot-swap-requested', profileName: 'openai' },
-    ]);
+    expect(result?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
   });
 
   it('switches from the provider profile action menu immediately without confirmation', async () => {
@@ -217,9 +215,7 @@ describe('createProviderCommandModule', () => {
       'Switched to openai (supergemma4-26b-uncensored-v2). History preserved.',
     );
     expect(readTarget().currentProvider).toBe('openai');
-    expect(result?.effects).toEqual([
-      { type: 'provider-hot-swap-requested', profileName: 'openai' },
-    ]);
+    expect(result?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
   });
 
   it('edits a provider profile through provider-owned setup metadata without exposing secrets', async () => {
@@ -261,8 +257,8 @@ describe('createProviderCommandModule', () => {
       },
     });
     expect(completed?.message).toBe('Provider anthropic updated. Switching...');
-    expect(completed?.effects).toEqual([
-      { type: 'provider-hot-swap-requested', profileName: 'anthropic' },
+    expect(completed?.hostActions).toEqual([
+      { type: 'provider-hot-swap', profileName: 'anthropic' },
     ]);
   });
 
@@ -296,7 +292,7 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    expect(completed?.effects).toBeUndefined();
+    expect(completed?.hostActions).toBeUndefined();
   });
 
   it('deletes inactive provider profiles after confirmation', async () => {
@@ -371,9 +367,9 @@ describe('createProviderCommandModule', () => {
         openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
       },
     });
-    expect(completed?.effects).toEqual([
+    expect(completed?.hostActions).toEqual([
       {
-        type: 'session-restart-requested',
+        type: 'session-restart',
         reason: 'other',
         message: 'Provider delete restart',
       },
@@ -437,9 +433,9 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    expect(completed?.effects).toEqual([
+    expect(completed?.hostActions).toEqual([
       {
-        type: 'session-restart-requested',
+        type: 'session-restart',
         reason: 'other',
         message: 'Provider setup restart',
       },

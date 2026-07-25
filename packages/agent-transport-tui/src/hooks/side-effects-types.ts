@@ -1,24 +1,23 @@
-import type { ICommandEffectQueue } from './command-effect-queue.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { IStatusLineCommandSettings as TStatusLineSettings } from '@robota-sdk/agent-interface-transport';
 
 export type { TStatusLineSettings };
 
+/**
+ * CMD-004 Phase 2 Stage C: the TUI is a pure renderer. This hook only manages the four UI screens
+ * (driven by the requester-routed `ui_intent` session event), reflects the broadcast
+ * `session_renamed` title, and refreshes the statusline display after a command result — it
+ * executes no command semantics (the session layer applies host actions before the result returns).
+ */
 export interface IUseSideEffectsOptions {
-  cwd: string;
-  providerOverride?: string | undefined;
   interactiveSession: InteractiveSession;
-  commandEffectQueue: ICommandEffectQueue;
-  addEntry: (entry: IHistoryEntry) => void;
   baseHandleSubmit: (input: string) => Promise<void>;
+  /** Reflect the host-executed rename (broadcast `session_renamed`) into the rendered title. */
   setSessionName: (name: string) => void;
-  setStatusLineSettings: (settings: TStatusLineSettings) => void;
+  /** Re-read the persisted statusline settings (the HOST applied any patch) — refresh-on-result. */
+  refreshStatusLineSettings: () => void;
   showSessionPickerOnStart?: boolean;
   openAgentSwitcher?: () => void;
-  /** REMOTE-008: composition-root enable/stop of remote control; each returns a message to render. */
-  enableRemoteControl?: () => string | Promise<string>;
-  stopRemoteControl?: () => string | Promise<string>;
 }
 
 export interface IUseSideEffectsResult {

@@ -27,14 +27,14 @@ describe('webSearchTool', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     globalThis.fetch = originalFetch;
   });
 
   // TC-04: no API key → graceful error message, no crash
   it('TC-04: returns failure result when BRAVE_API_KEY is not set', async () => {
-    vi.stubEnv('BRAVE_API_KEY', '');
-    // delete so the check sees falsy
-    delete process.env['BRAVE_API_KEY'];
+    // unset so the check sees falsy
+    vi.stubEnv('BRAVE_API_KEY', undefined);
 
     const result = await callWebSearch('typescript tutorial');
     expect(result.success).toBe(false);

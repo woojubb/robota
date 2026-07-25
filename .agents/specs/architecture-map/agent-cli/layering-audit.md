@@ -310,11 +310,15 @@ application to a session) leaks into the CLI shell.
 Resolution — the CLI owns selection glue only:
 
 - `src/startup/preset-selection.ts` exposes `selectPresetId(args, settingsPreset)` (`--preset` >
-  `settings.preset` > `'default'`) and `resolveCliPreset(args, settingsPreset)`, which only builds the
-  CLI-flag override set and calls `resolvePreset` (agent-preset). The precedence merge lives entirely
-  inside `resolvePreset`, never in the CLI.
-- `cli.ts` calls `loadExternalPresets()` (agent-preset) to register `~/.robota/presets/*.json`; per-file
-  validation errors are surfaced as warnings and are non-fatal.
+  `settings.preset` > `'default'`) and `resolveShellPreset(externalPresets, args, settingsPreset)`, which
+  builds agent-preset's per-call instance registry (`createPresetRegistry`, R8), builds the CLI-flag
+  override set, and resolves over that registry. The precedence merge lives entirely inside agent-preset,
+  never in the CLI. The returned `{registry, presetId, context, options}` travels whole into the product
+  profile, so `assembleProduct` adopts the same registry (ARCH-008) — the shell's startup resolution never
+  reads agent-preset's module-global resolver.
+- `cli.ts` calls `loadExternalPresets()` (agent-preset) to load `~/.robota/presets/*.json`; per-file
+  validation errors are surfaced as warnings and are non-fatal. The load also registers them into the
+  module-global registry, which remains the in-session `/preset` DISCOVERY surface only.
 - Preset profile data, `resolvePreset`, `loadExternalPresets`, and `DEFAULT_AGENT_NAME` are owned by
   `@robota-sdk/agent-preset`. Application of the resolved option bundle to a session
   (`applyPresetToSession`) is owned by `@robota-sdk/agent-framework`.

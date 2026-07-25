@@ -7,7 +7,7 @@ MCP (Model Context Protocol) tool implementations for Robota SDK. Provides `MCPT
 ## Boundaries
 
 - Allowed dependencies: `@robota-sdk/agent-core` (sole peer dependency). The Streamable HTTP client is implemented with the global `fetch` — no protocol SDK dependency.
-- Must not import `agent-sdk`, `agent-sessions`, `agent-cli`, or any other `agent-*` package.
+- Must not import `agent-framework`, `agent-session`, `agent-cli`, or any other `agent-*` package.
 - `MCPTool` implements `ITool` directly (not via `AbstractTool`) to avoid a circular runtime dependency (`agent-tool-mcp` → `agents` → `tools` → `agents`); `RelayMcpTool` is structurally `ITool`-shaped (no declared `implements` clause).
 - Does not own a tool registry or factory. The consumer (composition root or CLI) selects and wires tools at construction time.
 - Transport: MCP Streamable HTTP (JSON-RPC 2.0 over HTTP POST via global `fetch`). stdio transport is out of scope — `IMCPConfig` has no command/args surface.

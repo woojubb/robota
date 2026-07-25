@@ -4,7 +4,6 @@ import {
   loadSessionLogEntries,
   replaySessionLogEntries,
   SessionStore,
-  type ISessionRecord,
 } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
@@ -94,19 +93,18 @@ class ProjectSessionStoreFacade implements IInteractiveSessionStore {
   }
 
   save(session: IInteractiveSessionRecord): void {
-    this.store.save(toSessionRecord(session));
+    // TYPE-003: `agent-session`'s ISessionRecord is now an alias of IInteractiveSessionRecord,
+    // so the store persists the typed record directly — the former toSessionRecord/
+    // fromSessionRecord spread + `as unknown as` cast bridge (DATA-006) is gone.
+    this.store.save(session);
   }
 
   load(id: string): IInteractiveSessionRecord | undefined {
-    const session = this.store.load(id);
-    if (session !== undefined) {
-      return fromSessionRecord(session);
-    }
-    return this.loadFromReplayLog(id);
+    return this.store.load(id) ?? this.loadFromReplayLog(id);
   }
 
   list(): IInteractiveSessionRecord[] {
-    const records = this.store.list().map(fromSessionRecord);
+    const records: IInteractiveSessionRecord[] = this.store.list();
     const seen = new Set(records.map((record) => record.id));
     for (const replayRecord of this.listReplayLogRecords()) {
       if (!seen.has(replayRecord.id)) {
@@ -167,20 +165,6 @@ function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string
     return message.content.replace(/[\n\r]+/g, ' ').trim();
   }
   return '';
-}
-
-function toSessionRecord(session: IInteractiveSessionRecord): ISessionRecord {
-  return { ...session };
-}
-
-// Structural mirror of `toSessionRecord` (DATA-006). The persisted JSON carries exactly what the write
-// path spread onto the record, so a full re-spread restores every field (incl. `goal`) with nothing to
-// enumerate — a dropped-field regression is structurally impossible. The `as unknown as` is the honest
-// `unknown[]`-payload → typed-record trust boundary (symmetric with the write cast); the store performs
-// no runtime validation, so no narrowing is lost. The replay-log path (`loadFromReplayLog`) is a separate
-// event-derived mechanism and is intentionally not routed through here.
-function fromSessionRecord(session: ISessionRecord): IInteractiveSessionRecord {
-  return { ...session } as unknown as IInteractiveSessionRecord;
 }
 
 function deriveBackgroundTasks(events: readonly TBackgroundTaskEvent[]): IBackgroundTaskState[] {

@@ -21,7 +21,7 @@ const { sharedGenerateImage, googleMockFactory } = vi.hoisted(() => {
 });
 
 // Full replacement avoids loading the @google/genai SDK; only ctor + generateImage are exercised.
-vi.mock('@robota-sdk/agent-provider-gemini/google', googleMockFactory); // allow-module-mock: GoogleProvider hits the real Gemini API
+vi.mock('@robota-sdk/agent-provider-gemini/google', googleMockFactory); // allow-module-mock: keeps the @google/genai SDK out of this leaf test's import graph, which reaches no other export
 
 const TEST_MODEL = 'test-image-model';
 
@@ -43,25 +43,15 @@ function makeSuccessResult(): TProviderMediaResult<IImageGenerationResult> {
 }
 
 describe('TextToImageRuntime', () => {
-  let savedEnv: Record<string, string | undefined>;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    savedEnv = {
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-      DAG_TEXT_TO_IMAGE_DEFAULT_MODEL: process.env.DAG_TEXT_TO_IMAGE_DEFAULT_MODEL,
-      DAG_TEXT_TO_IMAGE_ALLOWED_MODELS: process.env.DAG_TEXT_TO_IMAGE_ALLOWED_MODELS,
-    };
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.DAG_TEXT_TO_IMAGE_DEFAULT_MODEL;
-    delete process.env.DAG_TEXT_TO_IMAGE_ALLOWED_MODELS;
+    vi.stubEnv('GEMINI_API_KEY', undefined);
+    vi.stubEnv('DAG_TEXT_TO_IMAGE_DEFAULT_MODEL', undefined);
+    vi.stubEnv('DAG_TEXT_TO_IMAGE_ALLOWED_MODELS', undefined);
   });
 
   afterEach(() => {
-    for (const [key, value] of Object.entries(savedEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    vi.unstubAllEnvs();
   });
 
   it('returns validation error when default model is missing', async () => {

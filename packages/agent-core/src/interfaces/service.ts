@@ -7,7 +7,7 @@ import type { IOwnerPathSegment, IEventService } from './event-service';
 import type { IUserInteraction } from './interaction';
 import type { TUniversalMessage } from './messages';
 import type { IToolCall } from './messages';
-import type { IToolSchema, IAIProvider } from './provider';
+import type { IToolSchema, IAIProvider, ITokenUsage } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
 import type { TUniversalValue } from './types';
 
@@ -92,12 +92,8 @@ export interface IConversationResponse {
   content: string;
   /** Tool calls if any */
   toolCalls?: IToolCall[];
-  /** Usage statistics */
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  /** Usage statistics (TYPE-003: usage-triple SSOT) */
+  usage?: ITokenUsage;
   /** Response metadata */
   metadata?: TResponseMetadata;
   /** Finish reason */
@@ -114,12 +110,8 @@ export interface IStreamingChunk {
   done: boolean;
   /** Tool calls if any */
   toolCalls?: IToolCall[];
-  /** Usage statistics (only in final chunk) */
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  /** Usage statistics (only in final chunk; TYPE-003: usage-triple SSOT) */
+  usage?: ITokenUsage;
 }
 
 /**

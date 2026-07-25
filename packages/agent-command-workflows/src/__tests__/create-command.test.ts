@@ -4,11 +4,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import {
-  executeWorkflowsCreate,
-  parseCreateArgs,
-  type IWorkflowsCreateDeps,
-} from '../create-command.js';
+import { executeWorkflowsCreate } from '../create-command.js';
+import { parseAuthoringArgs, type IWorkflowsAuthoringDeps } from '../authoring/args.js';
 import { parseAuthoredSpec } from '../authoring/spec.js';
 import { executeWorkflowsRun } from '../run-command.js';
 
@@ -35,16 +32,16 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-function baseDeps(specJson: string): IWorkflowsCreateDeps {
+function baseDeps(specJson: string): IWorkflowsAuthoringDeps {
   return {
     resolveProvider: () => stubProvider(specJson),
     now: () => '2026-07-06T00:00:00.000Z',
   };
 }
 
-describe('parseCreateArgs', () => {
+describe('parseAuthoringArgs', () => {
   it('takes a quoted description and repeatable --input', () => {
-    const r = parseCreateArgs('"uppercase the text" --input text="hi there" --name foo');
+    const r = parseAuthoringArgs('"uppercase the text" --input text="hi there" --name foo');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.description).toBe('uppercase the text');
@@ -53,19 +50,19 @@ describe('parseCreateArgs', () => {
   });
 
   it('treats leading unquoted words as the description', () => {
-    const r = parseCreateArgs('summarize my input then translate');
+    const r = parseAuthoringArgs('summarize my input then translate');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.description).toBe('summarize my input then translate');
   });
 
   it('errors on an empty description', () => {
-    const r = parseCreateArgs('   ');
+    const r = parseAuthoringArgs('   ');
     expect(r.ok).toBe(false);
   });
 
   it('errors on a malformed --input', () => {
-    const r = parseCreateArgs('desc --input nope');
+    const r = parseAuthoringArgs('desc --input nope');
     expect(r.ok).toBe(false);
   });
 });

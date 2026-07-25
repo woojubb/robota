@@ -1,3 +1,4 @@
+import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IBackgroundTaskRunner } from '../background-tasks/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { IEditCheckpointRecorder } from '../checkpoints/edit-checkpoint-types.js';
@@ -80,6 +81,15 @@ export interface ICreateSessionOptions {
   ) => Promise<TPermissionResult>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
+   * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
+   * `builtInAgents` seam for subagents. Absent ⇒ the framework tier is constructed as before
+   * (byte-identical). The injected tools are used as given — the framework cannot re-bind the session
+   * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
+   * context-sensitive default must carry that context itself.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   /** GOAL-001: include the `report_goal_status` completion-signal tool (interactive sessions). */
   includeGoalTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
@@ -88,6 +98,13 @@ export interface ICreateSessionOptions {
   subagentRunnerFactory?: TSubagentRunnerFactory;
   /** Enable agent tool, agent definitions, and subagent runtime wiring for this session. */
   enableAgentRuntime?: boolean;
+  /**
+   * ARCH-005: subagent definitions contributed by the composition root (e.g. a capability pack merged by
+   * `assembleProduct`). They compose INTO the built-in tier ahead of `BUILT_IN_AGENTS`, so precedence runs
+   * discovered project/user definitions > these > `BUILT_IN_AGENTS`. Absent ⇒ the built-ins alone
+   * (unchanged behavior). Only consulted when the agent runtime is active.
+   */
+  agentDefinitions?: readonly IAgentDefinition[];
   /**
    * Preset execution capability: when true the assembly turns on `enableAgentRuntime`
    * so subagent/background dispatch is active for this session. Threaded from the
@@ -99,7 +116,7 @@ export interface ICreateSessionOptions {
    * self-verification section into the system prompt (PRESET-017), as a normal
    * priority-sorted `source: 'self-verification'` section.
    */
-  selfVerification?: boolean;
+  selfVerification?: boolean | string;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -116,6 +133,12 @@ export interface ICreateSessionOptions {
   onCompactEvent?: (event: ICompactEvent) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
+  /**
+   * NEUT-005: concrete remediation wording for the core's hard-capacity notice, forwarded to the
+   * session's Robota config. Absent ⇒ derived from the composed command set (see
+   * `deriveContextCapacityHint`); if that yields nothing, the neutral core default applies.
+   */
+  contextCapacityHint?: string;
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
   autoCompactThreshold?: TAutoCompactThreshold;
   /** Custom system prompt builder function */
@@ -193,7 +216,7 @@ export interface ICreateSessionResult {
    */
   rebuildSystemMessage: (
     agentsMd: string,
-    claudeMd: string,
-    overrides?: { persona?: string; selfVerification?: boolean },
+    projectNotesMd: string,
+    overrides?: { persona?: string; selfVerification?: boolean | string },
   ) => string;
 }

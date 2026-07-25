@@ -1,5 +1,4 @@
-import { writeFile, unlink, mkdir, access } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile, mkdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE_LAYOUT } from '@robota-sdk/dag-core';
@@ -14,6 +13,7 @@ import {
   loadNodeFileExplicit,
 } from '../local-runner/index.js';
 import { nodesDir } from '../local-runner/persistence/paths.js';
+import { withTempWorkspace } from '../utils/temp-workspace.js';
 import { runCommand } from './run.js';
 
 const OUTPUT_FORMAT_JSON = 'json';
@@ -1125,16 +1125,14 @@ async function runExampleInPlace(
     edges,
   };
 
-  const tmpFile = join(tmpdir(), `${randomUUID()}.dag.json`);
-  try {
+  // SEC-003: write the scratch DAG inside a private 0700 dir, not straight into the
+  // world-writable OS temp dir.
+  return await withTempWorkspace('dag-node-example', async (dir) => {
+    const tmpFile = join(dir, `${randomUUID()}.dag.json`);
     await writeFile(tmpFile, JSON.stringify(example, null, 2), 'utf8');
     const inputArgs = runInputs.flatMap((v) => ['--input', v]);
     return await runCommand([tmpFile, ...inputArgs], { io });
-  } finally {
-    await unlink(tmpFile).catch(() => {
-      // allow-fallback: temp file cleanup failure is non-fatal
-    });
-  }
+  });
 }
 
 // AGENTUX-005/007: validate a local node file, check port schemas, and print its manifest

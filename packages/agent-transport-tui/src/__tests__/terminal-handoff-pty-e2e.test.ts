@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { spawnPtyFixture } from '@robota-sdk/agent-testing';
+import { createPtyEnv, spawnPtyFixture } from '@robota-sdk/agent-testing';
 
 import type { IPtyRunSession } from '@robota-sdk/agent-testing';
 
@@ -34,14 +34,6 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-function ptyEnv(): NodeJS.ProcessEnv {
-  return {
-    PATH: process.env['PATH'] ?? '',
-    HOME: process.env['HOME'] ?? '',
-    TERM: 'xterm-256color',
-  };
-}
-
 describe('terminal handoff PTY E2E', () => {
   it(
     'hands the real terminal to a child, receives its input, and resumes the TUI',
@@ -53,7 +45,8 @@ describe('terminal handoff PTY E2E', () => {
       const session = spawnPtyFixture(FIXTURE, {
         argv: [outputPath],
         cwd: PACKAGE_DIR,
-        env: ptyEnv(),
+        // HARNESS-025: isolated HOME — the child must not read the developer's `~`.
+        env: createPtyEnv(),
       });
       sessions.push(session);
 

@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +10,7 @@ import { PluginSettingsStore } from '../plugin-settings-store.js';
 
 import type { TExecFn } from '../marketplace-types.js';
 
-const TMP_BASE = join(tmpdir(), 'robota-installer-test-' + process.pid);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-installer-test-'));
 
 function setupDir(path: string): void {
   mkdirSync(path, { recursive: true });

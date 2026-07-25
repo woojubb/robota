@@ -8,6 +8,8 @@ import {
 } from 'fs';
 import { basename, join } from 'path';
 
+import { trimEdgeChars } from '../utils/trim-char.js';
+
 // TMemoryType SSOT relocated to @robota-sdk/agent-interface-transport (DATA-001).
 import type { TMemoryType } from '@robota-sdk/agent-interface-transport';
 
@@ -80,12 +82,13 @@ function limitLines(value: string, maxLines: number): { content: string; truncat
 }
 
 function sanitizeTopic(topic: string): string {
-  const normalized = topic
+  const collapsed = topic
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9가-힣_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, MAX_TOPIC_LENGTH);
+    .replace(/[^a-z0-9가-힣_-]+/g, '-');
+  // `trimEdgeChars` rather than `/^-+|-+$/g`: `-` survives the collapse above (it is inside the kept class), so
+  // a long dash run reaches the trailing half of that alternation, which is quadratic (SEC-003).
+  const normalized = trimEdgeChars(collapsed, '-').slice(0, MAX_TOPIC_LENGTH);
   return normalized || DEFAULT_TOPIC;
 }
 

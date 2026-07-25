@@ -12,6 +12,11 @@
  *     - `tags`   present (a non-empty list)
  *   Warning: duplicate `<namespace>-<NNN>` IDs across the tree.
  *
+ * `tags` is accepted in every form the toolchain can produce (HARNESS-044): inline `[a, b]`, a
+ * prettier-wrapped multi-line flow array (prettier wraps past printWidth, and it is the repo's
+ * SSOT formatter), and a YAML block sequence. Reading those forms is NOT this gate's job — it is
+ * `frontmatter.mjs`, the harness's single frontmatter parser (HARNESS-046).
+ *
  * Recognized OPTIONAL keys (validity not enforced here; extra keys are inert to this gate):
  *   - `completed: <date>` — set at GATE-COMPLETE.
  *   - `capability: true` + `user_execution: agent-run|manual|none` + `user_execution_scenario: <path>` —
@@ -24,6 +29,8 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+
+import { asList, parseFrontmatterBlock } from './frontmatter.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SPEC_DIR = path.join(WORKSPACE_ROOT, '.agents/spec-docs');
@@ -64,15 +71,12 @@ function walkMarkdown(dir) {
 }
 
 function frontmatter(text) {
-  if (!text.startsWith('---')) return null;
-  const end = text.indexOf('\n---', 3);
-  if (end === -1) return null;
-  const block = text.slice(3, end);
-  const get = (key) => {
-    const m = block.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
-    return m ? m[1].trim() : undefined;
-  };
-  return { status: get('status'), type: get('type'), tags: get('tags') };
+  const entries = parseFrontmatterBlock(text);
+  if (!entries) return null;
+
+  const scalar = (key) => (typeof entries.get(key) === 'string' ? entries.get(key) : undefined);
+  // A bare scalar (`tags: harness`) counts as a one-item list, as it always has.
+  return { status: scalar('status'), type: scalar('type'), tags: asList(entries.get('tags')) };
 }
 
 export function findSpecDocFrontmatterFindings(target) {
@@ -100,7 +104,7 @@ export function findSpecDocFrontmatterFindings(target) {
         file: rel,
         detail: `type "${fm.type ?? ''}" not one of the 11 SDLC prefixes`,
       });
-    if (!fm.tags || !/\S/.test(fm.tags.replace(/[[\]]/g, '')))
+    if (!fm.tags || fm.tags.length === 0)
       blocking.push({ file: rel, detail: 'tags missing or empty' });
 
     const id = path.basename(file).match(/^([A-Z][A-Z0-9-]*-\d+)/)?.[1];

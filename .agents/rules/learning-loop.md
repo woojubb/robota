@@ -5,7 +5,8 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Lesson Capture
 
-- The procedural "how" for turning repeated user corrections/preferences into enforced repo rules is the [lesson-to-harness](../skills/lesson-to-harness/SKILL.md) skill (mine → approve → normalize → wire every touchpoint → enforce → ship). Invoke it on a repeated correction or an explicit "from now on …" principle.
+- The procedural "how" for turning repeated lessons into enforced repo rules is the [lesson-to-harness](../skills/lesson-to-harness/SKILL.md) skill (mine → approve → normalize → wire every touchpoint → enforce → ship). Invoke it on **either** a repeated user correction / an explicit "from now on …" principle, **or** a recurring agent/technical failure class — the same *kind* of failure hit 2×+ in a session even with no user correction (e.g. fixing the same category of CI/scan failure twice). A recurring agent mistake is a first-class lesson trigger, not only user corrections; when you find yourself fixing the same *class* of failure a second time, invoke the loop.
+- **Fixing an instance never closes a recurring mistake.** For any recurring failure, the only terminal state is a mechanical PREVENTION that stops the cause from recurring (steps 8–9 of the skill: mechanize, or infeasible-now + tracked backlog, then prove it fails pre-fix). Correcting the current occurrence without analyzing the cause and preventing recurrence leaves the lesson open.
 - When a problem, review comment, CI failure, user correction, or debugging pattern repeats, do not leave it only in chat, PR notes, or a task file.
 - Extract the general invariant behind the event. The rule must be domain-neutral unless the invariant belongs to a package SPEC.
 - Record the invariant in the narrowest owner document:

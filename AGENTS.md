@@ -52,7 +52,7 @@ The capability roadmap toward it is tracked in [`.agents/backlog/SELFHOST-*`](.a
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
 - Package manager: `pnpm` 8.15.4
-- Node.js: 22.14.0 (Volta), minimum 18.0.0
+- Node.js: 22.14.0 (Volta), minimum 20.19.0 (Node 18 is EOL; the rolldown build chain requires ^20.19 || >=22.12)
 - Module system: ES modules only (`"type": "module"`)
 - Repository: <https://github.com/woojubb/robota.git>
 

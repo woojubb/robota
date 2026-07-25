@@ -21,11 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
-      - uses: actions/checkout@v4
+      # INFRA-050: full history, and NO depth-limited fetch. A `--depth` fetch GRAFTS the whole
+      # repository, and the scan range below (`origin/<base>..HEAD`) is a history walk: a truncated
+      # ancestry both re-emits commits already merged into the base AND can drop commits the PR
+      # itself authored — a secret introduced by this PR would then never be scanned, silently.
+      # INFRA-049 measured that exact divergence (109 commits locally vs 97, a different set, in CI).
+      - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
-      - name: Fetch base branch
-        run: git fetch origin "${{ github.base_ref }}" --depth=50
+          fetch-depth: 0
       - name: Install gitleaks
         run: |
           curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \

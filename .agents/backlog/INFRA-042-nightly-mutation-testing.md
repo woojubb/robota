@@ -40,3 +40,32 @@ per-PR CI. Run it nightly/weekly over a bounded set.
 
 - Not applicable (scheduled CI quality job; the report is the maintained artifact).
 - Evidence: the first nightly run's mutation-score report over the scoped packages.
+
+## Outcome (advisory v1 — ADVISORY landed, item kept OPEN)
+
+Advisory-only mutation testing shipped; the score-as-gate promotion is deferred.
+
+**Landed:**
+
+- `@stryker-mutator/core` + `@stryker-mutator/vitest-runner` (`^9.6.1`, compatible with the repo's
+  vitest `^3.2.6`) as root devDeps; root `test:mutation` script (`stryker run`).
+- `stryker.conf.mjs` — parameterized by `STRYKER_TARGET` over the three core seams named above
+  (`agent-core` permissions/gate, `agent-session` permission-enforcer, `agent-executor`
+  background-task state machine). `perTest` coverage; sandbox scoped to the target package (siblings
+  ignored, cross-package deps resolve via the symlinked `node_modules`); `thresholds.break: null`
+  (report-only — never fails the run), mirroring the regression-red-proof advisory-first rollout.
+- `.github/workflows/mutation-nightly.yml` — daily `schedule` (03:17 UTC, off-peak, distinct from the
+  security cron) + `workflow_dispatch`, a matrix leg per core package, builds the workspace, runs
+  Stryker, uploads the HTML/JSON report as a 30-day artifact. Non-blocking; not a required check.
+
+**Proof run (agent-core permissions, local):** 174 mutants → 102 killed / 48 survived / 24 no-coverage,
+overall mutation score **58.62%**, 29s. Real survivors surfaced, e.g. `permission-policy.ts`
+`context.taskDeny ?? []` → `?? ["Stryker was here"]` and `permission-mode.ts` `bypassPermissions: 'auto'`
+→ `""` — both survived, i.e. no test pins those values.
+
+**Deferred (keeps this item OPEN):**
+
+- Capture the first real nightly run's report over all three packages as the baseline.
+- Ratchet `thresholds.low`/`high` up and eventually set `thresholds.break` to promote from advisory to
+  an enforced floor once the baseline is understood.
+- Convert the surviving mutants above into concrete test-hardening work items.

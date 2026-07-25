@@ -8,6 +8,7 @@ import type {
   TModelEffort,
   TToolChoice,
 } from './provider';
+import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { TMetadata, TConfigValue } from './types';
 import type { IModule } from '../abstracts/abstract-module';
 import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
@@ -100,6 +101,12 @@ export interface IAgentConfig {
   // System configuration
   systemMessage?: string;
   systemPrompt?: string;
+  /**
+   * Remediation hint appended to the core-emitted context hard-capacity notice. The core
+   * default is product-neutral; a surface tier may inject product-specific wording here
+   * (e.g. its own compaction command). See execution-round-context.
+   */
+  contextCapacityHint?: string;
 
   // Conversation management
   conversationId?: string;
@@ -299,24 +306,4 @@ export interface IAgent<
    * Clear conversation history
    */
   clearHistory(): void;
-}
-
-/**
- * Response format configuration
- */
-export interface IResponseFormatConfig {
-  type?: 'text' | 'json_object' | 'json_schema';
-  /** JSON schema payload; required when `type` is `'json_schema'` (CORE-015). */
-  schema?: Record<string, TConfigValue>;
-  /** Schema name forwarded to provider native structured-output surfaces. */
-  name?: string;
-}
-
-/**
- * Safety setting configuration
- */
-export interface ISafetySetting {
-  category: string;
-  threshold: string;
-  [key: string]: TConfigValue;
 }

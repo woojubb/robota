@@ -1,10 +1,19 @@
 ---
 title: 'PM-034: /help 커맨드에 각 커맨드 사용 예시 추가'
-status: todo
+status: done
+completed: 2026-05-25
 created: 2026-05-24
 priority: low
 category: ux
 ---
+
+## Outcome
+
+Shipped in PR #589 (ba6c6036b, 2026-05-25) and still in place: `ICommand` has the optional
+`example` field (`packages/agent-framework/src/command-api/contracts.ts` L14-L15) and `/help`
+renders `Example: ...` lines for commands that define it
+(`packages/agent-framework/src/command-api/help/help-command-api.ts` L19-L20), with examples set
+on `/compact` and `/provider`. Verified 2026-07-25 (PROC-001).
 
 ## 문제
 

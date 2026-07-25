@@ -1,0 +1,155 @@
+---
+title: 'ARCH-005: external product composition — publishable assembleProduct + capability-pack + product-profile'
+status: done
+completed: 2026-07-25
+created: 2026-07-25
+priority: high
+urgency: soon
+area: packages/(new agent-product, agent-capability-pack), packages/agent-preset, packages/agent-cli
+depends_on: []
+---
+
+# ARCH-005: external product composition layer
+
+> **Research-first / owner-critical placement.** Goes through the spec gate
+> (`.agents/spec-docs/draft/ARCH-005-*.md` → GATE-WRITE → independent GATE-APPROVAL by
+> architecture-auditor + proposal-reviewer) before any code, like REMOTE-001/GUI-001. Owner-approved
+> direction 2026-07-25.
+
+> **GATE-APPROVAL passed 2026-07-25 (REVISE → folded → approved); spec in `todo/`.** Both independent
+> reviewers (`proposal-reviewer` + `architecture-auditor`) endorsed the direction and returned REVISE with a
+> convergent set of contract/justification refinements (R1–R8); all were folded and the spec moved to
+> [`.agents/spec-docs/todo/ARCH-005-external-product-composition.md`](../spec-docs/todo/ARCH-005-external-product-composition.md)
+> with `status: approved` — `type: INFRA` (ARCH is not an accepted SDLC frontmatter type; the ARCH-005 ID
+> keeps its namespace). Deliverables 2 (`agent-capability-pack`) and 3 (`agent-preset` exposure) were
+> endorsed as correct; deliverable 1 (`agent-product`) is a defensible direction with the folded refinements.
+> The reconciliation with the "no shared product factory" rule (`project-structure.md` L129) now rests on a
+> mechanically-enforced **pure-fold property** (3 P0 guards), not "profile-driven" alone; the coupled L129
+> amendment lands **with P0** as a flagged governance change. See the spec's `[GATE-APPROVAL]` Evidence Log.
+>
+> **Spec drafted (GATE-WRITE, 2026-07-25).** Draft spec authored (now in `todo/`) —
+> awaited GATE-APPROVAL, now passed (above).
+
+## Problem / Goal
+
+A third party must be able to, **from a separate repo**, (A) build a specific product on our published
+`agent-framework`, (B) author their OWN preset in code and layer it to make a distinct product, and
+(C) consume OUR presets while packaging a product in a consumer style. Today the contract + opinion
+layers are ALL published (agent-core/tools/framework/preset/command/provider-defaults) and
+`IPreset` + `registerExternalPresets` already exist — but the **product-assembly kernel is NOT a
+published library**: it is hand-wired inside `packages/agent-cli/src/cli.ts` (502 lines: providerDefinitions
+
+- commandModules + transport registry + background runners + preset merge + TUI adapter). So an external
+  repo building "their own product" must reimplement agent-cli's composition root or depend on the whole
+  CLI product. That is the single linchpin gap.
+
+Secondary gaps: presets are SUBTRACTIVE (allow/deny over a superset agent-cli hardcodes), not
+compositional — an external "assistant" product cannot BRING its own tool/command/subagent set; and there
+is no "product identity/manifest" unit tying branding + packs + preset + provider-defaults together.
+
+## Proposed direction (to be validated at the gate)
+
+Three published deliverables; **core unchanged; framework takes ONE scoped additive change** (the
+`agentDefinitions` injection seam, owner Decision 2 — byte-identical when the option is absent):
+
+1. **`@robota-sdk/agent-product` (new, published)** — `assembleProduct(profile) → runtime`. Extract the
+   agent-cli composition root into a pure library; agent-cli becomes a thin caller. (Mode A gateway.)
+2. **`@robota-sdk/agent-capability-pack` (new, published)** — `ICapabilityPack` contract + registry
+   merger; tool/command/subagent bundles as the additive composition unit. (Mode C additive axis.)
+3. **`agent-preset` (existing, published)** — already provides `IPreset` + `registerExternalPresets`
+   for Modes B/C; expose/document, no contract change needed.
+
+Placement mirrors agent-preset's rule (depends on framework option types only; no class/IO in contract
+packages). API stability is the product surface: register the new packages in `check-spec-public-surface`
+
+- spec-surface-baseline + semver + api-boundary rule so breaking changes are gated for external consumers.
+
+Responsibility split (spec invariant): preset = behavior/persona; pack = capability (tools/commands/agents);
+profile = product assembly (branding + packs + preset + provider-defaults).
+
+Staged (owner-directed full vertical slice, 2026-07-25 — supersedes the earlier P0/P1/P2 split):
+
+- **S1 — ✅ MERGED (#1376).** The three new published packages (`agent-product`, `agent-capability-pack`,
+  `pack-coding`), the three composition-neutrality guards, and the coupled L129 amendment. No `cli.ts` change.
+- **S2 — ✅ IMPLEMENTED (this PR).** `robota` re-expressed as an `IProductProfile` assembled by
+  `assembleProduct`; the hand-wired composition root in `cli.ts` DELETED (no compat shim). Implements the two
+  owner decisions that resolved the independent review's GO-WITH-CHANGES entry conditions: **(1)** provider
+  construction returns in-kernel via agent-core's pure `createProviderFromConfig` (no relocation needed — it
+  was already at an allowed layer), with `provider?` as an optional injected override; **(2)** a scoped
+  ADDITIVE `agentDefinitions` injection seam in `agent-framework` so pack subagents reach the runtime.
+  `pack-coding` is load-bearing: `/shell` + `/editor` now come from the pack, not the base set.
+  Equivalence proven against literals captured from the pre-change assembly.
+- **S3 — ✅ IMPLEMENTED (this PR).** The external-consumer proof: `scripts/external-proof/` +
+  `pnpm proof:external` packs the 17-package dependency closure, `npm install`s the tarballs into a temp dir
+  OUTSIDE the repo (`npm overrides` pin every `@robota-sdk/*` specifier so nothing resolves from the
+  registry), type-checks with `skipLibCheck: false` against the shipped `.d.ts`, and runs **65 assertions**
+  across Modes A/B/C — all green, exit 0, with a mutation run proving it is not accidentally green
+  (7 failures when the rejection channel and the `agentDefinitions` injection are removed). **No product
+  source change was needed.** Three non-blocking published-surface findings recorded (F1 union return type,
+  F2 required `provider`, F3 `ICommandResult` not re-exported).
+
+## Status: spec stays ACTIVE, not done
+
+Modes A/B/C all work from a genuinely external consumer, so the linchpin gap is closed. Two Completion
+Criteria are honestly NOT met, so the spec is **not** moved to `spec-docs/done/`:
+
+- **TC-4 — the pack TOOL axis is half-additive.** A pack tool the framework does not already ship IS additive
+  through `buildRuntime`/`buildRuntimeOptions` (proven). But `createSession` assembles
+  `[...createDefaultTools(), ...additionalTools]` with no dedupe and no suppression hook, so a pack can
+  neither remove nor replace a framework default, and `pack-coding` (whose tools are name-identical to the
+  defaults by design) would be listed twice — which is why `robota`'s surfaces still take their tools from
+  `createDefaultTools()`. → **[ARCH-006](ARCH-006-framework-tool-axis-neutrality.md)**.
+- **TC-7 — `robota` does not eat its own runtime seam.** `cli.ts` consumes the kernel's MATERIALS but not
+  `product.buildRuntime`/`buildRuntimeOptions` nor `product.resolvePreset` (the S2 B1/B2 disclosure). S3 had
+  to FILE these: the S2 evidence claimed they were "tracked by the follow-up backlog items filed from the
+  review" and no such items existed. → **[ARCH-007](ARCH-007-robota-consumes-kernel-runtime-seam.md)**.
+
+ARCH-005 closes when ARCH-006 and ARCH-007 land.
+
+## Deferred (owner decision, NOT part of this architecture)
+
+**Licensing posture for external product-builders is DEFERRED per owner (2026-07-25): architecture first,
+license later.** The spec is license-AGNOSTIC — dual-license AGPL+Commercial (no CLA) is noted only as a
+downstream business decision that governs WHO may consume under WHAT terms; it does not shape the
+composition contracts. Do not bake a license posture into the design.
+
+## Prior art to cover at GATE-WRITE
+
+Framework-+-preset-+-plugin-pack productization models: ESLint shareable-config + plugin, Docusaurus
+presets, Backstage plugins, VS Code extension host, Vercel AI SDK, Claude Agent SDK, LangChain/LlamaIndex
+package split. (Product docs only.)
+
+## Test Plan (spec will detail)
+
+P0 is a pure refactor — `robota` behavior byte-identical (CLI golden + full agent-cli/tui suites). New
+public surfaces get red-first contract tests + spec-public-surface baseline entries. An external-consumer
+smoke (a throwaway out-of-monorepo package importing the published tarballs and calling `assembleProduct`)
+proves Modes A/B/C actually work from outside — the agent-run evidence for the done-gate.
+
+## Outcome (DONE 2026-07-25)
+
+Closed with the spec at `.agents/spec-docs/done/ARCH-005-external-product-composition.md`
+(`status: done`, all seven completion criteria met with agent-run evidence).
+
+Shipped across the owner-directed full vertical slice:
+
+- **S1 (#1376)** — `@robota-sdk/agent-capability-pack` (additive `ICapabilityPack` + `mergeCapabilityPacks`
+  with a rejection channel), `@robota-sdk/agent-product` (`assembleProduct`, a pure IO-free fold that
+  delegates runtime construction to the framework seam), `@robota-sdk/pack-coding`, the three
+  composition-neutrality guards, and the narrow L129 carve-out coupled to them.
+- **S2 (#1386)** — `agent-cli`'s hand-wired composition root DELETED (no shim, no dual path); `robota`
+  re-expressed as an `IProductProfile`; provider construction returned in-kernel; the `agentDefinitions`
+  runtime seam added so pack subagents reach a live runtime.
+- **S3 (#1392)** — the external-consumer proof: a package OUTSIDE the monorepo installs `pnpm pack`
+  tarballs and exercises Modes A/B/C (69 assertions, mutation-proven).
+- **ARCH-007 (#1397)** — robota routed through `product.buildRuntimeOptions`; framework `defaultTools`
+  seam + name-dedupe. Precedence was INVERTED from this item's original proposal after measurement:
+  a pack's module-load tools carry an unsandboxed `Read` (`checkPathWithinCwd` no-ops without `cwd`),
+  so a colliding contribution must never silently replace a framework default.
+- **ARCH-006 (#1399)** — `pack-coding` became `createCodingPack({ cwd })` with `cwd` REQUIRED (the
+  zero-option constant removed, not deprecated), so robota's tools are the pack's cwd-scoped instances;
+  asserted as a property — robota's `Read` denies a path outside `cwd` and resolves one inside it.
+
+All three capability axes (commands, subagents, tools) are additive AND load-bearing for the reference
+product. Follow-ups tracked separately: ARCH-008 (single preset resolution), CLI-078 (eval outside the
+profile), HARNESS-048 (guard hardening — done), SEC-003 (CodeQL triage).

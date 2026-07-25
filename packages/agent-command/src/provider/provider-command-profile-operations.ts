@@ -62,7 +62,7 @@ export function buildProviderSwitch(
   return {
     message: `Switched to ${profileName} (${modelLabel}). History preserved.`,
     success: true,
-    effects: [{ type: 'provider-hot-swap-requested', profileName }],
+    hostActions: [{ type: 'provider-hot-swap', profileName }],
   };
 }
 
@@ -146,6 +146,6 @@ function completeProviderEdit(
       ? `Provider ${profileName} updated. Switching...`
       : `Provider ${profileName} updated.`,
     success: true,
-    ...(isCurrent ? { effects: [{ type: 'provider-hot-swap-requested', profileName }] } : {}),
+    ...(isCurrent ? { hostActions: [{ type: 'provider-hot-swap' as const, profileName }] } : {}),
   };
 }

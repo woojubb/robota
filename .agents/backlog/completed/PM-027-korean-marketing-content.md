@@ -1,12 +1,20 @@
 ---
 title: 'PM-027: 한국어 마케팅 콘텐츠 — GeekNews, okky, velog 타겟'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-24
 priority: medium
 urgency: soon
 area: apps/www, apps/docs
 depends_on: []
 ---
+
+> **Superseded.** The only agent-executable slice shipped: the Korean README
+> (`packages/agent-cli/docs/README-KO.md`, PR #589, 2026-05-25). The remaining scope
+> (GeekNews/velog/okky posts, community Q&A cadence) is manual owner-run community action that was
+> never performed, and community/blog launch content is owned by MKT-001 (done 2026-05-18,
+> `apps/blog` + GitHub community). Do not stamp done — no community posting evidence exists.
+> Reconciled 2026-07-25 (PROC-001).
 
 ## Background
 

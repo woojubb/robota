@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IDagCliIo } from '../types.js';
 
 // Mock fs/promises to avoid real filesystem writes
@@ -34,6 +34,10 @@ describe('initCommand', () => {
     vi.mocked(mkdir).mockResolvedValue(undefined);
     vi.mocked(writeFile).mockResolvedValue(undefined);
     vi.mocked(readFile).mockRejectedValue(new Error('ENOENT'));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 0 on success with default args', async () => {
@@ -156,24 +160,16 @@ describe('initCommand', () => {
 
   it('uses --no-cta flag to suppress CTA', async () => {
     const { io, output } = makeIo();
-    const originalCi = process.env['CI'];
-    delete process.env['CI'];
+    vi.stubEnv('CI', undefined);
     const code = await initCommand(['--no-cta'], { io });
-    process.env['CI'] = originalCi;
     expect(code).toBe(0);
     expect(output.join('')).toContain('Next steps');
   });
 
   it('shows simplified next steps when CI=true', async () => {
     const { io, output } = makeIo();
-    const originalCi = process.env['CI'];
-    process.env['CI'] = 'true';
+    vi.stubEnv('CI', 'true');
     const code = await initCommand([], { io });
-    if (originalCi !== undefined) {
-      process.env['CI'] = originalCi;
-    } else {
-      delete process.env['CI'];
-    }
     expect(code).toBe(0);
     expect(output.join('')).toContain('Next steps');
   });

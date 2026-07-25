@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, appendFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isSensitiveKey } from './scrub-sensitive.js';
@@ -34,6 +34,14 @@ const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_KIB = 32;
 const DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES =
   DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_KIB * BYTES_PER_KIB;
 const DEFAULT_REDACTED_VALUE = '[REDACTED]';
+
+/**
+ * Session logs and externalized payloads carry conversation content, so they are created
+ * owner-only rather than inheriting the process umask (SEC-003 / CWE-377). `logDir` is
+ * caller-supplied and may be a shared or world-writable location.
+ */
+const OWNER_ONLY_FILE_MODE = 0o600;
+const OWNER_ONLY_DIR_MODE = 0o700;
 
 /**
  * Session logger interface — injected into Session for pluggable logging.
@@ -64,7 +72,7 @@ export class FileSessionLogger implements ISessionLogger {
       redactedValue: options.redactedValue ?? DEFAULT_REDACTED_VALUE,
     };
     try {
-      mkdirSync(logDir, { recursive: true });
+      mkdirSync(logDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
     } catch {
       // Best-effort: logging disabled if directory cannot be created
     }
@@ -80,7 +88,7 @@ export class FileSessionLogger implements ISessionLogger {
         ...normalizedData,
       });
       const logFile = join(this.logDir, `${sessionId}.jsonl`);
-      appendFileSync(logFile, entry + '\n');
+      appendFileSync(logFile, entry + '\n', { mode: OWNER_ONLY_FILE_MODE });
     } catch {
       // Logging failure must never break the session
     }
@@ -168,9 +176,18 @@ function maybeExternalizePayload(
   const relativePath = join(payloadDirName, payloadFileName);
   const payloadDir = join(logDir, payloadDirName);
   const payloadPath = join(logDir, relativePath);
-  mkdirSync(payloadDir, { recursive: true });
-  if (!existsSync(payloadPath)) {
-    writeFileSync(payloadPath, serialized, 'utf-8');
+  mkdirSync(payloadDir, { recursive: true, mode: OWNER_ONLY_DIR_MODE });
+  // The payload is content-addressed by its own sha256, so an existing file necessarily holds
+  // identical bytes. Create it exclusively ('wx') rather than testing existsSync first: the
+  // check-then-write pair is a TOCTOU race between concurrent sessions writing the same payload.
+  try {
+    writeFileSync(payloadPath, serialized, {
+      encoding: 'utf-8',
+      mode: OWNER_ONLY_FILE_MODE,
+      flag: 'wx',
+    });
+  } catch {
+    // allow-fallback: EEXIST means the identical content-addressed payload is already on disk
   }
   return {
     kind: 'external-payload',

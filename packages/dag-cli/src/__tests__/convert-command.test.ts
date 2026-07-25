@@ -209,3 +209,38 @@ describe('convertCommand - file positional', () => {
     expect(io.writes.join('')).toContain('Could not read file');
   });
 });
+
+/**
+ * SEC-003 (`js/polynomial-redos`). `convertMermaid` runs over a diagram the caller supplies —
+ * `--input`, a file path, or stdin — so its content is not repo-controlled. The pre-fix arrow
+ * regex wrapped each `-->` alternative in "\s-star" on both sides; that unanchored leading
+ * whitespace run restarted an O(n) scan at every offset, so an indentation-only line was rejected in
+ * O(n^2) — measured ~27s for the input below, versus ~0ms after the fix. The surrounding `\s*`
+ * was redundant because every split part is trimmed afterwards.
+ */
+describe('convertMermaid is not polynomial-ReDoS-able', () => {
+  // The whitespace must be interior: `convertMermaid` trims each line before splitting it.
+  it('skips a long arrow-less line in linear time', () => {
+    const hostile = `graph LR\na${' '.repeat(200_000)}b\n`;
+
+    const started = performance.now();
+    const spec = convertMermaid(hostile);
+    const took = performance.now() - started;
+
+    expect(spec.edges).toEqual([]);
+    expect(took).toBeLessThan(250);
+  });
+
+  it('still parses labelled, chained and unspaced edges identically', () => {
+    expect(convertMermaid('graph LR\n  A[input] -->|label| B[text-output]\n').edges).toEqual([
+      'A→B',
+    ]);
+    expect(convertMermaid('graph LR\n  A[input] --> B[x] --> C[text-output]\n').edges).toEqual([
+      'A→B',
+      'B→C',
+    ]);
+    expect(convertMermaid('graph LR\n  input-->text-output\n').edges).toEqual([
+      'input→text-output',
+    ]);
+  });
+});

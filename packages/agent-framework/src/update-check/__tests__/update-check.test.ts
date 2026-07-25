@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,7 +16,7 @@ import {
   shouldRunStartupCliUpdateCheck,
 } from '../update-check.js';
 
-const TEST_DIR = join(tmpdir(), `robota-update-check-test-${process.pid}`);
+const TEST_DIR = mkdtempSync(join(tmpdir(), 'robota-update-check-test-'));
 
 function cleanup(): void {
   rmSync(TEST_DIR, { recursive: true, force: true });

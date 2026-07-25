@@ -200,8 +200,21 @@ function resolveHostSourcePath(source: string, hostRoot: string | undefined): st
   return isAbsolute(source) ? resolve(source) : resolve(hostRoot ?? process.cwd(), source);
 }
 
+/**
+ * Remove every trailing `/`, by index scan.
+ *
+ * Not `replace(/\/+$/, '')`: that run has no start anchor, so the engine retries it from every offset inside the
+ * run and each retry re-scans to the end — 3.0 s on a 100 K run (`js/polynomial-redos`, SEC-003). The backslash
+ * conversion in {@link normalizeSandboxRoot} manufactures such a run from a Windows-style path.
+ */
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end -= 1;
+  return value.slice(0, end);
+}
+
 function normalizeSandboxRoot(root: string): string {
-  const normalized = root.replace(/\\/g, '/').replace(/\/+$/, '');
+  const normalized = trimTrailingSlashes(root.replace(/\\/g, '/'));
   if (!normalized.startsWith('/')) {
     throw new Error('workspace manifest targetRoot must be an absolute sandbox path');
   }

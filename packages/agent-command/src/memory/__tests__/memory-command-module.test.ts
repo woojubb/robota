@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -9,7 +9,9 @@ import {
 } from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
 
-const TMP_BASE = join(tmpdir(), `robota-command-memory-${process.pid}`);
+// SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
+// name, so no other user can pre-create or read the paths this suite writes under it.
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-command-memory-'));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

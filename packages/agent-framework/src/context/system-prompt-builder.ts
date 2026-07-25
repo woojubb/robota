@@ -2,7 +2,7 @@ import { composeSystemPrompt } from './system-prompt-composer.js';
 import {
   createAgentsMdSection,
   createCapabilitySections,
-  createClaudeMdSection,
+  createProjectNotesSection,
   createPermissionSection,
   createPersonaSection,
   createProjectMemorySection,
@@ -26,14 +26,15 @@ export interface ISystemPromptParams {
    */
   persona?: string;
   /**
-   * PRESET-017: when true, a concise verify-before-done directive is composed as a
+   * PRESET-017: when enabled, a concise verify-before-done directive is composed as a
    * `source: 'self-verification'` section with priority 6; false/undefined adds no section.
+   * NEUT-003: `true` keeps the default directive; a non-blank string replaces its text.
    */
-  selfVerification?: boolean;
+  selfVerification?: boolean | string;
   /** Concatenated AGENTS.md content (may be empty string) */
   agentsMd: string;
   /** Concatenated CLAUDE.md content (may be empty string) */
-  claudeMd: string;
+  projectNotesMd: string;
   /** Startup project memory index loaded from .robota/memory/MEMORY.md */
   memoryMd?: string;
   /** Formatted active task context loaded from .agents/tasks/*.md */
@@ -61,6 +62,21 @@ function appendOptionalSection(
   section: ISystemPromptSection | undefined,
 ): void {
   if (section !== undefined) sections.push(section);
+}
+
+/**
+ * NEUT-003: `selfVerification` is a string-valued seam — `true` keeps the default
+ * directive; a non-blank string replaces the directive text; false/undefined/blank
+ * adds no section.
+ */
+function createSelfVerificationSectionFromParam(
+  selfVerification: boolean | string | undefined,
+): ISystemPromptSection | undefined {
+  if (selfVerification === true) return createSelfVerificationSection();
+  if (typeof selfVerification === 'string' && selfVerification.trim().length > 0) {
+    return createSelfVerificationSection(selfVerification);
+  }
+  return undefined;
 }
 
 function mapSkillDescriptors(
@@ -105,12 +121,9 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
       ? createPersonaSection(params.persona)
       : undefined,
   );
-  appendOptionalSection(
-    sections,
-    params.selfVerification === true ? createSelfVerificationSection() : undefined,
-  );
+  appendOptionalSection(sections, createSelfVerificationSectionFromParam(params.selfVerification));
   appendOptionalSection(sections, createAgentsMdSection(params.agentsMd));
-  appendOptionalSection(sections, createClaudeMdSection(params.claudeMd));
+  appendOptionalSection(sections, createProjectNotesSection(params.projectNotesMd));
   appendOptionalSection(sections, createProjectMemorySection(params.memoryMd));
   appendOptionalSection(sections, createTaskContextSection(params.taskContext));
   appendOptionalSection(sections, createWorkingDirectorySection(params.cwd));

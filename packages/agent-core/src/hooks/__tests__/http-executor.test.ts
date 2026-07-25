@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { HttpExecutor } from '../executors/http-executor.js';
 import type { IHookInput } from '../types.js';
 
 describe('HttpExecutor', () => {
   const executor = new HttpExecutor();
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
 
   it('should have type "http"', () => {
     expect(executor.type).toBe('http');
@@ -116,7 +120,7 @@ describe('HttpExecutor', () => {
   });
 
   it('should interpolate env vars in custom headers', async () => {
-    process.env['TEST_TOKEN'] = 'secret-value';
+    vi.stubEnv('TEST_TOKEN', 'secret-value');
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ ok: true }),
@@ -139,7 +143,6 @@ describe('HttpExecutor', () => {
     const headers = callArgs.headers as Record<string, string>;
     expect(headers['Authorization']).toBe('Bearer secret-value');
 
-    delete process.env['TEST_TOKEN'];
     vi.unstubAllGlobals();
   });
 

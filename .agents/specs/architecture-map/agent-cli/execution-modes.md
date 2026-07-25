@@ -46,7 +46,7 @@ sequenceDiagram
   participant Channel as HeadlessInteractionChannel (agent-transport/headless)
   participant Session as agent-session Session
 
-  CLI->>Preset: resolveCliPreset(args, settings.preset)
+  CLI->>Preset: resolveShellPreset(externalPresets, args, settings.preset)
   Preset-->>CLI: resolved options (model, persona, agentName, permissionMode, ...)
   CLI->>CLI: collect positional prompt or piped stdin
   CLI->>CLI: build appendSystemPrompt from flags + task-file

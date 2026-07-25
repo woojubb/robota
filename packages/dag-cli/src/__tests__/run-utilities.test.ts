@@ -20,25 +20,14 @@ vi.mock('node:fs/promises', () => ({
 // ---------------------------------------------------------------------------
 
 describe('applyEnvFile', () => {
-  const savedEnv: Record<string, string | undefined> = {};
-
   beforeEach(() => {
-    savedEnv['TEST_APPLY_KEY'] = process.env['TEST_APPLY_KEY'];
-    savedEnv['QUOTED_KEY'] = process.env['QUOTED_KEY'];
-    savedEnv['SINGLE_QUOTED_KEY'] = process.env['SINGLE_QUOTED_KEY'];
-    delete process.env['TEST_APPLY_KEY'];
-    delete process.env['QUOTED_KEY'];
-    delete process.env['SINGLE_QUOTED_KEY'];
+    vi.stubEnv('TEST_APPLY_KEY', undefined);
+    vi.stubEnv('QUOTED_KEY', undefined);
+    vi.stubEnv('SINGLE_QUOTED_KEY', undefined);
   });
 
   afterEach(() => {
-    for (const [k, v] of Object.entries(savedEnv)) {
-      if (v === undefined) {
-        delete process.env[k];
-      } else {
-        process.env[k] = v;
-      }
-    }
+    vi.unstubAllEnvs();
   });
 
   it('sets environment variables from file content', async () => {
@@ -84,7 +73,7 @@ describe('applyEnvFile', () => {
   });
 
   it('does not override already-set environment variables', async () => {
-    process.env['TEST_APPLY_KEY'] = 'already_set';
+    vi.stubEnv('TEST_APPLY_KEY', 'already_set');
     const { readFile } = await import('node:fs/promises');
     vi.mocked(readFile).mockResolvedValue('TEST_APPLY_KEY=new_value\n' as never);
 

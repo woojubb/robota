@@ -76,12 +76,12 @@ describe('createStatusLineCommandModule', () => {
       expect(result).toEqual({
         success: true,
         message,
-        effects: [{ type: 'statusline-settings-patch', patch }],
+        hostActions: [{ type: 'statusline-settings-patch', patch }],
       });
     },
   );
 
-  it('reports usage for unsupported arguments without effects', async () => {
+  it('reports usage for unsupported arguments without host actions', async () => {
     const executor = new SystemCommandExecutor([
       ...(createStatusLineCommandModule().systemCommands ?? []),
     ]);
@@ -90,6 +90,6 @@ describe('createStatusLineCommandModule', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('Usage: /statusline');
-    expect(result?.effects).toBeUndefined();
+    expect(result?.hostActions).toBeUndefined();
   });
 });

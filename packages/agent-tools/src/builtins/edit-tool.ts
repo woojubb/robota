@@ -13,9 +13,13 @@ import { atomicWriteUtf8File } from './atomic-file-write.js';
 import { checkPathWithinCwd } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
+
+const DEFAULT_EDIT_DESCRIPTION =
+  "Performs exact string replacements in files.\n\noldString must exactly match the file's current content, including whitespace and indentation — reading the file first (e.g. with a file-read tool) is the reliable way to copy exact text.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.";
 
 const EditSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to modify'),
@@ -119,10 +123,10 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
 /**
  * Create an EditTool instance — register with Robota agent tools registry.
  */
-export function createEditTool(options: ISandboxToolOptions = {}): FunctionTool {
+export function createEditTool(options: ISandboxBuiltinToolOptions = {}): FunctionTool {
   return createZodFunctionTool(
     'Edit',
-    'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',
+    options.description ?? DEFAULT_EDIT_DESCRIPTION,
     EditSchema,
     async (params) => {
       return editFileTool(params, options);

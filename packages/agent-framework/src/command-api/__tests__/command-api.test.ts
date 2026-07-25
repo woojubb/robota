@@ -16,17 +16,16 @@ import {
   createCommandMemoryStores,
   addCommandContextReference,
   clearCommandContextReferences,
-  createPluginTuiRequestedEffect,
-  createSessionExitRequestedEffect,
-  createSessionPickerRequestedEffect,
-  createSessionRenamedEffect,
+  createShowPluginManagerIntent,
+  createSessionExitHostAction,
+  createShowSessionPickerIntent,
+  createSessionRenameHostAction,
   formatCommandSessionReplayValidationReport,
   formatCommandBackgroundTaskList,
   buildBackgroundCommandSubcommands,
   listCommandBackgroundTasks,
   parseCommandBackgroundLogCursor,
   DEFAULT_STATUS_LINE_COMMAND_SETTINGS,
-  createPluginRegistryReloadRequestedEffect,
   formatCommandPermissionsMessage,
   formatLanguageUsageMessage,
   hasSensitiveCommandMemoryContent,
@@ -367,15 +366,15 @@ describe('command-api contracts', () => {
     expect(cleared).toBe(true);
     expect(parseSessionNameArgument('  my-session  ')).toBe('my-session');
     expect(parseSessionNameArgument('  ')).toBeUndefined();
-    expect(createSessionRenamedEffect('my-session')).toEqual({
-      type: 'session-renamed',
+    expect(createSessionRenameHostAction('my-session')).toEqual({
+      type: 'session-rename',
       name: 'my-session',
     });
-    expect(createSessionPickerRequestedEffect()).toEqual({
-      type: 'session-picker-requested',
+    expect(createShowSessionPickerIntent()).toEqual({
+      type: 'show-session-picker',
     });
-    expect(createSessionExitRequestedEffect()).toEqual({
-      type: 'session-exit-requested',
+    expect(createSessionExitHostAction()).toEqual({
+      type: 'session-exit',
     });
     expect(readCommandSessionInfo(context)).toEqual({
       sessionId: 'session_1',
@@ -436,10 +435,7 @@ describe('command-api contracts', () => {
       'disable',
       'marketplace',
     ]);
-    expect(createPluginTuiRequestedEffect()).toEqual({ type: 'plugin-tui-requested' });
-    expect(createPluginRegistryReloadRequestedEffect()).toEqual({
-      type: 'plugin-registry-reload-requested',
-    });
+    expect(createShowPluginManagerIntent()).toEqual({ type: 'show-plugin-manager' });
     expect(resolvePluginCommandAdapter(context)).toBe(pluginAdapter);
   });
 });

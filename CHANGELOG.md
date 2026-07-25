@@ -5,6 +5,2962 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<!-- generated-release-notes:start unreleased -->
+## Unreleased (2026-07-24)
+
+**2026-07-24** · [Full changelog: v3.0.0-beta.79...develop](https://github.com/woojubb/robota/compare/v3.0.0-beta.79...develop)
+
+### 🚀 Features
+
+- **release**: conventional-commit release-notes generator + unit tests (REL-022)
+- **harness**: enforce scan-file-size as a ratchet with a frozen baseline ([#1299](https://github.com/woojubb/robota/pull/1299))
+- **hooks**: honor inline branch-guard overrides + worktree-parallel branch exception ([#1287](https://github.com/woojubb/robota/pull/1287))
+- **harness**: allow git worktrees for parallel subagents, with guardrails ([#1285](https://github.com/woojubb/robota/pull/1285))
+- **harness**: HARNESS-041 accidental-green regression-test floor ([#1272](https://github.com/woojubb/robota/pull/1272))
+- **concurrency**: CORE-026 floating-promise/race repair + no-floating-promises lint ([#1262](https://github.com/woojubb/robota/pull/1262))
+- **transport**: ARCH-004 WS/HTTP lifecycle + abort hardening ([#1260](https://github.com/woojubb/robota/pull/1260))
+- **security**: CORE-025 background/subagent permissionPolicy enforcement ([#1258](https://github.com/woojubb/robota/pull/1258))
+- **harness**: capability-reachability floor (HARNESS-030) ([#1255](https://github.com/woojubb/robota/pull/1255))
+- GUI-007 web-surface placement + SEC-001 secure CLI-served monitor ([#1249](https://github.com/woojubb/robota/pull/1249))
+- **harness**: harden hook-catalog drift-guard (HARNESS-031) ([#1247](https://github.com/woojubb/robota/pull/1247))
+- **harness**: mechanical evals-neutrality floor (HARNESS-034) ([#1246](https://github.com/woojubb/robota/pull/1246))
+- **evals**: neutral metric helpers + dataset parser + shared formatter (SELFHOST-011 P3) ([#1244](https://github.com/woojubb/robota/pull/1244))
+- **harness**: agent-tools neutrality dep-allowlist floor (HARNESS-027, closes SELFHOST-010-P4) ([#1243](https://github.com/woojubb/robota/pull/1243))
+- **session**: async shareable/resumable session artifacts — SELFHOST-014 (epic DONE, LAST spec) ([#1241](https://github.com/woojubb/robota/pull/1241))
+- multi-surface deployment matrix + gateway pattern — SELFHOST-013 (epic DONE) ([#1239](https://github.com/woojubb/robota/pull/1239))
+- **schedule**: /schedule lifecycle surface + restart persistence — SELFHOST-012 P2+P3 (epic DONE) ([#1237](https://github.com/woojubb/robota/pull/1237))
+- **background-tasks**: non-destructive schedule pause/resume/edit lifecycle (SELFHOST-012 P1) ([#1235](https://github.com/woojubb/robota/pull/1235))
+- **cli**: robota eval CI gate + example — SELFHOST-011 P2 (epic DONE) ([#1233](https://github.com/woojubb/robota/pull/1233))
+- **evals**: neutral eval-definition API + runner (SELFHOST-011 P1) ([#1232](https://github.com/woojubb/robota/pull/1232))
+- **computer-use**: driver port + neutral perceive/act tool, approval-gated (SELFHOST-010 P1) ([#1230](https://github.com/woojubb/robota/pull/1230))
+- **harness**: HARNESS-032 no-fake-in-src floor (fake/mock/stub only in test code) ([#1229](https://github.com/woojubb/robota/pull/1229))
+- **hooks**: lifecycle hook catalog SSOT + drift-guard + PreToolUse gate (SELFHOST-009) ([#1228](https://github.com/woojubb/robota/pull/1228))
+- **agent-cli**: surface-wire durable memory + agent-run e2e verification (SELFHOST-008 P6) ([#1227](https://github.com/woojubb/robota/pull/1227))
+- **memory**: SemanticMemoryStore adapter decorator (SELFHOST-008 P4) ([#1225](https://github.com/woojubb/robota/pull/1225))
+- **memory**: per-turn durable-memory recall wired into the turn (SELFHOST-008 P3) ([#1224](https://github.com/woojubb/robota/pull/1224))
+- **harness**: memory-neutrality mechanical floor (HARNESS-029) ([#1223](https://github.com/woojubb/robota/pull/1223))
+- **selfhost-008**: live post-turn auto-capture (P2) ([#1221](https://github.com/woojubb/robota/pull/1221))
+- **selfhost-008**: P1R memory-port remediation — async + command wiring + ISP ([#1220](https://github.com/woojubb/robota/pull/1220))
+- **selfhost-008**: durable memory port IMemoryStore + fs reference adapter (P1) ([#1218](https://github.com/woojubb/robota/pull/1218))
+- **harness**: no-fallback mechanical floor + spec-doc declaration (HARNESS-028) → develop ([#1217](https://github.com/woojubb/robota/pull/1217))
+- **selfhost-007**: branching time-travel — GATE-COMPLETE ([#1215](https://github.com/woojubb/robota/pull/1215))
+- **selfhost-006**: per-role model routing (v1) — GATE-COMPLETE ([#1214](https://github.com/woojubb/robota/pull/1214))
+- **selfhost-005**: parallel guardrails + tool-output validation — GATE-COMPLETE ([#1213](https://github.com/woojubb/robota/pull/1213))
+- **selfhost-004**: P6 live span→history wiring — GATE-COMPLETE ([#1211](https://github.com/woojubb/robota/pull/1211))
+- **selfhost-004**: run tracing + per-run cost budgeting — P2–P5 (span seam, read-model, budget cap, carrier+view) ([#1210](https://github.com/woojubb/robota/pull/1210))
+- **harness**: daily work-report harness + skill (OBSERVABILITY-001) ([#1206](https://github.com/woojubb/robota/pull/1206))
+- **cost**: turn-granular costUsd foundation (SELFHOST-004 P1) ([#1205](https://github.com/woojubb/robota/pull/1205))
+- **retrieval**: incremental re-index on file change (SELFHOST-003 P3) ([#1203](https://github.com/woojubb/robota/pull/1203))
+- **retrieval**: repo-map index build + persistence (SELFHOST-003 P2) ([#1202](https://github.com/woojubb/robota/pull/1202))
+- **retrieval**: codebase retrieval contract + tool + repo-map adapter (SELFHOST-003 P1) ([#1200](https://github.com/woojubb/robota/pull/1200))
+- **plan-mode**: InteractiveSession wiring + /plan command (SELFHOST-002 P2) ([#1198](https://github.com/woojubb/robota/pull/1198))
+- **plan-mode**: plan artifact contract + pure PlanController (SELFHOST-002 P1) ([#1197](https://github.com/woojubb/robota/pull/1197))
+- **orchestration**: hierarchical + group-chat primitives (SELFHOST-001 P3) ([#1195](https://github.com/woojubb/robota/pull/1195))
+- **orchestration**: parallel + handoff primitives (SELFHOST-001 P2) ([#1194](https://github.com/woojubb/robota/pull/1194))
+- **orchestration**: SELFHOST-001 P1 — neutral contracts + sequential primitive ([#1192](https://github.com/woojubb/robota/pull/1192))
+- **harness**: complete HARNESS-018 (018d/e/a) — merge-gate floor + async invocation ([#1184](https://github.com/woojubb/robota/pull/1184))
+- **harness**: implement HARNESS-018b+c — PR-review agents + route-only orchestrator ([#1182](https://github.com/woojubb/robota/pull/1182))
+- **harness**: enforcement-architecture rule + default-on prior-art research gate ([#1175](https://github.com/woojubb/robota/pull/1175))
+
+### 🐛 Fixes
+
+- **hooks**: make branch-guard + pre-push-check worktree-aware ([#1294](https://github.com/woojubb/robota/pull/1294))
+- **harness**: strip hook-inherited GIT_* env from harness child processes ([#1293](https://github.com/woojubb/robota/pull/1293))
+- **docs,ci**: spec-template misroute + deploy URL (HARNESS-DIET-007) ([#1280](https://github.com/woojubb/robota/pull/1280))
+- **agents**: forbid tree-mutating git in read-only agents (HARNESS-DIET-001) ([#1277](https://github.com/woojubb/robota/pull/1277))
+- **tui**: CLI-061 Korean-IME last-character drop — defer submit on Enter ([#1269](https://github.com/woojubb/robota/pull/1269))
+- **hooks**: exempt release/* and hotfix/* from the pre-push foreign-merge block ([#1252](https://github.com/woojubb/robota/pull/1252))
+- **cli**: thread resolved model through session so --model is not silently substituted (CLI-076) ([#1245](https://github.com/woojubb/robota/pull/1245))
+- **harness**: branch-guard detects create with flags before -b/-c ([#1179](https://github.com/woojubb/robota/pull/1179))
+- **harness**: guard against deleting an unmerged branch + branching off a squash-merged local base ([#1178](https://github.com/woojubb/robota/pull/1178))
+- **release**: disambiguate desktop app assets from agent-cli binaries ([#1174](https://github.com/woojubb/robota/pull/1174))
+
+### 🔒 Security
+
+- **deps**: bound the pre-existing js-yaml override to 3.x (INFRA-045 done) ([#1305](https://github.com/woojubb/robota/pull/1305))
+- **deps**: bound INFRA-044 override ranges to their major (fixes minimatch) ([#1284](https://github.com/woojubb/robota/pull/1284))
+- **deps**: remediate 18 pre-existing advisories (INFRA-044) ([#1281](https://github.com/woojubb/robota/pull/1281))
+- **agents**: GATE-COMPLETE INFRA-038 (osv-scanner live; main CI unblocked) ([#1171](https://github.com/woojubb/robota/pull/1171))
+- **infra-038**: migrate CI vuln-scan to osv-scanner + fix transitive vulns ([#1169](https://github.com/woojubb/robota/pull/1169))
+
+<details>
+<summary>🏗 Internal</summary>
+
+- **release**: seed generated CHANGELOG sections + runbook step + REL-022 record
+- **release**: publish tag releases with generated notes instead of --generate-notes (REL-022)
+- **backlog**: archive 9 verified-done SELFHOST items to completed/ (status reconciliation) ([#1314](https://github.com/woojubb/robota/pull/1314))
+- **ci**: apply reviewed GH Actions major bumps + retarget Dependabot to develop ([#1313](https://github.com/woojubb/robota/pull/1313))
+- **engines**: raise the Node floor to >=20.19.0, remove compat-node18 ([#1312](https://github.com/woojubb/robota/pull/1312))
+- **security**: weekly scheduled osv-scanner over the full lockfile (INFRA-044 done) ([#1304](https://github.com/woojubb/robota/pull/1304))
+- **backlog**: HARNESS-DIET close-out — epic + 003/004/007 done, prose repoints ([#1303](https://github.com/woojubb/robota/pull/1303))
+- **harness**: HARNESS-DIET-003 remainder — spec-surface ratchet, consistency split, conformance+react-free merges ([#1302](https://github.com/woojubb/robota/pull/1302))
+- **skills**: consolidate conformance skill-tree + slim rule-restating skills (DIET-005) ([#1301](https://github.com/woojubb/robota/pull/1301))
+- **rules**: HARNESS-DIET-004 — relocate baked project-data from rules to project-structure.md ([#1300](https://github.com/woojubb/robota/pull/1300))
+- **ci**: remove the token-based npm publish path (release.yml + ci:publish) ([#1298](https://github.com/woojubb/robota/pull/1298))
+- **memory**: worktree-parallel orchestration pattern + diet execution state ([#1297](https://github.com/woojubb/robota/pull/1297))
+- **rules**: HARNESS-DIET-004 — rules consolidation (release runbook merge, routing collapse, dedup, de-stale) ([#1296](https://github.com/woojubb/robota/pull/1296))
+- **harness**: HARNESS-DIET-007 — routing-doc slim + CI workflow correctness fixes ([#1295](https://github.com/woojubb/robota/pull/1295))
+- **harness**: HARNESS-DIET-003 — enforce document-authority gate + fold 2 thin scans into neighbours ([#1290](https://github.com/woojubb/robota/pull/1290))
+- **hooks**: slim, narrow, and merge live session hooks (HARNESS-DIET-006) ([#1289](https://github.com/woojubb/robota/pull/1289))
+- **agents**: skills diet — neutralize Robota-specific skills (HARNESS-DIET-005) ([#1291](https://github.com/woojubb/robota/pull/1291))
+- **harness**: config-ize session-artifact/memory/evals neutrality data (HARNESS-DIET-002) ([#1288](https://github.com/woojubb/robota/pull/1288))
+- **harness**: config-ize agent-tools + orchestration neutrality data (HARNESS-DIET-002) ([#1286](https://github.com/woojubb/robota/pull/1286))
+- **backlog**: INFRA-045 — investigate robota-docs CF Pages build failure ([#1283](https://github.com/woojubb/robota/pull/1283))
+- **harness**: remove dead bootstrap.mjs + orphan record-owner-scenario.mjs (HARNESS-DIET-003) ([#1282](https://github.com/woojubb/robota/pull/1282))
+- **hooks**: remove check-no-reexport, drop per-edit eslint (HARNESS-DIET-006) ([#1279](https://github.com/woojubb/robota/pull/1279))
+- **skills**: remove 11 dead/textbook/vendored skills (HARNESS-DIET-005) ([#1278](https://github.com/woojubb/robota/pull/1278))
+- **memory**: record the harness diet audit (HARNESS-DIET-000..007) ([#1276](https://github.com/woojubb/robota/pull/1276))
+- **backlog**: harness diet audit — epic + 7 backlog items ([#1275](https://github.com/woojubb/robota/pull/1275))
+- scope heavy jobs to code changes (docs-only PRs skip the matrix) ([#1274](https://github.com/woojubb/robota/pull/1274))
+- **agents**: GATE-COMPLETE for HARNESS-041 (accidental-green floor) ([#1273](https://github.com/woojubb/robota/pull/1273))
+- **process**: DX-001 close-out — reconcile PR Unit Rule + checklist nudge ([#1271](https://github.com/woojubb/robota/pull/1271))
+- **agents**: GATE-COMPLETE for CLI-061 (CJK-IME defer-submit) ([#1270](https://github.com/woojubb/robota/pull/1270))
+- **oss**: add standard open-source health files + CodeQL + Dependabot ([#1268](https://github.com/woojubb/robota/pull/1268))
+- **backlog**: re-scope CLI-061 to watch upstream Ink for the CJK-IME fix ([#1267](https://github.com/woojubb/robota/pull/1267))
+- **security**: add gitleaks secret scan + dependency-review PR gates ([#1266](https://github.com/woojubb/robota/pull/1266))
+- **review**: add Claude Code automated PR review (anthropics/claude-code-action@v1) ([#1265](https://github.com/woojubb/robota/pull/1265))
+- **harness**: institutionalize the accidental-green regression-test lesson ([#1264](https://github.com/woojubb/robota/pull/1264))
+- **spec**: CORE-026 GATE-COMPLETE + INFRA-040 follow-up ([#1263](https://github.com/woojubb/robota/pull/1263))
+- **spec**: ARCH-004 GATE-COMPLETE + STRUCT-08 follow-up ([#1261](https://github.com/woojubb/robota/pull/1261))
+- **spec**: CORE-025 GATE-COMPLETE — permissionPolicy enforcement done ([#1259](https://github.com/woojubb/robota/pull/1259))
+- **backlog**: archive 8 verified-done items to completed/ (status reconciliation) ([#1257](https://github.com/woojubb/robota/pull/1257))
+- **spec**: HARNESS-030 GATE-COMPLETE — capability-reachability floor done ([#1256](https://github.com/woojubb/robota/pull/1256))
+- **daily-report**: 2026-07-18 + 2026-07-19 work reports ([#1254](https://github.com/woojubb/robota/pull/1254))
+- **guard**: block feature-branch PRs to main (main-pr-source-guard) — #1216 recurrence fix ([#1251](https://github.com/woojubb/robota/pull/1251))
+- **spec**: GUI-007 + SEC-001 GATE-COMPLETE (merged #1249) ([#1250](https://github.com/woojubb/robota/pull/1250))
+- **harness**: sweep test-double-named shipped code, empty no-fake baseline (HARNESS-033) ([#1248](https://github.com/woojubb/robota/pull/1248))
+- **memory**: SELFHOST roadmap COMPLETE — all 14 specs DONE (014 merged 826de59dd) ([#1242](https://github.com/woojubb/robota/pull/1242))
+- **memory**: SELFHOST-013 epic DONE (merged b56617537); next 014 ([#1240](https://github.com/woojubb/robota/pull/1240))
+- **memory**: SELFHOST-012 epic DONE (P2+P3 merged 4223a7d95); next 013 ([#1238](https://github.com/woojubb/robota/pull/1238))
+- **memory**: SELFHOST-012 P1 merged on develop (181f0e89a); next P2 ([#1236](https://github.com/woojubb/robota/pull/1236))
+- **memory**: SELFHOST-011 epic DONE (P2 merged develop 6366850c7); next 012 ([#1234](https://github.com/woojubb/robota/pull/1234))
+- **memory**: SELFHOST-010 P1 merged on develop (ad72dec7e) + review fixes ([#1231](https://github.com/woojubb/robota/pull/1231))
+- **selfhost-008**: neutral memory library complete + institutionalize agent-run capability verification ([#1226](https://github.com/woojubb/robota/pull/1226))
+- **memory**: mirror SELFHOST-008 P1R + P2 done to in-repo memory ([#1222](https://github.com/woojubb/robota/pull/1222))
+- **memory**: mirror SELFHOST-008 P1 + HARNESS-028 progress to in-repo memory ([#1219](https://github.com/woojubb/robota/pull/1219))
+- **memory**: mirror SELFHOST-004 DONE to in-repo roadmap memory ([#1212](https://github.com/woojubb/robota/pull/1212))
+- **vision**: clarify north-star is a GENERAL agent, not a Robota-dedicated tool ([#1209](https://github.com/woojubb/robota/pull/1209))
+- **skill**: daily-report runs as a parallel background agent (owner feedback) ([#1208](https://github.com/woojubb/robota/pull/1208))
+- **daily-report**: 2026-07-17 work report (OBSERVABILITY-001) ([#1207](https://github.com/woojubb/robota/pull/1207))
+- **selfhost**: GATE-VERIFY + GATE-COMPLETE for SELFHOST-003 v1 (retrieval done) ([#1204](https://github.com/woojubb/robota/pull/1204))
+- **agents**: commit-cadence + feedback-promotion rules; daily-report backlog ([#1201](https://github.com/woojubb/robota/pull/1201))
+- **selfhost**: GATE-VERIFY + GATE-COMPLETE for SELFHOST-002 (plan-mode done) ([#1199](https://github.com/woojubb/robota/pull/1199))
+- **selfhost**: GATE-VERIFY + GATE-COMPLETE for SELFHOST-001 (epic done) ([#1196](https://github.com/woojubb/robota/pull/1196))
+- **memory**: record SELFHOST roadmap progress (design-gate complete + P1 shipped) ([#1193](https://github.com/woojubb/robota/pull/1193))
+- **selfhost**: design-gate SELFHOST-007..014 differentiators to GATE-APPROVAL (promote to todo/) ([#1191](https://github.com/woojubb/robota/pull/1191))
+- **selfhost**: design-gate SELFHOST-001..006 to GATE-APPROVAL (promote to todo/) ([#1190](https://github.com/woojubb/robota/pull/1190))
+- **process**: DX-001 PR batching policy — bundle coherent work into appropriately-sized PRs ([#1189](https://github.com/woojubb/robota/pull/1189))
+- **agents**: SELFHOST-001..006 iteration-2 revisions (design-gate converging) ([#1188](https://github.com/woojubb/robota/pull/1188))
+- **agents**: SELFHOST-001..006 spec-docs + GATE-APPROVAL iteration-1 reviews (design-gate pass) ([#1187](https://github.com/woojubb/robota/pull/1187))
+- **vision**: spin out SELFHOST-007..014 differentiator capability backlogs ([#1186](https://github.com/woojubb/robota/pull/1186))
+- **vision**: Robota-builds-Robota north-star + self-hosting capability roadmap backlogs ([#1185](https://github.com/woojubb/robota/pull/1185))
+- **harness**: add the Orchestration Map + mechanical currency scan ([#1183](https://github.com/woojubb/robota/pull/1183))
+- **agents**: HARNESS-018 GATE-APPROVAL ENDORSE (async PR-review orchestration epic) ([#1181](https://github.com/woojubb/robota/pull/1181))
+- **agents**: HARNESS-018 draft — async PR-review orchestration (reviewer/writer/fixer loop) ([#1180](https://github.com/woojubb/robota/pull/1180))
+- **harness**: surface default-on research at every request entry point ([#1177](https://github.com/woojubb/robota/pull/1177))
+- **harness**: absolute memory-mirroring rule + self-improving-harness drafts ([#1173](https://github.com/woojubb/robota/pull/1173))
+- **agents**: GATE-COMPLETE DIST-002/003 + GUI-003 + RELEASE-001 (first release live) ([#1167](https://github.com/woojubb/robota/pull/1167))
+
+</details>
+<!-- generated-release-notes:end unreleased -->
+
+<!-- generated-release-notes:start v3.0.0-beta.79 -->
+## v3.0.0-beta.79 (2026-07-14)
+
+**2026-07-14** · [Full changelog: v3.0.0-beta.24...v3.0.0-beta.79](https://github.com/woojubb/robota/compare/v3.0.0-beta.24...v3.0.0-beta.79)
+
+### 🚀 Features
+
+- **release-001**: auto-push v<version> tag on an agent-cli bump → binaries ([#1165](https://github.com/woojubb/robota/pull/1165))
+- **dist-003**: Node-less install scripts for the Bun binaries ([#1161](https://github.com/woojubb/robota/pull/1161))
+- **gui-003**: package agent-app with a bundled runtime + release workflow ([#1159](https://github.com/woojubb/robota/pull/1159))
+- **dist-002**: workflow to build + publish Bun binaries to GitHub Releases ([#1157](https://github.com/woojubb/robota/pull/1157))
+- **runtime**: RUNTIME-001 — shared headless runtime host (robota --serve) + Design C ([#1147](https://github.com/woojubb/robota/pull/1147))
+- **gui**: GUI-006 — absorb agent-web-ui into core + webrtc-web peer + web app ([#1141](https://github.com/woojubb/robota/pull/1141))
+- **gui**: GUI-005 — agent-transport-gui core; app/web over a shared GUI layer ([#1137](https://github.com/woojubb/robota/pull/1137))
+- **cli**: Bun single-binary distribution for robota — Node path unchanged (DIST-001) ([#1133](https://github.com/woojubb/robota/pull/1133))
+- **gui**: agent-gui Electron desktop shell — Stage 1 MVP + required loopback auth (GUI-002) ([#1129](https://github.com/woojubb/robota/pull/1129))
+- **remote**: co-drive concurrency attribution (REMOTE-014, Stage E5) ([#1125](https://github.com/woojubb/robota/pull/1125))
+- **remote**: reconnection / session-resume (REMOTE-013 / Stage E4) ([#1123](https://github.com/woojubb/robota/pull/1123))
+- **remote**: TOFU trusted-device reconnect (REMOTE-012 / Stage E3) ([#1122](https://github.com/woojubb/robota/pull/1122))
+- **remote**: signaling-server transport-layer DoS bounds (REMOTE-011 / Stage E2) ([#1121](https://github.com/woojubb/robota/pull/1121))
+- **remote**: user-supplied TURN fallback (REMOTE-010 / Stage E1) ([#1115](https://github.com/woojubb/robota/pull/1115))
+- **web-ui**: Stage D SPA entry + hook generalization + docs (REMOTE-009 step 3,6)
+- **remote**: web-UI permission/ask render+answer + clientUrl fail-closed (REMOTE-009 step 4-5)
+- **web-ui**: browser RTC session client + pairing responder (REMOTE-009 step 2)
+- **web-ui**: browser signaling client for Stage D (REMOTE-009 step 1)
+- **remote**: /remote-control composition-root wiring + QR (REMOTE-008 step 4)
+- **remote**: /remote-control command + enable effects + status adapter (REMOTE-008 step 2-3)
+- **webrtc**: pairing gate for the data channel (REMOTE-008 step 1)
+- **remote**: carry permission/ask over the wire protocol (REMOTE-007 step 3)
+- **remote**: transport-neutral permission/ask events + registry (REMOTE-007 step 1-2)
+- **remote**: neutralize remote-command discrimination — local == remote (REMOTE-006 B4-1)
+- **pairing**: isomorphic pairing + DTLS-fingerprint channel binding (REMOTE-005 Stage B3)
+- **webrtc**: production ws signaling client + relay abuse-hardening (REMOTE-004 Stage B2)
+- **security**: gate remote-origin commands (deny-by-default) — REMOTE-003 Stage B1
+- **transport**: WebRTC P2P transport + signaling relay skeleton (REMOTE-002 Stage A)
+- **skill**: invert dag-node-skill via ISkillExecutionPort (ARCH-PROVIDER-005) **BREAKING**
+- **dag**: extract dag-nodes-default catalog; decouple framework from nodes (ARCH-PROVIDER-004) **BREAKING**
+- **dag-framework**: providers injection seam for collapsed llm-text (ARCH-PROVIDER-003)
+- **dag-node-llm-text**: author collapsed provider-registry LLM node (ARCH-PROVIDER-003)
+- **dag-core**: invert the llm-text tombstone for the collapsed node (ARCH-PROVIDER-003)
+- **provider**: migrate per-vendor LLM cost into provider definitions (ARCH-PROVIDER-003)
+- **harness**: dag-nodes-leaf guard + revive sdk-react-free (HARNESS-016, ARL-16 b/g)
+- **harness**: doc-package guards + agent-skill-author (INFRA-DOC-GUARD-001, INFRA-036)
+- **agent-framework**: surface unknown preset command-module names (INFRA-032, ARL-03)
+- **instant-node**: provider SSOT + symmetric persistence round-trip (DATA-003) ([#1005](https://github.com/woojubb/robota/pull/1005))
+- **workflows**: natural-language authoring via /workflows create (FLOW-007 P2–4) ([#991](https://github.com/woojubb/robota/pull/991))
+- **workflows**: FLOW-007 Phase 1 — .workflows/ storage layout + injectable workspace ([#989](https://github.com/woojubb/robota/pull/989))
+- **agent-cli**: publish as a self-contained bundle (INFRA-028) ([#983](https://github.com/woojubb/robota/pull/983))
+- **dag-cli**: cut scaffold/save/validate/run over to .dag/nodes/ layout (DATA-002 P3) ([#979](https://github.com/woojubb/robota/pull/979))
+- **dag-cli**: code-node manifests + .dag/nodes/ discovery, remove scatter-scan (DATA-002 P2) ([#977](https://github.com/woojubb/robota/pull/977))
+- **dag-cli**: unified persistence store — .node.json manifests + workflow routing (DATA-002 P1) ([#975](https://github.com/woojubb/robota/pull/975))
+- **dag-nodes**: add skill node (WORKFLOW-005 P1 #4) ([#968](https://github.com/woojubb/robota/pull/968))
+- **dag-nodes**: add seedance-video node (WORKFLOW-005 P1 #3) ([#967](https://github.com/woojubb/robota/pull/967))
+- **dag-nodes**: text-to-image node (WORKFLOW-005 P1 #2) ([#966](https://github.com/woojubb/robota/pull/966))
+- **dag-nodes**: in-process tool node (WORKFLOW-005 P1 #1) ([#965](https://github.com/woojubb/robota/pull/965))
+- **cli-075**: shutdown/channel hygiene — unwire listeners, drain permissions, bounded graceful exit
+- **executor,subagent**: CORE-024 — background scheduler hygiene
+- **process**: CORE-023 — shared killProcessTree; converge 5 kill sites
+- **core,session**: CORE-022 — unified disposal chain; destroyed terminal state
+- **core**: CORE-021 — EventEmitterPlugin error containment; no floating flush
+- **core,cli**: CORE-020 — structured execution errors; scope IME crash allowlist to TUI
+- **session**: CORE-019 — compaction failure preserves history; atomic session persist
+- **core**: CORE-018 — cancellation contract; signal threaded to tools and runStream
+- **core**: CORE-017 — toolChoice wired end-to-end; dead run-option surface removed
+- **examples**: capability demo track — 4 runnable 'what can it do' demos (EX-001)
+- **agent-tools**: createZodFunctionTool executor args infer z.infer<S> (SDK-009)
+- **agent-core**: run-isolated stateless mode via retainHistory:false (CORE-014)
+- **agent-core**: best-effort disposal — destroy() resolves with collected errors (CORE-013)
+- **agent-core**: first-class schema-enforced structured output via run options (CORE-015)
+- **agent-core**: serialize concurrent runs with an internal per-instance FIFO run queue (CORE-012)
+- **core**: allowToolOnlyCompletion skips the forced summary call (CORE-011)
+- **tools**: AskUserQuestion — model asks the user structured questions (CMD-005)
+- **analytics**: attribute live subagent/background usage to its source (ANALYTICS-001 P2)
+- **analytics**: source-attributed token usage + report + harness assertions (ANALYTICS-001 P1)
+- **tui**: arrow-key navigation into the inline background-work list (SCREEN-014)
+- **dag-cli**: http provider resolution + native runtime-server URL (WORKFLOW-002 Phase C)
+- **agent-tools**: cross-platform Shell tool + shared OS-aware resolver (TERM-008)
+- **dag-framework**: HttpDagRuntimeProvider over /v1/dag/* (WORKFLOW-002 Phase B)
+- **dag**: SSE run-progress stream on the native runtime server (WORKFLOW-002 phase A)
+- **harness**: strengthen lesson→mechanism enforcement + guard nested-glob class
+- **dag**: complete the native runtime-server uniform route surface
+- **workflows**: add /workflows catalog + validate subcommands
+- **dag**: native DAG runtime HTTP server (/v1/dag/*)
+- **workflows**: /workflows command bridging the DAG engine into agent-cli
+- **dag**: absorb the standalone DAG workflow engine into the monorepo
+- **harness**: document-type contract foundation (RULE-007–011)
+- **agent-command**: migrate provider wizard to CMD-004 inline ask
+- **agent-command**: migrate /exit and /clear to inline confirm (CMD-004 PR-H)
+- **agent-command**: migrate /preset and /language to inline context.ask (CMD-004 PR-G)
+- **agent-command**: migrate /mode to inline context.ask (CMD-004 PR-F)
+- **agent-transport**: wire ask seam for programmatic/headless (CMD-004 PR-E)
+- **agent-transport-tui**: wire ask seam end-to-end in TUI (CMD-004 PR-D)
+- **agent-transport-tui**: unified action renderer (CMD-004 PR-C)
+- **agent-framework**: ask seam - askHandler + getUserInteraction (CMD-004 PR-B)
+- **agent-core**: unified action contract + ask port (CMD-004 PR-A)
+- **skills**: add lesson-to-harness skill (institutionalize repeated corrections)
+- **agent-cli**: built-binary IAgentDriver + cross-fidelity proof (INFRA-020 Phase 2)
+- **interface-transport**: IAgentDriver client contract + shared accessors (INFRA-020 Phase 1)
+- **testing**: publish @robota-sdk/agent-testing — cross-cutting PTY harness (INFRA-016)
+- **transport**: in-process programmatic agent driver (INFRA-019)
+- **agent-cli**: --session-log replay flag — deterministic conversation E2E (INFRA-018)
+- **agent-provider-replay**: session-log replay provider (INFRA-017)
+- **agent-session**: typed session-log event schema (INFRA-017 T1)
+- **agent-transport-tui**: chat-window scrollback layout via Ink <Static> (SCREEN-010)
+- **agent-transport-tui**: reusable PTY E2E harness + fix terminal-handoff stdin release (TEST-007)
+- **agent-command**: /editor — compose in $EDITOR via terminal handoff (TERM-004)
+- **agent-command**: /shell command — drop to an interactive shell via terminal handoff (TERM-003)
+- **agent-transport-tui**: TUI terminal-handoff implementation (TERM-002)
+- **agent-framework**: terminal-handoff capability — contract + orchestration (TERM-001)
+- **testing**: multi-session resume/fork + real-model goal cassette (TEST-004/005)
+- **testing**: harness cassette mode + session-log leverage (TEST-005 done)
+- **testing**: record-replay cassette provider (TEST-005)
+- **harness**: functional-coverage manifest scan (TEST-003 phase 4)
+- **testing**: framework functional session harness (TEST-003 phase 2)
+- **agent-cli**: --goal headless autonomous run (GOAL-001 phase 3)
+- **agent-command**: /goal slash command (GOAL-001 phase 2)
+- **agent-framework**: autonomous goal-pursuit controller (GOAL-001 phase 1)
+- **agent-plugin**: implement DatabaseHistoryStorage via injected IDatabaseDriver (PLUGIN-002)
+- **www**: SEO-001 — sitemap, robots, JSON-LD, per-page metadata
+- **web-ui**: WEBUI-001 — export AgentActivityPanel, component a11y, reconnect tests
+- **ci**: EXAMPLES-001 — typecheck examples against local source to catch SDK drift
+- **harness**: HARNESS-018 — mechanize conflict + deprecated marker scans
+- **harness**: HARNESS-019 — consistent-type-definitions lint + branch-name guard
+- **harness**: HARNESS-016 — no-explicit-any warn→error; type docs remark plugins
+- **www**: de-slop the feature section (WEB-013)
+- **docs**: apply unified emerald accent (BRAND-001 docs side)
+- **www**: apply unified brand palette — IBM Plex + emerald accent (BRAND-001)
+- **harness**: add 3 architecture-drift guards (G1/G3-lite/G4)
+- **rules**: adopt reference profile as agent-conduct authority (unlimited precedence)
+- **www**: pre-launch copy review — reframe license, fix claims, tone & i18n
+- **git**: LESSON-007 block gh pr merge --delete-branch in branch-guard hook
+- **harness**: LESSON-006 ghost-path scan for hardcoded harness config paths
+- **harness**: LESSON-005 tolerate evals churn in pre-push + stash hygiene
+- **skills**: LESSON-004 release/publish runbook gotchas
+- **git**: LESSON-003 git-native protected-branch commit guard
+- **skills**: LESSON-002 design-quality-audit skill
+- **skills**: LESSON-001 cold-state testing for live state-mutation seams
+- **agent-framework**: selfVerification system-prompt section (PRESET-017)
+- **framework,session**: live enableParallelSubagents gate (PRESET-016)
+- **agent-framework**: live command-module re-selection (PRESET-015)
+- **agent-preset**: file-based external preset loading (PRESET-007)
+- **agent-command,agent-transport**: /preset discovery + live switch UX (PRESET-006)
+- **agent-framework**: live persona re-application (PRESET-014)
+- **agent-core,framework,session**: live model/effort re-application (PRESET-013)
+- **agent-framework**: live preset permission re-application (PRESET-012)
+- **agent-framework,agent-session**: runtime active-preset state (PRESET-011)
+- **agent-preset**: add neutral-executor preset (PRESET-010)
+- **agent-preset**: add careful-reviewer preset (PRESET-009)
+- **preset**: PRESET-005 — autonomous-builder built-in preset (reference profile work-style, English persona)
+- **preset**: PRESET-008 — effort threaded to provider invocation (default high)
+- **preset**: PRESET-004 — bundle (module delta + autonomy permission posture + exec capabilities)
+- **agent-framework**: PRESET-003 — persona as priority/source system-prompt section
+- **agent-cli**: PRESET-002 — --preset selection wiring (cli=shell)
+- **agent-preset**: PRESET-001 — general preset system (IPreset + resolver + default vanilla)
+- **harness**: architecture conformance skill system + GATE-CONFORMANCE (INFRA-003) ([#733](https://github.com/woojubb/robota/pull/733))
+- **tui**: label agent-wake schedules in the workspace (FLOW-006 L6) ([#730](https://github.com/woojubb/robota/pull/730))
+- **cli**: /schedule and /monitor commands to create agent wakes (FLOW-005 L5) ([#729](https://github.com/woojubb/robota/pull/729))
+- **executor**: monitor — process output matches wake the agent (FLOW-004 L4) ([#728](https://github.com/woojubb/robota/pull/728))
+- **framework**: re-arm scheduled wakes on resume + surface missed wakes (FLOW-003 L3) ([#727](https://github.com/woojubb/robota/pull/727))
+- **framework**: inject agent-wakeup turns from background wake events (FLOW-002 L2) ([#726](https://github.com/woojubb/robota/pull/726))
+- **executor**: wake-event foundation for agent re-invocation (FLOW-001 L1) ([#724](https://github.com/woojubb/robota/pull/724))
+- **harness**: done-backlog evidence regression scan (HARNESS-002) ([#715](https://github.com/woojubb/robota/pull/715))
+- **transport,cli**: deterministic E2E harness — scripted provider + PTY TUI driver (CLI-074) ([#703](https://github.com/woojubb/robota/pull/703))
+- **framework,cli**: env-var-only zero-config startup (CLI-066) ([#700](https://github.com/woojubb/robota/pull/700))
+- **harness**: wait-group resolutions — flag-wiring test, tool/security rules, event-continuity clause (HARNESS-006/007/009/010) ([#696](https://github.com/woojubb/robota/pull/696))
+- **harness**: lockfile pre-push gate + lesson-driven doc hardening (HARNESS-012/005/013/014) ([#694](https://github.com/woojubb/robota/pull/694))
+- **harness**: aggregating scan runner + compat-node18 jest exclusion (HARNESS-011 items 1-2) ([#693](https://github.com/woojubb/robota/pull/693))
+- **harness**: orphan-export scan with ratchet baseline (HARNESS-001) ([#692](https://github.com/woojubb/robota/pull/692))
+- **harness**: three lesson-driven scans — SPEC paths, workspace refs, stub markers (HARNESS-003/004/008) ([#691](https://github.com/woojubb/robota/pull/691))
+- **tool-mcp**: real MCP client over Streamable HTTP (CLI-058) ([#688](https://github.com/woojubb/robota/pull/688))
+- **framework,transport**: surface memory events in TUI, bound session-init polling (CLI-059/060) ([#687](https://github.com/woojubb/robota/pull/687))
+- **tools**: implement Grep count output mode and headLimit result cap (CLI-057) ([#686](https://github.com/woojubb/robota/pull/686))
+- **cli**: wire tool filter flags in both modes, --dry-run plan alias, --json-schema help (CLI-053/054/055) ([#685](https://github.com/woojubb/robota/pull/685))
+- **cli**: restore init/diagnose dispatch, first-run welcome, terminal warning (CLI-049/050/051/052/056) ([#684](https://github.com/woojubb/robota/pull/684))
+- **tui**: move status bar below input area (SCREEN-002) ([#680](https://github.com/woojubb/robota/pull/680))
+- **tui**: remove input side borders and status bar box (SCREEN-001) ([#678](https://github.com/woojubb/robota/pull/678))
+- **agent-framework**: restore usedTokens and contextRefs on session resume (RESUME-001)
+- **agent-cli**: add `robota session analyze` subcommand (OBS-001) ([#657](https://github.com/woojubb/robota/pull/657))
+- **arch-003-p8b**: add TUI dialog tests — requestAction, CommandPicker, CommandConfirm ([#645](https://github.com/woojubb/robota/pull/645))
+- **arch-003-p8a**: extend createInteractiveRuntime tests — setBusy + tool events ([#644](https://github.com/woojubb/robota/pull/644))
+- **arch-003-p7**: add HeadlessInteractionChannel, move session lifecycle out of print-mode ([#642](https://github.com/woojubb/robota/pull/642))
+- **agent-cli**: wire agent-cli directly to renderApp — remove TuiTransport middleman (ARCH-003-p6) ([#641](https://github.com/woojubb/robota/pull/641))
+- **agent-transport**: TuiInteractionChannel — session lifecycle out of React (ARCH-003-p5) ([#640](https://github.com/woojubb/robota/pull/640))
+- **agent-framework**: add createInteractiveRuntime factory (ARCH-003-p4) ([#639](https://github.com/woojubb/robota/pull/639))
+- **arch-003-p3**: migrate interaction hints; delete command-interaction-registry ([#638](https://github.com/woojubb/robota/pull/638))
+- **arch-003-p2**: extract input-parser into agent-framework ([#637](https://github.com/woojubb/robota/pull/637))
+- **arch-003-p1**: define IInteractionChannel + interaction types in agent-framework ([#636](https://github.com/woojubb/robota/pull/636))
+- **core-005**: wire responseFormat end-to-end — IChatOptions → provider ([#616](https://github.com/woojubb/robota/pull/616))
+- **examples**: add EX-001~006 — Slack bot, GitHub PR reviewer, WebSocket chat, batch processor, Telegram bot, Discord bot ([#615](https://github.com/woojubb/robota/pull/615))
+- **tool-003**: delete @robota-sdk/agent-team — placeholder package with no exports ([#612](https://github.com/woojubb/robota/pull/612))
+- **core-002~004**: expose additionalTools, resumeSessionId on IHeadlessSessionOptions; add createStatelessRuntime ([#610](https://github.com/woojubb/robota/pull/610))
+- **examples**: add SDK embedding examples — Next.js, Express, CLI
+- **audit-001**: arch cleanup — remove dead code, fix paths/names, wire tool filters
+- implement all 45 backlog items (CLI/PM/SITE/FRONTEND) ([#589](https://github.com/woojubb/robota/pull/589))
+- **agents**: port spec-docs gate pipeline from robota-dag
+- **agent-tools**: CLI-035 — add CWD boundary enforcement to Read/Write/Edit tools
+- **cli-031,pm-023,pm-024,cli-033**: validation backlog P0/P1 + CLI-033 E2E tests
+- **cli-030**: add session-level "Allow for this session" permission option
+- **cli-028,cli-029**: Node.js 22 preflight check + macOS Terminal.app CJK warning
+- **cli-027**: wire systemPrompt/appendSystemPrompt through TUI session chain
+- add en/ko i18n to www and docs (SITE-006, SITE-007)
+- **cli-026**: enterprise org-policy enforcement layer ([#581](https://github.com/woojubb/robota/pull/581))
+- **cli-025**: replace /model with provider hot-swap — /provider switch <profile> ([#580](https://github.com/woojubb/robota/pull/580))
+- **agent-provider**: add vision support to OpenAI-compatible ChatCompletions converter ([#578](https://github.com/woojubb/robota/pull/578))
+- **agent-provider**: implement Anthropic vision — convert parts to image blocks ([#569](https://github.com/woojubb/robota/pull/569))
+- **docs**: apply Terminal Precision design — dark theme with fluorescent accents ([#566](https://github.com/woojubb/robota/pull/566))
+- **site-005**: migrate apps/docs from VitePress to Next.js 15 ([#565](https://github.com/woojubb/robota/pull/565))
+- **cf-pages**: deploy www + docs to Cloudflare Pages ([#564](https://github.com/woojubb/robota/pull/564))
+- **site-003**: update docs to docs.robota.io — CNAME + SEO config ([#562](https://github.com/woojubb/robota/pull/562))
+- **site-002**: migrate marketing content from docs to www ([#561](https://github.com/woojubb/robota/pull/561))
+- **site-001**: add apps/www — Next.js 15 marketing site ([#560](https://github.com/woojubb/robota/pull/560))
+- **frontend-001**: align styling to Tailwind-only rule
+- **pm-005**: add 5 official integration plugins
+- **pm-007**: add interactive API cost calculator page to docs
+- **ux-019**: enhance /cost with token usage, model pricing, and budget tracking
+- **ux-014**: auto-name sessions from first user message via AI
+- **cli-012**: add --dry-run flag — plan-only preview without file modifications
+- **ux-018**: add ? key keyboard shortcut overlay in TUI
+- **cli-010**: add `robota init` project initialization command ([#546](https://github.com/woojubb/robota/pull/546))
+- **ux-017**: add 3rd-level permission — Allow always (this project) ([#545](https://github.com/woojubb/robota/pull/545))
+- **ux-016**: show compact summary report with message count and context diff ([#544](https://github.com/woojubb/robota/pull/544))
+- **ux-015**: add context warning banner at 70% and 90% thresholds ([#543](https://github.com/woojubb/robota/pull/543))
+- **pm-001**: add onboarding branch at first run — API key or free/local path ([#541](https://github.com/woojubb/robota/pull/541))
+- **ux-012**: add category badges and improved descriptions to provider selection ([#540](https://github.com/woojubb/robota/pull/540))
+- **ux-011**: humanize API error messages with resolution hints ([#539](https://github.com/woojubb/robota/pull/539))
+- **backlog**: add 35 product-review backlog items — UX, CLI, PM, MKT
+- **tool-002**: remove assignTask — clean up agent-team, core proxy, arch docs ([#531](https://github.com/woojubb/robota/pull/531))
+- **core-001**: add maxSameToolInputs — abort on repeated identical tool calls
+- **plg-f**: playground framework — interactive sessions, parallel DAG, WebFetch error fix ([#523](https://github.com/woojubb/robota/pull/523))
+- PLG-008~018 — Visual Agent Builder Playground complete + PROD-001 BYOK ([#509](https://github.com/woojubb/robota/pull/509))
+- **plg-014**: skills support — Skills panel + SkillNode + code export integration ([#521](https://github.com/woojubb/robota/pull/521))
+- **plg-013**: code export UI — syntax-highlighted TypeScript panel with copy and install guide ([#520](https://github.com/woojubb/robota/pull/520))
+- **plg-012**: code generator engine — canvas state → TypeScript code ([#519](https://github.com/woojubb/robota/pull/519))
+- **plg-011**: integrate execution event nodes into assembly canvas ([#518](https://github.com/woojubb/robota/pull/518))
+- **plg-010**: Assembly Canvas with AgentNode + ToolNode + edge connection ([#517](https://github.com/woojubb/robota/pull/517))
+- **plg-009**: SSE-based playground executor with BYOK and tool-calling ([#516](https://github.com/woojubb/robota/pull/516))
+- **plg-015**: playground execution SSE API ([#515](https://github.com/woojubb/robota/pull/515))
+- **plg-017**: tool registry API — GET /api/playground/catalog/tools
+- **plg-016**: provider & model catalog API — GET /api/playground/catalog/providers
+- **plg-018**: playground router module + BYOK key sanitizer middleware
+- **playground**: drag-and-drop tool injection into agent + PLG-008 backlog
+- **prod-001**: BYOK playground + backlog completion ([#508](https://github.com/woojubb/robota/pull/508))
+- **design**: WEB-003 brand unification + WEB-004 Mermaid + Playground connection UI
+- **content+community**: WEB-001/002 landing + onboarding + MKT-001/002 community + SEO
+- **harness**: add CLI smoke check to pre-push hook
+- **CMD-003**: TUI command interaction — picker/confirm on missing args ([#475](https://github.com/woojubb/robota/pull/475))
+- **cmd-001**: add requiresPermission to ISystemCommand + resolveRequiresPermission helper
+- **cmd-002**: add displayName to ICommand/ISystemCommand for user-friendly labels
+- **ARCH-BL-002**: consolidate 5 agent-transport-* packages into agent-transport ([#471](https://github.com/woojubb/robota/pull/471))
+- **ARCH-BL-003**: consolidate 20 agent-command-* packages into agent-command ([#470](https://github.com/woojubb/robota/pull/470))
+- **ARCH-BL-004**: consolidate agent-plugin-* packages into @robota-sdk/agent-plugin ([#469](https://github.com/woojubb/robota/pull/469))
+- **ARCH-BL-001**: consolidate agent-provider-* packages into @robota-sdk/agent-provider ([#468](https://github.com/woojubb/robota/pull/468))
+- **INFRA-BL-009**: migrate agent-playground and agent-web-ui from tsup to tsdown
+- **INFRA-BL-009**: migrate agent-provider-openai from tsup to tsdown
+- **INFRA-BL-009**: migrate agent-cli from tsup to tsdown
+- **INFRA-BL-009**: migrate 11 browser dual packages from tsup to tsdown
+- **INFRA-BL-009**: migrate 38 Type A node-only packages from tsup to tsdown
+- **INFRA-BL-009-F**: write tsup→tsdown migration design document
+- **INFRA-BL-009-D**: tsdown 0.22.0 PoC on agent-plugin-limits
+- **INFRA-BL-009-C**: strengthen build output contract harness with file existence and DTS checks
+- **prov-001**: provider model catalog refresh + cache TTL policy
+- **multi-001**: TUI agent multiplexer — /agent switcher + input routing ([#400](https://github.com/woojubb/robota/pull/400))
+- **cli-layer-violation**: remediate agent-cli layer violations (ARCH-FIX-020~023 + BGTASK-001) ([#398](https://github.com/woojubb/robota/pull/398))
+- **ctx-001**: hash-based staleness detection for context files ([#399](https://github.com/woojubb/robota/pull/399))
+- **cli2-014**: show provider display name + model ID in status bar ([#392](https://github.com/woojubb/robota/pull/392))
+- **cli2-001**: add --help / -h flag to robota CLI ([#379](https://github.com/woojubb/robota/pull/379))
+- **plg-007**: complete done gate — redesign scenarios to agent-executable, record evidence
+- **plg-007**: extract agent-transport-tui — TUI as IConfigurableTransport
+- **plg-006**: transport config interface + settings-driven WS transport
+- **plg-005**: agent activity panel — WS relay + split layout
+- **plg-004**: separate WS/HTTP servers, inject ws-url via meta tag
+- **web-sidecar**: dynamic port allocation — auto-increment on EADDRINUSE
+- **plg-003**: bundle React SPA into agent-cli for robota --web
+- **monitor**: CLI second-screen browser monitor (PLG-002) ([#365](https://github.com/woojubb/robota/pull/365))
+- **playground**: restore React Flow workflow visualization with 3-column layout
+- **hooks**: change PreToolUse block format to CC-compatible signal (HOOK-003) ([#346](https://github.com/woojubb/robota/pull/346))
+- **hooks**: parse stdout JSON responses per Claude Code spec (HOOK-006) ([#345](https://github.com/woojubb/robota/pull/345))
+- **hooks**: thread transcript_path through all hook events (HOOK-005) ([#344](https://github.com/woojubb/robota/pull/344))
+- **hooks**: add permission_mode to all hook inputs + fix command timeout (HOOK-004, HOOK-007) ([#343](https://github.com/woojubb/robota/pull/343))
+- **user-local**: add transparent user-local inspection
+- **cli**: add execution workspace switcher
+- **sdk**: add execution workspace background projection ([#310](https://github.com/woojubb/robota/pull/310))
+- **provider**: add setup help links
+- **provider**: add deepseek provider ([#300](https://github.com/woojubb/robota/pull/300))
+- support anthropic auth token credentials
+- **agent-sdk**: project model commands as provider tools ([#295](https://github.com/woojubb/robota/pull/295))
+- **agent-cli**: add provider profile management flow
+- **agent-cli**: make permissions own mode changes
+- **agent-cli**: add diff row background rendering
+- **agent-sdk**: add auditable skill activation ([#285](https://github.com/woojubb/robota/pull/285))
+- **agent-cli**: add provider profile switching ([#282](https://github.com/woojubb/robota/pull/282))
+- **dag-designer**: add chat draft builder ([#278](https://github.com/woojubb/robota/pull/278))
+- **dag**: expose cost meta cli and mcp tools ([#247](https://github.com/woojubb/robota/pull/247))
+- **dag**: expose asset cli and mcp tools ([#246](https://github.com/woojubb/robota/pull/246))
+- **dag**: expose published workflow run tools ([#245](https://github.com/woojubb/robota/pull/245))
+- **dag**: expose run draft cli and mcp tools ([#244](https://github.com/woojubb/robota/pull/244))
+- **dag**: normalize cost meta contracts ([#242](https://github.com/woojubb/robota/pull/242))
+- **dag**: add asset operational contracts ([#241](https://github.com/woojubb/robota/pull/241))
+- **dag**: add published workflow operational contracts ([#240](https://github.com/woojubb/robota/pull/240))
+- **dag**: add run draft operational contracts
+- **dag**: add orchestration mcp server
+- **dag**: add orchestration cli
+- **dag**: add orchestrator run drafts
+- **dag**: source node catalog from object info ([#230](https://github.com/woojubb/robota/pull/230))
+- **sdk**: hydrate sandbox snapshots on resume ([#228](https://github.com/woojubb/robota/pull/228))
+- **sdk**: add workspace manifest sandbox setup ([#227](https://github.com/woojubb/robota/pull/227))
+- **sdk**: add sandbox execution ports ([#226](https://github.com/woojubb/robota/pull/226))
+- **sdk**: capture provider native replay payloads ([#225](https://github.com/woojubb/robota/pull/225))
+- **sdk**: add session event log replay foundation ([#224](https://github.com/woojubb/robota/pull/224))
+- **sdk**: add auth and credits contract packages
+- **dag**: add published workflow run endpoint ([#222](https://github.com/woojubb/robota/pull/222))
+- **dag**: add shared node orchestration state
+- **model**: add provider catalog refresh adapters
+- **context**: add context reference inventory ([#213](https://github.com/woojubb/robota/pull/213))
+- **sdk**: add prompt file references ([#212](https://github.com/woojubb/robota/pull/212))
+- complete selected cli backlogs
+- **harness**: add auto lessons pipeline ([#193](https://github.com/woojubb/robota/pull/193))
+- **provider**: add native web capability contracts ([#192](https://github.com/woojubb/robota/pull/192))
+- **gemini**: modernize api request handling ([#191](https://github.com/woojubb/robota/pull/191))
+- **openai**: modernize provider api surface ([#190](https://github.com/woojubb/robota/pull/190))
+- **agent-sdk**: add reversible execution inspection ([#189](https://github.com/woojubb/robota/pull/189))
+- **commands**: compose agent command by default ([#184](https://github.com/woojubb/robota/pull/184))
+- **commands**: migrate help command module ([#183](https://github.com/woojubb/robota/pull/183))
+- **commands**: migrate reload plugins command
+- **commands**: migrate plugin command module
+- **commands**: migrate exit command module
+- **commands**: migrate background command module
+- **commands**: migrate memory command module
+- **commands**: migrate rewind command module
+- **commands**: migrate reset command module
+- **commands**: migrate cost command module
+- **commands**: migrate resume command module
+- **commands**: migrate rename command module
+- **commands**: migrate clear command module
+- **commands**: migrate statusline command module
+- **commands**: migrate permissions command module
+- **commands**: migrate language command module ([#169](https://github.com/woojubb/robota/pull/169))
+- **commands**: migrate mode command module ([#168](https://github.com/woojubb/robota/pull/168))
+- **commands**: migrate model command module ([#167](https://github.com/woojubb/robota/pull/167))
+- **commands**: expose compact descriptor events ([#164](https://github.com/woojubb/robota/pull/164))
+- **commands**: add compact auto controls ([#163](https://github.com/woojubb/robota/pull/163))
+- **commands**: extract context command module ([#162](https://github.com/woojubb/robota/pull/162))
+- **commands**: extract compact command module ([#161](https://github.com/woojubb/robota/pull/161))
+- **commands**: extract provider command module ([#159](https://github.com/woojubb/robota/pull/159))
+- **sdk**: add command common API layer ([#158](https://github.com/woojubb/robota/pull/158))
+- **commands**: add builtin command layering foundation ([#157](https://github.com/woojubb/robota/pull/157))
+- **agent**: implement follow-up runtime fixes ([#156](https://github.com/woojubb/robota/pull/156))
+- **agent**: add session replay events and agent batch jobs ([#147](https://github.com/woojubb/robota/pull/147))
+- **cli**: collapse command output transcripts ([#143](https://github.com/woojubb/robota/pull/143))
+- **cli**: surface status activity in primary scan path ([#142](https://github.com/woojubb/robota/pull/142))
+- **cli**: render background work as tree rows ([#141](https://github.com/woojubb/robota/pull/141))
+- **cli**: surface provider usage summaries ([#140](https://github.com/woojubb/robota/pull/140))
+- **cli**: adopt ink 7 tui hooks ([#133](https://github.com/woojubb/robota/pull/133))
+- **sdk**: inject active task context ([#132](https://github.com/woojubb/robota/pull/132))
+- **sdk**: add self-hosting verification loop ([#131](https://github.com/woojubb/robota/pull/131))
+- **sdk**: add edit checkpointing ([#130](https://github.com/woojubb/robota/pull/130))
+- **memory**: add automatic capture and retrieval ([#129](https://github.com/woojubb/robota/pull/129))
+- **qwen**: support provider-side web tools
+- **provider**: add canonical gemini package
+- **cli**: render tool diffs through markdown
+- render markdown diff blocks
+- add prompt history navigation
+- add cli status line settings
+- add project memory command
+- modernize gemini provider transport
+- **agent-cli**: compose provider setup UI
+- **provider**: add qwen provider support
+- **cli**: add npm update check
+- **agents**: complete background orchestration flow
+- **cli**: orchestrate background agent groups
+- **provider**: project gemma tool calls
+- **runtime**: add background agent watchdog lifecycle
+- **providers**: add gemma openai-compatible transport
+- **agent**: compose agent command modules
+- **transport**: expose background task controls
+- **agent**: project subagent progress events
+- **agent**: run subagents in child processes
+- **agent**: add background task runtime
+- **agent-sdk**: route agent tool through subagent manager
+- **agent-sdk**: add subagent manager core
+- **agent-sdk**: wire subagent skill execution
+- **cli**: add provider configuration ux
+- **cli**: support openai-compatible provider profiles
+- **agent-cli**: wire --bare, --allowed-tools, --no-session-persistence, --json-schema, --append-system-prompt to print mode
+- **agent-sdk**: add bare, allowedTools, appendSystemPrompt options to InteractiveSession
+- **agent-sdk**: add allowedTools option to createSession — injects ToolName(*) allow patterns
+- **agent-cli**: add --bare, --allowed-tools, --no-session-persistence, --json-schema flags to cli-args
+- **harness**: PreToolUse hook blocking any/console/try-catch-fallback ([#92](https://github.com/woojubb/robota/pull/92))
+- **build**: fix DTS race condition with 2-pass build (INFRA-BL-008) ([#88](https://github.com/woojubb/robota/pull/88))
+- add PostToolUse hook to detect cross-package re-exports
+- **blog**: add lang prop, hreflang tags, language switcher to layouts
+- **blog**: update index pages for i18n (en + ko)
+- **blog**: add dynamic post routes for en and ko
+- **blog**: add i18n UI translations and helper functions
+- **blog**: migrate post to Content Collections (en + ko)
+- **blog**: add Content Collections schema with lang field
+- **blog**: configure Astro i18n routing (en default, ko)
+- add author link to blog posts
+- add author field to blog posts
+- add Mermaid diagram support with CSS-based theme switching
+- replace favicon.ico with Robota "R" icon
+- add Robota "R" favicon (green on dark, monospace)
+- follow system color scheme when no saved preference
+- add dark/light theme toggle
+- support optional og:image via frontmatter image field
+- add full meta tags to blog posts (og, twitter, canonical)
+- add Google Analytics to blog
+- add markdown plugins (pretty-code, autolink-headings, toc)
+- add wrangler.toml for Cloudflare Pages deploy
+- add Astro blog app with terminal-themed design
+- **harness**: add file-size scanner (300-line limit, warning mode)
+- add PostToolUse auto-format hook + clean up permissions
+- **harness**: enforce test plan in all development documents
+- **agent-cli**: debounce streaming text notify to reduce renderMarkdown frequency
+- **agent-sdk**: record individual tool-start/tool-end events in history
+- add attachTransport to InteractiveSession + CLI uses adapter pattern
+- add ITransportAdapter implementations to all 4 transport packages
+- **agent-cli**: replace inline print mode with headless transport + add CLI flags
+- **agent-transport-headless**: implement stream-json output format
+- **agent-transport-headless**: implement JSON output format
+- **agent-transport-headless**: implement text output format
+- scaffold agent-transport-headless package
+- **agent-cli**: Tab inserts slash command into input without executing
+- **agent-cli**: embed session name in input box top border
+- **agent-cli**: show session name divider above input area
+- **agent-cli**: set terminal title to session name
+- **agent-sessions**: make ISessionRecord.history required + document migration
+- **agent-cli**: add spacing between ListPicker items
+- **agent-cli**: show date+time and last response preview in session picker
+- **agent-cli**: add viewport scrolling to ListPicker (default 10 items visible)
+- add bidirectional SPEC-code verification loop to post-implementation checklist
+- **agent-cli**: integrate session picker, rename, and StatusBar name display
+- **agent-sdk**: add resume and rename system commands
+- **agent-cli**: add generic ListPicker component
+- **agent-cli**: add --fork-session, --name flags + session resolution
+- **agent-sdk**: add session restore + getName/setName to InteractiveSession
+- **agent-sdk**: wire SessionStore into InteractiveSession for auto-persist
+- **agent-sessions**: add history field to ISessionRecord
+- docs build diet — 556MB → 13MB (97% reduction)
+- add automated publish script with dist-tag sync
+- **agent-cli**: App.tsx + MessageList render IHistoryEntry[]
+- CLI uses IHistoryEntry[] for rendering state
+- **agent-sdk**: InteractiveSession uses IHistoryEntry[] internally
+- add getFullHistory/addHistoryEntry to Robota and Session
+- **agent-core**: ConversationStore backed by IHistoryEntry[]
+- **agent-core**: add IHistoryEntry — universal history entry type
+- fixed Tool → Robota display order for streaming, completion, and abort
+- add agent-transport-ws — WebSocket adapter for InteractiveSession
+- add agent-transport-mcp — MCP adapter for InteractiveSession
+- add agent-transport-http — HTTP adapter for InteractiveSession
+- **agent-sdk**: SystemCommandExecutor with built-in system commands
+- **agent-sdk**: InteractiveSession + command system migration
+- **agent-cli**: bracketed paste mode + publish beta.40
+- **agent-cli**: multiline navigation + publish beta.39
+- **agent-cli**: prompt queue during execution (CLI-BL-007)
+- **agent-cli**: Ctrl+C exits immediately with single press (CLI-BL-008)
+- **agent-cli**: show immediate 'Interrupting...' feedback on ESC press
+- **agent-cli**: merge consecutive assistant messages on abort (CLI-BL-009)
+- **agent-core**: add streamWithAbort to AbstractAIProvider, clean up workarounds
+- **agent-core**: executeRound uses appendStreaming/commitAssistant flow
+- **agent-core**: add streaming state to ConversationSession (appendStreaming, commitAssistant)
+- **agent-core**: message factories generate id and state, fix all agent-core compile errors
+- **agent-core**: add id and state to IBaseMessage, define TMessageState
+- **agent-cli**: display partial streaming text on abort with _(interrupted)_ suffix
+- **agent-sessions**: replace abort race wrapper with direct signal pass-through
+- **agent-core**: add AbortSignal to ToolExecutionService for parallel tool abort
+- **agent-core**: thread AbortSignal through execution round loop and provider calls
+- **agent-provider-anthropic**: pass AbortSignal to streaming, return partial on abort
+- **agent-core**: add AbortSignal to IRunOptions, IChatOptions, IExecutionContext
+- **agent-cli**: installed plugins in browse show manage actions instead of install
+- **agent-cli**: integrate PluginTUI into App with showPluginTUI state
+- **agent-cli**: add PluginTUI component with screen stack navigation
+- **agent-cli**: extend ISlashResult and IPluginCallbacks for TUI
+- **agent-cli**: add TextPrompt component for plugin TUI
+- **agent-cli**: add MenuSelect component for plugin TUI
+- **agent-cli**: diff context lines + full-line background colors
+- diff line numbers + background colors for Edit tool
+- **agent-cli**: paste template — show labels for multiline paste, expand on submit
+- **agent-sdk**: add subagent logger, integration tests, and SPEC docs
+- **agent-cli**: wire context:fork skills to createSubagentSession
+- **agent-sdk**: wire Agent tool into CLI session via createSession
+- **agent-sdk**: rewrite Agent tool to use createSubagentSession
+- **agent-sdk**: add createSubagentSession factory for subagent execution
+- **agent-sdk**: add subagent prompt suffix functions
+- **agent-sdk**: add AgentDefinitionLoader for custom agent discovery
+- **agent-sdk**: add IAgentDefinition types and built-in agents
+- **agent-cli**: Edit diff display + DiffBlock component + publish beta.30
+- **agent-cli**: memory optimization — alt screen, windowing, tool cleanup, memo
+- **agent-cli**: adjust tool display — 30 char tail, white labels, spec update
+- **agent-cli**: unified tool display style with error/denied states
+- **agent-cli**: plugin hint before description, middle truncation for tool args
+- **agent-cli**: run plugin hooks on skill invocation, include stdout in prompt
+- add prompt field to UserPromptSubmit hook input for Claude Code compat
+- **agent-cli**: substitute plugin path variables in skill content
+- inject hook stdout into AI context for UserPromptSubmit/SessionStart
+- provide plugin environment variables to hook child processes
+- **agent-cli**: merge plugin hooks into session lifecycle
+- load plugin commands, update display format (skills as name + hint, commands as plugin:name)
+- **agent-cli**: add marketplace remove and update commands
+- **agent-cli**: load installed plugin skills into command registry
+- **agent-sdk**: resolve marketplace name from manifest on add
+- **agent-sdk**: persist marketplace sources to ~/.robota/settings.json
+- **agent-cli**: wire plugin callbacks to real SDK instances
+- **agent-cli**: add /plugin and /reload-plugins slash commands
+- **agent-sdk**: add MarketplaceClient and BundlePluginInstaller
+- **agent-sdk**: add BundlePlugin loader for directory-based plugin discovery
+- **agent-sessions**: wire hooks into full session lifecycle
+- **agent-sdk**: add skill injection to system prompt builder
+- **agent-cli**: add skill execution with fork subagent support
+- **agent-cli**: add variable substitution and shell preprocessing for skill prompts
+- **agent-cli**: multi-path skill discovery with Claude Code frontmatter
+- **agent-sdk**: add PromptExecutor & AgentExecutor hook type executors
+- **agent-sdk**: add .claude/ settings paths and expand config types
+- **agent-core**: extract CommandExecutor & add HttpExecutor with strategy pattern
+- **agent-core**: expand hook types with discriminated union and strategy interface
+- **agent-cli**: ask language during first-run setup
+- **agent-cli**: add --language flag and /language slash command
+- add response language setting to system prompt
+- strip assistant text on tool rounds, remove /compact guidance
+- **agent-cli**: show tool arguments in real-time tool display
+- add real-time tool execution display via onToolExecution callback
+- skip tool results on context overflow (permission-deny pattern)
+- add pre-refactor-test-harness skill
+- add model definitions SSOT, /model command, ConfirmPrompt, and tests
+- context compaction improvements (Phase 1-3)
+- **docs**: hardcode Google Analytics ID (G-ZPV4BX97JF)
+- **agent-sdk**: include cwd in system prompt
+- skill content injection + auto-allow config folders
+- **agent-cli**: mask API key input with asterisks during first-run setup
+- **agent-cli**: add /reset slash command to delete settings and exit
+- **agent-cli**: first-run setup prompts for API key + --reset flag
+- **agent-sdk**: add standard projectPaths/userPaths helpers
+- **agent-cli**: add /permissions and /context slash commands
+- **agent-sessions**: add session-scoped permission remember choice
+- **agent-tools**: add WebFetch and WebSearch built-in tools
+- **agent-sessions**: add abort() for cancelling in-progress execution
+- **agent-cli**: add useCursor for IME crash prevention on Terminal.app
+- **agent-cli**: add wave color animation to waiting indicator
+- add cli:dev:bun command for Bun runtime testing
+- **agent-cli**: replace ink-text-input with CjkTextInput
+- **agent-cli**: add ASCII art banner with version on startup
+- add harness:scan:publish — enforces pnpm publish + core deps rule
+- block npm publish via prepublishOnly hook
+- **agent-sessions**: log session_init with cwd, context sizes, system prompt length
+- **agent-cli**: render markdown during streaming, not just on completion
+- **agent-cli**: render assistant markdown responses with marked-terminal
+- **agent-cli**: highlight tool usage with background color in UI
+- show web search in streaming UI and session logs
+- add web search instruction to system prompt, enrich session logs
+- **agent-sessions**: enrich session log with provider info and history structure
+- upgrade Anthropic SDK 0.24.3→0.80.0, use proper server tool types
+- implement WebSearch via Anthropic server tool, remove FunctionTool versions
+- **agent-tools**: improve tool descriptions to Claude Code level
+- **agent-cli**: show token counts in StatusBar context indicator
+- add tool output size limits — 30K char cap + Glob 1000 entry limit
+- **agent-sessions**: add conversation logging to .robota/logs/
+- add pre-publish docs check gate and create missing READMEs
+- **agent-cli**: add skill discovery for slash menu (Phase 2)
+- **agent-cli**: add slash command autocomplete with extensible registry
+- **agent-cli**: show model name in StatusBar
+- add context window management across 4 packages
+- **agent-core**: add query() API — migrate Session, tools, hooks, config from agent-cli
+- **agent-cli**: add Agent tool for sub-agent spawning
+- **agent-cli**: add hooks system (PreToolUse, PostToolUse, SessionStart, Stop)
+- **agent-cli**: add streaming text support via onTextDelta callback
+- **harness**: add eval system — metrics, scenarios, session logging
+- **agent-cli**: add Ink-based TUI with React components
+- **agent-cli**: add permission system wiring and prompt UI
+- **agent-cli**: add ASCII art banner on startup
+- **agent-cli**: add CLI entry point with --version, -p, -c, -r, --max-turns
+- **agent-cli**: add REPL session loop
+- **agent-cli**: add slash commands (/help, /clear, /mode, /resume, /cost, /exit)
+- **agent-cli**: add REPL renderer with markdown support
+- **agent-cli**: add Session class
+- **agent-cli**: add session persistence store
+- **agent-cli**: add GlobTool and GrepTool
+- **agent-cli**: add WriteTool and EditTool
+- **agent-cli**: add BashTool and ReadTool
+- **agent-cli**: add permission system with Claude Code-compatible modes
+- **agent-cli**: add system prompt builder
+- **agent-cli**: add context loader and project detector
+- **agent-cli**: add config loader with Zod validation
+- **agent-cli**: scaffold package with types
+- create apps/dag-studio, CORS default *, port 3002
+- create apps/dag-studio by extracting dag-designer from apps/web
+- **dag-designer**: pending operation tracking, disable Run during upload
+- **dag-designer**: add ComfyUI image_upload file upload widget
+- **dag-designer**: add ComfyUI field renderers with parameter/handle classification
+- **dag-designer**: add listObjectInfo() to designer API client
+- **dag-orchestrator-server**: add /v1/dag/object_info endpoint
+- **web**: show estimated credits in DAG run result
+- **web**: add cost meta edit page with formula editor and preview
+- **web**: add cost management list page in dag-designer
+- **dag-orchestrator-server**: add cost-meta CRUD and validate/preview API
+- **dag-orchestrator**: add CelCostEstimatorAdapter consuming dag-cost
+- **dag-cost**: add FileCostMetaStorage adapter
+- **dag-cost**: add ICostMeta types and ICostMetaStoragePort
+- **dag-cost**: scaffold package and add CelCostEvaluator
+- **dag-orchestrator-server**: add mapped runtime asset routes (/view, /upload/image)
+- **dag-runtime-server**: implement status, execution_cached WS event mappings
+- **dag-runtime-server**: implement POST /upload/image with multer multipart
+- **dag-runtime-server**: implement GET /view for ComfyUI image serving
+- add spec-code conformance skill, fix run-routes HTTP status mapping
+- **dag-designer**: add API contract tests, preparationId/dagRunId flow
+- **dag-orchestrator-server**: add endpoint contract tests, preparationId/dagRunId routes
+- **dag-orchestrator**: add contract tests, fix translator object config, dagRunId=promptId
+- split dag-server-core into runtime/orchestrator servers with error reporting
+- **dag-orchestrator**: add PromptOrchestratorService with cost policy
+- **dag-orchestrator**: scaffold orchestration layer with HTTP client port
+- **dag-server-core**: add prompt API Express routes
+- **dag-api**: add PromptApiController
+- **dag-core**: add IPromptBackendPort derived from OpenAPI spec
+- **dag-core**: add prompt types derived from OpenAPI spec
+- **dag-server-core**: add prompt API OpenAPI spec (SSOT)
+- **agents**: add plugin priority ordering and event tracing fields
+- **agents**: implement execution caching with cache-first strategy
+- **harness**: add cleanup drift scan command
+- **harness**: add spec quality gate rules and agents SPEC.md expansion
+- **harness**: adopt repository verification harness
+- **dag**: add seedance video template and ModelArk video output preview pipeline
+- **dag**: add media provider capabilities and list-based multi-image input flow
+- **api-server**: extract remote server core and add split DAG/Remote OpenAPI docs
+- **dag-server**: extract reusable dag-server-core package and slim api adapter
+- **dag-designer**: unify node visual state store and stream live node outputs
+- **dag**: add Gemini compose chain and refine node IO image viewer
+- **dag**: add Gemini compose flow and stabilize in-node IO UX
+- **dag**: add Gemini compose/edit flow and preserve in-node IO viewer state
+- **dag**: add Gemini image-edit template and fix local runtime settings
+- **web/dag-designer**: unify run flow and move global actions to header
+- **web/dag-designer**: split list/detail routes and hide preview-copy records
+- **dag-designer**: support deleting selected nodes with keyboard
+- **dag-designer**: use server-backed LLM preview and reorganize package docs structure
+- **dag**: add Robota-backed llm-text node runtime and JSON template presets
+- **dag-designer**: introduce hook-driven compound API and edge-to-edge floating layout
+- **dag-designer**: refine native handle UX and optional input execution semantics
+- **dag-designer**: improve native port connection UX and stabilize canvas layout
+- **dag-designer**: stabilize port connections and preserve canvas layout
+- **dag**: add local node store reload flow and catalog APIs
+- **dag**: add test nodes and definition load APIs with strict no-fallback guards
+- **dag**: introduce shared node lifecycle runtime with typed multi-port contracts
+- **workflow,agents**: stabilize scenario record/play verification and add projection cache foundation
+- **events**: finalize event log/history streaming and ownership cleanup
+- **workflow**: move scenario system to workflow and expose /scenario subpath
+- **examples/scenario**: strict record/play + tool_result steps
+- enforce ownerPath context and update tool execution service
+- **scenario**: implement scenario recording and playback functionality
+- **workflow**: enhance agent event handling and legacy fallback mechanism
+- **agents**: implement ownerPrefix pattern for tools and agents
+- **event-service**: implement prefix injection pattern to enforce event ownership
+- **playground**: add current time tool and improve UI components
+- **web**: add pricing removal plan and playground/workflow layer separation
+- **web/playground**: split Playground and Workflow layers; add PlaygroundApp and WorkflowView with page entry
+- complete assignTask tool integration and playground improvements
+- **web**: compact header layout and full-height workflow canvas; agent popup mock endpoint with 8-char token and toggle revoke; temporarily disable sidebar buttons
+- enhance node popup with markdown rendering and optimized UI layout
+- enhance agent node display with tools information in both node rendering and popup
+- complete EventService consolidation - remove ContextualEventService and standardize on ActionTrackingEventService
+- implement path-only workflow architecture with atomic node/edge creation
+- **web**: enhance React Flow layout and edge styling
+- enhance playground UI with header create buttons and improved modal interactions
+- integrate parent-prev node relationship system across workflow components
+- **workflow**: document parentId/prevId branch model and update plan; align handlers and event chain
+- simplify team configuration UI and fix full-height layout
+- enhance workflow visualization with dynamic layout and placeholder nodes
+- standardize node styles and improve playground UI
+- implement React Flow node type styles and modal system
+- enhance playground team execution with debugging and 26-example alignment
+- implement NodeEdgeManager for workflow edge creation
+- implement NodeEdgeManager for strict order enforcement
+- complete workflow structure implementation and auto-layout system
+- improve node handle positioning and layout optimization
+- reorganize design documentation and unify task checklists
+- analyze workflow connection issues and update task documentation
+- load real SDK execution result directly in Playground
+- implement perfect Agent Copy system with complete edge connections
+- fix Team workflow connections for User Input and Agent Response
+- improve chat node timing - add User Input immediately on chat start
+- complete STEP 4 - Play button node status update with separated state
+- update task document with visual-first approach
+- remove Execution Tree Debug and Block Visualization panels from playground
+- complete domain-neutral architecture - React-Flow/Mermaid separation
+- separate React-Flow functionality from agents package
+- **react-flow**: implement React-Flow integration Phase 4.8.0
+- **agents**: MASSIVE BUILD INTEGRITY SUCCESS - 75% Error Reduction
+- **agents**: Major type system overhaul - 74% error reduction
+- **agents**: Complete test file type safety compliance
+- **agents**: Apply rule-compliant type safety patterns
+- Complete React-Flow integration with comprehensive type system
+- Update type reuse architecture to feature-based approach
+- Complete Enhanced EventService hierarchy system implementation
+- Implement Enhanced EventService and resolve Tool Hook duplicate calls
+- Implement Enhanced EventService with ActionTrackingEventService
+- Implement ID-based hierarchy tracking system (Phase 1)
+- Implement detailed event system for block tree visualization
+- Complete EventService system implementation
+- Phase 6 - Remove anti-patterns and implement automatic event emission system
+- RemoteExecutor tool call compatibility fixes
+- Phase 3 - Real-Time UI Components and Visualization
+- Phase 2 - Web App Real-Time Tracking Integration
+- Phase 1 - SDK Core Enhancements for Hierarchical Execution Tracking
+- create simplified tracking implementation plan based on existing playground blocks
+- add comprehensive tool tracking examples with LLM response flow
+- **team**: Add toolHooks support for Team package and Playground integration
+- Implement hierarchical event structure for Team workflow tracking
+- Implement System Status with PlaygroundStatisticsPlugin
+- implement basic chat message block visualization
+- Update Playground roadmap with Universal Hook system
+- **playground**: Fix chat UI integration and implement proper plugin-based conversation management
+- **playground**: Complete Phase 2 & 3 - Frontend Infrastructure & Visual Configuration System
+- **playground**: Implement Rule Compliance Phase - Robota SDK Architecture Compliance
+- **playground**: Enhance roadmap with interactive chat functionality
+- **playground**: Add comprehensive implementation roadmap
+- **playground**: implement code execution system and improve UI/UX
+- integrate typecheck with lint and establish logging guidelines
+- complete remote execution system with proper build separation
+- complete Phase 9 Web Playground ↔ API Server integration
+- complete Phase 9.1-9.2 API Server and Web App environment setup
+- add remote AI provider execution with playground integration
+- implement remote system with zero-config architecture
+- setup Firebase Functions development environment
+- implement billing and subscription management system (without Stripe)
+- implement comprehensive usage tracking and analytics system
+- implement playground RemoteExecutor integration
+- implement RemoteExecutor with HTTP/WebSocket support
+- **api**: Remove OpenAI-compatible API endpoints
+- Complete environment-specific builds for all packages
+- Add environment-specific builds and conditional exports
+- update cursor rules - comprehensive rule reorganization and standardization
+- Complete model configuration refactoring
+- add model configuration refactoring project documentation
+- Add Monaco Editor syntax highlighting to main page examples
+- Update playground examples to match real Robota SDK structure
+- complete API migration with caching, retry logic and optimization
+- Add Firestore database integration
+- Complete Phase 1 features - profile, settings, Firebase integration, analytics, accessibility, i18n
+- Browser compatibility improvements
+- Add browser compatibility by removing Node.js dependencies
+- Complete Firebase authentication system implementation
+- Complete Phase 2 Week 2 - Advanced playground features
+- Complete Phase 2 Week 1 - Playground Core Features
+- Add comprehensive SaaS website design documentation
+- optimize TypeScript bundle size and publish packages v2.0.5
+- **typescript**: implement strict TypeScript compliance - remove all any/unknown types
+- resolve circular dependencies and achieve strict TypeScript compliance
+- implement strict TypeScript type safety policy
+- Complete Phase 2.2 - Plugin Classification and Module Event Subscription
+- Implement Plugin-Module-Separation architecture
+- Complete Robota constructor API refactoring
+- Add universal dependency separation rules and update Plugin-Module architecture
+- restructure plugin-module separation design docs
+- **examples**: complete examples validation and fix auto-exit issues
+- Update API documentation and cleanup deprecated files
+- Complete type safety improvements across all packages
+- Complete Zero Any/Unknown Policy for Team Package
+- Complete Phase 14.3 - Google Provider type safety enhancement
+- Complete Phase 14.2 - Anthropic Provider type safety enhancement
+- Complete Phase 14.1 - OpenAI Provider type safety enhancement
+- Complete Phase 13 - Generic Type Pattern Compliance
+- Complete Phase 10 - Type parameters system and documentation distribution
+- **agents**: Complete any/unknown type elimination and type system improvements
+- **agents**: Major TypeScript type system improvements - 59% any/unknown reduction
+- Remove UniversalAssistantMessage usage from AI providers
+- Complete Team Collaboration getStats implementation
+- Complete ConversationHistory integration and Core/Tools deprecation
+- Complete AI Provider Architecture Separation and cleanup design doc
+- Complete AI Provider Architecture Separation refactoring
+- add streaming support with modular architecture
+- enforce strict no-console rule with logger mandatory usage
+- enforce strict TypeScript and console usage warnings
+- exclude core/tools from build, dynamic package discovery
+- add AI provider architecture and plugin rules to Cursor
+- add path alias for TSDoc and update @see tags
+- migrate sessions to agents standard and update docs
+- implement stateless services and plugin lifecycle management
+- migrate provider packages to agents standard
+- add parallel tool calls and general template as default
+- implement performance optimization system with i18n
+- add performance optimization system with caching, lazy loading, and monitoring
+- major code quality improvements and architectural refactoring
+- restructure examples documentation - split monolithic README into topic-specific guides
+
+### 🐛 Fixes
+
+- **ci**: share a concurrency group across the two v* release workflows ([#1163](https://github.com/woojubb/robota/pull/1163))
+- **remote**: wire pairing lifecycle to the controller (REMOTE-008 review)
+- **remote**: fail-close on throwing surface handler + update off-count (REMOTE-007)
+- **agent-framework**: session `goal` survives persistence round-trip (DATA-006, ARL-08)
+- **agent-transport-tui**: stabilize input bottom border during active output (SCREEN-003)
+- **agent-transport-tui**: await PTY child exit before rmSync teardown (INFRA-026)
+- **transport,foundation**: resolve low architecture remediations ARL-04/05/06/07
+- **dag-node-tool**: repoint FunctionTool type off removed agent-tools export (DATA-005 follow-up)
+- **publish**: version-scoped detection + single-OTP publish flow (INFRA-029) ([#1012](https://github.com/woojubb/robota/pull/1012))
+- **workflows**: TC-05 must not run real key-using code in the unit suite ([#999](https://github.com/woojubb/robota/pull/999))
+- **workflows**: authored prompt nodes inherit the active provider ([#995](https://github.com/woojubb/robota/pull/995))
+- **workflows**: thread model + strip code fences in /workflows create (live-LLM fixes) ([#993](https://github.com/woojubb/robota/pull/993))
+- **dag**: composite instant nodes survive save → reload (BEHAVIOR-006, WORKFLOW-005 P2) ([#972](https://github.com/woojubb/robota/pull/972))
+- expose token usage on the streaming execution path (BEHAVIOR-005) ([#969](https://github.com/woojubb/robota/pull/969))
+- **harness**: dist-freshness scan skips private packages (not published → not a release gate)
+- **cli-077**: decouple agent-cli from the unpublished workflow/DAG chain; privatize DAG subsystem
+- **harness**: HARNESS-022 — scan blind spots closed; residual re-exports removed
+- **infra**: INFRA-024 — dep-kind conformance scan; runtime imports moved out of devDeps
+- **harness**: LESSON-010 — lessons metrics detector quality (4/5 signals were noise)
+- **cli,tui,framework**: surface turn errors clearly and keep the TUI alive (ERR-001)
+- **agent-core**: thread maxTokens/temperature to providers on both run paths (CORE-016)
+- **harness**: repair conformance test fixture drift + run harness suite in CI (HARNESS-021)
+- **analytics**: forward child-process subagent token usage over IPC (ANALYTICS-001 P2)
+- **agent-playground**: restore real agent-core exports in playground-context mock
+- **tui**: stop infinite render loop when drilling into a background task (SCREEN-014)
+- **tui**: background work ordering/layout + humanize command tool names (SCREEN-010..013)
+- **harness**: cover nested package groups in the five one-level package scans (INFRA-021)
+- **harness**: exclude non-repo paths from lesson metrics + stop home-path leak
+- **ci**: include nested packages/dag-nodes/*/dist in the build artifact
+- **build**: build types for nested packages/dag-nodes/* members
+- **hooks**: use literal 하지 마|하지마 in lesson nudge (portability, /code-review)
+- **agent-core,agent-framework**: resolve CORE-008/009 + TEST-006 review follow-ups
+- **agent-playground**: single-source the system prompt at top-level (complete SSOT)
+- **agent-core**: single-source the system prompt + finish TEST-004 functional retrofits
+- **testing**: make cassettes portable — exclude system messages from the hash
+- **goal**: satisfy IInteractiveSession goal methods in test stubs (GOAL-001)
+- **examples**: EXAMPLES-002 — rewrite express example against current SDK API
+- **www**: WEB-018 — hide empty showcase Community Projects placeholder
+- **a11y**: WEB-017 — global keyboard focus-visible ring on www
+- **docs**: DOCS-003 — InternalLink wrapper + sidebar tap targets
+- **blog**: BRAND-003 — define missing --green var, rebrand to emerald, toggle a11y
+- **a11y**: A11Y-001 — accessible names/state on docs interactive components
+- **plugin**: PLUGIN-001 — implement nonfunctional File/Remote *Storage stubs (silent data loss)
+- **contract**: EVENT-001 — add turn_source to IInteractiveSessionEvents (was emitted, untyped)
+- **web-ui**: WEBUI-002 — render error state, guard JSON.parse, null-safe user_message
+- **ws**: WS-001 — surface promise rejections in WS message handler
+- **tui**: shared interactive-terminal detection (SCREEN-008)
+- **tui**: resolve status-glyph consistency regressions (SCREEN-007)
+- **docs**: generate pagefind search index on build (DOCS-002)
+- **docs**: landing semantics + prefetch 404s (DOCS-002)
+- **www**: static-export prefetch 404s + 44px touch targets (WEB-014)
+- **web**: purge BRAND-001 purple stragglers; verify DOCS-001 mobile nav
+- **tui**: non-TTY-safe WaveText motion + shared ANSI palette (SCREEN-006)
+- **tui**: unified status glyphs + visible command success (SCREEN-005)
+- **tui**: consistent selection affordance (SCREEN-004 core)
+- **license**: rename LICENSE-COMMERCIAL.md → COMMERCIAL.md for clean detection
+- **license**: use exact canonical AGPL-3.0 text so GitHub detects it
+- **license**: make LICENSE detectable as AGPL-3.0 on GitHub
+- **naming**: NAMING-001 sub-agent -> subagent in source comments/prompts
+- **harness**: LESSON-009 validate skill registration against skills/index.md (SSOT)
+- **git**: LESSON-008 precise --delete-branch guard (no comment/segment false positives)
+- **rules**: resolve contradictions and stale references across rule docs
+- **preset**: make live model/preset switching work on a cold session
+- **agent-core**: conversation history is append-only — remove 100-message cap (HIST-001)
+- **agent-session**: context tracker uses accurate provider-based estimate (CTX-001)
+- **session**: emit context-window updates per round during a turn (BEHAVIOR-002) ([#722](https://github.com/woojubb/robota/pull/722))
+- **tui**: use parenthetical count for status-bar activity (SCREEN-004) ([#721](https://github.com/woojubb/robota/pull/721))
+- **cli**: make 'session analyze' actually work (OBS-001) ([#718](https://github.com/woojubb/robota/pull/718))
+- **harness**: revive CLI import-layering rule as agent-executor (HARNESS-011) ([#714](https://github.com/woojubb/robota/pull/714))
+- **framework**: --fork-session restores conversation context (CLI-073) ([#713](https://github.com/woojubb/robota/pull/713))
+- **framework**: system prompt names the active permission mode, not a trust label (CLI-072) ([#712](https://github.com/woojubb/robota/pull/712))
+- **cli**: document --reset in help and guard it with a confirmation matrix (CLI-070) ([#711](https://github.com/woojubb/robota/pull/711))
+- **framework**: configure-provider failures name the actual cause (CLI-068) ([#710](https://github.com/woojubb/robota/pull/710))
+- **framework**: corrupt settings.json fails fast with typed SettingsParseError (CLI-069) ([#709](https://github.com/woojubb/robota/pull/709))
+- **cli**: diagnose mirrors runtime provider resolution + exit contract (CLI-067) ([#708](https://github.com/woojubb/robota/pull/708))
+- **cli**: init --yes completes non-interactively with documented defaults (CLI-065) ([#699](https://github.com/woojubb/robota/pull/699))
+- **core,transport,cli**: provider failures must not exit 0 — exit-code contract (CLI-064) ([#698](https://github.com/woojubb/robota/pull/698))
+- **cli**: print mode session resume — wire -c/-r/--fork-session (CLI-063) ([#697](https://github.com/woojubb/robota/pull/697))
+- **harness**: lockfile gate must not rewrite pnpm-lock.yaml on success ([#695](https://github.com/woojubb/robota/pull/695))
+- **tui**: remove IME blank line below input area ([#681](https://github.com/woojubb/robota/pull/681))
+- **tui**: remove ┌ ┐ corner chars from input top border line ([#679](https://github.com/woojubb/robota/pull/679))
+- remove private:true from packages depended on by public packages ([#675](https://github.com/woojubb/robota/pull/675))
+- **tui**: revert IME blank line to normal flow for remount stability ([#671](https://github.com/woojubb/robota/pull/671))
+- **agent-framework**: emit context_update after session restore (RESUME-001)
+- **context**: abolish usedTokens pre-storage, unify token estimation to single SSOT
+- **agent-command**: fix /context list SSOT mismatch — tool token deduplication bug
+- **agent-transport**: create new channel per session on /resume session switch
+- **agent-framework**: sync context from history after session restore (RESUME-001)
+- **agent-framework**: restore tool_use+tool_result pairs correctly on session resume ([#656](https://github.com/woojubb/robota/pull/656))
+- **cli**: CLI-B03/B04/B06/B07/B10 — context list, logo resize, UX fixes ([#652](https://github.com/woojubb/robota/pull/652))
+- **agent-transport**: fix TUI display contract gaps — CLI-B05, B08, B09 ([#651](https://github.com/woojubb/robota/pull/651))
+- **agent-transport**: wire TuiInteractionChannel lifecycle — CLI-B02 ([#650](https://github.com/woojubb/robota/pull/650))
+- **tool-002**: remove last assignTask reference ([#635](https://github.com/woojubb/robota/pull/635))
+- permission gate enforcement and spec-first workflow gate
+- /context list shows system context files, no duplicates after prompt ([#626](https://github.com/woojubb/robota/pull/626))
+- **tui**: wrap Korean IME blank line in position=absolute to reduce cursor offset by 1 row
+- **agent-framework**: wire requiresPermission through permission gate; add spec-first gate ([#604](https://github.com/woojubb/robota/pull/604))
+- **tui**: remove ? keyboard shortcut overlay (UX-020)
+- **cli**: implement CLI-036~039/045, PM-032/035~037 — robustness and UX improvements
+- **cli**: code quality quick-fixes — listeners cleanup, api-key warning, remove dead tsup config ([#576](https://github.com/woojubb/robota/pull/576))
+- **agent-framework**: preserve tool messages on session restore instead of silent skip ([#570](https://github.com/woojubb/robota/pull/570))
+- **agent-session**: guard SessionStore.load() against corrupt JSON ([#568](https://github.com/woojubb/robota/pull/568))
+- **docs**: fix broken .md links from VitePress migration
+- **docs**: add remarkMermaid plugin — render mermaid code blocks as diagrams
+- **www**: remove unsupported routes key from wrangler.toml, drop unused Link import
+- **site-005**: correct wrangler.toml for Next.js output dir and remove unsupported routes key
+- **agent-cli**: update provider-startup tests for onboarding prompt step
+- **agent-playground**: prevent stale DAG events after clearChat ([#534](https://github.com/woojubb/robota/pull/534))
+- **dag**: position agent_spawned between agent_command and tool_result ([#530](https://github.com/woojubb/robota/pull/530))
+- **session+playground**: session log correlation keys + clearChat full reset
+- **playground**: preserve __robota_dag.renderMock across agentConfig re-renders
+- **playground**: fix duplicate edge in parallel agent DAG fork-join convergence
+- **playground**: remove stale conversationHistory reference from clearHistory
+- **playground**: fix DragLeave type error — HTMLElement cast instead of DOM Node
+- **playground**: fix layout breaks and dark-theme modal
+- **deploy**: default branch to main for production Pages deployment
+- rename apps/agent-web to robota-web, update docs deploy to robota-docs
+- **harness**: update stale patterns + add agent-subagent-runner docs index
+- **harness**: update CLI dev source package list + add CLI smoke check to pre-push
+- add agent-interface-tui and agent-subagent-runner to changeset fixed group
+- add publishConfig access public to agent-provider
+- **agent-cli**: update import from agent-sdk → agent-framework
+- **agent-framework**: stabilize flaky queued-prompt test by awaiting second run start
+- **sdk-005**: remove chalk from agent-sdk
+- **arch-fix-027**: ITransportAdapter from agent-interface-transport in http/mcp transports
+- **sdk-004**: widen ICommandResult.data to Record<string,unknown> to fix pre-existing type errors
+- **arch-fix-026**: source ITerminalOutput/ISpinner from agent-core, not agent-sessions
+- **sdk-004**: replace bare object with Record<string,unknown> in TCommandResultDataValue
+- **backlog**: correct ARCH-FIX-022 destination — checkSettingsDocument → agent-sdk not agent-core
+- **tui**: replace regex double-space literal with {2} quantifier (no-regex-spaces)
+- **cli2-014**: show model ID in status bar instead of human-readable name ([#391](https://github.com/woojubb/robota/pull/391))
+- **prov-002**: use provider type as profile name base, not model ID ([#390](https://github.com/woojubb/robota/pull/390))
+- **doc2-003**: add feature_request template and enhance bug_report ([#381](https://github.com/woojubb/robota/pull/381))
+- **doc2-001**: unify Node.js version requirement to 22+ across all docs ([#380](https://github.com/woojubb/robota/pull/380))
+- **dev-002,003,004**: archive already-done items; fix trust proxy ValidationError ([#376](https://github.com/woojubb/robota/pull/376))
+- **dev-005,dev-007**: validate RATE_LIMIT_MAX; archive DEV-007 (substr already fixed) ([#375](https://github.com/woojubb/robota/pull/375))
+- **dep-002**: update .env.example — GOOGLE_API_KEY → GEMINI_API_KEY ([#374](https://github.com/woojubb/robota/pull/374))
+- **dep-001**: remove unused agent-server deps — express-winston, winston, bytedance ([#373](https://github.com/woojubb/robota/pull/373))
+- **cli2-006**: add parseOutputFormat() validation; remove as cast for --output-format ([#371](https://github.com/woojubb/robota/pull/371))
+- **arch-021**: add settings to command module list; fix capability-placement harness gaps ([#370](https://github.com/woojubb/robota/pull/370))
+- **arch-006**: remove resolveLegacyProvider() and legacy flat provider fallback
+- **arch-020**: move ISession from agent-sessions to agent-core
+- **tui**: align slash autocomplete name/description columns (CLI2-013)
+- **tui**: derive row width from terminal columns via useStdout (CLI2-012)
+- **tui**: replace manual truncation with Ink wrap="truncate-end" (CLI2-012)
+- **tui**: truncate slash autocomplete rows by total row width (CLI2-011)
+- **tui**: truncate slash autocomplete descriptions to 60 chars
+- **agent-web**: correct SessionMonitor prop name wsUrl in MonitorClient
+- **web**: pin react-dom to 19.2.4 to match react version
+- **plg-004**: prevent blank page on initial load
+- **agent-web**: use window.location.host for default WS URL
+- **web-sidecar**: resolve WEB_DIST via package root, not relative to __dirname
+- **web-sidecar**: create WSS after bind to prevent unhandled error crash
+- **hooks**: allow main merge/push with BRANCH_GUARD_ALLOW_MAIN_MERGE env var
+- **harness**: skip self-ref in dep-direction check; allow merge commits in branch-guard
+- **dev-quality**: CLI2-008/DEV-006/DEV-007/DOC2-001/DOC2-003 — mode command, findLastIndex, Node 22 consistency
+- **cli**: DEV-001/009, CLI2-002/003/004/005 — dead code removal and TUI flag wiring
+- **server**: address DEV-002/004/005/008, SRV2-001, DEP-001/002 in agent-server
+- **remote-client**: update tests to match flat TUniversalMessage server response format
+- **remote-client**: parse flat TUniversalMessage response from chat endpoint
+- **playground**: restore dark studio theme, wire ChatInterface, add crypto browser shim
+- **playground**: fix WebSocket, browser bundle, and Tailwind styles ([#363](https://github.com/woojubb/robota/pull/363))
+- **cli**: use CJS wrapper as bin entry so version check runs before ESM loads
+- **cli**: add startup checks and UX improvements for pre-launch
+- **server**: add JWT auth, graceful shutdown, and cleanup fixes
+- **sdk**: remove abort test race ([#306](https://github.com/woojubb/robota/pull/306))
+- **dag**: stabilize node18 route tests ([#305](https://github.com/woojubb/robota/pull/305))
+- **harness**: keep pre-push fast by default
+- **agent-cli**: improve diff foreground contrast ([#298](https://github.com/woojubb/robota/pull/298))
+- **agent-cli**: remove message count from status bar
+- unify skill command routing
+- **agent-sdk**: enforce skill activation contract ([#286](https://github.com/woojubb/robota/pull/286))
+- **agent-cli**: clean up status bar indicators ([#283](https://github.com/woojubb/robota/pull/283))
+- **agents**: add api spec skill frontmatter
+- **dag**: wake idle workers on queued tasks ([#229](https://github.com/woojubb/robota/pull/229))
+- **dag**: sync uploaded assets to runtime
+- **dag-designer**: clarify comfyui enum parsing
+- **dag**: keep runtime ports out of definitions
+- **cli**: remove activity prefix from status bar
+- **cli**: isolate command effect state ([#208](https://github.com/woojubb/robota/pull/208))
+- move CLI session store behind SDK facade
+- align context capacity guard
+- restore cli thinking and agent batch provenance ([#198](https://github.com/woojubb/robota/pull/198))
+- **cli**: validate merged active provider config ([#195](https://github.com/woojubb/robota/pull/195))
+- **worktree**: harden agent worktree isolation ([#188](https://github.com/woojubb/robota/pull/188))
+- **cli**: apply model changes to active provider
+- **cli**: show compact command execution state ([#160](https://github.com/woojubb/robota/pull/160))
+- **deploy**: reuse root package build ([#151](https://github.com/woojubb/robota/pull/151))
+- **ci**: use root monorepo build ([#150](https://github.com/woojubb/robota/pull/150))
+- **agent-tools**: preserve atomic write permissions ([#149](https://github.com/woojubb/robota/pull/149))
+- **cli**: address cli pr followups
+- **harness**: build before release dist scan ([#145](https://github.com/woojubb/robota/pull/145))
+- **cli**: render edit diffs as context hunks ([#139](https://github.com/woojubb/robota/pull/139))
+- **cli**: render edit diffs from tool summaries ([#136](https://github.com/woojubb/robota/pull/136))
+- **sdk**: remove automatic memory public surface ([#135](https://github.com/woojubb/robota/pull/135))
+- **sdk**: route memory through command descriptor ([#134](https://github.com/woojubb/robota/pull/134))
+- **agent-cli**: skip update checks in headless mode
+- **harness**: build deps for scoped verification
+- **cli**: remove background unread marker
+- **agents**: relax background task watchdogs
+- **agent**: clarify immediate subagent invocation
+- **agent**: harden subagent orchestration
+- **agent-sdk**: align agent runtime hints with real execution
+- **agent-tool**: wait for terminal subagent results
+- **agent-command**: wait for parallel group summaries by default
+- **cli**: normalize background previews
+- **provider-openai-compatible**: narrow parser test messages
+- **agent-command**: keep js build dts-free
+- **agent**: persist subagent diagnostics and prompts
+- **agent**: standardize subagent tool invocation
+- **agent**: persist project session context
+- **agent**: avoid unknown error annotation
+- **agent**: simplify command invocation
+- **agent-cli**: hide completed background tasks
+- **agent-sessions**: isolate provider text callbacks
+- **agent-core**: enforce tool batch concurrency
+- pre-push lockfile check + explicit frozen-lockfile in CI ([#91](https://github.com/woojubb/robota/pull/91))
+- resolve all ESLint errors and pnpm monorepo CI reliability ([#90](https://github.com/woojubb/robota/pull/90))
+- resolve all typecheck errors across packages ([#89](https://github.com/woojubb/robota/pull/89))
+- **blog**: add _redirects to redirect /blog/* to /ko/*
+- **playground**: move WebSocket types from agent-remote-client to agent-playground
+- **blog**: improve header switchers and redirect URL
+- swap theme toggle icons and add button margin
+- update lockfile for unist-util-visit dependency
+- override rehype-pretty-code inline styles for theme toggle
+- restore woojubb GitHub link in blog footer
+- address PR #69 code review findings (6 issues)
+- **agent-cli**: cursor moves to end of pasted label instead of end of input
+- **agent-cli**: paste multiline text at cursor position instead of end
+- address external review — migration safety, cross-package tests, Claude Code disclaimer
+- reinsert repository/homepage/bugs in correct field order (after exports, before files)
+- add repository, homepage, bugs to all publishable package.json
+- **agent-cli**: hide tool-start/tool-end entries from MessageList rendering
+- **agent-cli**: tool end updates only first matching entry, not all with same name
+- **docs**: update query() → createQuery({ provider }) in all content/ files
+- add docs deploy gate — verify README + content/ sync before deploying
+- **docs**: clarify system-prompt flags as parsed-but-not-connected + enforce auto SPEC-Code verification
+- **agent-cli**: move cursor to end when value is set externally (tab completion)
+- **agent-cli**: resolve enterSelectCommand reference before initialization
+- **agent-cli**: right-align session name title in input border
+- **agent-cli**: change session name title font color to black
+- **agent-sdk**: remove legacy history fallback, add migration script instead
+- **agent-sdk**: rebuild history from messages for legacy sessions without history field
+- **agent-cli**: sync restored history to TuiStateManager on session resume
+- **agent-cli**: session picker loads session in-place via React key remount
+- **agent-cli**: filter session picker by current working directory
+- **agent-cli**: normalize session preview to single line (strip newlines)
+- register /resume and /rename in slash command registry and executor
+- **docs**: add resume and rename to built-in commands list in SDK SPEC
+- **docs**: correct injectMessage signature and remove fork terminology from Session SPEC
+- **agent-cli**: define --continue and --resume long-form CLI flags
+- **docs**: correct SPEC.md inaccuracies for session continue/resume
+- resolve session restore timing, history persist, and fork-session bugs
+- **agent-sessions**: expose injectMessage on Session for context restoration
+- rewrite publish script — pnpm publish -r (~4s) instead of per-package --filter (minutes)
+- flatten package docs URLs — /packages/<name>/ instead of /packages/<name>/docs/
+- deploy-gh-pages fetch remote before push to avoid rejection
+- remove meaningless 'tool-summary' string assertion from tests
+- **agent-cli**: render tool-summary event with Tool: label and formatted list
+- **agent-cli**: show You: and System: immediately during streaming
+- **agent-cli**: preserve tool list after abort, only clear streaming text
+- resolve degraded issues + stale SPEC documentation (15 items)
+- **agent-cli**: clear streaming display on abort (not history)
+- restore print mode, remove sessions import, SDK-owned permission type
+- **agent-sdk**: restore plugin hooks merging in InteractiveSession
+- **agent-cli**: restore plugin loading, model name display, PluginCommandSource export
+- **agent-cli**: register command sources for slash autocomplete
+- **agent-cli**: handle async InteractiveSession initialization
+- update SPEC endpoints table — /status → /executing + /pending
+- **agent-cli**: keep tool list visible after execution/abort ends
+- restore hook rawInput, tool list persistence, qualified name resolution
+- **agent-sdk**: remove raw tool JSON from messages, fix skill prompt display
+- **agent-cli**: restore skill invocation message and queue sync
+- **agent-core**: pass onTextDelta via chatOptions instead of monkey-patching provider
+- resolve 4 code review issues from PR #67
+- **agent-cli**: add ESC hint to waiting message, remove empty Thinking indicator
+- detect abort errors by message pattern, not just error name
+- user-facing abort messages — no internal terminology
+- **agent-core**: replace setImmediate with setTimeout(0) in streamWithAbort
+- **agent-core**: streamWithAbort yields on EVERY event, not every 3
+- debounce streaming renders to unblock event loop for ESC abort
+- **agent-provider-anthropic**: yield BEFORE onTextDelta to avoid Ink render blocking
+- **agent-provider-anthropic**: return partial response on break-abort path + 5 abort tests
+- **agent-provider-anthropic**: yield on every text_delta with setTimeout(0)
+- add macrotask yields after streaming end and before tool execution
+- **agent-provider-anthropic**: yield to macrotask queue during streaming for ESC responsiveness
+- **agent-provider-anthropic**: check signal.aborted on every streaming event
+- **agent-cli**: display ALL assistant messages from execution on abort
+- **agent-cli**: find last assistant message on abort regardless of state
+- **agent-core**: never strip text from assistant messages — history records everything
+- preserve interrupted text when tool calls present, search backward for interrupted message
+- **agent-core**: add beginAssistant, remove fallback, enforce append-only history
+- **agent-cli**: restore getStreamingText for reliable abort text capture
+- **agent-core**: robota.getHistory() maps id and state while preserving existing behavior
+- **agent-core**: robota.getHistory() returns messages directly without stripping id/state
+- **agent-cli**: show interrupted assistant text from history on abort
+- **agent-core**: update type guard imports in factory test after SSOT move
+- add id/state to all downstream message literals, update getMessagesForAPI for interrupted annotation
+- **agent-core**: correct abort SPEC, add interrupted metadata, preserve history in catch
+- **agent-cli**: extract tool summaries from history on abort, add 5 tests
+- **agent-cli**: preserve tool execution list on abort (clearStreamingText keepTools)
+- **agent-cli**: add key to all MenuSelect instances for proper remount
+- **agent-cli**: include marketplace in pluginId when installing from browse
+- **agent-cli**: listInstalled returns name@marketplace format for full plugin ID
+- **agent-cli**: add key={screen} to MenuSelect to force remount on navigation
+- **agent-cli**: use getEnabledPlugins() instead of non-existent read()
+- **agent-cli**: remove separate loading Box, use MenuSelect loading prop
+- **agent-cli**: /plugin opens TUI directly, remove subcommand autocomplete
+- **agent-cli**: add validate prop to marketplace-add TextPrompt
+- **agent-cli**: remove useStdout hack from TextPrompt, use async test
+- **agent-cli**: dark background colors for diff, always resolve context lines
+- **docs**: update npm link from @robota-sdk/agents to @robota-sdk/agent-cli
+- **agent-cli**: detect \r in multiline paste (raw mode sends \r not \n)
+- **agent-sdk**: forward permissionMode, hooks, and wire AgentDefinitionLoader in production
+- **agent-cli**: resolve custom agents in createForkRunner, not just built-ins
+- **agent-cli**: throw error instead of silent fallback when fork deps missing
+- use user role for synthetic summary message, update spec
+- **agent-core**: improve forced summary message tone
+- use system role for synthetic summary message, update specs
+- improve forced summary call and centralize skill name resolution
+- **agent-cli**: resolve plugin skill name to qualified command for hooks
+- **agent-core**: force summary call without tools when loop ends without response
+- **agent-core**: force final provider call when loop ends without text response
+- **agent-provider-anthropic**: use model maxOutput instead of hardcoded 4096
+- **agent-cli**: include plugin source in buildSkillPrompt lookup
+- **agent-cli**: route plugin skills and commands in slash executor
+- **agent-sdk**: use static import for child_process instead of dynamic require
+- **agent-sdk**: align extraKnownMarketplaces schema with actual storage format
+- **agent-cli**: mock settings-io in routing tests to prevent real file deletion
+- **agent-cli**: report corrupt/incomplete settings before re-prompting
+- **agent-sdk**: export PluginSettingsStore, BundlePluginInstaller, MarketplaceClient from package
+- **agent-cli**: wire /plugin and /reload-plugins into command router
+- use ~/.robota/ instead of ~/.claude/ for user-level storage
+- **agent-cli**: remove double namespacing in PluginCommandSource
+- **agent-core**: tighten IHookTypeExecutor.type to discriminant union
+- resolve typecheck errors and ESLint issues
+- resolve ESLint tsconfig parsing errors in lint-staged
+- context error instructs AI to retry, buildFinalResult skips stripped messages
+- return graceful error result instead of throwing on execution failure
+- preserve system message across context compaction
+- use chars/2 estimate and catch provider errors gracefully
+- **agent-cli**: initialize context state from session on startup
+- don't break execution loop on tool result overflow — let AI respond
+- break execution loop immediately when tool results overflow context
+- sync context percentage/tokens as single snapshot, minimum unit K
+- **agent-cli**: show Robota: and Tools: labels simultaneously during streaming
+- **agent-cli**: keep completed tools visible until run() finishes
+- handle corrupt/empty settings files from crash recovery
+- use max(API tokens, chars estimate) for context overflow check
+- improve context overflow UX and token formatting
+- **agent-cli**: add permanent blank line below input for Korean IME stability
+- **agent-cli**: fix onChange(next) → onChange(result.value) in CjkTextInput
+- **agent-cli**: remove setCursorPosition to prevent Terminal.app crash
+- **agent-sessions**: move auto-compact to start of run(), disable onTextDelta during compaction
+- **agent-sessions**: compact() no longer triggers new execution round
+- **agent-core**: lower context overflow threshold to 70%, use chars/3
+- **agent-cli**: only suppress IME-related uncaught exceptions
+- **agent-cli**: prevent Korean IME crash in terminal
+- **agent-cli**: support paste in masked API key input
+- **agent-cli**: show tool calls as ToolName(firstArgValue)
+- **agent-cli**: group tool calls into a single message
+- **agent-core**: pre-send context check to prevent overflow in execution loop
+- **agent-cli**: restore renderMarkdown in StreamingIndicator
+- **agent-cli**: revert empty line filter in StreamingIndicator
+- restore \n\n round separator, filter empty lines in StreamingIndicator
+- **agent-core**: use single newline for round separator (not double)
+- **agent-core**: emit round separator via onTextDelta between execution rounds
+- **agent-cli**: revert onTextDelta to original — keep only safe changes
+- **agent-cli**: add newline separator between streaming rounds
+- **agent-cli**: revert to safe approach — no permissionHandler changes
+- **agent-cli**: remove ALL React state updates from permissionHandler
+- **agent-cli**: do not call addMessage inside permissionHandler
+- **agent-cli**: real-time tool display + streaming round separation
+- **agent-cli**: fix streaming text line breaks and add tool call display
+- **agent-tools**: WriteTool reports correct byte count for multibyte content
+- graceful handling of missing final assistant message
+- add -mindepth 1 to deploy script find command
+- **docs**: update VitePress nav and guide order for v3.0.0
+- resolve all harness gate failures
+- **agent-core**: add Record<string, number> to TUniversalMessageMetadata
+- address codex review — add sdk→core edge, fix prompt attribution
+- remove aspirational text from sdk SPEC, track as task
+- address AI code review findings (PR #29)
+- address AI code review findings (PR #28)
+- **agent-core**: pass token usage metadata to conversation history
+- **agent-cli**: slow down wave animation to 400ms
+- **agent-cli**: soften wave animation — wider groups, subtle gray tones
+- **agent-cli**: reset PermissionPrompt state when request changes
+- **agent-cli**: use refs instead of state for CjkTextInput value/cursor
+- **agent-cli**: remove project name from banner
+- **agent-sessions**: set systemMessage at top-level config for execution-service
+- typecheck errors in streaming tests, all publish gates pass
+- **agent-cli**: revert line-by-line rendering that broke text layout
+- **agent-provider-anthropic**: use system parameter for system messages
+- **agent-cli**: revert IME hacks — restore simple input handling
+- **agent-cli**: IME composition tracking for Korean input
+- **agent-cli**: increase IME settle delay to 50ms for Korean input
+- **agent-cli**: fix Korean IME last character dropped on Enter
+- **agent-cli**: add blank line after Robota: label in streaming indicator
+- **agent-cli**: add blank line between role label and message content
+- **agent-sessions**: fix context tracking — fallback to char-based estimation
+- **agent-cli**: queue concurrent permission requests, prevent double resolve
+- improve logging with data sizes, restore opus-4-5 default model
+- change default model to claude-sonnet-4-6, add missing model sizes
+- **agent-cli**: add crash diagnostics, fix Bash stdio isolation
+- **agent-cli**: rename AI label to Robota in message list
+- **agent-provider-anthropic**: return empty string instead of null for tool-only responses
+- **agent-provider-anthropic**: convert tool messages to Anthropic tool_result format
+- break circular runtime dependency in tools and tool-mcp packages
+- resolve all 21 TypeScript typecheck errors across monorepo
+- resolve all TypeScript typecheck errors across test files
+- resolve 50 missing-anchor harness scan issues
+- **dag-designer**: add BINARY to ComfyUI type mapping, backlog DAG JSON cleanup
+- **dag-runtime-server**: retry on empty queue instead of immediate error
+- IMAGE_PNG → IMAGE_COMMON for image-source/ok-emitter, add backlog tasks
+- **web**: parse cost-meta API response correctly (extract data field)
+- **dag-designer**: use document.createElement for file picker instead of DOM input element
+- use FileStoragePort in orchestrator-server for DAG persistence across restarts
+- **dag-designer**: use ref+button click for file upload instead of label+hidden input
+- file upload button click and anyOf asset detection
+- **dag-runtime-server**: include configSchema properties in object_info input specs
+- **dag-designer**: fix list port handle compaction and stale handles
+- **dag-designer**: use per-node event timeout instead of global 120s
+- resolve asset streaming, CORS, and empty trace data issues
+- handle stream pipeline errors to prevent ERR_HTTP_HEADERS_SENT
+- upload assets to runtime before prompt submission
+- correct type errors in contract tests
+- **dag-server-core**: fix type errors in contract tests
+- address code review findings
+- address code review findings from PR #25
+- **dag-server-core**: fix route ordering bug and helmet CSP blocking Swagger UI
+- **dag-worker**: add lease acquisition to DLQ reinject for concurrency safety
+- **dag-worker**: correct finalization classification, lease handling, and dispatch atomicity
+- **test**: rewrite weak tests with proper behavioral assertions
+- rename ITaskStatusSummary to TTaskStatusSummary (type alias naming)
+- **hooks**: remove jq dependency from branch-guard for portability
+- **skills**: allow mid-task commits on same branch in branch-guard
+- **harness**: tighten verification and finalize dag node refactor
+- **dag**: resolve remaining PR13 review issues
+- **dag**: harden run lifecycle idempotency and run-event resilience
+- **dag**: align runtime error status contract and harden SSE/OpenAPI reliability
+- **dag-designer**: sync node execution visuals with SSE progress events
+- **tsconfig**: enable composite project references for provider packages
+- **workflow-examples**: make scenario fixture migration idempotent
+- **ci**: unblock deploy audit; add playground ESLint config for test TSConfig
+- **tests**: pass with no tests; restore remote request validation and GET body
+- **types**: enforce I/T-prefixed contracts and update type imports
+- **types**: enforce SSOT type ownership and apply I/T naming across packages
+- **playground**: make workspace typecheck pass; align workflow types and React Flow layout
+- **workflow**: re-verify examples 26/27 after monotonic timestamp ordering
+- **agents,workflow,examples**: enforce absolute ownerPath and pass guarded 26/27
+- **web**: remove console usage and standardize logging via WebLogger
+- **events**: export constants, remove hardcoded strings, build agents/workflow
+- resolve agent node height overlap with dynamic layout and improved Progressive Reveal
+- resolve assignTask aiProviders injection for proper agent creation
+- resolve thinking round reuse issue in team flow with path-only thinkingNodeId calculation
+- ensure workflow snapshots are emitted only after batch completion
+- **workflow**: per-thinking tool_result join and robust user_message linking
+- **workflow**: restore fork/join flow by removing await mechanism
+- resolve tool_response orphan nodes and ORDER-VIOLATION errors
+- tool_call single path enforcement for Rule 7
+- resolve Rule 9 - agent thinking end node issue
+- **workflow**: resolve fork-join mapping and connection issues
+- **agents**: resolve tool_result duplication and thinking_round2 connection
+- implement dynamic handle positioning for React Flow nodes
+- resolve thinking node duplication by removing unnecessary tool_results_to_llm node creation
+- **agents**: Resolve 94% of build errors (96→6)
+- resolve critical PlaygroundContext event data flow bugs
+- Update Team Creation to Follow Working Examples
+- Resolve SSR Hydration Mismatch Error with Time Display
+- Resolve Layout Overlapping Issues in Playground
+- Improve Playground Layout and Fix Demo Button Issues
+- Add Demo Buttons and Access Points for Execution Tree Testing
+- Resolve System Status and Team Chat critical issues
+- Complete streaming and executor compatibility fixes
+- Resolve auth & API errors with fallback mechanisms
+- resolve infinite loop issue in auth system and add social login control
+- exclude apps/web from root lint and add eslint config for sessions
+- include sessions package in workspace for publishing
+- restore README.md files and prevent deletion during build process
+- ensure README.md files are included in npm packages
+- exclude test files from typecheck to fix CI/CD issues
+- revert test file exclusion from tsconfig to fix ESLint parsing errors
+- exclude test files from TypeScript compilation for CI
+- lower Node.js requirement to 18.x and add build:deps script for CI
+- update 10-agents-basic-usage.ts and complete deployment checklist phase 4-6
+- AI provider implementations and documentation policies
+- Resolve test, lint, and build issues for Plugin-Module-Separation
+- **team**: resolve lint errors in task-assignment tool-factory
+- resolve example execution issues and test failures
+- resolve unused variable and unify plugin hook interface
+- 빌드 오류 수정 및 도구 실행 결과 처리 문제 체크리스트 추가
+- remove circular dependencies and fix build issues
+- agents execution service and team package migration
+- resolve all linting errors and improve code quality
+
+### ⚡ Performance
+
+- **harness**: parallelize scan runner + de-serialize CI quality from build (INFRA-037)
+- **web**: PERF-001 — font display:swap (agent-web) + explicit www image config
+- apply round 6 React best practices fixes
+- apply round 5 React best practices fixes
+- apply round 4 React best practices fixes
+- apply round 3 React best practices fixes
+- apply round-2 React best practices fixes
+- apply React best practices from Vercel skill review
+
+### 🔒 Security
+
+- **security**: ignore unfixable werift-transitive CVE-2024-29415 (ip SSRF) for Stage A
+- **security**: align absorbed DAG packages to vitest 3.2.6
+- **security**: force patched @anthropic-ai/sdk for the absorbed DAG packages
+- **security**: SEC-001 — resolve postcss/dompurify advisories; accept dev/example transitives
+- **security**: bump undici override floor to >=8.5.0 (GHSA-vmh5-mc38-953g, GHSA-38rv-x7px-6hhq)
+- **security**: patch high-severity form-data CRLF advisory (GHSA-hmw2-7cc7-3qxx)
+- **deps**: override esbuild >=0.28.1 — clear new high advisory (dev-only) ([#719](https://github.com/woojubb/robota/pull/719))
+- **deps**: security audit remediation U1 — 89 → 9 advisories (DEPS-001) ([#702](https://github.com/woojubb/robota/pull/702))
+- **deps**: upgrade ink 7.0.1 → 7.0.4 in agent-transport
+- **security**: harden asset serving and webhook validation for v3.0.0
+
+<details>
+<summary>🏗 Internal</summary>
+
+- **agents**: GATE-COMPLETE RUNTIME-001 + REMOTE-001; save user-execution scenarios ([#1155](https://github.com/woojubb/robota/pull/1155))
+- **runtime-001**: black-box e2e for real `robota --serve` + CI wiring ([#1153](https://github.com/woojubb/robota/pull/1153))
+- full-repo SPEC + architecture-map refresh (semantic drift sweep) ([#1151](https://github.com/woojubb/robota/pull/1151))
+- refresh architecture map + guides for GUI-005/006 + RUNTIME-001 (doc/architecture-refresh) ([#1149](https://github.com/woojubb/robota/pull/1149))
+- **conduct**: responses match the user's language; everything else defaults to English ([#1145](https://github.com/woojubb/robota/pull/1145))
+- **gui**: GATE-COMPLETE GUI-006 + institutionalize presentation-siblings principle ([#1143](https://github.com/woojubb/robota/pull/1143))
+- **gui**: GATE-COMPLETE GUI-005; file GUI-006 web-unification backlog ([#1139](https://github.com/woojubb/robota/pull/1139))
+- **harness**: institutionalize new-surface architecture-placement review (universal) ([#1135](https://github.com/woojubb/robota/pull/1135))
+- **gui**: agent-owned headless e2e for agent-gui + GUI-002 GATE-COMPLETE ([#1131](https://github.com/woojubb/robota/pull/1131))
+- **backlog**: register GUI-001 — agent-gui thin GUI layer + desktop app (research-first) ([#1124](https://github.com/woojubb/robota/pull/1124))
+- **agents**: GATE-COMPLETE REMOTE-011..014 (Stage E specs active→done, backlogs completed) ([#1127](https://github.com/woojubb/robota/pull/1127))
+- **backlog**: register REMOTE Stage E sub-items E2–E5 (REMOTE-011..014) ([#1120](https://github.com/woojubb/robota/pull/1120))
+- **rules**: require quantified progress reports (count/total = %) in agent conduct ([#1118](https://github.com/woojubb/robota/pull/1118))
+- **agents**: GATE-COMPLETE REMOTE-010 (spec active→done) ([#1117](https://github.com/woojubb/robota/pull/1117))
+- **agents**: GATE-COMPLETE REMOTE-009 (spec active→done)
+- **remote**: REMOTE-009 impl-review ENDORSE + fix stale clientUrl JSDoc
+- **spec**: REMOTE-009 GATE-BUILD complete — all 6 steps done
+- **spec**: GATE-APPROVAL REMOTE-009 Stage D browser remote client (B... D)
+- **agents**: GATE-COMPLETE REMOTE-008 (spec active→done)
+- **spec**: REMOTE-008 implementation re-review ENDORSE + registry-unregister residual
+- **spec**: record REMOTE-008 implementation-review REVISE→fixed
+- **spec**: REMOTE-008 steps 4-6 complete — enable path ready for merge
+- **remote**: paired WebRTC end-to-end + REMOTE-008 changeset (step 5)
+- **spec**: REMOTE-008 GATE-BUILD progress — steps 1-3 done, step 4 grounded
+- **spec**: GATE-APPROVAL REMOTE-008 WebRTC enable path (B4-2b)
+- **remote-pairing**: fix flaky unhandled-rejection in handshake double-reject tests
+- **agents**: GATE-COMPLETE REMOTE-007 (spec active→done)
+- **spec**: record REMOTE-007 implementation-review ENDORSE + hardening
+- **remote**: refresh headless getUserInteraction comment for D4a (REMOTE-007)
+- **remote**: changeset + spec build-evidence for REMOTE-007 (step 4-5)
+- **spec**: GATE-APPROVAL REMOTE-007 transport-neutral permission/ask (B4-2a)
+- **spec**: REMOTE-006 Stage B4-1 → done (local==remote neutralization shipped)
+- **harness**: enforce branch-base-from-develop + block committing auto-lessons
+- **backlog**: Bun single-binary distribution for agent-cli (DIST-001/002/003)
+- **spec**: REMOTE-005 Stage B3 → done (pairing + channel binding shipped)
+- **spec**: REMOTE-004 Stage B2 → done (signaling client + relay hardening shipped)
+- **spec**: REMOTE-003 Stage B1 → done (remote-command gating shipped)
+- **spec**: REMOTE-002 Stage A → done (WebRTC transport + signaling skeleton shipped)
+- **transport**: extract agent-transport-protocol from agent-transport-ws (REMOTE-002 Stage A/1)
+- **spec**: REMOTE-001 WebRTC P2P remote-control — design ENDORSED (research → approved design)
+- **backlog**: REMOTE-001 — WebRTC P2P remote control for agent-cli
+- **repo**: family-decomposition policy + husk/drift cleanup — Stage E (ARCH-PROVIDER-006) **BREAKING**
+- **spec**: ARCH-PROVIDER-005 Stage D — ENDORSED (spec → active)
+- **dag**: ARCH-PROVIDER-004 Stage C GATE-COMPLETE (spec → done)
+- **spec**: ARCH-PROVIDER-004 Stage C — ENDORSED (spec → active)
+- **provider**: ARCH-PROVIDER-003 Stage B GATE-COMPLETE (spec → done) + PR-2 changeset
+- **dag-nodes**: delete the 5 vendor llm-text nodes + router (ARCH-PROVIDER-003) **BREAKING**
+- **dag-cli**: migrate consumer surface to collapsed llm-text node (ARCH-PROVIDER-003)
+- **provider**: finalize ARCH-PROVIDER-003 Steps 1-5 (docs, allowlist, changeset)
+- **provider**: relocate config resolver to agent-core + SSOT cost fields (ARCH-PROVIDER-003)
+- **spec**: ARCH-PROVIDER-003 Stage B — ENDORSED (spec → active)
+- **infra**: INFRA-037 GATE-COMPLETE (spec → done) + establish branch-protection rulesets
+- **harness**: update CLI dev-source closure for the provider split (ARCH-PROVIDER-002)
+- **arch**: ARCH-PROVIDER-002 Stage A GATE-COMPLETE (spec → done)
+- **provider**: split agent-provider into per-vendor leaf packages (ARCH-PROVIDER-002) **BREAKING**
+- **arch**: Stage A spec ENDORSED — provider split plan (ARCH-PROVIDER-002)
+- **arch**: approve provider DIP target architecture + Stage A plan (ARCH-PROVIDER-001)
+- **arch**: interface/boundary audit — apply doc drift fixes + log code-side items
+- **harness**: institutionalize four session lessons as neutral principles
+- **harness**: mechanize interface-purity + agent/skill convention (INFRA-035, INFRA-030)
+- **agent-cli**: move GitWorktreeIsolationAdapter to composition root (INFRA-031, ARL-02)
+- **backlog**: INFRA-030 — capability-extraction system (review-ready)
+- **agents**: add proposal-reviewer + merge-verifier (gate-review + merge-verify roles)
+- **agent-core**: single-SSOT ToolRegistry/FunctionTool (DATA-005, ARL-01)
+- **architecture**: pass-2 comprehensive conformance fixes — DAG subsystem + apps
+- **architecture**: slim architecture-refresh skill to pure pipeline
+- **architecture**: pass-1 conformance fixes across agent-* SPECs + remediation log
+- **architecture**: add conformance-auditor + implementer agents; expand refresh loop to 4 agents
+- **architecture**: restructure architecture audit into thin orchestrator + policy-holding agents
+- pass-2 system audit — 27 findings converged over 5 rounds
+- **skill**: make convergence (not a fixed round count) the documentation-refresh stop condition
+- system-audited refresh — 32 findings across root/content/i18n/SPEC/READMEs
+- round-3 residuals — transport /programmatic sub-path + ko What's-Next links
+- round-2 refresh — tool count 9, transport packages, apps/docs Next.js, ko examples runnable
+- **harness**: make documentation-refresh a pure pipeline; policy lives in the agents
+- **harness**: documentation-refresh orchestration skill + doc-auditor/doc-fixer agents
+- refresh product documentation to 3.0.0-beta.79 state ([#1018](https://github.com/woojubb/robota/pull/1018))
+- **dag-cli**: unify instant-node reload onto the owner round-trip (DATA-004) ([#1016](https://github.com/woojubb/robota/pull/1016))
+- **agents**: GATE-COMPLETE for FLOW-007, DATA-003, INFRA-029 ([#1014](https://github.com/woojubb/robota/pull/1014))
+- **release**: record the 3.0.0-beta.79 release run ([#1010](https://github.com/woojubb/robota/pull/1010))
+- **release**: version packages to 3.0.0-beta.79 ([#1007](https://github.com/woojubb/robota/pull/1007))
+- **backlog**: DATA-003 draft — instant-node provider SSOT + symmetric persistence round-trip ([#1003](https://github.com/woojubb/robota/pull/1003))
+- **harness**: spawnable architecture-auditor agent + institutionalize test lesson (#76) ([#1001](https://github.com/woojubb/robota/pull/1001))
+- **workflows**: automate the /workflows create live-LLM suite (opt-in) ([#997](https://github.com/woojubb/robota/pull/997))
+- **release**: version packages to 3.0.0-beta.78 ([#987](https://github.com/woojubb/robota/pull/987))
+- **agents**: INFRA-028 GATE-COMPLETE (spec-doc → done, task archived) ([#985](https://github.com/woojubb/robota/pull/985))
+- **agents**: DATA-002 GATE-COMPLETE (spec-doc → done, task archived) ([#981](https://github.com/woojubb/robota/pull/981))
+- **agents**: BEHAVIOR-006 GATE-COMPLETE (spec-doc → done, task archived) ([#973](https://github.com/woojubb/robota/pull/973))
+- **agents**: complete BEHAVIOR-005; add INFRA-026 pty-teardown-flake backlog ([#970](https://github.com/woojubb/robota/pull/970))
+- **release**: finalize 3.0.0-beta.77 release run record — 20 packages published + npx verified
+- **release**: version packages to 3.0.0-beta.77
+- build agent-process in the windows-shell job (CORE-023 shell-tool dep)
+- **backlog**: INFRA-026 done — red→green evidence recorded, moved to completed
+- **harness**: INFRA-026 — CI-safe scan invocation (--skip dist) + formatter-proof annotation
+- **harness**: INFRA-026 — revert red-prove fixture; done-evidence checks git-tracked files
+- **harness**: TEMP red-prove fixture for INFRA-026 (reverted before merge)
+- **harness**: INFRA-026 — harness:scan wired into develop-PR CI; pre-push runs full harness suite
+- **governance**: re-audit plan — 20 backlogs, forward-provisioned surface rule
+- **evals**: lessons digest refresh (post LESSON-010 detectors)
+- **infra**: INFRA-025 P4 — SPEC/rule sync, invariants mechanized, done gate
+- **testing**: INFRA-025 P3 — scripted harness sheds session-analytics
+- **transports**: INFRA-025 P2 — transport-ws framework-free; re-exports removed
+- **contracts**: INFRA-025 P1 — transport-facing contracts consolidated into interface-transport
+- **backlog**: INFRA-025 upgraded to approved full-refactor scope (high/now)
+- **governance**: architecture-audit follow-up — INFRA-024/025 backlogs + preset rule consumers
+- **backlog**: LESSON-010 — lessons metrics detector quality (4/5 signals are noise)
+- **design**: link bug-report 제안3 to CORE-017 follow-up backlog
+- **governance**: prior-approval rule for novel practices + CORE-017 backlog
+- **infra**: scratch/ workspace for live-verification scripts + placement guard (INFRA-023)
+- onboard content/ corpus to the doc-examples typecheck gate (DOCS-019)
+- **design**: speech feedback addendum — maxTokens not reaching provider requests
+- root README leads with library identity, layered package table (DOCS-018)
+- **rules**: institutionalize the library neutrality rule (packages/ vs apps/)
+- **backlog**: rescope TRANS-001 — drop voice-domain G5 adapters, keep neutral carrier mechanics
+- **backlog**: withdraw ROOM-001 as wontfix — library must ship ingredients, not products
+- root llms.txt consumer-agent map + link-rot harness scan (DOCS-017)
+- adoption-path quickstarts and behavior contracts (DOCS-014)
+- **agent-provider**: adoption-critical baseURL/gateway capability on the type surface (DOCS-016)
+- **readme**: every README example now typechecks — new doc-examples gate (DOCS-015)
+- **backlog**: 5 discoverability items from the agent-consumer misreading report
+- **backlog**: 9 items from the speech-project adoption feedback + gap analysis
+- **backlog**: ERR-001 — network errors must surface clearly and never kill the TUI
+- **harness**: institutionalize 2026-07-02 lessons — 3 new gates + PTY determinism API
+- **harness**: close out shipped items — live-TUI evidence, gate completion, archival
+- **analytics**: end-to-end background-task usage attribution regression guard (ANALYTICS-001 P2)
+- **backlog**: ANALYTICS-001 — source-attributed token usage in the session log
+- **tui**: CI-maintained PTY E2E gate for the background-work drill-in (TEST-010)
+- **term-007**: make windows-shell blocking after green first run
+- **term-007**: add windows-shell job — durable Windows shell-execution verification
+- **term-007**: record Windows-support audit — items 1 & 4 done, residual is a Windows pass
+- **dag-nodes**: integrate to workspace agent deps, drop published pins (INFRA-022)
+- **backlog**: track absorbed dag-nodes' published @robota-sdk/agent-* deps (INFRA-022)
+- **arch**: correct the Runtime API boundary to native-first
+- **backlog**: archive completed CMD-004 task and TEST-004 backlog item
+- **harness**: institutionalize CMD-004 test lessons
+- **cmd-004**: real-binary PTY evidence for the masked ask field (TC-09)
+- **cmd-004**: tidy dead code left by the legacy deletion
+- **cmd-004**: delete legacy command-interaction paths
+- **agent-command**: assert provider confirm/step prompts are issued
+- **agent-transport-tui**: TC-08 PTY answers the /exit confirm (CMD-004 PR-H review)
+- **agent-transport-tui**: document pendingUserAction:null in fake channel (PR-D review)
+- **agent-transport-tui**: address PR-C review (identity-routed free-text + test)
+- **agent-framework**: fold IUserInteraction into agent-core import block
+- **spec**: CMD-004 GATE-APPROVAL + GATE-IMPLEMENT (-> active)
+- **spec**: add CMD-004 action/UI separation spec (review-ready)
+- **rules**: institutionalize session lessons (L1/L2/L3)
+- **backlog**: CMD-004 command action/UI separation + CMD-005 question dialog tool
+- **rules**: institutionalize 3 session lessons (C1/C2/C3) into the repo
+- **rules**: mandate deleting merged branches each cycle (git-branch.md)
+- **rules**: mandate /code-review before any PR merge (Pre-Merge Code-Review Gate)
+- TEST-009 Phases 2-3 + close (IAgentDriver flows + TUI flag rendering)
+- **agent-cli**: TEST-009 backlog (foundation-based) + Phase 1 flag coverage
+- **backlog**: complete TERM-002/003/004 (terminal-handoff feature)
+- **backlog**: complete TEST-007 + TEST-008 (done + archive)
+- **transport**: code-review cleanups for the programmatic driver (INFRA-019)
+- **testing**: align agent-testing exports with the source hint
+- **backlog**: TEST-008 replay-coverage audit — session log is already replay-complete
+- **spec**: close SCREEN-010 (GATE-VERIFY + GATE-COMPLETE → done)
+- **backlog**: TEST-008 — session log as the single replay substrate
+- **backlog**: TEST-008 — corrected ports/adapters architecture + ownership rule
+- **agent-transport-tui**: automate SCREEN-010 TC-05 scrollback layout + capture TEST-008 north star
+- **evals**: update auto-lessons and weekly digest
+- **backlog**: classify TERM-005 (superseded by /shell) and TERM-006 (deferred on PTY)
+- **backlog**: TERM-001..007 terminal-handoff feature group (architecture-reviewed)
+- **agent-core**: establish the system prompt once per session, then reuse the log (CORE-010)
+- **backlog**: file CORE-008/009/010 + TEST-006 from PR #845 code review
+- **backlog**: add TEST-005 — record-replay cassette provider
+- **agent-framework**: GOAL-001 functional reference + permission retrofit (TEST-003 phase 5)
+- **rules**: testing-layering rule + functional-testing skill (TEST-003 phase 3)
+- **testing**: scripted-provider SSOT → agent-core/testing (TEST-003 phase 1)
+- **backlog**: TEST-003 — record confirmed design (layering, extensible kit, enforcement)
+- **backlog**: add TEST-003 — framework-level functional test harness (design-gated)
+- **goal**: real-stack E2E + doc sync; mark GOAL-001 done (phase 4)
+- **backlog**: GOAL-001 — record confirmed design decisions
+- **backlog**: add GOAL-001 — autonomous objective-pursuit loop (design-gated)
+- **packages**: cover untested public exports in 3 low-ratio packages (TEST-002)
+- **types**: TYPE-002 — disambiguate all same-name interface collisions
+- **agent-web**: BRAND-002 — unify brand to emerald + IBM Plex
+- **tui**: SCREEN-009 — audit confirms no color-only state; lock the invariant
+- TEST-001 — add contract tests to the zero-test agent-interface-tui package
+- **types**: TYPE-001 — dedupe IDiffLine to the contract package (SSOT)
+- README-001 (transport READMEs) + WEB-019 (hide undeployed docs playground link)
+- DOCSYNC-001 — document createAgentRuntime in agent-framework README
+- DOCAUDIT-005 — fix stale provider API references after consolidation
+- **harness**: HARNESS-020 — externalize reusable policy to .agents/harness.config.json
+- **config**: CONFIG-001 — unify package tsconfig base + rimraf version
+- **harness**: HARNESS-017 — enforce conventional commits (commitlint + commit-msg + CI)
+- **naming**: NAMING-001 — fix I/T interface/type prefix violations + enforce via lint
+- **backlog**: round-7 latent backlogs — tsconfig/dep consistency, event drift, naming
+- **backlog**: round-6 latent backlogs — Type SSOT duplication, agent-web-ui robustness
+- **backlog**: round-5 latent backlogs — WS promise rejections, stub storages, stub READMEs
+- **backlog**: round-4 latent backlogs — examples CI, test gaps, a11y, perf, doc-sync
+- **backlog**: add harness strengthening + universality backlogs (HARNESS-016..020)
+- **backlog**: latent work from request-pattern mining — round 1 (9 items)
+- **backlog**: finalize done status + resolution notes for SCREEN-007/008, WEB-015
+- **harness**: distill this session's lessons into rules + skills
+- **web**: centralize brand tokens; wire --accent-hover (WEB-015)
+- **www**: InternalLink + tap-target primitives (WEB-016)
+- **backlog**: capture code-review follow-ups (SCREEN-007/008, WEB-015/016)
+- **backlog**: close 6 design-review items as done (live-verified)
+- **www**: point canonical/OG to apex robota.io (DEPLOY-001 code side)
+- gitignore .gstack/ local artifacts
+- **backlog**: record BRAND-001 local visual-verification evidence
+- **backlog**: lock BRAND-001 palette — IBM Plex + emerald/teal #2DD4A7
+- **backlog**: capture design-review remediation items (BRAND/DEPLOY/WEB/DOCS/SCREEN)
+- **harness**: enforce completed-task archival via task-archival scan ([#826](https://github.com/woojubb/robota/pull/826))
+- **audit**: apply DOCAUDIT-001..004 — reconcile architecture docs with code
+- **audit**: architecture conformance audit 2026-06-19 + DOCAUDIT backlogs
+- **preset**: drop external source repo address from PRESET-005 note
+- **preset**: remove vendor model name from preset references
+- **rules**: genericize conduct-profile naming (remove vendor model name)
+- **license**: relicense MIT -> AGPL-3.0 + Commercial dual license
+- docs/chore: DOCFIX-001~003 — SPEC transport refs, DOCS ID dedup, drop typedoc deps
+- execute DOCS-001~006 — README + content/ freshness updates
+- **backlog**: docs freshness audit reports + DOCS-001~006 backlogs
+- **backlog**: complete HAUDIT-001~005 (status done + move to completed/)
+- **harness**: implement HAUDIT-001~005 universal discoverability + portable patterns
+- **backlog**: capture harness-audit recommendations HAUDIT-001~005
+- **backlog**: complete LESSON-001~006 (status done + move to completed/)
+- **backlog**: capture beta.76 session lessons as harness/skill backlog
+- **release**: finalize 3.0.0-beta.76 release run record
+- **backlog**: perfect completion processing for DQ-AUDIT-001~007 + OBS-001 paths
+- **release**: version packages to 3.0.0-beta.76
+- remove OpenAI silent default model + document dual provider contract (DQ-AUDIT-007)
+- error/observability hygiene — typed throws + hook-failure logging + real metrics (DQ-AUDIT-006)
+- **transport**: split consolidated agent-transport into per-concern packages (DQ-AUDIT-005)
+- relocate session feature logic out of CLI shell + transport (DQ-AUDIT-004)
+- **code-quality**: design-first not cost-first — proper architecture over cheap fixes
+- **interface**: restore agent-interface-tui purity + document interface-transport refs (DQ-AUDIT-003)
+- consolidate pricing/estimation/context SSOT + drop dead re-exports (DQ-AUDIT-002)
+- **agent-core**: remove vendor default literals + deprecated dead method (DQ-AUDIT-001)
+- **arch**: re-audit remediation — sync architecture-map + package SPECs to beta.75
+- **audit**: architecture conformance audit + full doc-drift remediation (2026-06-14)
+- **audit**: architecture conformance audit 2026-06-14 (post-beta.75)
+- **release**: finalize 3.0.0-beta.75 release-run — published 14 packages
+- **release**: 3.0.0-beta.75 — preset system + live switching + CTX-001/HIST-001 fixes
+- **preset**: clarify preset persona content is authored in English (not Korean)
+- **preset**: system-prompt injection via existing priority/source section mechanism (fair/universal)
+- **preset**: add PRESET-009 (careful-reviewer) + PRESET-010 (neutral-executor) — approved
+- **preset**: GATE-WRITE + GATE-APPROVAL PASS — PRESET-001~008 → approved (todo/)
+- **preset**: architecture conformance audit (PASS) + close P1 registration gaps
+- **preset**: rework to confirmed layering + reference profile operating-principle traceability
+- **preset**: design proposal + PRESET-001~007 backlog drafts
+- **release**: finalize 3.0.0-beta.74 release-run — published 13 packages
+- **release**: 3.0.0-beta.74 — architecture conformance (INFRA-002~015, DATA-001)
+- **harness**: bake architecture-conformance-session lessons into skills (INFRA-015) ([#746](https://github.com/woojubb/robota/pull/746))
+- **agent-server**: import interface types from agent-interface-transport (INFRA-014) ([#745](https://github.com/woojubb/robota/pull/745))
+- **harness**: enforce interface-import rule + migrate agent-command (INFRA-013, INFRA-010 L3) ([#744](https://github.com/woojubb/robota/pull/744))
+- **transport**: import interface types from agent-interface-transport (INFRA-012, INFRA-010 L2) ([#743](https://github.com/woojubb/robota/pull/743))
+- **interface-transport**: extract transport-facing interface types (DATA-001, INFRA-010 L1) ([#742](https://github.com/woojubb/robota/pull/742))
+- **arch**: document FLOW wake/schedule/monitor contracts (BEHAVIOR-004, AF-07/09) ([#741](https://github.com/woojubb/robota/pull/741))
+- **arch**: P2 cleanup batch (INFRA-011, AF-15/16/17/21/22/23) ([#740](https://github.com/woojubb/robota/pull/740))
+- **arch**: refresh apps-and-deployment.md (INFRA-008, AF-10/18/19) ([#739](https://github.com/woojubb/robota/pull/739))
+- **arch**: fix undeclared/incorrect mermaid nodes (INFRA-009, AF-11) ([#738](https://github.com/woojubb/robota/pull/738))
+- **arch**: purge stale package names + promote GATE-CONFORMANCE to blocking (INFRA-007) ([#737](https://github.com/woojubb/robota/pull/737))
+- **agent-cli**: real dependency chain + import rules in SPEC (INFRA-006, AF-03) ([#736](https://github.com/woojubb/robota/pull/736))
+- **arch**: mark auth/credits as planned packages (INFRA-005, AF-02/AF-08) ([#735](https://github.com/woojubb/robota/pull/735))
+- **agent-core**: role-based consumer references in SPEC (INFRA-004, AF-01) ([#734](https://github.com/woojubb/robota/pull/734))
+- **arch**: architecture conformance audit + improvement proposal (INFRA-002) ([#732](https://github.com/woojubb/robota/pull/732))
+- **executor**: deterministic scheduled-task-runner nextFireAt (BEHAVIOR-003) ([#725](https://github.com/woojubb/robota/pull/725))
+- **spec**: close SCREEN-001/002 (retroactive done) + RESUME-001 (rejected) ([#717](https://github.com/woojubb/robota/pull/717))
+- **backlog**: record CLI-B13 verification evidence + done status
+- **backlog**: CLI-B13 closed by verification — already delivered by SCREEN-001/002
+- orphan-export baseline burned down to zero (HARNESS-015) ([#716](https://github.com/woojubb/robota/pull/716))
+- **transport**: single React owner for TuiInteractionChannel lifecycle (CLI-B12) ([#707](https://github.com/woojubb/robota/pull/707))
+- **transport**: session-switch channel regression suite (CLI-B11) ([#706](https://github.com/woojubb/robota/pull/706))
+- **spec**: batch GATE-WRITE — 11 review-ready spec drafts for repo-resolvable backlogs
+- **backlog**: DEPS-001 done — audit 89→1, release #701 merged with green release-grade gate
+- **backlog**: DEPS-001 security audit remediation campaign (release gate)
+- **repo**: remove committed worktree gitlink; CLI-074 gate state to active
+- **spec**: CLI-074 L2 deterministic E2E harness spec — GATE-WRITE passed, awaiting design approval
+- **validation**: addendum — CLI-063~066 resolved (PRs #697-#700), automation verdict cleared
+- **verification**: agent-cli product verification report + defect backlogs CLI-063~072
+- **harness**: document missing apps in project-structure, add 14 harness-lesson backlog items ([#690](https://github.com/woojubb/robota/pull/690))
+- **release**: 3.0.0-beta.73 — TUI border cleanup (SCREEN-001/002)
+- sync develop → main (TUI SCREEN-001/002 border cleanup)
+- stage evals and SCREEN-003 draft before main merge
+- **evals**: update auto-lessons and weekly digest; refine CjkTextInput comment
+- **changeset**: add SCREEN-001+002 TUI border cleanup changeset
+- sync develop → main (CLI-B13 backlog + session/evals/rules cleanup) ([#677](https://github.com/woojubb/robota/pull/677))
+- **backlog**: add CLI-B13 — TUI input border cleanup (remove side borders, status bar box)
+- sync main → develop (release 3.0.0-beta.72) ([#676](https://github.com/woojubb/robota/pull/676))
+- **release**: 3.0.0-beta.72 — RESUME-001 + TUI fix + rules ([#674](https://github.com/woojubb/robota/pull/674))
+- sync develop → main (TUI fix + OBS-001 + reports cleanup) ([#673](https://github.com/woojubb/robota/pull/673))
+- remove .agents/reports/, gitignore it, ban --delete-branch in gh pr merge ([#672](https://github.com/woojubb/robota/pull/672))
+- sync develop → main (RESUME-001 + OBS-001 complete) ([#670](https://github.com/woojubb/robota/pull/670))
+- **tasks**: archive OBS-001 — session log analyzer complete ([#669](https://github.com/woojubb/robota/pull/669))
+- **tasks**: archive RESUME-001 — context_update emit fix complete
+- **backlog**: archive completed backlog and task items
+- **release**: mark 3.0.0-beta.71 complete — 10 packages published
+- version packages — 3.0.0-beta.71
+- **backlog**: add CLI-B11/B12 — session switch context restoration tests and channel lifecycle architecture
+- **agent-session**: unify context calculation to syncContextFromHistory (SSOT)
+- stage evals and remove active spec (moved to done)
+- **backlog**: BEHAVIOR-001 gate-complete — session resume restore
+- **release**: bump to 3.0.0-beta.70 ([#653](https://github.com/woojubb/robota/pull/653))
+- **core-007**: expand embedding guide with WebSocket, batch, and error-handling sections ([#648](https://github.com/woojubb/robota/pull/648))
+- **backlog**: move CLI-B01 and CORE-006 to completed/ ([#647](https://github.com/woojubb/robota/pull/647))
+- **arch-003-p9**: SPEC.md + docs sync for IInteractionChannel architecture ([#646](https://github.com/woojubb/robota/pull/646))
+- **backlog**: mark ARCH-003-p4 through p7 as done, move to completed ([#643](https://github.com/woojubb/robota/pull/643))
+- **evals**: update auto-lessons and weekly digest metrics
+- **branch-guard**: block new branch creation when unmerged branches exist
+- **arch-fix-030-033**: CLI cleanup — read version/reset-config to framework, fix double report
+- test ownership cleanup — move tests to correct package owners
+- **arch-002**: archive ARCH-002 completion — backlog and architecture map updates
+- **cmd-003**: extend registry design to subcommand-level onMissingArgs
+- archive PLG-008, TOOL-001; add TOOL-002 backlog
+- **release**: mark 3.0.0-beta.69 complete — 10 packages published ([#627](https://github.com/woojubb/robota/pull/627))
+- delete plugin-github/jira/linear/notion/slack packages
+- **release**: 3.0.0-beta.68 — mark unreleased packages private, record release run
+- bump to 3.0.0-beta.68
+- **backlog**: archive 57 completed backlog items to completed/
+- **cjk**: disable chalk.inverse cursor — use real terminal cursor only
+- **evals**: update auto-lessons timestamps
+- **evals**: update auto-lessons frequency counters and timestamps
+- **pre-release**: REL-001~021 — pre-release readiness audit and fixes
+- **core-007**: add embedding guide; update CORE-005 scope, mark TOOL-003 done ([#613](https://github.com/woojubb/robota/pull/613))
+- **backlog**: add CORE-002~007 — agent-framework embedded-mode gaps
+- **backlog**: add EX-001~006 — agent-framework versatility examples
+- develop → main: PRs #604-607 (permission gate, docs CMD-003, refactor ARCH-002/030-033) (#608)
+- ARCH-002 slim agent-cli + ARCH-FIX-030~033 CLI business logic extraction ([#607](https://github.com/woojubb/robota/pull/607))
+- **cmd-003**: extend registry design to subcommand-level onMissingArgs declarations ([#606](https://github.com/woojubb/robota/pull/606))
+- archive PLG-008/TOOL-001 and add TOOL-002 backlog ([#605](https://github.com/woojubb/robota/pull/605))
+- **spec-docs**: add README.md — lifecycle, type-prefix taxonomy, file naming
+- **rules**: enforce one-backlog-at-a-time and clean commit discipline
+- **harness**: ban git worktree — auto-enforce on every push
+- **spec**: add apps/www — missing SPEC.md from SPEC-MIGRATION-001
+- **backlog**: mark SPEC-MIGRATION-001 as done
+- **spec**: SPEC-MIGRATION-001 — live spec catch-up for all packages ([#595](https://github.com/woojubb/robota/pull/595))
+- **backlog**: add SPEC-MIGRATION-001 — live spec catch-up for all packages
+- **rules**: establish live spec policy — SPEC.md as continuously evolving contract
+- **rules**: add Agent Decision Authority policy to backlog-execution.md
+- **backlog**: add AUDIT-001 — backlog impl architecture cleanup (8 items)
+- **evals**: update auto-lessons and weekly-digest
+- **cli,tools**: CLI-041 — add tests for path-guard, web-fetch errors, diagnose command
+- **backlog**: CLI-035~048, PM-031~037 — 완성도 검증 v2 백로그
+- **backlog**: mark CLI-027~031, CLI-033, PM-023~025 as done
+- update evals lessons — auto-lessons and weekly digest
+- mark SITE-006 and SITE-007 as done
+- **backlog**: add SITE-006 www i18n and SITE-007 docs i18n — en/ko support
+- update evals lessons and add CLI review design docs
+- finalize CLI-025 and CLI-026 architecture docs ([#579](https://github.com/woojubb/robota/pull/579))
+- **agent-cli**: add print-mode integration tests covering output formats and dry-run ([#577](https://github.com/woojubb/robota/pull/577))
+- **cli**: add CI/CD integration guide with GitHub Actions example ([#575](https://github.com/woojubb/robota/pull/575))
+- **plugins**: add README for all 5 official plugins + marketplace guide in cli.md ([#574](https://github.com/woojubb/robota/pull/574))
+- **agent-cli**: CLI docs cleanup — env vars, hidden flags, /settings ([#573](https://github.com/woojubb/robota/pull/573))
+- add beta status notice to README and getting-started docs ([#572](https://github.com/woojubb/robota/pull/572))
+- **agent-cli**: document Node.js 22 requirement reason (ink 7.x) and add Volta upgrade option ([#571](https://github.com/woojubb/robota/pull/571))
+- **backlog**: remove CLI-011 and PM-006 — not planned
+- **evals**: update auto-lessons and weekly digests
+- **www**: comment out cost/pricing UI — not ready yet
+- **backlog**: mark SITE-005 done — VitePress → Next.js migration complete
+- **backlog**: add SITE-005 — VitePress → Next.js docs migration
+- **site-004**: document pending manual infra steps ([#563](https://github.com/woojubb/robota/pull/563))
+- add frontend rules — React/Next.js as mandatory stack, VitePress exception
+- **pm-015**: add enterprise contact and security policy page
+- **pm-017,pm-021**: add quarterly roadmap and showcase page
+- **pm-010**: add changelog page at /changelog/
+- **pm-012**: add plugin development guide and plugin directory page
+- **pm-011**: add local LLM guide for Ollama and LM Studio ([#547](https://github.com/woojubb/robota/pull/547))
+- remove root-level PNG screenshots and gitignore them
+- remove already-completed backlog files from active backlog
+- **pm-002**: add Why Robota comparison page at /compare/ ([#542](https://github.com/woojubb/robota/pull/542))
+- **mkt-010**: promote npx @robota-sdk/agent-cli as primary entry point ([#538](https://github.com/woojubb/robota/pull/538))
+- **backlog**: remove UX-010, PM-004, UX-013, PM-003 — out of scope
+- mark ARCH-REV-001~004 done — fix project-structure agent-command-* wildcard
+- **evals**: update auto-lessons and weekly-digest metrics ([#533](https://github.com/woojubb/robota/pull/533))
+- **arch**: mark agent-team as placeholder in arch map diagrams ([#532](https://github.com/woojubb/robota/pull/532))
+- archive PLG-009~018 and CORE-001 — all completed
+- update lockfile — remove @robota-sdk/agent-team from agent-playground
+- **plg-019**: archive PLG-019 — completed
+- **plg-019**: remove AssignTask — sub-agents use Agent Command only
+- **backlog**: mark PLG-008~018 as done — all playground backlog items completed ([#522](https://github.com/woojubb/robota/pull/522))
+- **backlog**: add PLG-009~018 backlog items + restructure PLG-008 as epic
+- **planning**: 3-agent parallel analysis + product marketing backlogs ([#504](https://github.com/woojubb/robota/pull/504))
+- **DOCS-001**: sync content/ to current architecture
+- sync architecture docs, harness fixes, and DOCS-001 backlog
+- **backlog**: expand DOCS-001 with renamed/deleted/new package categories
+- **backlog**: add DOCS-001 content docs architecture sync
+- archive ARCH-CONF-007 — completed
+- **backlog**: add ARCH-CONF-007 — code conformance to ARCH-REV boundary rules
+- **arch-rev**: architecture map review — 13 ARCH-REV backlog items (ARCH-REV-001~013) ([#500](https://github.com/woojubb/robota/pull/500))
+- **arch-rev-013**: expand agent-system.md — MCP disambiguation, sidecar, playground data-flow ([#499](https://github.com/woojubb/robota/pull/499))
+- **arch-rev-012**: create transport-architecture.md subdocument ([#498](https://github.com/woojubb/robota/pull/498))
+- **arch-rev-011**: create agent-team.md architecture-map subdocument ([#497](https://github.com/woojubb/robota/pull/497))
+- **arch-rev-010**: create SPEC.md for packages/agent-subagent-runner ([#496](https://github.com/woojubb/robota/pull/496))
+- **arch-rev-009**: add transport and plugin contract rows to cross-cutting-contracts.md ([#495](https://github.com/woojubb/robota/pull/495))
+- **arch-rev-008**: fix stale package names in agent-team and agent-web-ui SPEC.md ([#494](https://github.com/woojubb/robota/pull/494))
+- **arch-rev-007**: add merge commit evidence to layering-audit CLI-AUDIT-012–023 ([#493](https://github.com/woojubb/robota/pull/493))
+- **arch-rev-006**: fix execution-modes.md — print mode API and sidecar status ([#492](https://github.com/woojubb/robota/pull/492))
+- **arch-rev-005**: fix stale class-interface-inventory entries ([#491](https://github.com/woojubb/robota/pull/491))
+- **arch-rev-004**: refresh composition-tree.md — full post-CLIR rewrite
+- **arch-rev-003**: fix stale package names in code-quality.md
+- **arch-rev-002**: fix dependency-direction.md diagram — 4 verified inaccuracies
+- **arch-rev-001**: fix project-structure.md — wrong app path, phantom packages, stale wildcards
+- **arch-rev**: add 3-agent review reports + 13 ARCH-REV backlog items
+- post-beta.67 housekeeping — OTP protocol rule + release artifact
+- release 3.0.0-beta.67
+- **arch-map**: implement ARCH-MAP-001~005 — full architecture map refresh
+- **backlog**: add ARCH-MAP-001~005 from architecture map audit
+- **architecture-map**: add Mermaid diagrams to 3 text-only files
+- docs+refactor: CLIR 10건 구현 + DOC-001/TUI-001/PROV-001 백로그 완료 (#481)
+- mark all 10 CLIR backlog items as done and move to completed/
+- update lockfile after moving agent-executor to devDependencies
+- **agent-cli+framework**: implement all 10 CLIR code review improvements
+- **backlog**: agent-cli 아키텍처 코드리뷰 백로그 10건 등록 (CLIR-C01~L02)
+- **release**: finalize 3.0.0-beta.66 release-run record
+- release 3.0.0-beta.66
+- **backlog**: archive CLI-001 and CLI-002 — completed
+- **cli-001+cli-002**: layer separation + monorepo-wide readability lint rules ([#479](https://github.com/woojubb/robota/pull/479))
+- **backlog**: add ARCH-002 — slim agent-cli, TUI plugin separation
+- **arch-001**: TUI back in agent-transport/tui subpath ([#477](https://github.com/woojubb/robota/pull/477))
+- **backlog**: update I18N-001 — en/ko only, add full translation plan
+- **backlog**: update I18N-001 — finalize architecture design
+- **backlog**: add I18N-001 and DOC-001
+- archive CMD-003 — completed
+- finalize release-run 3.0.0-beta.65
+- update lockfile for 3.0.0-beta.65
+- finalize release-run 3.0.0-beta.64
+- add prepublishOnly hook to consolidated packages
+- update lockfile for 3.0.0-beta.64 version bump
+- **backlog**: CMD-003 — args 기반 dialog 트리거 모델로 재설계
+- **backlog**: CMD-003 — TUI command interaction pattern 선언 + 게이트
+- archive CMD-001 and CMD-002 — completed
+- **backlog**: mark 30 completed items as status: done
+- **backlog**: add CMD-001 and CMD-002 — command permission flag and display name
+- archive ARCH-BL-001 through ARCH-BL-004 — completed
+- **backlog**: add ARCH-BL-001~004 — package consolidation plan
+- archive INFRA-BL-009 — completed
+- archive REFACTOR-009 — completed (IFileSystem port pattern) ([#457](https://github.com/woojubb/robota/pull/457))
+- **REFACTOR-009**: replace node:fs direct imports with IFileSystem/IFileSystemAsync port pattern ([#456](https://github.com/woojubb/robota/pull/456))
+- archive INFRA-BL-009-D (done) and INFRA-BL-009-E (skipped)
+- archive INFRA-BL-009-A/B/C and REFACTOR-024 completed backlog files
+- **INFRA-BL-009-B**: complete prior art research and decision matrix
+- **INFRA-BL-009-A**: rewrite INFRA-BL-009 task file to comply with backlog rules
+- archive REFACTOR-024 — completed
+- **REFACTOR-024**: rename core layer packages to canonical names
+- archive REFACTOR-023 — completed
+- **REFACTOR-023**: TModelConfig/TConfigurationSnapshot → interface + fix ConsoleLogger export ([#446](https://github.com/woojubb/robota/pull/446))
+- **022**: remove emoji prefixes and lower log levels in agent-remote-client
+- **021**: remove process.cwd() silent fallback from getCwd()
+- **020**: replace console.* with DI ILogger in agent-server
+- **019**: delete packages/auth and packages/credits
+- **018**: remove agent-core dep from agent-interface-transport
+- **017**: route findProviderDefinition through agent-sdk; fix ICommandSessionRuntime mocks
+- **016**: widen IZodSchema to eliminate as-unknown-as casts in 8 builtin tools
+- archive REFACTOR-015 as completed
+- **refactor-015**: unify getAutoCompactThreshold optionality
+- archive REFACTOR-014 as completed
+- **refactor-014**: fix dishonest type in buildFailureResult
+- archive REFACTOR-013 as completed
+- **refactor-013**: remove hardcoded 'robota-cli' from agent-sessions foundation
+- archive REFACTOR-012 as completed
+- **refactor-012**: remove @deprecated tags — agent-provider-google and agent-playground
+- archive REFACTOR-010 and REFACTOR-011 as completed
+- **refactor-010+011**: rename I-prefix type aliases to T-prefix
+- archive completed REFACTOR-001~008 backlog items
+- **refactor-008**: anti-monolith 300-line split across 14 files
+- **refactor-007**: move provider setup flow state machine from agent-sdk to agent-command-provider
+- **sdk-006**: add ICommandHostContext.getAgentJobCapability() — remove as unknown as cast (#REFACTOR-006)
+- **refactor-005**: remove as-unknown-as casts via generic ITransportAdapter<TSession> ([#429](https://github.com/woojubb/robota/pull/429))
+- **refactor-004**: remove unused agent-plugin-event-emitter package ([#428](https://github.com/woojubb/robota/pull/428))
+- **refactor-010**: remove IMarketplaceSource duplicate from plugin-settings-store ([#427](https://github.com/woojubb/robota/pull/427))
+- **refactor-003**: make execSync injectable across agent-sdk ([#426](https://github.com/woojubb/robota/pull/426))
+- **refactor-001**: trim interactive-session.ts to 400-line goal
+- **interactive-session**: decompose 831-line god class into 12 focused modules ([#424](https://github.com/woojubb/robota/pull/424))
+- **refactor-002**: remove agent-runtime pass-through value re-exports from agent-sdk ([#423](https://github.com/woojubb/robota/pull/423))
+- **sdk-001+sdk-002**: IAgentJobHostContext + IInteractiveSession + test factory ([#422](https://github.com/woojubb/robota/pull/422))
+- **arch-fix-024**: move child-process subagent runner from agent-sdk to agent-cli
+- **sdk-006**: add missing public API entries to agent-sdk SPEC.md
+- **sdk-003**: document agent-plugin-* packages as consumer opt-in
+- **arch-fix-028**: document runtime concrete I/O runners and croner in SPEC
+- **arch-fix-025**: document auth/credits as forward-declared contracts, not yet wired
+- **arch-fix-029**: document playground intentional no-sdk-session design
+- update lockfile after removing agent-sessions from agent-transport-tui
+- archive SDK-007 as wontfix + update evals
+- **docs-001**: add /settings and /user-local to command-inventory.md
+- architecture review 2026-05-15 + 14 backlog items
+- re-archive CTX-001 and MULTI-001 — resurrected by main merge
+- update evals lessons and weekly digest
+- **arch-map**: strip verbose content — relationships + brief contracts only
+- archive PROV-001 — completed
+- remove stale MULTI-001 active backlog entry
+- archive MULTI-001 — completed
+- **backlog**: clean up completed ARCH-FIX-020~023 + BGTASK-001 + CTX-001 from active backlog
+- archive CTX-001 — completed
+- **backlog**: add layer-violation remediation items for agent-cli
+- add CTX-001 and MULTI-001 backlog items + refresh evals digest
+- fix stale PROV-002 test expectations in agent-cli and agent-command-provider
+- archive CLI2-014 — completed
+- archive PROV-002 — completed
+- **backlog**: add PROV-002 configure flow profile name generation fix
+- **backlog**: CLI2-014 — record decision to show model ID only in status bar
+- **backlog**: add CLI2-014 status bar model display redundancy
+- **rules**: require explicit npm whoami before OTP request in publish flow
+- **release**: create release-run record for 3.0.0-beta.63
+- bump versions to 3.0.0-beta.63 ([#388](https://github.com/woojubb/robota/pull/388))
+- archive PLG-002~006, enforce frontmatter format in backlog ([#387](https://github.com/woojubb/robota/pull/387))
+- archive completed task files (cli2-010, plg-002) ([#386](https://github.com/woojubb/robota/pull/386))
+- archive 61 completed/wontfix backlog items ([#385](https://github.com/woojubb/robota/pull/385))
+- archive SRV-001..004 — all marked done in backlog ([#384](https://github.com/woojubb/robota/pull/384))
+- archive SRV2-001 — already implemented ([#383](https://github.com/woojubb/robota/pull/383))
+- archive PLG-001 — already implemented in previous session ([#382](https://github.com/woojubb/robota/pull/382))
+- archive already-implemented backlog items ([#378](https://github.com/woojubb/robota/pull/378))
+- **dev-006,008,009**: archive — already implemented ([#377](https://github.com/woojubb/robota/pull/377))
+- **cli2-003**: mark as done — isInitialized guard already implemented ([#372](https://github.com/woojubb/robota/pull/372))
+- **arch-006**: mark done, record evidence
+- add ARCH-FIX-020/021 architecture review findings
+- **backlog**: mark CLI2-013 done with evidence
+- add CLI2-013 slash autocomplete column alignment
+- **backlog**: mark CLI2-012 done with evidence
+- add CLI2-012 slash autocomplete Ink wrap truncate
+- **backlog**: mark CLI2-010 done with evidence, archive task file
+- add CLI2-010 slash autocomplete description truncation
+- add agent-executability requirement to backlog-execution.md
+- update architecture maps + strengthen done-gate rule after PLG-007 verification
+- **backlog**: PLG-007 agent-transport-tui separation + CLI lifecycle recovery
+- **agent-cli**: remove obsolete web-sidecar directory
+- **tasks**: add test plan section to plg-002 task file
+- **backlog**: PLG-006 transport config + web separation, agent-interface-* pattern
+- **evals**: update auto-lessons, weekly-digest, add scope eval dirs and release run
+- **plg-005**: AgentActivityPanel design — left accent bar, animate-ping, status hierarchy
+- **backlog**: PLG-005 web monitor agent activity panel
+- **plg-004**: update http-server tests for loading placeholder
+- **plg-004**: add unit tests for ws-server and http-server
+- **plg-004**: update backlog with implementation evidence
+- **backlog**: add PLG-004 web monitor WS/HTTP separation architecture
+- **plg-003**: update backlog and task with implementation evidence
+- update pnpm lockfile after merge
+- **backlog**: close PLG-002, create PLG-003 for self-contained web monitor
+- **git-branch**: require user approval before creating new branch when one is unmerged
+- **backlog**: mark ARCH-FIX-004 done — agent-team/agent-remote-client already registered
+- **arch-fix-medium**: resolve ARCH-FIX-012 through ARCH-FIX-019
+- **arch-fix**: remove fallback paths and product name (ARCH-FIX-010/011)
+- **arch-fix**: register web sidecar, agent-server OpenAPI, and agent-web SPEC (ARCH-FIX-007/008/009)
+- **arch-fix-high**: move ITerminalOutput/ISpinner SSOT to agent-core
+- **arch-fix-critical**: reclassify transport layer and delete event-service shim
+- **backlog**: add architecture fix backlog items from rule violation audit
+- bump versions to 3.0.0-beta.62 ([#366](https://github.com/woojubb/robota/pull/366))
+- **backlog**: update PLG-002 with agent-web package and Phase 1/2 roadmap
+- **backlog**: revise PLG-002 as CLI second-screen browser monitor
+- **backlog**: update PLG-002 with WsTransport-based architecture design
+- **backlog**: add PLG-002 playground agent-sdk refactor backlog
+- **backlog**: add v2 pre-launch audit backlog items and reports ([#362](https://github.com/woojubb/robota/pull/362))
+- **backlog**: mark UX-001 and UX-002 done with user execution evidence
+- **backlog**: add detailed evidence to DOC-002, TST-001, TST-002
+- **backlog**: mark pre-launch backlog items done + SEC-002 env.example policy
+- **server**: add agent-server integration tests (TST-001)
+- **web**: add SimpleCache smoke tests; docs: add Korean README
+- enhance CLI getting started guide and slash command reference
+- **backlog**: add pre-launch audit backlog items and reports
+- **backlog**: add UE scenario and evidence for deepseek-api-provider backlog ([#351](https://github.com/woojubb/robota/pull/351))
+- **backlog**: add missing User Execution Test Scenarios section to orchestrator skill backlog ([#350](https://github.com/woojubb/robota/pull/350))
+- **backlog**: add test plan execution evidence to ARCH-CONF-006 ([#349](https://github.com/woojubb/robota/pull/349))
+- **hooks**: add user execution evidence for HOOK-004, 006, 007; justify HOOK-005 not-applicable ([#348](https://github.com/woojubb/robota/pull/348))
+- **hooks**: HOOK-003 user execution scenario + done-gate evidence ([#347](https://github.com/woojubb/robota/pull/347))
+- **hooks**: add HOOK-003 user execution test scenario with evidence
+- **backlog-execution**: add explicit done-gate blocking status:done without evidence
+- **backlog**: mark HOOK-003~007 as done; fix HOOK-007 timeout description (60s → 600s)
+- **arch**: architecture audit, SPEC.md conformance sweep, and hook compatibility backlog
+- **agents**: define user execution test scenarios
+- **backlog**: add user-local implementation scenarios ([#336](https://github.com/woojubb/robota/pull/336))
+- define transparent workflow client contracts ([#331](https://github.com/woojubb/robota/pull/331))
+- **skills**: add backlog execution orchestrator ([#323](https://github.com/woojubb/robota/pull/323))
+- **rules**: add backlog execution gates ([#322](https://github.com/woojubb/robota/pull/322))
+- **backlog**: add cli ai workflow reviewer planning
+- **specs**: define ai workflow control plane
+- **harness**: add release run state checks
+- **harness**: add agent server boundary scan
+- **harness**: add background workspace guard
+- **harness**: add document authority scan
+- **harness**: add capability placement scan
+- **backlog**: plan cli ai workflow evolution
+- **agents**: define document authority boundaries
+- **repo**: remove DAG workspace ownership
+- **agent-cli**: define background task layering backlogs
+- **release**: publish 3.0.0-beta.61
+- **harness**: tighten worktree verification policy ([#301](https://github.com/woojubb/robota/pull/301))
+- **provider**: remove auth token setup credential ([#299](https://github.com/woojubb/robota/pull/299))
+- recheck blocked backlog decisions
+- **backlog**: record logo color task
+- **architecture**: split architecture map tree
+- **backlog**: add architecture map split plan
+- **backlog**: add cli and skill activation work items ([#284](https://github.com/woojubb/robota/pull/284))
+- **dag-api**: decouple runtime composition ([#281](https://github.com/woojubb/robota/pull/281))
+- **harness**: add infra architecture guardrails
+- **backlog**: update blocked task status ([#279](https://github.com/woojubb/robota/pull/279))
+- **playground**: split playground context module ([#277](https://github.com/woojubb/robota/pull/277))
+- **design**: add assistant dag macro idea
+- **playground**: split robota execution hook ([#275](https://github.com/woojubb/robota/pull/275))
+- **playground**: split agent configuration block ([#274](https://github.com/woojubb/robota/pull/274))
+- **playground**: split project browser ([#273](https://github.com/woojubb/robota/pull/273))
+- **playground**: split execution tree debug ([#272](https://github.com/woojubb/robota/pull/272))
+- **playground**: split error panel ([#271](https://github.com/woojubb/robota/pull/271))
+- **backlog**: add provider profile switching research
+- **playground**: split tool container block ([#269](https://github.com/woojubb/robota/pull/269))
+- **playground**: split block visualization panel ([#267](https://github.com/woojubb/robota/pull/267))
+- **playground**: split block tree ([#266](https://github.com/woojubb/robota/pull/266))
+- **playground**: record block tree decomposition
+- **playground**: cover block tree behavior
+- **playground**: split agent container block ([#265](https://github.com/woojubb/robota/pull/265))
+- **playground**: split usage monitor ([#264](https://github.com/woojubb/robota/pull/264))
+- **playground**: split execution tree visualizer ([#263](https://github.com/woojubb/robota/pull/263))
+- **playground**: split chat interface ([#262](https://github.com/woojubb/robota/pull/262))
+- **playground**: split individual plugin block ([#261](https://github.com/woojubb/robota/pull/261))
+- **playground**: split robota executor module ([#260](https://github.com/woojubb/robota/pull/260))
+- **playground**: split chat input hook
+- **playground**: split websocket connection hook
+- **playground**: split websocket client module
+- **playground**: split execution subscriber module
+- **playground**: split block tracking hooks
+- **playground**: split project manager module
+- **playground**: split accessibility utilities
+- **playground**: split code analyzer module
+- **playground**: split demo execution data
+- **playground**: split static catalog modules
+- **dag**: add external comfyui verification
+- **dag**: document service deployment topology
+- **dag**: cover run progress websocket contracts
+- **dag**: inventory orchestrator endpoint contracts
+- split dag orchestration client
+- **architecture**: add repository architecture map
+- **docs**: migrate docs deploy to cloudflare pages
+- **tasks**: add architecture map audit backlog
+- **dag**: document pending operation run gate
+- **dag-node**: cover image source common mime types
+- **sdk**: clarify public surface ownership ([#211](https://github.com/woojubb/robota/pull/211))
+- **runtime**: extract background log helpers ([#210](https://github.com/woojubb/robota/pull/210))
+- **cli**: retire command compatibility shims ([#209](https://github.com/woojubb/robota/pull/209))
+- define CLI architecture target plan ([#207](https://github.com/woojubb/robota/pull/207))
+- backlog CLI architecture system refactor audit
+- add premature context capacity backlog
+- normalize local backlog drafts
+- map agent cli architecture
+- add agent cli architecture map backlog
+- release 3.0.0-beta.60 ([#199](https://github.com/woojubb/robota/pull/199))
+- **backlog**: expand provider model catalog plan ([#197](https://github.com/woojubb/robota/pull/197))
+- **backlog**: track TUI provider model state drift ([#196](https://github.com/woojubb/robota/pull/196))
+- **agent**: archive follow-up roadmap ([#187](https://github.com/woojubb/robota/pull/187))
+- **commands**: finalize SDK command API backlog ([#186](https://github.com/woojubb/robota/pull/186))
+- **commands**: remove legacy CLI command sources ([#185](https://github.com/woojubb/robota/pull/185))
+- update agent package coverage baseline
+- **backlog**: add agent follow-up items
+- sync content docs for beta 59 ([#153](https://github.com/woojubb/robota/pull/153))
+- release 3.0.0-beta.59
+- harden publish OTP workflow rules
+- release 3.0.0-beta.58
+- sync website docs for beta 57
+- add documentation sync release rules
+- add npm auth publish preflight
+- release 3.0.0-beta.57
+- refresh release notes and package readmes ([#148](https://github.com/woojubb/robota/pull/148))
+- **backlog**: add session replay and agent parallel items
+- **cli**: define tui visual grammar ([#138](https://github.com/woojubb/robota/pull/138))
+- **backlog**: add provider usage visibility ([#137](https://github.com/woojubb/robota/pull/137))
+- **dag**: remove core dev dependency cycle
+- **cli**: track follow-up backlog items
+- preserve core commands in agent module test
+- complete agent invocation router backlog
+- complete background agent jobs backlog
+- add package coverage commands
+- **rules**: add learning loop policy
+- refresh pnpm lockfile
+- **harness**: add scoped verification pipeline
+- **backlog**: add provider and update check items
+- **release**: publish beta 56
+- **release**: publish provider packages
+- **agent-sdk**: type provider timeout fixture
+- **harness**: treat eval metrics as local logs
+- **agent-tool**: cover parallel timeout completion
+- **harness**: record push verification
+- **cli**: add background orchestration backlog
+- **tasks**: specify background agent watchdog lifecycle
+- **tasks**: capture gemma provider package boundaries
+- **tasks**: align gemma backlog test plan heading
+- **agent**: specify agent invocation router
+- **cli**: specify background task visibility
+- **agent**: extract runtime orchestration package
+- **cli**: update ink to 7
+- **agents**: specify background task layer
+- **agents**: specify subagent process manager
+- **agents**: add backlog planning docs
+- **agent-cli**: extract tui input flows
+- add test plans for harness scan
+- **tasks**: update INFRA-BL-002 with self-hosted sandbox research
+- **tasks**: update INFRA-BL-004 with snapshot/hydration research
+- **tasks**: update INFRA-BL-003 with workspace manifest research
+- **tasks**: update INFRA-BL-002 with sandbox platform research
+- **tasks**: add INFRA-BL-004 agent snapshot/hydration backlog
+- **tasks**: add INFRA-BL-003 agent workspace manifest backlog
+- **tasks**: split INFRA-BL-002 into DAG deployment and agent sandbox
+- **backlog**: promote SDK-BL-004 to tasks, trim Phase B from harness backlog
+- archive CLI-BL-017, add SDK-BL-004 backlog, save implementation plan
+- **agent-sdk**: add behavioral tests for allowedTools, appendSystemPrompt, bare mode
+- ignore .worktrees/ directory
+- update pnpm lockfile for v3.0.0-beta.55
+- release v3.0.0-beta.55
+- add Cloudflare Pages deployment rule (main triggers deploy)
+- remove CLI-BL-014 fast-mode (Anthropic server-side feature, not implementable)
+- archive FIX-BL-001 playground build error as completed
+- add mandatory feature branch workflow to git-branch rules
+- archive INFRA-BL-001 apps-web-separation as completed (already split into agent-web + dag-studio)
+- remove CF Dynamic Workers references (no longer considered)
+- archive INFRA-BL-005 blog-app as completed
+- archive INFRA-BL-007 blog-i18n as completed
+- **blog**: remove /blog/ prefix from post URLs
+- **blog**: remove legacy content/config.ts (replaced by content.config.ts)
+- add blog i18n backlog, spec, and implementation plan
+- add blog i18n implementation plan (INFRA-BL-007)
+- add blog i18n design spec (INFRA-BL-007)
+- capitalize Blog in site title (Robota Blog)
+- rewrite AGENTS.md section intro for clarity
+- improve first section subtitle in blog post
+- fix spacing in blog post (무리없이 → 무리 없이)
+- polish blog post — fix grammar, spacing, awkward phrasing
+- polish closing paragraph in blog post
+- fix SIGSEGV explanation — blank line fix, not setCursorPosition removal
+- clarify 되다 rule — only applies when 하다 form exists
+- fix "호환하는" → "호환되는", add 되다 exception rule
+- add backlog for docs Cloudflare Pages migration
+- fix Korean writing style violations in blog post
+- add Korean writing style rules to naming-style
+- redirect presentation HTML to blog, update blog post
+- update blog post content
+- add blog README with deployment instructions
+- restructure presentation for narrative flow and add blog backlog
+- improve presentation copy and add mobile responsive layout
+- add Google Analytics to presentation
+- add og:image and twitter:image metadata
+- update presentation metadata descriptions
+- update presentation title, add CLI demo image
+- update presentation slides and add checkpointing research
+- add presentation HTML to docs public
+- release 3.0.0-beta.53
+- **agent-core**: decompose remaining 13 monolith files to under 300 lines
+- decompose monolith files across 16 agent-* packages
+- **agent-core**: decompose execution-round (675→288) + slim index.ts (475→223)
+- add monolith decomposition backlog for all agent-* packages
+- **agent-cli**: decompose 5 monolith files to under 300 lines
+- add anti-monolith rule + CLI decomposition backlog
+- slim AGENTS.md from 253 to 120 lines
+- release 3.0.0-beta.52
+- **agent-cli**: add paste at cursor position tests
+- **agent-cli**: update SPEC — cursorHint prop for paste cursor positioning
+- add CLI-BL-021 paste cursor position after insert
+- **agent-cli**: update SPEC — multiline paste inserts at cursor position
+- add CLI-BL-020 paste at cursor position bug
+- release 3.0.0-beta.51
+- move CLI-BL-019 (streaming rendering optimization) to completed
+- adjust debounce test timeout to match 300ms interval
+- update SPEC debounce value to 300ms
+- **agent-cli**: set streaming debounce to 300ms
+- add CLI-BL-019 streaming rendering optimization backlog
+- release 3.0.0-beta.49
+- release 3.0.0-beta.48
+- update CLI SPEC for tool-start/tool-end rendering + add Step 0 to checklist
+- move CLI-BL-018 (tool execution history) to completed
+- add tool-start/tool-end event types to content/guide/sdk.md
+- add CLI-BL-018 tool execution history backlog
+- add createWsHandler and createAgentMcpServer to transport examples
+- add transport examples + fix session-management and interactive-mode
+- update content/examples/ for session resume, headless transport, and Tab completion
+- fix content/ gaps — headless in architecture, factories in SDK guide, commands in CLI guide
+- move CLI-BL-012 (headless transport) to completed
+- release 3.0.0-beta.47
+- add comprehensive headless transport adapter tests
+- add attachTransport and headless adapter e2e tests
+- add attachTransport to SDK SPEC + confirm CLI SPEC for createHeadlessTransport
+- add absolute rule — never modify SPEC during verification to match code
+- add ITransportAdapter to all transport and SDK SPECs
+- SPEC, README, content/ for headless transport
+- headless transport implementation plan (6 tasks)
+- headless transport design spec (CLI-BL-012)
+- split CLI-BL-012 into core (012) and advanced (017)
+- add urgency field to all backlog tasks + update CLI-BL-012 priorities
+- update README + content/ for Tab completion, enforce 3-layer doc sync rule
+- **agent-cli**: update SPEC for Tab completion and cursor sync behavior
+- update SDK-BL-003 with OpenAI auth research — both providers blocked
+- move CLI-BL-009 (session continue/resume) to completed
+- release 3.0.0-beta.46
+- update README and content/ for session continue/resume
+- **agent-cli**: add session name display spec (border title, terminal title, StatusBar)
+- **agent-cli**: set ListPicker default maxVisible to 3
+- update specs for session restore fixes (timing, fork-session, ID reuse)
+- add comprehensive session continue/resume verification tests
+- update SPECs for session continue/resume feature
+- session continue/resume implementation plan
+- session continue/resume design spec
+- add CLI/SDK backlog from Claude Code feature gap analysis
+- add CLI backlog from Claude Code feature gap analysis
+- update transport tests — remove commandExecutor from mocks
+- release 3.0.0-beta.45
+- update transport/SDK docs — remove commandExecutor, add listCommands
+- move SDK-BL-002 (transport command consolidation) to completed
+- remove commandExecutor param from all transports
+- move CORE-BL-003 (universal history architecture) to completed
+- move INFRA-BL-005 (docs build diet) to completed
+- add INFRA-BL-005 docs build diet backlog
+- enforce pnpm-only publish and all-packages-together rules
+- enforce pnpm publish:beta as the only publish command
+- release 3.0.0-beta.44
+- remove tautological, duplicate, and hardcoded tests across sdk/cli
+- **agent-cli**: add MessageList rendering tests for IHistoryEntry
+- update all SPECs and content/ for IHistoryEntry universal history
+- universal history architecture design spec
+- add CORE-BL-003 universal history architecture backlog
+- verify Tool → Robota order through full lifecycle in TuiStateManager
+- **agent-cli**: extract TuiStateManager from useInteractiveSession
+- verify Tool → Robota display order with behavior tests
+- **agent-cli**: define fixed message display order in SPEC
+- **agent-cli**: document precise ESC abort rendering behavior in SPEC
+- move buildSkillPrompt to SDK, CLI imports from SDK
+- move SDK-internal tests and sources from CLI to SDK
+- **agent-cli**: provider injection, simplified props, remove SDK re-exports
+- **agent-sdk**: provider-neutral, InteractiveSession as single entry point
+- update SDK and CLI SPECs for package scope redesign
+- SDK package scope redesign spec + ownership rules + serverless backlog
+- **agent-sdk**: rename ISlashCommand → ICommand
+- update content/ for transport packages, unified versioning, remote-client rename
+- unify all package versions to 3.0.0-beta.43 + changesets setup
+- rename agent-remote → agent-remote-client, fix SPECs, add READMEs, add post-implementation-checklist skill
+- delete agent-remote-server-core, inline routes in agent-server
+- **agent-remote**: remove server code, keep client only
+- simplify transport architecture — remove IAgentGateway, InteractiveSession is the gateway
+- **agent-sdk**: add regression tests for SDK/CLI separation fixes
+- add SDK-BL-003 (SDK/CLI separation) to completed
+- bump agent-sdk to beta.36, agent-cli to beta.42
+- update all docs for InteractiveSession + SDK/CLI separation
+- **agent-sdk**: add behavior tests for InteractiveSession
+- bump agent-sdk to beta.35, agent-cli to beta.41
+- **agent-cli**: remove unused hooks after InteractiveSession migration
+- **agent-cli**: App.tsx uses InteractiveSession + SystemCommandExecutor
+- finalize architecture decisions — all confirmed
+- SDK/CLI responsibility separation design
+- agent transport architecture design (SDK-BL-002)
+- set Cloudflare Dynamic Workers as primary deployment target (INFRA-BL-002)
+- move INFRA-BL-003 (bundle audit) to completed
+- bump agent-core, sessions, sdk, provider-anthropic, tools to beta.34
+- update all README and guide docs to match current state
+- bundle & SPEC contract audit across 8 packages (INFRA-BL-003)
+- add serverless deployment context to bundle audit backlog
+- add INFRA-BL-003 bundle audit backlog
+- bump agent-cli to 3.0.0-beta.38
+- bump agent-cli to 3.0.0-beta.37
+- move completed/cancelled tasks to completed/
+- mark CLI-BL-006, CORE-BL-002, PLUG-BL-002 as completed
+- bump agent-cli to 3.0.0-beta.36
+- update content/ guides and package READMEs for conversation history architecture
+- add CLI-BL-009 merge consecutive assistant messages backlog
+- remove debug logs from streamWithAbort, finalize clean state
+- rewrite SPEC.md files to match final conversation history architecture
+- **agent-core**: rename ConversationSession to ConversationStore — remove 'session' from core
+- **agent-core**: add 12 tests for message factories, getMessagesForAPI, streaming state
+- update content/ guides for conversation history architecture
+- update SPEC.md for conversation history architecture (CORE-BL-002)
+- **agent-cli**: replace IChatMessage with TUniversalMessage (SSOT)
+- add conversation history architecture implementation plan (CORE-BL-002)
+- add conversation history architecture design spec (CORE-BL-002)
+- add CLI-BL-008 Ctrl+C behavior backlog
+- add CORE-BL-002 conversation history architecture backlog
+- update package SPEC.md files for abort execution and plugin TUI
+- add abort execution implementation plan (CLI-BL-006)
+- add abort execution design spec (CLI-BL-006)
+- add CLI-BL-006 (abort command) and CLI-BL-007 (queue prompt) to backlog
+- add CLI-BL-005 paste split bug to backlog with root cause analysis
+- update cli.md plugin section with interactive TUI documentation
+- bump agent-cli to 3.0.0-beta.35
+- **agent-cli**: extract PluginTUI handlers, fix re-fetch after uninstall
+- update plugin TUI spec with bug fixes and implementation decisions
+- **agent-cli**: add 4 regression tests for plugin TUI bugs
+- **agent-cli**: restore generic /plugin description
+- **agent-cli**: remove enable/disable from plugin TUI, uninstall only
+- add plugin management TUI implementation plan (PLUG-BL-002)
+- add plugin management TUI design spec (PLUG-BL-002)
+- cancel CLI-BL-001 file attachment — drag-and-drop path paste is sufficient
+- bump agent-cli to 3.0.0-beta.34
+- **agent-cli**: add 17 regression tests for diff line numbers and context
+- mention .robota as primary, .claude as compatibility layer in all SPEC/content docs
+- update docs copy script
+- fill content/ gaps from SPEC.md audit — skills, subagents, memory, config
+- publish 3.0.0-beta.33
+- update README and content guides for beta.25-32 features
+- publish 3.0.0-beta.32
+- move CLI-BL-006 (subagent execution) to completed
+- enforce build after commit in verification rules
+- move CLI-BL-004 (paste template) to completed
+- **agent-sdk**: replace agentToolDeps singleton with createAgentTool factory (DI)
+- **agent-sdk**: add 30 edge case tests for subagent system
+- add subagent execution implementation plan (10 tasks)
+- add subagent execution design spec
+- publish 3.0.0-beta.31
+- add CLI-BL-006 subagent execution backlog with research
+- add PLUG-BL-002 plugin/marketplace management TUI backlog
+- move PLUG-BL-001 (marketplace source compat) to completed
+- move CLI-BL-002 (file diff display) to completed
+- improve content/README.md clarity and correctness
+- add Edit Diff Display spec to agent-cli SPEC.md
+- move CORE-BL-001 (always streaming) to completed
+- publish 3.0.0-beta.29
+- **agent-cli**: remove alternate screen buffer — keep scrollback
+- publish 3.0.0-beta.28
+- update CLI-BL-005 with memory optimization research findings
+- add CLI-BL-005 long session memory optimization backlog
+- publish 3.0.0-beta.27
+- rename backlog files with ID prefix convention
+- add Task/Backlog ID Convention rule (CLI-BL-001 format)
+- add backlog — always use streaming to avoid 10min timeout
+- update content/guide with plugin system and hook enhancements
+- add CLI UX backlog tasks
+- add 2026-03-23 daily log
+- publish 3.0.0-beta.26
+- add regression tests for forced summary call and resolveQualifiedName
+- complete token counting task — overflow mechanism was working correctly
+- move context-overflow task to completed
+- move claude-code-compatible-features to completed
+- publish 3.0.0-beta.25
+- add implementation plan and update agent-sdk SPEC
+- update spec with hook+skill interaction flow, add context overflow backlog
+- **agent-cli**: remove runPluginHooks from buildSkillPrompt
+- Revert "feat(agent-cli): substitute plugin path variables in skill content"
+- remove debug logging from useCommandRegistry
+- update spec — plugin commands loading + display format
+- add missing test coverage for marketplace local source and MCP config fallback
+- remove default marketplace from spec — no pre-registered marketplace
+- fix spec gaps — config paths, manifest fields, skill execution
+- split project-structure.md and add document size rule
+- split process.md into 5 focused rule files
+- **plugins**: rewrite marketplace and installer for git-clone-based architecture
+- update plugin install spec — marketplace clone + relative source paths
+- add Feature Gap Process rule — spec before code mandatory
+- fix remaining ~/.claude references to ~/.robota in spec
+- **agent-sdk**: extract PluginSettingsStore for shared persistence
+- **agent-cli**: add command routing completeness guard
+- add E2E scenario tests for Claude Code compatible extensions
+- add filesystem smoke tests for Claude Code compatible extensions
+- add cross-package integration tests for hooks and skills
+- update SPEC.md for Claude Code compatible extension features
+- add integration tests for hook flow and bundle plugin lifecycle
+- add detailed research plan to Claude Code compatibility task
+- add Claude Code compatible features to backlog
+- publish 3.0.0-beta.24
+- publish 3.0.0-beta.23
+- add language setting to SPEC — CLI flags, slash command, first-run setup
+- move cli-response-language-setting to completed
+- publish 3.0.0-beta.22
+- publish 3.0.0-beta.21
+- update SPECs — system message preservation, chars/2, provider error recovery
+- publish 3.0.0-beta.20
+- publish 3.0.0-beta.19
+- **agent-cli**: extract hooks and skill-prompt from App.tsx
+- publish 3.0.0-beta.18
+- docs+test: tool result context budget — mixed results flow and SPEC update
+- **agent-cli**: extract StreamingIndicator component with tests
+- **agent-cli**: show Tools: before Robota: in streaming display
+- **agent-cli**: add spacing between Robota: and Tools: sections
+- move cli-realtime-tool-display to completed
+- move tool-result-context-overflow-prevention to completed
+- **agent-core**: add context budget overflow tests for addToolResultsToHistory
+- **agent-core**: add tool result context budget to SPEC
+- publish 3.0.0-beta.17
+- **agent-cli**: modularize App.tsx and cli.ts into testable modules
+- move context-compaction-research to completed
+- publish 3.0.0-beta.16
+- publish 3.0.0-beta.15
+- deep research on Terminal.app Korean IME crash
+- **agent-cli**: update SPEC — Terminal.app crash is unresolvable
+- publish 3.0.0-beta.14
+- **agent-cli**: add Terminal.app crash warning to package README
+- add Terminal.app crash warning, recommend iTerm2
+- publish 3.0.0-beta.13
+- **agent-cli**: add CjkTextInput unit tests (20 tests)
+- **agent-cli**: update SPEC with Terminal.app crash prevention details
+- add Terminal.app IME crash root cause analysis
+- publish 3.0.0-beta.12
+- add tests for injectMessage, auto-compact, and run flow
+- **agent-sessions**: rewrite compaction tests — fix review findings
+- **agent-sessions**: add compaction behavior tests (4 tests)
+- update Phase 4 with client-server history mismatch warning
+- add context compaction research (Claude Code vs Robota)
+- add context compaction research task to backlog
+- publish 3.0.0-beta.11
+- consolidate permission-prompt.ts — single SSOT in agent-sdk
+- gitignore content/api-reference/ (typedoc build output)
+- publish 3.0.0-beta.10
+- publish 3.0.0-beta.9
+- add CLI demo screenshot, rewrite root README for v3
+- publish 3.0.0-beta.8
+- publish 3.0.0-beta.7
+- update SPECs for streaming round separator, tool display, WriteTool bytes
+- **agent-core**: add NOTE for parallel execution context check
+- publish 3.0.0-beta.6
+- **agent-sdk**: add P0+P1 edge case tests for 5 tools (129 → 153)
+- **agent-sdk**: expand edit tool test coverage (7 → 21 tests)
+- disable dependabot — dependency updates done manually
+- gitignore harness session log (auto-generated per session)
+- update harness session log
+- publish 3.0.0-beta.5
+- archive completed execution-loop-crash task
+- add Fix 4 — error logging and session preservation on crash
+- add backlog task for execution loop crash on context overflow
+- switch docs deployment from GitHub Actions to local script
+- add v2.0.0 archive banner to all index pages
+- rewrite READMEs for 4 published packages to match v3 architecture
+- add "not yet published" labels, add publish label cleanup rule
+- create v3.0.0 web documentation
+- archive v2.0.0 web docs to content/v2.0.0/
+- add docs version migration task to backlog
+- publish 3.0.0-beta.4
+- bump published packages to 3.0.0-beta.4
+- archive completed harness fix tasks
+- add backlog tasks for pre-existing lint and harness failures
+- fix FunctionTool attribution in agent-team and agent-playground SPECs
+- archive sdk-cli-spec-conformance-audit as completed
+- fix 7 LOW spec issues in agent-sessions, agent-sdk, agent-cli
+- archive 7 completed spec audit tasks
+- fix SPEC.md for 6 packages from spec audit
+- **agent-core**: fix SPEC.md — align with post-extraction architecture
+- add spec audit tasks for 7 packages from conformance review
+- add 3 coding rules from spec conformance audit
+- fix SPEC.md inconsistencies across agent-sessions, agent-sdk, agent-cli
+- archive completed tasks, add spec conformance audit task
+- extract Session assembly to SDK, make Session generic
+- publish 3.0.0-beta.3
+- remove Bun runtime support — Node.js only
+- move cli-tui-architecture and cli-permission-prompt-ux to completed
+- move robota-storage-paths to completed
+- **agent-cli**: add assembly architecture diagram
+- **agent-sessions**: extract session logging to ISessionLogger
+- add Layered Assembly Architecture rule
+- set dag-nodes/* to private:true, update publish registry
+- bump published packages to 3.0.0-beta.2
+- complete CLI beta roadmap — all 7 items done
+- add feature documentation requirement rule, update specs
+- set publish registry — 6 public packages, 29 private
+- document Terminal.app Korean IME crash as known OS bug
+- publish 3.0.0-rc.7 — CJK input fix with refs
+- add CJK input solutions research with 4 candidates
+- add backlog — CJK input fix for Terminal.app
+- publish 3.0.0-rc.6
+- publish 3.0.0-rc.5
+- enforce pnpm publish — npm publish breaks workspace:* deps
+- verify AGENTS.md system prompt delivery — all steps confirmed
+- publish 3.0.0-rc.4 — system prompt fix + tests
+- **agent-sessions**: add system prompt delivery tests
+- publish 3.0.0-rc.3 with session_init logging
+- bump to 3.0.0-rc.2 for republish with fixed deps
+- **agent-core**: remove ALL agent-* dependencies — zero upstream deps
+- clarify agent-core dependency fix — remove, don't absorb
+- add task for fixing agent-core reverse dependencies
+- add Foundation Package Dependency Rule — agent-core must not depend on agent-*
+- **agent-provider-anthropic**: add streaming content block parsing tests
+- update all SPEC.md with web search, logging, tool limits, IME
+- simplify WebFetch/WebSearch — built-in tools in agent-tools/builtins
+- update WebFetch/WebSearch backlog with precise package placement
+- add backlog — Korean IME input limitation
+- add backlog — tool output size limits, fix context tracking
+- bump 6 packages to 3.0.0-rc.1 for first npm publish
+- add release v3.0.0-rc.1 publish manifest
+- add Publish Scope Approval rule — user must confirm package list
+- strengthen Publish Safety Gate — require CI pass and lint
+- add Publish Safety Gate rule — mandatory dry-run before publish
+- update all SPEC.md and archive completed tasks
+- clarify .robota/ as runtime-only, respect .agents/ standard
+- add backlog item — .robota/ storage paths convention
+- add slash menu spec with extensible command registry
+- add backlog item — slash command autocomplete UI
+- update SPEC.md with context management and model display
+- add context management research and implementation spec
+- add research prerequisite to context management backlog
+- add package placement decision to context management backlog
+- update context management backlog with model-aware compression
+- add backlog item — CLI cancel execution with Esc/Ctrl+C
+- add 3 backlog items — WebFetch tool, context management, permission remember
+- update SPEC.md for all decomposed packages in English
+- decompose agent-sdk into component packages
+- **agent-sdk**: add SPEC with assembly-first architecture
+- create @robota-sdk/agent-sdk, separate CLI from SDK
+- move cli-* modules back to agent-cli, keep agent-core as pure engine
+- add Claude Code vs Agent SDK comparison research
+- **agent-cli**: remove legacy readline REPL, add PrintTerminal
+- **agent-cli**: add SPEC.md
+- **agent-cli**: add README, .env.example, start/dev scripts
+- add Claude Code/Agent SDK research and updated CLI MVP plan
+- rename 27 packages with agent-/agent-plugin-/agent-provider- prefixes
+- update project structure for agents decomposition
+- update consumer imports for agents decomposition
+- extract 9 plugin packages from agents
+- remove tools from agents, update internal imports
+- extract @robota-sdk/tool-mcp from agents
+- extract @robota-sdk/tools from agents
+- update agents internal imports for event-service extraction
+- extract @robota-sdk/event-service from agents
+- scaffold 12 new packages for agents decomposition
+- add agents decomposition and CLI design specs, archive completed tasks
+- add specs and backlog directories (harness score 91 → 95)
+- harness init improvements (score 84 → 91, B → A)
+- add ARCHITECTURE.md with system overview and DAG subsystem diagram
+- add harness JSON schema, Dependabot, and CODEOWNERS
+- complete P2 harness improvements (score 82 → ~90)
+- add harness:verify for changed scopes in CI pipeline
+- add Common Mistakes section and missing lint/test scripts
+- add pre-commit hook, lint-staged config, and CI harness scan
+- add backlog for deployment architecture (Vercel + server)
+- add backlog for apps/web separation into purpose-specific apps
+- add backlog for orchestration-focused repo separation
+- add Robota Agent control commands to CLI backlog
+- note CLI can be used by AI agents as tool
+- add backlog tasks for AI chat DAG builder, MCP server, CLI
+- add published API auth/credits flow challenges to backlog
+- add backlog task for DAG Publish API endpoint design
+- add backlog task for auth + credits package design
+- align runtime server default port to ComfyUI 8188
+- add backlog task for ComfyUI Docker integration test
+- add remaining backlog task file
+- add missing SPEC.md and README.md for harness scan compliance
+- **rules**: add Harness Verification Requirement to process rules
+- **dag-designer**: unify node state into nodeStateMap
+- add nodeStateMap design + backlog for partial run and orchestration state
+- remove inputs/outputs from preset JSON, objectInfo is SSOT for ports
+- **dag-worker**: handle optional IDagNode.inputs in downstream payload builder
+- **dag-designer**: derive port definitions from objectInfo when not in DAG
+- **dag-designer**: createNodeFromObjectInfo without inputs/outputs
+- **dag-core**: make IDagNode.inputs/outputs optional
+- add DAG JSON input/output removal implementation plan (7 tasks)
+- add DAG JSON input/output removal design
+- add ComfyUI dynamic inputs research (list port compatibility)
+- **rules**: add Plan Documentation Requirement to process rules
+- **dag-designer**: fix SPEC conformance — deps, type ownership, coexistence model
+- fix 15 SPEC issues — rename collisions, remove ghosts, fix attributions
+- update SPEC.md files for Credits migration, dag-cost, and API changes
+- increase UI element sizes and fix node border style conflict
+- add backlog task files, gitignore playwright screenshots
+- **dag-designer**: remove Zod-based config-field-renderers and schema-defaults
+- **dag-designer**: rewrite node-config-panel for ComfyUI input specs
+- add ComfyUI config renderer implementation plan (4 tasks)
+- add ComfyUI config form renderer design
+- rename /v1/dag/object_info to /v1/dag/nodes, remove BundledNodeCatalogService
+- switch web app to use TObjectInfo for node catalog
+- **dag-designer**: add INodeObjectInfo support alongside INodeManifest
+- add node catalog object_info implementation plan (10 tasks, 3 phases)
+- add node catalog object_info design plan
+- **rules**: add Idea Capture Policy to process rules
+- **dag-designer**: redesign node explorer tabs with underline indicator
+- **web**: reduce sidebar widths and unify header button sizes
+- **web**: add global dark theme for form elements (input, select, textarea)
+- **web**: fix dag-designer-screen to use Studio dark theme
+- **dag-designer**: redesign all panel components with Studio dark theme
+- **dag-designer**: redesign canvas, nodes, and edges with Studio dark theme
+- **web**: redesign dag-designer pages with Studio dark theme
+- **web**: establish Studio dark theme design system
+- rename dag-adapters-memory to dag-adapters-local, move FileCostMetaStorage
+- update SPEC.md and project structure for dag-adapters-memory
+- update all imports to use @robota-sdk/dag-adapters-memory
+- move in-memory adapters from dag-core to dag-adapters-memory
+- add dag-adapters-memory separation plan (6 tasks)
+- update preset costPolicy to Credits
+- complete CostUsd to Credits migration across monorepo
+- **dag-orchestrator**: rename CostUsd to Credits
+- update design doc with dag-cost package separation
+- update implementation plan - separate dag-cost package
+- **dag-core**: rename CostUsd in services and tests to Credits
+- **dag-core**: rename CostUsd fields to Credits in type definitions
+- add cost estimation implementation plan (14 tasks, 5 phases)
+- add cost estimation design and research documents
+- **dag-nodes**: remove hardcoded Gemini image model defaults
+- enforce dependency direction, SSOT docs, and code quality audit fixes
+- add dag-node to project structure, full verification pass
+- **dag-node**: add SPEC.md, update dag-core and dag-nodes SPEC cross-references
+- **dag-nodes**: import node infrastructure from @robota-sdk/dag-node
+- **dag-node**: move node infrastructure tests from dag-core
+- **dag-core**: re-export moved symbols from dag-node for backward compat
+- **dag-node**: move node infrastructure source files from dag-core
+- **dag-node**: scaffold empty package
+- add dag-node extraction implementation plan
+- add dag-node package extraction design
+- add ComfyUI API parity implementation plan
+- **dag-runtime-server**: update SPEC for 100% ComfyUI API parity
+- **dag-designer**: update SPEC.md for WS protocol and IRunResult changes
+- **dag-orchestrator-server**: add SPEC.md with Robota API contract
+- **dag-orchestrator**: add SPEC.md with orchestration contracts
+- **dag-runtime-server**: add endpoint contract tests for ComfyUI API
+- **dag-runtime-server**: add SPEC.md with ComfyUI-compatible API contract
+- extract AGENTS.md rules into .agents/rules/ and add spec-first development rule
+- split api-server into agent-server, dag-runtime-server, dag-orchestrator-server
+- **dag-server-core**: add contract tests for API spec, layer deps, and response shapes
+- update pnpm-lock.yaml for playground test dependencies
+- **playground**: add vitest config with jsdom and fix button tests
+- **playground,dag-designer**: split monolithic contexts into State + Actions
+- add Vercel agent skills via npx skills CLI
+- remove manually installed react-best-practices skill
+- add Vercel react-best-practices skill
+- enable figma and superpowers plugins
+- **dag**: restructure plan with OpenAPI spec as SSOT
+- **dag**: add execution order — OpenAPI spec first
+- **dag**: update plan with independent program architecture
+- **dag**: apply proofread fixes to design and plan documents
+- **dag**: update implementation plan with generic naming and strict separation
+- **dag**: add ComfyUI-compatible API implementation plan
+- **dag**: add DAG JSON spec design — ComfyUI API format adoption
+- add comprehensive test coverage for dag-core, dag-server-core, agents (Phase 5-7)
+- add comprehensive test coverage for 17 packages (Phase 1-4)
+- enable code-review plugin
+- archive completed new-rules-refactoring task
+- **agents,playground**: extract helpers to reduce file complexity
+- enable frontend-design and github plugins
+- **dag-***: add behavioral contracts and correct spec inaccuracies
+- add DAG benchmark research comparing 5 open-source solutions
+- add api-spec-management skill and enrich OpenAPI specs
+- add dependency-cruiser for automated dependency direction checks
+- add CI coverage threshold, jsx-a11y lint, fix TApiLikeError reference
+- resolve 6 SSOT type duplicate declarations across packages
+- split large files across agents, playground, and provider packages
+- **content**: align documentation with current codebase and AGENTS.md rules
+- extract magic numbers into named constants across all packages
+- **agents**: change lookup methods to return undefined instead of null
+- migrate internal null to undefined for absence of value
+- convert object-shape type aliases to interfaces
+- **dag-designer**: split canvas and config panel into modules
+- **dag-server-core**: split dag-server-bootstrap into route modules
+- **dag-worker**: split worker-loop-service into modules
+- **agents**: decompose execute() into focused methods
+- **agents**: replace onModuleEvent switch with handler map
+- add new-rules-refactoring task plan
+- update pnpm-lock.yaml after knip installation
+- clarify type naming and alias policy with ADR-001
+- update coding-rules-implementation task progress
+- add security audit to CI and knip for dead code
+- add ESLint rules for code quality enforcement
+- expand coding rules and add new skills
+- gitignore scripts/audit/output/ and untrack existing files
+- archive test-coverage-expansion task, update ssot scan output
+- add naming violation enforcement rule to AGENTS.md Type System
+- expand test coverage across agents, dag-core, dag-designer, sessions
+- archive completed JSDoc audit and SPEC enrichment tasks
+- add JSDoc to dag-core remaining files, dag-runtime, dag-worker, dag-scheduler, dag-projection, dag-api, and all dag-nodes
+- add JSDoc to exported symbols across agents, providers, dag-core, sessions, team, remote
+- make AGENTS.md domain-free with progressive document discovery
+- add JSDoc audit and v3.0 release prep task plans
+- disable auto-deploy on main, switch to manual workflow_dispatch
+- add branch policy rules and merge direction guards
+- archive completed all-packages-code-review-fixes task
+- apply SHOULD-level code review fixes across all packages
+- fix all MUST-level code review findings across 12 packages
+- add all-packages code review findings and archive agents review
+- **agents**: fix all code review findings across 8 phases
+- add agents package code review findings and fix plan
+- add package-code-review skill with 6 perspectives and severity labels
+- add pending task files for test coverage and spec enrichment
+- eliminate trivial 1:1 type aliases and fix interface naming
+- update SPEC.md type ownership, fix dag-core test, add plugin tests
+- resolve SSOT duplicates, remove any violations, fix naming conventions
+- remove any/as-any violations and fix contract compliance
+- add Class Contract Registry for remaining packages
+- add Class Contract Registry for tier-2 packages
+- **dag-core,agents**: add Class Contract Registry to SPEC.md
+- add contract-audit skill and extend spec-writing-standard
+- rename root docs/ to content/ for clarity
+- **scripts**: organize by concern (docs, audit, publish)
+- remove dead files, deprecated packages, and phantom workspace entry
+- unify task tracking to .agents/tasks/, remove .design/open-tasks/
+- **skills**: consolidate 5 skills into 2 (29 → 25 total)
+- add Claude Code hooks for branch-guard and task-tracking
+- archive completed agents-test-coverage task
+- complete remaining tasks — harness scripts, tests, and skill cleanup
+- clean up .design/tmp/ and update task tracking
+- **agents**: activate 24 skipped tests in execution-service and agent-factory
+- **dag-scheduler**: move dag-worker to devDependencies and fix cleanup-drift
+- **agents**: expand test coverage from 8 to 18 test files (410 tests)
+- expand SPEC.md for remaining 23 packages and add branch-guard skill
+- expand SPEC.md for 7 core packages per spec quality gate
+- migrate skills to .agents/skills/ and remove .cursor/rules/
+- split CLAUDE.md into AGENTS.md with reference link
+- add CLAUDE.md with project rules and skills references
+- **dag**: standardize media reference contract to asset object and remove duplicate parsing paths
+- **api-server**: sync .env.example with current DAG runtime environment keys
+- **dag**: standardize node implementation with abstract base and shared validators
+- **dag-nodes**: introduce AbstractNodeDefinition and centralize node input/config validation
+- **dag-designer**: add initial node positions for preset templates
+- **dag**: switch gemini image prompts from config to input ports
+- remove workflow package and strip playground workflow integration
+- **web**: remove dead draft state and drop internal PR template file
+- **agents,google**: align google provider with openai patterns and preserve multimodal parts
+- **dag**: remove preview legacy paths and unify run contracts
+- **dag**: finalize node-definition SSOT and tidy plan docs
+- **design**: finalize DAG runbook track and archive completed tasks
+- **dag**: reduce complexity with DI composition and worker flow split
+- **design,cursor**: add rule compliance review to DAG plan and create 7 new skills
+- **design**: refine Robota DAG plan with package boundaries and implementation relationships
+- **design**: add DAG orchestration development plan
+- **playground,workflow,agents**: tighten type boundaries and complete compliance re-audit
+- **workflow**: unify event record contract around IEventHistoryRecord and sync specs
+- **cursor**: unify rule anchors across all skills and enforce conflict-scan boundary
+- enforce no-fallback execution flow and documentation
+- **examples**: move ownership inventory into package READMEs
+- **docs**: consolidate completed work into skills and docs
+- consolidate rules and skills organization
+- consolidate rules and skills structure
+- **examples**: distribute examples into packages and remove apps/examples
+- **examples**: renumber scripts, update refs/docs, fix 06/08 runtime issues
+- **build**: run root packages-only build via pnpm filter ./packages/
+- run Node 18/22 matrix; typecheck and lint only on Node 22
+- **ci**: exclude robota-examples from monorepo typecheck
+- **rules**: unify SSOT/type ownership rules; remove duplicated policy
+- **ssot**: remove alias/re-export drift; enforce canonical contracts
+- **eslint**: disable no-case-declarations globally
+- **logging**: unify ILogger and remove ISimpleLogger
+- **ssot**: unify periodic tasks and remove Type keyword identifiers
+- **ssot-scan**: exclude contract+impl pairs from duplicate count
+- **playground**: remove Monaco IntelliSense and SSOT type stub injections
+- **design**: add Priority 0.55 plan to unify workflow event bridge SSOT
+- **lint**: enforce no any/unknown rule disables in src and update guides
+- **lint**: fix no-undef issues and run eslint --fix across workspace
+- **design**: consolidate specs and remove duplicate .design docs
+- **design**: refresh specs to current state and slim CURRENT-TASKS
+- **design**: mark SSOT message guards + provider contract cleanup as completed
+- **agents**: finish I/T prefixes and remove typesafe contracts
+- **agents**: rename IBaseAgentInterface to IAgent and remove legacy wording
+- **types**: enforce I/T naming, remove Base* aliases, and clean comments
+- **types**: apply I*/T* prefixes and remove Korean text across playground/workflow
+- **types**: enforce I/T prefixes across workflow/remote/playground and cleanup aliases
+- **playground**: enforce I/T prefixes and remove fallback patterns in workflows
+- **types**: enforce I/T naming and remove Base* prefixes across playground
+- **types**: enforce I/T naming and SSOT across providers/remote/sessions
+- **types**: remove legacy aliases and enforce I/T contracts
+- **rules**: enforce English-only docs and align architecture/type rules
+- **types**: consolidate message/tool contracts and reduce type re-exports
+- **workflow,agents**: enforce type ownership; unify event envelope; remove legacy universal-workflow from agents
+- **playground**: fix builds; slim web host to /playground only
+- **agents**: remove base-* stubs; export abstract-* only
+- **types**: unify type axes; remove unknown; rebuild; verify 26/27
+- **lint**: forbid hardcoded event strings; update CURRENT-TASKS status
+- **workflow**: remove fallbacks; re-verify guarded examples 26/27
+- **agents**: remove ActionTrackingEventService and legacy deprecated exports
+- **agents**: remove contextual aliases; enforce ownerPath-only binder
+- align team package references to assignTask-only usage
+- **docs**: remove createTeam references and refocus team on assignTask
+- **examples**: replace team demos with assignTask stubs
+- **web**: drop team mode UI and prep assignTask example plan
+- **web**: remove team mode UI and executor code
+- **web,team**: migrate to relay mcp assignTask and drop local impl
+- **docs**: document relay mcp tool and team removal plan
+- standardize event service defaults to abstract no-op
+- **agents**: simplify tool context and auto event metadata handling
+- **agents**: simplify event emits and auto timestamp handling
+- **open-tasks**: detail event service standardization plan
+- expand stage3 tasks with recorder and validation details
+- add stage3 simulation notes and streamline design guides
+- condense .design plans and point to CURRENT-TASKS
+- **CURRENT-TASKS**: update detailed execution plan for stage 3 and checklist management
+- **CURRENT-TASKS**: clarify event ownership and prefix validation requirements
+- **agents**: add AbstractAgent and finalize base stubs
+- consolidate and streamline open tasks documentation
+- **examples,docs,rules**: archive example 26; remove duplicated examples; merge TS strict policy and event emission rules; move workflow remediation doc to .design
+- consolidate design documents and flatten directory structure
+- simplify auto-layout logic and remove nodeDataHash references
+- enforce path-only architecture in workflow handlers
+- **design**: prioritized plan for enhanced playground; tools panel and layout tweaks
+- remove legacy workflow-event-subscriber and normalize agent events
+- **agents,workflow**: replace hardcoded event strings with constants; remove prevId/prevIds types
+- clean up UNIFIED-TASK-CHECKLIST.md
+- remove Sub-Agent concept and unify to Agent type pattern
+- Clean up React-Flow integration documentation and migrate features
+- **rules**: MASSIVE Cursor Rules Optimization - 77% Size Reduction
+- Add React-Flow integration task planning document
+- Complete real-time workflow visualization system and cleanup
+- 📋 Update REMAINING-TASKS.md: Phase 4 detailed plan and 70% completion status documentation
+- Fix tree structure requirements: single entry point from user.message with continuous branching flow
+- Add comprehensive infinite nesting tree structure task plan
+- Optimize task priorities for tree structure completion
+- Clean up design documents - remove resolved issues and streamline current state
+- Consolidate Enhanced EventService project documentation
+- Complete Enhanced EventService design documentation
+- Fix React rendering errors: prevent objects from being rendered directly
+- EventService 아키텍처 설계 및 구현 계획 정리
+- Fix assignTask tool calls display in team mode blocks
+- Fix team mode block collection by using TeamContainer's teamAgent history
+- 🎯 Fix hierarchy block duplication issue - FINAL SOLUTION
+- 🧹 Remove duplicate RemoteExecutor implementation
+- 🔧 Fix RemoteExecutor compatibility and resolve build issues
+- 📋 Update RemoteExecutor compatibility fix plan
+- 🔧 Fix streaming tool call execution in ExecutionService
+- Add Team vs Agent Mode Execution Debugging
+- Add Comprehensive Logging and Fix useMemo Dependencies
+- Update implementation plan to SDK enhancement approach
+- ✅ Phase 5.1 Complete: Universal Hook System Implementation
+- 📊 Complete Team Block Tracking implementation plan
+- 🎉 Complete Team Stream Support & Chat UI Integration
+- consolidate design documentation and create unified roadmap
+- 📋 Documentation cleanup: Remove completed items from roadmap
+- 🎨 Complete Block Coding Visualization System
+- ✅ Implement Universal Hook System & Web Block Tracking
+- Update playground architecture and roadmap with current implementation status
+- add comprehensive checkbox TODO lists for remaining tasks
+- update pnpm-lock.yaml after dependency installation
+- eliminate runtime type guards and improve file naming
+- completely remove chat completion references across all pages
+- remove chat completion references from API key pages
+- Remove inaccurate claims and overstated capabilities
+- Complete remote system architecture design
+- Add Remote AI Provider architecture design
+- Organize .design folder structure with categorized directories
+- Add WorkerWrapper comprehensive plan with Zero-Config design
+- reorganize completed features and update roadmap structure
+- migrate from Firestore listeners to API routes with /api/v1 prefix
+- enhance browser compatibility documentation
+- Add browser compatibility documentation
+- bump versions for browser compatibility release
+- Add Robota SDK client compatibility analysis and implementation checklist
+- Separate completed and TODO features with detailed file organization
+- Update development roadmap with Phase 2 Week 2 completion status
+- Update development roadmap: Design-first + Progressive development approach
+- clean up cursor rules and remove redundant files
+- **sessions**: remove ambiguous features and provide clear external policy interfaces
+- Fix Robota constructor usage patterns across all documentation
+- Remove deprecated packages from build and deployment
+- version bump for README.md fixes
+- remove unused dependencies from agents and sessions packages
+- replace deprecated setCurrentAI with setModel
+- remove deprecated switchProvider and currentProvider references
+- update all Robota initialization examples to new format
+- enhance documentation with package advantages and practical benefits
+- release v2.0.0
+- update API reference documentation for v2.0.0-rc.1
+- complete deployment checklist and update CI for multi-node testing
+- update agents-basic-usage.md to remove updateConfig references
+- complete npm deployment checklist phase 4.2-6
+- complete npm deployment checklist phase 3-4
+- add commit description policy to guidelines
+- Add comprehensive Planning System implementation checklist
+- Distribute Plugin-Module-Separation design docs to appropriate locations
+- Complete Plugin-Module-Separation architecture documentation
+- Update design documents with new Robota constructor API
+- Complete Robota constructor refactoring design
+- Design review improvements: Simplify Module system and clarify Plugin vs Module separation
+- Reorganize plugin-module-separation docs and add development checklist
+- Complete overhaul of plugin/module design docs with optional extension principle
+- revise plugin vs module design with correct optional extension principles
+- **.design**: Move planning docs to dedicated subfolder
+- **.design**: Restructure Planning system documentation
+- update planning system design with user rules compliance
+- restructure planning system documentation
+- Redefine Team-Planning relationship with deprecation strategy
+- Add comprehensive Planning system design and implementation roadmap
+- Clean up documentation structure and complete plugin type system
+- Update agent planning design - redesign as container-level system
+- Fix examples and tests validation - Complete working examples
+- Distribute package docs and clean up redundancy
+- Update agents-design.md with Team Package completion
+- 🎉 Complete TypeScript build success & logger design revolution
+- Add comprehensive planning architecture and TSDoc checklist
+- Fix ESLint configuration and resolve build order issues
+- Reorganize agents documentation and create Cursor Rules
+- add English-only commit message guidelines
+- update agents.md - reorganize completed Phase 6 tasks and add example verification checklist
+- complete Phase 6 Robota core functionality tests
+- complete Phase 4 development guidelines verification
+- reorganize development docs and create cursor rules
+- Fix ZodDefault boolean type conversion in createZodFunctionTool
+- Fix team delegation infinite loop with allowFurtherDelegation control
+- Improve logging system with configurable levels and reduced verbosity
+- Fix team multi-agent collaboration and tool registration issues
+- update agents development plan and priorities
+- complete sessions package restructure in team style
+- Add event and webhook plugins with tool-focused event system
+- Refine Manager/Service/Plugin classification in agents package
+- Add agents package development plan with unified architecture
+- rename delegateWork to assignTask for clarity
+- Update docs README.md with latest team collaboration features
+- Version 1.0.5: Simplify team API, update docs, fix lint issues, add task coordinator template
+- Simplify team API to template-based configuration only
+- Add agent template system docs and implementation roadmap
+- Refactor team workflow: separate data provider from formatters
+- Add multi-agent team collaboration with intelligent task delegation
+- Update docs: modernize AI provider and tool calling examples
+- Fix TypeScript errors: update legacy functionCall to toolCalls in tests and operations
+- Fix sessions package: remove legacy functionCall, update to toolCalls
+- Refactor examples: simplify to 4 core examples with proper cleanup
+- Fix tool calling: remove legacy support, add sequential storage
+- Fix sessions package build and complete facade architecture
+- Translate all Korean text to English across codebase
+- translate CONTRIBUTING.md to English with commit guidelines
+- update API documentation and changelogs for v0.3.7 release
+- Optimize TSDoc comments by moving examples to separate files
+- Code improvement - Resolve God Object and apply pure function architecture
+- Update documents
+- translate all Korean content to English and enhance docs
+- Update roadmap: remove completed items and add SessionManager TSDoc task
+
+</details>
+<!-- generated-release-notes:end v3.0.0-beta.79 -->
+
 ## [3.0.0-beta] — in progress (latest: 3.0.0-beta.79)
 
 Robota 3.0 ships as a rolling `3.0.0-beta.N` prerelease cadence — the current published line is

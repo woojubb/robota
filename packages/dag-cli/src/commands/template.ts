@@ -1,9 +1,9 @@
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeFile, unlink, readFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import { buildDagFromPipeline } from '@robota-sdk/dag-builder';
 import { TEMPLATE_REGISTRY, buildPipelineFromTemplate } from '../templates/dag-templates.js';
 import type { IDagCliIo } from '../types.js';
+import { withTempWorkspace } from '../utils/temp-workspace.js';
 import { runCommand } from './run.js';
 import { FAILURE_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import type { LocalDagRunner } from '../local-runner/index.js';
@@ -115,28 +115,22 @@ async function handleRunSubcommand(
     return FAILURE_EXIT_CODE;
   }
 
-  const tmpFile = join(tmpdir(), `dag-template-${Date.now()}.dag.json`);
-
-  try {
-    // allow-fallback: file errors returned as CLI error messages
-    await writeFile(tmpFile, JSON.stringify(buildResult.definition, null, JSON_INDENT_SPACES));
-    const exitCode = await runCommand([tmpFile], { io, createRunner: options.createRunner });
-    return exitCode;
-  } catch (err) {
-    // allow-fallback: file errors returned as CLI error messages
-    io.write(
-      `Error: Failed to run template DAG: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    return FAILURE_EXIT_CODE;
-  } finally {
+  // SEC-003: write the scratch DAG inside a private 0700 dir, not straight into the
+  // world-writable OS temp dir. The workspace (and the file in it) is removed on exit.
+  return await withTempWorkspace('dag-template', async (dir) => {
+    const tmpFile = join(dir, 'template.dag.json');
     try {
-      // allow-fallback: cleanup failure is non-fatal
-      await unlink(tmpFile);
-    } catch {
-      // allow-fallback: best-effort cleanup, non-fatal
-      // intentionally empty
+      // allow-fallback: file errors returned as CLI error messages
+      await writeFile(tmpFile, JSON.stringify(buildResult.definition, null, JSON_INDENT_SPACES));
+      return await runCommand([tmpFile], { io, createRunner: options.createRunner });
+    } catch (err) {
+      // allow-fallback: file errors returned as CLI error messages
+      io.write(
+        `Error: Failed to run template DAG: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+      return FAILURE_EXIT_CODE;
     }
-  }
+  });
 }
 
 export async function templateCommand(

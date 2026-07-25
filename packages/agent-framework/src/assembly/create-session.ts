@@ -8,20 +8,17 @@ import { join } from 'node:path';
 import { GuardrailExecutor } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { assembleSessionTools } from './assemble-session-tools.js';
 import {
   buildAgentRuntime,
   buildBackgroundProcessTool,
   buildSessionSystemPrompt,
   wireSessionDeps,
 } from './create-session-runtime.js';
-import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { readSettings, writeSettings } from '../config/settings-io.js';
-import { createGoalStatusTool } from '../goal/index.js';
 import { AgentExecutor } from '../hooks/agent-executor.js';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
-import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
 import {
   createModelCommandToolProjection,
   createProjectedCommandExecutionTools,
@@ -120,36 +117,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const baseDefaultTools = createDefaultTools({
-    sandboxClient: options.sandboxClient,
-    cwd,
-    ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
-  });
-  const shouldWrapHostEditCheckpoints =
-    options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
-  const defaultTools =
-    shouldWrapHostEditCheckpoints && options.editCheckpointRecorder
-      ? wrapEditCheckpointTools(baseDefaultTools, options.editCheckpointRecorder)
-      : baseDefaultTools;
-  const assembledTools = [
-    ...defaultTools,
-    ...(options.additionalTools ?? []),
-    ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
-  ];
-  const reversibleExecution = options.reversibleExecution
-    ? {
-        ...options.reversibleExecution,
-        isolation:
-          options.reversibleExecution.isolation ??
-          (options.sandboxClient ? ('provider-sandbox' as const) : undefined),
-      }
-    : undefined;
-  const tools: IToolWithEventService[] = reversibleExecution
-    ? wrapReversibleExecutionTools(assembledTools, {
-        ...reversibleExecution,
-        checkpointAvailable: shouldWrapHostEditCheckpoints,
-      })
-    : assembledTools;
+  const { tools } = assembleSessionTools(options, cwd);
   if (
     modelCommandToolsEnabled &&
     options.modelCommandExecutor !== undefined &&
@@ -254,8 +222,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     const currentAllow = Array.isArray(settings.permissions)
       ? []
       : (((settings.permissions as Record<string, unknown> | undefined)?.allow as
-          | string[]
-          | undefined) ?? []);
+          string[] | undefined) ?? []);
     if (!currentAllow.includes(pattern)) {
       writeSettings(projectSettingsPath, {
         ...settings,
@@ -293,6 +260,7 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     onCompact: options.onCompact,
     onCompactEvent: options.onCompactEvent,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
+    contextCapacityHint: options.contextCapacityHint,
     autoCompactThreshold: options.autoCompactThreshold ?? options.config.autoCompactThreshold,
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
@@ -301,7 +269,6 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(options.effort !== undefined ? { effort: options.effort } : {}),
   });
-
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
 
   return { session, rebuildSystemMessage };

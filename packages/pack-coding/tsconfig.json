@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // Resolve package "exports" subpaths (e.g. @robota-sdk/agent-core/testing in tests), matching
+    // agent-framework and the transport family. The runtime build uses tsdown; this only affects tsc.
+    "moduleResolution": "bundler"
+  },
+  "include": ["src"]
+}

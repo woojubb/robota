@@ -1,9 +1,14 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
+import { frontmatterObject as parseFrontmatter } from '../frontmatter.mjs';
 import {
   evaluateSpec,
   findCapabilityReachabilityFindings,
-  parseFrontmatter,
 } from '../scan-capability-reachability.mjs';
 
 /**
@@ -113,5 +118,105 @@ describe('HARNESS-030 — helpers + live tree', () => {
 
   it('TC-04: the live done/ tree is clean (every declared capability names an existing scenario)', () => {
     expect(findCapabilityReachabilityFindings()).toEqual([]);
+  });
+});
+
+/**
+ * HARNESS-046 — this scan must read frontmatter through the ONE parser (`frontmatter.mjs`), not a
+ * forked single-line regex. These drive the scan END-TO-END over a fixture tree, so they stay honest
+ * regardless of which parser the scan happens to call.
+ *
+ * A per-line regex reads a key whose value was wrapped onto the following indented line as the empty
+ * string — turning a fully-evidenced capability spec into a false "dodged the gate" gate failure.
+ * The wrapping is not hypothetical: prettier (lint-staged's `*.md` formatter) reflows any frontmatter
+ * flow array past printWidth into exactly this shape, and `.agents/backlog/` already carries 441
+ * `depends_on: [` arrays waiting for the day a scan reads one.
+ */
+async function createSpecTree(files) {
+  const root = await mkdtemp(path.join(tmpdir(), 'robota-capability-reachability-'));
+  for (const [relativePath, content] of Object.entries(files)) {
+    const target = path.join(root, relativePath);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content, 'utf8');
+  }
+  return root;
+}
+
+const SCENARIO = '.agents/evals/scenarios/harness-046-agent-run.md';
+
+describe('HARNESS-046 — one frontmatter parser (end-to-end over a fixture tree)', () => {
+  it('reads a WRAPPED user_execution / user_execution_scenario value (no false "dodge" finding)', async () => {
+    const root = await createSpecTree({
+      [SCENARIO]: '# agent-run evidence\n',
+      '.agents/spec-docs/done/HARNESS-046-wrapped.md': [
+        '---',
+        'status: done',
+        'type: INFRA',
+        'tags:',
+        '  [',
+        '    harness,',
+        '    frontmatter,',
+        '    formatter-drift,',
+        '    verification,',
+        '    enforcement-architecture,',
+        '  ]',
+        'capability: true',
+        'user_execution:',
+        '  agent-run',
+        'user_execution_scenario:',
+        `  ${SCENARIO}`,
+        '---',
+        '',
+        '# HARNESS-046',
+      ].join('\n'),
+    });
+
+    expect(findCapabilityReachabilityFindings(root)).toEqual([]);
+  });
+
+  it('still FAILS a wrapped-frontmatter capability spec that really dodges the gate (not weakened)', async () => {
+    const root = await createSpecTree({
+      '.agents/spec-docs/done/HARNESS-046-dodge.md': [
+        '---',
+        'status: done',
+        'type: INFRA',
+        'tags:',
+        '  [',
+        '    harness,',
+        '    frontmatter,',
+        '  ]',
+        'capability: true',
+        'user_execution:',
+        '  none',
+        '---',
+        '',
+        '# HARNESS-046 dodge',
+      ].join('\n'),
+    });
+
+    const findings = findCapabilityReachabilityFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatch(/must NOT dodge/);
+  });
+
+  it('still FAILS when the wrapped scenario path does not exist (not weakened)', async () => {
+    const root = await createSpecTree({
+      '.agents/spec-docs/done/HARNESS-046-missing.md': [
+        '---',
+        'status: done',
+        'type: INFRA',
+        'capability: true',
+        'user_execution: agent-run',
+        'user_execution_scenario:',
+        '  .agents/evals/scenarios/does-not-exist.md',
+        '---',
+        '',
+        '# HARNESS-046 missing',
+      ].join('\n'),
+    });
+
+    const findings = findCapabilityReachabilityFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatch(/does not exist/);
   });
 });

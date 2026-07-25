@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { IDagCliIo } from '../types.js';
 
 vi.mock('node:fs/promises', () => ({
@@ -73,6 +73,10 @@ describe('keysCommand - add', () => {
 });
 
 describe('keysCommand - test', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('tests keys (none set, returns failure)', async () => {
     const io = makeIo();
     const code = await keysCommand(['test'], { io, cwd: '/tmp/fake' });
@@ -81,29 +85,17 @@ describe('keysCommand - test', () => {
   });
 
   it('tests key with valid format (sk-ant- prefix)', async () => {
-    const saved = process.env['ANTHROPIC_API_KEY'];
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-api03-validkeyformat12345678901234567890';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-api03-validkeyformat12345678901234567890');
     const io = makeIo();
     const code = await keysCommand(['test'], { io, cwd: '/tmp/fake' });
-    if (saved !== undefined) {
-      process.env['ANTHROPIC_API_KEY'] = saved;
-    } else {
-      delete process.env['ANTHROPIC_API_KEY'];
-    }
     expect([0, 1]).toContain(code);
     expect(io.writes.join('')).toContain('present');
   });
 
   it('tests key with invalid format (wrong prefix)', async () => {
-    const saved = process.env['ANTHROPIC_API_KEY'];
-    process.env['ANTHROPIC_API_KEY'] = 'wrong-prefix-but-long-enough-12345678901234';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'wrong-prefix-but-long-enough-12345678901234');
     const io = makeIo();
     const code = await keysCommand(['test'], { io, cwd: '/tmp/fake' });
-    if (saved !== undefined) {
-      process.env['ANTHROPIC_API_KEY'] = saved;
-    } else {
-      delete process.env['ANTHROPIC_API_KEY'];
-    }
     expect([0, 1]).toContain(code);
     expect(io.writes.join('')).toContain('format');
   });

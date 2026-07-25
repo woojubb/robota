@@ -32,6 +32,7 @@ export {
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,
+  IGenerateSessionNameOptions,
 } from './interactive/index.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
@@ -174,14 +175,13 @@ export {
   applyPresetToSession,
   buildStatusLineCommandSubcommands,
   buildPluginCommandSubcommands,
-  createPluginRegistryReloadRequestedEffect,
-  createPluginTuiRequestedEffect,
+  createShowPluginManagerIntent,
   clearConversationHistory,
-  createSessionPickerRequestedEffect,
-  createSessionRenamedEffect,
+  createShowSessionPickerIntent,
+  createSessionRenameHostAction,
   CLEAR_COMMAND_DESCRIPTION,
   COST_COMMAND_DESCRIPTION,
-  createSessionExitRequestedEffect,
+  createSessionExitHostAction,
   EXIT_COMMAND_DESCRIPTION,
   formatCommandSessionReplayValidationReport,
   parseSessionNameArgument,
@@ -288,21 +288,18 @@ export {
   MEMORY_INDEX_MAX_LINES,
   MEMORY_INDEX_MAX_BYTES,
   isMemoryType,
-} from './memory/project-memory-store.js';
+  FileSystemMemoryStore,
+  createFileSystemMemoryStore,
+  SemanticMemoryStore,
+  createSemanticMemoryStore,
+  DEFAULT_MEMORY_EXTRACTOR_POLICY,
+  RegexMemoryCandidateExtractor,
+} from './memory/index.js';
 export type {
   IAppendMemoryInput,
   IAppendMemoryResult,
   IProjectMemorySummary,
   IStartupMemory,
-} from './memory/project-memory-store.js';
-// SELFHOST-008: the neutral durable-memory port + filesystem reference adapter.
-export {
-  FileSystemMemoryStore,
-  createFileSystemMemoryStore,
-} from './memory/file-system-memory-store.js';
-// SELFHOST-008 P4: the neutral semantic-memory adapter decorator (surface injects the concrete adapter).
-export { SemanticMemoryStore, createSemanticMemoryStore } from './memory/semantic-memory-store.js';
-export type {
   IMemoryStore,
   IDurableMemoryReader,
   IMemoryWriter,
@@ -312,9 +309,12 @@ export type {
   IPerTurnRecallConfig,
   ISemanticMemoryAdapter,
   ISemanticMemoryQueryResult,
-} from './memory/types.js';
-// SELFHOST-008 P6: the surface-owned automatic-capture policy shape (consumed by agent-cli/transport wiring).
-export type { IAutomaticMemoryConfig, TMemoryPolicyMode } from './memory/automatic-memory-types.js';
+  IAutomaticMemoryConfig,
+  TMemoryPolicyMode,
+  IMemoryCandidateExtractor,
+  IMemoryExtractorPolicy,
+  IMemoryExtractorTrigger,
+} from './memory/index.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
 export type {
@@ -333,6 +333,7 @@ export type {
 // ── Self-hosting verification ─────────────────────────────
 export { planSelfHostingVerification, transitionSelfHostingLoop } from './self-hosting/index.js';
 export type {
+  ISelfHostingCommandTemplates,
   ISelfHostingVerificationPlan,
   ISelfHostingVerificationPlanInput,
   ISelfHostingVerificationStep,
@@ -379,25 +380,20 @@ export type {
 } from './reversible-execution/index.js';
 
 // ── Plugin management ───────────────────────────────────────
-export { PluginSettingsStore } from './plugins/index.js';
+export { PluginSettingsStore, BundlePluginLoader } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
-export { BundlePluginLoader } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
+export { MarketplaceClient } from './plugins/index.js';
 export type {
   IBundlePluginInstallerOptions,
   IInstalledPluginRecord,
   TInstalledPluginsRegistry,
-} from './plugins/index.js';
-export { MarketplaceClient } from './plugins/index.js';
-export type {
   TMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
   TKnownMarketplacesRegistry,
-} from './plugins/index.js';
-export type {
   IBundlePluginManifest,
   IBundlePluginFeatures,
   IBundleSkill,
@@ -418,8 +414,13 @@ export {
   createSubagentSession,
   createSubagentLogger,
   resolveSubagentLogDir,
+  deriveContextCapacityHint,
 } from './assembly/index.js';
-export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
+export type {
+  ISubagentPromptOptions,
+  ISubagentOptions,
+  TSubagentSuffix,
+} from './assembly/index.js';
 export type { ICreateSessionOptions, ICreateSessionResult } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
@@ -531,14 +532,13 @@ export {
   parseTaskFile,
   readCurrentGitBranch,
   selectRelevantTasks,
-  updateTaskFileStatus,
 } from './context/task-context.js';
 export type {
   ITaskContextFile,
   ITaskSelectionOptions,
-  IUpdateTaskFileStatusOptions,
   TTaskFileStatus,
 } from './context/task-context.js';
+export type { ILoadContextOptions } from './context/context-loader.js';
 
 // ── Prompt file references ─────────────────────────────────
 export {

@@ -45,6 +45,7 @@ import type {
 } from '../checkpoints/edit-checkpoint-types.js';
 import type {
   ICommandHostAdapters,
+  ICommandListEntry,
   ICommandResult,
   ICommandSkillListEntry,
   ICommandSkillActivationRequest,
@@ -67,6 +68,7 @@ import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskState,
   ISubagentJobState,
+  TDriverId,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -95,10 +97,13 @@ export abstract class InteractiveSessionBase {
     this.execCtrl.clearPendingQueue();
   }
 
+  // CMD-004 Phase 2: `originDriverId` is the command-origin driver id (REMOTE-014 E5 server-assigned
+  // rule) carried through the chain so `ui_intent` events route to the requesting surface.
   async executeCommand(
     name: string,
     args: string,
     source: TCommandInvocationSource = 'user',
+    originDriverId?: TDriverId,
   ): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     if (this.execCtrl.executing)
@@ -106,7 +111,7 @@ export abstract class InteractiveSessionBase {
         success: false,
         message: 'Another prompt or command is already running. Wait for it to finish.',
       };
-    return this.skillRouter.executeCommand(name, args, source);
+    return this.skillRouter.executeCommand(name, args, source, originDriverId);
   }
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
@@ -123,12 +128,7 @@ export abstract class InteractiveSessionBase {
     await this.ensureInitialized();
     return this.skillRouter.executeSkillCommandByName(name, args, request);
   }
-  listCommands(): Array<{
-    name: string;
-    displayName?: string;
-    description: string;
-    example?: string;
-  }> {
+  listCommands(): ICommandListEntry[] {
     return this.skillRouter.listCommands();
   }
   listSkills(): ICommandSkillListEntry[] {

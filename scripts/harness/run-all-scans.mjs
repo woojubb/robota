@@ -105,8 +105,13 @@ const SCAN_COMMANDS = [
   },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    name: 'composition-neutrality',
+    command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],
+  },
   {
     name: 'session-artifact-neutrality',
     command: ['node', 'scripts/harness/scan-session-artifact-neutrality.mjs'],
@@ -124,8 +129,16 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-evals-neutrality.mjs'],
   },
   {
+    name: 'prompt-prose',
+    command: ['node', 'scripts/harness/scan-prompt-prose.mjs'],
+  },
+  {
     name: 'capability-reachability',
     command: ['node', 'scripts/harness/scan-capability-reachability.mjs'],
+  },
+  {
+    name: 'progress-report-quantification',
+    command: ['node', 'scripts/harness/scan-progress-report-quantification.mjs'],
   },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },

@@ -25,29 +25,30 @@ vi.mock('../../assembly/create-subagent-session.js', () => ({
   createSubagentSession: vi.fn(() => mockSessionInstance),
 }));
 
-// Mock getBuiltInAgent
-vi.mock('../../agents/built-in-agents.js', () => ({
-  getBuiltInAgent: vi.fn((name: string) => {
-    const agents: Record<string, IAgentDefinition> = {
-      'general-purpose': {
-        name: 'general-purpose',
-        description: 'General-purpose agent',
-        systemPrompt: 'You are a general agent.',
-      },
-      Explore: {
-        name: 'Explore',
-        description: 'Exploration agent',
-        systemPrompt: 'You are an explorer.',
-      },
-      Plan: {
-        name: 'Plan',
-        description: 'Planning agent',
-        systemPrompt: 'You are a planner.',
-      },
-    };
-    return agents[name];
-  }),
-}));
+// Mock built-in agents module (getBuiltInAgent + BUILT_IN_AGENTS)
+vi.mock('../../agents/built-in-agents.js', () => {
+  const agents: Record<string, IAgentDefinition> = {
+    'general-purpose': {
+      name: 'general-purpose',
+      description: 'General-purpose agent',
+      systemPrompt: 'You are a general agent.',
+    },
+    Explore: {
+      name: 'Explore',
+      description: 'Exploration agent',
+      systemPrompt: 'You are an explorer.',
+    },
+    Plan: {
+      name: 'Plan',
+      description: 'Planning agent',
+      systemPrompt: 'You are a planner.',
+    },
+  };
+  return {
+    BUILT_IN_AGENTS: Object.values(agents),
+    getBuiltInAgent: vi.fn((name: string) => agents[name]),
+  };
+});
 
 import { createAgentTool, createAgentToolPromptDescription } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
@@ -95,7 +96,7 @@ function makeConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig {
 function makeContext(overrides?: Partial<ILoadedContext>): ILoadedContext {
   return {
     agentsMd: '# AGENTS.md',
-    claudeMd: '# CLAUDE.md',
+    projectNotesMd: '# CLAUDE.md',
     ...overrides,
   };
 }
@@ -1282,5 +1283,62 @@ describe('Agent tool', () => {
 
     expect(subagentManager.spawn).toHaveBeenCalledTimes(1);
     expect(result['success']).toBe(true);
+  });
+});
+
+describe('NEUT-003: built-in agent set injection + derived schema description', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRun.mockResolvedValue('task completed successfully');
+  });
+
+  it('an injected builtInAgents set replaces the module built-ins', async () => {
+    const tool = createAgentTool(
+      makeDeps({
+        builtInAgents: [
+          {
+            name: 'core-worker',
+            description: 'Injected core agent',
+            systemPrompt: 'You are injected.',
+          },
+        ],
+      }),
+    );
+
+    await tool.execute({ prompt: 'Task', subagent_type: 'core-worker' });
+
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDefinition: expect.objectContaining({ name: 'core-worker' }),
+      }),
+    );
+    expect(getBuiltInAgent).not.toHaveBeenCalled();
+  });
+
+  it('an empty builtInAgents set removes the default built-ins', async () => {
+    const tool = createAgentTool(makeDeps({ builtInAgents: [] }));
+
+    const result = parseToolResult(await tool.execute({ prompt: 'Task' }));
+
+    expect(result['success']).toBe(false);
+    expect(result['error']).toContain('Unknown agent type');
+  });
+
+  it('subagent_type schema description is derived from injected agent definitions', () => {
+    const tool = createAgentTool(
+      makeDeps({
+        agentDefinitions: [
+          { name: 'reviewer', description: 'Reviews code', systemPrompt: 'Review.' },
+          { name: 'fixer', description: 'Fixes code', systemPrompt: 'Fix.' },
+        ],
+      }),
+    );
+
+    const description = (
+      tool.schema.parameters.properties as Record<string, { description?: string }>
+    )['subagent_type']?.description;
+    expect(description).toContain('reviewer');
+    expect(description).toContain('fixer');
+    expect(description).not.toContain('Explore');
   });
 });

@@ -18,8 +18,9 @@ import { startRuntimeHost } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
+  IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
@@ -50,6 +51,19 @@ export interface IServeModeOptions {
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   backgroundTaskRunners: IBackgroundTaskRunner[];
   subagentRunnerFactory: ReturnType<typeof createChildProcessSubagentRunnerFactory>;
+  /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
+  agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
+   * session's `additionalTools` seam, where the framework dedupes them by name against its own default
+   * tier (first occurrence wins — see `agent-framework/docs/SPEC.md` § "Session-level tool composition").
+   */
+  additionalTools?: IToolWithEventService[];
+  /**
+   * ARCH-006: REPLACES `agent-framework`'s `createDefaultTools()` tier. `robota` passes an empty array so
+   * its capability packs are the SOLE source of the session's tools.
+   */
+  defaultTools?: readonly IToolWithEventService[];
   commandModules: readonly ICommandModule[];
   commandHostAdapters: ICommandHostAdapters;
   transportRegistry: ITransportRegistryView<IInteractiveSession>;
@@ -90,6 +104,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     sessionName: args.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
+    ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
+    ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
+    ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
@@ -129,18 +146,35 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
   }
 
-  // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals; then tear down cleanly.
+  // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
+  // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   await new Promise<void>((resolve) => {
     let settling = false;
-    const onSignal = (signal: NodeJS.Signals): void => {
+    const settle = (reason: string): void => {
       if (settling) return;
       settling = true;
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
-        .then(() => host.shutdown(`received ${signal}`))
+        .then(() => host.shutdown(reason))
         .finally(() => resolve());
     };
+    const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
+    // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
+    // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
+    // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
+    // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
+    // `command_result` reaches the requesting surface before the transports close. Restart ==
+    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching).
+    const COMMAND_TEARDOWN_FLUSH_MS = 500;
+    const scheduleSettle = (reason: string): void => {
+      const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
+      timer.unref?.();
+    };
+    opts.commandHostAdapters.process = {
+      requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
+      requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
+    };
   });
 }

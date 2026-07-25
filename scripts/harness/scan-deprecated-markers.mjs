@@ -16,6 +16,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
 
@@ -61,16 +62,22 @@ export function findDeprecatedMarkerFindings(root = WORKSPACE_ROOT) {
   return findings;
 }
 
-const findings = findDeprecatedMarkerFindings();
-if (findings.length === 0) {
-  process.stdout.write('deprecated marker scan passed.\n');
-} else {
-  process.stdout.write('deprecated marker scan failed:\n');
-  for (const f of findings) {
-    process.stdout.write(`  ${f.file}:${f.line} contains "${DEPRECATED_MARKER}"\n`);
+export function main() {
+  const findings = findDeprecatedMarkerFindings();
+  if (findings.length === 0) {
+    process.stdout.write('deprecated marker scan passed.\n');
+  } else {
+    process.stdout.write('deprecated marker scan failed:\n');
+    for (const f of findings) {
+      process.stdout.write(`  ${f.file}:${f.line} contains "${DEPRECATED_MARKER}"\n`);
+    }
+    process.stdout.write(
+      '\nDelete the deprecated symbol or migrate consumers (no-deprecated rule).\n',
+    );
+    process.exitCode = 1;
   }
-  process.stdout.write(
-    '\nDelete the deprecated symbol or migrate consumers (no-deprecated rule).\n',
-  );
-  process.exitCode = 1;
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
 }

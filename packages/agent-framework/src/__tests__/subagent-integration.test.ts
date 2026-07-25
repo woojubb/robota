@@ -3,7 +3,7 @@
  * agent definitions, tool filtering, session creation, and agent tool wiring.
  */
 
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -91,7 +91,7 @@ function makeParentConfig(overrides?: Partial<IResolvedConfig>): IResolvedConfig
 function makeParentContext(overrides?: Partial<ILoadedContext>): ILoadedContext {
   return {
     agentsMd: '# AGENTS.md',
-    claudeMd: '# CLAUDE.md',
+    projectNotesMd: '# CLAUDE.md',
     ...overrides,
   };
 }
@@ -239,7 +239,7 @@ describe('Subagent integration', () => {
   });
 
   it('AgentDefinitionLoader finds built-in agents when dirs are empty', () => {
-    const tmpDir = join(tmpdir(), `robota-test-${Date.now()}`);
+    const tmpDir = mkdtempSync(join(tmpdir(), 'robota-test-'));
     mkdirSync(tmpDir, { recursive: true });
 
     try {
@@ -258,7 +258,7 @@ describe('Subagent integration', () => {
   });
 
   it('Custom agent overrides built-in', () => {
-    const tmpDir = join(tmpdir(), `robota-test-${Date.now()}`);
+    const tmpDir = mkdtempSync(join(tmpdir(), 'robota-test-'));
     const agentsDir = join(tmpDir, '.claude', 'agents');
     mkdirSync(agentsDir, { recursive: true });
 
@@ -306,7 +306,7 @@ describe('Subagent transcript logger', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = join(tmpdir(), `robota-logger-test-${Date.now()}`);
+    tmpDir = mkdtempSync(join(tmpdir(), 'robota-logger-test-'));
     mkdirSync(tmpDir, { recursive: true });
   });
 

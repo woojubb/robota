@@ -28,29 +28,12 @@ const TERMINAL_STATUSES = new Set(['done', 'wontfix', 'skipped', 'superseded']);
 const OPEN_STATUSES = new Set(['todo', 'in-progress']);
 
 /**
- * Historical debt: PR #589 (2026-05-25) archived these as implemented but never flipped their
- * frontmatter from `todo`. Their true state needs item-by-item verification — tracked by
- * `.agents/backlog/PROC-001-completed-dir-status-reconciliation.md`. Do not add new entries.
+ * Historical debt: PR #589 (2026-05-25) archived files as implemented while leaving their
+ * frontmatter at `todo`. All 17 were reconciled item-by-item by PROC-001 (2026-07-25) — see
+ * `.agents/backlog/completed/PROC-001-completed-dir-status-reconciliation.md`. Do not add new
+ * entries; the invariant now holds unconditionally.
  */
-const LEGACY_COMPLETED_TODO = new Set([
-  '.agents/backlog/completed/CLI-032-git-first-class-commands.md',
-  '.agents/backlog/completed/CLI-034-plugin-publish-one-official.md',
-  '.agents/backlog/completed/CLI-042-grep-tool-parallel.md',
-  '.agents/backlog/completed/CLI-043-glob-stat-n-plus-one.md',
-  '.agents/backlog/completed/CLI-044-process-exit-cleanup.md',
-  '.agents/backlog/completed/CLI-046-denied-tools-flag.md',
-  '.agents/backlog/completed/CLI-047-structured-exit-codes.md',
-  '.agents/backlog/completed/CLI-048-websearch-fallback.md',
-  '.agents/backlog/completed/PM-026-github-action-official.md',
-  '.agents/backlog/completed/PM-027-korean-marketing-content.md',
-  '.agents/backlog/completed/PM-028-beta-invite-program.md',
-  '.agents/backlog/completed/PM-029-sdk-starter-kit.md',
-  '.agents/backlog/completed/PM-030-opt-in-telemetry.md',
-  '.agents/backlog/completed/PM-031-readme-demo-gif.md',
-  '.agents/backlog/completed/PM-033-init-inline-provider-setup.md',
-  '.agents/backlog/completed/PM-034-help-command-examples.md',
-  '.agents/backlog/completed/SITE-004-domain-redirect-migration.md',
-]);
+const LEGACY_COMPLETED_TODO = new Set([]);
 
 /** @returns {{ status: string | null, hasCompletedDate: boolean }} */
 export function readBacklogFrontmatter(content) {
@@ -107,6 +90,57 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
         problem: `open status "${status}" inside completed/ — reopen (move back) or close it`,
       });
     }
+  }
+
+  findings.push(...(await findDuplicateIdFindings(root)));
+
+  return findings;
+}
+
+/**
+ * A backlog ID must exist in exactly ONE place. An item filed in the root and separately
+ * archived in `completed/` (e.g. the orchestrator files the item, the implementing agent
+ * writes its own copy straight into `completed/`) leaves a stale open-looking duplicate that
+ * makes finished work read as outstanding. The status⇔directory checks above cannot see this:
+ * each file is individually consistent. Observed 2026-07-25 (HARNESS-043).
+ */
+export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
+  const findings = [];
+  // The ID includes any phase suffix (`-P3`, `-P4-P5`): a phase follow-up filed while its parent
+  // is archived (e.g. open `SELFHOST-008-P5-…` alongside completed `SELFHOST-008-…`) is the
+  // intended convention, NOT a duplicate — only an identical ID in both places is.
+  const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
+
+  const completedById = new Map();
+  for (const name of await listMarkdown(path.join(root, COMPLETED_DIR))) {
+    const id = idOf(name);
+    if (id !== null) completedById.set(id, name);
+  }
+
+  // Within the root, the same ID under two different slugs is always a collision — two authors
+  // claimed one number (observed 2026-07-25: concurrent PRs both filed ARCH-006/ARCH-007 from the
+  // same audit under different slugs). Phase suffixes are part of the ID, so a legitimate
+  // `SELFHOST-008-P5-…` never collides with `SELFHOST-008-…`.
+  const rootById = new Map();
+  for (const name of await listMarkdown(path.join(root, BACKLOG_DIR))) {
+    const id = idOf(name);
+    if (id === null) continue;
+
+    const twin = rootById.get(id);
+    if (twin === undefined) rootById.set(id, name);
+    else {
+      findings.push({
+        file: path.join(BACKLOG_DIR, name),
+        problem: `duplicate backlog ID ${id} — also filed as ${path.join(BACKLOG_DIR, twin)}; one number, one item`,
+      });
+    }
+
+    const archived = completedById.get(id);
+    if (archived === undefined) continue;
+    findings.push({
+      file: path.join(BACKLOG_DIR, name),
+      problem: `duplicate backlog ID ${id} — also archived at ${path.join(COMPLETED_DIR, archived)}; keep exactly one`,
+    });
   }
 
   return findings;

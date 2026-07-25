@@ -60,7 +60,7 @@
   "author": "Robota SDK Team",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "zod": "^3.24.4",
@@ -69,7 +69,7 @@
   "devDependencies": {
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
-    "tsdown": "^0.22.2",
+    "tsdown": "^0.22.14",
     "typescript": "^5.3.3",
     "vitest": "^3.2.6"
   },

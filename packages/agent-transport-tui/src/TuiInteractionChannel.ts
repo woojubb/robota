@@ -17,14 +17,19 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { createSessionInitPoller } from './flows/session-init-poller.js';
-import { CommandEffectQueue, type ICommandEffectQueue } from './hooks/command-effect-queue.js';
-import { applySystemCommandResult } from './hooks/useSlashRouting.js';
+import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
 
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { IPendingPermissionRequest } from './types.js';
-import type { IAIProvider, TPermissionMode, TSessionEndReason } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  TPermissionMode,
+  TSessionEndReason,
+} from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 // CMD-004 unified action contract (SSOT in agent-core).
 import type {
@@ -38,6 +43,7 @@ import type {
   ICommandModule,
   IRemoteCommandPolicy,
   TSubagentRunnerFactory,
+  IAgentDefinition,
   TShellExecFn,
   IMemoryStore,
   IAutomaticMemoryConfig,
@@ -82,6 +88,15 @@ export interface ITuiInteractionChannelOptions {
   onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   subagentRunnerFactory?: TSubagentRunnerFactory;
+  /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
+  agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
+   * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
+   */
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -121,7 +136,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   private readonly interactiveSession: InteractiveSession;
   private readonly registry: CommandRegistry;
-  private readonly commandEffectQueue: ICommandEffectQueue;
   private readonly opts: ITuiInteractionChannelOptions;
 
   private submitHandler: ((text: string) => Promise<void>) | null = null;
@@ -179,50 +193,10 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
     this.interactiveSession = this.createSession();
     this.registry = this.createRegistry();
-    this.commandEffectQueue = new CommandEffectQueue();
   }
 
   private createSession(): InteractiveSession {
-    const opts = this.opts;
-    // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
-    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
-    return buildRuntimeSession({
-      cwd: opts.cwd,
-      provider: opts.provider,
-      // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
-      // session's config/default model.
-      ...(opts.model !== undefined ? { model: opts.model } : {}),
-      permissionMode: opts.permissionMode,
-      maxTurns: opts.maxTurns,
-      // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's
-      // transport-neutral `permission_request`/`ask_request` events (wireSessionEvents) and answers via
-      // `resolvePermission`/`resolveAsk`. The local Ink queues + rendering are unchanged.
-      sessionStore: opts.sessionStore,
-      resumeSessionId: opts.resumeSessionId,
-      forkSession: opts.forkSession,
-      sessionName: opts.sessionName,
-      backgroundTaskRunners: opts.backgroundTaskRunners,
-      subagentRunnerFactory: opts.subagentRunnerFactory,
-      commandModules: opts.commandModules,
-      commandHostAdapters: opts.commandHostAdapters,
-      shellExec: opts.shellExec,
-      ...(opts.remoteCommandPolicy ? { remoteCommandPolicy: opts.remoteCommandPolicy } : {}),
-      language: opts.language,
-      agentName: opts.agentName,
-      activePresetId: opts.activePresetId,
-      persona: opts.persona,
-      systemPrompt: opts.systemPrompt,
-      appendSystemPrompt: opts.appendSystemPrompt,
-      allowedTools: opts.allowedTools,
-      deniedTools: opts.deniedTools,
-      enableParallelSubagents: opts.enableParallelSubagents,
-      selfVerification: opts.selfVerification,
-      terminalHandoff: opts.terminalHandoff,
-      // SELFHOST-008 P6: forward the surface-resolved memory fields only when present (absent ⇒ OFF).
-      ...(opts.memoryStore ? { memoryStore: opts.memoryStore } : {}),
-      ...(opts.automaticMemory ? { automaticMemory: opts.automaticMemory } : {}),
-      ...(opts.recallMemory ? { recallMemory: opts.recallMemory } : {}),
-    });
+    return buildRuntimeSession(buildTuiSessionOptions(this.opts));
   }
 
   private createRegistry(): CommandRegistry {
@@ -300,10 +274,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
   getRegistry(): CommandRegistry {
     return this.registry;
-  }
-
-  getCommandEffectQueue(): ICommandEffectQueue {
-    return this.commandEffectQueue;
   }
 
   abort(): void {
@@ -442,7 +412,9 @@ export class TuiInteractionChannel implements IInteractionChannel {
 
     const result = await this.interactiveSession.executeCommand(cmd, args);
     if (result) {
-      if (result.effects?.some((effect) => effect.type === 'session-execution-started')) {
+      // CMD-004 Stage E: `data.sessionExecution` is the requester-local "a session turn is now
+      // running" hint (formerly the `session-execution-started` effect).
+      if (result.data?.['sessionExecution'] === true) {
         this.stateManager.setPendingPrompt(this.interactiveSession.getPendingPrompt());
         return;
       }
@@ -451,7 +423,6 @@ export class TuiInteractionChannel implements IInteractionChannel {
         this.interactiveSession,
         this.registry,
         this.stateManager,
-        this.commandEffectQueue,
         this.opts.reloadPluginCommandSource,
       );
       return;
@@ -573,6 +544,11 @@ export class TuiInteractionChannel implements IInteractionChannel {
     const onExecutionWorkspaceEvent = (event: IExecutionWorkspaceEvent): void => {
       manager.syncExecutionWorkspaceSnapshot(event.snapshot);
     };
+    // CMD-004 Stage E: the broadcast `history_cleared` is the transcript-refresh carrier — a clear
+    // performed by ANY surface (co-driving remote /clear included) empties this transcript too.
+    const onHistoryCleared = (): void => {
+      manager.clearHistory();
+    };
 
     this.bindSession('user_message', onUserMessage);
     this.bindSession('text_delta', manager.onTextDelta);
@@ -587,6 +563,7 @@ export class TuiInteractionChannel implements IInteractionChannel {
     this.bindSession('skill_activation', onSkillActivation);
     this.bindSession('memory_event', onMemoryEvent);
     this.bindSession('execution_workspace_event', onExecutionWorkspaceEvent);
+    this.bindSession('history_cleared', onHistoryCleared);
 
     // REMOTE-007: the TUI is a subscribed surface for the transport-neutral permission/ask events. It
     // renders each through its existing Ink queues and answers via `resolvePermission`/`resolveAsk`; a

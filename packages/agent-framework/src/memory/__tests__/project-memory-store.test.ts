@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +10,7 @@ import {
   MEMORY_INDEX_MAX_BYTES,
 } from '../project-memory-store.js';
 
-const TMP_BASE = join(tmpdir(), `robota-memory-store-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-memory-store-'));
 
 function makeProject(): string {
   const dir = join(TMP_BASE, Math.random().toString(36).slice(2));

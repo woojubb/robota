@@ -101,4 +101,32 @@ describe('parsePipelineSpec', () => {
       expect(result.ok).toBe(false);
     });
   });
+
+  /**
+   * SEC-003 (`js/polynomial-redos`). `spec` is the user-supplied `--pipeline` CLI value. The
+   * pre-fix split used a regex of the shape "\s-star, pipe, \s-star"; the unanchored leading
+   * whitespace run restarted an O(n) scan at every offset
+   * of a whitespace run, so a long whitespace-only value split in O(n^2) — measured ~12.7s for
+   * the input below, versus ~0ms after the fix. The surrounding `\s*` was redundant anyway
+   * because every part is trimmed after the split.
+   */
+  describe('is not polynomial-ReDoS-able', () => {
+    it('handles a long whitespace-only spec in linear time', () => {
+      const hostile = ' '.repeat(200_000);
+
+      const started = performance.now();
+      const result = parsePipelineSpec(hostile);
+      const took = performance.now() - started;
+
+      expect(result.ok).toBe(false);
+      expect(took).toBeLessThan(250);
+    });
+
+    it('still trims whitespace around the separators', () => {
+      const spaced = parsePipelineSpec('  input   |   transform   |   text-output  ');
+      expect(spaced.ok).toBe(true);
+      if (!spaced.ok) return;
+      expect(spaced.nodes.map((n) => n.nodeType)).toEqual(['input', 'transform', 'text-output']);
+    });
+  });
 });

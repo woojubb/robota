@@ -7,6 +7,11 @@ import { SessionExecutionController } from './interactive-session-execution-cont
 import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
+import {
+  applyCommandHostActions,
+  emitUiIntentEvents,
+  resolveUiIntentRequester,
+} from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
@@ -121,7 +126,7 @@ export class InteractiveSession
   private readonly recallMemory?: IPerTurnRecallConfig;
   private sandboxSnapshotId?: string;
   private agentsFileEntries: IContextFileEntry[] = [];
-  private claudeFileEntries: IContextFileEntry[] = [];
+  private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private orgPolicy: import('../command-api/org-policy/org-policy-types.js').IOrgPolicy | null =
@@ -365,12 +370,12 @@ export class InteractiveSession
     });
     this.session = result.session;
     this.agentsFileEntries = result.agentsFileEntries;
-    this.claudeFileEntries = result.claudeFileEntries;
+    this.projectNotesFileEntries = result.projectNotesFileEntries;
     this.rebuildSystemMessage = result.rebuildSystemMessage;
     this.autoCompactThresholdSource = result.autoCompactThresholdSource;
     this.histTracker.recordSystemContextFiles([
       ...result.agentsFileEntries,
-      ...result.claudeFileEntries,
+      ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
     this.initialized = true;
@@ -508,11 +513,11 @@ export class InteractiveSession
       displayInput,
       rawInput,
       this.agentsFileEntries,
-      this.claudeFileEntries,
+      this.projectNotesFileEntries,
       this.rebuildSystemMessage,
       (agents, claude) => {
         this.agentsFileEntries = agents;
-        this.claudeFileEntries = claude;
+        this.projectNotesFileEntries = claude;
         this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
       (p, d, r, o) => this.submit(p, d, r, o),
@@ -624,7 +629,7 @@ export class InteractiveSession
   applyPersona(persona: string): void {
     if (this.rebuildSystemMessage === null) return;
     const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
     const msg = this.rebuildSystemMessage(currentAgents, currentClaude, { persona });
     this.getSessionOrThrow().updateSystemMessage(msg);
   }
@@ -638,7 +643,7 @@ export class InteractiveSession
   applySelfVerification(enabled: boolean): void {
     if (this.rebuildSystemMessage === null) return;
     const currentAgents = this.agentsFileEntries.map((e) => e.content).join('\n\n');
-    const currentClaude = this.claudeFileEntries.map((e) => e.content).join('\n\n');
+    const currentClaude = this.projectNotesFileEntries.map((e) => e.content).join('\n\n');
     const msg = this.rebuildSystemMessage(currentAgents, currentClaude, {
       selfVerification: enabled,
     });
@@ -743,6 +748,7 @@ export class InteractiveSession
     this.histTracker.clearHistory();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+    this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript
   }
 
   getName(): string | undefined {
@@ -968,10 +974,13 @@ export class InteractiveSession
     session.swapProvider(provider, settings.model);
   }
 
+  /** CMD-004: after the command runs, the HOST applies its host actions via
+   * {@link applyCommandHostActions} and emits requester-routed `ui_intent` events. */
   override async executeCommand(
     name: string,
     args: string,
     source: TCommandInvocationSource = 'user',
+    originDriverId?: TDriverId,
   ): Promise<import('../commands/index.js').ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -982,32 +991,22 @@ export class InteractiveSession
         success: false,
       };
     }
-    const result = await super.executeCommand(name, args, source);
+    const result = await super.executeCommand(name, args, source, originDriverId);
     if (result === null) return null;
-    const hotSwapEffect = result.effects?.find(
-      (e): e is { type: 'provider-hot-swap-requested'; profileName: string } =>
-        e.type === 'provider-hot-swap-requested',
+    const application = await applyCommandHostActions(result, {
+      getAdapters: () => this.getCommandHostAdapters(),
+      orgPolicy: this.orgPolicy,
+      switchProvider: (profileName) => this.switchProvider(profileName),
+      renameSession: (newName) => {
+        this.setName(newName);
+        this.emit('session_renamed', { name: newName }); // all surfaces update their titles
+      },
+    });
+    emitUiIntentEvents(
+      application.uiIntents,
+      resolveUiIntentRequester(source, originDriverId, this.execCtrl.activeDriverId),
+      (event) => this.emit('ui_intent', event),
     );
-    if (hotSwapEffect) {
-      const { orgPolicy } = this;
-      if (
-        orgPolicy?.allowedProviders &&
-        !orgPolicy.allowedProviders.includes(hotSwapEffect.profileName)
-      ) {
-        return {
-          message: formatOrgPolicyViolationMessage(
-            `Provider "${hotSwapEffect.profileName}" is not allowed by your organization policy. Allowed: ${orgPolicy.allowedProviders.join(', ')}.`,
-            orgPolicy.adminContact,
-          ),
-          success: false,
-        };
-      }
-      await this.switchProvider(hotSwapEffect.profileName);
-      return {
-        ...result,
-        effects: result.effects?.filter((e) => e.type !== 'provider-hot-swap-requested'),
-      };
-    }
-    return result;
+    return application.result;
   }
 }

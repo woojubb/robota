@@ -6,6 +6,7 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-transport';
 import ExecutionWorkspaceSwitcher from '../ExecutionWorkspaceSwitcher.js';
+import { formatKeyHints, SELECTION_INDICATOR } from '../key-hint-footer.js';
 import ExecutionWorkspaceDetailPane from '../ExecutionWorkspaceDetailPane.js';
 
 function makeEntry(overrides: Partial<IExecutionWorkspaceEntry>): IExecutionWorkspaceEntry {
@@ -106,5 +107,38 @@ describe('ExecutionWorkspaceSwitcher', () => {
     const frame = lastFrame()!;
     expect(frame).toContain('Viewing Explore agent');
     expect(frame).toContain('Final background result');
+  });
+});
+
+// SCREEN-005: switcher footer + focused-row cursor go through the key-hint/indicator SSOT.
+describe('ExecutionWorkspaceSwitcher affordance (SCREEN-005)', () => {
+  it('renders the footer in the shared key-hint grammar (navigate → primary → dismiss)', () => {
+    const { lastFrame } = render(
+      <ExecutionWorkspaceSwitcher
+        snapshot={makeSnapshot()}
+        selectedEntryId="main:session_1"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(lastFrame()!).toContain(
+      formatKeyHints([
+        { keys: '↑↓', label: 'Navigate' },
+        { keys: 'Enter', label: 'Switch' },
+        { keys: 'Ctrl+B/Esc', label: 'Close' },
+      ]),
+    );
+  });
+
+  it('marks the focused row with the selection indicator', () => {
+    const { lastFrame } = render(
+      <ExecutionWorkspaceSwitcher
+        snapshot={makeSnapshot()}
+        selectedEntryId="main:session_1"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(lastFrame()!).toContain(`${SELECTION_INDICATOR}`);
   });
 });

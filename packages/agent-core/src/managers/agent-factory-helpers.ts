@@ -17,7 +17,11 @@ export interface IAgentFactoryOptions {
   defaultProvider?: string;
   /** Maximum number of concurrent agents */
   maxConcurrentAgents?: number;
-  /** Default system message for agents */
+  /**
+   * Default system message for agents created without one. Defaults to the EMPTY string —
+   * this foundation layer never injects persona text; any default persona is an upper-tier
+   * (application/preset) decision. Empty string is an expressible, respected value.
+   */
   defaultSystemMessage?: string;
   /** Enable strict configuration validation */
   strictValidation?: boolean;
@@ -74,7 +78,8 @@ export type TResolvedFactoryOptions = Required<
 export function resolveFactoryOptions(options: IAgentFactoryOptions): TResolvedFactoryOptions {
   return {
     maxConcurrentAgents: options.maxConcurrentAgents || MAX_CONCURRENT_AGENTS,
-    defaultSystemMessage: options.defaultSystemMessage || 'You are a helpful AI assistant.',
+    // Neutral default: no baked-in persona prompt at this layer (`??` keeps '' expressible).
+    defaultSystemMessage: options.defaultSystemMessage ?? '',
     strictValidation: options.strictValidation ?? true,
     ...(options.defaultModel !== undefined && { defaultModel: options.defaultModel }),
     ...(options.defaultProvider !== undefined && { defaultProvider: options.defaultProvider }),
@@ -125,7 +130,8 @@ export function applyAgentDefaults(
       ...(baseModel?.topP !== undefined && { topP: baseModel.topP }),
     },
     // System prompt is agent-level (single source of truth), not model config.
-    systemMessage: config.systemMessage || options.defaultSystemMessage,
+    // `??` so an explicit empty system message is respected rather than replaced.
+    systemMessage: config.systemMessage ?? options.defaultSystemMessage,
     tools: config.tools || [],
     plugins: config.plugins || [],
     metadata: config.metadata || {},

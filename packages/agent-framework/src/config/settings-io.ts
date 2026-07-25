@@ -39,9 +39,15 @@ export function readSettings(path: string): TSettingsData {
   }
 }
 
+/**
+ * SEC-003: settings files can hold a plaintext provider credential — `provider-settings.ts`
+ * persists `apiKey` verbatim when `--api-key-env` is not used (and warns while doing it). A
+ * default-umask create would leave that credential world-readable, so the file is created
+ * owner-only. `mode` applies at creation; a settings file that already exists keeps its mode.
+ */
 export function writeSettings(path: string, settings: TSettingsData): void {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
 }
 
 export function updateModelInSettings(settingsPath: string, modelId: string): void {

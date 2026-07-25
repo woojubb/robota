@@ -28,6 +28,7 @@ import { handleInterrupt } from './shutdown-signal.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import TransportTUI from './TransportTUI.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
+import { PALETTE } from './tui-palette.js';
 import UpdateNotice from './UpdateNotice.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
@@ -67,9 +68,6 @@ interface IProps {
   startupUpdateNotice?: Promise<string | undefined>;
   transportRegistry?: ITransportRegistryView<IInteractiveSession>;
   cliAdapter: ITuiCliAdapter;
-  /** REMOTE-008: composition-root enable/stop of P2P remote control (each returns a message to render). */
-  enableRemoteControl?: () => string | Promise<string>;
-  stopRemoteControl?: () => string | Promise<string>;
 }
 
 export default function App(props: IProps): React.ReactElement {
@@ -120,7 +118,6 @@ function AppInner(
   const {
     interactiveSession,
     registry,
-    commandEffectQueue,
     history,
     addEntry,
     streamingText,
@@ -157,7 +154,7 @@ function AppInner(
   const [executionDetailPage, setExecutionDetailPage] = useState<IExecutionDetailPage | null>(null);
   const [executionDetailError, setExecutionDetailError] = useState<string | undefined>();
   const [isExecutionDetailLoading, setIsExecutionDetailLoading] = useState(false);
-  const [statusLineSettings, setStatusLineSettings] = useStatusLineSettings();
+  const [statusLineSettings, refreshStatusLineSettings] = useStatusLineSettings();
   const [gitRefreshToken, setGitRefreshToken] = useState(0);
   // SCREEN-014: index of the keyboard-focused background-work row, or null when the prompt input is
   // focused. Drives the inline arrow-key navigation into the background list.
@@ -193,18 +190,12 @@ function AppInner(
     setShowSessionPicker,
     setShowTransportTUI,
   } = useSideEffects({
-    cwd,
-    providerOverride: props.providerOverride,
     interactiveSession,
-    commandEffectQueue,
-    addEntry,
     baseHandleSubmit,
     setSessionName,
-    setStatusLineSettings,
+    refreshStatusLineSettings,
     showSessionPickerOnStart: props.showSessionPickerOnStart,
     openAgentSwitcher: () => setShowExecutionWorkspaceSwitcher(true),
-    enableRemoteControl: props.enableRemoteControl,
-    stopRemoteControl: props.stopRemoteControl,
   });
 
   useEffect(() => {
@@ -463,7 +454,7 @@ function AppInner(
         {(item) =>
           item.kind === 'banner' ? (
             <Box key="logo" flexDirection="column" paddingX={1} marginBottom={1}>
-              <Text color="cyan" bold>{`
+              <Text color={PALETTE.text.accent} bold>{`
   ____   ___  ____   ___ _____  _
  |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
  | |_) | | | |  _ \\| | | || | / _ \\
@@ -491,7 +482,7 @@ function AppInner(
             )}
             {isShuttingDown && (
               <Box marginBottom={1}>
-                <Text color="yellow">Shutting down...</Text>
+                <Text color={PALETTE.text.warning}>Shutting down...</Text>
               </Box>
             )}
             {(isThinking || activeTools.length > 0) && (
@@ -502,7 +493,7 @@ function AppInner(
                   isThinking={isThinking}
                 />
                 {isStalled && (
-                  <Text color="yellow">
+                  <Text color={PALETTE.text.warning}>
                     ⚠ Still waiting on the provider — the network may be stalled. Esc to interrupt.
                   </Text>
                 )}
@@ -510,7 +501,7 @@ function AppInner(
             )}
             {!isThinking && lastErrorMessage && (
               <Box marginBottom={1}>
-                <Text color="red">
+                <Text color={PALETTE.text.error}>
                   ✖ Last turn failed — the session is alive; type your next prompt when ready.
                 </Text>
               </Box>

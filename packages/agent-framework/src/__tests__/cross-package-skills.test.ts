@@ -71,7 +71,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
     // Pass to buildSystemPrompt from @robota-sdk/agent-framework
     const params: ISystemPromptParams = {
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: ['bash: Execute shell commands'],
       permissionMode: 'default',
       projectInfo: { type: 'node', language: 'typescript' },
@@ -135,7 +135,7 @@ describe('Cross-package: skill discovery -> system prompt', () => {
     // Build system prompt with invocable skills only
     const prompt = buildSystemPrompt({
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },
@@ -298,7 +298,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     const prompt = buildSystemPrompt({
       agentsMd: '',
-      claudeMd: '',
+      projectNotesMd: '',
       toolDescriptions: [],
       permissionMode: 'default',
       projectInfo: { type: 'unknown', language: 'unknown' },

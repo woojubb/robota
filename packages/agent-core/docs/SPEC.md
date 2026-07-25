@@ -434,6 +434,24 @@ The two surfaces share one interface because a provider instance is legitimately
 a raw provider; the raw methods are an internal-protocol detail, not a parallel public API. Generic
 layers and applications must use `chat`/`chatStream`; only the conversation service drives the raw path.
 
+### Usage-Triple SSOT (`ITokenUsage`, TYPE-003)
+
+`ITokenUsage` (`src/interfaces/provider.ts` — `promptTokens`/`completionTokens`/`totalTokens`) is the
+single source of truth for the prompt/completion/total usage triple across the whole monorepo. No
+package may re-declare this shape — named variants are aliases and inline occurrences reference the
+type directly:
+
+- `ISessionUsageTotals` (`src/services/execution-usage.ts`) — alias of `ITokenUsage`.
+- `IConversationResponse.usage` / `IStreamingChunk.usage` (`src/interfaces/service.ts`),
+  `IRawProviderResponse.usage`, `IOrchestrationStepResult.usage` — typed `ITokenUsage`.
+- `IPluginExecutionResult.usage` — `Partial<ITokenUsage>`; `convertUsage` accepts
+  `Partial<ITokenUsage>` and returns the full triple.
+- Downstream: `agent-interface-transport`'s `IBackgroundTaskUsage` is an alias; `agent-executor`'s
+  `ISubagentJobResult.usage` and `agent-remote-client`'s message/response usage fields reference it.
+
+(`IMessageTokenUsage`/`IContextTokenUsage` below are a DIFFERENT granularity — provider-side
+input/output/cache token reads — and are intentionally not part of this triple.)
+
 ### Provider Capabilities
 
 `IAIProvider.getCapabilities()` is an optional provider hook. `AbstractAIProvider` supplies a default implementation reporting function-calling support from `supportsTools()` and provider-native web search/fetch as unsupported. Generic layers must call `getProviderCapabilities(provider)` instead of branching on provider names.
@@ -855,6 +873,21 @@ The system prompt is the agent's **live instruction state** — not conversation
 - **Injected once, then the log is reused**: the system prompt belongs to the session log. `initializeConversationStore` injects it (`setSystemPrompt(config.systemMessage)`) **only when the log has no system message yet** — at session start, or the first turn after resume. On subsequent turns the log is **reused as-is**; the prompt is never re-attached or re-derived per turn. This is the correct model: once a prompt has been sent in a session it is part of that session's record.
 - **Live updates reach the model**: `Robota.updateSystemPrompt(content)` updates `config.systemMessage` **and** the live conversation store head **in place**, so the very next provider request carries the change. This is the path that propagates a session's persona, self-verification toggle, and AGENTS.md/CLAUDE.md staleness refresh to the model — a real, infrequent mutation, not a per-turn rewrite. Updating only a config field (without the store head) is insufficient because providers read the system prompt from the messages array, never from a separate config field.
 - **Resume semantics**: persisted `system` messages are **not** restored into the log; instead the system prompt is injected fresh from the live `config.systemMessage` on the first turn after resume (a staleness refresh — the rebuilt prompt reflects the current cwd/AGENTS.md/CLAUDE.md and tool inventory). The restored conversation's user/assistant/tool messages are always preserved; restore keys off the presence of conversation content, not the system head (so a system prompt applied before the first turn does not block restore).
+
+## Model-Facing Prompt Surfaces (declaration)
+
+This zero-dependency foundation layer injects **no persona or product vocabulary** into the model.
+Every string it can place in front of a model is declared here, with its seam:
+
+| Surface                                    | Default                                                                                                  | Seam                                                                                                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentFactory` `defaultSystemMessage`      | **Empty string** — no baked-in persona. `??` semantics, so an explicit `''` is expressible and respected | `IAgentFactoryOptions.defaultSystemMessage`; per-agent `config.systemMessage` always wins                                                   |
+| Context hard-capacity notice (round guard) | Neutral usage statistics + `DEFAULT_CONTEXT_CAPACITY_HINT` (no slash-command or product vocabulary)      | `IAgentConfig.contextCapacityHint` replaces the remediation hint sentence (a surface tier injects its own command wording, e.g. `/compact`) |
+| Tool-result skip notice (context budget)   | `Error: Context window near capacity. Tool execution result skipped. …` — neutral mechanism text         | none (fixed mechanism text)                                                                                                                 |
+| Forced-summary instruction (loop guard)    | Neutral "respond with what you have so far" instruction                                                  | none external (`IExecutionRoundState.forcedSummaryInstruction` is set internally by the unavailable-tool loop guard)                        |
+
+Any new model-facing string added to this package MUST be registered in this table with a
+neutral default and, where a tier above may want product wording, an injection seam.
 
 ## Message Model
 

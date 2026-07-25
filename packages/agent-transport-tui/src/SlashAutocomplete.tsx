@@ -1,7 +1,23 @@
 import { Box, Text, useStdout } from 'ink';
 import React, { useState, useEffect } from 'react';
 
+import {
+  KeyHintFooter,
+  SELECTION_INDICATOR,
+  SELECTION_INDICATOR_NONE,
+  type IKeyHint,
+} from './key-hint-footer.js';
+import { PALETTE } from './tui-palette.js';
+
 import type { ICommand } from '@robota-sdk/agent-interface-transport';
+
+/** Footer for the autocomplete popup. */
+export const SLASH_AUTOCOMPLETE_FOOTER_HINTS: readonly IKeyHint[] = [
+  { keys: '↑↓', label: 'Navigate' },
+  { keys: 'Tab', label: 'Complete' },
+  { keys: 'Enter', label: 'Select' },
+  { keys: 'Esc', label: 'Close' },
+];
 
 interface IProps {
   /** Filtered list of commands to display */
@@ -49,8 +65,8 @@ function CommandRow(props: {
   nameColWidth: number;
 }): React.ReactElement {
   const { cmd, isSelected, showSlash, rowWidth, nameColWidth } = props;
-  const indicator = isSelected ? '> ' : '  ';
-  const nameColor = isSelected ? 'cyan' : undefined;
+  const indicator = isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE;
+  const nameColor = isSelected ? PALETTE.text.accent : undefined;
   const dimmed = !isSelected;
   const namePart = capName(cmd.name, nameColWidth);
   const text = showSlash
@@ -86,7 +102,7 @@ export default function SlashAutocomplete({
   );
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="gray" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={PALETTE.border.muted} paddingX={1}>
       {visibleCommands.map((cmd, i) => (
         <CommandRow
           key={cmd.name}
@@ -97,7 +113,7 @@ export default function SlashAutocomplete({
           nameColWidth={nameColWidth}
         />
       ))}
-      <Text dimColor> ↑↓ Navigate Tab Complete Enter Select Esc Close</Text>
+      <KeyHintFooter hints={SLASH_AUTOCOMPLETE_FOOTER_HINTS} />
     </Box>
   );
 }

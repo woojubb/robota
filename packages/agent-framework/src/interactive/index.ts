@@ -8,6 +8,7 @@ export {
   resolveSessionIdByIdOrName,
 } from './session-persistence.js';
 export { generateSessionName } from './session-naming.js';
+export type { IGenerateSessionNameOptions } from './session-naming.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,

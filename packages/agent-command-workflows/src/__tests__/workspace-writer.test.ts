@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -7,11 +7,46 @@ import {
   createCompositeInstantNodeDefinition,
   type ICompositeSubRunner,
 } from '@robota-sdk/dag-node-instant-node';
+import type { IDagDefinition, IDagNodeDefinition, INodeExecutionContext } from '@robota-sdk/dag-core';
 import { saveInstantNodeFile } from '../persistence/workspace-writer.js';
 import { loadInstantNodes } from '../persistence/instant-node-loader.js';
 
 const AT = '2026-07-06T00:00:00.000Z';
 const RUNNER: ICompositeSubRunner = { run: async () => ({ ok: true, outputs: {} }) };
+
+/**
+ * A pure inner DAG: a single `input` node emitting a fixed `text` from its config. No LLM/provider —
+ * deterministic — so the reloaded composite can run end-to-end without credentials. Mirrors the
+ * dag-cli `composite-reload-real` fixture on the agent `/workflows` persistence path.
+ */
+const INNER_DAG = {
+  dagId: 'inner',
+  version: 1,
+  status: 'draft',
+  nodes: [
+    { nodeId: 'echo', nodeType: 'input', dependsOn: [], config: { text: 'from-inner-dag' } },
+  ],
+  edges: [],
+} as unknown as IDagDefinition;
+
+function makeExecContext(node: IDagNodeDefinition): INodeExecutionContext {
+  return {
+    dagId: 'd',
+    dagRunId: 'r',
+    taskRunId: 't',
+    nodeDefinition: { nodeId: 'c1', nodeType: node.nodeType, dependsOn: [], config: {} },
+    nodeManifest: {
+      nodeType: node.nodeType,
+      displayName: node.displayName,
+      category: node.category,
+      inputs: node.inputs,
+      outputs: node.outputs,
+    },
+    attempt: 0,
+    executionPath: [],
+    currentTotalCredits: 0,
+  } as unknown as INodeExecutionContext;
+}
 
 let dir: string;
 beforeEach(async () => {
@@ -39,19 +74,32 @@ describe('DATA-003 saveInstantNodeFile', () => {
     expect(reloaded.map((n) => n.nodeType)).toContain('pirate');
   });
 
-  it('TC-03: refuses to write a composite node (no unreloadable orphan)', async () => {
+  it('WORKFLOW-005 P2: persists a composite node, then reloads AND runs it (no drop)', async () => {
     const composite = createCompositeInstantNodeDefinition({
-      nodeType: 'wrap',
-      displayName: 'Wrap',
-      innerDag: { dagId: 'inner', version: 1, status: 'draft', nodes: [], edges: [] },
-      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'a', portKey: 'text' } },
-      exposedOutputPorts: [{ key: 'out', mapsTo: { nodeId: 'b', portKey: 'text' } }],
+      nodeType: 'echo-composite',
+      displayName: 'Echo Composite',
+      innerDag: INNER_DAG,
+      exposedInputPort: { key: 'text', mapsTo: { nodeId: 'echo', portKey: 'text' } },
+      exposedOutputPorts: [{ key: 'result', mapsTo: { nodeId: 'echo', portKey: 'text' } }],
       runner: RUNNER,
     });
+
+    // 1. Persist the composite (no longer refused) → a manifest is written.
     const path = await saveInstantNodeFile(dir, composite, AT);
-    expect(path).toBeNull();
-    // nothing was written → no orphan for the loader to silently drop.
-    await expect(readdir(join(dir, '.workflows', 'nodes'))).rejects.toBeDefined();
+    expect(path).toContain('echo-composite.node.json');
+    await expect(stat(path as string)).resolves.toBeDefined();
+
+    // 2. Simulate restart: a fresh load reconstructs the composite (with an injected sub-runner).
+    const reloaded = await loadInstantNodes(dir);
+    const node = reloaded.find((n) => n.nodeType === 'echo-composite');
+    expect(node, 'composite must survive reload (not be dropped)').toBeDefined();
+
+    // 3. The reloaded composite RUNS its inner DAG for real and flows its exposed output out.
+    const runResult = await node!.taskHandler.execute({ text: 'trigger' }, makeExecContext(node!));
+    expect(runResult.ok).toBe(true);
+    if (runResult.ok) {
+      expect(runResult.value['result']).toBe('from-inner-dag');
+    }
   });
 
   it('skips a non-instant (built-in) node', async () => {

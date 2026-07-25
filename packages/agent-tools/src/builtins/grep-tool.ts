@@ -12,11 +12,14 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
 
+import type { IBuiltinToolDescriptionOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
+import type { FunctionTool } from '@robota-sdk/agent-core';
 
 const GrepSchema = z.object({
   pattern: z.string().describe('The regular expression pattern to search for in file contents'),
@@ -53,6 +56,9 @@ const GrepSchema = z.object({
 });
 
 type TGrepArgs = z.infer<typeof GrepSchema>;
+
+/** Cap on concurrent file reads during the content scan (CLI-042). */
+const READ_CONCURRENCY_LIMIT = 50;
 
 /** Convert a simple glob to a RegExp for file name filtering. */
 function globToRegex(glob: string): RegExp {
@@ -205,30 +211,39 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
     files = await collectFiles(targetPath, glob);
   }
 
-  const allOutputLines: string[] = [];
-
-  for (const filePath of files) {
-    let content: string;
-    try {
-      const buffer = await readFile(filePath);
-      // Skip binary files
-      const checkLen = Math.min(buffer.length, 8192);
-      let hasBinary = false;
-      for (let i = 0; i < checkLen; i++) {
-        if (buffer[i] === 0) {
-          hasBinary = true;
-          break;
+  // Read/scan files in parallel with bounded concurrency, but collect results
+  // in file-enumeration order so output stays byte-identical to the previous
+  // sequential implementation (CLI-042).
+  const limit = pLimit(READ_CONCURRENCY_LIMIT);
+  const perFileMatches: string[][] = await Promise.all(
+    files.map((filePath) =>
+      limit(async (): Promise<string[]> => {
+        let content: string;
+        try {
+          const buffer = await readFile(filePath);
+          // Skip binary files
+          const checkLen = Math.min(buffer.length, 8192);
+          let hasBinary = false;
+          for (let i = 0; i < checkLen; i++) {
+            if (buffer[i] === 0) {
+              hasBinary = true;
+              break;
+            }
+          }
+          if (hasBinary) return [];
+          content = buffer.toString('utf8');
+        } catch {
+          // allow-fallback: an unreadable file is skipped (pre-existing sequential
+          // semantics — same as the old `continue`), not a logic fallback
+          return [];
         }
-      }
-      if (hasBinary) continue;
-      content = buffer.toString('utf8');
-    } catch {
-      continue;
-    }
 
-    const fileMatches = searchFile(content, filePath, regex, contextLines, outputMode);
-    allOutputLines.push(...fileMatches);
-  }
+        return searchFile(content, filePath, regex, contextLines, outputMode);
+      }),
+    ),
+  );
+
+  const allOutputLines: string[] = perFileMatches.flat();
 
   let outputLines = allOutputLines;
   if (headLimit !== undefined && outputLines.length > headLimit) {
@@ -246,14 +261,38 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
   return JSON.stringify(result);
 }
 
+/** The registered name of the shell tool this package's default assembly ships (NEUT-002). */
+const DEFAULT_SHELL_TOOL_NAME = 'Shell';
+
+/** Options for the grep tool factory: description seam + derived shell-tool reference. */
+export interface IGrepToolOptions extends IBuiltinToolDescriptionOptions {
+  /**
+   * Registered name of the shell tool the default description references (default: `Shell`).
+   * Ignored when `description` overrides the text.
+   */
+  shellToolName?: string;
+}
+
+/** Build the default description, referencing the actually-registered shell tool by name. */
+function buildGrepDescription(shellToolName: string): string {
+  return `A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nPrefer this tool over running grep or rg through the ${shellToolName} tool — it returns structured results directly.\n\nUse headLimit to control result size and save context space.`;
+}
+
+/**
+ * Create a GrepTool instance — register with Robota agent tools registry.
+ */
+export function createGrepTool(options: IGrepToolOptions = {}): FunctionTool {
+  return createZodFunctionTool(
+    'Grep',
+    options.description ?? buildGrepDescription(options.shellToolName ?? DEFAULT_SHELL_TOOL_NAME),
+    GrepSchema,
+    async (params) => {
+      return grepFileTool(params);
+    },
+  );
+}
+
 /**
  * GrepTool instance — register with Robota agent tools registry.
  */
-export const grepTool = createZodFunctionTool(
-  'Grep',
-  "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows per-file match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse headLimit to control result size and save context space.",
-  GrepSchema,
-  async (params) => {
-    return grepFileTool(params);
-  },
-);
+export const grepTool = createGrepTool();

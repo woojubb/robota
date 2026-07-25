@@ -40,7 +40,7 @@ Examples:
     transform-->output[text-output]" --run --input text="Hello"
 `;
 
-const MERMAID_BLOCK_RE = /```mermaid\s*([\s\S]*?)```/i;
+const MERMAID_BLOCK_RE = /```mermaid([\s\S]*?)```/i; // SEC-003: leading \s* was O(n^2), redundant
 
 export interface IFromMermaidCommandOptions {
   readonly io: IDagCliIo;

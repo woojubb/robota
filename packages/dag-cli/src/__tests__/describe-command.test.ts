@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { IDescribeCommandOptions } from '../commands/describe.js';
 import { describeCommand } from '../commands/describe.js';
 
@@ -8,7 +8,8 @@ vi.mock('node:fs/promises', () => ({
   readFile: vi.fn().mockRejectedValue(new Error('ENOENT')),
 }));
 
-vi.mock('@robota-sdk/dag-node', () => ({
+vi.mock('@robota-sdk/dag-node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/dag-node')>()),
   buildNodeDefinitionAssembly: vi.fn(() => ({
     ok: true,
     value: {
@@ -98,7 +99,11 @@ function getOutput(opts: { readonly written: string[] }): string {
 
 describe('describeCommand', () => {
   beforeEach(() => {
-    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test';
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('prints help with --help', async () => {
@@ -130,7 +135,7 @@ describe('describeCommand', () => {
   });
 
   it('returns exit code 1 when ANTHROPIC_API_KEY is missing', async () => {
-    delete process.env['ANTHROPIC_API_KEY'];
+    vi.stubEnv('ANTHROPIC_API_KEY', undefined);
     const opts = createOptions();
     const code = await describeCommand(['translate Korean to English'], opts);
     expect(code).toBe(1);

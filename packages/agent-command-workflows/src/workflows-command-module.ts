@@ -3,6 +3,8 @@ import { executeWorkflowsList } from './list-command.js';
 import { executeWorkflowsRun } from './run-command.js';
 import { executeWorkflowsValidate } from './validate-command.js';
 import { executeWorkflowsCreate } from './create-command.js';
+import { executeWorkflowsBuild } from './build-command.js';
+import { renderWorkflowsUsage, WORKFLOWS_SUBCOMMANDS } from './subcommands.js';
 
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -19,52 +21,18 @@ import type {
 
 const WORKFLOWS_DESCRIPTION =
   'Author (from natural language), list, validate, and run DAG workflows on the in-process runtime';
-const WORKFLOWS_ARGUMENT_HINT = '<create|list|catalog|validate|run> [args]';
+const WORKFLOWS_ARGUMENT_HINT = `<${WORKFLOWS_SUBCOMMANDS.map((s) => s.name).join('|')}> [args]`;
 
-const SUBCOMMANDS: ICommand[] = [
-  {
-    name: 'create',
-    description: 'Author a workflow from a natural-language description and run it immediately',
-    source: 'workflows',
-    argumentHint: '"<description>" [--input key=value] [--name <name>]',
-    modelInvocable: true,
-  },
-  {
-    name: 'list',
-    description: 'List available workflow nodes',
-    source: 'workflows',
-    modelInvocable: false,
-  },
-  {
-    name: 'catalog',
-    description: 'List workflow files in the local .workflows catalog',
-    source: 'workflows',
-    modelInvocable: false,
-  },
-  {
-    name: 'validate',
-    description: 'Validate a workflow file against the node catalog',
-    source: 'workflows',
-    argumentHint: '<file.json>',
-    modelInvocable: false,
-  },
-  {
-    name: 'run',
-    description: 'Run a workflow file',
-    source: 'workflows',
-    argumentHint: '<file.json>',
-    modelInvocable: false,
-  },
-];
+/** The `ICommand` view of the shared subcommand registry (`subcommands.ts` is the SSOT). */
+const SUBCOMMANDS: ICommand[] = WORKFLOWS_SUBCOMMANDS.map((sub) => ({
+  name: sub.name,
+  description: sub.description,
+  source: 'workflows',
+  ...(sub.argumentHint ? { argumentHint: sub.argumentHint } : {}),
+  modelInvocable: sub.modelInvocable,
+}));
 
-const USAGE = [
-  'Usage: /workflows <create|list|catalog|validate|run>',
-  '  create "<desc>"  Author a workflow from natural language and run it',
-  '  list             List available workflow nodes',
-  '  catalog          List workflow files in .workflows',
-  '  validate <file>  Validate a workflow file',
-  '  run <file>       Run a workflow file',
-].join('\n');
+const USAGE = renderWorkflowsUsage();
 
 /** Parse the leading subcommand token + remaining argument string. */
 function splitSubcommand(args: string): { sub: string; rest: string } {
@@ -88,12 +56,14 @@ async function executeWorkflowsCommand(
       return { success: true, message: USAGE };
     case 'create':
       return executeWorkflowsCreate(rest, cwd, { workspace, providerDefinitions });
+    case 'build':
+      return executeWorkflowsBuild(rest, cwd, { workspace, providerDefinitions });
     case 'list':
-      return executeWorkflowsList();
+      return executeWorkflowsList(cwd, workspace);
     case 'catalog':
       return executeWorkflowsCatalog(cwd, workspace);
     case 'validate':
-      return executeWorkflowsValidate(rest, cwd);
+      return executeWorkflowsValidate(rest, cwd, workspace);
     case 'run':
       return executeWorkflowsRun(rest, cwd, workspace);
     default:

@@ -132,121 +132,163 @@ export function getSessionId(session: IInteractiveSession): string {
   }
 }
 
-function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
-  return new Promise<number>((resolve) => {
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-    const onComplete = (result: IExecutionResult): void => {
+/**
+ * CI-001: run the terminal action exactly once and settle the exit code.
+ *
+ * Two coupled hazards this closes:
+ *  1. Ordering — the terminal `complete`/`interrupted`/`error` events fire from INSIDE the turn, BEFORE
+ *     `session.submit()`'s awaited `finally` runs `persistSession()` / the checkpoint finalize. If `run()`
+ *     resolved directly off those events, `start()` would return while the session was still writing
+ *     `.robota/` under cwd — a race the caller (or a test's cleanup) can lose (ENOTEMPTY). So each format
+ *     records the code via `finalize()` and then AWAITS the underlying operation, guaranteeing all trailing
+ *     turn work has drained before `run()` resolves.
+ *  2. Duplication — since submit is now awaited in a try/catch, a terminal event AND a later submit
+ *     rejection could both drive an error path. `finalize` runs its terminal action (cleanup + the single
+ *     output write) only for the FIRST caller, so the JSON/stream output is always exactly one record.
+ */
+function createExitCodeLatch(): {
+  finalize: (code: number, terminalAction: () => void) => void;
+  value: () => number;
+} {
+  let code: number | undefined;
+  return {
+    finalize: (c: number, terminalAction: () => void): void => {
+      if (code !== undefined) return;
+      code = c;
+      terminalAction();
+    },
+    // RUNTIME-36: fail closed — an operation that drained without emitting a terminal event is a non-zero
+    // exit, never a hang and never a spurious 0.
+    value: (): number => code ?? 1,
+  };
+}
+
+async function runTextFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+  const latch = createExitCodeLatch();
+  const cleanup = (): void => {
+    session.off('complete', onComplete);
+    session.off('interrupted', onInterrupted);
+    session.off('error', onError);
+  };
+  const onComplete = (result: IExecutionResult): void =>
+    latch.finalize(0, () => {
       cleanup();
       process.stdout.write(result.response + '\n');
-      resolve(0);
-    };
-    const onInterrupted = (result: IExecutionResult): void => {
+    });
+  const onInterrupted = (result: IExecutionResult): void =>
+    latch.finalize(0, () => {
       cleanup();
       if (result.response) process.stdout.write(result.response + '\n');
-      resolve(0);
-    };
-    const onError = (error: Error): void => {
+    });
+  const onError = (error: Error): void =>
+    latch.finalize(1, () => {
       cleanup();
       process.stderr.write(error.message + '\n');
-      resolve(1);
-    };
+    });
 
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
+  session.on('complete', onComplete);
+  session.on('interrupted', onInterrupted);
+  session.on('error', onError);
 
-    // RUNTIME-36: a thrown slash-command (or a failed submit) must surface a non-zero exit via onError, not
-    // vanish and hang the exit-code promise.
-    void executeSlashCommandIfPresent(session, prompt)
-      .then((cmd) => {
-        if (cmd.kind === 'command-result') {
-          cleanup();
-          process.stdout.write(cmd.result.message + '\n');
-          resolve(cmd.result.success ? 0 : 1);
-          return;
-        }
-        if (cmd.kind !== 'session-execution')
-          void session.submit(prompt).catch((error) => onError(toError(error)));
-      })
-      .catch((error) => onError(toError(error)));
-  });
+  try {
+    const cmd = await executeSlashCommandIfPresent(session, prompt);
+    if (cmd.kind === 'command-result') {
+      latch.finalize(cmd.result.success ? 0 : 1, () => {
+        cleanup();
+        process.stdout.write(cmd.result.message + '\n');
+      });
+    } else if (cmd.kind !== 'session-execution') {
+      // CI-001: AWAIT submit so the turn's trailing work (persistSession / checkpoint finalize) drains
+      // before run() resolves. RUNTIME-36: a thrown submit surfaces a non-zero exit via onError.
+      await session.submit(prompt);
+    }
+  } catch (error) {
+    onError(toError(error));
+  }
+  return latch.value();
 }
 
-function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
-  return new Promise<number>((resolve) => {
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-    const onComplete = (result: IExecutionResult): void => {
+async function runJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+  const latch = createExitCodeLatch();
+  const cleanup = (): void => {
+    session.off('complete', onComplete);
+    session.off('interrupted', onInterrupted);
+    session.off('error', onError);
+  };
+  const onComplete = (result: IExecutionResult): void =>
+    latch.finalize(0, () => {
       cleanup();
       writeJsonResult(getSessionId(session), result.response, 'success');
-      resolve(0);
-    };
-    const onInterrupted = (result: IExecutionResult): void => {
+    });
+  const onInterrupted = (result: IExecutionResult): void =>
+    latch.finalize(0, () => {
       cleanup();
       writeJsonResult(getSessionId(session), result.response, 'success');
-      resolve(0);
-    };
-    const onError = (error: Error): void => {
+    });
+  const onError = (error: Error): void =>
+    latch.finalize(1, () => {
       cleanup();
       writeJsonResult(getSessionId(session), '', 'error', error);
-      resolve(1);
-    };
+    });
 
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
+  session.on('complete', onComplete);
+  session.on('interrupted', onInterrupted);
+  session.on('error', onError);
 
-    // RUNTIME-36: a thrown slash-command / failed submit surfaces a non-zero exit via onError, never vanishes.
-    void executeSlashCommandIfPresent(session, prompt)
-      .then((cmd) => {
-        if (cmd.kind === 'command-result') {
-          cleanup();
-          writeJsonResult(
-            getSessionId(session),
-            cmd.result.message,
-            cmd.result.success ? 'success' : 'error',
-          );
-          resolve(cmd.result.success ? 0 : 1);
-          return;
-        }
-        if (cmd.kind !== 'session-execution')
-          void session.submit(prompt).catch((error) => onError(toError(error)));
-      })
-      .catch((error) => onError(toError(error)));
-  });
+  try {
+    const cmd = await executeSlashCommandIfPresent(session, prompt);
+    if (cmd.kind === 'command-result') {
+      latch.finalize(cmd.result.success ? 0 : 1, () => {
+        cleanup();
+        writeJsonResult(
+          getSessionId(session),
+          cmd.result.message,
+          cmd.result.success ? 'success' : 'error',
+        );
+      });
+    } else if (cmd.kind !== 'session-execution') {
+      // CI-001: AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
+      await session.submit(prompt);
+    }
+  } catch (error) {
+    onError(toError(error));
+  }
+  return latch.value();
 }
 
-function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
-  return new Promise<number>((resolve) => {
-    const cleanup = subscribeStreamJsonEvents(session, getSessionId, writeJsonResult, resolve);
+async function runStreamJsonFormat(session: IInteractiveSession, prompt: string): Promise<number> {
+  const latch = createExitCodeLatch();
+  // subscribeStreamJsonEvents' terminal handlers each cleanup + write a single result then invoke this
+  // callback; guard so a terminal event and the catch below cannot both write (see createExitCodeLatch).
+  const settleFromEvent = (code: number): void => latch.finalize(code, () => undefined);
+  const cleanup = subscribeStreamJsonEvents(
+    session,
+    getSessionId,
+    writeJsonResult,
+    settleFromEvent,
+  );
 
-    // RUNTIME-36: route a thrown slash-command / failed submit to a non-zero exit instead of hanging resolve.
-    const failClosed = (error: unknown): void => {
+  try {
+    const cmd = await executeSlashCommandIfPresent(session, prompt);
+    if (cmd.kind === 'command-result') {
+      latch.finalize(cmd.result.success ? 0 : 1, () => {
+        cleanup();
+        writeJsonResult(
+          getSessionId(session),
+          cmd.result.message,
+          cmd.result.success ? 'success' : 'error',
+        );
+      });
+    } else if (cmd.kind !== 'session-execution') {
+      // CI-001: AWAIT submit so trailing turn work drains before run() resolves (see createExitCodeLatch).
+      await session.submit(prompt);
+    }
+  } catch (error) {
+    // RUNTIME-36: route a thrown slash-command / failed submit to a non-zero exit instead of hanging.
+    latch.finalize(1, () => {
       cleanup();
       writeJsonResult(getSessionId(session), '', 'error', toError(error));
-      resolve(1);
-    };
-    void executeSlashCommandIfPresent(session, prompt)
-      .then((cmd) => {
-        if (cmd.kind === 'command-result') {
-          cleanup();
-          writeJsonResult(
-            getSessionId(session),
-            cmd.result.message,
-            cmd.result.success ? 'success' : 'error',
-          );
-          resolve(cmd.result.success ? 0 : 1);
-          return;
-        }
-        if (cmd.kind !== 'session-execution') void session.submit(prompt).catch(failClosed);
-      })
-      .catch(failClosed);
-  });
+    });
+  }
+  return latch.value();
 }

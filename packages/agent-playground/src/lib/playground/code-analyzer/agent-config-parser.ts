@@ -14,9 +14,15 @@ export function parseAgentConfig(code: string): IParsedAgentConfig {
     }
   }
 
-  const toolsArrayMatch = code.match(/tools:\s*\[([^\]]+)\]/);
+  // `[^\][]+` excludes `[` as well as `]`: with `[^\]]+`, code containing many unterminated
+  // `tools:[` occurrences made every failed attempt scan to end-of-input, i.e. O(n^2). Stopping
+  // the scan at the next bracket bounds each attempt. A tools array never nests a `[`.
+  const toolsArrayMatch = code.match(/tools:\s*\[([^\][]+)\]/);
   if (toolsArrayMatch) {
-    const toolVariables = toolsArrayMatch[1].match(/\w+Tool/g) ?? [];
+    // `\b\w+Tool` — not `\w+Tool`: without the word-boundary anchor every position in a long
+    // word-character run starts its own O(n) scan, i.e. O(n^2). The `\b` is free semantically:
+    // any `\w+Tool` match can be extended left to a word boundary, so the match set is identical.
+    const toolVariables = toolsArrayMatch[1].match(/\b\w+Tool/g) ?? [];
     toolVariables.forEach((varName) => {
       const toolName = varName.replace('Tool', '');
       if (!tools.find((tool) => tool.name === toolName)) {

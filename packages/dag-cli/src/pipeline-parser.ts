@@ -126,8 +126,10 @@ function parsePipelineNodeSpec(
  * Returns an error if the spec is empty or any segment is malformed.
  */
 export function parsePipelineSpec(spec: string): TPipelineParseResult {
+  // Split on the literal `|`, not `/\s*\|\s*/`: the surrounding `\s*` was redundant (each part is
+  // trimmed on the next line) and made a whitespace-heavy `--pipeline` value cost O(n^2) to split.
   const parts = spec
-    .split(/\s*\|\s*/)
+    .split('|')
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 

@@ -1,0 +1,69 @@
+name: Nightly mutation testing
+
+# INFRA-042: mutation testing (Stryker) is the deepest defence against weak / accidental-green tests
+# (the class that recurred as ARCH-004 RUNTIME-14 and CORE-026 RUNTIME-12; common-mistakes #82).
+# Coverage proves a line RAN; mutation proves its behaviour is ASSERTED. It runs the suite once per
+# mutant, so it is far too expensive for per-PR CI — it runs NIGHTLY over a bounded set of the
+# highest-value CORE packages, one package per matrix leg. See stryker.conf.mjs for scope + config.
+#
+# ADVISORY (v1): the mutation score is REPORT-ONLY (stryker.conf.mjs sets thresholds.break=null, so
+# Stryker never fails the run on a low score). The uploaded report is the maintained artefact;
+# surviving mutants become test-hardening work items. This is not a PR gate and blocks nothing.
+
+on:
+  schedule:
+    # Daily 03:17 UTC — off-peak, and distinct from the security cron (Mon 04:47) and CodeQL (04:27).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: mutation (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    # Bounded: one Stryker run per core package, in parallel. fail-fast off so a weak score (or an
+    # infra hiccup) on one package never cancels the others.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [agent-core, agent-session, agent-executor]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cross-package @robota-sdk deps resolve to built dist inside the Stryker sandbox, so build the
+      # workspace first (agent-session / agent-executor tests import sibling packages).
+      - name: Build workspace
+        run: pnpm build:deps
+
+      - name: Run mutation testing (${{ matrix.target }})
+        env:
+          STRYKER_TARGET: ${{ matrix.target }}
+        run: pnpm test:mutation
+
+      - name: Upload mutation report (${{ matrix.target }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-${{ matrix.target }}
+          path: reports/mutation/${{ matrix.target }}
+          if-no-files-found: warn
+          retention-days: 30

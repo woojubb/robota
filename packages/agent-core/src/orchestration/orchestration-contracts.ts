@@ -1,4 +1,5 @@
 import type { IBaseEventData } from '../event-service/interfaces';
+import type { ITokenUsage } from '../interfaces/provider';
 
 /**
  * Neutral multi-agent orchestration contracts (SELFHOST-001).
@@ -17,11 +18,7 @@ import type { IBaseEventData } from '../event-service/interfaces';
  * event/result contracts are stable across slices).
  */
 export type TOrchestrationPrimitive =
-  | 'sequential'
-  | 'parallel'
-  | 'hierarchical'
-  | 'handoff'
-  | 'group-chat';
+  'sequential' | 'parallel' | 'hierarchical' | 'handoff' | 'group-chat';
 
 /**
  * A single neutral unit of work in an orchestration run. Opaque — it carries no
@@ -154,12 +151,12 @@ export interface IOrchestrationStepResult {
   /** The step's output text. */
   output: string;
   /**
-   * Optional token usage of the step's subagent run (ANALYTICS-001 shape). Present
-   * only when the underlying runner/manager surfaces usage through its result — the
-   * default `SubagentManager.wait` does not yet thread it, so this is `undefined`
-   * there until that port is extended.
+   * Optional token usage of the step's subagent run (the {@link ITokenUsage} SSOT triple;
+   * TYPE-003). Present only when the underlying runner/manager surfaces usage through its
+   * result — the default `SubagentManager.wait` does not yet thread it, so this is
+   * `undefined` there until that port is extended.
    */
-  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usage?: ITokenUsage;
 }
 
 /** The result of an orchestration run. */

@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +6,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 
 import { resolveGitBranch } from '../git-branch.js';
 
-const TMP_BASE = join(tmpdir(), `robota-git-branch-test-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-git-branch-test-'));
 
 describe('resolveGitBranch', () => {
   afterEach(() => {

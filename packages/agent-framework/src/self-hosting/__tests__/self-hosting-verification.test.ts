@@ -5,42 +5,81 @@ import {
   transitionSelfHostingLoop,
 } from '../self-hosting-verification';
 
+import type { ISelfHostingCommandTemplates } from '../self-hosting-verification';
+
+/**
+ * NEUT-001: the library ships no repo-specific commands — tests inject a neutral
+ * template set the way a composition root would (Robota's real templates live in
+ * `scripts/harness/self-hosting-verification-commands.mjs`).
+ */
+const COMMAND_TEMPLATES: ISelfHostingCommandTemplates = {
+  packageVerify: [
+    { name: 'test', template: 'run-verify {scope} test' },
+    { name: 'typecheck', template: 'run-verify {scope} typecheck' },
+    { name: 'build', template: 'run-verify {scope} build' },
+  ],
+  repoVerify: {
+    description: 'Run the repository-wide verification gate.',
+    template: 'run-repo-verify --base-ref {baseRef}',
+  },
+};
+
 describe('planSelfHostingVerification', () => {
-  it('Given changed package scopes When planning verification Then checkpoint, atomic edit, child-process handoff, package checks, and harness verification are ordered', () => {
+  it('Given changed package scopes When planning verification Then checkpoint, atomic edit, child-process handoff, package checks, and the repo gate are ordered', () => {
     const plan = planSelfHostingVerification({
       changedFiles: ['packages/agent-sdk/src/index.ts'],
-      packageScopes: ['@robota-sdk/agent-framework'],
-      baseRef: 'origin/develop',
+      packageScopes: ['@example/pkg'],
+      baseRef: 'origin/main',
+      commandTemplates: COMMAND_TEMPLATES,
     });
 
     expect(plan.steps.map((step) => step.id)).toEqual([
       'checkpoint',
       'atomic-edit',
       'handoff',
-      'package-test:@robota-sdk/agent-framework',
-      'package-typecheck:@robota-sdk/agent-framework',
-      'package-build:@robota-sdk/agent-framework',
-      'harness-verify',
+      'package-test:@example/pkg',
+      'package-typecheck:@example/pkg',
+      'package-build:@example/pkg',
+      'repo-verify',
       'rollback-on-failure',
     ]);
-    expect(plan.steps.find((step) => step.id === 'harness-verify')?.command).toBe(
-      'pnpm harness:verify -- --base-ref origin/develop --skip-record-check',
+    expect(plan.steps.find((step) => step.id === 'repo-verify')?.command).toBe(
+      'run-repo-verify --base-ref origin/main',
+    );
+    expect(plan.steps.find((step) => step.id === 'package-test:@example/pkg')?.command).toBe(
+      'run-verify @example/pkg test',
     );
   });
 
-  it('Given no package scopes When planning verification Then harness verification remains mandatory', () => {
+  it('Given no package scopes When planning verification Then the repo gate remains mandatory', () => {
     const plan = planSelfHostingVerification({
       changedFiles: ['README.md'],
+      baseRef: 'origin/main',
+      commandTemplates: COMMAND_TEMPLATES,
     });
 
-    expect(plan.steps.map((step) => step.id)).toContain('harness-verify');
-    expect(plan.steps.some((step) => step.command?.includes('pnpm --filter'))).toBe(false);
+    expect(plan.steps.map((step) => step.id)).toContain('repo-verify');
+    expect(plan.steps.some((step) => step.id.startsWith('package-'))).toBe(false);
+  });
+
+  it('Given no repoVerify template When planning verification Then no repo gate step is emitted', () => {
+    const plan = planSelfHostingVerification({
+      changedFiles: ['README.md'],
+      baseRef: 'origin/main',
+      commandTemplates: { packageVerify: COMMAND_TEMPLATES.packageVerify },
+    });
+
+    expect(plan.steps.map((step) => step.id)).not.toContain('repo-verify');
   });
 
   it('Given no changed files When planning verification Then it rejects the invalid loop', () => {
-    expect(() => planSelfHostingVerification({ changedFiles: [] })).toThrow(
-      'requires at least one changed file',
-    );
+    expect(() =>
+      planSelfHostingVerification({
+        changedFiles: [],
+        baseRef: 'origin/main',
+        commandTemplates: COMMAND_TEMPLATES,
+      }),
+    ).toThrow('requires at least one changed file');
   });
 });
 

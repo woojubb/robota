@@ -12,9 +12,11 @@
 import { Box, Text } from 'ink';
 import React, { useState } from 'react';
 
+import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
 import MultiSelectList from './MultiSelectList.js';
 import TextPrompt from './TextPrompt.js';
+import { PALETTE } from './tui-palette.js';
 
 import type { IActionOption, IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 
@@ -87,8 +89,8 @@ export default function PendingActionPrompt({
         items={pickerItems}
         maxVisible={request.maxVisible}
         renderItem={(option, isSelected) => (
-          <Text color={isSelected ? 'cyan' : undefined}>
-            {isSelected ? '> ' : '  '}
+          <Text color={isSelected ? PALETTE.text.accent : undefined}>
+            {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
             {option.label}
           </Text>
         )}

@@ -1,12 +1,18 @@
 ---
 title: 'SITE-004: 도메인 리다이렉션 최종 전환 — robota.io → www.robota.io'
-status: todo
+status: superseded
+completed: 2026-07-25
 created: 2026-05-23
 priority: medium
 urgency: later
 area: Vercel DNS / 도메인 설정
 depends_on: [SITE-001, SITE-002, SITE-003]
 ---
+
+> **Superseded by DEPLOY-001 (done 2026-06-27).** The final domain architecture changed: the
+> marketing site is served directly at the apex `robota.io` (Cloudflare Pages) with docs at
+> `docs.robota.io` — the Phase-2 plan here (`robota.io` → `www.robota.io` 301) is obsolete and was
+> never executed. Reconciled 2026-07-25 (PROC-001).
 
 ## Background
 

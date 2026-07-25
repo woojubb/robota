@@ -312,7 +312,7 @@ describe('Hook wiring via createSession', () => {
         language: 'en',
         env: {},
       },
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
     });
@@ -341,7 +341,7 @@ describe('Hook wiring via createSession', () => {
         language: 'en',
         env: {},
       },
-      context: { agentsMd: '', claudeMd: '' },
+      context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
       providerFactory: mockProviderFactory,

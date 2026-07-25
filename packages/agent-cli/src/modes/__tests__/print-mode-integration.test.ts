@@ -128,6 +128,8 @@ async function runPrint(
         throw new Error('subagent runner not used in print-mode resume tests');
       }) as never,
       [],
+      {},
+      [],
       {} as never,
       sessionResolution,
     );

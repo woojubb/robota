@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +10,7 @@ import { createProjectSessionStore } from '../session-persistence.js';
 
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 
-const TMP_BASE = join(tmpdir(), `robota-interactive-memory-${process.pid}`);
+const TMP_BASE = mkdtempSync(join(tmpdir(), 'robota-interactive-memory-'));
 const ORIGINAL_HOME = process.env.HOME;
 
 function makeProject(): string {

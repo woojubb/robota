@@ -135,8 +135,24 @@ function normalizeShortId(value: string): string {
   return sanitized.length > 0 ? sanitized : createShortId();
 }
 
+/**
+ * Remove every leading and trailing `-`, by index scan.
+ *
+ * Not `replace(/^-+|-+$/g, '')`: the trailing half has no start anchor, so the engine retries the run from every
+ * offset inside it and each retry re-scans to the end — 3.1 s on a 100 K dash run (`js/polynomial-redos`,
+ * SEC-003). `-` survives the collapse in {@link sanitizePathSegment} (it is inside the kept class), so a long run
+ * does reach here.
+ */
+function trimDashes(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === '-') start += 1;
+  while (end > start && value[end - 1] === '-') end -= 1;
+  return value.slice(start, end);
+}
+
 function sanitizePathSegment(value: string): string {
-  const sanitized = value.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  const sanitized = trimDashes(value.replace(/[^A-Za-z0-9._-]+/g, '-'));
   return sanitized.length > 0 ? sanitized : 'agent';
 }
 

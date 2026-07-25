@@ -1,6 +1,5 @@
 import {
-  createPluginRegistryReloadRequestedEffect,
-  createPluginTuiRequestedEffect,
+  createShowPluginManagerIntent,
   resolvePluginCommandAdapter,
 } from '@robota-sdk/agent-framework';
 
@@ -119,7 +118,7 @@ function executePluginManager(): ICommandResult {
   return {
     success: true,
     message: 'Opening plugin manager...',
-    effects: [createPluginTuiRequestedEffect()],
+    uiIntents: [createShowPluginManagerIntent()],
   };
 }
 
@@ -220,9 +219,11 @@ export async function executeReloadPluginsCommand(
     return `Reloaded ${suffix}.`;
   }).then((result) => {
     if (!result.success) return result;
+    // CMD-004 Stage E: the semantic reload already ran HOST-side above (`adapter.reloadPlugins()`);
+    // the requester-local registry/autocomplete refresh rides the result as a data hint.
     return {
       ...result,
-      effects: [createPluginRegistryReloadRequestedEffect()],
+      data: { ...result.data, pluginRegistryReloaded: true },
     };
   });
 }

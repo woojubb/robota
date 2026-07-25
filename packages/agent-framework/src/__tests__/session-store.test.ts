@@ -9,6 +9,14 @@ import { createProjectSessionStore } from '../interactive/session-persistence.js
 
 import type { ISessionRecord } from '@robota-sdk/agent-session';
 
+// TYPE-003: ISessionRecord is now the typed IInteractiveSessionRecord alias. These tests exercise
+// the store's OPAQUE persistence behavior with loose JSON-shaped payloads (what a real on-disk file
+// contains after a JSON round-trip), so the literals cross the same `as` trust boundary the store's
+// own `load` does.
+function loosePayload<T>(value: unknown): T {
+  return value as T;
+}
+
 function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
   return {
     id: 'test-session-001',
@@ -45,10 +53,10 @@ describe('SessionStore', () => {
       const record = makeRecord({
         id: 'msg-session',
         name: 'My Session',
-        messages: [
+        messages: loosePayload<ISessionRecord['messages']>([
           { role: 'user', content: 'hello' },
           { role: 'assistant', content: 'world' },
-        ],
+        ]),
         systemPrompt: 'system prompt with /agent capability',
         toolSchemas: [
           {
@@ -76,7 +84,11 @@ describe('SessionStore', () => {
       const record = makeRecord();
       store.save(record);
 
-      const updated = { ...record, updatedAt: '2024-06-01T00:00:00.000Z', messages: [{ x: 1 }] };
+      const updated = {
+        ...record,
+        updatedAt: '2024-06-01T00:00:00.000Z',
+        messages: loosePayload<ISessionRecord['messages']>([{ x: 1 }]),
+      };
       store.save(updated);
 
       const loaded = store.load(record.id);
@@ -242,11 +254,11 @@ describe('SessionStore', () => {
     it('saves and loads a record with history field', () => {
       const record = makeRecord({
         id: 'history-session',
-        history: [
+        history: loosePayload<ISessionRecord['history']>([
           { category: 'chat', role: 'user', content: 'hello' },
           { category: 'event', type: 'tool-call', name: 'read' },
           { category: 'chat', role: 'assistant', content: 'world' },
-        ],
+        ]),
       });
       store.save(record);
       const loaded = store.load(record.id);
@@ -260,7 +272,10 @@ describe('SessionStore', () => {
         { category: 'event', type: 'thinking', text: 'calculating...' },
         { category: 'chat', role: 'assistant', content: '4' },
       ];
-      const record = makeRecord({ id: 'roundtrip', history: historyEntries });
+      const record = makeRecord({
+        id: 'roundtrip',
+        history: loosePayload<ISessionRecord['history']>(historyEntries),
+      });
       store.save(record);
       const loaded = store.load(record.id);
       expect(loaded?.history).toEqual(historyEntries);

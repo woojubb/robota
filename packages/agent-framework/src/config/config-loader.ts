@@ -214,6 +214,7 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
     enabledPlugins: merged.enabledPlugins ?? undefined,
     extraKnownMarketplaces: merged.extraKnownMarketplaces ?? undefined,
     autoCompactThreshold: merged.autoCompactThreshold,
+    taskContext: merged.taskContext ?? undefined,
   };
 }
 
