@@ -93,6 +93,14 @@ Diagnose real failures; a known fresh-worktree environment artifact (e.g. build 
 that worktree was never built) is not a code failure. Confirm each merge actually landed (Merge Landing
 Verification) before releasing any item held in step 3.
 
+**Read the review output BEFORE arming the merge.** Review-producing automation is typically _advisory_:
+its findings arrive as PR comments, while the checks that actually gate a merge are a different set. So an
+auto-merge armed early fires on the gating checks and carries the review's findings straight into the
+integration branch — the feedback was produced, and simply never read. A review job reporting `pass` is
+not evidence of no findings; it usually passes whether or not it commented. Therefore: fetch the PR's
+review comments and analysis findings, address or consciously dismiss them, and only then arm the merge.
+Passing checks answer "did it break anything"; the review answers "should it land as written".
+
 ### 6. Spec-gated (code) work clears its gate BEFORE implementation
 
 For code items requiring a spec, run draft → GATE-WRITE → **independent** GATE-APPROVAL first — independent
