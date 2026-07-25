@@ -18,6 +18,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+// HARNESS-046: frontmatter is read by the harness's ONE parser. The hand-rolled `/^name:/m` this
+// replaced was not anchored to the `---` block, so a `name:` inside a body example could become the
+// identity the map was checked against.
+import { asScalar, frontmatterObject } from './frontmatter.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
@@ -33,8 +38,7 @@ export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
   if (existsSync(agentsDir)) {
     for (const file of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
       const text = readFileSync(path.join(agentsDir, file), 'utf8');
-      const m = text.match(/^name:\s*(\S+)\s*$/m);
-      const name = m ? m[1] : file.replace(/\.md$/, '');
+      const name = asScalar(frontmatterObject(text).name) || file.replace(/\.md$/, '');
       // Require the agent name to appear in the map (e.g. as `name` in a table/diagram).
       if (!mapText.includes(name)) {
         findings.push(

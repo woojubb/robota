@@ -14,7 +14,8 @@
  *
  * `tags` is accepted in every form the toolchain can produce (HARNESS-044): inline `[a, b]`, a
  * prettier-wrapped multi-line flow array (prettier wraps past printWidth, and it is the repo's
- * SSOT formatter), and a YAML block sequence.
+ * SSOT formatter), and a YAML block sequence. Reading those forms is NOT this gate's job — it is
+ * `frontmatter.mjs`, the harness's single frontmatter parser (HARNESS-046).
  *
  * Recognized OPTIONAL keys (validity not enforced here; extra keys are inert to this gate):
  *   - `completed: <date>` — set at GATE-COMPLETE.
@@ -28,6 +29,8 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+
+import { asList, parseFrontmatterBlock } from './frontmatter.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SPEC_DIR = path.join(WORKSPACE_ROOT, '.agents/spec-docs');
@@ -67,84 +70,13 @@ function walkMarkdown(dir) {
   return out;
 }
 
-const unquote = (s) =>
-  s
-    .trim()
-    .replace(/^(['"])(.*)\1$/s, '$2')
-    .trim();
-
-/** Split a YAML flow sequence (`[a, b, c]`, possibly already joined from several lines). */
-function parseFlowSequence(text) {
-  const open = text.indexOf('[');
-  const close = text.lastIndexOf(']');
-  if (open === -1 || close < open) return undefined;
-  return text
-    .slice(open + 1, close)
-    .split(',')
-    .map(unquote)
-    .filter((item) => item.length > 0);
-}
-
-/**
- * Resolve one key's value from its inline part plus the indented lines beneath it.
- *
- * Handles every form that occurs in this repo's spec-docs:
- *   - scalar            `status: draft`
- *   - inline flow list  `tags: [a, b]`
- *   - wrapped flow list `tags:\n  [\n    a,\n    b,\n  ]`   ← what prettier emits past printWidth
- *   - block sequence    `tags:\n  - a\n  - b`
- */
-function resolveValue(inline, continuationLines) {
-  const indented = continuationLines.map((line) => line.trim()).filter((line) => line.length > 0);
-
-  if (inline.startsWith('[')) return parseFlowSequence([inline, ...indented].join(' ')) ?? [];
-  if (inline.length > 0) return inline;
-
-  if (indented.length === 0) return undefined;
-  if (indented[0].startsWith('[')) return parseFlowSequence(indented.join(' ')) ?? [];
-  if (indented.every((line) => line.startsWith('-')))
-    return indented.map((line) => unquote(line.slice(1))).filter((item) => item.length > 0);
-
-  return indented.join(' ');
-}
-
-/**
- * Minimal YAML-frontmatter reader: maps every top-level key to a string (scalar) or
- * string[] (sequence). Deliberately dependency-free — the repo declares no YAML parser.
- */
-export function parseFrontmatterBlock(text) {
-  if (!text.startsWith('---')) return null;
-  const end = text.indexOf('\n---', 3);
-  if (end === -1) return null;
-
-  const lines = text.slice(3, end).split('\n');
-  const entries = new Map();
-  for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^([A-Za-z_][A-Za-z0-9_-]*):(.*)$/);
-    if (!match) continue;
-
-    // Everything indented below the key belongs to this key's value.
-    const continuation = [];
-    let next = i + 1;
-    for (; next < lines.length; next++) {
-      if (lines[next].trim() !== '' && !/^\s/.test(lines[next])) break;
-      continuation.push(lines[next]);
-    }
-    entries.set(match[1], resolveValue(match[2].trim(), continuation));
-    i = next - 1;
-  }
-  return entries;
-}
-
 function frontmatter(text) {
   const entries = parseFrontmatterBlock(text);
   if (!entries) return null;
 
   const scalar = (key) => (typeof entries.get(key) === 'string' ? entries.get(key) : undefined);
-  const raw = entries.get('tags');
   // A bare scalar (`tags: harness`) counts as a one-item list, as it always has.
-  const tags = Array.isArray(raw) ? raw : typeof raw === 'string' && raw ? [raw] : undefined;
-  return { status: scalar('status'), type: scalar('type'), tags };
+  return { status: scalar('status'), type: scalar('type'), tags: asList(entries.get('tags')) };
 }
 
 export function findSpecDocFrontmatterFindings(target) {
