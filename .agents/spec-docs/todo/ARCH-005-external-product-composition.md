@@ -1,7 +1,7 @@
 ---
 status: approved
 type: INFRA
-tags: [architecture, product-composition, agent-product, capability-pack, preset, external-consumer, packaging]
+tags: [architecture, product-composition, packaging]
 ---
 
 # ARCH-005: external product composition — publishable `assembleProduct` + capability-pack + product-profile
@@ -12,7 +12,7 @@ tags: [architecture, product-composition, agent-product, capability-pack, preset
 > `ARCH-005` filename ID keeps its initiative/domain namespace — only the frontmatter type differs.
 >
 > **Owner-critical placement call — read `## Decision` § Placement first.** The load-bearing decision is
-> whether a *published* `assembleProduct` can exist without violating the existing
+> whether a _published_ `assembleProduct` can exist without violating the existing
 > **"Per-product assembly ownership — no shared product factory"** rule
 > (`project-structure.md` L129, `feedback_no_shared_cli_factory`). The reconciliation does **not** rest on
 > "profile-driven" alone (a profile-driven function could still accrete `if (profile.id === 'robota')`
@@ -25,7 +25,7 @@ tags: [architecture, product-composition, agent-product, capability-pack, preset
 > `architecture-auditor`) **endorsed the direction** and returned **REVISE** with a convergent set of
 > contract/justification refinements (folded into this spec — see the `[GATE-APPROVAL]` Evidence Log
 > entry). The L129 rule amendment carving out the pure-fold assembler is **coupled to the P0 guards** that
-> make it safe and lands *with* P0 — flagged as a governance change for owner visibility.
+> make it safe and lands _with_ P0 — flagged as a governance change for owner visibility.
 
 ## Problem
 
@@ -46,7 +46,7 @@ already exist (`packages/agent-preset/src/{preset-types,resolve-preset,load-exte
 
 ### The linchpin gap — the product-assembly kernel is not a published library
 
-A *product-neutral composition kernel* — the glue that turns those libraries into runtime materials — is
+A _product-neutral composition kernel_ — the glue that turns those libraries into runtime materials — is
 **hand-wired inside `packages/agent-cli/src/cli.ts`** (`startCli`) and is **not** exposed by any published
 package. This is **not** "extract the ~502-line `startCli`": most of `startCli` is legitimate
 **product-shell** — arg parsing, settings/file IO, terminal notices, first-run onboarding,
@@ -56,19 +56,19 @@ which **stay in `agent-cli`**. The extractable kernel is the narrow neutral subs
 proportional to lines moved; it is that the neutral subset becomes a published, reusable library. What that
 neutral kernel currently wires (file `packages/agent-cli/src/cli.ts`):
 
-| Concern | Wired at | What it does |
-| --- | --- | --- |
-| Preset registration | `cli.ts:221` | `loadExternalPresets()` — registers `~/.robota/presets/*.json` before resolution |
-| Preset resolution | `cli.ts:225-235` | `resolveCliPreset(args, settingsPreset)` + `selectPresetId(...)` → `IResolvedPresetOptions` |
-| Command modules + provider defs | `cli.ts:237-251` | `buildCommandSetup(...)` (`startup/command-setup.ts`) → `{ providerDefinitions, commandModules, commandHostAdapters, remoteCommandPolicy, … }`, threaded with the preset's `enabled/disabledCommandModules` delta |
-| Transport registry | `cli.ts:255`, `99-119` | `createDefaultTransportRegistry()` — constructs `TransportRegistry` and registers a concrete `WsTransport` (reads `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`) |
-| Remote-control controller | `cli.ts:256-258` | `createRemoteControlController(registry)` + `buildRemoteControlHostAdapter(...)` |
-| Provider construction | `cli.ts:304-322` | `readProviderSettings` + `createProviderFromSettings(...)` (or `loadReplayProvider` for `--session-log`) |
-| Background runners | `cli.ts:323` | `createDefaultBackgroundTaskRunners()` (from `agent-executor`, via the composition-root import exemption) |
-| Subagent runner factory | `cli.ts:325-330` | `createChildProcessSubagentRunnerFactory({ workerPath, providerConfig, logsDir, worktreeAdapter })` |
-| Session store + resume | `cli.ts:332-348` | `createProjectSessionStore(cwd)` + resume/continue/fork resolution |
-| Memory switch | `cli.ts:353-360` | `resolveMemoryEnablement(...)` → `buildMemorySessionOptions(...)` |
-| Presentation / mode dispatch | `cli.ts:363-500` | `runPrintMode` / `runServeMode` / `renderApp` + `createDefaultTuiCliAdapter` (the TUI) |
+| Concern                         | Wired at               | What it does                                                                                                                                                                                                      |
+| ------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preset registration             | `cli.ts:221`           | `loadExternalPresets()` — registers `~/.robota/presets/*.json` before resolution                                                                                                                                  |
+| Preset resolution               | `cli.ts:225-235`       | `resolveCliPreset(args, settingsPreset)` + `selectPresetId(...)` → `IResolvedPresetOptions`                                                                                                                       |
+| Command modules + provider defs | `cli.ts:237-251`       | `buildCommandSetup(...)` (`startup/command-setup.ts`) → `{ providerDefinitions, commandModules, commandHostAdapters, remoteCommandPolicy, … }`, threaded with the preset's `enabled/disabledCommandModules` delta |
+| Transport registry              | `cli.ts:255`, `99-119` | `createDefaultTransportRegistry()` — constructs `TransportRegistry` and registers a concrete `WsTransport` (reads `ROBOTA_WS_TOKEN`/`ROBOTA_WS_PORT`)                                                             |
+| Remote-control controller       | `cli.ts:256-258`       | `createRemoteControlController(registry)` + `buildRemoteControlHostAdapter(...)`                                                                                                                                  |
+| Provider construction           | `cli.ts:304-322`       | `readProviderSettings` + `createProviderFromSettings(...)` (or `loadReplayProvider` for `--session-log`)                                                                                                          |
+| Background runners              | `cli.ts:323`           | `createDefaultBackgroundTaskRunners()` (from `agent-executor`, via the composition-root import exemption)                                                                                                         |
+| Subagent runner factory         | `cli.ts:325-330`       | `createChildProcessSubagentRunnerFactory({ workerPath, providerConfig, logsDir, worktreeAdapter })`                                                                                                               |
+| Session store + resume          | `cli.ts:332-348`       | `createProjectSessionStore(cwd)` + resume/continue/fork resolution                                                                                                                                                |
+| Memory switch                   | `cli.ts:353-360`       | `resolveMemoryEnablement(...)` → `buildMemorySessionOptions(...)`                                                                                                                                                 |
+| Presentation / mode dispatch    | `cli.ts:363-500`       | `runPrintMode` / `runServeMode` / `renderApp` + `createDefaultTuiCliAdapter` (the TUI)                                                                                                                            |
 
 So an external repo that wants "their own product" faces a false choice: **reimplement this entire
 composition root**, or **depend on the whole `agent-cli` product** (dragging in the Ink TUI, remote
@@ -77,11 +77,11 @@ published composition kernel is **the single linchpin gap**.
 
 ### Secondary gap 1 — presets are subtractive, not additive
 
-`IResolvedPresetOptions` (`preset-types.ts:32-78`) expresses tool/command *selection over a superset the
-product already hardcodes*: `allowedTools` / `deniedTools` (allow/deny lists) and
+`IResolvedPresetOptions` (`preset-types.ts:32-78`) expresses tool/command _selection over a superset the
+product already hardcodes_: `allowedTools` / `deniedTools` (allow/deny lists) and
 `enabledCommandModules` / `disabledCommandModules` (names filtered against the modules `buildCommandSetup`
 already assembled). A preset **cannot bring its own** tool, command module, or subagent — it can only
-narrow what the host product already offers. So an external "assistant" product that needs a *new*
+narrow what the host product already offers. So an external "assistant" product that needs a _new_
 capability set has no compositional axis; presets are behavior dials, not capability bundles. This is by
 design (`Preset Package Rule`: "produces option data only … performs no session assembly") — the additive
 axis is simply missing from the published surface.
@@ -91,7 +91,7 @@ axis is simply missing from the published surface.
 There is no published unit that ties **branding + capability packs + preset + provider-defaults** together
 into one declarative "this is my product" object. Today that identity is implicit, scattered across
 `cli.ts` argument handling, `DEFAULT_AGENT_NAME` (`agent-preset`), and settings. An external product has
-nowhere to *declare* itself.
+nowhere to _declare_ itself.
 
 ## Prior Art Research
 
@@ -107,24 +107,27 @@ third-party source code.)
 Docs: https://backstage.io/docs/backend-system/ and https://backstage.io/docs/backend-system/building-backends/index
 
 The backend is a pure composition root: a factory call, a sequence of additive `add()` calls, then `start()`.
+
 > "import { createBackend } from '@backstage/backend-defaults'; const backend = createBackend(); backend.add(import('@backstage/plugin-app-backend')); backend.add(import('@backstage/plugin-catalog-backend')); backend.start();"
 
 And the responsibility split between the three composable kinds:
+
 > "The framework distinguishes between plugins (standalone features), modules (which augment existing plugins), and services (for overriding behavior). Each module targets only one plugin, which must also be present in the same backend."
 
 The overview frames the whole system as:
+
 > "The Backstage backend system provides a flexible foundation for building and extending Backstage backends. It uses a modular architecture where you can create and customize plugins, modules, and service implementations."
 
-*Teaches Robota:* this is the single closest analog to `assembleProduct(profile) -> runtime`. The
+_Teaches Robota:_ this is the single closest analog to `assembleProduct(profile) -> runtime`. The
 composition root is a published function (`createBackend` from `@backstage/backend-defaults`) that a
-*separate* repo imports and wires; the product owner assembles by additively `add()`-ing published
+_separate_ repo imports and wires; the product owner assembles by additively `add()`-ing published
 packages, not by editing the framework. The plugin/module/service split validates Robota's
 pack-vs-preset-vs-profile separation: packs = "standalone features" (Backstage plugins), presets =
 "override behavior" (Backstage services), and the profile is the `createBackend()`-equivalent assembly
 list. Note the invariant that a module (augmentation) requires its target plugin present — Robota's packs
 that extend other packs should carry an explicit dependency contract, not silent ordering.
 
-**2. Docusaurus — presets (a preset *is* a bundle of plugins + themes)**
+**2. Docusaurus — presets (a preset _is_ a bundle of plugins + themes)**
 Docs: https://docusaurus.io/docs/using-plugins (presets section)
 
 > "Presets are bundles of plugins and themes."
@@ -133,11 +136,11 @@ A preset is a constructor returning a composition object in the same shape the s
 preset "should return an object of `{ plugins: PluginConfig[], themes: PluginConfig[] }`" in the same
 format accepted in site configuration.
 
-*Teaches Robota:* the industry meaning of "preset" is broader than Robota's proposed narrow one. In
-Docusaurus a preset bundles *capability* units (plugins/themes) — i.e., it does what Robota is calling a
-*pack* + *profile*. This is the key **naming-collision** constraint: Robota is deliberately splitting
+_Teaches Robota:_ the industry meaning of "preset" is broader than Robota's proposed narrow one. In
+Docusaurus a preset bundles _capability_ units (plugins/themes) — i.e., it does what Robota is calling a
+_pack_ + _profile_. This is the key **naming-collision** constraint: Robota is deliberately splitting
 Docusaurus's single "preset" concept into three (behavior-preset, capability-pack, product-profile). The
-doc supports the split's mechanism — a preset resolves to a plain composition object in the *same format*
+doc supports the split's mechanism — a preset resolves to a plain composition object in the _same format_
 the top-level config accepts — which argues Robota's `profile` and `ICapabilityPack` should resolve to the
 same shape `assembleProduct` accepts directly, so a pack is just "a profile fragment" and composition is
 uniform.
@@ -146,15 +149,18 @@ uniform.
 Docs: https://eslint.org/docs/latest/extend/plugins
 
 A plugin is a contract object exposing named capability buckets:
+
 > "a JavaScript object that exposes certain properties to ESLint" including "'configs' — an object containing named configurations", "'rules' — an object containing the definitions of custom rules", and "'processors' — an object containing named processors".
 
 A plugin may ship recommended bundles:
+
 > "You can bundle configurations inside a plugin by specifying them under the `configs` key. This can be useful when you want to bundle a set of custom rules with a configuration that enables the recommended options."
 
 Critical composition constraint:
+
 > "Plugins cannot force a specific configuration to be used. Users must manually include a plugin's configurations in their configuration file."
 
-*Teaches Robota:* the `ICapabilityPack` contract should look exactly like ESLint's plugin object — a plain
+_Teaches Robota:_ the `ICapabilityPack` contract should look exactly like ESLint's plugin object — a plain
 data record of named buckets (tools/commands/subagents), not IO or lifecycle behavior. And the "cannot
 force" rule is the load-bearing lesson: **capability packs compose additively and opt-in; the consumer's
 product-profile decides what is enabled — a pack must not activate itself.** ESLint's flat-config model
@@ -167,35 +173,37 @@ Docs: https://code.claude.com/docs/en/agent-sdk/overview
 The SDK is explicitly "Claude Code as a library" — the same kernel, exposed as a composable function
 `query({ prompt, options })`. Capability is contributed additively through options and a dedicated plugin
 bucket:
+
 > "The Agent SDK includes built-in tools for reading files, running commands, and editing code, so your agent can start working immediately without you implementing tool execution."
 
 And the plugin bundle contract (from the Claude Code features table):
+
 > "Plugins | Extend with skills, agents, hooks, and MCP servers | Programmatic via `plugins` option"
 
 Subagents, MCP servers, and tools are each passed as additive maps into `options` (e.g.
 `agents: { "code-reviewer": {...} }`, `mcpServers: {...}`, `allowedTools: [...]`).
 
-*Teaches Robota:* this is the strongest AI-agent-domain precedent and it matches Robota's target shape
+_Teaches Robota:_ this is the strongest AI-agent-domain precedent and it matches Robota's target shape
 almost exactly — a single composition function (`query`/`assembleProduct`) takes a profile-like options
 object, and capability arrives as additive bundles (a `plugins` bundle that carries "skills, agents,
 hooks, and MCP servers" is precisely an `ICapabilityPack` of "tools/commands/subagents"). It also
 validates the neutrality invariant: the core loop ships with built-in tools but extension is purely
 additive through options — the library never hard-wires a particular product's capability set.
 
-**5. VS Code — contribution points (capability contribution is declarative + host-isolated)** *(supporting reference)*
+**5. VS Code — contribution points (capability contribution is declarative + host-isolated)** _(supporting reference)_
 Docs: https://code.visualstudio.com/api/references/contribution-points
 
 > "Contribution Points are a set of JSON declarations that you make in the `contributes` field of the `package.json` Extension Manifest. Your extension registers Contribution Points to extend various functionalities within Visual Studio Code."
 
-*Teaches Robota — with an important caveat on the analogy's limits.* VS Code's model expresses contribution
-*declaratively* (a `package.json` manifest the host reads without running the contributor's code) because it
+_Teaches Robota — with an important caveat on the analogy's limits._ VS Code's model expresses contribution
+_declaratively_ (a `package.json` manifest the host reads without running the contributor's code) because it
 crosses a **serialization boundary** (a separately-installed extension in another process). **Robota packs
 do NOT cross that boundary.** An `ICapabilityPack` is an **in-process composition argument** carrying
 **executable code objects** — `ICommandModule.name` with `systemCommands` handlers
 (`command-module.ts:8-20`), tools with `execute` functions, and profile factory functions. So VS Code's
 "enumerable without running contributor code" property (and the no-function-across-serialization criterion
 that comes with it) is **simply N/A** to Robota — the pack is not a serialized manifest but a live
-composition value. What DOES carry over is the *structural* lesson: a pack is a plain record of **named
+composition value. What DOES carry over is the _structural_ lesson: a pack is a plain record of **named
 capability buckets** (tools/commands/subagents) that `assembleProduct` can **enumerate** and hand to the
 profile/permission layer, so that contributed commands/tools **execute only through the existing
 permission-gated runtime (`PermissionEnforcer`) at call time** — never by the mere act of being merged.
@@ -211,7 +219,7 @@ All five converge on the same three-layer productization pattern:
 2. **A composition function / composition root** — one published entry that turns declarations into a
    running product (`createBackend()...start()`; Docusaurus preset constructor → config object; Claude SDK
    `query(options)`). This is Robota's `assembleProduct(profile)`.
-3. **Additive capability packs** — capability arrives by *adding* bundles, never by editing the kernel;
+3. **Additive capability packs** — capability arrives by _adding_ bundles, never by editing the kernel;
    bundles may themselves aggregate sub-units (Docusaurus preset bundles plugins+themes; ESLint plugin
    bundles configs+rules; Claude `plugins` bundle multiple kinds).
 
@@ -223,7 +231,7 @@ All five converge on the same three-layer productization pattern:
   be concatenation/override (flat-config style), not silent global mutation.
 - **Contract layer must stay IO-free — but "IO-free" ≠ "inert JSON".** Every contract precedent (ESLint
   plugin object, VS Code `contributes` JSON, Backstage plugin declaration) performs no IO/lifecycle at
-  contribution time. `@robota-sdk/agent-capability-pack` matches that *at the package level* (the package
+  contribution time. `@robota-sdk/agent-capability-pack` matches that _at the package level_ (the package
   declares no classes with IO and does no side-effects on import). But unlike VS Code's serialized manifest,
   a Robota pack **carries executable code objects** (command handlers, tool `execute` fns) as an in-process
   composition argument — it is a live value, not a serialized declaration. The honest safety property is
@@ -253,10 +261,10 @@ Three published deliverables. **`agent-framework` and `agent-core` are UNCHANGED
 1. **`@robota-sdk/agent-product` (new, published)** — the product-assembly kernel, exposing
    `assembleProduct(profile)` as a **pure, deterministic, IO-free fold** over `IProductProfile` data (a peer
    of `resolvePreset` / `mergeSettings` / `mergeCapabilityPacks`; see § "The pure-fold property"). Extract
-   the *product-neutral* composition of runtime materials out of `cli.ts` into that pure library; `agent-cli`
+   the _product-neutral_ composition of runtime materials out of `cli.ts` into that pure library; `agent-cli`
    becomes a thin caller that resolves settings/args/env and binds its own presentation. **(Mode A gateway.)**
 2. **`@robota-sdk/agent-capability-pack` (new, published)** — the `ICapabilityPack` contract + a pure
-   registry merger. Tool/command/subagent bundles as the *additive* composition unit. Mirrors
+   registry merger. Tool/command/subagent bundles as the _additive_ composition unit. Mirrors
    `agent-preset` exactly (contract + pure merger, no IO). **(Mode C additive axis.)**
 3. **`agent-preset` (existing, published)** — already provides `IPreset` + `registerExternalPresets` +
    `loadExternalPresets` for behavior/persona. Expose and document for external authoring; **no contract
@@ -273,13 +281,13 @@ The existing rule (`project-structure.md` L129, `feedback_no_shared_cli_factory`
 `assembleProduct(profile)` is **not** the thing that rule rejects, and the distinction is the whole
 architecture:
 
-- The **rejected `createCliAgent`** (TEST-008, cancelled by owner) was a factory that baked *the CLI's
-  own* provider/preset/command/TUI choices into a reusable utility — "call this to get **the CLI's**
-  wiring." That shares *a product's assembly*.
-- **`assembleProduct(profile)`** ships *no product*. It is a **product-agnostic mechanism** whose entire
+- The **rejected `createCliAgent`** (TEST-008, cancelled by owner) was a factory that baked _the CLI's
+  own_ provider/preset/command/TUI choices into a reusable utility — "call this to get **the CLI's**
+  wiring." That shares _a product's assembly_.
+- **`assembleProduct(profile)`** ships _no product_. It is a **product-agnostic mechanism** whose entire
   product identity — branding, provider surface, presets, capability packs, and the concrete
   transport/presentation adapters — arrives as the `IProductProfile` **data argument**. `robota` becomes
-  *one* profile among many; an external repo brings its own. This is precisely the rule's own remedy —
+  _one_ profile among many; an external repo brings its own. This is precisely the rule's own remedy —
   "the reusable, product-agnostic capability lives in the framework/transport layers" and "reuse is
   achieved by sharing lower-layer materials." A **pure, IO-free, data-driven assembler that hard-codes no
   product's choices is** a lower-layer material (a composition mechanism), not a shared product.
@@ -289,7 +297,7 @@ The carve-out rests on the pure-fold property below — **not** on "profile-driv
 The invariant that keeps this honest: **`agent-product` never imports a concrete transport, presentation,
 or the CLI.** It must NOT depend on `agent-transport-tui`, `agent-transport-ws`, or `agent-cli`. Concrete
 transports (`WsTransport`), the TUI (`renderApp` / `createDefaultTuiCliAdapter`), remote-control, and the
-`createDefault*` I/O adapters stay wired **in `agent-cli`** and are passed *into* the profile as injected
+`createDefault*` I/O adapters stay wired **in `agent-cli`** and are passed _into_ the profile as injected
 factories. `cli.ts` keeps owning its presentation and mode dispatch; it merely calls `assembleProduct` to
 build the neutral runtime materials, then binds its own TUI. That satisfies the layering rules
 "Orchestrator/adapter split" (L122) and "Composable material first" (L120): concrete I/O lives in injected
@@ -349,7 +357,7 @@ resolution stay in the consumer)."
 The reconciliation, so there is **no competing runtime-construction SSOT**:
 
 - `buildRuntimeSession`/`startRuntimeHost` (framework) = the **runtime-construction seam** — takes
-  *already-resolved* `TInteractiveSessionOptions`. This does not move.
+  _already-resolved_ `TInteractiveSessionOptions`. This does not move.
 - `assembleProduct` (agent-product) = the **preset/pack/provider-DEFINITION fold that sits ABOVE that
   seam** — it resolves presets, merges capability packs, and constructs the provider from
   `IProviderDefinition[]` + resolved settings, then feeds the result INTO `buildRuntimeSession`. The
@@ -362,7 +370,7 @@ The reconciliation, so there is **no competing runtime-construction SSOT**:
 
 > **This was the load-bearing decision GATE-APPROVAL tested — both reviewers endorsed it.** If a future
 > reviewer were to judge that even a pure-fold assembler counts as a "shared product factory," the fallback
-> is Alternative (iii-b) (keep the composition in `agent-cli` and publish only the *materials* + a
+> is Alternative (iii-b) (keep the composition in `agent-cli` and publish only the _materials_ + a
 > documented assembly recipe). The L129 amendment above is the coupled governance change; it lands with P0,
 > not unilaterally.
 
@@ -384,7 +392,7 @@ agent-cli                        (product shell: brings concrete transports/TUI/
   `agent-framework` **for option/contract types only** (`ICommandModule`, `IAgentDefinition`) and on
   `agent-core` for the real tool contract (`FunctionTool`, `agent-core/src/index.ts:175` — R7b, NOT a
   nonexistent `IToolContribution`); it declares no classes with IO and must not re-export `agent-framework`.
-  It is a *contract + pure `mergeCapabilityPacks`* package, the additive analog of `resolvePreset`.
+  It is a _contract + pure `mergeCapabilityPacks`_ package, the additive analog of `resolvePreset`.
 - `agent-product` sits **above** `agent-command`/`agent-preset`/`agent-capability-pack` and **below**
   `agent-cli`. Its only workspace deps are `agent-framework` (runtime/session assembly entry),
   `agent-preset` (resolver), `agent-capability-pack` (merger), and **type-only** `agent-interface-transport`
@@ -403,26 +411,26 @@ legitimate product-shell and **stays in `agent-cli`**. Only the narrow product-n
 `agent-product`. The boundary is drawn precisely so reviewers can confirm the kernel is **closed over
 data**:
 
-| Concern | Destination | Rationale |
-| --- | --- | --- |
-| External-preset registration + preset-resolve glue (`loadExternalPresets` result → per-call resolver) | **In-kernel** (`agent-product`) | pure fold over preset DATA (settings/file read happens in shell, result passed in) |
-| Command-module selection / merge glue | **In-kernel** | pure selection over module DATA |
-| `mergeCapabilityPacks` (additive pack merge) | **In-kernel** | pure fold, additive analog of `resolvePreset` |
-| Provider construction FROM `IProviderDefinition[]` + already-resolved settings | **In-kernel** | pure over definitions + injected settings data (no settings-file read) |
-| Runtime-build **delegation** to `buildRuntimeSession`/`startRuntimeHost` | **In-kernel** (delegates, never re-implements — see R2) | single framework seam |
-| `init` / `--configure` / `ensureConfig` flows | **Stays-in-shell** (`agent-cli`) | interactive IO, file writes |
-| All `terminal.write*` notices / first-run onboarding | **Stays-in-shell** | presentation |
-| Session resume / continue / fork UX | **Stays-in-shell** | interactive UX + store IO |
-| Arg parsing; settings/env reads | **Stays-in-shell** | resolves inputs, feeds resolved DATA into the kernel |
-| Mode dispatch (print / serve / TUI) + `process.exit` | **Stays-in-shell** | presentation + process lifecycle |
-| Concrete transports (`WsTransport`), TUI (`renderApp`/`createDefaultTuiCliAdapter`), remote-control, `createDefault*` adapters | **Stays-in-shell** (injected into the profile) | concrete I/O adapters |
+| Concern                                                                                                                        | Destination                                             | Rationale                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| External-preset registration + preset-resolve glue (`loadExternalPresets` result → per-call resolver)                          | **In-kernel** (`agent-product`)                         | pure fold over preset DATA (settings/file read happens in shell, result passed in) |
+| Command-module selection / merge glue                                                                                          | **In-kernel**                                           | pure selection over module DATA                                                    |
+| `mergeCapabilityPacks` (additive pack merge)                                                                                   | **In-kernel**                                           | pure fold, additive analog of `resolvePreset`                                      |
+| Provider construction FROM `IProviderDefinition[]` + already-resolved settings                                                 | **In-kernel**                                           | pure over definitions + injected settings data (no settings-file read)             |
+| Runtime-build **delegation** to `buildRuntimeSession`/`startRuntimeHost`                                                       | **In-kernel** (delegates, never re-implements — see R2) | single framework seam                                                              |
+| `init` / `--configure` / `ensureConfig` flows                                                                                  | **Stays-in-shell** (`agent-cli`)                        | interactive IO, file writes                                                        |
+| All `terminal.write*` notices / first-run onboarding                                                                           | **Stays-in-shell**                                      | presentation                                                                       |
+| Session resume / continue / fork UX                                                                                            | **Stays-in-shell**                                      | interactive UX + store IO                                                          |
+| Arg parsing; settings/env reads                                                                                                | **Stays-in-shell**                                      | resolves inputs, feeds resolved DATA into the kernel                               |
+| Mode dispatch (print / serve / TUI) + `process.exit`                                                                           | **Stays-in-shell**                                      | presentation + process lifecycle                                                   |
+| Concrete transports (`WsTransport`), TUI (`renderApp`/`createDefaultTuiCliAdapter`), remote-control, `createDefault*` adapters | **Stays-in-shell** (injected into the profile)          | concrete I/O adapters                                                              |
 
 **The DATA seam (what crosses into `assembleProduct` vs what stays behind — R4).** Everything the kernel
 consumes is plain, already-resolved DATA supplied by the shell; nothing the kernel does reaches back out to
 IO. **Crosses IN** (as `IProductProfile` fields): identity/branding values, `IProviderDefinition[]` +
 already-resolved provider settings, `IPreset[]` + `defaultPresetId`, `ICapabilityPack[]` +
 `baseCommandModules`, and injected plumbing (`backgroundTaskRunners`, `subagentRunnerFactory`,
-`transports`). **Stays in `cli.ts`** (never crosses): the settings/env/arg *reads* that produce those
+`transports`). **Stays in `cli.ts`** (never crosses): the settings/env/arg _reads_ that produce those
 values, all `terminal.write*`, first-run/onboarding, mode dispatch, and `process.exit`. Because the seam is
 closed over data, the P0 refactor can be verified as a pure move (below).
 
@@ -482,8 +490,12 @@ export function mergeCapabilityPacks(
 ```ts
 // @robota-sdk/agent-product — the product-assembly kernel
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
-import type { ICommandModule, IBackgroundTaskRunner, TSubagentRunnerFactory,
-              IInteractiveRuntime } from '@robota-sdk/agent-framework';
+import type {
+  ICommandModule,
+  IBackgroundTaskRunner,
+  TSubagentRunnerFactory,
+  IInteractiveRuntime,
+} from '@robota-sdk/agent-framework';
 // R7(a): the transports field targets the READ-ONLY registry VIEW interface
 // `ITransportRegistryView` (from `@robota-sdk/agent-interface-transport`,
 // `transport-config.ts:24`; re-exportable via agent-framework). There is NO `ITransportRegistry` type;
@@ -517,8 +529,8 @@ export interface IProductProfile {
 }
 
 export interface IAssembledProduct {
-  provider: IAIProvider;                       // resolved from providerDefinitions + settings
-  commandModules: readonly ICommandModule[];   // baseCommandModules ⊕ merged pack modules (see mergeCapabilityPacks)
+  provider: IAIProvider; // resolved from providerDefinitions + settings
+  commandModules: readonly ICommandModule[]; // baseCommandModules ⊕ merged pack modules (see mergeCapabilityPacks)
   rejectedCapabilities: readonly { kind: string; id: string; reason: string }[]; // surfaced from the merge
   // R8: a PER-CALL (instance-scoped) resolver bound over THIS profile's presets. `assembleProduct` MUST
   // NOT mutate agent-preset's module-level `externalPresets` global (resolve-preset.ts:46,76-103): two
@@ -538,13 +550,13 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct;
 ### Responsibility-split invariant (spec invariant, mechanically reviewable)
 
 - **preset = behavior/persona** — persona, systemPrompt, model/effort, permission posture, and
-  *subtractive* tool/command selection. (Unchanged `agent-preset`.)
-- **pack = capability** — *additive* tools/commands/subagents a consumer brings.
+  _subtractive_ tool/command selection. (Unchanged `agent-preset`.)
+- **pack = capability** — _additive_ tools/commands/subagents a consumer brings.
 - **profile = product assembly** — branding + packs + preset(s) + provider-defaults + injected plumbing.
 
 A pack must never carry persona/model dials (that is preset territory); a preset must never carry new
-tools/commands (that is pack territory); the profile carries neither behavior nor capability *definitions*
-— it only *references* them and supplies identity + injected adapters.
+tools/commands (that is pack territory); the profile carries neither behavior nor capability _definitions_
+— it only _references_ them and supplies identity + injected adapters.
 
 Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
 
@@ -557,12 +569,12 @@ Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
   safety property is: **the merge is pure (`assembleProduct` executes none of that code); a contributed
   command/tool runs ONLY through the existing permission-gated runtime (`PermissionEnforcer`) at call
   time.** `assembleProduct` enumerates a pack's contributions so the profile/permission layer gates them
-  *before* activation; merge semantics are additive concatenation/override with an explicit rejection
+  _before_ activation; merge semantics are additive concatenation/override with an explicit rejection
   channel, never silent global mutation.
 - **The merge has ONE precedence order and a rejection channel (R5).** `mergeCapabilityPacks` returns
   `{ merged, rejected }` (mirroring `IPresetRegistrationResult`). Order: `baseCommandModules` < packs in
   profile order; a later id that duplicates an already-claimed id is rejected+reported, never silently
-  overridden. This runs *before* the preset's enabled/disabledCommandModules delta that `buildCommandSetup`
+  overridden. This runs _before_ the preset's enabled/disabledCommandModules delta that `buildCommandSetup`
   already applies — the merge produces the base ⊕ pack superset, the preset delta then filters it; they
   compose.
 - **Runtime construction is delegated, never re-implemented (R2).** `assembleProduct` DELEGATES to
@@ -574,7 +586,7 @@ Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
   module-level `externalPresets` array (`resolve-preset.ts:46,76-103`), so two products in one process do
   not share one registry and repeat calls do not accumulate. This keeps the fold pure w.r.t. process state.
 - **"Preset" is deliberately narrowed vs industry usage.** Docusaurus/`create-react-app` "preset" means a
-  *bundle of plugins/themes* — i.e. what Robota calls a *pack* + *profile*. ARCH-005 narrows `IPreset` to
+  _bundle of plugins/themes_ — i.e. what Robota calls a _pack_ + _profile_. ARCH-005 narrows `IPreset` to
   behavior/persona only and splits the bundle role into `ICapabilityPack` (capability) + `IProductProfile`
   (assembly). The published docs must state this narrowing loudly so consumers with the Docusaurus mental
   model are not surprised. A pack SHOULD resolve to the same shape the profile accepts (a "profile
@@ -591,19 +603,53 @@ Two invariants the prior art makes load-bearing (see `## Prior Art Research`):
 - `IPreset` is already on the published surface; document its external-authoring contract in
   `agent-preset/docs/SPEC.md` and the guide.
 
-### Staged delivery (no big-bang)
+### Staged delivery (owner-directed FULL vertical slice — 2026-07-25, supersedes the P0/P1/P2 plan below)
 
-- **P0 — pure refactor + the guards + the coupled L129 amendment.** Extract *only the neutral In-kernel
-  subset* (see the boundary table) from `cli.ts` into `agent-product`; `cli.ts` calls `assembleProduct` and
-  keeps its own transport/TUI binding, settings/args/env resolution, and mode dispatch. Land the **three
-  R1 guards** (a) dependency-graph neutrality, (b) purity/no-IO scan, (c) no product-name conditionals — and
-  the **coupled L129 amendment** (governance-flagged) in the same stage. **`robota` behavior byte-identical
-  for the extracted subset** (CLI golden + full `agent-cli`/`agent-transport-tui` suites green; reviewer
-  confirms an identical runtime assembly).
-- **P1 — `assembleProduct` + re-express `robota` as a profile.** The CLI's provider/preset/command choices
-  become an `IProductProfile` value; publish `agent-product` + document Mode A/B/C imports.
-- **P2 — `ICapabilityPack` + first additive pack.** Land `agent-capability-pack` and its first non-coding
-  capability pack **when a real second product exists to consume it** (avoids speculative surface).
+> **Owner directive (2026-07-25):** "정석대로 처리하고, 지름길을 찾지 말고 레거시를 보존하지 말 것 — 크게
+> 리팩터링하더라도 올바른 방향으로." The target is the **correct end-state**, not a minimal-diff carve-out
+> that leaves a hand-wired composition root in place. `agent-cli` becomes a **genuinely thin product-shell**
+> (arg parsing, terminal IO, onboarding, mode dispatch only); the old composition root is **fully removed**
+> — no compat shim, no parallel old path. The capability-pack is **not deferred**: **`robota` itself is
+> re-expressed as an `IProductProfile` composed from a real `pack-coding`**, which IS the pack's first
+> consumer (dogfooding — "robota builds robota"), so the additive surface is validated, not speculative.
+>
+> The correctness guards are **kept in full** (they protect the layered architecture, they are not
+> shortcuts): RUNTIME-001 delegation to the framework runtime seam; the pure-fold property + the three
+> mechanical guards; the coupled L129 amendment; and **end-user `robota` behavior identical** (CLI golden +
+> full suites) — _regression prevention_, not legacy preservation (internals rebuilt correctly; only the
+> observable CLI behavior held invariant).
+
+Staged into reviewable PRs, but **each stage lands correct structure — never a half-migrated placeholder**:
+
+- **S1 — new composition layer (additive; no `cli.ts` change yet).** `@robota-sdk/agent-capability-pack`
+  (`ICapabilityPack` + `mergeCapabilityPacks` → `{ merged, rejected }`, precedence defined) and
+  `@robota-sdk/agent-product` (`assembleProduct`: pure/no-IO/no-product-branch fold that **delegates runtime
+  construction to the framework seam**), plus extract the coding toolset/commands/subagents into
+  **`pack-coding`**. All-new packages, red-first contract tests, registered in `check-spec-public-surface`.
+  Lands the three R1 guards + the L129 amendment (governance-flagged). Independent architecture review
+  before S2.
+- **S2 — re-express `robota` as a profile + collapse `cli.ts` to a thin shell.** `robota`'s
+  provider/preset/command/subagent choices become an `IProductProfile` assembled via
+  `assembleProduct({ packs: [packCoding], … })`; the old hand-wired composition root in `cli.ts` is
+  **deleted**, leaving only the product-shell (per the In-kernel/stays-in-shell table). **`robota` behavior
+  byte-identical** (CLI golden + full `agent-cli`/`agent-transport-tui` suites; reviewer confirms an
+  identical assembled runtime). This is where "no legacy preservation" bites — full migration, not
+  additive-alongside. Sequenced AFTER the in-flight NEUT-005-remainder `cli.ts` change merges (conflict
+  avoidance).
+- **S3 — external-consumer proof (done-gate).** A throwaway package **outside the monorepo** installs the
+  `pnpm pack` tarballs and exercises Modes A/B/C (our packs+preset / a hand-authored `IPreset` / our preset
+  by id + a custom pack) — the agent-run evidence that closes the done-gate.
+
+<details><summary>Superseded conservative staging (pre-owner-directive, kept for provenance)</summary>
+
+- **P0 — pure refactor + the guards + the coupled L129 amendment.** Extract _only the neutral In-kernel
+  subset_ from `cli.ts`; `cli.ts` keeps its own transport/TUI binding and mode dispatch. (Superseded: this
+  left the hand-wired root largely in place — the owner directed a full migration instead.)
+- **P1 — `assembleProduct` + re-express `robota` as a profile.** (Now folded into S2.)
+- **P2 — `ICapabilityPack` + first additive pack, deferred until a second product exists.** (Superseded:
+  `robota`-as-profile via `pack-coding` is the real first consumer, so the pack is no longer deferred.)
+
+</details>
 
 ## Consumption modes → concrete published imports
 
@@ -632,15 +678,18 @@ import type { IPreset } from '@robota-sdk/agent-preset';
 import { defaultProviderDefinitions } from '@robota-sdk/agent-provider-defaults';
 
 const acmeReviewer: IPreset = {
-  id: 'acme-reviewer', title: 'Acme Reviewer', description: 'strict review persona',
+  id: 'acme-reviewer',
+  title: 'Acme Reviewer',
+  description: 'strict review persona',
   persona: 'You are a meticulous code reviewer…',
-  autonomy: 'ask-first', deniedTools: ['shell'],
+  autonomy: 'ask-first',
+  deniedTools: ['shell'],
 };
 
 const product = assembleProduct({
   id: 'acme-review-tool',
   providerDefinitions: defaultProviderDefinitions,
-  presets: [acmeReviewer],       // resolved via a PER-CALL instance-scoped registry (R8) — not a global mutation
+  presets: [acmeReviewer], // resolved via a PER-CALL instance-scoped registry (R8) — not a global mutation
   defaultPresetId: 'acme-reviewer',
 });
 ```
@@ -663,41 +712,41 @@ const acmePack: ICapabilityPack = {
 const product = assembleProduct({
   id: 'acme-devtool',
   providerDefinitions: defaultProviderDefinitions,
-  packs: [acmePack],                 // ADDITIVE capability on top of the base modules
+  packs: [acmePack], // ADDITIVE capability on top of the base modules
   defaultPresetId: 'careful-reviewer', // OUR preset, reused as-is
 });
 ```
 
 ## Alternatives Considered
 
-**(i) Keep the composition in `agent-cli` and tell externals to depend on it.** *Rejected.* Depending on
+**(i) Keep the composition in `agent-cli` and tell externals to depend on it.** _Rejected._ Depending on
 `agent-cli` pulls a whole product — the Ink TUI (`agent-transport-tui`), `WsTransport`, remote-control,
 mode dispatch, first-run/onboarding — none of which an embedded or differently-presented product wants.
 It also makes every external product a fork of `startCli`. This is the status quo that defines the gap.
 
-**(ii) Extend `IPreset` to be additive instead of a separate pack layer.** *Weighed, rejected as the
-primary axis.* We could add `tools`/`commandModules`/`subagents` to `IPreset`. But it **conflates two
+**(ii) Extend `IPreset` to be additive instead of a separate pack layer.** _Weighed, rejected as the
+primary axis._ We could add `tools`/`commandModules`/`subagents` to `IPreset`. But it **conflates two
 axes** the prior art keeps separate (ESLint config vs plugin; Docusaurus preset-behavior vs plugin; VS
 Code settings vs contributions): behavior/persona dials and capability contribution have different
 authors, different stability guarantees, and different composition semantics (subtractive vs additive).
 Merging them bloats the preset contract, breaks the clean `resolvePreset` merge (which is option-override
 math, not module composition), and violates the `Preset Package Rule` ("produces option data only …
-performs no session assembly"). A preset *may* reference a pack by id (a thin convenience), but capability
+performs no session assembly"). A preset _may_ reference a pack by id (a thin convenience), but capability
 lives in its own contract. Keeping them separate is what the responsibility-split invariant encodes.
 
 **(iii) Where does `assembleProduct` live — `agent-framework` vs a new `agent-product`?**
 
-- *(iii-a) Fold it into `agent-framework`.* **Rejected.** `agent-framework` is the neutral assembly layer
-  and must stay free of *product-assembly opinion* (provider-default selection, preset registration,
+- _(iii-a) Fold it into `agent-framework`._ **Rejected.** `agent-framework` is the neutral assembly layer
+  and must stay free of _product-assembly opinion_ (provider-default selection, preset registration,
   capability-pack merging, product identity). Even as a pure fold, `assembleProduct` is a higher-altitude
   concern than session/runtime assembly; folding it in blurs the framework's neutrality and would drag the
-  `agent-preset`/`agent-capability-pack` dependency *into* the framework (today `agent-preset → framework`,
+  `agent-preset`/`agent-capability-pack` dependency _into_ the framework (today `agent-preset → framework`,
   never the reverse) — the same one-way edge RUNTIME-001 preserves for the runtime host (R2). A dedicated
   `agent-product` package keeps the direction clean.
-- *(iii-b) Publish only the materials + a documented assembly recipe; no `assembleProduct` at all.*
+- _(iii-b) Publish only the materials + a documented assembly recipe; no `assembleProduct` at all._
   **The fallback if the pure-fold guards cannot be made to hold.** Externals would copy an
   assembly recipe from a guide/`examples/` (like the current per-product-assembly rule prescribes). Costs:
-  every external product re-implements and must *track* the composition root's evolution by hand — the
+  every external product re-implements and must _track_ the composition root's evolution by hand — the
   exact maintenance burden `assembleProduct` removes. Chosen only if the R1 guards (a)/(b)/(c) prove
   infeasible, i.e. a pure IO-free assembler that hard-codes no product's choices cannot be enforced.
 
@@ -712,16 +761,17 @@ amendment, NOT on "profile-driven" alone.
 **license-agnostic** — none of the composition contracts (`assembleProduct`, `ICapabilityPack`,
 `IProductProfile`, `IPreset`) encode or depend on any licensing posture. The repo's dual-license
 **AGPL + Commercial (no CLA)** stance is noted only as a **downstream business decision** that governs
-*who may consume the published packages under what terms* — it does not shape the technical contracts and
+_who may consume the published packages under what terms_ — it does not shape the technical contracts and
 must not be baked into the design. Any consumption-terms enforcement (e.g. commercial-license gating) is
 out of scope for ARCH-005 and tracked separately when the owner decides the posture.
 
 ## Test Plan
 
 **P0 — pure-refactor equivalence (byte-identical for the extracted subset, R4) + the R1 guards.**
+
 - `robota` CLI **golden** output tests unchanged and green (help/version/print-mode goldens).
 - Full `agent-cli` + `agent-transport-tui` suites green with **zero** behavioral diff.
-- Mechanical guard: the P0 extraction is a *move* of the neutral In-kernel subset only, not a *change* —
+- Mechanical guard: the P0 extraction is a _move_ of the neutral In-kernel subset only, not a _change_ —
   reviewers confirm `cli.ts` produces an identical runtime assembly through `assembleProduct` (same
   provider, same command-module set, same preset resolution, same transport registry). The byte-identical
   bar is scoped to that subset; the shell (init/configure, notices, mode dispatch) is unchanged.
@@ -735,9 +785,10 @@ out of scope for ARCH-005 and tracked separately when the owner decides the post
   `feedback_no_shared_cli_factory`).
 
 **New public surfaces — red-first contract tests.**
+
 - `mergeCapabilityPacks(baseCommandModules, packs)`: additive merge, deterministic profile-order precedence,
   and the **`{ merged, rejected }` contract (R5)** — red-first assert (1) the merged set contains a pack's
-  contributed module *before* the merger exists, and (2) a colliding id (across packs / against a base
+  contributed module _before_ the merger exists, and (2) a colliding id (across packs / against a base
   module) appears in `rejected` with a reason and is NOT silently overridden.
 - `assembleProduct`: profile → assembled materials (provider resolved from `IProviderDefinition[]` +
   injected settings, base ⊕ pack modules merged, `rejectedCapabilities` surfaced, presets resolved via a
@@ -750,13 +801,14 @@ out of scope for ARCH-005 and tracked separately when the owner decides the post
 A throwaway package **outside the monorepo** that installs the **built tarballs** (`pnpm pack` →
 `npm install ./robota-sdk-agent-product-*.tgz …`) and exercises all three modes from truly outside the
 workspace:
+
 - **(A)** `assembleProduct` with our packs+preset (Robota runtime, external branding).
 - **(B)** `assembleProduct` with a hand-authored `IPreset`.
 - **(C)** `assembleProduct` consuming OUR preset by id while adding an `ICapabilityPack`.
-The smoke asserts each assembled product builds a runnable runtime and that a pack-contributed
-tool/command is actually present in the assembled surface. This proves Modes A/B/C work from a separate
-repo against the *published* surface — it is the **agent-run evidence** the done-gate requires (the agent
-runs the smoke itself; no owner manual step), per the agent-run capability-verification rule.
+  The smoke asserts each assembled product builds a runnable runtime and that a pack-contributed
+  tool/command is actually present in the assembled surface. This proves Modes A/B/C work from a separate
+  repo against the _published_ surface — it is the **agent-run evidence** the done-gate requires (the agent
+  runs the smoke itself; no owner manual step), per the agent-run capability-verification rule.
 
 **Staging:** P0 (equivalence) → P1 (`assembleProduct` + `robota`-as-profile + Mode A/B smokes) → P2
 (`agent-capability-pack` + Mode C smoke + first real pack).
@@ -783,7 +835,7 @@ the done-gate; the scenario catalog entry is authored at implementation time und
 - Prior Art Research: substantiated (`prior-art-researcher`: Backstage `createBackend()` composition root,
   Docusaurus preset=plugin/theme bundle, ESLint plugin `{configs,rules,processors}` + "cannot force"
   additive rule, Claude Agent SDK `plugins`/`query(options)`, VS Code `contributes`) → `PRIOR_ART_RESEARCH:
-  FOUND`; scan-spec-research green.
+FOUND`; scan-spec-research green.
 - Frontmatter (status/type INFRA/tags) present; `type: INFRA` chosen because `ARCH` is not one of the 11
   accepted SDLC types (the `ARCH-005` filename keeps its namespace).
 - Three deliverables framed: `@robota-sdk/agent-product` (`assembleProduct`), `@robota-sdk/agent-capability-pack`
