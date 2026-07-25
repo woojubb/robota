@@ -163,7 +163,13 @@ jobs:
             > base-alerts.json || echo "UNAVAILABLE" > base-alerts.json
           # SEC-007: `/labels` pages at 30. An acknowledge label that landed on page two would read as
           # "the label is absent", silently disabling the one documented override this gate has.
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+          #
+          # Through `github-api.mjs` rather than `gh api --paginate`, because `--paginate` applies
+          # `--jq` PER PAGE: two pages would emit two `a,b,c` lines, and the decision module splits on
+          # `,` only — so the labels either side of the newline would both be mangled into one token
+          # and lost. This reader merges the pages first and projects once.
+          node scripts/harness/github-api.mjs \
+            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
             --jq '[.[].name] | join(",")' \
             > pr-labels.txt || echo "" > pr-labels.txt
 
