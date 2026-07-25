@@ -93,6 +93,45 @@ the companion to the design doc. Phase 2 picks up from there. Headline results:
   existing owner skill to negotiate with (`git-branch.md` has ten skill references plus eight
   enforcement surfaces).
 
+## Phase 2, increment 1 — `publish.md` — DONE (2026-07-26)
+
+Extracted the release procedure into a nested pipeline. `publish.md` keeps every invariant; what left is
+the ordering — 11 Release State Machine steps, the 10-step OTP sequence, the gate-observation cadence, and
+the failure-class vocabulary. What grew is ownership pointers.
+
+**Tree built** (matches phase 1's hypothesis except where noted):
+
+```
+release-orchestration        (NEW top-level)   ← Release State Machine, phase sequencing + routing
+├─ source-stabilization      (NEW phase)       ← steps 1–3
+├─ version-bump              (NEW phase)       ← steps 4–9   (as phase 1 predicted)
+├─ npm-otp-publish           (NEW phase)       ← steps 10–11 + the OTP Protocol (as predicted)
+└─ ci-gate-watch             (NEW, shared)     ← Long-Running Gates; dispatched by two phases
+       └─ ci-failure-triager (NEW agent)       ← CI Failure Triage criteria
+   + merge-verifier          (existing agent, reused unchanged)
+   + version-management      (existing skill, reused unchanged)
+```
+
+**Additions to phase 1's proposal for this rule:**
+
+- A fifth skill was needed: `ci-gate-watch`. Two phases wait on CI on an exact SHA, so leaving the
+  Long-Running Gates loop in either one would have duplicated it (routing gap 3 chains into triage,
+  whose exit was also undefined — both are now closed).
+- `publish.md` and `version-management` each carried the same six-step description of what the publish
+  script does. That duplication predates this item; `version-management` now owns it alone.
+- The Korean-language literal OTP prompt string was dropped rather than moved: per-message language
+  matching is owned by `naming-style.md` § Language Policy, so pinning one language in the procedure
+  contradicted its owner. The _halt-for-user_ edge it encoded is preserved in `npm-otp-publish`.
+
+**Deferred, deliberately:** `ci-failure-triager` emits the terminal line `CI TRIAGE: <class> | <repro>` but
+declares no `signal:` frontmatter field, because `CI TRIAGE` is not in `CLOSED_SIGNAL_VOCAB` and adding it
+means editing `scripts/harness/check-agent-def-convention.mjs` — outside this increment's file ownership.
+A later increment should register the token and add the field.
+
+**Not rehearsed:** the version-bump and publish phases cannot be exercised without an actual release.
+`ci-failure-triager` was dispatched on a real red CI run; the rest ships as extracted-but-unrehearsed
+procedure.
+
 ## What
 
 1. ~~**Inventory and classify**~~ **(DONE — see Phase 1 above)** every `.agents/rules/*.md` section as: `invariant` (stays a rule),

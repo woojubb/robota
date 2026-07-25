@@ -1,15 +1,27 @@
 # Publish & Release Rules
 
-The single release runbook: release-level merges, version bumps, CI triage, publish safety, and npm publishing.
+The release invariants: what must hold during a release-level merge, a version bump, CI triage, and an npm
+publish — and **who owns each fact**.
 Parent: [rules index](index.md) — absorbed `release-operations.md` (now a pointer stub).
 
-Release work is an operation, not an exploratory coding task. It must be run from an explicit state machine with visible gates and stop conditions.
+Release work is an operation, not an exploratory coding task. It runs from an explicit state machine with
+visible gates and stop conditions.
+
+**The ordering is not here.** The release pipeline — which phase runs when, and what each outcome routes to
+— is owned by [`release-orchestration`](../skills/release-orchestration/SKILL.md) and its three phase
+skills ([`source-stabilization`](../skills/source-stabilization/SKILL.md),
+[`version-bump`](../skills/version-bump/SKILL.md),
+[`npm-otp-publish`](../skills/npm-otp-publish/SKILL.md), plus the shared
+[`ci-gate-watch`](../skills/ci-gate-watch/SKILL.md)). The judgement of _why a gate is red_ is owned by the
+[`ci-failure-triager`](../../.claude/agents/ci-failure-triager.md) agent, and _whether a merge landed_ by
+`merge-verifier`. This document states only what must hold, wherever those run.
 
 ## Release Operations
 
 ### Release Control Plane
 
-Before starting a release, main merge, version bump, or npm publish, write a short execution state in the user-visible update stream. Keep it current whenever the state changes.
+Before starting a release, main merge, version bump, or npm publish, an execution state MUST be written in
+the user-visible update stream and kept current whenever the state changes.
 
 The state MUST include:
 
@@ -20,12 +32,13 @@ The state MUST include:
 - next action after the gate passes
 - stop condition if the gate fails or stalls
 
-Do not begin OTP-sensitive work while the release state is unclear. Do not keep a long-running watcher active after the user interrupts the turn.
+Do not begin OTP-sensitive work while the release state is unclear. Do not keep a long-running watcher
+active after the user interrupts the turn.
 
 ### Release-Run Artifact
 
-For release or publish operations, create and keep a version-specific release-run file under
-`.agents/release-runs/`:
+For release or publish operations, a version-specific release-run file MUST exist under
+`.agents/release-runs/`, created with:
 
 ```bash
 pnpm harness:release:init -- --version <version>
@@ -55,33 +68,30 @@ pnpm harness:release:report -- --version <version>
 
 ### Release State Machine
 
-Run release operations in this order unless the user explicitly changes the target:
+The ordered pipeline is owned by [`release-orchestration`](../skills/release-orchestration/SKILL.md); its
+phase boundaries and failure edges are defined there and are not restated here. The constraints that hold
+regardless of how the pipeline is driven:
 
-1. Stabilize the source branch first. Fix CI blockers on task branches and merge them back to the source branch.
-2. Open or update the source-to-main PR. Wait for release-grade CI and compatibility CI on the exact source SHA.
-3. Merge source-to-main only after the release PR is green and release-level merge approval exists.
-4. Create a release bump branch from latest `origin/main`, not from a stale local branch.
-5. Apply the version bump with changesets, then run `pnpm install` if package manifests changed. Never edit `pnpm-lock.yaml` manually.
-6. Regenerate the changelog in the version bump PR: `node scripts/release/generate-release-notes.mjs --write-changelog` (refreshes the generated `Unreleased` section in root `CHANGELOG.md`).
-7. Run local release preparation checks: `pnpm build`, `pnpm harness:scan:publish`, and diff hygiene.
-8. Open a release bump PR to `main`. Wait for the release PR CI on the exact release bump SHA.
-9. Merge the release bump PR only after the release CI is green.
-10. Pull latest `main`, confirm the release version is not already fully published, then run `pnpm publish:beta`.
-11. Ask for OTP only after npm auth and dry-run have succeeded and the publish command is ready for the OTP.
+- Release operations run in the phase order that skill defines, unless the user explicitly changes the target.
+- A release-level merge to a protected branch requires explicit approval ([git-branch.md](git-branch.md)).
+- Create a release bump branch from the latest `origin/main`, never from a stale local branch.
+- Never edit `pnpm-lock.yaml` manually. Run `pnpm install` when package manifests changed.
+- The version bump PR MUST carry a regenerated changelog, produced by
+  `node scripts/release/generate-release-notes.mjs --write-changelog` (REL-022) — never hand-written.
+- Do not mix unrelated process fixes into a version bump PR. If a process defect is found during release,
+  isolate it on a separate branch unless it directly blocks the current release gate.
+- Wait for release-grade and compatibility CI on the **exact** SHA under merge; a green result on an
+  earlier SHA has not verified the current one.
 
-Do not mix unrelated process fixes into a version bump PR. If a process defect is found during release, isolate it on a separate branch unless it directly blocks the current release gate.
+Version-bump mechanics (changesets, the fixed version group, semver classification, dist-tag expectations)
+are owned by [`version-management`](../skills/version-management/SKILL.md).
 
 ### CI Failure Triage
 
-Before changing code to fix a failing release or CI gate, record the failure class and the planned validation path.
-
-Use one of these failure classes:
-
-- product defect
-- test race or flake
-- CI harness infrastructure
-- dependency or lockfile sync
-- external environment or service
+Before changing code to fix a failing release or CI gate, the failure class and the planned validation path
+MUST be recorded. The classification criteria — the closed class vocabulary and how to choose between
+classes — are owned by the [`ci-failure-triager`](../../.claude/agents/ci-failure-triager.md) agent; do not
+restate them here.
 
 The triage note MUST include:
 
@@ -91,51 +101,55 @@ The triage note MUST include:
 - minimal fix recommendation
 - validation command or CI gate that proves the fix
 
-Do not patch by inspection alone when logs are available. Do not treat a pending check as failed without checking the run status and current step.
+Do not patch by inspection alone when logs are available. Do not treat a pending check as failed without
+checking the run status and current step.
 
 ### Long-Running Gates
 
-Every wait must have a reason. For release CI, publish dry-runs, and npm publishes:
+Every wait must have a reason. Stop and triage if a gate exceeds the expected behavior for its current
+step. Report whether the process is queued, building, testing, publishing, or stalled, rather than
+repeating the same status without adding the current step or next decision.
 
-- inspect the current CI job step when a check remains pending beyond a normal short wait
-- report whether the process is queued, building, testing, publishing, or stalled
-- avoid repeating the same status without adding the current step or next decision
-- stop and triage if a gate exceeds the expected behavior for its current step
-
-Long-running release gates should be observed, not hidden behind indefinite `--watch` commands. If a watcher is used, terminate it before switching tasks or after user interruption.
+Long-running release gates are observed, not hidden behind indefinite `--watch` commands. If a watcher is
+used, it MUST be terminated before switching tasks and after user interruption. The observation loop that
+enforces this is [`ci-gate-watch`](../skills/ci-gate-watch/SKILL.md).
 
 ### Dist Artifact Invariant
 
-CI quality jobs that run with `--skip-build` depend on package build output. If the planned checks include `build`, `test`, or `typecheck`, the CI build job MUST run the root monorepo build once and pass package `dist` artifacts to the quality job.
+CI quality jobs that run with `--skip-build` depend on package build output. If the planned checks include
+`build`, `test`, or `typecheck`, the CI build job MUST run the root monorepo build once and pass package
+`dist` artifacts to the quality job.
 
 Never reintroduce per-package CI builds for a monorepo release path. Build once at the root and reuse artifacts.
 
 ## Publish Rules
 
-### Foundation Package Dependency Rule
+### Foundation Package Dependency Consequence
 
-- `agent-core` is the foundation package. It MUST NOT depend on any `@robota-sdk/agent-*` package.
-- Before any publish, verify that `agent-core/package.json` has zero `@robota-sdk/agent-*` entries in `dependencies`.
-- If agent-core needs functionality from another package, that functionality must be moved INTO agent-core or the dependency must be inverted.
-- This rule also applies to any package that is a transitive dependency of agent-core.
-- Violation of this rule blocks publishing — `npm install` will fail with 404 for unpublished upstream packages.
+The dependency-direction rule itself — which package is the foundation and what it may depend on — is owned
+by [`.agents/project-structure.md`](../project-structure.md) ("Layered Assembly Architecture") and
+mechanically enforced by `scripts/harness/check-dependency-direction.mjs`. Do not restate it here.
+
+The publish-specific consequence, which that document does not carry:
+
+- **A dependency-direction violation blocks publishing.** `npm install` fails with 404 for unpublished
+  upstream packages, so the violation surfaces to consumers rather than to CI.
+- Before any publish, `pnpm harness:scan:publish` (`check-publish-safety.mjs`) MUST confirm the foundation
+  package has zero `@robota-sdk/agent-*` entries in `dependencies`. This is a publish gate, not advice.
 
 ### Publish Command (non-negotiable)
 
-- **Always use `pnpm publish:beta`** — this is the ONLY allowed publish command.
-- `pnpm publish:beta` runs `scripts/publish/publish-packages.sh` which:
-  1. Detects version from agent-core/package.json
-  2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
-  3. Prompts for OTP in an interactive TTY (AFTER dry-run so it doesn't expire before publish). In a non-TTY context (Claude Code's Bash tool) this prompt cannot be answered — `--otp`/`--tag-otp` MUST be passed explicitly; see the OTP Protocol below.
-  4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
-  5. Syncs `beta` dist-tags for all published packages to the same version
-  6. Verifies both `latest` and `beta` dist-tags point to the published version
+- **Always use `pnpm publish:beta`** — this is the ONLY allowed publish command. What the script does
+  internally is documented once, in [`version-management`](../skills/version-management/SKILL.md).
+- **In a non-TTY context** (Claude Code's Bash tool) the script's interactive OTP prompt cannot be
+  answered — `--otp`/`--tag-otp` MUST be passed explicitly. See the OTP Protocol below.
 - **NEVER** use any of these:
   - `pnpm publish --filter` (sequential per-package = minutes, OTP expires)
   - `pnpm publish` (without -r)
   - `pnpm changeset publish`
   - `npm publish`
-- **No `--tag` flag on publish**: npm automatically sets `latest` to the newly published version. The publish script explicitly syncs and verifies `beta` afterward to prevent dist-tag drift.
+- **No `--tag` flag on publish**: npm automatically sets `latest` to the newly published version. The
+  publish script explicitly syncs and verifies `beta` afterward to prevent dist-tag drift.
 
 ### pnpm publish only — npm publish is blocked (non-negotiable)
 
@@ -159,20 +173,13 @@ Never reintroduce per-package CI builds for a monorepo release path. Build once 
 
 ### OTP Protocol (non-negotiable — no exceptions)
 
-**Claude Code's Bash tool is NOT an interactive TTY.** Running `pnpm publish:beta` without `--otp` causes `read -rp` to fail silently after dry-run and exit before any package is published. The user is left waiting for nothing.
+**Claude Code's Bash tool is NOT an interactive TTY.** Running `pnpm publish:beta` without `--otp` causes
+`read -rp` to fail silently after dry-run and exit before any package is published. The user is left
+waiting for nothing.
 
-**Mandatory sequence — every step must complete before the next:**
-
-1. `pnpm run version` → version bump (the repo script; runs `changeset version`). NOT `pnpm version` (the builtin — performs no changeset bump). Verify the bump produced version + CHANGELOG diffs, then note the new version number.
-2. `pnpm build` exits 0 → build confirmed
-3. `pnpm harness:release:init -- --version <version>` → create release-run file if it does not exist
-4. Update the release-run file: set `Gate status: passed`, `Publish ready: yes`, `NPM auth verified: yes`, `Dry run passed: yes`, `OTP requested: yes`
-5. `pnpm harness:release:check -- --version <version> --publish` passes. **If this fails for any reason, fix it before step 6. Never ask for OTP while this is failing.**
-6. `npm whoami --registry https://registry.npmjs.org/` → auth confirmed. If auth fails: tell the user to log in, wait for confirmation, rerun `npm whoami`, then continue.
-7. `pnpm publish -r --no-git-checks --dry-run` → dry-run passes
-8. **STOP. Ask the user:** "OTP를 입력해주세요 (authenticator 앱에서 확인)" — do NOT run any command yet
-9. User provides OTP in their reply
-10. Immediately run `pnpm publish:beta --otp=<otp> --tag-otp=<otp>` with the OTP from step 9
+The ordered sequence — preflight, the hard halt for the user, and the publish that must immediately follow
+it — is owned by [`npm-otp-publish`](../skills/npm-otp-publish/SKILL.md). Every step of that sequence MUST
+complete before the next begins. The prohibitions below hold however it is driven.
 
 **Violations that are absolutely forbidden:**
 
@@ -213,5 +220,9 @@ Stop the release operation and report state when:
 - npm auth or dry-run fails
 - the target version is already partially published and the publish script cannot reconcile it
 - the working tree is dirty with changes unrelated to the current release state
+
+Each condition above is a terminate edge of
+[`release-orchestration`](../skills/release-orchestration/SKILL.md); the routing lives there, the
+conditions live here.
 
 The final release report MUST list merged PRs, the published version, validation gates, and any skipped or deferred checks.

@@ -54,16 +54,31 @@ flowchart TD
     PRF -. auto-loop → 0, bounded .-> PRO
     PRO --> MV[merge-verifier<br/>guardian · MERGE VERIFIED]
   end
+  subgraph Release["Release (HARNESS-049)"]
+    RO[release-orchestration<br/>orchestrator] --> SS[source-stabilization<br/>orchestrator · phase 1]
+    RO --> VB[version-bump<br/>orchestrator · phase 2]
+    RO --> NOP[npm-otp-publish<br/>orchestrator · phase 3]
+    SS --> CGW[ci-gate-watch<br/>orchestrator · shared]
+    VB --> CGW
+    CGW --> CFT[ci-failure-triager<br/>guardian · CI TRIAGE]
+    SS --> CFT
+    VB --> CFT
+    NOP --> CFT
+    SS --> MV
+    VB --> MV
+    NOP -. halt-for-user OTP .-> RO
+  end
 ```
 
-| Pipeline                    | Orchestrator (skill)                     | Worker(s)                                                     | Guardian(s) → signal                                                             | Loop-back                                      | Floor (scan/hook)                                                     |
-| --------------------------- | ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| **Spec-gate**               | `user-request-gate` → `backlog-pipeline` | `backlog-writer`, `prior-art-researcher` (PRIOR_ART_RESEARCH) | `backlog-gate-guard` → PASS/FAIL/NON-COMPLIANCE                                  | halt-for-user                                  | spec-doc-frontmatter, spec-research, backlog-placement, done-evidence |
-| **Architecture refresh**    | `architecture-refresh`                   | `architecture-fixer`, `architecture-implementer`              | `architecture-auditor`, `architecture-conformance-auditor` → ACTIONABLE FINDINGS | auto → 0                                       | conformance, check-architecture-conformance                           |
-| **Documentation refresh**   | `documentation-refresh`                  | `doc-fixer`                                                   | `doc-auditor` → ACTIONABLE FINDINGS                                              | auto → 0                                       | doc-examples, docs-structure                                          |
-| **Capability extraction**   | `capability-extraction`                  | `capability-scout` (DECOMPOSITION), `agent-skill-author`      | `proposal-reviewer` → REVIEW VERDICT                                             | gated on ENDORSE                               | agent-def-convention                                                  |
-| **PR review** (HARNESS-018) | `pr-review-orchestration`                | `pr-review-writer`, `pr-review-fixer`                         | `pr-review-reviewer` → ACTIONABLE FINDINGS; `merge-verifier` → MERGE VERIFIED    | auto → 0, bounded (max 3 + progress detection) | scan-review-findings (018e, pending)                                  |
-| **Backlog execution**       | `backlog-execution-orchestrator`         | (impl agents)                                                 | recommendation + user-execution-scenario gates                                   | halt-for-user                                  | done-evidence, backlog-placement                                      |
+| Pipeline                    | Orchestrator (skill)                                                                                           | Worker(s)                                                     | Guardian(s) → signal                                                             | Loop-back                                                                                                    | Floor (scan/hook)                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| **Spec-gate**               | `user-request-gate` → `backlog-pipeline`                                                                       | `backlog-writer`, `prior-art-researcher` (PRIOR_ART_RESEARCH) | `backlog-gate-guard` → PASS/FAIL/NON-COMPLIANCE                                  | halt-for-user                                                                                                | spec-doc-frontmatter, spec-research, backlog-placement, done-evidence |
+| **Architecture refresh**    | `architecture-refresh`                                                                                         | `architecture-fixer`, `architecture-implementer`              | `architecture-auditor`, `architecture-conformance-auditor` → ACTIONABLE FINDINGS | auto → 0                                                                                                     | conformance, check-architecture-conformance                           |
+| **Documentation refresh**   | `documentation-refresh`                                                                                        | `doc-fixer`                                                   | `doc-auditor` → ACTIONABLE FINDINGS                                              | auto → 0                                                                                                     | doc-examples, docs-structure                                          |
+| **Capability extraction**   | `capability-extraction`                                                                                        | `capability-scout` (DECOMPOSITION), `agent-skill-author`      | `proposal-reviewer` → REVIEW VERDICT                                             | gated on ENDORSE                                                                                             | agent-def-convention                                                  |
+| **PR review** (HARNESS-018) | `pr-review-orchestration`                                                                                      | `pr-review-writer`, `pr-review-fixer`                         | `pr-review-reviewer` → ACTIONABLE FINDINGS; `merge-verifier` → MERGE VERIFIED    | auto → 0, bounded (max 3 + progress detection)                                                               | scan-review-findings (018e, pending)                                  |
+| **Backlog execution**       | `backlog-execution-orchestrator`                                                                               | (impl agents)                                                 | recommendation + user-execution-scenario gates                                   | halt-for-user                                                                                                | done-evidence, backlog-placement                                      |
+| **Release** (HARNESS-049)   | `release-orchestration` → `source-stabilization` / `version-bump` / `npm-otp-publish`, sharing `ci-gate-watch` | (release actions run in the phase skills)                     | `ci-failure-triager` → CI TRIAGE; `merge-verifier` → MERGE VERIFIED              | auto → bounded (2 re-runs/phase, 2 triages/signature, 3 OTP requests); halt-for-user at the publish boundary | release-governance, publish-safety, release-run `--publish` check     |
 
 ## Agent roster
 
@@ -85,6 +100,12 @@ Every agent below MUST appear in this map (enforced by `scan-orchestration-map.m
 | `agent-skill-author`               | worker (edit)      | —                   | edit            |
 | `pr-review-fixer`                  | worker (edit)      | —                   | edit            |
 | `pr-review-writer`                 | worker (post)      | —                   | Read, Bash (gh) |
+| `ci-failure-triager`               | guardian           | CI TRIAGE (†)       | read-only       |
+
+† `CI TRIAGE` is the agent's terminal output line but is **not yet in `CLOSED_SIGNAL_VOCAB`**, so the
+agent deliberately declares no `signal:` frontmatter field (declaring an unregistered token fails the
+`agent-def-convention` guard). Registering it requires editing `check-agent-def-convention.mjs`, which was
+out of scope for the increment that introduced the agent — tracked in `HARNESS-049`.
 
 ## How to change the structure
 
