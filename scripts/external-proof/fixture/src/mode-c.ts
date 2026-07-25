@@ -23,7 +23,6 @@ import { createCodingPack } from '@robota-sdk/pack-coding';
 import {
   ACME_PROVIDER_SETTINGS,
   acmeBaseCommandModule,
-  acmeCommandModule,
   acmePack,
   acmeSubagent,
   acmeTicketTool,
