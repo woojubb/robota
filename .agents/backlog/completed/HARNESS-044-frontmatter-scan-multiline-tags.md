@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-044: check-spec-doc-frontmatter must parse prettier-wrapped multi-line YAML arrays'
-status: todo
+status: done
+completed: 2026-07-25
 created: 2026-07-25
 priority: low
 urgency: soon
@@ -9,6 +10,27 @@ depends_on: []
 ---
 
 # HARNESS-044: frontmatter scan vs prettier multi-line arrays
+
+## Outcome (DONE 2026-07-25)
+
+`check-spec-doc-frontmatter.mjs` now parses the frontmatter block properly instead of matching
+`^tags:\s*(.+)$` on one line. A dependency-free line-based reader (`parseFrontmatterBlock`, exported)
+maps each top-level key to a scalar or a list, resolving all four forms the toolchain emits:
+
+- inline flow — `tags: [a, b]`
+- compact prettier wrap — `tags:` then the whole `[...]` on one indented line
+- exploded prettier wrap — `tags:` then one item per indented line (the ARCH-005 / #1369 shape)
+- YAML block sequence — `tags:` then `- a` / `- b`
+
+No YAML dependency was added: the repo declares none (the only `js-yaml` mention in `package.json` is
+a pnpm audit override), so a new dep was not worth it for one frontmatter block.
+
+Both prettier wrappings in the fixtures are byte-exact — produced by running the repo's own prettier
+over a single-line source, not hand-written. The check is not weakened: empty wrapped arrays
+(`tags:\n  [\n  ]`), a bare `tags:` key, and `tags: []` all still block, and a corrupted `status`
+placed _after_ a wrapped array is still reported (proving the wrapped block does not swallow the keys
+below it). Differential check over all real spec-docs: old vs new parser agree on every file
+(0 diffs) — the change is purely additive.
 
 ## Problem
 
