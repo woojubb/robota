@@ -1056,6 +1056,13 @@ does not.
 - **Command-module ORDER shifts** (the coding modules are appended after the base rather than sitting
   mid-list). The equivalence bar is the SET, as the spec states; nothing observable is ordered by that list,
   and both full suites are green.
+- **The INFRA-032 unknown-preset-module notice moved later in the startup sequence.** It now needs the
+  merged base ⊕ pack superset, which exists only after `assembleProduct` — i.e. after `ensureConfig`
+  resolves provider settings. Two consequences, both narrow and flagged rather than papered over: (a) it no
+  longer fires on the `init` / `--configure` / provider-config early-return paths, where the module set is
+  built but never used (arguably more correct); (b) on a normal run it prints AFTER the "Using <provider>
+  via <ENV_VAR>" notice instead of before, for a user who triggers both at once. Computing it earlier would
+  mean a second place that knows the merge — rejected as the worse trade.
 - `packages/agent-transport` and `packages/agent-transport-tui` each took a 2-line optional pass-through so
   the Decision-2 seam reaches robota's real surfaces; two files that the threading pushed past the file-size
   ratchet were SPLIT (not extended) per the ratchet's own remedy.
