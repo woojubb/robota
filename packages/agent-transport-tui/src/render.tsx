@@ -12,7 +12,7 @@ import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
-import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
@@ -57,6 +57,13 @@ export interface IRenderOptions {
    * `assembleProduct` merged). Forwarded to the session's `agentDefinitions` seam; absent ⇒ unchanged.
    */
   agentDefinitions?: readonly IAgentDefinition[];
+  /**
+   * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
+   * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
+   * (`defaultTools: []`). Forwarded to the session's tool-composition seam; absent ⇒ unchanged.
+   */
+  additionalTools?: IToolWithEventService[];
+  defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -115,6 +122,8 @@ export function toChannelOptions(
     ...(options.agentDefinitions !== undefined
       ? { agentDefinitions: options.agentDefinitions }
       : {}),
+    ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
+    ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,
     shellExec: options.shellExec,
