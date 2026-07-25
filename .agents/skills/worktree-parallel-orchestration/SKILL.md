@@ -55,8 +55,11 @@ run two agents that touch the same file concurrently.
 Each implementer produces exactly one PR and does **not** self-merge:
 
 - Red-before-green (HARNESS-041): prove the new/changed test fails pre-fix.
-- **Foreground** self-verification: `pnpm build`, `pnpm test`, `pnpm typecheck`,
-  `node scripts/harness/run-all-scans.mjs` — all green, evidence reported.
+- **Foreground** self-verification on a BUILT tree (`pnpm build` first): `pnpm harness:verify-like-ci`
+  — the CI-equivalent entry (harness self-test, prettier check, full scan suite incl. the
+  dist-dependent scans, typecheck) — plus `pnpm test`; all green, evidence reported. A bare
+  `run-all-scans` is NOT the CI gate: it reports baseline notices and an unbuilt `dist` as a pass, and
+  a fresh worktree has no husky/prettier toolchain (HARNESS-045).
 - Correct commit footers; `gh pr create --base develop`.
 - Stop-and-report on a blocker rather than merging or leaving a broken commit.
 
