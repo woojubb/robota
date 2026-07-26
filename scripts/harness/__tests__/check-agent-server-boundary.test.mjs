@@ -450,4 +450,27 @@ describe('classifySpecifierUsage', () => {
   it('does not mistake a URL for a line comment', () => {
     expect(classifySpecifierUsage("const u = 'https://x'; require('pkg');", 'pkg')).toBe('used');
   });
+
+  // A file containing `const example = "await import('pkg')"` classified as a wired seam — a token
+  // appearing somewhere in the file, which is the class this gate exists to reject. Blanking every
+  // string literal is not the fix either: each pattern matches the QUOTED specifier, so the search
+  // target would vanish and every import would read absent. Only literals whose content IS the
+  // specifier survive.
+  it('does not treat an import written inside a string literal as wiring', () => {
+    expect(classifySpecifierUsage(`const ex = "await import('pkg')";`, 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage(`const ex = "require('pkg')";`, 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage(`const doc = "import { A } from 'pkg'";`, 'pkg')).toBe('absent');
+  });
+
+  it('leaves a bare specifier-valued constant unwired', () => {
+    expect(classifySpecifierUsage("const name = 'pkg';", 'pkg')).toBe('absent');
+  });
+
+  it('still classifies every real wiring form as used', () => {
+    expect(classifySpecifierUsage("await import('pkg');", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("require('pkg');", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export { a } from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import { A } from 'pkg';\nA();", 'pkg')).toBe('used');
+  });
 });

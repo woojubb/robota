@@ -476,6 +476,14 @@ function stripComments(content) {
  */
 const COMMENT_PATTERN = /\/\*[\s\S]*?\*\/|(^|[^:])\/\/[^\n]*/g;
 
+/** Every string literal blanked except those whose content is exactly `specifier`. */
+function stripStringLiteralsExcept(content, specifier) {
+  return content.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, (literal) => {
+    const quote = literal[0];
+    return literal.slice(1, -1) === specifier ? literal : `${quote}${quote}`;
+  });
+}
+
 /**
  * Classify how a module references a specifier.
  *
@@ -484,9 +492,17 @@ const COMMENT_PATTERN = /\/\*[\s\S]*?\*\/|(^|[^:])\/\/[^\n]*/g;
  * `'used'`.
  */
 export function classifySpecifierUsage(rawContent, specifier) {
-  // Comments stripped before ANY import is matched — a commented-out import wires nothing. String
-  // literals are kept, because the patterns below match the quoted specifier itself.
-  const content = stripComments(rawContent);
+  // Comments out, and every string literal blanked EXCEPT the specifier itself.
+  //
+  // Neither half alone is enough. Keeping strings let a file containing
+  // `const example = "await import('pkg')"` classify as a wired seam — token-appears-somewhere, the
+  // exact class this gate exists to reject. Blanking all strings is worse: every import pattern
+  // matches the QUOTED specifier, so the thing being searched for disappears and every import reads
+  // as absent. Preserving only literals whose content IS the specifier resolves it: the outer string
+  // above is blanked (its content is not `pkg`), while `import('pkg')` keeps its argument. A bare
+  // `const name = 'pkg'` survives too and is harmless — the patterns all require `import(`,
+  // `require(`, `import ` or `from ` in front of it.
+  const content = stripStringLiteralsExcept(stripComments(rawContent), specifier);
   const quoted = `['"]${escapeForRegExp(specifier)}['"]`;
   const evaluatedPattern = new RegExp(
     `(?:import\\s*\\(\\s*${quoted}\\s*\\)|require\\s*\\(\\s*${quoted}\\s*\\)|import\\s+${quoted}|export\\s+[^;]*?from\\s*${quoted})`,
