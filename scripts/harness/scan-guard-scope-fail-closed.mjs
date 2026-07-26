@@ -307,6 +307,19 @@ export const PENDING_CLASSIFICATION = [
     measured: 'vacuous',
   },
   {
+    // RE-MEASURED 2026-07-26 after HARNESS-053 replaced this scan's presence-only body with a real
+    // freshness comparison: still `fail-closed`, but INCIDENTALLY, so it stays here rather than
+    // being promoted. `finder(bare)` supplies one argument, `scopes` is undefined, and
+    // `scopes.filter` throws — a missing-argument crash, not a check on a governed tree. This
+    // finder has no tree of its own to be absent: its subject is the package set the CALLER
+    // enumerates. Pinning it in MANDATORY_TREE_GUARDS would certify a property it does not hold.
+    //
+    // The gap that reasoning leaves was measured separately rather than left implied, and it was
+    // real: the CLI's `main()` — which DOES enumerate, via `listWorkspaceScopes()` — printed
+    // "dist/ present on all 0 package(s)" and exited 0 for a `pnpm-workspace.yaml` resolving to
+    // zero packages. That pass-over-nothing is this scan's own subject, and it is now an exit 1
+    // pinned by a test in `__tests__/scan-dist-freshness.test.mjs`. A root with no manifest at all
+    // already threw out of `listWorkspaceScopes`.
     file: 'scan-dist-freshness.mjs',
     finder: 'collectDistFreshnessResults',
     measured: 'fail-closed',

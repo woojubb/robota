@@ -532,6 +532,17 @@ describe('scan-dist-freshness CLI — freshness severity', () => {
     expect(result.stdout).not.toContain('all 2 package(s) required');
   });
 
+  it('exits 1 when the workspace enumerates ZERO buildable packages (fail closed)', async () => {
+    // MEASURED before the guard existed: this fixture printed "dist/ present on all 0 package(s)"
+    // and exited 0. That is HARNESS-052's audited defect — a pass over work never done — found
+    // live inside HARNESS-053, the item written to fix an instance of it.
+    const root = await createRoot({ 'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n" });
+
+    const result = run(root);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('measured nothing');
+  });
+
   it('still exits 1 for a missing dist even while a sibling is stale', async () => {
     const root = await createRoot({
       ...staleFixtureFiles(),

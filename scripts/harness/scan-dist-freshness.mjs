@@ -271,6 +271,20 @@ export async function main() {
   const scopes = await listWorkspaceScopes();
   const { results, buildableCount, freshness } = await collectDistFreshnessResults(ROOT, scopes);
 
+  // FAIL CLOSED on an empty subject. MEASURED, not assumed: before this guard, a
+  // `pnpm-workspace.yaml` resolving to zero packages printed "dist/ present on all 0 package(s)"
+  // and exited 0 — the exact "reports success over work it did not do" shape HARNESS-052 audits,
+  // found live inside its own remedy. A dist scan that enumerated no buildable package has not
+  // found them all built; it has found nothing. (A root with no manifest at all already throws
+  // out of `listWorkspaceScopes`.)
+  if (buildableCount === 0) {
+    console.error(
+      '\x1b[31mNo buildable workspace package was enumerated, so this scan measured nothing. ' +
+        'That is an error, not a pass — check the workspace manifest and the cwd.\x1b[0m',
+    );
+    process.exit(1);
+  }
+
   let errors = 0;
   let warnings = 0;
   // Packages whose dist presence was actually ASSERTED — i.e. that produced an `ok` or `error`.
