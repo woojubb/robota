@@ -360,6 +360,13 @@ describe('annotateNotMirrored', () => {
     ).toBe(false);
   });
 
+  it('marks windows-shell RELEVANT on a code diff — CI runs that job on every code PR', () => {
+    const find = (files) =>
+      annotateNotMirrored(files).find((entry) => entry.context === 'windows-shell').relevant;
+    expect(find(['packages/agent-core/src/index.ts'])).toBe(true);
+    expect(find(['README.md'])).toBe(false);
+  });
+
   it('always reports every un-mirrorable context, relevant or not', () => {
     expect(annotateNotMirrored([]).map((entry) => entry.context)).toEqual(
       NOT_MIRRORED.map((entry) => entry.context),

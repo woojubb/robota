@@ -34,6 +34,7 @@ import {
   plumbingSteps,
   readCiWorkflow,
   readRequiredContexts,
+  RELEVANCE_KEYS,
   stagesMirroring,
 } from '../ci-mirror-map.mjs';
 
@@ -75,6 +76,12 @@ describe(`every required check on \`${MIRRORED_BRANCH}\` is answered for (anti-d
       ).toBeGreaterThan(40);
       expect(entry.manualCommand.length).toBeGreaterThan(0);
       expect(entry.relevantWhen.length).toBeGreaterThan(0);
+      // `relevantWhen` is prose; `relevance` is what the runner evaluates. A sentence with no key
+      // behind it describes a condition nobody computes — the same defect, one size smaller.
+      expect(
+        RELEVANCE_KEYS,
+        `\`${context}\` declares relevance \`${entry.relevance}\`, which the runner cannot evaluate.`,
+      ).toContain(entry.relevance);
     },
   );
 

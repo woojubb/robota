@@ -628,15 +628,19 @@ export function stageGate(name, context) {
 }
 
 /** The un-mirrorable contexts, marked relevant when this diff makes them matter. */
-export function annotateNotMirrored(changedFiles) {
+export function annotateNotMirrored(changedFiles, codeChanged = classifyFiles(changedFiles).code) {
   const touchesManifest = changedFiles.some(
     (file) =>
       file === 'pnpm-lock.yaml' || file === 'package.json' || file.endsWith('/package.json'),
   );
-  return NOT_MIRRORED.map((entry) => ({
-    ...entry,
-    relevant: entry.context === 'security audit' ? touchesManifest : false,
-  }));
+  const evaluate = (key) => {
+    if (key === 'manifest-or-lockfile') return touchesManifest;
+    if (key === 'code') return codeChanged;
+    // An unknown key must SHOUT rather than be ignored: the alternative is a required check
+    // quietly demoted to a footnote by a relevance rule nobody implemented.
+    return true;
+  };
+  return NOT_MIRRORED.map((entry) => ({ ...entry, relevant: evaluate(entry.relevance) }));
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -689,7 +693,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const { lines, exitCode } = summarize(results, {
     skippedStages,
-    notMirrored: annotateNotMirrored(context.changedFiles),
+    notMirrored: annotateNotMirrored(context.changedFiles, context.codeChanged),
   });
   process.stdout.write(`${lines.join('\n')}\n`);
   process.exitCode = exitCode;

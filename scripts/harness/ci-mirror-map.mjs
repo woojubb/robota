@@ -151,12 +151,16 @@ export const CI_STAGES = [
  * These are printed in the summary of every run — loudly when the diff makes them relevant — rather
  * than omitted. An entry point that quietly drops a required check is the exact defect INFRA-056
  * exists to close; one that says out loud which two it cannot run is an honest gate.
+ *
+ * `relevance` is a KEY the runner evaluates, not prose. A `relevantWhen` sentence with no code
+ * behind it would describe a condition nobody computes — a smaller version of the same defect.
  */
 export const NOT_MIRRORED = [
   {
     context: 'security audit',
     reason:
       'downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.',
+    relevance: 'manifest-or-lockfile',
     relevantWhen: 'the diff touches `pnpm-lock.yaml` or any `package.json`',
     manualCommand:
       'osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → security-audit for the pinned version)',
@@ -165,10 +169,15 @@ export const NOT_MIRRORED = [
     context: 'windows-shell',
     reason:
       'runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.',
-    relevantWhen: 'the diff touches shell resolution or process spawning',
-    manualCommand: 'no local equivalent off Windows — this one is genuinely CI-only.',
+    relevance: 'code',
+    relevantWhen: 'the diff changes code at all — ci.yml runs this job on every code PR',
+    manualCommand:
+      'no local equivalent off a Windows host — review the win32 branches by hand, or push and read the check.',
   },
 ];
+
+/** The relevance keys the runner knows how to evaluate. */
+export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code'];
 
 /**
  * `run:` steps of a mirrored job that are CI infrastructure rather than a check: provisioning the
