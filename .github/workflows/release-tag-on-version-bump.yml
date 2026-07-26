@@ -87,9 +87,11 @@ jobs:
           fi
 
       # Proves the key authenticates against this repo without mutating anything. On a dry run this is the
-      # whole point; on a real bump it turns an auth failure into a clear message before a tag is created.
+      # whole point — the credential path has never once executed, so it must be reachable WITHOUT a bump,
+      # or the dry run would exercise nothing on a tree whose version has not changed. On a real bump it
+      # turns an auth failure into a clear message before a tag is created.
       - name: Verify the deploy key authenticates
-        if: steps.resolve.outputs.bumped == 'true'
+        if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
         run: |
           set -euo pipefail
           git ls-remote --tags origin >/dev/null
