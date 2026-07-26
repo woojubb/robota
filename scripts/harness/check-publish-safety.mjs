@@ -101,16 +101,29 @@ export function main(root = process.cwd()) {
   const pkgDirs = listManifestPackageDirs(root).map((dir) =>
     relative(root, join(dir, 'package.json')),
   );
+  // HARNESS-052 second pass: the count must be the number CHECKED, not the number ENUMERATED. The
+  // first fix corrected the set (depth-1 → nesting-aware) and left the banner reporting
+  // `pkgDirs.length`, i.e. 76 — while 45 of those are `private` and `continue` before any check
+  // runs. The claim was wrong by a new route, which is how this defect survives being fixed.
+  let checked = 0;
+  let skippedPrivate = 0;
   for (const pkgPath of pkgDirs) {
     const pkg = JSON.parse(readFileSync(join(root, pkgPath), 'utf-8'));
-    if (pkg.private) continue;
+    if (pkg.private) {
+      skippedPrivate++;
+      continue;
+    }
+    checked++;
 
     const hasPrepublish = pkg.scripts?.prepublishOnly?.includes('check-pnpm-publish');
     if (!hasPrepublish) {
       error(`${pkg.name} missing prepublishOnly hook (pnpm publish enforcement)`);
     }
   }
-  ok(`Checked prepublishOnly hooks on all ${pkgDirs.length} workspace packages`);
+  ok(
+    `Checked prepublishOnly hooks on ${checked} publishable package(s) ` +
+      `(${skippedPrivate} private package(s) skipped, of ${pkgDirs.length} in the workspace)`,
+  );
 
   // 3. check-pnpm-publish.sh exists
   if (!existsSync(join(root, 'scripts/check-pnpm-publish.sh'))) {

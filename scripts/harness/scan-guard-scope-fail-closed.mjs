@@ -12,31 +12,40 @@
  *     if (!existsSync(dir)) return [];        // ← "nothing to check" == "clean"
  *
  * MEASURED on this tree, by running each registered scan's finder against a root that does not
- * contain its governed tree. 14 of the 19 finders returned an empty finding list — i.e. reported a
- * pass — including the three that guard `.github/workflows`, the directory whose contents are the
- * subject of five of the ten incidents. Two of the nineteen (`scan-main-required-checks`,
- * `scan-hook-catalog`) already fail closed; they are the proof the shape is avoidable, not inherent.
+ * contain its governed tree: **30 of the 50 finders returned an empty finding list** — i.e. reported
+ * a pass — including the three that guard `.github/workflows`, the directory whose contents are the
+ * subject of five of the ten incidents. The 20 that fail closed are the proof the shape is
+ * avoidable, not inherent.
  *
  * THE RULE, in two halves, because either alone can be satisfied vacuously:
  *
  *   1. CLASSIFICATION COMPLETENESS. Every scan registered in `run-all-scans.mjs` that exports a
- *      `find…(root = …)` finder must appear in exactly one of the two tables below. The finder set
- *      is DERIVED from the registration list and the source — never hand-listed — so a new scan
- *      cannot be added without answering for its behaviour, and a table entry for a scan that no
- *      longer exists is itself a finding (anti-rot).
+ *      `find…`/`collect…` finder taking a `root` must appear in exactly one of the two tables below.
+ *      The finder set is DERIVED from the registration list and the source — never hand-listed — so
+ *      a new scan cannot be added without answering for its behaviour, and a table entry for a scan
+ *      that no longer exists is itself a finding (anti-rot).
  *
  *   2. BEHAVIOUR. Every `MANDATORY_TREE_GUARDS` entry is EXECUTED against a temporary root that
  *      lacks its governed tree, and must throw or return at least one finding. This is a behavioural
  *      assertion, not a source-pattern match: it cannot be satisfied by rewording the code, and it
  *      cannot pass on a guard that merely looks fail-closed.
  *
+ * THIS SCAN HAS ALREADY BEEN CAUGHT COMMITTING ITS OWN DEFECT, which is why rule 1's derivation is
+ * spelled out so defensively. Its first version matched `export function (find…)\(\s*root\s*=` and
+ * so derived 20 of the 50 finders: it saw neither `export async function`, nor a `collect…` finder,
+ * nor a `root` parameter without a default — and therefore did not classify ITSELF, since
+ * `findGuardScopeFindings` is async. Falsified by registering a scan exporting
+ * `export async function findBogusFindings(root = X) { return []; }`, vacuous for every root: the
+ * completeness rule passed. Flipping the single keyword `async function` → `function` made the same
+ * file fail. A second defect masked it — `finder(bare)` was not awaited, so a classified async
+ * finder would have been reported as violating no matter how it behaved.
+ *
  * THE CEILING, stated rather than implied. `PENDING_CLASSIFICATION` is not an exemption list and
- * must not be read as one — those 11 scans were MEASURED to report a pass over an absent governed
- * tree and are recorded, unfixed, in HARNESS-052. This pass covers the two families where the
- * audited incidents actually occurred (`.github/workflows` and `packages/`). Anything outside the
- * derived finder set — a scan that walks its tree inline in `main()`, or one that takes no root — is
- * invisible here. A pass from this scan means "the classified guards fail closed", never "no guard
- * can be satisfied vacuously".
+ * must not be read as one — 30 of its entries were MEASURED to report a pass over an absent governed
+ * tree and are recorded, unfixed, in HARNESS-052. The behavioural half covers only the six guards in
+ * `MANDATORY_TREE_GUARDS`. Anything outside the derived finder set — a scan that walks its tree
+ * inline in `main()`, or one that takes no root — is invisible here. A pass from this scan means
+ * "the six classified guards fail closed", never "no guard can be satisfied vacuously".
  *
  * Exit code 0 = every classified guard behaves as declared, 1 = violation found.
  */
@@ -101,16 +110,65 @@ export const MANDATORY_TREE_GUARDS = [
  * This is a ledger, not an allowlist — and it is deliberately not uniform, because the measurements
  * were not. `vacuous` entries are live instances of the audited defect, recorded unfixed in
  * HARNESS-052. `fail-closed` entries already behave correctly but are not pinned here: pinning them
- * needs their governed tree named accurately, and two of them (`scan-unearned-done-claims`,
- * `scan-deployment-matrix`) fail closed only INCIDENTALLY — via a stale-allowlist assertion and a
- * non-list return respectively, not via a deliberate check — so pinning them as-is would certify a
- * property they do not actually hold. Entries leave this list by being fixed or accurately pinned,
- * never by being deleted.
+ * needs their governed tree named accurately, and some (e.g. `scan-unearned-done-claims`) fail
+ * closed only INCIDENTALLY — via a stale-allowlist assertion rather than a deliberate check — so
+ * pinning them as-is would certify a property they do not actually hold. Entries leave this list by
+ * being fixed or accurately pinned, never by being deleted.
+ *
+ * Every `measured` value here was produced by executing the finder, not by reading it.
  */
 export const PENDING_CLASSIFICATION = [
   {
-    file: 'scan-orchestration-neutrality.mjs',
-    finder: 'findOrchestrationNeutralityFindings',
+    file: 'check-agent-server-boundary.mjs',
+    finder: 'findAgentServerBoundaryFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'check-architecture-map-paths.mjs',
+    finder: 'findArchitectureMapPathFindings',
+    measured: 'vacuous',
+  },
+  {
+    file: 'check-background-workspace-conformance.mjs',
+    finder: 'findBackgroundWorkspaceConformanceFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'check-background-workspace-conformance.mjs',
+    finder: 'findUsedExemptions',
+    measured: 'vacuous',
+  },
+  {
+    file: 'check-backlog-placement.mjs',
+    finder: 'findBacklogPlacementFindings',
+    measured: 'vacuous',
+  },
+  { file: 'check-backlog-placement.mjs', finder: 'findDuplicateIdFindings', measured: 'vacuous' },
+  {
+    file: 'check-build-output-contracts.mjs',
+    finder: 'findBuildOutputContractFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'check-capability-placement.mjs',
+    finder: 'findCapabilityPlacementFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'check-command-layering.mjs',
+    finder: 'findCommandLayeringFindings',
+    measured: 'vacuous',
+  },
+  { file: 'check-dep-kind.mjs', finder: 'findDevDepOnlyRuntimeImports', measured: 'vacuous' },
+  { file: 'check-done-evidence.mjs', finder: 'findDoneEvidenceFindings', measured: 'vacuous' },
+  {
+    file: 'check-functional-coverage.mjs',
+    finder: 'collectFunctionalCoverageFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'check-ghost-package-refs.mjs',
+    finder: 'findGhostPackageRefFindings',
     measured: 'vacuous',
   },
   {
@@ -118,33 +176,87 @@ export const PENDING_CLASSIFICATION = [
     finder: 'findHarnessConfigPathFindings',
     measured: 'vacuous',
   },
-  { file: 'scan-conflict-markers.mjs', finder: 'findConflictMarkerFindings', measured: 'vacuous' },
+  { file: 'check-orphan-exports.mjs', finder: 'findOrphanExportFindings', measured: 'vacuous' },
+  { file: 'check-publish-safety.mjs', finder: 'findPublishClaimFindings', measured: 'vacuous' },
+  {
+    file: 'check-sdk-public-surface.mjs',
+    finder: 'findSdkPublicSurfaceFindings',
+    measured: 'fail-closed',
+  },
+  { file: 'check-spec-paths.mjs', finder: 'findSpecPathFindings', measured: 'vacuous' },
+  {
+    file: 'check-spec-public-surface.mjs',
+    finder: 'collectUndocumentedExports',
+    measured: 'vacuous',
+  },
+  {
+    file: 'check-spec-public-surface.mjs',
+    finder: 'findPublicSurfaceFindings',
+    measured: 'vacuous',
+  },
+  { file: 'check-stub-markers.mjs', finder: 'findStubMarkerFindings', measured: 'vacuous' },
+  { file: 'check-task-archival.mjs', finder: 'findTaskArchivalFindings', measured: 'vacuous' },
+  { file: 'check-temp-script-placement.mjs', finder: 'findParkedTempScripts', measured: 'vacuous' },
+  { file: 'check-workspace-refs.mjs', finder: 'findWorkspaceRefFindings', measured: 'vacuous' },
   { file: 'scan-api-pagination.mjs', finder: 'findUnpaginatedApiQueries', measured: 'vacuous' },
-  { file: 'scan-memory-neutrality.mjs', finder: 'findMemoryNeutralityFindings', measured: 'vacuous' },
-  { file: 'scan-evals-neutrality.mjs', finder: 'findEvalsNeutralityFindings', measured: 'vacuous' },
   {
     file: 'scan-capability-reachability.mjs',
     finder: 'findCapabilityReachabilityFindings',
     measured: 'vacuous',
   },
+  { file: 'scan-conflict-markers.mjs', finder: 'findConflictMarkerFindings', measured: 'vacuous' },
+  { file: 'scan-deployment-matrix.mjs', finder: 'findTransportNames', measured: 'vacuous' },
   {
     file: 'scan-deprecated-markers.mjs',
     finder: 'findDeprecatedMarkerFindings',
     measured: 'vacuous',
   },
-  { file: 'check-temp-script-placement.mjs', finder: 'findParkedTempScripts', measured: 'vacuous' },
-  { file: 'scan-deployment-matrix.mjs', finder: 'findTransportNames', measured: 'fail-closed' },
+  {
+    file: 'scan-dist-freshness.mjs',
+    finder: 'collectDistFreshnessResults',
+    measured: 'fail-closed',
+  },
+  { file: 'scan-evals-neutrality.mjs', finder: 'findEvalsNeutralityFindings', measured: 'vacuous' },
+  {
+    file: 'scan-guard-scope-fail-closed.mjs',
+    finder: 'findGuardScopeFindings',
+    measured: 'fail-closed',
+  },
+  { file: 'scan-hook-catalog.mjs', finder: 'collectFiringEvents', measured: 'fail-closed' },
+  { file: 'scan-hook-catalog.mjs', finder: 'findHookCatalogFindings', measured: 'fail-closed' },
+  { file: 'scan-legacy-typescript.mjs', finder: 'collectInstalledCopies', measured: 'vacuous' },
   {
     file: 'scan-legacy-typescript.mjs',
     finder: 'findLegacyTypeScriptFindings',
     measured: 'fail-closed',
   },
-  { file: 'scan-hook-catalog.mjs', finder: 'findHookCatalogFindings', measured: 'fail-closed' },
   {
     file: 'scan-main-required-checks.mjs',
     finder: 'findRequiredCheckFindings',
     measured: 'fail-closed',
   },
+  { file: 'scan-memory-mirror.mjs', finder: 'collectMemoryMirrorFindings', measured: 'vacuous' },
+  {
+    file: 'scan-memory-neutrality.mjs',
+    finder: 'findMemoryNeutralityFindings',
+    measured: 'vacuous',
+  },
+  {
+    file: 'scan-orchestration-map.mjs',
+    finder: 'collectOrchestrationMapFindings',
+    measured: 'vacuous',
+  },
+  {
+    file: 'scan-orchestration-neutrality.mjs',
+    finder: 'findOrchestrationNeutralityFindings',
+    measured: 'vacuous',
+  },
+  {
+    file: 'scan-review-findings.mjs',
+    finder: 'collectReviewFindingsFindings',
+    measured: 'fail-closed',
+  },
+  { file: 'scan-spec-research.mjs', finder: 'collectSpecResearchFindings', measured: 'vacuous' },
   {
     file: 'scan-unearned-done-claims.mjs',
     finder: 'findUnearnedDoneClaimFindings',
@@ -163,16 +275,47 @@ export function registeredScanFiles(root = WORKSPACE_ROOT) {
   if (files.length === 0)
     throw new Error(
       `${REGISTRATION_FILE} parsed to zero registered scans. An empty registration list would ` +
-        'satisfy every assertion below vacuously — which is this scan\'s own defect.',
+        "satisfy every assertion below vacuously — which is this scan's own defect.",
     );
   return [...new Set(files)].sort();
 }
 
-/** `find…(root = …)` exports of one harness script. The shape that makes a guard checkable here. */
+/**
+ * Exported finders of one harness script that take a `root`. The shape that makes a guard checkable
+ * here.
+ *
+ * THIS REGEX IS THE WHOLE RULE, so its narrowness is the whole hole. It first read
+ * `export function (find…)\(\s*root\s*=`, which matched neither `export async function` nor a
+ * `collect…` finder nor a `root` parameter without a default. Measured: 20 of 41 finders derived,
+ * and this scan did not classify ITSELF — `findGuardScopeFindings` is `async`. Falsified by
+ * registering a scan exporting `export async function findBogusFindings(root = X) { return []; }`,
+ * unconditionally vacuous for every root: the completeness rule passed. Changing the single keyword
+ * `async function` → `function` made the same file fail. A rule whose verdict turns on a keyword is
+ * measuring spelling, not structure — which is this scan's own subject, one level up.
+ */
 export function rootFinderExports(sourceText) {
-  return [...String(sourceText ?? '').matchAll(/export function (find[A-Za-z0-9_]*)\(\s*root\s*=/g)]
+  return [
+    ...stripJsComments(String(sourceText ?? '')).matchAll(
+      /export\s+(?:async\s+)?function\s+((?:find|collect)[A-Za-z0-9_]*)\(\s*root\b/g,
+    ),
+  ]
     .map((match) => match[1])
     .sort();
+}
+
+/**
+ * Remove block and line comments before matching declarations.
+ *
+ * Not cosmetic. Without it this scan matched the `export async function findBogusFindings(root = X)`
+ * written in its OWN docstring above and derived a finder for a function that does not exist — a
+ * scan reading its own documentation as evidence, which is the failure mode `scan-orchestration-map`
+ * and `check-test-coverage-scripts` were separately found to have. A declaration is code, so only
+ * code is searched.
+ */
+export function stripJsComments(sourceText) {
+  return String(sourceText ?? '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
 /** Every `{ file, finder }` pair this scan is responsible for classifying, derived from the tree. */
@@ -216,7 +359,10 @@ export function classificationFindings(root = WORKSPACE_ROOT) {
   }
   const both = mandatory.filter((key) => pending.includes(key));
   for (const key of both)
-    findings.push({ subject: key, detail: 'appears in BOTH tables — it must appear in exactly one.' });
+    findings.push({
+      subject: key,
+      detail: 'appears in BOTH tables — it must appear in exactly one.',
+    });
   return findings;
 }
 
@@ -234,7 +380,10 @@ async function behaviourFinding(entry, root) {
   try {
     let result;
     try {
-      result = finder(bare);
+      // AWAITED (HARNESS-052): without this an async finder resolves to a Promise, which is neither
+      // an array nor `{findings}`, so it would be reported as a violation no matter how it behaves.
+      // That defect and the sync-only derivation regex above masked each other exactly.
+      result = await finder(bare);
     } catch {
       return undefined; // threw on an unreadable root — fail-closed, which is the requirement
     }

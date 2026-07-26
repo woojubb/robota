@@ -28,6 +28,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { listManifestPackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
@@ -156,9 +158,15 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
       `packages/ does not exist under ${root}. This scan will not report a pass over source it ` +
         'could not read.',
     );
-  for (const pkg of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!pkg.isDirectory()) continue;
-    const srcRel = path.join('packages', pkg.name, 'src');
+  // NESTING-AWARE (HARNESS-052 second pass). This walked `packages/` at depth 1, so
+  // `packages/dag-nodes` — which has no `src/` of its own — was `continue`d and all 21 of its
+  // members' 59 source files were never opened. The first pass hardened this function against a
+  // MISSING tree while leaving its ENUMERATION one level deep, and `scan-guard-scope-fail-closed`
+  // then pinned it as the mandatory guard of `packages` — certifying coverage it did not have.
+  // Falsified: `export class MockToolClient {}` in `packages/dag-nodes/tool/src/index.ts` left this
+  // scan printing `no-fake-in-src scan passed.`
+  for (const pkgDir of listManifestPackageDirs(root)) {
+    const srcRel = path.relative(root, path.join(pkgDir, 'src'));
     if (!existsSync(path.join(root, srcRel)) || !statSync(path.join(root, srcRel)).isDirectory()) {
       continue;
     }

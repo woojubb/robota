@@ -32,7 +32,7 @@ describe('derivation (the half that cannot be dodged by editing a table)', () =>
     expect(files.length).toBeGreaterThan(50);
   });
 
-  it('extracts only the find…(root = …) exports', () => {
+  it('extracts only the find…/collect… exports that take a root', () => {
     const source = [
       'export function findThings(root = X) {}',
       'export function findOther(text) {}',
@@ -40,6 +40,46 @@ describe('derivation (the half that cannot be dodged by editing a table)', () =>
       'export function helper(root = X) {}',
     ].join('\n');
     expect(rootFinderExports(source)).toEqual(['findThings']);
+  });
+
+  /**
+   * The regression fixture for this scan's OWN defect. Its first derivation regex was
+   * `export function (find…)\(\s*root\s*=`, which saw 20 of 50 finders: not `async`, not `collect…`,
+   * not a `root` without a default — and so did not classify itself. Every line below was invisible
+   * to it, and a registered scan that was unconditionally vacuous passed the completeness rule until
+   * one keyword was changed.
+   */
+  it.each([
+    ['export async function findThings(root = X) {}', 'findThings'],
+    ['export function collectThings(root = X) {}', 'collectThings'],
+    ['export async function collectThings(root) {}', 'collectThings'],
+    ['export function findThings(root) {}', 'findThings'],
+  ])('derives %s', (source, expected) => {
+    expect(rootFinderExports(source)).toEqual([expected]);
+  });
+
+  /** A declaration quoted in a docstring is documentation, not code — it derived a ghost finder. */
+  it('ignores a declaration that appears only inside a comment', () => {
+    const source = [
+      '/**',
+      ' * Example: export async function findGhost(root = X) { return []; }',
+      ' */',
+      'export function findReal(root = X) {}',
+      '// export function findAlsoGhost(root = X) {}',
+    ].join('\n');
+    expect(rootFinderExports(source)).toEqual(['findReal']);
+  });
+
+  it('derives every finder this repository registers, not a spelling subset', () => {
+    // Guards against a silent narrowing of the regex: the count may grow, never collapse.
+    expect(derivedFinders(WORKSPACE_ROOT).length).toBeGreaterThanOrEqual(50);
+  });
+
+  it('classifies its own async finder', () => {
+    const declared = [...MANDATORY_TREE_GUARDS, ...PENDING_CLASSIFICATION].map(
+      (e) => `${e.file}#${e.finder}`,
+    );
+    expect(declared).toContain('scan-guard-scope-fail-closed.mjs#findGuardScopeFindings');
   });
 
   it('classifies every derived finder exactly once', () => {
