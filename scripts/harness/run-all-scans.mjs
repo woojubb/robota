@@ -122,6 +122,14 @@ const SCAN_COMMANDS = [
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
+  {
+    name: 'required-check-needs',
+    command: ['node', 'scripts/harness/scan-required-check-needs.mjs'],
+  },
+  {
+    name: 'test-selection-tolerance',
+    command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
+  },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
     name: 'legacy-typescript',
