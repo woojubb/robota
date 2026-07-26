@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   classifySpecifierUsage,
+  collectReachableModules,
   findAgentServerBoundaryFindings,
 } from '../check-agent-server-boundary.mjs';
 
@@ -487,5 +488,15 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("export { type A, B } from 'pkg';", 'pkg')).toBe('used');
     expect(classifySpecifierUsage("export * from 'pkg';", 'pkg')).toBe('used');
     expect(classifySpecifierUsage("export * as ns from 'pkg';", 'pkg')).toBe('used');
+  });
+
+  // A check added later without an entryPattern would have crashed on `undefined.test` and taken
+  // the whole scan down. A guard that dies is a guard that gets skipped, so it fails closed with
+  // the reason instead. There is no safe default: entry points are declared per check, never inferred.
+  it('fails closed when a check declares no entry pattern', () => {
+    const contents = new Map([['a.ts', '']]);
+    expect(() => collectReachableModules(contents, undefined)).toThrow(/requires an entryPattern/);
+    expect(() => collectReachableModules(contents, 'src/')).toThrow(/requires an entryPattern/);
+    expect(collectReachableModules(contents, /a\.ts/).size).toBe(1);
   });
 });

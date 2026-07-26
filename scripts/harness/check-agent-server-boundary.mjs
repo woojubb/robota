@@ -406,6 +406,16 @@ export function resolveRelativeImport(fileSet, fromFile, specifier, moduleAliase
  * A module outside this set ships no behavior: nothing loads it.
  */
 export function collectReachableModules(contentsByFile, entryPattern, moduleAliases = []) {
+  // Fail closed on a missing entry pattern rather than crashing on `undefined.test`. A check added
+  // later without one would otherwise take the whole scan down with a TypeError, and a guard that
+  // dies is a guard that gets skipped. Saying which declaration is incomplete beats a stack trace.
+  if (!(entryPattern instanceof RegExp)) {
+    throw new TypeError(
+      'collectReachableModules requires an entryPattern RegExp — the check declaring it is incomplete. ' +
+        'Entry points are declared per check and never inferred, so there is no safe default to fall back to.',
+    );
+  }
+
   const fileSet = new Set(contentsByFile.keys());
   const reachable = new Set();
   const queue = [...fileSet].filter((file) => entryPattern.test(file));
