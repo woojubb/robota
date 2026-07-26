@@ -20,7 +20,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { listSpecPackageDirs } from './workspace-packages.mjs';
+import { listManifestPackageDirs, listSpecPackageDirs } from './workspace-packages.mjs';
 
 const PUBLISH_CLAIM = /\bpublish(?:ed|es)?\b[^.\n]*\bnpm\b/i;
 const NEGATED = /\b(not|never|un-?published|internal|private|do(?:es)? not)\b/i;
@@ -88,9 +88,19 @@ export function main(root = process.cwd()) {
   }
 
   // 2. All publishable packages must have prepublishOnly hook
-  const pkgDirs = readdirSync(join(root, 'packages'))
-    .map((d) => `packages/${d}/package.json`)
-    .filter((p) => existsSync(join(root, p)));
+  //
+  // HARNESS-052: this enumerated `packages/*` at DEPTH 1 while claiming, in its own success message,
+  // to have checked "all publishable packages" — so the 20 members of `packages/dag-nodes/*` were
+  // outside the set the claim covered. Falsified 2026-07-26 by making `packages/dag-nodes/tool`
+  // publishable and deleting its `prepublishOnly` hook: the scan printed "Checked prepublishOnly
+  // hooks on all publishable packages" and exited 0. The check could fail, and did run — it was
+  // measuring the wrong set, which is the same false assurance by a different route.
+  //
+  // `listManifestPackageDirs` is the SSOT for "what package directories exist" and is nesting-aware;
+  // rule 1 of this same file already used its sibling `listSpecPackageDirs`.
+  const pkgDirs = listManifestPackageDirs(root).map((dir) =>
+    relative(root, join(dir, 'package.json')),
+  );
   for (const pkgPath of pkgDirs) {
     const pkg = JSON.parse(readFileSync(join(root, pkgPath), 'utf-8'));
     if (pkg.private) continue;
@@ -100,7 +110,7 @@ export function main(root = process.cwd()) {
       error(`${pkg.name} missing prepublishOnly hook (pnpm publish enforcement)`);
     }
   }
-  ok('Checked prepublishOnly hooks on all publishable packages');
+  ok(`Checked prepublishOnly hooks on all ${pkgDirs.length} workspace packages`);
 
   // 3. check-pnpm-publish.sh exists
   if (!existsSync(join(root, 'scripts/check-pnpm-publish.sh'))) {
