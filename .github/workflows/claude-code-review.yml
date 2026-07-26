@@ -84,19 +84,28 @@ jobs:
             테스트). 규율의 단일 출처는 `AGENTS.md`와 그 아래 `.agents/rules/` 이고, 얇은 `CLAUDE.md`와
             `CONTRIBUTING.md` 가 보조다 — diff 에서 위반이 의심될 때만 해당 문서를 열어 확인하고, 매
             실행마다 규율 문서 전체를 읽지는 않는다.
+          # `claude_args` below carries values only. Its rationale is here, in real YAML comments,
+          # rather than inside the block scalar: the action does strip whole-line `#` from that
+          # value, but this is the one file whose failure mode is "silently does nothing", so it
+          # should not also depend on a parsing subtlety to be correct.
+          #
+          # --allowedTools: agent mode installs a GitHub MCP server ONLY when one of its tools is
+          # named here, and grants no permission-requiring tool that is not named here. With no
+          # --allowedTools the reviewer could neither read a diff nor post a finding: on run
+          # 30189528981, 17 of its 25 turns were permission denials and it posted nothing. The set
+          # below is the minimum the prompt genuinely needs — read the diff, read repo files for
+          # context, comment. A reviewer of PR-authored content gets no Write/Edit, no general
+          # Bash, and no network fetch; --disallowedTools states that rather than leaving it to the
+          # default permission behaviour.
+          #
+          # --max-turns: 25 is kept deliberately, not by default. Re-measured against a large
+          # multi-area PR with the grant above, a full review — diff, context reads, inline
+          # findings, summary — lands inside it. What the cap really bounds is the number of
+          # FINDINGS (one inline comment costs one turn), which is why the prompt caps inline
+          # comments at 10 instead of asking for a bigger budget: a budget that has to grow with
+          # every large PR is not a fix.
           claude_args: |
-            # Agent mode installs a GitHub MCP server ONLY when one of its tools is named here, and
-            # grants no permission-requiring tool that is not named here. With no --allowedTools the
-            # reviewer could neither read a diff nor post a finding: on run 30189528981, 17 of its 25
-            # turns were permission denials and it posted nothing. Below is the minimum the prompt
-            # genuinely needs — read the diff, read repo files for context, comment. A reviewer of
-            # PR-authored content gets no Write/Edit, no general Bash, and no network fetch.
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob"
             --disallowedTools "Write,Edit,NotebookEdit,WebFetch,WebSearch"
-            # 25 is kept deliberately, not by default. Re-measured against a large multi-area PR with
-            # the grant above, a full review — diff, context reads, inline findings, summary — lands
-            # inside it. What the cap really bounds is the number of FINDINGS (one inline comment
-            # costs one turn), which is why the prompt caps inline comments at 10 instead of asking
-            # for a bigger budget: a budget that has to grow with every large PR is not a fix.
             --max-turns 25
             --model claude-sonnet-5
