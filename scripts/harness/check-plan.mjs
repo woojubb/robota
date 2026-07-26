@@ -1,5 +1,25 @@
 import { classifyScopeChanges, mapFilesToScopes, resolveRequestedScopes } from './shared.mjs';
 
+/**
+ * The planned checks that cannot run without the monorepo's build output. CI's `build` job gates
+ * `pnpm build` (and the `package-dist` artifact every later job restores) on this exact set.
+ *
+ * ONE implementation, two callers (INFRA-056). `classify-changed-paths.mjs` states the principle
+ * this follows: if a second caller re-derives "no build needed" with its own copy of the rule, that
+ * copy IS the bypass — it goes stale silently and the gate it feeds reports a pass over ground it
+ * never covered. `verify-like-ci` imports this rather than restating it, and a unit test pins it to
+ * the literal still inlined in `ci.yml`'s "Detect build requirement" step.
+ */
+export const PACKAGE_DIST_CHECKS = ['build', 'test', 'typecheck'];
+
+/** Whether a verification plan contains a scope whose checks need the monorepo build output. */
+export function planRequiresPackageDist(plan) {
+  const dependent = new Set(PACKAGE_DIST_CHECKS);
+  return (plan?.scopes ?? []).some((scope) =>
+    (scope?.checks ?? []).some((check) => dependent.has(check)),
+  );
+}
+
 function parseValue(argv, index, optionName) {
   const value = argv[index + 1];
   if (!value) {

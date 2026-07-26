@@ -3,6 +3,29 @@
 /**
  * verify-like-ci — ONE local entry that reproduces the gate a PR must clear before it is pushed.
  *
+ * WHAT IT MIRRORS: the required status checks of `protect-develop`, the ruleset a feature branch's
+ * PR must satisfy. The exact stage-to-job-to-STEP map, and the two contexts that cannot be run off
+ * a CI runner, live in `ci-mirror-map.mjs` and are pinned to `.github/workflows/ci.yml` and
+ * `.github/required-status-checks.json` by `__tests__/ci-mirror-map.test.mjs`. A promotion to `main`
+ * is a DIFFERENT gate: `protect-main`'s substantive required context is `release-grade
+ * verification`, whose entry point is `pnpm harness:verify:release`.
+ *
+ * WHY THE BUILD AND TEST STAGES EXIST (INFRA-056). This entry was named across the rules and skills
+ * as *the* CI-equivalent verification gate while running neither `pnpm build` nor any package's test
+ * suite, and `harness-self-test`'s name invited reading the harness's own scan tests as package-test
+ * coverage. It was found when a reviewer caught a HARNESS-049 increment replacing a skill's four
+ * hardcoded verification commands — which INCLUDED the package test suite — with a pointer to this
+ * entry point: a change that read as a strengthening and would have silently stopped running tests.
+ * A gate that converts "I ran the CI-equivalent check" from a strong claim into a weak one without
+ * anyone noticing is worse than no gate, and it is the fail-open shape INFRA-048/050 closed
+ * elsewhere.
+ *
+ * COST. Every stage is gated on the SAME condition CI gates its job on, so a markdown-only branch
+ * still finishes in ~20s. Any other branch — including a `scripts/harness` or `package.json` one,
+ * which `classify-changed-paths` correctly calls CODE — runs the build and the e2e suites and costs
+ * roughly 3.5-5 minutes serially. That is the price of the name being true, and it is a fraction of
+ * a red-CI round trip.
+ *
  * WHY (HARNESS-045). An agent's foreground verification is typically
  * `node scripts/harness/run-all-scans.mjs`, reported as "green locally". That is NOT the same claim
  * as "green in CI": the scan suite alone omits three things CI (or the pre-commit formatter) asserts,
@@ -58,6 +81,17 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { createVerificationPlan, planRequiresPackageDist } from './check-plan.mjs';
+import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci-mirror-map.mjs';
+import { classifyFiles } from './classify-changed-paths.mjs';
+import {
+  collectPackageManifestChanges,
+  detectChangedFiles,
+  listWorkspaceScopes,
+} from './shared.mjs';
+
+export { CI_STAGES, NOT_MIRRORED };
 
 export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const LINT_STAGED_CONFIG = '.lintstagedrc.json';
@@ -200,60 +234,52 @@ export function listNodeModulesOwners(root = WORKSPACE_ROOT, maxDepth = 5) {
 // ---------------------------------------------------------------------------
 
 /**
- * The CI-mirroring stage table. `ciSource` names the real definition each stage reproduces, so a
- * drift in ci.yml is traceable to the stage that must follow it.
+ * Render the PASS/FAIL summary and the aggregate exit code from the stage results.
+ *
+ * `partial` is the honest half. `--only` used to still print "PASS — all N CI-mirroring stage(s)
+ * passed", so `--only format-check` produced a CI-equivalence claim from one prettier run. With
+ * stages that now cost minutes, that wording is the cheapest way to hollow the gate out, so a
+ * partial run says so and names what it did not run.
  */
-export const CI_STAGES = [
-  {
-    name: 'harness-self-test',
-    ciSource: 'ci.yml → scans → "Harness scan test suite" (pnpm harness:test)',
-    why: 'asserts baseline TIGHTNESS (spec-surface notices == []), which run-all-scans reports as a pass',
-  },
-  {
-    name: 'format-check',
-    ciSource: '.lintstagedrc.json (prettier via .husky/pre-commit)',
-    why: 'a --no-verify push from a fresh worktree never runs the SSOT formatter',
-  },
-  {
-    name: 'scan-suite',
-    ciSource:
-      'ci.yml → scans "Harness scan suite" + quality "Build-output contracts scan" (built dist)',
-    why: 'the dist-dependent scans silently no-op on an unbuilt tree',
-  },
-  {
-    name: 'scan-suite-dist-free',
-    ciSource: 'ci.yml → scans → "Harness scan suite (dist-independent)" (fresh checkout, no dist/)',
-    why: 'a hardcoded packages/<pkg>/dist/... literal resolves on a built tree and is a GHOST path in CI',
-  },
-  {
-    name: 'typecheck',
-    ciSource: 'ci.yml → quality → harness:verify (typecheck step)',
-    why: 'CI typechecks every affected scope; the scan suite never typechecks',
-  },
-];
-
-/** Render the PASS/FAIL summary and the aggregate exit code from the stage results. */
-export function summarize(results) {
+export function summarize(results, { skippedStages = [], notMirrored = [] } = {}) {
   const lines = ['', 'verify-like-ci summary:'];
   for (const result of results) {
     const mark = result.status === 'pass' ? '✓' : result.status === 'skip' ? '-' : '✗';
     lines.push(`${mark} ${result.name}${result.note ? ` — ${result.note}` : ''}`);
   }
+  for (const entry of notMirrored) {
+    const mark = entry.relevant ? '!' : '·';
+    lines.push(`${mark} ${entry.context} — NOT mirrored locally: ${entry.reason}`);
+    if (entry.relevant)
+      lines.push(
+        `    this diff makes it relevant (${entry.relevantWhen}). Run it yourself: ${entry.manualCommand}`,
+      );
+  }
   const failed = results.filter((result) => result.status === 'fail');
-  if (failed.length === 0) {
-    lines.push(`PASS — all ${results.length} CI-mirroring stage(s) passed.`);
+  if (failed.length > 0) {
+    lines.push(
+      `FAIL — ${failed.length} of ${results.length} stage(s) failed: ${failed
+        .map((result) => result.name)
+        .join(', ')}`,
+    );
+    for (const result of failed) {
+      const stage = CI_STAGES.find((entry) => entry.name === result.name);
+      if (stage) lines.push(`  ${result.name} covers ${describeCiSource(stage)}`);
+    }
+    return { lines, exitCode: 1 };
+  }
+  if (skippedStages.length > 0) {
+    lines.push(
+      `PARTIAL — ${results.length} selected stage(s) passed. This is NOT a CI-equivalent result: ` +
+        `${skippedStages.length} stage(s) were not run (${skippedStages.join(', ')}). ` +
+        `Run \`pnpm harness:verify-like-ci\` with no --only before claiming the gate is green.`,
+    );
     return { lines, exitCode: 0 };
   }
   lines.push(
-    `FAIL — ${failed.length} of ${results.length} stage(s) failed: ${failed
-      .map((result) => result.name)
-      .join(', ')}`,
+    `PASS — all ${results.length} stage(s) passed; mirrors the required checks of \`${MIRRORED_BRANCH}\`.`,
   );
-  for (const result of failed) {
-    const stage = CI_STAGES.find((entry) => entry.name === result.name);
-    if (stage) lines.push(`  ${result.name} mirrors ${stage.ciSource}`);
-  }
-  return { lines, exitCode: 1 };
+  return { lines, exitCode: 0 };
 }
 
 /** Parse the CLI arguments this entry accepts. */
@@ -434,13 +460,184 @@ async function runDistFreeScanSuite() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// the new CI-parity stages (INFRA-056)
+// ---------------------------------------------------------------------------
+
+/**
+ * The commits this branch itself authored, first-parent, exactly as ci.yml's commitlint job
+ * computes them. `--first-parent` drops history the branch merged IN, which belongs to the PRs that
+ * introduced it; ci.yml documents this shell loop as its own local equivalent.
+ */
+export function firstParentCommits(baseRef) {
+  // Not the tolerant `git()` helper: an unresolvable base must be a loud failure, never an empty
+  // list that reads as "this branch authored no commits" and lints nothing.
+  return parseGitFileList(gitOrThrow(['rev-list', '--first-parent', `${baseRef}..HEAD`]));
+}
+
+async function runCommitlint({ baseRef }) {
+  const commits = firstParentCommits(baseRef);
+  if (commits.length === 0) return { code: 0, note: `no commits authored vs ${baseRef}` };
+  for (const sha of commits) {
+    const message = spawnSync('git', ['log', '-1', '--format=%B', sha], {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    });
+    const lint = spawnSync('pnpm', ['exec', 'commitlint', '--verbose'], {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+      input: message.stdout ?? '',
+    });
+    if (lint.status !== 0) {
+      process.stderr.write(
+        `\n[commitlint] ${sha.slice(0, 9)} ${(message.stdout ?? '').split('\n')[0]}\n` +
+          `${lint.stdout ?? ''}${lint.stderr ?? ''}\n`,
+      );
+      return { code: 1, note: `${sha.slice(0, 9)} fails the conventional-commit rules` };
+    }
+  }
+  return { code: 0, note: `${commits.length} commit(s) vs ${baseRef}` };
+}
+
+async function runBuild(_options, context) {
+  const code = await run('pnpm', ['build']);
+  return { code, note: context.buildReason };
+}
+
+/** The affected scopes, named in the stage note so "it ran nothing" is never invisible. */
+export function describeAffectedScopes(context) {
+  const scopes = (context?.plan?.scopes ?? []).map((scope) => scope.scope);
+  return scopes.length === 0
+    ? 'no package/app scope affected — CI verifies none either'
+    : `${scopes.length} affected scope(s): ${scopes.slice(0, 4).join(', ')}${scopes.length > 4 ? ' …' : ''}`;
+}
+
+async function runAffectedVerify({ baseRef }, context) {
+  const code = await run('pnpm', [
+    'harness:verify',
+    '--',
+    '--base-ref',
+    baseRef,
+    '--skip-build',
+    '--skip-record-check',
+  ]);
+  return { code, note: describeAffectedScopes(context) };
+}
+
 const STAGE_RUNNERS = {
-  'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test']) }),
   'format-check': runFormatCheck,
-  'scan-suite': runScanSuite,
+  commitlint: runCommitlint,
+  'harness-self-test': async () => ({ code: await run('pnpm', ['harness:test']) }),
   'scan-suite-dist-free': runDistFreeScanSuite,
   typecheck: async () => ({ code: await run('pnpm', ['-w', 'typecheck']) }),
+  build: runBuild,
+  'scan-suite': runScanSuite,
+  'affected-verify': runAffectedVerify,
+  'binary-e2e': async () => ({
+    code: await run('pnpm', ['--filter', '@robota-sdk/agent-cli', 'test:bin']),
+  }),
+  'examples-typecheck': async () => ({ code: await run('pnpm', ['examples:typecheck']) }),
+  'tui-e2e': async () => ({
+    code: await run('pnpm', ['--filter', '@robota-sdk/agent-transport-tui', 'test:pty']),
+  }),
 };
+
+// ---------------------------------------------------------------------------
+// run context + stage gates
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything the stage gates are decided from, computed ONCE from the same inputs CI uses: the
+ * verification plan (`createVerificationPlan`, the function `harness:plan` calls), the code/docs
+ * classifier (`classifyFiles`, the function ci.yml's `changes` job calls) and the on-disk dist.
+ *
+ * Nothing here re-derives a CI condition with a local copy of the rule. `classify-changed-paths`
+ * states why: a second, weaker copy of "no build needed" IS the bypass.
+ */
+export async function resolveRunContext(baseRef) {
+  const changedFiles = detectChangedFiles(baseRef);
+  const scopes = await listWorkspaceScopes();
+  const manifestChangesByScope = await collectPackageManifestChanges({
+    scopes,
+    changedFiles,
+    baseRef,
+  });
+  const plan = createVerificationPlan({
+    scopes,
+    changedFiles,
+    scopeTokens: [],
+    manifestChangesByScope,
+    includeDependentScopes: true,
+  });
+  const missingDist = findMissingDist(listBuildablePackageDirs());
+  const distRequired = planRequiresPackageDist(plan);
+  const codeChanged = classifyFiles(changedFiles).code;
+  return {
+    changedFiles,
+    plan,
+    distRequired,
+    codeChanged,
+    missingDist,
+    buildReason: describeBuildReason({ distRequired, codeChanged, missingDist }),
+  };
+}
+
+function describeBuildReason({ distRequired, codeChanged, missingDist }) {
+  if (distRequired) return 'the plan needs build output (ci.yml → build builds too)';
+  if (missingDist.length > 0)
+    return `${missingDist.length} package(s) have no dist/ — the dist-dependent scans would silently no-op`;
+  if (codeChanged)
+    return 'code changed — ci.yml builds inside tui-e2e / examples-typecheck regardless of the plan';
+  return 'skipped';
+}
+
+/**
+ * Whether a stage runs, and why not when it does not.
+ *
+ * A stage skips only where CI's own job would be skipped or would do nothing, so a skip never
+ * weakens the PASS line. The `build` gate is deliberately WIDER than ci.yml's `build` job condition:
+ * `tui-e2e` and `examples-typecheck` each run `pnpm build:deps` inside their own job and never
+ * consume the `build` artifact, and `scan-suite` hard-fails on absent dist — three dist consumers
+ * the plan predicate alone does not see. Without the widening, a `scripts/harness` branch would skip
+ * the build and then drive whatever stale binary happened to be in the worktree.
+ */
+export function stageGate(name, context) {
+  switch (name) {
+    case 'build':
+      return context.distRequired || context.codeChanged || context.missingDist.length > 0
+        ? { run: true }
+        : {
+            run: false,
+            note: 'no scope needs build output and dist is present — ci.yml → build skips too',
+          };
+    case 'binary-e2e':
+      return context.distRequired
+        ? { run: true }
+        : {
+            run: false,
+            note: 'ci.yml gates it on `package_dist_required`, which this plan is not',
+          };
+    case 'examples-typecheck':
+    case 'tui-e2e':
+      return context.codeChanged
+        ? { run: true }
+        : { run: false, note: 'docs-only diff — ci.yml gates it on `changes.code == true`' };
+    default:
+      return { run: true };
+  }
+}
+
+/** The un-mirrorable contexts, marked relevant when this diff makes them matter. */
+export function annotateNotMirrored(changedFiles) {
+  const touchesManifest = changedFiles.some(
+    (file) =>
+      file === 'pnpm-lock.yaml' || file === 'package.json' || file.endsWith('/package.json'),
+  );
+  return NOT_MIRRORED.map((entry) => ({
+    ...entry,
+    relevant: entry.context === 'security audit' ? touchesManifest : false,
+  }));
+}
 
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
@@ -452,17 +649,48 @@ export async function main(argv = process.argv.slice(2)) {
   const selected = CI_STAGES.filter(
     (stage) => options.only.size === 0 || options.only.has(stage.name),
   );
+  const skippedStages = CI_STAGES.filter((stage) => !selected.includes(stage)).map(
+    (stage) => stage.name,
+  );
+
+  let context;
+  try {
+    context = await resolveRunContext(options.baseRef);
+  } catch (error) {
+    process.stderr.write(
+      `\nverify-like-ci could not resolve what this branch changes: ${error?.message ?? error}\n` +
+        `Every stage gate is derived from that, so running a subset would report a pass over ground\n` +
+        `it never measured. Fix the base ref (\`--base-ref <ref>\`, or fetch the base branch) and re-run.\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  process.stdout.write(
+    `\nmirroring the required checks of \`${MIRRORED_BRANCH}\` — ${context.changedFiles.length} changed file(s) vs ${options.baseRef}, ` +
+      `${context.codeChanged ? 'CODE' : 'docs-only'}, ${context.distRequired ? 'build output required' : 'no build output required'}\n`,
+  );
+
   const results = [];
   for (const stage of selected) {
-    process.stdout.write(`\n===== ${stage.name} =====\nmirrors: ${stage.ciSource}\n`);
-    const outcome = await STAGE_RUNNERS[stage.name](options);
+    const gate = stageGate(stage.name, context);
+    if (!gate.run) {
+      process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);
+      results.push({ name: stage.name, status: 'skip', note: gate.note });
+      continue;
+    }
+    process.stdout.write(`\n===== ${stage.name} =====\nmirrors: ${describeCiSource(stage)}\n`);
+    const outcome = await STAGE_RUNNERS[stage.name](options, context);
     results.push({
       name: stage.name,
       status: outcome.code === 0 ? 'pass' : 'fail',
       note: outcome.note,
     });
   }
-  const { lines, exitCode } = summarize(results);
+  const { lines, exitCode } = summarize(results, {
+    skippedStages,
+    notMirrored: annotateNotMirrored(context.changedFiles),
+  });
   process.stdout.write(`${lines.join('\n')}\n`);
   process.exitCode = exitCode;
 }

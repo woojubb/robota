@@ -47,9 +47,30 @@ git status --short
 belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
 with uncommitted modifications or staged changes is blocked with exit code 1.
 
-**Before pushing or merging, run `pnpm harness:verify-like-ci` on a built tree** — the single entry that
-reproduces what CI's `scans`/`quality` jobs assert (`scripts/harness/verify-like-ci.mjs`); a bare
-`run-all-scans` is not that gate (HARNESS-045).
+**Before pushing or merging, run `pnpm harness:verify-like-ci`** — the single entry that reproduces
+the required status checks of `protect-develop`, the ruleset a feature branch's PR must satisfy
+(`scripts/harness/verify-like-ci.mjs`). A bare `run-all-scans` is not that gate (HARNESS-045), and
+neither is any narrower command.
+
+- It runs the monorepo **build** and the affected packages' **test** suites, gated on exactly the
+  conditions CI gates its own jobs on. Until INFRA-056 it ran neither, while being named here as the
+  CI mirror — so "I ran the CI-equivalent check" was a much weaker claim than it read as. Do not
+  re-add a separate "plus build and tests" instruction anywhere: the entry point owns that, and a
+  second list is how the two drift.
+- It does NOT run two required contexts and says so in its own summary: `security audit` (needs
+  network and an external binary) and `windows-shell` (needs a Windows runner). Nothing local covers
+  those.
+- The stage list cannot drift from CI: `scripts/harness/ci-mirror-map.mjs` pins every required
+  context, step for step, to `.github/workflows/ci.yml` and `.github/required-status-checks.json`,
+  and `pnpm harness:test` fails when they diverge.
+- **`--only` is not the gate.** A partial run prints `PARTIAL — this is NOT a CI-equivalent result`.
+  Never report a partial run as green.
+- Cost: a markdown-only branch is ~20s; any other branch runs the build and the e2e suites and takes
+  roughly 3.5-5 minutes. Run it in the foreground and wait.
+
+**A PR into `main` is a different gate.** `protect-main` requires `promotion ancestry`, `main PR
+source guard` and `release-grade verification`; the entry point that reproduces the last of those is
+`pnpm harness:verify:release`.
 
 **Why:** selective commits leave invisible half-states — code pushed while dependent files (SPEC.md, README, tests, backlog) are not.
 

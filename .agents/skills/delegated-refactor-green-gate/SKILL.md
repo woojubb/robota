@@ -48,8 +48,9 @@ not dispatch around it.
 ### 2. Dispatch `mechanical-refactor-worker`
 
 Hand it the specification and state that it shares this working tree, so it hands the tree back
-unstaged. It drives the change until **both** the project's CI-equivalent verification entry point and
-the project's build + test suite for the affected scope are green, or it stops with a named blocker.
+unstaged. It drives the change until the project's CI-equivalent verification entry point is green —
+that entry point runs the build and the affected scope's tests as stages of its own — or it stops
+with a named blocker.
 
 **Route:** `green` → step 3. `blocked` → read the blocker: a defect in the specification returns to
 step 1 (bounded to 2 re-specifications); an environment or toolchain failure is diagnosed and the step
@@ -61,9 +62,9 @@ Both are conditions you evaluate from observable state, not verdicts: you read e
 lists. Forming a judgement about the diff is step 4's job, and not yours.
 
 **3a. Re-verify the green claim.** The worker's `green` is a hypothesis. Reproduce it in this session:
-run the CI-equivalent verification entry point in the foreground, **plus** the build + test suite for
-the affected scope, plus a frozen-lockfile install when the lockfile was touched. An entry point that
-covers scans and type-checking can be green on a tree whose tests fail; running only it is not the gate.
+run the CI-equivalent verification entry point in the FULL, in the foreground — not a subset of its
+stages — plus a frozen-lockfile install when the lockfile was touched. Read its summary: it names the
+required contexts it could not run locally, and those remain yours to reason about.
 
 **3b. Check the changed file set against step 1's list.** Compare the paths the diff touches with the
 paths the specification allowed. A file outside the list is out-of-scope work, decidable without reading

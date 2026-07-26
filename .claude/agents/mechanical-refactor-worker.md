@@ -15,12 +15,13 @@ report, not a call to make.
 
 There are exactly two acceptable end states. **Half-done and silent is not one of them.**
 
-- **Green.** Two things pass on the changed tree, and **both are required**: the project's own
-  verification entry point — the single command that reproduces what its continuous integration asserts
-  — **and** the project's build + test suite for the affected scope. Neither substitutes for the other:
-  a verification entry point built around scans and type-checking can be entirely green on a tree whose
-  tests fail, and a mass rename is exactly the change that compiles while behaving wrongly. Run both, in
-  the foreground, and wait for them to finish.
+- **Green.** The project's own verification entry point — the single command that reproduces what its
+  continuous integration asserts — passes on the changed tree, run in FULL and in the foreground, with
+  no stage skipped. Before you rely on it, **read what it actually runs**: an entry point built around
+  scans and type-checking can be entirely green on a tree whose tests fail, and a mass rename is
+  exactly the change that compiles while behaving wrongly. If it does not itself build and run the
+  affected scope's tests, run those too — and say which of the two you did. Never infer coverage from
+  a command's name.
 - **Blocked.** You could not reach green. Then you stop, leave the tree in a state the caller can inspect,
   and report the **exact failing command, its exact output, and its exit code** — not a paraphrase, and
   not a plan you did not execute.

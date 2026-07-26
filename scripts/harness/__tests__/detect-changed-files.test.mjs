@@ -117,17 +117,74 @@ describe('detectChangedFiles fail-closed (INFRA-048-C)', () => {
     expect(result.stdout).toContain('Changed files: 0');
   });
 
-  it('NO REGRESSION: a dirty working tree needs no base ref at all', async () => {
-    const root = await createWorkspaceFixture();
+  it('NO REGRESSION: a dirty working tree is still detected', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop', sourceChange: false });
     writeFileSync(path.join(root, 'packages/widget/src/index.ts'), 'export const widget = 3;\n');
     const result = run(PLAN_SCRIPT, root);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Changed files: 1');
   });
 
+  it('FAIL-CLOSED: a dirty working tree does not excuse an unresolvable base ref', async () => {
+    // Formerly the dirty tree short-circuited BEFORE base resolution, so this exited 0 reporting
+    // only the uncommitted file — under-counting a branch whose commits it never looked at.
+    const root = await createWorkspaceFixture();
+    writeFileSync(path.join(root, 'packages/widget/src/index.ts'), 'export const widget = 3;\n');
+    const result = run(PLAN_SCRIPT, root);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Unable to resolve a base ref');
+  });
+
   it('NO REGRESSION: an explicit --base-ref works without any branch-name convention', async () => {
     const root = await createWorkspaceFixture();
     const result = run(PLAN_SCRIPT, root, ['--base-ref', 'base']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Changed files: 1');
+  });
+});
+
+/**
+ * INFRA-056 — the change set is the UNION of the working tree and the base diff, never one or the
+ * other.
+ *
+ * The defect: `detectChangedFiles` RETURNED EARLY on the working-tree entries whenever the tree was
+ * dirty, and never consulted the base-ref diff at all. CI never takes that path — it checks out
+ * clean, so its plan always comes from `origin/<base>...HEAD`. Locally the two diverge, and they
+ * diverge silently in the UNDER-counting direction: one dirty scratch file is enough to make a
+ * branch full of package-source commits plan zero package scopes, print "No package or app scope
+ * detected" and exit 0 having verified nothing. That is what `verify-like-ci`'s `affected-verify`
+ * stage would inherit, so it is fixed here rather than worked around there.
+ */
+describe('detectChangedFiles unions the working tree with the base diff (INFRA-056)', () => {
+  /** A dirty file OUTSIDE any package — the shape of a stray lesson/scratch file. */
+  function dirtyUnrelatedFile(root) {
+    mkdirSync(path.join(root, 'notes'), { recursive: true });
+    writeFileSync(path.join(root, 'notes/scratch.txt'), 'untracked scratch\n', 'utf8');
+  }
+
+  it('a dirty unrelated file does not hide the committed package scope', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop' });
+    dirtyUnrelatedFile(root);
+    const result = run(PLAN_SCRIPT, root);
+    expect(result.status).toBe(0);
+    // Pre-fix this printed "Changed files: 1" (the scratch file only) and planned no scopes.
+    expect(result.stdout).toContain('packages/widget');
+    expect(result.stdout).toContain('notes/scratch.txt');
+  });
+
+  it('harness:verify still selects the committed scope on a dirty tree', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop' });
+    dirtyUnrelatedFile(root);
+    const result = run(VERIFY_SCRIPT, root, ['--skip-record-check']);
+    // Pre-fix: "No package or app scope detected" — a green run that verified nothing.
+    expect(result.stdout).not.toContain('No package or app scope detected');
+    expect(result.stdout).toContain('packages/widget');
+  });
+
+  it('a file changed in BOTH the working tree and the branch appears once', async () => {
+    const root = await createWorkspaceFixture({ baseBranch: 'develop' });
+    writeFileSync(path.join(root, 'packages/widget/src/index.ts'), 'export const widget = 4;\n');
+    const result = run(PLAN_SCRIPT, root);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Changed files: 1');
   });

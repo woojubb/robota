@@ -62,9 +62,11 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 /** The declaration this scan enforces. */
 export const DECLARATION_FILE = path.join('.github', 'required-status-checks.json');
 
-/** The protected branch this scan governs. `develop`'s required list deliberately contains jobs that
- *  skip on a docs-only PR (tui-e2e / examples-typecheck / windows-shell, gated on `changes`), so the
- *  same assertions do not apply there and `protect-develop` is out of scope. */
+/** The protected branch whose contexts this scan asserts can FAIL. `develop`'s required list
+ *  deliberately contains jobs that skip on a docs-only PR (tui-e2e / examples-typecheck /
+ *  windows-shell, gated on `changes`), so the R1-R7 assertions below do not apply there.
+ *  `protect-develop` is nonetheless DECLARED in the same file (INFRA-056) — as the list
+ *  `verify-like-ci` claims equivalence with — and `--live` reconciles both (`RECONCILED_BRANCHES`). */
 export const GOVERNED_BRANCH = 'main';
 
 /** A condition that makes a job or step conditional on the PR's base branch — the vacuous shape. */
@@ -182,8 +184,8 @@ export function pullRequestTrigger(workflowText) {
   return { branches, types, hasPathFilter: /^ {4}paths(-ignore)?:/m.test(body) };
 }
 
-/** Read and validate the declaration. Throws on anything that would make the scan vacuous. */
-export function readDeclaration(root = WORKSPACE_ROOT) {
+/** Read and validate the declaration for a branch. Throws on anything that would make it vacuous. */
+export function readDeclaration(root = WORKSPACE_ROOT, branchName = GOVERNED_BRANCH) {
   const file = path.join(root, DECLARATION_FILE);
   if (!existsSync(file)) {
     throw new Error(
@@ -191,11 +193,11 @@ export function readDeclaration(root = WORKSPACE_ROOT) {
     );
   }
   const declaration = JSON.parse(readFileSync(file, 'utf8'));
-  const branch = declaration?.branches?.[GOVERNED_BRANCH];
+  const branch = declaration?.branches?.[branchName];
   const contexts = branch?.required_status_checks;
   if (!Array.isArray(contexts) || contexts.length === 0) {
     throw new Error(
-      `${DECLARATION_FILE} declares no required status checks for \`${GOVERNED_BRANCH}\`. An empty list satisfies every assertion below vacuously — which is the exact defect (#1427) this scan exists to prevent.`,
+      `${DECLARATION_FILE} declares no required status checks for \`${branchName}\`. An empty list satisfies every assertion below vacuously — which is the exact defect (#1427) this scan exists to prevent.`,
     );
   }
   return contexts;
@@ -345,11 +347,26 @@ export function originSlug(root = WORKSPACE_ROOT) {
 }
 
 /**
- * Reconcile the declaration against the LIVE ruleset. Opt-in (`--live`) and never part of the
+ * Every branch whose declaration is reconciled against its live ruleset.
+ *
+ * `main` because its contexts must be able to fail (INFRA-055). `develop` because its list is what
+ * `verify-like-ci` claims equivalence with (INFRA-056): `ci-mirror-map.mjs` pins the stage list to
+ * the DECLARATION offline, so a declaration that has silently fallen behind the live ruleset would
+ * let the mirror certify coverage of a check nobody requires any more — or, worse, stay silent about
+ * one that was newly added.
+ */
+export const RECONCILED_BRANCHES = [GOVERNED_BRANCH, 'develop'];
+
+/**
+ * Reconcile each declared branch against its LIVE ruleset. Opt-in (`--live`) and never part of the
  * hermetic default: the scheduled reconciler owns this half, so a GitHub outage costs a red cron
  * rather than a blocked promotion.
  */
 export function reconcileLive(root = WORKSPACE_ROOT) {
+  return RECONCILED_BRANCHES.flatMap((branch) => reconcileLiveBranch(root, branch));
+}
+
+function reconcileLiveBranch(root, branchName) {
   const slug = originSlug(root);
   if (!slug) return [{ context: '(live)', detail: 'could not resolve the `origin` remote slug.' }];
   // SEC-007: `/rules/branches/{branch}` is a PAGINATED collection, and it was read one page at a
@@ -359,7 +376,7 @@ export function reconcileLive(root = WORKSPACE_ROOT) {
   // refuses to return a list it cannot prove is complete.
   let rules;
   try {
-    rules = fetchAllPages(`repos/${slug}/rules/branches/${GOVERNED_BRANCH}`).records;
+    rules = fetchAllPages(`repos/${slug}/rules/branches/${branchName}`).records;
   } catch (error) {
     // A failed or unparseable read is a real shape (an auth prompt, an HTML error page, a proxy
     // interstitial, a truncated walk). Report it as a finding with the message rather than throwing
@@ -372,13 +389,13 @@ export function reconcileLive(root = WORKSPACE_ROOT) {
       .flatMap((rule) => rule.parameters?.required_status_checks ?? [])
       .map((check) => check.context),
   );
-  const declared = new Set(readDeclaration(root).map((entry) => entry.context));
+  const declared = new Set(readDeclaration(root, branchName).map((entry) => entry.context));
   const findings = [];
   for (const context of live) {
     if (!declared.has(context)) {
       findings.push({
         context,
-        detail: `the LIVE \`${GOVERNED_BRANCH}\` ruleset requires it, but ${DECLARATION_FILE} does not declare it — so this scan has never checked that it can fail.`,
+        detail: `the LIVE \`${branchName}\` ruleset requires it, but ${DECLARATION_FILE} does not declare it under \`branches.${branchName}\` — so nothing has checked that it is covered.`,
       });
     }
   }
@@ -386,7 +403,7 @@ export function reconcileLive(root = WORKSPACE_ROOT) {
     if (!live.has(context)) {
       findings.push({
         context,
-        detail: `${DECLARATION_FILE} declares it required, but the LIVE \`${GOVERNED_BRANCH}\` ruleset does not require it — it is enforcing nothing.`,
+        detail: `${DECLARATION_FILE} declares it required on \`${branchName}\`, but the LIVE ruleset does not require it — it is enforcing nothing.`,
       });
     }
   }
