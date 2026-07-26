@@ -208,6 +208,20 @@ Independently surfaced: `scan-review-workflow-parity` exempts only base-`main` P
 `promotion ancestry` forbids a base-`main` PR from carrying new work, so the file cannot currently
 be modified while keeping CI green. Owner-owned.
 
+A fresh datapoint for INFRA-053, from this item's own PR (#1474, run 30195049439) — `Claude review`
+failed, and the run's own summary gives the cause without inference:
+
+```
+"subtype": "error_max_turns",  "num_turns": 26,  "permission_denials_count": 8
+##[error]Execution failed: Reached maximum number of turns (25)
+```
+
+8 of 26 turns spent on permission denials against a 25-turn cap. That is INFRA-053's diagnosis
+(no `allowed_tools` declared, while the prompt directs the reviewer to read `AGENTS.md` and
+`.agents/rules/*`) reproducing exactly, so raising the cap alone would not fix it. `Claude review`
+is NOT a required context on `protect-develop`, so it does not block — which is also why it can
+stay broken without anyone being forced to notice.
+
 ## Guards added
 
 Both proven RED against the LIVE defect (fix reverted in place, scan re-run) and GREEN after, and
