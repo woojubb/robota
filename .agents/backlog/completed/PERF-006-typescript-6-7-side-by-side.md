@@ -9,10 +9,16 @@ created: 2026-07-26
 completed: 2026-07-26
 ---
 
-> **DONE (2026-07-26).** All four acceptance boxes are ticked; see
+> **DONE (2026-07-26).** All five acceptance boxes are ticked; see
 > [Outcome](#outcome-done-2026-07-26) at the end of this file for the measurement, the before/after
 > lint diff, the transitive-consumer audit, the timing, the guard's red/green proof, and the four
 > things the work found that this item's premise had wrong.
+>
+> **The goal is fully met as of the follow-up later that day: TypeScript 5 is gone from the
+> repository, `node_modules` included.** The first pass left one 5.x copy on disk and argued it was
+> acceptable; that reasoning was wrong on three counts and is corrected in
+> [§8](#8-the-last-5x-copy-removed-2026-07-26). The fix was an `electron-builder` 25 → 26 upgrade,
+> not the `pnpm.overrides` entry this file originally called the only lever.
 
 # PERF-006: TypeScript 6 + 7 side by side, no 5.x
 
@@ -102,6 +108,9 @@ repository is single-compiler. **Re-check both issues above rather than waiting 
 - [x] Lint findings identical before and after, over the whole workspace, with the diff shown.
 - [x] `pnpm typecheck` unchanged in result and not materially slower.
 - [x] The guard fails on a reintroduced 5.x declaration (proven red).
+- [x] **No `typescript` below 6 RESOLVES anywhere in the installed store, enforced mechanically**
+      (added by the [§8](#8-the-last-5x-copy-removed-2026-07-26) follow-up — the declaration-only
+      boxes above were all green while a 5.x copy sat in `node_modules`).
 
 ## References
 
@@ -224,6 +233,12 @@ held exactly one copy; after, the lockfile carries **both** `/typescript@5.9.3` 
 devDependency that ships in nothing, but the 5.x line has not left the tree entirely — and the guard
 cannot see it, because the guard checks _our_ manifests and this declaration is upstream's.
 
+> **SUPERSEDED — the two paragraphs below were wrong, and the goal is now actually met.** They are
+> kept verbatim rather than deleted, because the reasoning error is the useful part. See
+> [§8 The last 5.x copy, removed](#8-the-last-5x-copy-removed-2026-07-26) for what was measured and
+> what shipped. In short: the fix was not an override, it was an honest dependency upgrade, and
+> "expected, not a broken guard" was the wrong call — it was a broken guard.
+
 **Say this plainly, because the next person will trip on it.** The goal as stated is "TypeScript 5
 is gone", and it is gone from everything this repository declares or resolves. It is **not** gone
 from `node_modules`. Anyone running
@@ -332,10 +347,191 @@ lower bound. A range it cannot parse is **reported**, not passed: for a ratchet,
    the parser — a materially larger API surface for a major to break, and the reason the
    floating-promise control in §2 was worth running.
 
+### 8. The last 5.x copy, removed (2026-07-26)
+
+**The goal is met. `typescript@5` is gone from the repository, including from `node_modules`.**
+
+```
+$ find node_modules -name typescript -maxdepth 6 -type d
+node_modules/.pnpm/typescript@6.0.3/node_modules/typescript
+
+$ ls node_modules/.pnpm | grep '^typescript@'
+typescript@6.0.3
+```
+
+#### What §3 got wrong
+
+Three claims in the superseded block above, each corrected by measurement:
+
+1. **"An override is the only lever."** It was not. The chain was
+   `apps/agent-app` → `electron-builder@25.1.8` → `app-builder-lib@25.1.8` → `config-file-ts@0.2.8-rc1`,
+   and **`app-builder-lib@26` dropped `config-file-ts` entirely**, replacing it with `jiti`
+   (changeset 26.0.18: _"feat: use jiti instead of config-file-ts for loading TypeScript config"_).
+   Upgrading `electron-builder` 25 → 26 deletes the chain at its source. Upgrading `config-file-ts`
+   itself really does lead nowhere — its own latest `0.2.8-rc1` still pins `^5.4.3` — which is
+   probably why the search stopped there, but the dependency one level up was the removable one.
+2. **"Expected, not a broken guard."** It was a broken guard. Every edge the guard had inspected a
+   DECLARATION; none could see what was INSTALLED. A guard that reports success while the stated
+   goal is visibly unmet is not working as designed, whatever its scope statement says. Fixed by
+   adding the `legacy-typescript-installed` edge — see below.
+3. **"It disappears on its own."** Nothing was going to make it disappear on its own: the
+   dependency was ours to bump. `electron-builder` 26.0.0 had by then been out for 18 months.
+
+#### The upgrade, treated as the major it is
+
+`electron-builder` **25.1.8 → 26.15.7**, pinned EXACTLY rather than with a caret.
+
+**Breaking-change audit.** Researched against primary sources only (v26.0.0 release notes, the
+changesets at tag `electron-builder@26.15.7`, and 26-era docs read at the tag). There is **no
+official 25→26 migration guide**, and the release notes under-report key-level removals — so the
+audit was done against the published config JSON Schema
+(`unpkg.com/app-builder-lib@<version>/scheme.json`), diffed 25.1.8 → 26.15.7. That diff is the
+exhaustive ground truth, and the **complete** set of removed config keys is:
+
+```
+includeSubNodeModules
+NotarizeNotaryOptions.teamId          (mac.notarize object form → boolean + env vars)
+win.additionalCertificateFile  win.certificateFile  win.certificatePassword
+win.certificateSha1  win.certificateSubjectName  win.publisherName
+win.rfc3161TimeStampServer  win.sign  win.signDlls  win.signingHashAlgorithms  win.timeStampServer
+```
+
+| 26.0.0 breaking change                   | Applies to `apps/agent-app`?                                               |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| `win` signing moved to `signtoolOptions` | **No** — artifacts are unsigned; no `win` signing block exists             |
+| `mac.notarize` object → boolean + env    | **No** — no `mac.notarize` key                                             |
+| `linux.desktop` string-map → object      | **No** — no `desktop` key                                                  |
+| `includeSubNodeModules` removed          | **No** — never set; behaviour is now unconditional                         |
+| HFS+ DMG conditional removed             | **No** — 26.15.7 still defaults `dmg.filesystem: HFS+`; APFS is a v27 flip |
+| node_modules in other subdirectories     | **Yes** — see the asar diff below                                          |
+
+`artifactName`, `directories.{output,buildResources}`, `files`, `extraResources`, `npmRebuild`,
+`linux.{target,category,maintainer}`, `mac.{category,target}`, `win.target`, `appId`, `productName`
+and `copyright` are **byte-identical in both schemas** — same names, same documented defaults.
+`engines.node` is `>=14.0.0` in both (the Node ≥22.12 requirement is v27).
+
+**The one change that did bite, found by running the build rather than by reading.** 26's AppImage
+target hard-rejects the derived executable name:
+
+```
+⨯ executableName contains characters that cannot be safely used in file paths: @robota-sdkagent-app.
+```
+
+`validateCriticalPathString` (`app-builder-lib/out/targets/appimage/appImageUtil.js`) enforces
+`/^[\p{L}\p{N}._\- ]+$/u` on `executableName` and `productFilename`, because both are interpolated
+into the generated `AppRun` bash script and used as filesystem paths. Left to default, the name
+derives from the scoped package `name` and collapses to `@robota-sdkagent-app` — **which 25 really
+did ship**, as the binary and as `@robota-sdkagent-app.desktop`. So 26 did not invent a rule; it
+turned a latent packaging defect into a visible error. Fixed properly, by setting
+`executableName: robota-desktop`. This validation appears in **no** 26.x changelog entry or doc —
+it was found by packaging, which is the argument for packaging rather than reading.
+
+**Why an exact pin.** Within the 26.15 patch line alone, two artifact-corrupting regressions shipped
+as ordinary patches: 26.15.0–26.15.3 dereferenced symlinks after a bundled 7-Zip upgrade, corrupting
+macOS `.framework` bundles (breaking codesign and Squirrel.Mac auto-update), and 26.15.0–26.15.6
+packed snap templates so the snap built successfully and failed at launch. Both produce a **green
+build and a broken artifact** — the failure mode a caret range cannot protect against and CI would
+not catch. 26.15.7 is past both.
+
+#### The packaging proof, and exactly how far it got
+
+Run on Linux x64 against the real `dist:app` path (`pnpm build && pnpm bundle:runtime &&
+electron-builder`), with a **baseline captured on 25.1.8 first** so every difference is attributable.
+
+| target                    | on 25.1.8 (baseline) | on 26.15.7       | note                                |
+| ------------------------- | -------------------- | ---------------- | ----------------------------------- |
+| `linux-unpacked`          | ✅                   | ✅               | full app tree                       |
+| **AppImage**              | ✅ 168,485,777 B     | ✅ 168,494,483 B | real artifact, both runs            |
+| deb                       | ❌                   | ❌               | **unreachable in this environment** |
+| mac (dmg/zip), win (nsis) | not attempted        | not attempted    | need macOS / Windows hosts          |
+
+**The deb step is unreachable here, and it fails identically on 25.** fpm reports
+`Need executable 'ar' to convert dir to deb`. `ar` comes from `binutils`, which is not installed;
+there is no passwordless sudo to install it, and `busybox ar` is extract/list-only (no create). This
+is an environment gap, **not an upgrade regression** — proven by the 25.1.8 baseline hitting the same
+error at the same step before any change was made. mac and win targets need their own hosts and were
+not attempted; CI's `release-desktop-app.yml` covers all three platforms.
+
+**What the produced artifact was checked against, beyond "a file exists":**
+
+- **`linux-unpacked` tree diff, 25 → 26 — exactly three lines**, all explained:
+  `-./@robota-sdkagent-app` / `+./robota-desktop` (the intended `executableName` fix) and
+  `+./resources/apparmor-profile` (new in 26; needed for Ubuntu 24.04+ userns restrictions).
+- **`app.asar` entry diff — purely additive, +32 entries / +20,289 B.** 26's dependency walker now
+  also resolves `@types/*` production deps (LICENSE + package.json metadata only) and nested pnpm
+  `node_modules` — this is BC-4, "support including node_modules in other subdirectories", visible.
+  **Nothing was dropped**; no first-party or runtime file changed. The workspace closure
+  (`@robota-sdk/agent-core`, `agent-transport-gui`, …) resolves correctly under pnpm's symlinked
+  store, and 26 logs `detected workspace root for project using packageManager field pm=pnpm`.
+- **The packaged app actually runs.** `test:e2e:bundled` passes against the 26-built output — the
+  bundled sidecar completes the nonce handshake, rejects a wrong token before any session data, and
+  shuts down cleanly on SIGTERM. `resources/robota` is byte-identical in size across both builds.
+
+**One pre-existing failure, explicitly not caused by this change.** `pnpm --filter @robota-sdk/agent-app test:e2e`
+(the Electron GUI e2e) times out waiting for `.agent-gui-status[data-status="connected"]`. It fails
+**identically on pristine `origin/develop` with electron-builder 25.1.8**, verified by stashing the
+whole change, reinstalling and re-running. It is not wired into any CI workflow. Untouched here.
+
+#### The guard now sees the installed tree
+
+`scan-legacy-typescript.mjs` gains a sixth finding kind, `legacy-typescript-installed`: a
+`typescript` copy below 6 materialised anywhere under `node_modules`, **whoever declared it**. This
+is the only edge that reads resolution rather than declaration, and it is the one that answers the
+owner's actual question. It walks the module-resolution structure (package dirs, `@scope` dirs,
+pnpm's `.pnpm` store), dedupes by realpath so pnpm's top-level symlinks are not double-counted, and
+confirms each candidate by `manifest.name === 'typescript'` rather than trusting the directory name —
+the same false-positive class (`@typescript-eslint/*`, `@typescript/native-preview`,
+`@scope/typescript`) the import edge already defends against.
+
+**It is deliberately not waivable** — not by the path baseline, not by the root exemption, and there
+is no annotation for it. A resolved 5.x copy is either removable or it is a decision to bring to the
+owner; an escape hatch here would just rebuild the manifest-only blind spot one suppression at a time.
+
+`collectInstalledCopies` returns `undefined` — distinct from `[]` — when there is no `node_modules`,
+and that raises a loud notice instead of passing. "Nothing installed" must never read as "tree is
+clean".
+
+- **RED**, against the tree as it stood before the upgrade: one finding, and the guard located the
+  cause on its own — `[legacy-typescript-installed] node_modules/.pnpm/config-file-ts@0.2.8-rc1/node_modules/typescript`.
+  Exit 1.
+- **GREEN** after the upgrade + a clean `pnpm install --frozen-lockfile`. Exit 0.
+- **Re-proven causally:** reverting _only_ the `electron-builder` version and reinstalling brings
+  `typescript@5.9.3` back and the guard fires again — so the edge tracks the real cause, not a
+  coincidence of that one tree.
+- **The tests bind to the floor:** flipping `MINIMUM_MAJOR` to 5 fails 3 of the new tests. 16 new
+  tests, 48 in the file (was 32); harness suite 1,127 tests / 88 files green.
+
+**A trap worth knowing: `pnpm install` does not evict an orphaned store entry; `pnpm prune` does.**
+After a dependency bump or a branch switch the old copy can sit in `.pnpm` unreferenced by the
+lockfile, and this edge will correctly report it while the lockfile is already clean. CI never sees
+it (fresh checkout, empty `node_modules`), but a local run can — so the failure message says to run
+`pnpm prune` first and only then go hunting for a real `dependencies` entry.
+
+#### Store-wide sweep — zero hard dependencies remain
+
+Re-measured by **parsing** every manifest materialised under `node_modules/.pnpm` (7,135 of them) and
+looking up the literal `typescript` key in each dependency section:
+
+| measurement                                           | before           | after     |
+| ----------------------------------------------------- | ---------------- | --------- |
+| hard `dependencies` on `typescript` anywhere in store | **1**            | **0**     |
+| resolved `typescript` copies on disk                  | 2 (5.9.3, 6.0.3) | 1 (6.0.3) |
+
+The single `before` entry was `config-file-ts@0.2.8-rc1 [dependencies] ^5.4.3`. The 714 remaining
+`devDependencies`/peer entries are irrelevant: a published package's devDependencies are never
+installed for a consumer, and every peer admits 6.
+
+**The counting method is the point, again.** `"typescript"` is a substring of `@typescript-eslint/*`,
+`@typescript/native-preview` and a script name — the same trap that produced §1's phantom 177. Parse
+and look up the literal key; never grep the string.
+
 ### Follow-ups, not closed here
 
-- `config-file-ts` keeps a private `typescript@5.9.3` in the tree (§3). Nothing first-party resolves
-  it; it disappears when `electron-builder` updates the dependency or `apps/agent-app` drops it.
+- ~~`config-file-ts` keeps a private `typescript@5.9.3` in the tree (§3).~~ **Closed** — see §8.
+- `dmg.filesystem` defaults flip HFS+ → APFS in electron-builder v27. Set it explicitly before that
+  upgrade if pre-10.13 macOS support ever matters.
+- The Electron GUI e2e (`apps/agent-app` `test:e2e`) fails on `develop` and is wired into no CI
+  workflow — pre-existing, untouched here, and worth its own item.
 - The guard does not detect **invocations of the legacy `tsc` binary** (§7.3). Moving
   `check-doc-examples` onto `tsgo` would remove the last such consumer; its tsconfig is already
   `baseUrl`-free and therefore TS7-ready.
