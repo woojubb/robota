@@ -1,7 +1,8 @@
 ---
 title: 'SELFHOST-000: self-hosting capability roadmap — the features Robota needs to build Robota'
-status: todo
+status: done
 created: 2026-07-16
+completed: 2026-07-26
 priority: high
 urgency: soon
 area: packages/agent-core, packages/agent-framework, packages/agent-tools, packages/agent-session, packages/agent-plugin, packages/agent-provider-defaults, packages/dag-framework, packages/agent-cli, apps/agent-app
@@ -10,7 +11,38 @@ depends_on: []
 
 # Self-hosting capability roadmap
 
-The program that carries [`VISION.md`](../../VISION.md) — "Robota builds Robota" — into concrete work: the
+## Closing an index (2026-07-26) — and what `done` does and does not assert here
+
+`status: todo` had been false for some time. This file states its own job in its second paragraph:
+_"Individual capabilities are spun out into their own `SELFHOST-NNN` backlog items when scheduled;
+this item is the index + the prioritization."_ That job is fully discharged, and an index that carries
+no work of its own must not sit in the queue as `todo` — a reader scanning for unstarted work would
+pick it up and find nothing to do.
+
+**What is verified, not asserted:**
+
+- **All 14 spun-out capabilities are archived complete.** `ls .agents/backlog/completed/ | grep -c '^SELFHOST-'`
+  → **14**, and `grep -h '^status:' .agents/backlog/completed/SELFHOST-0*.md | sort | uniq -c` → **14
+  × `status: done`**, with zero at any other status. Their gate evidence was reconciled in
+  [#1314](https://github.com/woojubb/robota/pull/1314).
+- **The three open follow-ups are separate live files**, so closing the index loses nothing:
+  `.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`,
+  `.agents/backlog/SELFHOST-008-P5-concrete-semantic-backend.md`,
+  `.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`.
+- **Archiving repairs 14 dangling links.** Every child writes `Part of [SELFHOST-000](SELFHOST-000-self-hosting-capability-roadmap.md)`
+  as a same-directory relative link from inside `completed/`
+  (`grep -rn '](SELFHOST-000-self-hosting-capability-roadmap.md)' .agents/backlog/completed | wc -l` →
+  **14**). Every one of those resolves to `.agents/backlog/completed/SELFHOST-000-…md`, which did not
+  exist while this file sat in the root. Moving it here is what makes them correct.
+
+**What this status does NOT claim.** The `## Test Plan` below sets a program-level bar — _"Robota can
+plan, index, change, review, and ship a real change to the Robota repo using these capabilities"_ —
+which is a continuous property of the product, not a checkbox, and is not something a backlog status
+can certify. `done` here means the **index deliverable** (survey → prioritize → spin out → track to
+completion) is finished. The north-star itself lives in [`VISION.md`](../../../VISION.md) and is measured
+by the flywheel, not by this file.
+
+The program that carries [`VISION.md`](../../../VISION.md) — "Robota builds Robota" — into concrete work: the
 capabilities a real development agent needs, benchmarked against what leading commercial/OSS agents tout as
 advantages, each placed at the correct Robota layer. Individual capabilities are spun out into their own
 `SELFHOST-NNN` backlog items when scheduled; this item is the index + the prioritization.

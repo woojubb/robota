@@ -68,3 +68,25 @@ is not a fat-finger risk and forcing it would distort the label.
 
 Live after release: internal links carry `prefetch={false}` (no RSC `.txt`
 prefetch 404s on CF); touch-target hit areas (44px) deployed.
+
+**Citations back-filled 2026-07-26** — this section asserted three things and cited none. Re-derived:
+
+- **`prefetch={false}` on every internal link — SUBSTANTIATED, but the shape changed.** It is no longer
+  "9 instances"; it was refactored into one wrapper, `apps/www/src/components/ui.tsx:12-14`
+  (`InternalLink` renders `<Link prefetch={false} {...props} />`), with the rationale naming WEB-014 at
+  `:4-11`. What makes the claim total rather than sampled: `rg -ln "next/link" apps/www/src` returns
+  **exactly one file — `ui.tsx` itself**, so no raw `<Link>` bypasses the wrapper anywhere in the app.
+  Consumers: `apps/www/src/components/Header.tsx`, `apps/www/src/components/Footer.tsx`,
+  `apps/www/src/app/[locale]/page.tsx:2,70`.
+- **44px hit areas deployed — SUBSTANTIATED in-tree AND live.** `min-h-[44px]` at
+  `apps/www/src/components/Header.tsx:36,42,48,57,66,74` (6 controls) and
+  `apps/www/src/components/Footer.tsx:27,35,43,70,87,104` (6 links); the hero CTAs use the `py-3` hit
+  area at `apps/www/src/app/[locale]/page.tsx:66,72`, matching this item's own "(or `py-3`)" wording.
+  Live: `curl -sL https://www.robota.io/en | grep -c 'min-h-\[44px\]'` → **16**, so the deployed build
+  demonstrably carries it.
+- **"no RSC `.txt` prefetch 404s on CF" — NOT SUBSTANTIABLE, stated plainly rather than given a
+  citation.** It is a runtime observation of a third-party host. `prefetch={false}` suppresses a
+  client-side fetch and leaves no marker in the served HTML, and the original failure mode can no longer
+  be reproduced either way (`https://www.robota.io/en/compare.txt?_rsc=abc` returns **200**, not 404).
+  No harness scan guards it (`rg -ln "InternalLink|prefetch" scripts/harness` → nothing). The mechanism
+  above is what is actually evidenced; the CF-side outcome was never verified and is not verifiable now.
