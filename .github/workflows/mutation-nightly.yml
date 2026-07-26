@@ -9,6 +9,18 @@ name: Nightly mutation testing
 # ADVISORY (v1): the mutation score is REPORT-ONLY (stryker.conf.mjs sets thresholds.break=null, so
 # Stryker never fails the run on a low score). The uploaded report is the maintained artefact;
 # surviving mutants become test-hardening work items. This is not a PR gate and blocks nothing.
+#
+# INFRA-058 — an advisory nobody can read is not advisory, it is silent. The 2026-07-26 run scored
+# 52.63 / 74.42 / 58.62 across the three targets with 110 surviving mutants, and every one of those
+# numbers was reachable only by downloading a zip; the run page said "success". The score now goes to
+# the job summary, so the advisory is visible where the run is. Raising `thresholds.break` above null
+# — i.e. making a low score fail — changes what this workflow enforces and is the owner's call, filed
+# rather than taken here.
+#
+# What this workflow does NOT claim: it is not "mutation testing of the repo". It mutates three
+# deliberately-chosen files (see stryker.conf.mjs TARGETS), not three packages. A mutate glob that
+# stops matching is NOT a silent no-op — verified by pointing one target at a renamed path: Stryker
+# exits 1 with `ConfigError: No tests were executed`, because perTest coverage finds no related tests.
 
 on:
   schedule:
@@ -57,7 +69,35 @@ jobs:
       - name: Run mutation testing (${{ matrix.target }})
         env:
           STRYKER_TARGET: ${{ matrix.target }}
-        run: pnpm test:mutation
+        # pipefail keeps Stryker's exit code authoritative through the tee — the log is a copy, not
+        # the verdict.
+        run: |
+          set -euo pipefail
+          pnpm test:mutation 2>&1 | tee "$RUNNER_TEMP/mutation.log"
+
+      # Puts the score on the run page. Without this the only readable output is inside the artifact
+      # zip, which is why three sub-threshold scores sat unread since the workflow landed.
+      - name: Publish the mutation score to the job summary
+        if: always()
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Mutation — ${TARGET}"
+            echo
+            if [ -f "$RUNNER_TEMP/mutation.log" ] &&
+               grep -qE '^All files' "$RUNNER_TEMP/mutation.log"; then
+              echo '```'
+              grep -E '^All files|^Ran .* tests per mutant' "$RUNNER_TEMP/mutation.log"
+              echo '```'
+            else
+              # Stated, never swallowed: the run above already failed loudly if Stryker did, and this
+              # line says which case produced no score rather than printing a reassuring blank.
+              echo "No mutation score in the run output — Stryker did not reach the reporting stage."
+              echo "See the \"Run mutation testing\" step for the reason."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload mutation report (${{ matrix.target }})
         if: always()
