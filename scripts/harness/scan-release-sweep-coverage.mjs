@@ -28,8 +28,9 @@
  *                      The swept bucket needs a recursive `test` sweep present; each extra needs
  *                      either the enumerating runner or its own `--filter … <script>` literal. That
  *                      second branch is deliberate: it is what makes this scan go red on the
- *                      pre-fix, hand-maintained shape, and it was proven red by deleting the
- *                      `test:bin` literal from a fixture manifest before this scan landed.
+ *                      pre-fix, hand-maintained shape. Proven red before this scan landed by
+ *                      deleting the `test:bin` literal from the REAL release script and watching
+ *                      the scan name it, and pinned by a fixture test so the proof survives.
  *
  *   R3 EXCLUSION INTEGRITY. An exclusion must still match a live script (anti-rot), must carry a
  *                      reason, and must have its KIND verified rather than believed:
@@ -128,6 +129,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
   // ---- R0 -------------------------------------------------------------------------------------
   if (discovered.length === 0) {
     findings.push({
+      type: 'no-test-scripts-found',
       subject: 'workspace',
       detail:
         'ZERO scripts matching `^test(:|$)` were discovered across the workspace. This repository ' +
@@ -148,6 +150,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
     const key = `${entry.workspace}#${entry.script}`;
     if (classified.has(key)) continue;
     findings.push({
+      type: 'unclassified-test-script',
       subject: key,
       detail:
         'matches `^test(:|$)` but is in no bucket. Classify it in ' +
@@ -159,6 +162,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
   // ---- R2 -------------------------------------------------------------------------------------
   if (recursive.length > 0 && !sweepsRecursively(expanded, RECURSIVE_SWEEP_SCRIPT)) {
     findings.push({
+      type: 'no-recursive-sweep',
       subject: RELEASE_SCRIPT,
       detail:
         `runs no recursive \`${RECURSIVE_SWEEP_SCRIPT}\` sweep, yet ${recursive.length} workspace(s) ` +
@@ -171,6 +175,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
     if (runnerWired) continue;
     if (namesExplicitly(expanded, entry.packageName, entry.script)) continue;
     findings.push({
+      type: 'unreachable-suite',
       subject: `${entry.workspace}#${entry.script}`,
       detail:
         `is a suite under a non-\`${RECURSIVE_SWEEP_SCRIPT}\` name, so \`pnpm run -r --if-present ` +
@@ -193,6 +198,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
         : liveKeys.has(`${exclusion.workspace}#${exclusion.script}`);
     if (!matchesSomething) {
       findings.push({
+        type: 'stale-exclusion',
         subject: label,
         detail:
           'is excluded here but no workspace declares that script any more. A stale exclusion is a ' +
@@ -202,12 +208,14 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
     }
     if (EXCLUSION_KINDS[exclusion.kind] === undefined) {
       findings.push({
+        type: 'unknown-exclusion-kind',
         subject: label,
         detail: `declares an unknown exclusion kind \`${exclusion.kind}\`.`,
       });
     }
     if (typeof exclusion.why !== 'string' || exclusion.why.trim().length < 40) {
       findings.push({
+        type: 'reasonless-exclusion',
         subject: label,
         detail:
           'carries no substantive `why`. An exclusion without a reason is indistinguishable from ' +
@@ -224,6 +232,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
       );
       if (!sibling) {
         findings.push({
+          type: 'variant-without-base',
           subject: label,
           detail:
             `is excluded as a variant of \`${RECURSIVE_SWEEP_SCRIPT}\`, but ${entry.workspace} ` +
@@ -236,6 +245,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
       const workflowPath = exclusion.workflow ? path.join(root, exclusion.workflow) : undefined;
       if (!workflowPath || !existsSync(workflowPath)) {
         findings.push({
+          type: 'uncheckable-coverage-claim',
           subject: label,
           detail:
             `claims it is covered elsewhere but names no readable workflow (\`${exclusion.workflow}\`). ` +
@@ -246,6 +256,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
       const workflow = readFileSync(workflowPath, 'utf8');
       if (!namesExplicitly(workflow, entry.packageName, entry.script)) {
         findings.push({
+          type: 'unverified-coverage-claim',
           subject: label,
           detail:
             `claims ${exclusion.workflow} runs it, but that workflow contains no invocation of ` +
@@ -262,6 +273,7 @@ export function findReleaseSweepCoverageFindings(root = WORKSPACE_ROOT) {
     if (file === undefined) continue;
     if (existsSync(path.join(root, entry.workspace, file))) continue;
     findings.push({
+      type: 'dead-entry-point',
       subject: `${entry.workspace}#${entry.script}`,
       detail:
         `runs \`${entry.command}\`, and \`${entry.workspace}/${file}\` does not exist. The script ` +

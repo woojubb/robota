@@ -12,8 +12,8 @@
  * The repository had already met this once and closed it by hand: `harness:verify:release`
  * appended `pnpm --filter @robota-sdk/agent-cli test:bin` as a literal, because that suite exists
  * under a non-`test` name and nothing would otherwise run it. One instance recognised, none
- * generalised — so `packages/agent-cli-web` could declare a `test:e2e` and no one noticed for the
- * six months it sat there (INFRA-060 D7 found it; it turned out to point at a file that has never
+ * generalised — so `packages/agent-cli-web` could declare a `test:e2e` and nothing noticed for as
+ * long as it sat there (INFRA-060 D7 found it; it turned out to point at a file that has never
  * existed in this repository's history, which a hand-maintained list also cannot notice).
  *
  * THE SHAPE OF THE FIX. Hand-maintaining a second `--filter` line beside the first is what produced
