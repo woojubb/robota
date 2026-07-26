@@ -433,4 +433,21 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("import 'pkg';", 'pkg')).toBe('used');
     expect(classifySpecifierUsage("export { a } from 'pkg';", 'pkg')).toBe('used');
   });
+
+  // Two sequential strip passes cannot be ordered correctly — each order corrupts real code in the
+  // other's case. Block-first (the version this replaced) let a `/*` inside a LINE comment open a
+  // block scan and delete everything to the next terminator: measured, the `require` line vanished
+  // and a genuinely wired seam read as absent. Line-first instead breaks a block's terminator.
+  it('does not let a comment marker inside another comment swallow real code', () => {
+    const lineCommentContainingBlockOpen = "// see /* note\nconst w = require('pkg');\n/* real */";
+    expect(classifySpecifierUsage(lineCommentContainingBlockOpen, 'pkg')).toBe('used');
+
+    const blockCommentContainingLineMarker = "/* a // b */\nconst w = require('pkg');";
+    expect(classifySpecifierUsage(blockCommentContainingLineMarker, 'pkg')).toBe('used');
+  });
+
+  // The `[^:]` guard: without it every `https://…` reads as a comment and deletes the rest of its line.
+  it('does not mistake a URL for a line comment', () => {
+    expect(classifySpecifierUsage("const u = 'https://x'; require('pkg');", 'pkg')).toBe('used');
+  });
 });

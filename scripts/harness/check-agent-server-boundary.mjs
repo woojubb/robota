@@ -455,8 +455,26 @@ function stripCommentsAndStringLiterals(content) {
  * `'used'` without looking at anything else. Comments out, strings in.
  */
 function stripComments(content) {
-  return content.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  return content.replace(COMMENT_PATTERN, (_match, lineCommentPrefix) =>
+    lineCommentPrefix === undefined ? ' ' : lineCommentPrefix,
+  );
 }
+
+/**
+ * One alternation, not two sequential passes — whichever comment STARTS first wins.
+ *
+ * Two passes cannot be ordered correctly, because each order corrupts real code in the other's
+ * case. Block-first, which this was: `// see /* note` opens a block scan inside a LINE comment, so
+ * everything up to the next `*​/` is deleted. Measured on
+ * `// see /* note\nconst wired = require('pkg');\n/* real block *​/` — the `require` line was gone,
+ * so a genuinely wired seam would have read as absent. Line-first is no better: `/* a // b *​/`
+ * loses its terminator and the block is then never closed.
+ *
+ * A single left-to-right scan has no ordering to get wrong. The `[^:]` guard on the line-comment
+ * arm stays — without it every `https://…` in the file reads as a comment and deletes the rest of
+ * its line.
+ */
+const COMMENT_PATTERN = /\/\*[\s\S]*?\*\/|(^|[^:])\/\/[^\n]*/g;
 
 /**
  * Classify how a module references a specifier.
