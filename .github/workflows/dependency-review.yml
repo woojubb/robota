@@ -4,6 +4,16 @@ name: Dependency Review
 # osv-scanner in ci.yml): dependency-review diffs the PR's ADDED deps and enforces a license allow-list.
 # License gating matters here — the project is dual-licensed (AGPL + Commercial, no CLA yet), so a runtime
 # dep under a strong-copyleft license would virally break the commercial-relicensing right.
+#
+# INFRA-058 — the scope claim above was checked against GitHub's actual dependency graph for this repo, since
+# the whole gate rests on what that graph contains. It is not manifest-only: transitive, exact-versioned
+# lockfile entries are present with resolved licenses (`brace-expansion@1.1.16 → MIT`, `ip@2.0.1 → MIT`,
+# `minimatch@10.2.5 → BlueOak-1.0.0`), 2440 exact-version entries in all. So the allow-list really is
+# evaluated over the pnpm-lock closure a PR adds to, not just the `^range` manifest entries.
+#
+# This check is ADVISORY — it is in neither branch ruleset's required-status-checks list, so a denied
+# license or a high-severity advisory annotates the PR and blocks nothing. Making it required is a
+# merge-gate change and is the owner's call.
 on:
   pull_request:
     branches: [main, develop]
