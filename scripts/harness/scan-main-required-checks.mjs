@@ -5,7 +5,8 @@
  *
  * A required status check is only enforcement if it can FAIL. Measured on promotion #1427, all five
  * contexts `protect-main` required were no-ops on a PR whose base is `main`: `build`, `quality`,
- * `scans` and `security audit` opened with a "Skip duplicate ... for main PR" echo and gated every
+ * `scans` and `dependency audit` (then named `security audit`) opened with a "Skip duplicate ... for
+ * main PR" echo and gated every
  * later step on `base_ref != 'main'` (5s/5s/6s/3s), and `commitlint`'s whole job was skipped. Branch
  * protection reported green from jobs that deliberately did no work, while the job that actually
  * verifies a promotion — `release-grade verification` — was not required at all.

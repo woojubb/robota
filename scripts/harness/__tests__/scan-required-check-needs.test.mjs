@@ -73,8 +73,8 @@ describe('isFailSafeFor', () => {
 
 describe('jobContextName', () => {
   it('prefers the declared `name:` over the job id, because branch protection matches the name', () => {
-    expect(jobContextName('security-audit', '    name: security audit\n    steps:\n')).toBe(
-      'security audit',
+    expect(jobContextName('dependency-audit', '    name: dependency audit\n    steps:\n')).toBe(
+      'dependency audit',
     );
   });
 
