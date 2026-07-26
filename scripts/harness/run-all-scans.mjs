@@ -119,6 +119,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  {
+    name: 'legacy-typescript',
+    command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
+  },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
   { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
   {

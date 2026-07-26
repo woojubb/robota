@@ -31,7 +31,8 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
+
+import * as ts from './lib/ts-ast.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const PACKAGES_DIR = path.join(WORKSPACE_ROOT, 'packages');
@@ -61,8 +62,9 @@ function importDeclarationViolation(node) {
   const clause = node.importClause;
   // Side-effect import: `import 'x'` — no binding, but a real runtime edge.
   if (!clause) return `side-effect import of '${spec.text}'`;
-  // `import type ...` — fully type-only, allowed.
-  if (clause.isTypeOnly) return null;
+  // `import type ...` — fully type-only, allowed. Read through the adapter: the import PHASE is
+  // spelled differently by the two ASTs, and the adapter owns that difference.
+  if (ts.isTypeOnlyImportClause(clause)) return null;
 
   // `import Foo from 'x'` — default value binding.
   if (clause.name) return `default value import from '${spec.text}'`;
