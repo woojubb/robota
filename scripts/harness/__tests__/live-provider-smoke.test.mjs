@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   apiKeyEnvVarOf,
+  explicitRequestFailure,
   formatReport,
   messageText,
   modelOverrideEnvVar,
@@ -14,6 +15,7 @@ import {
   resolveBuiltEntry,
   selectLiveProviders,
   smokeProvider,
+  zeroCoverageNotice,
 } from '../live-provider-smoke.mjs';
 
 /** Minimal stand-in for a real IProviderDefinition — only the fields the selector reads. */
@@ -300,5 +302,82 @@ describe('formatReport', () => {
 
     expect(report).toContain('FAIL anthropic (model=m) at liveCall: 400 max_tokens');
     expect(report).toContain('live-provider-smoke: FAIL (1/1 live providers broken).');
+  });
+});
+
+/**
+ * INFRA-058 — the audited defect: on 2026-07-26 the only two runs this workflow has ever had (a
+ * schedule and a manual dispatch) both reported `success` while calling ZERO providers, because no
+ * provider secret is provisioned. The run log's whole result was:
+ *
+ *   live-provider-smoke: SKIPPED — no provider credentials in this environment.
+ *
+ * A green "Live provider smoke" that exercised nothing is not a lie the exit code can fix — a nightly
+ * red for an unprovisioned secret gets muted within a week. It is a DISCLOSURE problem, except in the
+ * one case where a human explicitly named the provider they wanted answered.
+ */
+describe('zeroCoverageNotice (INFRA-058 — a green run that called nothing)', () => {
+  const nothingRan = {
+    runnable: [],
+    unconfigured: [],
+    skipped: [
+      { type: 'anthropic', reason: 'ANTHROPIC_API_KEY not set' },
+      { type: 'gemini', reason: 'GEMINI_API_KEY not set' },
+    ],
+  };
+
+  it('annotates a run that exercised no provider at all', () => {
+    const lines = zeroCoverageNotice(nothingRan, { GITHUB_ACTIONS: 'true' });
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('::warning title=live provider smoke exercised 0 providers::');
+    expect(lines[0]).toContain('verified nothing');
+    expect(lines[0]).toContain('anthropic, gemini');
+  });
+
+  it('says nothing when a provider actually ran — the green is then earned', () => {
+    const oneRan = { runnable: [{ type: 'anthropic' }], unconfigured: [], skipped: [] };
+
+    expect(zeroCoverageNotice(oneRan, { GITHUB_ACTIONS: 'true' })).toEqual([]);
+  });
+
+  it('stays quiet outside GitHub Actions — the annotation syntax is noise in a local run', () => {
+    expect(zeroCoverageNotice(nothingRan, {})).toEqual([]);
+  });
+});
+
+describe('explicitRequestFailure (INFRA-058 — an answered question, or a failure)', () => {
+  const selection = {
+    runnable: [{ type: 'anthropic' }],
+    unconfigured: [{ type: 'openai', reason: 'OPENAI_API_KEY is set but ships no default model' }],
+    skipped: [{ type: 'gemini', reason: 'GEMINI_API_KEY not set' }],
+  };
+
+  it('fails a --provider request whose credential is missing, instead of a silent green', () => {
+    expect(explicitRequestFailure(selection, { only: 'gemini' })).toBe(
+      '--provider gemini: GEMINI_API_KEY not set',
+    );
+  });
+
+  it('fails a --provider request that has a key but no model to call', () => {
+    expect(explicitRequestFailure(selection, { only: 'openai' })).toContain(
+      'ships no default model',
+    );
+  });
+
+  it('fails a --provider request naming a type that does not exist', () => {
+    expect(explicitRequestFailure(selection, { only: 'nope' })).toBe(
+      '--provider nope: no provider definition of that type exists',
+    );
+  });
+
+  it('passes when the requested provider actually ran', () => {
+    expect(explicitRequestFailure(selection, { only: 'anthropic' })).toBeUndefined();
+  });
+
+  it('leaves the unattended nightly alone — no --provider means no explicit question was asked', () => {
+    const nothingRan = { runnable: [], unconfigured: [], skipped: [{ type: 'x', reason: 'r' }] };
+
+    expect(explicitRequestFailure(nothingRan, {})).toBeUndefined();
   });
 });
