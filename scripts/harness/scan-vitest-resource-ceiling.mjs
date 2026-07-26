@@ -84,16 +84,34 @@ export function findVitestConfigs(root, workspaceDirs = WORKSPACE_DIRS) {
   return found.sort();
 }
 
+/** Remove comments so a MENTION of the ceiling can never stand in for using it. */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 /**
  * Decide whether one config's source inherits the ceiling.
  * Returns `null` when it does, or a reason string when it does not. Pure — the unit under test.
+ *
+ * Judged on CODE only. The first version of this matched raw source, so a config carrying
+ * `// TODO: adopt vitest.shared` and a commented-out `mergeConfig(resourceCeiling, …)` passed — the
+ * defect where a guard is satisfied by a mention instead of a wiring. Comments are stripped first,
+ * the import must be a real import statement naming the shared module, and `mergeConfig` must
+ * actually receive `resourceCeiling` rather than merely appear somewhere in the file.
  */
 export function ceilingViolation(source) {
-  const imports = source.includes(SHARED_BASENAME);
-  const merges = /\bmergeConfig\s*\(/.test(source);
-  if (!imports && !merges) return `does not import ${SHARED_BASENAME}`;
+  const code = stripComments(source);
+  const imports = new RegExp(
+    `import[\\s\\S]{0,200}?from\\s*['"][^'"]*${SHARED_BASENAME}(\\.[a-z]+)?['"]`,
+  ).test(code);
+  const mergesCeiling = /\bmergeConfig\s*\(\s*resourceCeiling\b/.test(code);
+  const mergesAnything = /\bmergeConfig\s*\(/.test(code);
+
+  if (!imports && !mergesAnything) return `does not import ${SHARED_BASENAME}`;
   if (!imports) return `calls mergeConfig but never imports ${SHARED_BASENAME}`;
-  if (!merges) return `imports ${SHARED_BASENAME} but never passes it to mergeConfig — no effect`;
+  if (!mergesCeiling) {
+    return `imports ${SHARED_BASENAME} but never passes resourceCeiling to mergeConfig — no effect`;
+  }
   return null;
 }
 

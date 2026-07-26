@@ -46,7 +46,7 @@ describe('ceilingViolation', () => {
   // which is what the 2026-07-26 OOM rode to the top.
   it('rejects an import that is never passed to mergeConfig', () => {
     expect(ceilingViolation(`${CEILING_IMPORT}\nexport default defineConfig({});`)).toMatch(
-      /never passes it to mergeConfig/,
+      /never passes resourceCeiling/,
     );
   });
 
@@ -54,6 +54,37 @@ describe('ceilingViolation', () => {
     expect(ceilingViolation('export default mergeConfig(somethingElse, x);')).toMatch(
       /never imports/,
     );
+  });
+
+  // The first version of this predicate matched raw source, so a config that only TALKED about the
+  // ceiling passed — a guard satisfied by a mention instead of a wiring. Found in review, not by
+  // the author, which is the usual way that shape gets found.
+  it('rejects a config that only mentions the ceiling in comments', () => {
+    const source = [
+      "import { defineConfig } from 'vitest/config';",
+      '// TODO: adopt vitest.shared later',
+      'export default defineConfig({});',
+      '/* mergeConfig(resourceCeiling, x) would go here */',
+    ].join('\n');
+    expect(ceilingViolation(source)).toMatch(/does not import/);
+  });
+
+  it('rejects a correct-looking config that is entirely commented out', () => {
+    const source = [
+      "/* import { resourceCeiling } from '../../vitest.shared';",
+      '   export default mergeConfig(resourceCeiling, {}); */',
+      'export default defineConfig({});',
+    ].join('\n');
+    expect(ceilingViolation(source)).toMatch(/does not import/);
+  });
+
+  // mergeConfig must RECEIVE the ceiling, not merely appear in the file.
+  it('rejects mergeConfig that merges something other than the ceiling', () => {
+    const source = [
+      CEILING_IMPORT,
+      'export default mergeConfig(somethingElse, defineConfig({}));',
+    ].join('\n');
+    expect(ceilingViolation(source)).toMatch(/never passes resourceCeiling/);
   });
 });
 
