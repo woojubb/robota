@@ -11,7 +11,7 @@ created: 2026-07-26
 
 ## Problem
 
-DIST-002 built the macOS half of published-artifact verification. The Linux half is still open, and
+DIST-005 built the macOS half of published-artifact verification. The Linux half is still open, and
 it is the same defect in a different coat: the AppImage, the `.deb`, and `robota-linux-{x64,arm64}`
 are only ever exercised — when they are exercised at all — **on the GitHub runner that built them**,
 which has the full build toolchain installed.
@@ -25,7 +25,7 @@ The desktop AppImage and `.deb` are never executed by anything.
 
 ## Why Docker is the right tool here specifically
 
-DIST-002 could not use containers: macOS cannot run in one — containers share the host kernel, and
+DIST-005 could not use containers: macOS cannot run in one — containers share the host kernel, and
 Apple's licence confines macOS virtualization to Apple hardware. Linux has no such constraint, and
 a clean distro image is _exactly_ the missing environment: a machine with none of the build
 toolchain, which is what a user has.

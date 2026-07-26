@@ -1,5 +1,5 @@
 ---
-id: DIST-002
+id: DIST-005
 title: Nothing verifies a published release artifact — the macOS downloads do not open
 status: in-progress
 priority: high
@@ -7,7 +7,7 @@ type: INFRA
 created: 2026-07-26
 ---
 
-# DIST-002: verify what we publish, before signing it
+# DIST-005: verify what we publish, before signing it
 
 ## Problem
 

@@ -46,5 +46,5 @@ resolvability without network.
 
 - [ ] A CI job runs `actionlint` over every workflow.
 - [ ] It is **proven red** against a deliberately reintroduced bad `uses:` reference before being
-      believed — the same red-first standard DIST-002's gate was held to.
+      believed — the same red-first standard DIST-005's gate was held to.
 - [ ] Its network-failure path exits non-zero, and that path is exercised, not reasoned about.
