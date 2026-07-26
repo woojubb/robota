@@ -33,22 +33,27 @@ with stubbed inputs, or its command run directly, the way INFRA-048 and INFRA-05
 | --- | ----------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | 1   | `main-pr-source-guard` (`main PR source guard`)       | main     | A PR to `main` comes from develop/release/hotfix in THIS repo                                           | matches                                                      | **yes** — 6 cases run under `bash -e`: develop✓, feature✗, fork-named-develop✗, release/*✓, empty head_ref✗                     | PASS                                  |
 | 2   | `promotion-ancestry` (`promotion ancestry`)           | main     | The promotion carries `main`'s ancestry (INFRA-051 A1/A3)                                               | matches                                                      | **yes** — ran the scan with `GITHUB_BASE_REF=main` + a non-promotion head; exit 1 on A1                                         | PASS                                  |
-| 3   | `changes`                                             | **no**   | Classifies the PR code vs docs-only                                                                     | matches                                                      | reasoned — the classifier always exits 0 by design; the JOB's failure modes are infra-level                                     | PASS, but see D3                      |
+| 3   | `changes`                                             | **no**   | Classifies the PR code vs docs-only                                                                     | matches                                                      | **yes** — probe PR #1476 forced the job to fail and the consequence was measured (see D3)                                       | PASS, but see D3                      |
 | 4   | `build`                                               | develop  | The monorepo builds                                                                                     | **checks the wrong thing**                                   | **yes** — see D4                                                                                                                | DEFECT (filed)                        |
 | 5   | `quality`                                             | develop  | The affected scopes' build/test/lint/typecheck pass                                                     | **checks the wrong thing** on one PR shape                   | **yes** — see D4                                                                                                                | DEFECT (filed)                        |
 | 6   | `scans`                                               | develop  | The harness suite + full dist-independent scan suite pass                                               | matches                                                      | **yes** — run in verification, 70 scans + 1153 harness tests                                                                    | PASS, but see D6                      |
 | 7   | `security-audit` (`security audit`)                   | develop  | _Reads as:_ the PR was audited for security. _Is:_ an OSV dependency scan, only when a manifest changed | **over-claims in the name**                                  | **yes** — step extracted; unresolvable base ref correctly forces `changed=true`; regex verified on nested/lock/code-only inputs | ENFORCEMENT PASS, fidelity filed (D5) |
 | 8   | `release-grade-verify` (`release-grade verification`) | main     | The FULL build/scan/test/typecheck/lint sweep                                                           | **over-claims** — `pnpm test` is `-r --if-present`           | partly — measured the 5 silently-skipped workspaces                                                                             | ENFORCEMENT PASS, fidelity filed (D7) |
 | 9   | `commitlint`                                          | develop  | Every commit this PR authored is conventional                                                           | matches                                                      | **yes** — exited **0** on an unresolvable range                                                                                 | **DEFECT — FIXED**                    |
-| 10  | `examples-typecheck`                                  | develop  | `examples/` typecheck against locally-built packages                                                    | matches                                                      | reasoned + graph-falsified (D3)                                                                                                 | PASS after D3 fix                     |
+| 10  | `examples-typecheck`                                  | develop  | `examples/` typecheck against locally-built packages                                                    | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                     |
 | 11  | `windows-shell`                                       | develop  | Cross-platform shell execution verified on real Windows                                                 | **step 1 over-reaches; both steps could pass on zero tests** | **yes** — a rename made it print `No test files found, exiting with code 0`                                                     | **DEFECT — FIXED**, plus D2 filed     |
-| 12  | `tui-e2e`                                             | develop  | TUI PTY e2e against the built binary                                                                    | matches                                                      | reasoned + graph-falsified (D3)                                                                                                 | PASS after D3 fix                     |
-| 13  | `regression-red-proof (advisory)`                     | no       | Advisory — name says so                                                                                 | matches (honest name)                                        | reasoned                                                                                                                        | PASS                                  |
-| 14  | `patch-coverage (advisory)`                           | no       | Advisory — name says so                                                                                 | matches                                                      | reasoned                                                                                                                        | PASS, but see D8                      |
+| 12  | `tui-e2e`                                             | develop  | TUI PTY e2e against the built binary                                                                    | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                     |
+| 13  | `regression-red-proof (advisory)`                     | no       | Advisory — name says so                                                                                 | matches (honest name)                                        | **graph** measured (#1476); internal path reasoned                                                                              | PASS                                  |
+| 14  | `patch-coverage (advisory)`                           | no       | Advisory — name says so                                                                                 | matches                                                      | **graph** measured (#1476); internal path reasoned                                                                              | PASS, but see D8                      |
 
-**Falsified: 6 of 14** (1, 2, 4, 5, 7, 9, 11 — seven step-level proofs across six jobs).
-**Reasoned only: 8** — jobs 3, 6, 10, 12, 13, 14 plus the enforcement half of 7 and 8. Every
-"reasoned" row is a hypothesis, marked as such.
+**Falsified: 8 of 14** — jobs 1, 2, 3, 4, 5, 7, 9, 11, via seven local step-level proofs plus the
+live probe PR #1476.
+**Graph measured, internals reasoned: 4** — jobs 10, 12, 13, 14. The probe proves they are
+DISPATCHED when `changes` fails; it does not prove each can go red on a broken TUI or a broken
+example.
+**Not falsified at all: 2** — `scans` (6) and the enforcement half of `release-grade verification`
+(8). Both were RUN green, which is not the same as made to fail. Every non-falsified row is a
+hypothesis and is marked as one.
 
 ## Defects
 
@@ -96,6 +101,40 @@ fail-safe, never protect against the job itself failing.
 Fixed at all five dependents: `!cancelled()` disables GitHub's implicit `success()` over `needs`,
 and a non-success `changes` is treated as CODE — the classifier's own rule. A cancelled run still
 skips (superseded, not unverified). Guarded by `required-check-needs`.
+
+**Measured on live CI, not asserted.** The fix's own failure branch cannot be exercised by this
+item's PR — `changes` succeeds there — so throwaway PR #1476 forced the `changes` step to `exit 1`
+_before_ writing `code=` to `$GITHUB_OUTPUT`, reproducing exactly what a checkout failure, a runner
+OOM or a syntax error in the classifier produces (`result=failure`, empty `outputs.code`). The same
+run contains its own control: the three main-only jobs, genuinely excluded by their `if:`, report
+`skipping` — while the three REQUIRED dependents were DISPATCHED and reported real conclusions.
+
+`gh api repos/woojubb/robota/actions/runs/30194961685/jobs` — the decisive form, because
+`started_at` cannot be produced by a skipped job:
+
+```
+changes:            status=completed   conclusion=failure  started=2026-07-26T08:37:42Z
+windows-shell:      status=in_progress conclusion=null     started=2026-07-26T08:37:52Z
+tui-e2e:            status=in_progress conclusion=null     started=2026-07-26T08:37:53Z
+examples-typecheck: status=in_progress conclusion=null     started=2026-07-26T08:37:51Z
+```
+
+All three REQUIRED dependents STARTED 9-11 seconds AFTER `changes` had already completed as
+`failure` — i.e. GitHub evaluated the fail-safe `if:` against a failed dependency and dispatched
+them. A skipped job has no `started_at` at all. The advisory pair (`patch-coverage`,
+`regression-red-proof`) ran and passed on the same run, so all five dependents are covered.
+
+The same run carries its own control — the three main-only jobs, genuinely excluded by their
+`if:`, reported `skipping`:
+
+```
+main PR source guard          skipping   (control: genuinely if:-excluded)
+promotion ancestry            skipping   (control)
+release-grade verification    skipping   (control)
+```
+
+This is the property the whole fix rests on, and it is now the measured half of #1424: that
+incident recorded the three contexts reporting `skipping`; this records the same three running.
 
 ### D4 — `build` and `quality` both green having done nothing, on a build-tooling PR — **FILED**
 
@@ -207,6 +246,12 @@ This audit is not, and cannot be, complete. What no pattern can reach:
    redden.
 5. **Anything requiring the live GitHub API.** The `skipped`-is-accepted premise is taken from this
    repo's own prior measurements (#1424, #1427, #1442), not re-measured here.
+6. ~~The D3 fix's own failure branch is not validated by CI.~~ **Closed** — this was the one proof
+   the item would otherwise have asserted rather than measured, so throwaway PR #1476 measured it
+   (see D3). Recorded here because the reasoning is the reusable part: a fix's own failure branch is
+   usually invisible to the PR that ships it, since that PR is by construction the healthy case.
+   Ask, for every gate change, "which branch of this does my own CI run exercise?" — and use a
+   throwaway PR for the other one, the way #1442 was used for the `edited` trigger.
 
 ## Test Plan
 
