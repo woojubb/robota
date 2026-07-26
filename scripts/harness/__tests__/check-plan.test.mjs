@@ -1,3 +1,7 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,6 +12,7 @@ import {
   renderPlanSummary,
   renderScopeCoverageLine,
 } from '../check-plan.mjs';
+import { appendJobSummary } from '../shared.mjs';
 
 const scopes = [
   {
@@ -353,5 +358,33 @@ describe('renderPlanSummary', () => {
     );
     expect(renderPlanSummary(plan)).toContain('Files outside workspace scopes:');
     expect(renderPlanSummary(plan)).toContain('- .agents/tasks/example.md');
+  });
+});
+
+// INFRA-060 D4, the visibility half. `renderScopeCoverageLine` is what CI's readers see; this pins
+// the delivery path — a line the harness appends to `$GITHUB_STEP_SUMMARY` itself, which is why the
+// fix needed no `ci.yml` edit. Verified live on PR #1484: both `build` and `quality` printed
+// `Scope coverage: 0 of 86 workspace scopes — this plan verifies NO package or app.`
+describe('appendJobSummary (INFRA-060 D4)', () => {
+  it('appends inside Actions and writes nothing outside it', () => {
+    const target = path.join(mkdtempSync(path.join(tmpdir(), 'job-summary-')), 'summary.md');
+    const previous = process.env.GITHUB_STEP_SUMMARY;
+
+    try {
+      delete process.env.GITHUB_STEP_SUMMARY;
+      expect(appendJobSummary('nothing should be written')).toBe(false);
+      expect(existsSync(target)).toBe(false);
+
+      process.env.GITHUB_STEP_SUMMARY = target;
+      expect(appendJobSummary('### First')).toBe(true);
+      expect(appendJobSummary('### Second\n')).toBe(true);
+
+      // Appends, never replaces: `build` and `quality` each contribute their own line.
+      expect(readFileSync(target, 'utf8')).toBe('### First\n### Second\n');
+    } finally {
+      if (previous === undefined) delete process.env.GITHUB_STEP_SUMMARY;
+      else process.env.GITHUB_STEP_SUMMARY = previous;
+      rmSync(path.dirname(target), { recursive: true, force: true });
+    }
   });
 });
