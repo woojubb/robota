@@ -34,8 +34,8 @@ with stubbed inputs, or its command run directly, the way INFRA-048 and INFRA-05
 | 1   | `main-pr-source-guard` (`main PR source guard`)       | main     | A PR to `main` comes from develop/release/hotfix in THIS repo                                           | matches                                                      | **yes** — 6 cases run under `bash -e`: develop✓, feature✗, fork-named-develop✗, release/*✓, empty head_ref✗                     | PASS                                  |
 | 2   | `promotion-ancestry` (`promotion ancestry`)           | main     | The promotion carries `main`'s ancestry (INFRA-051 A1/A3)                                               | matches                                                      | **yes** — ran the scan with `GITHUB_BASE_REF=main` + a non-promotion head; exit 1 on A1                                         | PASS                                  |
 | 3   | `changes`                                             | **no**   | Classifies the PR code vs docs-only                                                                     | matches                                                      | **yes** — probe PR #1476 forced the job to fail and the consequence was measured (see D3)                                       | PASS, but see D3                      |
-| 4   | `build`                                               | develop  | The monorepo builds                                                                                     | **checks the wrong thing**                                   | **yes** — see D4                                                                                                                | DEFECT (filed)                        |
-| 5   | `quality`                                             | develop  | The affected scopes' build/test/lint/typecheck pass                                                     | **checks the wrong thing** on one PR shape                   | **yes** — see D4                                                                                                                | DEFECT (filed)                        |
+| 4   | `build`                                               | develop  | The monorepo builds                                                                                     | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                    |
+| 5   | `quality`                                             | develop  | The affected scopes' build/test/lint/typecheck pass                                                     | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                    |
 | 6   | `scans`                                               | develop  | The harness suite + full dist-independent scan suite pass                                               | matches                                                      | **yes** — run in verification, 70 scans + 1153 harness tests                                                                    | PASS, but see D6                      |
 | 7   | `security-audit` (`security audit`)                   | develop  | _Reads as:_ the PR was audited for security. _Is:_ an OSV dependency scan, only when a manifest changed | **over-claims in the name**                                  | **yes** — step extracted; unresolvable base ref correctly forces `changed=true`; regex verified on nested/lock/code-only inputs | ENFORCEMENT PASS, fidelity filed (D5) |
 | 8   | `release-grade-verify` (`release-grade verification`) | main     | The FULL build/scan/test/typecheck/lint sweep                                                           | **over-claims** — `pnpm test` is `-r --if-present`           | partly — measured the 5 silently-skipped workspaces                                                                             | ENFORCEMENT PASS, fidelity filed (D7) |
@@ -136,10 +136,10 @@ release-grade verification    skipping   (control)
 This is the property the whole fix rests on, and it is now the measured half of #1424: that
 incident recorded the three contexts reporting `skipping`; this records the same three running.
 
-### D4 — `build` and `quality` both green having done nothing, on a build-tooling PR — **FILED**
+### D4 — `build` and `quality` both green having done nothing, on a build-tooling PR — **FIXED**
 
-A one-line change to `scripts/build-types-ordered.mjs` — the second half of root `pnpm build` —
-resolves to `scopes: []`:
+**Reproduced first.** A one-line change to `scripts/build-types-ordered.mjs` — the second half of
+root `pnpm build` — resolved to `scopes: []`:
 
 ```
 $ pnpm harness:plan -- --base-ref origin/develop
@@ -153,18 +153,97 @@ No package or app scope detected from changed files.
 $ echo $?  →  0
 ```
 
-So `build` never runs `pnpm build`; `quality` verifies zero scopes, skips the binary e2e (gated on
-`package_dist_required`) and runs `build-contracts` against no restored dist. Two REQUIRED checks,
-both vacuous, on a PR that changes the build tooling itself.
+So `build` never ran `pnpm build`; `quality` verified zero scopes, skipped the binary e2e (gated on
+`package_dist_required`) and ran `build-contracts` against no restored dist. Two REQUIRED checks,
+both vacuous, on a PR that changes the build tooling itself. Real build coverage did exist — but it
+was delivered by jobs named `tui-e2e` and `examples-typecheck`, which is the fidelity half.
 
-Real build coverage does exist — `tui-e2e` and `examples-typecheck` both run `pnpm build:deps`, and
-`changes` classifies this file as CODE — so a broken build IS caught. It is caught by jobs named
-`tui-e2e` and `examples-typecheck`. That is the fidelity defect: `build`'s guarantee is delivered
-elsewhere, and its own green means only "no scope asked for dist".
+**The fix is in the calculator, not in the gate.** "Fail when scopes is empty" was rejected: a
+docs-only PR legitimately resolves to zero scopes, and reddening it is precisely why `review-gate`
+was rolled back the day it was armed. The defect is that a PR changing the build tooling does not
+affect zero packages — it affects **all** of them, and the calculator could not see that
+dependency. `scripts/harness/check-plan.mjs` now declares
+`WORKSPACE_WIDE_BUILD_TOOLING_PATHS`, and a change to any of them selects the FULL workspace with
+`forceFullVerification`.
 
-Not fixed here: the candidate fixes (require build whenever `changes.code == 'true'`; treat
-build-relevant unmapped files as requiring dist) each change which PRs run a multi-minute build,
-i.e. what gates a merge and what CI costs. Owner call.
+The membership rule, so the list can be extended without re-deriving it: **a repo-root path belongs
+there when changing it changes the OUTCOME of `build` / `typecheck` / `lint` / `test` for scopes
+that did not themselves change.** Eight entries, each with the evidence rather than the intuition:
+
+| Path                              | Why every scope                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `scripts/build-types-ordered.mjs` | root `build` is `pnpm --filter "./packages/**" build:js && node scripts/build-types-ordered.mjs`                   |
+| `package.json` (root)             | owns `build`/`typecheck`/`lint`/`test`, the toolchain `devDependencies`, `pnpm.overrides`, `engines`               |
+| `pnpm-workspace.yaml`             | decides which directories ARE workspace packages at all                                                            |
+| `tsconfig.base.json`              | extended by **80 of the 86** in-scope tsconfigs (counted, not assumed)                                             |
+| `tsconfig.json`                   | root project references; `tsconfig.eslint.json` extends it                                                         |
+| `tsconfig.eslint.json`            | extended by each package's own `tsconfig.eslint.json`, which its `.eslintrc.json` names as `parserOptions.project` |
+| `.eslintrc.json`, `.eslintignore` | root `lint` is `eslint packages apps`; every package's config resolves through the root                            |
+
+**After the fix**, the same branch:
+
+```
+$ pnpm harness:plan -- --base-ref origin/develop
+Changed files: 1
+Scope coverage: 86 of 86 workspace scopes (workspace-wide build tooling changed: scripts/build-types-ordered.mjs).
+Scopes:
+- apps/action: build, test, typecheck
+… 86 rows …
+$ node <the build job's Detect-build-requirement step>  →  required=true
+```
+
+**The docs-only path is unchanged, and that was checked, not assumed** — the over-correction is the
+other failure mode, and a slow gate gets bypassed:
+
+```
+$ pnpm harness:plan -- --changed-file README.md
+Scope coverage: 0 of 86 workspace scopes — this plan verifies NO package or app.
+Scopes:
+- none
+$ echo $?  →  0     # still a PASS, as it must be
+```
+
+An ordinary package change is also untouched: `packages/agent-core/src/index.ts` still resolves to
+55 of 86 (its owner plus its dependents), not 86.
+
+**Second half — an empty scope set is now visible.** Zero scopes stays a pass, but it no longer
+reads like a full one. Every plan states its coverage as a count, on stdout and in the GitHub **job
+summary** (`$GITHUB_STEP_SUMMARY`, appended by the harness itself — no workflow change needed, so
+this required no edit to `ci.yml`):
+
+```
+Scope coverage: 0 of 86 workspace scopes — this plan verifies NO package or app.
+Scope coverage: 86 of 86 workspace scopes (workspace-wide build tooling changed: …).
+```
+
+`verify-change.mjs` prints and posts the same line BEFORE any check runs, including on its
+zero-scope early return. A `neutral` conclusion was not attempted: it would require changing job
+definitions in `ci.yml`, which this branch does not own.
+
+**The sweep — is the class larger than the one instance?** Every path in the repo outside
+`packages/` and `apps/` was classified through the calculator's own `classifyRepositoryChecks`
+(1882 files land in `repository-review`, which has no executable check at all — that is D6's
+territory, not a scope-selection defect). The candidates that could plausibly govern every scope
+were then measured against 400 `develop` commits, and each was decided on the number:
+
+| Candidate                                                                                           | Touched (of 371 commits with files) | Verdict                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/build-types-ordered.mjs`                                                                   | 0                                   | **added** — the audit's instance; never changed in 400 commits, so its cost is ~0                                                                                                                                                                                                                 |
+| `package.json` (root)                                                                               | 23 (17 with no scope)               | **added**, unconditionally. A key-precise variant (only `devDependencies`/`pnpm`/`engines`/build scripts) would fire 14 rather than 23 — rejected: that key list is itself a rot surface, and 9 extra full verifications per 371 commits is the cheap direction of the error                      |
+| `pnpm-workspace.yaml`, `tsconfig.base.json`, `tsconfig.json`, `.eslintrc.json`                      | 0, 1, 2, 2                          | **added** — ~1.3% of commits combined                                                                                                                                                                                                                                                             |
+| `tsconfig.eslint.json`, `.eslintignore`                                                             | 0, 0                                | **added** for closure with the two above                                                                                                                                                                                                                                                          |
+| `pnpm-lock.yaml`                                                                                    | 41 (7 with no scope)                | **excluded, measured.** All 7 of the no-scope commits ALSO touched root `package.json`, so it adds no detection the list does not have; adding it would move the other 34 from partial to full verification for nothing                                                                           |
+| `vitest.config.ts` (root)                                                                           | —                                   | **excluded, verified.** It does not govern a scope's `pnpm test` — vitest resolves config from the cwd and never searches upward. `packages/agent-tools` has no local vitest config and still collected 26 test files, which the root `include` (`packages/**/src/**`) cannot match from that cwd |
+| `.prettierrc.json`, `commitlint.config.js`, `stryker.conf.mjs`, `.dependency-cruiser.cjs`, `.nvmrc` | —                                   | **excluded** — none is read by a scope's `build`/`test`/`lint`/`typecheck`                                                                                                                                                                                                                        |
+
+So the class was larger than the one instance the audit found (8 paths, not 1), but it is bounded
+and small: the added paths fire on roughly **5% of commits**, and 3 of the 8 have never been
+touched in 400 commits. Two more candidates were measured and deliberately left out with the number
+behind the decision, which is the part that will still be checkable in six months.
+
+**Not swept, and named as such.** This looked only at paths that resolve to ZERO scopes when they
+should resolve to many. The converse — a path that resolves to SOME scopes when it should resolve
+to more — was not audited, and `mapFilesToScopes`'s prefix rule makes it plausible.
 
 ### D5 — `security audit` claims more than it checks — **FILED**
 
@@ -252,6 +331,33 @@ registered in `pnpm harness:scan`.
   an `if:`-excluded dependency.
 - `test-selection-tolerance` — a workflow step that NARROWS a test run must not route it through a
   script containing `--passWithNoTests`. Reverting D1 reports both windows-shell steps.
+- `build-tooling-scope` (D4) — four rules, each red-proven against its own live defect and green
+  after. **R1** every declared path still exists. **R2** the calculator, EXECUTED, resolves each
+  declared path to the full workspace — reverting the fix in place reports all 8 as
+  `resolves to 0 of 86 workspace scopes`, which is the pre-fix `scopes: []` exactly. **R3** every
+  file root `package.json`'s build-defining scripts invoke is declared — adding
+  `node scripts/migrate-session-history.mjs` to root `build` reports it, which is the recurrence
+  this class produces. **R4** a docs-only change still resolves to ZERO scopes and still passes —
+  declaring `README.md` as build tooling reports it, pinning the over-correction shut.
+
+  R2 **executes** rather than reads. HARNESS-052's own guard derived its ledger by regex over
+  source text and therefore measured spelling, not behaviour, in three separate places; a rule
+  about a calculator's OUTPUT must run the calculator. The scan refuses to print a pass when it
+  enumerated zero declared paths, zero workspace scopes or zero root build scripts.
+
+**Where this guard's own ceiling is, stated rather than implied.** It cannot decide whether a path
+IS build tooling. That judgement lives in the constant's membership rule, and a wrong judgement
+there passes every rule above — the same ceiling this item's closing section already states for
+every other structural guard. What the guard does catch is the part that actually rots: a declared
+path going stale, the calculator silently ceasing to honour the list, a new build script joining
+root `build` without joining it, and over-correction into docs.
+
+**Inherited red, fixed in passing.** `guard-scope-fail-closed` rule 1 was already failing on
+`origin/develop` — INFRA-058 registered `scan-required-check-needs` and
+`scan-test-selection-tolerance` without classifying their finders (reproduced on a clean checkout
+of `origin/develop`). Both were measured by EXECUTING them against a bare root — `fail-closed` and
+`vacuous` respectively — and recorded in `PENDING_CLASSIFICATION`. This item's own scan measures
+`fail-closed` and is pinned in `MANDATORY_TREE_GUARDS` with its governed tree named.
 
 Both fail loudly on ZERO edges / ZERO invocations examined, so a broken parser cannot report a
 clean pass over nothing. Each rule's two halves are unit-tested separately, because
@@ -287,11 +393,14 @@ This audit is not, and cannot be, complete. What no pattern can reach:
 
 ## Test Plan
 
-- `pnpm harness:scan` — 70/70 with `--skip dist --skip build-contracts` (the CI form); the local
-  full run's only failure is `dist`, which needs a built tree and is skipped in CI by design.
-- `pnpm harness:test` — 90 files / 1153 tests.
-- `pnpm harness:verify-like-ci`.
-- Each new guard run RED against the reverted defect and GREEN against the fix.
+- `pnpm harness:scan` — **76/76** on a built tree (the local full run's only failure without one is
+  `dist`, which needs built output and is skipped in CI by design).
+- `pnpm harness:test` — **94 files / 1244 tests**.
+- `pnpm harness:verify-like-ci` — **PASS, all 11 stages**.
+- `pnpm build` and `pnpm typecheck` — both exit 0.
+- Each new guard run RED against the reverted defect and GREEN against the fix. For D4 the revert
+  was made IN PLACE (the workspace-wide branch short-circuited while the declared list stayed
+  exported), so the proof is against the live pre-fix behaviour rather than a description of it.
 - YAML parse of `ci.yml` (`yaml.parse`, 14 jobs enumerated) and `bash -n` on every touched `run:`.
 
 ## User Execution Test Scenarios
