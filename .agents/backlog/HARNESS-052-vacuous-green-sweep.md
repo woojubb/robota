@@ -13,7 +13,7 @@ depends_on: []
 ## Problem
 
 One defect class has hit this repository ten times in a week: **a check that reports success over
-work it did not do**. Not a check that is wrong — a check that is *silent*, so the absence of
+work it did not do**. Not a check that is wrong — a check that is _silent_, so the absence of
 enforcement is invisible from outside. `Claude review` skipping on a parity mismatch and exiting 0
 for 100 consecutive runs; `scans` printing `SKIPPED … Not a pass` and exiting 0; a red `changes`
 making required jobs report `skipping`, which branch protection accepts; `protect-main`'s five
@@ -23,7 +23,7 @@ neither `build` nor any package test.
 Nine guards now fence specific instances (`scan-review-workflow-parity`, `scan-ci-base-history`,
 `scan-main-required-checks`, `scan-automerge-disarm-permission`, `scan-unearned-done-claims`,
 `check-regression-red-proof`, `ci-mirror-map`, `scan-no-fallback`, `scan-no-fake-in-src`). This item
-records a systematic sweep of the gaps *between* them.
+records a systematic sweep of the gaps _between_ them.
 
 **Method.** Every finding below marked `falsified` was reproduced by breaking the thing the check
 exists to catch, running the check, and recording whether it went red. Findings marked `hypothesis`
@@ -34,16 +34,16 @@ reasoning as measurement is this defect class one level up.
 
 ### Fixed in this item (each proven RED before the fix, GREEN after)
 
-| # | Location | Shape | Verdict | Reachable |
-| - | -------- | ----- | ------- | --------- |
-| F1 | `scripts/harness/scan-ci-base-history.mjs` `listWorkflows` | `if (!existsSync(dir)) return []` — a missing `.github/workflows` reported as a pass | falsified | yes |
-| F2 | `scripts/harness/scan-automerge-disarm-permission.mjs` | inherits F1 via the shared helper | falsified | yes |
-| F3 | `scripts/harness/scan-review-workflow-parity.mjs` `listGovernedWorkflows` | same, plus: **zero workflows matching the governed action printed "nothing to guard" and exited 0**, so renaming or wrapping the action retires the guard silently | falsified | yes |
-| F4 | `scripts/harness/scan-no-fallback.mjs` | absent `packages/` ⇒ `no-fallback scan passed.`; separately, the `root` parameter was decorative — the walker always walked `WORKSPACE_ROOT` | falsified | yes |
-| F5 | `scripts/harness/scan-no-fake-in-src.mjs` | absent `packages/` ⇒ zero findings ⇒ pass | falsified | yes |
-| F6 | `scripts/harness/check-patch-coverage.mjs:388` | **any** `--detect` error (most reachably an unresolvable base ref) wrote `affected=false` to `$GITHUB_OUTPUT` and exited 0, so ci.yml skipped collection and published a green patch-coverage result over an unmeasured diff | falsified | yes |
-| F7 | `packages/agent-core/src/agents/robota.test.ts:503` | `expect(true).toBe(true)` under the title "should handle multiple destroy calls safely" | falsified | yes |
-| F8 | `packages/agent-provider-openai/src/openai/executor-integration.test.ts:140` | `expect(true).toBe(true)` under "should clean up executor when provider is disposed" — a claim `OpenAIProvider.dispose()` does not make; it is empty | falsified | yes |
+| #   | Location                                                                     | Shape                                                                                                                                                                                                                        | Verdict   | Reachable |
+| --- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------- |
+| F1  | `scripts/harness/scan-ci-base-history.mjs` `listWorkflows`                   | `if (!existsSync(dir)) return []` — a missing `.github/workflows` reported as a pass                                                                                                                                         | falsified | yes       |
+| F2  | `scripts/harness/scan-automerge-disarm-permission.mjs`                       | inherits F1 via the shared helper                                                                                                                                                                                            | falsified | yes       |
+| F3  | `scripts/harness/scan-review-workflow-parity.mjs` `listGovernedWorkflows`    | same, plus: **zero workflows matching the governed action printed "nothing to guard" and exited 0**, so renaming or wrapping the action retires the guard silently                                                           | falsified | yes       |
+| F4  | `scripts/harness/scan-no-fallback.mjs`                                       | absent `packages/` ⇒ `no-fallback scan passed.`; separately, the `root` parameter was decorative — the walker always walked `WORKSPACE_ROOT`                                                                                 | falsified | yes       |
+| F5  | `scripts/harness/scan-no-fake-in-src.mjs`                                    | absent `packages/` ⇒ zero findings ⇒ pass                                                                                                                                                                                    | falsified | yes       |
+| F6  | `scripts/harness/check-patch-coverage.mjs:388`                               | **any** `--detect` error (most reachably an unresolvable base ref) wrote `affected=false` to `$GITHUB_OUTPUT` and exited 0, so ci.yml skipped collection and published a green patch-coverage result over an unmeasured diff | falsified | yes       |
+| F7  | `packages/agent-core/src/agents/robota.test.ts:503`                          | `expect(true).toBe(true)` under the title "should handle multiple destroy calls safely"                                                                                                                                      | falsified | yes       |
+| F8  | `packages/agent-provider-openai/src/openai/executor-integration.test.ts:140` | `expect(true).toBe(true)` under "should clean up executor when provider is disposed" — a claim `OpenAIProvider.dispose()` does not make; it is empty                                                                         | falsified | yes       |
 
 F6's falsification: `PATCH_COVERAGE_BASE_REF=origin/no-such-branch-xyz node scripts/harness/check-patch-coverage.mjs --detect`
 wrote `affected=false` / `packages=` and exited 0. After the fix the same command exits 1 and writes nothing.
@@ -89,7 +89,7 @@ silently reduced.
 having built, tested and linted nothing. The base-ref half of INFRA-056 was closed; this half was not.
 
 **`check-plan.mjs:97,100`** — `needsTest && scope.scripts.test` and `needsLint && scope.scripts.lint`
-drop the check when the script is *absent*, whereas `needsTypecheck` pushes unconditionally. So a PR
+drop the check when the script is _absent_, whereas `needsTypecheck` pushes unconditionally. So a PR
 confined to `packages/agent-cli-web` (no `test` script) means root `pnpm test` never runs at all, and
 a PR confined to any of the 16 packages without a `lint` script means root `pnpm lint` never runs.
 `hypothesis` — the code path is read, not executed. Not fixed here: the fix changes what CI runs on
@@ -107,7 +107,7 @@ filter is `case "$FILE_PATH" in "$PROJECT_DIR"/packages/*/src/*.ts)`, and `PROJE
 `${CLAUDE_PROJECT_DIR:-.}`. Measured: a payload writing a `catch { return null; }` into
 `<repo>/packages/agent-core/src/probe.ts` exits **2** (blocked), the identical payload under
 `<repo>/.claude/worktrees/<agent>/packages/...` exits **0**, and with `CLAUDE_PROJECT_DIR` unset the
-hook exits 0 for *every* write. This repo's own orchestration policy puts agent work in
+hook exits 0 for _every_ write. This repo's own orchestration policy puts agent work in
 `.claude/worktrees/*`, so the pre-write floor is off for most of the work it governs.
 `branch-guard.sh` and `worktree-cwd-guard.sh` were both already repaired for this exact shape;
 this one was missed. Outside this item's ownership — file only.
@@ -129,7 +129,7 @@ falsified from a local checkout.
 - `ci.yml:260` — `build` (required) is `pnpm build` behind an `if:`, with an `echo` on the else
   branch. This is the `protect-main` incident's shape on the develop side, and
   `scan-main-required-checks`' R3/R4 cannot see it: R3 matches only `github.base_ref` in a step
-  `if:`, and R4 requires *every* step to be conditional. `ci.yml:431` (`security audit`, required)
+  `if:`, and R4 requires _every_ step to be conditional. `ci.yml:431` (`security audit`, required)
   has the same shape.
 - `review-gate.yml:260` — the auto-merge disarm is `needs.review-gate.result == 'failure'`, but the
   workflow sets `cancel-in-progress: true` and triggers on `labeled`, so a cancelled run leaves auto
@@ -150,14 +150,68 @@ not what its name promises. Three sub-shapes: **(A)** checks something other tha
 
 `check-agent-server-boundary` is the owner's worked example and is already filed as HARNESS-051: it
 passes, it can fail, and it is satisfied vacuously by a never-called import because it checks that a
-token *appears* rather than that a seam is *wired*. Not duplicated here.
+token _appears_ rather than that a seam is _wired_. Not duplicated here.
 
 ### Fixed in this item
 
-| # | Location | Sub-shape | Verdict |
-| - | -------- | --------- | ------- |
-| G1 | `scripts/harness/check-publish-safety.mjs:91` | A + C | falsified |
-| G2 | `scripts/harness/scan-dist-freshness.mjs:1` | A | falsified |
+| #   | Location                                                                       | Sub-shape | Verdict   |
+| --- | ------------------------------------------------------------------------------ | --------- | --------- |
+| G1  | `scripts/harness/check-publish-safety.mjs:91`                                  | A + C     | falsified |
+| G2  | `scripts/harness/scan-dist-freshness.mjs:1`                                    | A         | falsified |
+| G3  | `scripts/harness/scan-guard-scope-fail-closed.mjs` (×3, this item's own guard) | A         | falsified |
+| G4  | `scripts/harness/scan-conflict-markers.mjs`                                    | A         | falsified |
+| G5  | `scripts/harness/scan-no-fake-in-src.mjs:159`                                  | C         | falsified |
+| G6  | `apps/agent-server/src/__tests__/websocket-server.test.ts` (×2)                | A         | falsified |
+| G7  | `packages/agent-framework/src/__tests__/no-insecure-temp-path.test.ts:36`      | A         | falsified |
+
+**G3 — the guard this item shipped committed the audited defect, three times.** An independent
+sweep of this branch's own work found it; all three were then falsified.
+(a) The derivation regex was `export function (find…)\(\s*root\s*=`, so it derived **20 of 50**
+finders — it saw neither `export async function`, nor a `collect…` finder, nor a `root` without a
+default — and therefore did not classify **itself**, `findGuardScopeFindings` being async.
+Falsified by registering a scan exporting an unconditionally vacuous
+`export async function findBogusFindings(root = X)`: the completeness rule, whose stated claim is
+"a new scan cannot be added without answering for its behaviour", passed. Flipping the single
+keyword `async function` → `function` made the same file fail — proof the rule was measuring
+spelling, not structure. (b) `finder(bare)` was not awaited, so a _classified_ async finder would
+have been reported as violating no matter how it behaved; the two defects masked each other exactly.
+(c) The regex matched the example declaration written in the file's own docstring and derived a
+finder for a function that does not exist — a scan reading its documentation as evidence.
+The ledger is now regenerated by **executing** all 50 finders against a bare root: 30 vacuous,
+20 fail-closed. This is the strongest single result of the sweep, and it is an argument for the
+method: the guard was reviewed, tested, and green, and only falsification found it.
+
+**G4 — a `conflict-markers` gate that does not check for conflict markers.** It checked only for
+contradictory _guidance_ in three markdown trees. Falsified: a literal `<<<<<<< HEAD` / `=======` /
+`>>>>>>> develop` block appended to `packages/agent-core/src/index.ts` left it printing
+`conflict marker scan passed.`, and no other harness scan detects the pattern. A `✓ conflict-markers`
+line in the merge-gate summary was evidence for a check nobody performed. The missing rule was added
+rather than the scan renamed, so the name people read as merge evidence becomes true.
+
+**G5 — the scan G3's guard certifies as covering `packages/`, covering 55 of 76 of it.** It walked
+`packages/` at depth 1, so `packages/dag-nodes` (which has no `src/` of its own) was skipped along
+with all 21 members and their 59 source files. The first pass of this item hardened the same
+function against a _missing_ tree while leaving its _enumeration_ one level deep — and then pinned
+it as a mandatory guard, certifying coverage it did not have. Falsified with
+`export class MockToolClient {}` in `packages/dag-nodes/tool/src/index.ts`: `no-fake-in-src scan
+passed.` Now nesting-aware via the SSOT enumerator.
+
+**G6 — two `agent-server` regression guards that did not observe their contract.** The SEC-001 guard
+(`empty token must be rejected`) names `client.ws.close` in its title and asserted only that _some_
+error frame arrived — satisfied by the unrelated `Invalid auth payload` branch. Reintroducing the
+hole _did_ turn it red, but via `httpServer.close()` hanging on the still-open socket until vitest's
+5s timeout: an accidental red reading `Test timed out in 5000ms`, which a raised `testTimeout` or a
+forced teardown would have retired silently. The SRV-002 guard spied the **global** `clearInterval`
+and asserted only `toHaveBeenCalled()`; `clearInterval(setInterval(() => {}, 1e9))` restores the
+timer leak in full and it passed. Both now assert the named contract.
+
+**G7 — a security floor whose detector could not span a line break.** The SEC-003 CWE-377 rule ran
+inside `lines.forEach`, so its `\s*` could never cross a newline and it only fired when `join(` and
+`tmpdir()` landed on the same physical line — which Prettier's 100-column wrap routinely prevents.
+Falsified with a verbatim wrapped `join(\n tmpdir(),\n 'robota-cache.json',\n)`. Widening it to the
+whole source then flagged three _safe_ `mkdtempSync(path.join(tmpdir(), …))` call sites, so the
+lookbehind had to admit a module qualifier — an over-firing floor is one that gets suppressed, which
+is sub-shape B arriving as the cost of fixing sub-shape A.
 
 **G1 — a universal claim over a set enumerated at depth 1.** The scan printed `Checked prepublishOnly
 hooks on all publishable packages` while enumerating `readdirSync(join(root, 'packages'))`, so the 20
@@ -171,7 +225,7 @@ the same file already used the nesting-aware SSOT enumerator; rule 2 had never a
 **G2 — a presence gate wearing a temporal name.** `scan-dist-freshness` never compares dist against
 the sources that produced it. Falsified: `touch packages/agent-core/src/index.ts` leaves the source
 28 minutes newer than its dist and the scan still exits 0, reporting "All 86 buildable packages have
-dist/". The behaviour is a correct presence gate; the *name* is the defect. Not renamed here — the
+dist/". The behaviour is a correct presence gate; the _name_ is the defect. Not renamed here — the
 registered name `dist` appears in a `--skip dist` argument inside `ci.yml`, which is outside this
 item's ownership — so the docstring now states the gap explicitly instead of implying the check.
 `verify-like-ci` already compensates: its `build` stage exists because "locally a STALE dist passes
@@ -180,7 +234,7 @@ the presence-only freshness scan", and it rebuilds rather than trusting this res
 ### Guarded
 
 `scripts/harness/workspace-packages.mjs` is the SSOT every nesting-aware scan enumerates through, so
-each scan's coverage is exactly as correct as that module's — and its rule is a *heuristic* (recurse
+each scan's coverage is exactly as correct as that module's — and its rule is a _heuristic_ (recurse
 one level into a depth-1 directory that is not itself a package), not a reading of
 `pnpm-workspace.yaml`. The two could drift apart silently, which is how G1 happened.
 `scripts/harness/__tests__/workspace-packages.test.mjs` now pins them together, deriving the expected
@@ -190,27 +244,87 @@ ceiling is asserted too, so it is a known boundary rather than a surprise.
 
 ### Recorded, not fixed
 
-- **The `dist` scan should be renamed** to match what it measures, which requires the `--skip dist`
-  argument in `ci.yml` to move with it.
-- **Five more depth-1 `packages/` walkers** (`check-interface-imports`, `check-dep-kind`,
-  `check-orphan-exports`, `scan-memory-neutrality`, `check-design-doc-completeness`) have G1's shape.
-  `hypothesis` for each — only `check-publish-safety` was falsified. A probe found no live violation
-  hiding in the uncovered packages today; the false coverage is the finding, not a current miss.
-- **`check-design-doc-completeness` has never validated a document** and is also a depth-1 walker, so
-  it carries both axes at once: it cannot fail today, and its subject is the wrong set.
+All `hypothesis` unless marked otherwise — read from source, not executed.
+
+**Depth-1 `packages/` walkers (sub-shape C), the canonical drift.** Each enumerates `packages/` at
+depth 1 while `pnpm-workspace.yaml` declares `packages/dag-nodes/*` (21 members, 59 source files),
+and each states a universal claim: `check-orphan-exports:75` ("referenced nowhere else **in the
+workspace**" — the nested members are excluded from the reference corpus too, so their imports
+cannot rescue a symbol elsewhere either), `check-interface-imports:104` ("scans **every**
+implementation-package `src`", summary `scanned=2080`), `check-dep-kind:99` ("**scan every workspace
+package**"), `check-dependency-direction:394` ("**every** `packages/<name>/docs/SPEC.md`" — 21 SPEC
+files unchecked, and the asymmetry is _within one file_: its own `findWorkspacePackages` is
+nesting-aware), `check-doc-examples:41` ("**each** `packages/x/README.md`"),
+`check-design-doc-completeness`, `scan-memory-neutrality`. `workspace-packages.mjs` exists for
+exactly this and six scans already use it.
+
+**Presence-of-a-string standing in for a structural property — the `agent-server-boundary` family
+(sub-shape A).** `check-test-coverage-scripts:78` asserts "wired into `harness:scan`" with
+`readFileSync(run-all-scans.mjs).includes('check-test-coverage-scripts.mjs')`, which stays true when
+the registration is _commented out_. `scan-orchestration-map:43` proves "listed in the Orchestration
+Map" with `mapText.includes(name)` — satisfied by the bare name appearing in prose, in a fenced
+block, or as a substring of another agent's name. `check-functional-coverage:77` claims "**every**
+framework capability … drives a REAL InteractiveSession" but reads a self-referential 11-row manifest
+and accepts the token `scriptedSession` appearing anywhere, including a comment beside a
+`describe.skip` — the precise case its docstring forbids. `scan-deployment-matrix:74` says its
+subject is "adapters that declare a `name`" and actually matches a directory prefix plus a filename
+substring, so the base `packages/agent-transport` can never contribute.
+
+**Criteria that drifted (sub-shape C).** `scan-test-plan:20` gates
+`docs/superpowers/**` + `.agents/tasks` (35 files) while the live pipeline `.agents/spec-docs/**`
+holds **242** unscanned — and `check-ghost-package-refs:68` classifies that same tree as "dated
+historical artifacts", so one guard treats as live what another treats as history.
+`check-command-layering:280` filters on `agent-command-`, whose trailing hyphen excludes
+`packages/agent-command` — the base command package — from both the sweep and the import regex.
+`check-ghost-package-refs:54` and `check-workspace-refs:30` both allowlist
+`@robota-sdk/agent-provider-bytedance` as "not a workspace package"; it is one, and its cited backlog
+item is already in `completed/`. `scan-agent-tools-neutrality:72` tells the fixer to add to an
+`ALLOWLIST` in a file that no longer holds one (HARNESS-DIET-002 moved it to
+`.agents/harness.config.json`).
+
+**Narrower.** `check-build-output-contracts:191` passes `root` to `listWorkspaceScopes()`, which
+takes **no parameters** and closes over `process.cwd()` — the same decorative-`root` defect this item
+fixed in `scan-no-fallback`. `scan-dist-freshness:59` has an operator-precedence bug that downgrades
+a genuine missing-dist error to a non-blocking warning for any package with `main` pointing at
+`dist/` but no `exports` block, under a banner claiming "All N buildable packages have dist/".
+`scan-file-size` emits **21** `[ratchet-tighten]` notices and exits 0, so the "regenerate in the same
+PR" discipline is unenforced and 21 files are licensed to regain every line they shed — a ratchet
+that has loosened, plus 21 advisory lines per run (sub-shape B).
+`check-temp-script-placement:22` enforces three filename globs harvested from one incident under a
+_placement_-rule name. `check-harness-config-paths:34` only validates quoted paths starting
+`packages|apps|scripts`, so the many `.agents/**`, `.github/**` and `content/**` literals across the
+harness are unguarded by the one meta-guard for that class.
+
+**Tests (sub-shape A), from an independent sweep of all 903 test files.**
+`packages/dag-nodes-default/src/index.test.ts:50,57,66,75` — four tests named for `tryImport`/
+`tryConstruct` catch branches, none of which arranges a failure; all four call the identical happy
+path, and line 75 creates a `console.warn` spy it never asserts on. Removing both `try`/`catch`
+blocks leaves all four green. `apps/dag-runtime-server/src/__tests__/app.contract.test.ts:26,33` —
+"returns a successful response" asserts `status < 500` (admitting 404) and `toBeDefined()` on a
+parsed body that can never be `undefined`; deleting the route registration leaves it green.
+`apps/action/__tests__/command-injection.test.ts:29` spawns a hardcoded `echo` instead of
+`invocation.file`, so it proves `execFileSync`'s no-shell semantics rather than the SUT's — its two
+sibling tests are sound. `packages/agent-transport-webrtc/.../cve-2024-29415-reachability.test.ts:44`
+swallows a `require.resolve` failure for `werift-ice`, the package its header names as the one
+reaching the vulnerable code, and asserts only `dirs.length > 0`, which the other package satisfies.
+
+**Category B produced no confirmed finding in tests**: `toMatchSnapshot`/`toMatchInlineSnapshot`
+appear zero times across `packages/` and `apps/`, and deep-equals over volatile data correctly use
+`expect.stringMatching`. Bare `toThrow()` appears in only five places and none of those titles names
+a message or code.
 
 ## The mechanical ceiling
 
 Stated rather than implied, because an audit claiming completeness it cannot have is itself the defect:
 
 - **A weak assertion is not detectable by pattern.** `scan-tautological-assertions` catches only
-  assertions that are *structurally* incapable of failing. Several tests found in this sweep assert a
+  assertions that are _structurally_ incapable of failing. Several tests found in this sweep assert a
   run reached `status: 'success'` while never checking the value the run was supposed to produce
   (`packages/dag-framework/src/__tests__/create-dag-framework.test.ts:46,79` — a DAG configured with
   `prefix: 'hello '` over input `'world'` where `'hello world'` appears in no assertion). Only
   mutation testing reaches those.
 - **A scan whose logic is subtly wrong still passes.** `scan-guard-scope-fail-closed` asserts a
-  guard fails closed when its governed tree is *absent*; it says nothing about whether the guard's
+  guard fails closed when its governed tree is _absent_; it says nothing about whether the guard's
   rules are correct when the tree is present.
 - **Scans that walk their tree inline in `main()`, or take no root parameter, are outside the new
   guard's derived set.** It covers 20 of ~70 registered scans, by construction, and says so in its
@@ -219,10 +333,18 @@ Stated rather than implied, because an audit claiming completeness it cannot hav
 - **A name/behaviour mismatch is not mechanically detectable at all.** The second axis was audited by
   reading, and only two of its findings were falsified. No scan can decide whether a check's name
   describes what it measures — that is a judgement about intent. G1 was found because its message
-  contained the word "all"; a check whose name is merely *optimistic* leaves no such token.
-- **Over-checking (sub-shape B) produced no confirmed finding here**, which is a statement about this
-  sweep's reach, not evidence that none exists: suppression counts and gate runtimes were surveyed,
-  but "noisy enough that people route around it" is measured from behaviour over time, not source.
+  contained the word "all"; a check whose name is merely _optimistic_ leaves no such token.
+- **Over-checking (sub-shape B) produced one confirmed finding** — `scan-file-size`'s 21 advisory
+  lines per run — and it was found by reading, not by measurement. "Noisy enough that people route
+  around it" is a property of behaviour over time; nothing here measures it. Fixing G7 also _created_
+  a B-shaped risk (three false positives) that had to be corrected before it shipped, which is the
+  general hazard of tightening an A-shaped rule.
+- **The single most useful result of this sweep was a defect in the sweep's own guard** (G3), found
+  by an independent reader after the guard was written, tested, reviewed and green. That is the
+  honest summary of the ceiling: the method that works is adversarial falsification by someone other
+  than the author, and neither this document nor any scan in it can promise it was applied
+  everywhere. Two of the three G3 defects masked each other, so even a partial falsification would
+  have reported the guard as sound.
 
 ## Test Plan
 
@@ -252,7 +374,15 @@ in `## Test Plan`.
 - [x] `scan-dist-freshness`' docstring states what it does not measure.
 - [ ] `scan-dist-freshness` is renamed to match what it checks (needs the `--skip dist` argument in
       `ci.yml` to move with it — outside this item's ownership).
-- [ ] The five remaining depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
+- [x] `scan-conflict-markers` detects literal git conflict debris, so its registered name is true.
+- [x] `scan-no-fake-in-src` covers the nested package group its guard-scope pin certifies.
+- [x] The guard-scope scan derives async and `collect…` finders, awaits them, and ignores its own
+      docstring — and its ledger is regenerated by executing all 50, not by reading them.
+- [ ] The remaining depth-1 `packages/` walkers adopt `workspace-packages.mjs` (7 identified).
+- [ ] The four `presence-of-a-string` guards assert the structural property they name.
+- [ ] `scan-test-plan` gates `.agents/spec-docs/**` (242 files) rather than the archived tree.
+- [ ] `scan-file-size`'s ratchet-tighten notice becomes a failure, as `check-test-module-mocks` does.
+- [ ] The two stale `agent-provider-bytedance` allowlist entries are removed.
 - [ ] The nine remaining vacuous finders in `PENDING_CLASSIFICATION` fail closed.
 - [ ] `check-design-doc-completeness`' subject is decided — required somewhere, or declared optional.
 - [ ] The six depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
