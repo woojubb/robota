@@ -101,6 +101,12 @@ export const MANDATORY_TREE_GUARDS = [
     tree: 'packages, apps and scripts',
     why: 'a test-assertion floor that finds no test files has not found clean tests, it has found no tests',
   },
+  {
+    file: 'scan-conflict-markers.mjs',
+    finder: 'findGitConflictMarkers',
+    tree: 'packages, apps and scripts',
+    why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
+  },
 ];
 
 /**
