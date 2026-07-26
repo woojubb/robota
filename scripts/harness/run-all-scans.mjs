@@ -155,6 +155,12 @@ const SCAN_COMMANDS = [
   },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
+  {
+    // HARNESS-050 — the companion to done-evidence: that one guards evidence DECAY (a cited path
+    // that later vanished), this one guards evidence that was NEVER THERE.
+    name: 'unearned-done-claims',
+    command: ['node', 'scripts/harness/scan-unearned-done-claims.mjs'],
+  },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
   { name: 'test-module-mocks', command: ['node', 'scripts/harness/check-test-module-mocks.mjs'] },
   { name: 'backlog-placement', command: ['node', 'scripts/harness/check-backlog-placement.mjs'] },

@@ -25,8 +25,13 @@ import { envWithoutGitVars } from './shared.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const COMPLETED_DIR = '.agents/backlog/completed';
 
-/** Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs. */
-const PATH_PATTERN = /(?:^|[\s`("'[])((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)/g;
+/**
+ * Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs.
+ * Exported so HARNESS-050's `scan-unearned-done-claims.mjs` reuses this ONE definition of a
+ * repo-path citation rather than carrying a second, drifting copy (AGENTS.md: one owner per fact).
+ */
+export const PATH_PATTERN =
+  /(?:^|[\s`("'[])((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)/g;
 const SUPERSEDED_PATTERN = /<!--\s*evidence-superseded:\s*(.+?)\s*-->/;
 /** A heading or list/bold lead-in that opens an evidence region. */
 const EVIDENCE_START_PATTERN = /^(#{1,6}\s.*evidence|[-*]\s+\**evidence|\*\*evidence)/i;
