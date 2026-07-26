@@ -119,6 +119,12 @@ export const MANDATORY_TREE_GUARDS = [
     tree: 'packages, apps and scripts',
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
   },
+  {
+    file: 'scan-build-tooling-scope.mjs',
+    finder: 'findBuildToolingScopeFindings',
+    tree: 'the declared workspace-wide build tooling (root package.json, tsconfig.base.json, scripts/build-types-ordered.mjs and the rest)',
+    why: 'INFRA-060 D4 — this guard exists because build tooling resolving to zero scopes made two REQUIRED checks green over a monorepo they never built; a run that finds none of that tooling has measured nothing, and "no build tooling here" is exactly the answer the defect produced',
+  },
 ];
 
 /**
@@ -284,6 +290,23 @@ export const PENDING_CLASSIFICATION = [
     file: 'scan-unearned-done-claims.mjs',
     finder: 'findUnearnedDoneClaimFindings',
     measured: 'fail-closed',
+  },
+  // INFRA-058's two guards, unclassified when they were registered — which left rule 1 RED on
+  // `develop` (reproduced on a clean checkout of origin/develop, 2026-07-26). Measured here rather
+  // than assumed, and left in the ledger rather than pinned: naming their governed tree accurately
+  // is their own item's call, not this one's.
+  {
+    file: 'scan-required-check-needs.mjs',
+    finder: 'findRequiredCheckNeedsFindings',
+    measured: 'fail-closed',
+  },
+  {
+    // The FINDER is vacuous on an absent `.github/workflows` — it returns `{findings: [],
+    // invocations: 0}`. Its `main()` is not: it fails on `invocations === 0`. The ledger records
+    // what the finder does, because that is what this scan can execute.
+    file: 'scan-test-selection-tolerance.mjs',
+    finder: 'findTestSelectionFindings',
+    measured: 'vacuous',
   },
 ];
 
