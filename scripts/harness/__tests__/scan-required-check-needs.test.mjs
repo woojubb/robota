@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  isFailSafeFor,
+  jobContextName,
+  JOB_STATUS_FUNCTION,
+} from '../scan-required-check-needs.mjs';
+
+/**
+ * `scan-main-required-checks` originally shipped GREEN on three variants of the very defect it
+ * was written for, because its rule was a blacklist of the one spelling its author had seen.
+ * These cases exist so this scan does not repeat that: each HALF of the fail-safe rule is tested
+ * on its own, because either half alone is a plausible "fix" that leaves the bypass wide open.
+ */
+describe('isFailSafeFor', () => {
+  const dependency = 'changes';
+
+  it('accepts the shipped fail-safe shape', () => {
+    expect(
+      isFailSafeFor(
+        "${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}",
+        dependency,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects the PRE-FIX shape that let #1424 merge on three `skipping` required checks', () => {
+    expect(
+      isFailSafeFor(
+        "github.base_ref != 'main' && needs.changes.outputs.code == 'true'",
+        dependency,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects `needs.<dep>.result` WITHOUT a job-status function', () => {
+    // Half-fix #1: GitHub skips the job before this expression is ever evaluated, so naming the
+    // dependency's result here changes nothing at all.
+    expect(isFailSafeFor("needs.changes.result != 'success'", dependency)).toBe(false);
+  });
+
+  it('rejects a job-status function WITHOUT `needs.<dep>.result`', () => {
+    // Half-fix #2: the job now runs when `changes` fails, but the condition still reads only
+    // `outputs.code`, which is EMPTY on a failed job — so it evaluates false and the job skips
+    // anyway. Green scan, unchanged bypass.
+    expect(isFailSafeFor("!cancelled() && needs.changes.outputs.code == 'true'", dependency)).toBe(
+      false,
+    );
+  });
+
+  it('rejects an absent condition', () => {
+    expect(isFailSafeFor(undefined, dependency)).toBe(false);
+    expect(isFailSafeFor('', dependency)).toBe(false);
+  });
+
+  it('does not accept a fail-safe written for a DIFFERENT dependency', () => {
+    expect(isFailSafeFor("!cancelled() && needs.build.result != 'success'", dependency)).toBe(
+      false,
+    );
+  });
+
+  it('accepts `always()` and `failure()` as job-status functions', () => {
+    expect(isFailSafeFor("always() && needs.changes.result != 'skipped'", dependency)).toBe(true);
+    expect(isFailSafeFor("failure() || needs.changes.result == 'success'", dependency)).toBe(true);
+  });
+
+  it('does not mistake a bare word for a job-status function call', () => {
+    expect(JOB_STATUS_FUNCTION.test('alwaysRun && needs.changes.result')).toBe(false);
+    expect(JOB_STATUS_FUNCTION.test('always()')).toBe(true);
+    expect(JOB_STATUS_FUNCTION.test('!cancelled( )')).toBe(true);
+  });
+});
+
+describe('jobContextName', () => {
+  it('prefers the declared `name:` over the job id, because branch protection matches the name', () => {
+    expect(jobContextName('dependency-audit', '    name: dependency audit\n    steps:\n')).toBe(
+      'dependency audit',
+    );
+  });
+
+  it('falls back to the job id when no name is declared', () => {
+    expect(jobContextName('changes', '    runs-on: ubuntu-latest\n')).toBe('changes');
+  });
+
+  it('strips quotes so a quoted name still matches the declared context', () => {
+    expect(jobContextName('x', "    name: 'patch-coverage (advisory)'\n")).toBe(
+      'patch-coverage (advisory)',
+    );
+  });
+});

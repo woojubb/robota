@@ -1,7 +1,8 @@
 ---
 title: 'SEC-006: triage the 40 high + 15 medium CodeQL alerts the develop-ref query hid, and fix at source'
-status: in-progress
+status: done
 created: 2026-07-26
+completed: 2026-07-26
 priority: high
 urgency: now
 area: packages, apps
@@ -525,7 +526,33 @@ Expected: `HTTP/1.1 404 Not Found`, and the agent process is still running and s
 subsequent `curl -i http://127.0.0.1:<port>/` returns `200` with the injected `ws-url` meta tag.
 Before the fix the first curl killed the process.
 Cleanup: Ctrl+C.
-Evidence: _to be filled after implementation_
+
+**Correction to the steps, found by running them.** Plain `robota --serve` does NOT start the monitor
+server. `packages/agent-cli/src/modes/serve-mode.ts:137` gates it on `if (args.open)`, and
+`resolveWebRoot()` (`packages/agent-cli/src/modes/serve-monitor-ui.ts:45-48`) returns `null` unless
+`dist/web/index.html` exists — which the root `pnpm build` does not produce. The executable form is
+`pnpm --filter @robota-sdk/agent-cli build` (its `build` script chains `agent-cli-web` +
+`scripts/copy-web-assets.mjs`) followed by `robota --serve --open`.
+
+Evidence (agent-run, 2026-07-26, from `/tmp/sec006/work`):
+
+```
+$ node packages/agent-cli/bin/robota.cjs --serve --open
+Web monitor: http://127.0.0.1:42885
+
+$ curl -s -i http://127.0.0.1:42885/assets   | head -1
+HTTP/1.1 404 Not Found
+$ curl -s -i http://127.0.0.1:42885/.        | head -1
+HTTP/1.1 200 OK
+$ curl -s -i http://127.0.0.1:42885/         | head -1
+HTTP/1.1 200 OK
+$ curl -s http://127.0.0.1:42885/ | grep -o '<meta name="ws-url"[^>]*>'
+<meta name="ws-url" content="ws://127.0.0.1:7070?token=a8db60fd…" />
+```
+
+`GET /assets` (a real directory — `packages/agent-cli/dist/web/assets/` exists in this build) returned
+404 instead of terminating the process, and the two later requests were served by the SAME still-running
+server, which is the whole claim: before R1 the first request killed it.
 
 **Scenario 2 — the file tools refuse to escape the workspace via a symlink (R3).**
 Prerequisites: a built CLI and a scratch directory.
@@ -534,7 +561,23 @@ then run robota with `cwd=/tmp/sec006/work` and ask it to read `escape/outside.t
 Expected: the `Read` tool returns `Access denied: "…" is outside the working directory`; the file
 contents are never shown. A normal read of a file inside `work/` still succeeds.
 Cleanup: `rm -rf /tmp/sec006`.
-Evidence: _to be filled after implementation_
+
+Evidence (agent-run, 2026-07-26). Run headlessly so the tool result is quotable verbatim —
+`cd /tmp/sec006/work && node packages/agent-cli/bin/robota.cjs --permission-mode bypassPermissions
+-p "Read the file escape/outside.txt and tell me exactly what the Read tool returned, verbatim."`:
+
+```
+{"success":false,"output":"","error":"Access denied: \"/tmp/sec006/work/escape/outside.txt\" is outside the working directory"}
+```
+
+`bypassPermissions` is deliberate: it removes the permission layer, so the refusal can only be coming
+from the canonical-path containment R3 added. The control half — the same command on `inside.txt` —
+succeeds, so the guard is not simply refusing everything:
+
+```
+[File: /tmp/sec006/work/inside.txt (1 lines)]
+1	inside-ok
+```
 
 **Scenario 3 — a traversing resume id is rejected with a 400 (R2).**
 Prerequisites: `apps/agent-server` running locally with any provider key.
@@ -543,9 +586,54 @@ Steps: `curl -i -X POST localhost:<port>/api/playground/sessions -H 'content-typ
 Expected: `400` with `{"error":"Invalid \"resumeSessionId\" field"}`, and no file appears outside
 `.robota/sessions/`. A well-formed id still resumes normally.
 Cleanup: remove any created session files.
-Evidence: _to be filled after implementation_
+
+Evidence (agent-run, 2026-07-26). `pnpm --filter @robota-sdk/agent-server build`, then
+`PORT=8791 node apps/agent-server/dist/server.js`, then two POSTs to
+`http://127.0.0.1:8791/api/playground/sessions`:
+
+```
+--- traversing resumeSessionId "../../escaped" ---
+HTTP 400
+{"error":"Invalid \"resumeSessionId\" field"}
+--- well-formed resumeSessionId "sec006-well-formed-id" ---
+HTTP 200
+{"sessionId":"8c3f61f8-8abe-4c9a-ab52-a9093674f1f0","messages":[]}
+```
+
+`find` over the server's tree and `$HOME` for `escaped*` returned nothing, and `~/.robota/sessions/`
+gained only the well-formed run's own file. The 200 on the control is the load-bearing half: the
+handler is rejecting the traversal specifically, not rejecting `resumeSessionId` outright.
+
+Incidental confirmation of the same PR's helmet hardening (`apps/agent-server/src/app.ts:39`):
+`curl -i http://127.0.0.1:8791/health` now returns `Content-Security-Policy: default-src 'none';
+frame-ancestors 'none';base-uri 'self';…` where before it sent none.
+
+## Post-merge alert re-query (2026-07-26)
+
+The Test Plan's last line. Run with `--paginate`, which is the whole point of this item:
+
+```
+$ gh api "repos/woojubb/robota/code-scanning/alerts?state=open&ref=refs/heads/develop&per_page=100" \
+    --paginate --jq '.[] | (.rule.security_severity_level // .rule.severity) + " " + .rule.id' \
+  | sort | uniq -c | sort -rn
+     14 high js/file-system-race          (8 FP + the 4 scripts/** OOS + 2 re-filed)
+      7 high js/insecure-temporary-file   (the 7 FPs recorded above, unchanged)
+      6 high js/system-prompt-injection   (the 6 FPs recorded above, unchanged)
+      4 high js/path-injection
+      2 high js/insecure-randomness       (the 2 FPs recorded above)
+      2 high js/clear-text-logging        (scripts/**, OOS)
+```
+
+Delta against this item's opening measurement (40 high + 15 medium): every alert this item classed
+`R` is gone, and what remains is exactly the FP + OOS set enumerated in the verdict table. The two
+classes SEC-003 opened with stay at zero — `js/polynomial-redos` no longer appears at all.
 
 ## Follow-ups (SEC-007)
+
+> **Closure note (2026-07-26).** Every entry below is carried by the LIVE item
+> [`SEC-007`](../SEC-007-enumeration-sandbox-and-pagination-floor.md) — items 1 and part of 2/3 are
+> closed there, and the rest are enumerated in its own `## Carried onward` section. Nothing in this
+> list is lost by archiving this item; SEC-007 is the single tracker for the chain's tail.
 
 1. **Mechanical floor for the pagination trap.** Any harness/CI step querying the code-scanning API
    must paginate; a check should assert the fetched record count matches the API's reported total.

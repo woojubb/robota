@@ -157,13 +157,13 @@ export const CI_STAGES = [
  */
 export const NOT_MIRRORED = [
   {
-    context: 'security audit',
+    context: 'dependency audit',
     reason:
       'downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.',
     relevance: 'manifest-or-lockfile',
     relevantWhen: 'the diff touches `pnpm-lock.yaml` or any `package.json`',
     manualCommand:
-      'osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → security-audit for the pinned version)',
+      'osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)',
   },
   {
     context: 'windows-shell',
@@ -173,6 +173,17 @@ export const NOT_MIRRORED = [
     relevantWhen: 'the diff changes code at all — ci.yml runs this job on every code PR',
     manualCommand:
       'no local equivalent off a Windows host — review the win32 branches by hand, or push and read the check.',
+  },
+
+  {
+    context: 'review-gate',
+    reason:
+      "reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.",
+    relevance: 'code',
+    relevantWhen:
+      'the diff changes code at all — on a docs-only PR the gate itself resolves to `PASS (not-applicable)` via the same classifier ci.yml gates its build matrix on',
+    manualCommand:
+      'no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)',
   },
 ];
 

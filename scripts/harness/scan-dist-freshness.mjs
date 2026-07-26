@@ -1,9 +1,21 @@
 /**
- * Harness check: dist freshness gate
+ * Harness check: dist PRESENCE gate.
  *
- * Verifies that every workspace package with a build script has a non-empty
- * dist/ directory. Catches "CI will fail on typecheck because dist is missing"
- * before the code ever reaches remote CI.
+ * Verifies that every workspace package with a build script has a non-empty dist/ directory.
+ * Catches "CI will fail on typecheck because dist is missing" before the code reaches remote CI.
+ *
+ * WHAT IT DOES NOT CHECK, said plainly because the filename says otherwise (HARNESS-052). This is
+ * named `scan-dist-freshness` and it does not measure freshness: it never compares dist against the
+ * sources that produced it. Falsified 2026-07-26 — `touch packages/agent-core/src/index.ts` makes
+ * the source 28 minutes newer than its dist, and this scan still exits 0 and reports "All 86
+ * buildable packages have dist/". A STALE dist is indistinguishable from a fresh one here.
+ *
+ * That gap is load-bearing elsewhere and is handled there rather than hidden: `verify-like-ci`'s
+ * `build` stage exists precisely because "locally a STALE dist passes the presence-only freshness
+ * scan", and it rebuilds instead of trusting this result. The name is the defect, not the behaviour
+ * — the check is a correct presence gate wearing a temporal claim. Renaming it is deferred only
+ * because the registered scan name `dist` appears in a `--skip dist` argument inside ci.yml, which
+ * is outside this item's ownership; see HARNESS-052.
  *
  * Run: node scripts/harness/scan-dist-freshness.mjs
  */

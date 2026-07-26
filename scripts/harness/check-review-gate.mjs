@@ -5,7 +5,7 @@
  *
  * ## The defect
  *
- * The checks that gate a merge on `develop` are build / quality / scans / security audit /
+ * The checks that gate a merge on `develop` are build / quality / scans / dependency audit /
  * commitlint / tui-e2e / examples-typecheck / windows-shell. **Not one of them produces review
  * feedback.** The two jobs that do — `Claude review` and CodeQL's `Analyze` — are advisory and
  * report `success` whether or not they found anything. Measured on #1409: CodeQL's inline review

@@ -34,4 +34,25 @@ Not applicable — documentation-only change. No runnable user-facing behavior c
 
 ## Verification Evidence
 
-(완료 후 수정된 다이어그램 스니펫 기록)
+Back-filled 2026-07-26 by machine-checking every edge of the Product Stack diagram against the real
+`package.json` files, which is the Test Plan's "잘못된 엣지 0건" criterion.
+
+```
+checked 29 solid edges; wrong = 0
+dashed AgentCLI -.-> Plugins:  real package dep present = false (expected false)
+dashed Framework -.-> Plugins: real package dep present = false (expected false)
+```
+
+**V-SYS-003 (`AgentCLI --> Plugins`) — corrected, not deleted.** The edge is now dashed and labelled:
+`.agents/specs/architecture-map/agent-system.md:37` — `AgentCLI -. "consumer opt-in" .-> Plugins`, the
+same treatment applied to `Framework` at `:49`, with the legend at `:79`. Confirmed against code:
+`packages/agent-cli/package.json` lists 24 `@robota-sdk/*` dependencies and **none** is `agent-plugin`;
+`rg -n "agent-plugin" packages/agent-cli/src packages/agent-framework/src` yields one comment
+(`packages/agent-framework/src/interactive/interactive-session-execution.ts:169`) and zero imports.
+
+**V-SYS-004 (`Commands --> Core`) — resolved by consolidation.** The 19 `agent-command-*` packages are
+now the single `agent-command` package (`.agents/specs/architecture-map/agent-cli/class-interface-inventory.md:20`),
+whose deps are exactly `agent-core`, `agent-framework`, `agent-interface-transport`, `agent-preset`
+(`packages/agent-command/package.json`) — so the edge at
+`.agents/specs/architecture-map/agent-system.md:40` is now a true, non-generalized statement rather than
+an over-generalization across 19 manifests.

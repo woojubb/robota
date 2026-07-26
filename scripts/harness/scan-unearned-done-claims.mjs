@@ -69,8 +69,13 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BACKLOG_DIRS = ['.agents/backlog', '.agents/backlog/completed'];
 
 /**
- * Historical debt, enumerated rather than hidden — 58 items, 71 findings, audited one by one and
- * every one genuine. 62 are an evidence field left as a literal promise ("(to be filled after
+ * Historical debt, enumerated rather than hidden — opened at 58 items / 71 findings, audited one by
+ * one and every one genuine; **51 items remain** after the 2026-07-26 backlog reconciliation
+ * back-filled 7 (`ARCH-FIX-004/007/013/015/017/018`, `WEB-014`) from evidence re-derived against the
+ * live tree. Two more were ATTEMPTED and deliberately left: `ARCH-FIX-012`'s own Test Plan grep
+ * returns 2, not the 0 it claims (`packages/agent-core/docs/SPEC.md:362`,
+ * `packages/agent-framework/README.md:430`), and `ARCH-FIX-014`'s returns 15, not 0 — those are
+ * unearned done claims that a citation would paper over, so they stay listed. 62 are an evidence field left as a literal promise ("(to be filled after
  * implementation)", "(구현 후 기록)") and 9 are an evidence section whose body says it will be
  * recorded later — inside items already marked `status: done`. They predate this floor and are NOT
  * this scan's false positives; they are the backlog of unearned done claims the floor exists to stop
@@ -88,17 +93,11 @@ const LEGACY_EVIDENCE_DEBT = new Set([
   '.agents/backlog/completed/ARCH-002-p8-extract-command-module-factory.md',
   '.agents/backlog/completed/ARCH-FIX-001-transport-sdk-reverse-dependency.md',
   '.agents/backlog/completed/ARCH-FIX-002-agent-event-service-compat-shim-removal.md',
-  '.agents/backlog/completed/ARCH-FIX-004-agent-team-remote-client-arch-map.md',
   '.agents/backlog/completed/ARCH-FIX-005-terminal-output-type-ssot.md',
-  '.agents/backlog/completed/ARCH-FIX-007-cli-web-sidecar-arch-spec-registration.md',
   '.agents/backlog/completed/ARCH-FIX-010-bundle-plugin-loader-product-name-fallback.md',
   '.agents/backlog/completed/ARCH-FIX-011-streaming-callback-fallback.md',
   '.agents/backlog/completed/ARCH-FIX-012-sub-agent-naming-violation.md',
-  '.agents/backlog/completed/ARCH-FIX-013-create-mode-command-module-spec-mismatch.md',
   '.agents/backlog/completed/ARCH-FIX-014-spec-product-name-claude-code.md',
-  '.agents/backlog/completed/ARCH-FIX-015-monitor-route-arch-spec-registration.md',
-  '.agents/backlog/completed/ARCH-FIX-017-resolved-audit-verification-evidence.md',
-  '.agents/backlog/completed/ARCH-FIX-018-arch-map-diagram-edge-correction.md',
   '.agents/backlog/completed/ARCH-FIX-024-move-child-process-runner-to-agent-cli.md',
   '.agents/backlog/completed/ARCH-FIX-025-wire-auth-credits-or-document-debt.md',
   '.agents/backlog/completed/ARCH-FIX-026-fix-terminal-output-import-chain.md',
@@ -140,7 +139,6 @@ const LEGACY_EVIDENCE_DEBT = new Set([
   '.agents/backlog/completed/WEB-002-onboarding-decision-tree.md',
   '.agents/backlog/completed/WEB-003-brand-design-system.md',
   '.agents/backlog/completed/WEB-004-playground-interactive-ux.md',
-  '.agents/backlog/completed/WEB-014-marketing-404s-and-touch-targets.md',
 ]);
 
 // ---------------------------------------------------------------------------------------------

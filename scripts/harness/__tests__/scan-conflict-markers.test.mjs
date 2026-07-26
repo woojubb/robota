@@ -16,6 +16,10 @@ const GREEN_RULE_MD = '# Rule\n\nUse strict types everywhere.\n';
 
 async function createFixture(files = {}) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-conflict-markers-'));
+  // HARNESS-052: the scan now also looks for LITERAL git conflict debris in the source trees, and
+  // fails closed when one is absent — so a fixture must provide them, empty, to represent a clean
+  // tree. Their absence means "could not read", which is deliberately not the same as "clean".
+  for (const dir of ['packages', 'apps', 'scripts']) mkdirSync(path.join(root, dir));
   const defaults = {
     'AGENTS.md': GREEN_AGENTS_MD,
     '.agents/rules/example.md': GREEN_RULE_MD,
@@ -28,6 +32,35 @@ async function createFixture(files = {}) {
   }
   return root;
 }
+
+/**
+ * HARNESS-052. This scan is registered as `conflict-markers` and checked only for contradictory
+ * GUIDANCE in three markdown trees. Falsified 2026-07-26: a literal `<<<<<<< HEAD` / `=======` /
+ * `>>>>>>> develop` block appended to `packages/agent-core/src/index.ts` left it printing
+ * `conflict marker scan passed.`, and no other harness scan detected it either — a `✓
+ * conflict-markers` line in the merge-gate summary was evidence for a check nobody performed.
+ */
+describe('literal git conflict debris', () => {
+  it.each(['<<<<<<< HEAD', '=======', '>>>>>>> develop'])('flags %s in source', async (marker) => {
+    const root = await createFixture();
+    writeFileSync(path.join(root, 'packages', 'a.ts'), `const x = 1;\n${marker}\n`, 'utf8');
+    const findings = findConflictMarkerFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ line: 2 });
+  });
+
+  it('does not flag a markdown rule of seven equals signs used as a heading underline', async () => {
+    const root = await createFixture();
+    // A real conflict marker occupies the whole line; `======= text` after it is not one.
+    writeFileSync(path.join(root, 'packages', 'a.ts'), 'const sep = "=======x";\n', 'utf8');
+    expect(findConflictMarkerFindings(root)).toEqual([]);
+  });
+
+  it('FAILS CLOSED when a governed source tree is absent', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-conflict-bare-'));
+    expect(() => findConflictMarkerFindings(root)).toThrow(/governed tree\(s\) absent/);
+  });
+});
 
 describe('findConflictMarkerFindings', () => {
   it('passes a clean harness-prose fixture', async () => {

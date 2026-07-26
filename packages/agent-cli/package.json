@@ -49,6 +49,7 @@
     "typecheck": "tsgo --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
     "clean": "rimraf dist",
+    "demo:record": "node scripts/record-demo.mjs",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh",
     "build:bun": "bun scripts/build-bun.mjs",
     "build:bun:all": "bun scripts/build-bun.mjs all",
@@ -59,7 +60,7 @@
     "build:bun:windows-x64": "bun scripts/build-bun.mjs windows-x64",
     "test:bun": "node scripts/e2e-bun-binary.mjs"
   },
-  "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports \u2014 kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
+  "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports — kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
@@ -114,10 +115,14 @@
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
+    "@xterm/xterm": "^5.5.0",
+    "gifenc": "^1.0.3",
+    "playwright": "^1.49.1",
+    "pngjs": "^7.0.0",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
   "keywords": [

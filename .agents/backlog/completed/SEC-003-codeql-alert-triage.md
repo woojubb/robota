@@ -1,7 +1,8 @@
 ---
 title: 'SEC-003: triage ~170 open CodeQL alerts (109 high-severity) accumulated behind an advisory gate'
-status: todo
+status: superseded
 created: 2026-07-25
+completed: 2026-07-26
 priority: high
 urgency: soon
 area: packages, scripts
@@ -9,6 +10,34 @@ depends_on: []
 ---
 
 # SEC-003: CodeQL alert backlog triage
+
+## Superseded (2026-07-26) — every stated remainder now has a different owner
+
+Both classes this item OPENED with are closed at the source with zero dismissals:
+`js/insecure-temporary-file` 109/109 (slices 1+2) and `js/polynomial-redos` 18/18 (slices 3+4).
+Neither appears in the paginated `develop` alert list today — `js/polynomial-redos` is gone entirely,
+and the 7 remaining `js/insecure-temporary-file` alerts are a DIFFERENT site set, triaged as false
+positives in `SEC-006`'s verdict table (they resolve under a caller-supplied `cwd`, never `os.tmpdir()`).
+
+The three things this item's later slices kept it open for have each moved to a live owner, so it is
+closed as superseded rather than done — the classes it opened with are finished, but the residue is
+not its work any more:
+
+| Stated remainder                      | Owner now                                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `js/file-system-race` (16 catalogued) | `SEC-006` triaged the whole class (alerts #57–#72): 8 FP with the CWE-367 premise stated, 1 fixed (`host-identity.ts`), 1 NF, 4 `scripts/**` OOS |
+| style classes (~130)                  | `SEC-005` — [#1443](https://github.com/woojubb/robota/pull/1443) closed 87 `js/unused-local-variable` alerts at the source; 14 notes remain      |
+| advisory→required promotion decision  | `INFRA-048` (the `review-gate` check + its ruleset preconditions) and `INFRA-046` (advisory→required criteria) — not a CodeQL-triage decision    |
+
+**Two follow-ups this item opened had NO other owner, and have been moved to `SEC-007`'s
+`## Carried onward` list** (the live tail of the SEC chain) rather than being archived with it:
+
+1. Promote the three package-local `no-insecure-temp-path.test.ts` grep floors
+   (`packages/dag-cli/src/utils/__tests__/`, `packages/agent-framework/src/__tests__/`,
+   `packages/agent-cli/src/__tests__/`) into one repo-wide scan under `scripts/harness/`.
+2. `extractDtlsFingerprint` should bind the fingerprint the DTLS stack verified, not the first
+   `a=fingerprint` line in the SDP (`packages/agent-remote-pairing/src/pairing.ts`). Needs an owner
+   call and a real two-peer run.
 
 ## Problem
 

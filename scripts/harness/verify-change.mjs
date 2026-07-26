@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { createVerificationPlan } from './check-plan.mjs';
+import { createVerificationPlan, renderScopeCoverageLine } from './check-plan.mjs';
 import {
   compareScenarioRecordArtifact,
   createScenarioRecordPayload,
@@ -15,6 +15,7 @@ import {
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import {
   WORKSPACE_ROOT,
+  appendJobSummary,
   classifyScopeChanges,
   collectPackageManifestChanges,
   detectChangedFiles,
@@ -92,6 +93,12 @@ async function main() {
     manifestChangesByScope,
     includeDependentScopes: !options.skipDependentScopes,
   });
+
+  // INFRA-060 D4: state the coverage BEFORE any check runs and again in the job summary, so a
+  // reader of the check list cannot mistake "verified nothing" for "verified everything, clean".
+  const coverageLine = renderScopeCoverageLine(plan);
+  process.stdout.write(`${coverageLine}\n`);
+  appendJobSummary(`### Affected-scope verification\n\n${coverageLine}\n`);
 
   if (plan.repositoryChecks.length > 0 && !options.skipRepositoryChecks) {
     process.stdout.write(`Repository checks: ${plan.repositoryChecks.join(', ')}\n`);

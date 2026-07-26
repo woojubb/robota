@@ -55,8 +55,8 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 
+import * as ts from './lib/ts-ast.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');

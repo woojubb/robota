@@ -492,15 +492,24 @@ describe('Robota Class - New Configuration API', () => {
     });
 
     it('should handle multiple destroy calls safely', async () => {
+      // HARNESS-052. This asserted `expect(true).toBe(true)` — it could only have caught a
+      // synchronous throw, so a second destroy that re-ran the whole cleanup chain (double-disposing
+      // every plugin) would have kept it green. Idempotency is the claim, so idempotency is what is
+      // measured: the terminal-state guard in Robota.destroy() must short-circuit the second call.
       const robota = new Robota(config);
+      const pluginDispose = vi.spyOn(mockPlugin, 'dispose');
 
       // Initialize first
       await robota.run('test');
 
-      await robota.destroy();
-      await robota.destroy(); // Should not throw
+      const first = await robota.destroy();
+      const second = await robota.destroy();
 
-      expect(true).toBe(true); // Test passes if no error thrown
+      expect(first.errors).toEqual([]);
+      expect(second.errors).toEqual([]);
+      // The cleanup chain ran exactly once across both calls — this goes RED if the
+      // `if (this.destroyed) return` guard is removed.
+      expect(pluginDispose).toHaveBeenCalledTimes(1);
     });
   });
 

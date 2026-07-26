@@ -57,7 +57,7 @@ neither is any narrower command.
   CI mirror — so "I ran the CI-equivalent check" was a much weaker claim than it read as. Do not
   re-add a separate "plus build and tests" instruction anywhere: the entry point owns that, and a
   second list is how the two drift.
-- It does NOT run two required contexts and says so in its own summary: `security audit` (needs
+- It does NOT run two required contexts and says so in its own summary: `dependency audit` (needs
   network and an external binary) and `windows-shell` (needs a Windows runner). Nothing local covers
   those.
 - The stage list cannot drift from CI: `scripts/harness/ci-mirror-map.mjs` pins every required

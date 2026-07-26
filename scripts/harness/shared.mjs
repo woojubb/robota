@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import { appendFileSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
 export const WORKSPACE_ROOT = process.cwd();
@@ -304,6 +304,27 @@ export function parseScopeArgs(argv) {
  */
 export function envWithoutGitVars(base = process.env) {
   return Object.fromEntries(Object.entries(base).filter(([key]) => !key.startsWith('GIT_')));
+}
+
+/**
+ * Append markdown to the GitHub Actions JOB SUMMARY, so what a job actually covered is readable
+ * from the run page rather than only from the middle of a log.
+ *
+ * INFRA-060 D4. `build: success` and `quality: success` read identically whether the job verified
+ * every package or none of them; the fact that a PR verified NOTHING was recoverable only by
+ * opening the log. Writing to `$GITHUB_STEP_SUMMARY` needs no workflow change — any step's process
+ * can append to it — so the harness surfaces its own coverage instead of the workflow describing it.
+ *
+ * Returns false (and writes nothing) outside Actions, which is every local run.
+ */
+export function appendJobSummary(markdown) {
+  const target = process.env.GITHUB_STEP_SUMMARY;
+  if (!target) {
+    return false;
+  }
+
+  appendFileSync(target, markdown.endsWith('\n') ? markdown : `${markdown}\n`, 'utf8');
+  return true;
 }
 
 export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {

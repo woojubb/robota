@@ -10,6 +10,46 @@ depends_on: []
 
 # HARNESS-049: procedure belongs in skills, roles belong in agent files
 
+## Remainder (reconciled 2026-07-26) — read this first
+
+Both of the item's own defects are **fully discharged**: defect #1 (procedure trapped in rules) by
+increments 1–4, defect #2 (three skills that inline roles) by increment 5. Increment 5's refusal to
+archive was re-checked against the tree today and **all three blocking pointers are still live**, so
+the refusal still stands — this is not a stale note:
+
+| Live pointer                             | Exact text                                                                                                                | What it defers                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `.agents/specs/orchestration-map.md:131` | "the gate. Tracked in `HARNESS-049`."; the row's floor column reads `**recommendation gate: floor PENDING** (‡)` at `:97` | the recommendation gate's mechanical floor |
+| `.agents/rules/git-branch.md:389`        | "tracked in `HARNESS-049` and must update the documents that quote these sentences as evidence."                          | § Deployment's 2-bullet deletion           |
+| `.agents/rules/spec-workflow.md:172`     | "`HARNESS-049` for the reported gap.)"                                                                                    | the folder ↔ status mechanical floor       |
+
+**The five tabled remainders, each stated so the next agent can act without re-reading this file:**
+
+1. **Recommendation-gate mechanical floor** — `orchestration-map.md:97` claims a floor for the backlog
+   recommendation gate that does not exist. Either build a scan under `scripts/harness/` that fails when
+   a recommendation gate ran without a recorded `REVIEW VERDICT`, or change the row to `none` and drop
+   the `‡` footnote. Needs `scripts/**` (for the first) or `.agents/specs/**` (for the second).
+2. **Folder ↔ status mechanical floor**, plus **six live violations** it will immediately surface:
+   `spec-docs/done/` holds `INFRA-016`, `INFRA-019`, `INFRA-020` at `draft`, `PM-026`, `PM-030` at
+   `approved`, `DATA-002` at `in-progress`. The floor belongs in
+   `scripts/harness/check-spec-doc-frontmatter.mjs`. Fix the six in the same change, or the floor lands red.
+   Needs `scripts/**`.
+3. **`git-branch.md` § Deployment's 2-bullet deletion** — increment 4 REFUTED the relocation and proved
+   it is a deletion: `.agents/specs/architecture-map/apps-and-deployment.md` already owns bullets 1–2, and
+   the three documents quoting the literal Cloudflare sentence are all archival, so they must NOT be
+   rewritten. Bullets 3–4 stay (they are branch policy). Needs `.agents/rules/**`.
+4. **`pnpm docs:deploy` is broken** — `git-branch.md` and `scripts/docs/deploy-cloudflare-pages.mjs` both
+   target `apps/docs/.vitepress/dist`; `apps/docs` has no `.vitepress` directory and builds with
+   `next build && pagefind --site out`. `apps-and-deployment.md` is the correct side. Needs `scripts/**`.
+5. **BE-42 / BE-43 relocations** — BE-42 Layering Rule → `.agents/project-structure.md`, BE-43
+   Orchestration Skill Rule → `.agents/rules/enforcement-architecture.md`. Both need BOTH ends
+   (`backlog-execution.md` as the source), which is why neither increment could reach them.
+
+Each should become its own backlog file; at that point the three pointers above are repointed and **this
+item is archived**. The reconciling agent on 2026-07-26 owned only `.agents/backlog/**`, so it could
+neither repoint a rule/spec nor build a `scripts/**` floor — hence: verified open, remainder sharpened,
+not archived.
+
 ## Problem
 
 Owner directive (2026-07-26): convert what is currently _rule prose_ into the right artifact —

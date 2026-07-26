@@ -35,4 +35,17 @@ Not applicable — documentation governance change. No runnable user-facing beha
 
 ## Verification Evidence
 
-(완료 후 업데이트된 항목 수와 재오픈된 항목 수 기록)
+Back-filled 2026-07-26 by reading `.agents/specs/architecture-map/architecture-lessons.md` end to end
+(33 lines) and checking both Test Plan criteria.
+
+**Updated items: 3. Re-opened items: 0. Items with a `resolved` status and no verification artifact: 0.**
+
+| Fact                                    | Citation                                                                                                                                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the governance policy (Solution step 5) | `.agents/specs/architecture-map/architecture-lessons.md:7-8` — _"An item may not be marked "resolved" without a verification artifact — a commit hash, PR number, or grep-output confirming the fix is in the codebase."_ |
+| `SYS-AUDIT-001`                         | `.agents/specs/architecture-map/architecture-lessons.md:16` — `Status: resolved — PR #313 (2d6a4f569).`                                                                                                                   |
+| `SYS-AUDIT-005`                         | `.agents/specs/architecture-map/architecture-lessons.md:23` — ``Status: resolved — `INFRA-BL-006`, commit `f9e388fd7`.``                                                                                                  |
+| `SYS-AUDIT-006`                         | `.agents/specs/architecture-map/architecture-lessons.md:30` — `Status: resolved — PR #315 (eb658beb4).`                                                                                                                   |
+
+The count of 0 re-opened items is a real result, not an omission: the file records no item whose
+evidence failed to substantiate its `resolved` status.

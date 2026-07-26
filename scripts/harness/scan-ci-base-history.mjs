@@ -142,11 +142,26 @@ export function staleInvocations(root = WORKSPACE_ROOT) {
 /** List the workflow files this scan governs. */
 export function listWorkflows(root = WORKSPACE_ROOT) {
   const dir = path.join(root, WORKFLOW_DIR);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
+  // FAIL-CLOSED (HARNESS-052). This returned `[]` when the directory was absent, so every scan
+  // built on it — this one, the auto-merge permission guard — reported `scan passed` having read no
+  // workflow at all. "There is nothing to check" and "I could not find what I check" are the same
+  // value, and that conflation IS the defect this family of scans exists to catch. An absent or
+  // empty workflow directory is a broken checkout, never a clean one.
+  if (!existsSync(dir))
+    throw new Error(
+      `${WORKFLOW_DIR} does not exist under ${root}. This scan will not report a pass over a ` +
+        'directory it could not read.',
+    );
+  const workflows = readdirSync(dir)
     .filter((entry) => /\.ya?ml$/.test(entry))
     .sort()
     .map((entry) => path.join(WORKFLOW_DIR, entry));
+  if (workflows.length === 0)
+    throw new Error(
+      `${WORKFLOW_DIR} contains no workflow files under ${root}. A guard with an empty subject ` +
+        'reports a pass it did not compute.',
+    );
+  return workflows;
 }
 
 /** Findings across every workflow: grafting fetches, and base-history jobs on a shallow checkout. */

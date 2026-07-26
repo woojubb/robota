@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-048: PRs can merge before their review feedback is ever read'
-status: in-progress
+status: done
+completed: 2026-07-26
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -99,6 +100,18 @@ Three levers were on the table (the original item's options 1–3). What shipped
    not stop an armed auto-merge — which is precisely the #1409 hole. The disarm is the lever that
    works today; the ruleset entry (below) is the durable one.
 
+   > **Correction, 2026-07-26 (INFRA-057).** "The disarm is the lever that works today" was **never
+   > true.** The job declared `contents: read`, and GitHub's auto-merge mutations need
+   > `contents: write`, so every call returned `Resource not accessible by integration` — and the
+   > `|| echo "auto-merge was not armed; nothing to disarm."` printed a state it had not checked,
+   > making a permission denial indistinguishable from a genuine no-op. Measured on a real armed PR
+   > (#1465): after the gate blocked, `autoMergeRequest.enabledAt` was **unchanged and still armed**.
+   > So for the whole period this document claims the lever was carrying the guarantee, only the
+   > ruleset entry ever did. Fixed in INFRA-057, which moved the disarm into its own checkout-free
+   > job, granted the scope there, and proved it on the same armed PR — `auto-merge: DISARMED`,
+   > confirmed from outside the runner. Kept rather than deleted because `protect-main` requires a
+   > different context set that does not include `review-gate`.
+
    **A fail-CLOSED caught in the gate itself, live — and it cost the ruleset entry.** See
    "Defect 2" below. The `unavailable` row above is now three rows: an analysis that exists and
    could not be read still blocks, and an analysis that was never owed passes as `not-applicable`.
@@ -166,7 +179,7 @@ workflow at all, so the merge decision sees no review signal.
 ```
 BLOCKING finding (error / security:high)
   review-gate: BLOCK (blocking-findings)
-    - js/incomplete-sanitization [error/security:high] packages/agent-core/src/sanitize.ts:42
+    - js/incomplete-sanitization [error/security:high] packages/agent-core/src/sanitize.ts:42 <!-- evidence-superseded: synthetic fixture output, not a repo path — this block is the gate's own stubbed-gh proof run, alongside the fictional PR number 9999 -->
   [gh] pr merge --disable-auto 9999
   ::error::review-gate blocked this PR.                                        STEP EXIT=1
 
@@ -375,6 +388,74 @@ mistake was arming it after observing the gate on exactly one PR (#1434, a code 
 sample that cannot contain the case that broke it.** A gate is required-ready when it has been
 watched across the KINDS of PR the repository actually produces, not after N runs.
 
+### Precondition status, measured 2026-07-26 — 4 of 5 hold, and the 5th does not
+
+Checked against the actual check runs, not against this document's prose. **Four preconditions are
+met; precondition 5 is NOT, and it is a one-command fix.** The ruleset itself was deliberately left
+untouched — arming it is the owner's call, not the reconciling agent's.
+
+| #   | Precondition                                     | Verdict     | Evidence                                                                                                                                                                                                                                                                                                                                       |
+| --- | ------------------------------------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Defect-2 fix on `develop`, gate producing checks | **MET**     | [#1439](https://github.com/woojubb/robota/pull/1439) merged `2026-07-25T18:49:52Z`; `gh run list --workflow=review-gate.yml` shows a run on every PR since                                                                                                                                                                                     |
+| 2a  | observed on a **docs-only** PR                   | **MET**     | #1441, #1444, #1449 — all `PASS (not-applicable)`. Run `30172414912` (#1449): `code=false` → `review-gate: PASS (not-applicable)`, total **1m** and the Wait/Collect steps `skipped`, i.e. "a checkout, not minutes"                                                                                                                           |
+| 2b  | observed on a **code** PR                        | **MET**     | #1451 (`3m19s`), #1452 (`3m56s`), #1453 (`3m22s`) — all pass, each ending on analysis COMPLETION, not a deadline                                                                                                                                                                                                                               |
+| 2c  | observed on a **promotion** PR                   | **MET**     | #1458 (`release/promote-develop-to-main` → `main`), run `30182471881`, `4m44s`: `code=true`, the `refs/pull/N/merge` analysis was found and waited for, verdict computed. The shape "most likely to surprise" did not surprise.                                                                                                                |
+| 3   | no spurious `verdict-unavailable` block          | **MET**     | The only two blocks in the whole window are #1451's runs `30173565727` and `30173813594`, and both are `BLOCK (blocking-findings)` — a real finding, not a missing verdict. Zero `verdict-unavailable` blocks occurred.                                                                                                                        |
+| 4   | grace cut reasoned about against a real run      | **MET**     | Run `30173565727`: the `Analyze` check run already existed on the **first** poll (`code-scanning analyses: 0/1 completed` at `20:26:16`, i.e. `total=1`) and completed at `20:30:23` — 4m07s. The 5-minute grace covers "no check run created at all" and had margin from the first second; the 15-minute deadline had 11 minutes of headroom. |
+| 5   | `review-findings-acknowledged` label exists      | **NOT MET** | `gh label list --limit 100` returns the 9 GitHub defaults only (`bug`, `documentation`, `duplicate`, `enhancement`, `good first issue`, `help wanted`, `invalid`, `question`, `wontfix`). **The label does not exist on the repository.**                                                                                                      |
+
+**The strongest single piece of evidence is #1451, and it was not staged.** The gate BLOCKED a real
+code PR on a real high-severity finding and cleared only after the defect was fixed — run
+`30173813594`:
+
+```
+review-gate: BLOCK (blocking-findings)
+1 blocking finding(s) introduced by this PR (severity `error`, or security-severity high/critical).
+Blocking findings introduced by this PR:
+  - js/path-injection [error/security:high] packages/agent-cli/src/modes/serve-monitor-ui.ts:112
+::error::review-gate blocked this PR. See the job summary.
+```
+
+That is SEC-006's R9 — the lexical containment check the triage had wrongly called a false positive.
+Runs `30174467255`/`30174632780` on the same PR then passed after the canonical-path fix landed. So the
+gate has now been observed doing the one thing that cannot be inferred from a green run: refusing a
+merge, on a defect a careful human triage had already waved through, and then releasing it.
+
+**The single remaining action, precisely:**
+
+```bash
+gh label create review-findings-acknowledged \
+  --description "review-gate: findings acknowledged; merge with them on the record" --color BFD4F2
+```
+
+Precondition 5 is not decorative. Without the label the gate's only auditable override does not exist,
+so the first inconvenient block would be resolved with an admin bypass — the exact failure mode this
+design is calibrated against. Create it, confirm 1–4 still hold on the next PR of each shape, and only
+then apply the ruleset change below.
+
+### ARMED 2026-07-26 — all five preconditions measured
+
+`review-gate` is a required status check on `protect-develop` as of 2026-07-26. Each precondition
+was checked against real check runs, not reasoned about:
+
+| #   | Precondition                                            | Evidence                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Defect-2 fix merged, gate producing checks on `develop` | #1439 merged; every PR since carries a `review-gate` check                                                                                                                                                                                                                                                                                                |
+| 2a  | **docs-only** shape                                     | #1441, #1444, #1449, #1463 — `PASS (not-applicable)`; #1463 completed in **9 s**, the shape whose 15 m 23 s block forced the first rollback                                                                                                                                                                                                               |
+| 2b  | **code** shape                                          | #1452, #1453, #1460 — verdict computed from a completed analysis, the wait ending on completion rather than on either deadline                                                                                                                                                                                                                            |
+| 2c  | **promotion** shape (the untested one)                  | #1458 (`release/promote-develop-to-main` → `main`) — passed                                                                                                                                                                                                                                                                                               |
+| 3   | no spurious `verdict-unavailable`                       | none observed across the above. The two blocks that did occur were both **genuine**: #1451 `js/path-injection` on `serve-monitor-ui.ts:112` (a lexical containment guard that a symlink walked straight through — the server really served an out-of-root file, `expected 200 to be 403`), and #1461 `js/insecure-temporary-file` ×3 in the demo recorder |
+| 4   | grace cut reasoned against a real run                   | on #1439 the `Analyze` check run existed at the **first** poll (`0/1 completed`), so the 5-minute grace has ample margin                                                                                                                                                                                                                                  |
+| 5   | escape hatch reachable                                  | `review-findings-acknowledged` **did not exist** — `gh label list` returned only the nine GitHub defaults. Created 2026-07-26. This was the genuinely missing precondition, and without it the first inconvenient block would have gone to an admin bypass                                                                                                |
+
+**What the two real blocks establish is worth more than the passes.** The gate is not merely
+tolerable when armed; it caught two exploitable defects that every other check reported green on,
+and in both cases the authoring agent had initially classified the finding as a false positive.
+
+The first arming attempt was rolled back the same day after being made required on a **one-PR
+sample**, which could not contain the docs-only case that broke it. That is the lesson this table
+exists to prevent repeating.
+
 ### Preconditions for making `review-gate` required again
 
 All of these must hold. Each is checkable; none is a judgement call.
@@ -415,7 +496,13 @@ gh api repos/woojubb/robota/rulesets/18715844 --jq '.rules[] | select(.type=="re
 And when arming: **watch the next PR of each shape**, and keep the rollback command to hand. The
 cost of rolling back is one API call; the cost of leaving a wrong gate required is every open PR.
 
-**Raise `--max-turns` on the review prompt — and do it on the default branch first.** The parity fix
+**Raise `--max-turns` on the review prompt — SPLIT OUT, no longer this item's remainder.** The whole
+of the section below now belongs to [`INFRA-053`](INFRA-053-review-turn-budget-and-parity-window.md)
+(`status: todo`, filed by [#1436](https://github.com/woojubb/robota/pull/1436)), which owns both the
+turn budget and the parity window it depends on and measured the budget across #1434/#1435/#1436.
+Kept here as the record of how it was discovered; do not track it from this item.
+
+The parity fix
 is confirmed live on the PR that carries it (#1434, run `30167624730`): the run log contains **zero**
 `workflow validation` lines, where every earlier run had them. The reviewer really ran — for ~2
 minutes instead of the previous 13–21 s — and then ended on

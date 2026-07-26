@@ -1,7 +1,8 @@
 ---
 title: 'SEC-004: close the five remaining HIGH CodeQL alerts (double-escaping, redos, missing-regexp-anchor)'
-status: in-progress
+status: done
 created: 2026-07-26
+completed: 2026-07-26
 priority: high
 urgency: now
 area: packages/agent-tools, packages/agent-cli, scripts/harness
@@ -168,6 +169,40 @@ reject, so those tests did not test what their names claimed.
 
 **Dismissed: none. 5 of 5 fixed at the source, plus 1 same-shape defect CodeQL never reported, plus
 1 filed as a follow-up.**
+
+## Closing verification (2026-07-26)
+
+Re-derived from the tree and from the live alert list, not from this document's own prose.
+
+**All three classes are absent from `develop`.** Paginated query (the SEC-006/SEC-007 discipline —
+an unpaginated read of this endpoint reports `0 high` on any ref):
+
+```
+$ gh api "repos/woojubb/robota/code-scanning/alerts?state=open&ref=refs/heads/develop&per_page=100" \
+    --paginate --jq '.[].rule.id' | sort -u | grep -E 'double-escaping|js/redos|missing-regexp-anchor'
+(no output — 0 matches)
+```
+
+The five alerts this item opened with (`js/double-escaping` ×1, `js/redos` ×1,
+`js/regex/missing-regexp-anchor` ×3) no longer appear in the 17 rule ids still open.
+
+**Each fix verified present in the tree:**
+
+| Fix                                         | Where it landed                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Alert 1 — single-pass entity decode         | `packages/agent-tools/src/builtins/web-fetch-tool.ts:93-106` (`HTML_ENTITIES` table + one `.replace`, no chain)     |
+| Alert 2 — exponential class body            | `scripts/harness/__tests__/frontmatter-parser-ssot.test.mjs:68` — the literal extractor's class body is `[^\]\\]`   |
+| Alerts 3–5 — substring search stated as one | `packages/agent-tools/src/__tests__/web-search-provider.test.ts:18,86,101` (`VENDOR_HOST` + `not.toContain`)        |
+| New coverage                                | `packages/agent-tools/src/__tests__/double-escaping.test.ts` — 5 `it` blocks (`:56,65,73,80,87`)                    |
+| Sweep instance CodeQL did not flag          | `packages/agent-cli/src/remote-control/__tests__/remote-control-controller.test.ts:112-114,242` (`origin`/`search`) |
+
+**Merged as** [#1443](https://github.com/woojubb/robota/pull/1443) / [#1451](https://github.com/woojubb/robota/pull/1451)
+in the same wave as SEC-005/SEC-006.
+
+**The one follow-up this item opened is NOT fixed and has moved.** `packages/dag-nodes/text-template/src/index.ts:79-82`
+still re-substitutes its own substitution output (line 81 splits on `%s` over line 80's output). Verified
+present on `develop` today. It is now carried by `SEC-007`'s `## Carried onward` list, which is the live
+tracker for the chain's tail — so archiving this item does not drop it.
 
 ## User Execution Test Scenarios
 

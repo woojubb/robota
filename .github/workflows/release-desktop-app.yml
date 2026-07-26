@@ -3,6 +3,12 @@ name: Release — Desktop app
 # GUI-003 — package apps/agent-app per-OS with electron-builder (runtime bundled via extraResources) and
 # publish the installers to the tag's GitHub Release. Sibling to release-bun-binaries.yml (raw Bun binaries) and
 # release.yml (npm publish); all three leave each other untouched. Installers are UNSIGNED (no certs).
+#
+# DIST-002 — this workflow also hosts the macOS artifact VERIFICATION gate (the `verify-macos-artifacts`
+# job). It lives here, rather than beside the binaries it checks, for one reason: verifying a macOS artifact
+# requires a macOS runner, containers cannot host macOS, and this is the only release workflow with a
+# `macos-latest` leg. The gate covers BOTH product families' darwin artifacts — the agent-cli single binaries
+# (built on ubuntu-latest by release-bun-binaries.yml) and this workflow's .dmg.
 
 on:
   push:
@@ -14,6 +20,11 @@ on:
         description: 'Existing release tag to build + attach installers to (e.g. v3.0.0-beta.79). Must already exist.'
         required: true
         type: string
+      verify_only:
+        description: "Skip packaging; only run the macOS artifact verification gate against the tag's ALREADY-PUBLISHED assets."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -27,6 +38,8 @@ concurrency:
 jobs:
   desktop:
     name: Package + publish (${{ matrix.os }})
+    # verify_only re-runs the gate against what is already published; it must not rebuild or re-upload.
+    if: github.event.inputs.verify_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +58,12 @@ jobs:
       - name: Resolve release tag
         id: tag
         shell: bash
-        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        # The tag is read from `env`, never interpolated into the script body: `${{ }}` inside a `run:`
+        # is textual substitution, so a tag containing shell metacharacters would execute here.
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -82,6 +100,67 @@ jobs:
       - name: Package the desktop app (bundles the runtime)
         run: pnpm --filter @robota-sdk/agent-app dist:app
 
+      # `gh release upload release/*.dmg` with no match uploads nothing and still exits 0 on some gh
+      # versions, and an empty or truncated installer uploads perfectly happily. Assert the artifacts
+      # exist and are plausibly sized BEFORE publishing them, so a packaging regression cannot reach a
+      # user as a 0-byte download.
+      - name: Assert packaged artifacts exist and are non-trivial
+        shell: bash
+        working-directory: apps/agent-app
+        env:
+          ASSETS: ${{ matrix.assets }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          found=()
+          for pattern in $ASSETS; do
+            for f in $pattern; do found+=("$f"); done
+          done
+          if [ ${#found[@]} -eq 0 ]; then
+            echo "::error::no artifacts matched '$ASSETS' — electron-builder produced nothing to publish."
+            exit 1
+          fi
+          for f in "${found[@]}"; do
+            size=$(wc -c <"$f")
+            echo "$f -> $size bytes"
+            # Every real installer for this app is tens of MB; 1 MB is a generous floor that only a
+            # truncated or empty artifact falls below.
+            if [ "$size" -lt 1048576 ]; then
+              echo "::error::$f is $size bytes — truncated or empty, refusing to publish."
+              exit 1
+            fi
+          done
+
+      # DIST-002 — the desktop installers shipped with NO published checksums at all, so a user (and this
+      # repo's own verification gate) had no way to tell a complete download from a truncated one. One
+      # manifest PER MATRIX LEG: a single shared filename would have the three legs clobber each other's
+      # upload, which is how a checksum file ends up describing only the last OS to finish.
+      - name: Generate SHA-256 checksums for this OS's installers
+        shell: bash
+        working-directory: apps/agent-app
+        env:
+          ASSETS: ${{ matrix.assets }}
+          MANIFEST: SHA256SUMS-desktop-${{ matrix.os }}.txt
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          : >"release/$MANIFEST"
+          cd release
+          for pattern in $ASSETS; do
+            for f in ${pattern#release/}; do
+              if command -v sha256sum >/dev/null 2>&1; then
+                sha256sum "$f" >>"$MANIFEST"
+              else
+                shasum -a 256 "$f" >>"$MANIFEST"
+              fi
+            done
+          done
+          if [ ! -s "$MANIFEST" ]; then
+            echo "::error::checksum manifest is empty — nothing was hashed."
+            exit 1
+          fi
+          cat "$MANIFEST"
+
       # REL-022 — managed release notes: categorized conventional-commit notes instead of the raw
       # `--generate-notes` PR-title dump. The script auto-detects the previous v* tag (checkout above
       # uses fetch-depth: 0, so full tag history is available). No network — git history only.
@@ -97,7 +176,112 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
           NOTES: ${{ runner.temp }}/release-notes.md
+          ASSETS: ${{ matrix.assets }}
+          MANIFEST: release/SHA256SUMS-desktop-${{ matrix.os }}.txt
         run: |
+          set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
-          gh release upload "$TAG" ${{ matrix.assets }} --clobber
+          # shellcheck disable=SC2086 -- $ASSETS is an intentional multi-pattern glob list.
+          gh release upload "$TAG" $ASSETS "$MANIFEST" --clobber
         working-directory: apps/agent-app
+
+  # -------------------------------------------------------------------------------------------------
+  # DIST-002 phase 1 — the gate.
+  #
+  # "Did the upload succeed" and "is the uploaded thing usable" are different questions, and until now
+  # this pipeline only ever answered the first. `v3.0.0-beta.79` published a macOS binary carrying an
+  # ad-hoc signature (CodeDirectory only, no certificate chain); the kernel loads it, so every check that
+  # ran on the build runner passed, while every user who downloaded it — and therefore got
+  # com.apple.quarantine — was refused by Gatekeeper. That shipped 2026-07-15 and went unnoticed for four
+  # months because nothing ever looked at a published asset.
+  #
+  # This gate downloads the PUBLISHED asset, applies the quarantine attribute, and asks Gatekeeper.
+  # It is EXPECTED TO FAIL until DIST-002 phase 2 (signing + notarization) lands. That red is the point:
+  # a verification job written after the credentials arrive, green from its first run, cannot distinguish
+  # "correctly signed" from "checks nothing".
+  # -------------------------------------------------------------------------------------------------
+
+  await-published-assets:
+    name: Wait for the tag's release assets to be published
+    # Deliberately on ubuntu: this job only polls, and macOS runner minutes bill at a large multiple.
+    runs-on: ubuntu-latest
+    needs: [desktop]
+    # The sibling workflow (release-bun-binaries.yml) publishes the darwin CLI binaries and shares this
+    # tag's concurrency group, so on a tag push the two workflows serialize in an unspecified ORDER —
+    # whichever runs first would find the other's assets missing. Poll rather than assume.
+    if: ${{ !cancelled() && (github.event.inputs.verify_only == 'true' || needs.desktop.result == 'success') }}
+    steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Poll until every macOS asset exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          required="robota-darwin-arm64 robota-darwin-x64 SHA256SUMS.txt"
+          deadline=$(( $(date +%s) + 1500 ))   # 25 minutes
+          while :; do
+            names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            missing=""
+            for r in $required; do
+              printf '%s\n' "$names" | grep -qx "$r" || missing="$missing $r"
+            done
+            printf '%s\n' "$names" | grep -q '\.dmg$' || missing="$missing <a .dmg>"
+            if [ -z "$missing" ]; then
+              echo "all required assets present on $TAG"
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              # Timing out is a FAILURE, never a skip: "could not determine" must not read as "fine".
+              echo "::error::timed out waiting for release assets on $TAG; still missing:$missing"
+              exit 1
+            fi
+            echo "waiting for:$missing"
+            sleep 30
+          done
+
+  verify-macos-artifacts:
+    name: Verify published macOS artifacts open on a user's Mac
+    runs-on: macos-latest
+    needs: [await-published-assets]
+    if: ${{ !cancelled() && needs.await-published-assets.result == 'success' }}
+    steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+
+      # `gh release download` fetches what a user fetches — the published asset. Verifying a locally
+      # rebuilt copy instead would check a different artifact than the one that is broken.
+      - name: Download the PUBLISHED macOS assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ runner.temp }}/published"
+          cd "${{ runner.temp }}/published"
+          gh release download "$TAG" \
+            -p 'robota-darwin-arm64' \
+            -p 'robota-darwin-x64' \
+            -p 'SHA256SUMS*.txt' \
+            -p '*.dmg' \
+            --clobber
+          ls -la
+
+      - name: Verify the artifacts a user actually downloads
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: bash scripts/harness/verify-macos-release-artifacts.sh "$TAG" "${{ runner.temp }}/published"

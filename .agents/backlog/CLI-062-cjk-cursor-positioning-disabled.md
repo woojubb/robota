@@ -145,6 +145,24 @@ npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytes
 If Cell 1 shows no crash across a full Korean editing session, flip Apple_Terminal's default in
 `supportsImeCursorPositioning()` (drop the I5 branch) and archive this item.
 
+**Confirmed 2026-07-26 (backlog reconciliation): the two macOS cells are the ONLY remainder.** Checked
+against the tree rather than against this document:
+
+- The matrix is a real suite, not a checklist — `packages/agent-transport-tui/src/__tests__/pty/`
+  contains `ime-cursor.ptytest.ts` and `ime-cursor-tmux.ptytest.ts`, and the shared table is
+  `packages/agent-transport-tui/src/__tests__/helpers/terminal-profiles.ts`.
+- Provenance is machine-readable and matches the table above: `terminal-profiles.ts` marks the bare
+  TTY, Ghostty, VTE and tmux rows `provenance: 'measured'` (`:42,54,61,68`) and kitty, WezTerm,
+  Windows Terminal, iTerm2, Terminal.app `provenance: 'documented'` (`:75,82,89,96,103`). Exactly two
+  `documented` rows are macOS emulators that cannot run on Linux — iTerm2 (`:94-96`) and
+  Terminal.app (`:102-103`).
+- I5 is still armed: `terminal-profiles.ts:123` — `return profile.env['TERM_PROGRAM'] !== 'Apple_Terminal'`.
+  So Terminal.app is off by default and the SIGSEGV cannot be provoked by the shipped default; the
+  cells decide whether that default can be dropped, not whether the feature works.
+
+No other cell, test, or code path is outstanding. This is a hardware-availability block, not
+unfinished engineering.
+
 ## User Execution Test Scenarios
 
 - Prerequisite: a machine with a terminal emulator; the built CLI binary. No macOS required for the

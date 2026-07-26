@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsgo",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsgo --noEmit",
     "test:coverage": "vitest run --coverage --config vitest.config.ts"
@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.21",
-    "typescript": "^5.9.3",
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",

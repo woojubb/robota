@@ -17,7 +17,7 @@ override incidents).
 
 Removing Dependabot removed **automated update PRs only**, not vulnerability detection:
 
-- **`security audit` (osv-scanner) in `.github/workflows/ci.yml`** is a REQUIRED check and still scans
+- **`dependency audit` (osv-scanner) in `.github/workflows/ci.yml`** is a REQUIRED check and still scans
   the whole lockfile on every PR. Every advisory handled on 2026-07-25 —
   `builder-util-runtime` (credential leak), `postcss` (path traversal), `tar` (recursion DoS),
   `brace-expansion` — was caught by that job, not by Dependabot.

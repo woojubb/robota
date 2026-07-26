@@ -374,17 +374,25 @@ describe('over the real backlog corpus', () => {
     expect(staleLegacy).toEqual([]);
   });
 
+  // The expected count is deliberately a LITERAL, not derived from LEGACY_EVIDENCE_DEBT.size — a
+  // derived assertion would pass for any set and make TC-37 vacuous. It therefore has to be edited
+  // down whenever an entry is genuinely back-filled, which is the intended friction: the number may
+  // only ever decrease, and a decrease has to be justified by the same commit.
+  //   58 → 51 on 2026-07-26 (backlog reconciliation): ARCH-FIX-004/007/013/015/017/018 and WEB-014
+  //   were back-filled from evidence re-derived against the live tree.
+  const LEGACY_DEBT_COUNT = 51;
+
   it('TC-37: the legacy debt set is exercised, not decorative', () => {
     // Every listed entry must still produce a finding, or the anti-rot half of the driver would
     // have reported it stale in TC-36. This asserts the set is actually doing work.
     const { legacyCount } = findUnearnedDoneClaimFindings(WORKSPACE_ROOT);
-    expect(legacyCount).toBe(58);
+    expect(legacyCount).toBe(LEGACY_DEBT_COUNT);
   });
 
   it('TC-38: anti-rot fires when a legacy entry stops producing a finding', () => {
     // An empty root resolves none of the legacy files, so all of them read as back-filled — which
     // is precisely the condition that must FAIL rather than silently pass.
     const { staleLegacy } = findUnearnedDoneClaimFindings(path.join(FIXTURES, 'does-not-exist'));
-    expect(staleLegacy.length).toBe(58);
+    expect(staleLegacy.length).toBe(LEGACY_DEBT_COUNT);
   });
 });

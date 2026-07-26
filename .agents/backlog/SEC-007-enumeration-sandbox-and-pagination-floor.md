@@ -10,8 +10,25 @@ depends_on: []
 
 # SEC-007: the SEC-006 carry-over — enumeration containment, and a floor for the pagination trap
 
-Closes the follow-ups [SEC-006](SEC-006-main-ref-alert-triage.md) identified and deliberately did
-not fix.
+Closes the follow-ups [SEC-006](completed/SEC-006-main-ref-alert-triage.md) identified and
+deliberately did not fix.
+
+## Status reconciliation (2026-07-26) — this is the single live tail of the SEC chain
+
+`SEC-003` (superseded), `SEC-004` (done) and `SEC-006` (done) are archived to `completed/`; this item
+is the only one still open, and it now carries everything the chain has left. **Parts A and B are
+complete and verified in the tree** (see the per-claim citations under each). What keeps this item
+open is not part A or B:
+
+| Remainder                                                                                    | Kind                    | Blocked on                                       |
+| -------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------ |
+| **C1** `apps/agent-server` playground trust boundary — unauthenticated host-tool RCE surface | product decision        | **owner call** on the three questions in C1      |
+| **C2** remainder — the three memory items filed, not fixed                                   | behaviour change        | a decision on `/memory add`'s permission surface |
+| `## Carried onward` — 8 enumerated defects                                                   | small independent fixes | file ownership (each names its path)             |
+| User-execution scenarios 2 and 3                                                             | evidence                | scenario 3 needs `scripts/**` (see there)        |
+
+C1 is a **blocker, not a nice-to-have**, and it is the reason this item must not be archived on the
+strength of A and B being done.
 
 ## A — the file-tool sandbox did not cover the tools that enumerate
 
@@ -311,17 +328,45 @@ Bounded by spawn cost (60 s) instead. This does not mask a hang — a hung spawn
 later. What is under test is that the resolved shell round-trips a command, never how fast the OS can
 start one.
 
-## Carried onward from SEC-006, still open
+## Carried onward — the whole chain's residue, still open
 
-Not in this item's scope; recorded so they are not lost:
+Not in this item's part-A/B scope; recorded here because SEC-003/004/006 are archived and this is the
+chain's only live tracker. **Every line was re-verified against the tree on 2026-07-26** — each is
+still present, none has been silently fixed.
 
-- `dag-framework/src/adapters/local-fs-asset-store.ts:263` joins a caller-supplied `assetId` on the
-  read path (the write path mints a `randomUUID`).
-- `agent-framework/src/git/git-branch.ts:48` — the fd-based read for the `lstat`/`readFileSync`
-  divergence.
-- `dag-cli/src/commands/run.ts:2258` — the unvalidated `--report-file` write.
-- `agent-executor/.../scheduled-task-runner.ts` — unverified for R8's bare-shell-name pattern.
-- `agent-playground`'s `IBlockMessage` reusing `role: 'system'` for tool-result rendering.
+From SEC-006:
+
+- `packages/dag-framework/src/adapters/local-fs-asset-store.ts:263-267` — `buildBinaryPath(assetId)` /
+  `buildMetadataPath(assetId)` join a caller-supplied `assetId` with no containment, reached on the read
+  path via `getContent`/`getMetadata` (`:224,233,249`). Only the write paths mint a `randomUUID`
+  (`:190,208`).
+- `packages/agent-framework/src/git/git-branch.ts:42-53` — still `lstatSync(candidate)` then
+  `readFileSync(candidate)`; needs the fd-based read for the two-lookup divergence.
+- `packages/dag-cli/src/commands/run.ts:2258` — `writeFile(reportFile, …)` where `reportFile` comes
+  straight from `--report-file` (`:363`, used at `:619,664,709`) with no validation.
+- `packages/agent-executor/src/background-tasks/runners/scheduled-task-runner.ts:171-172` — **confirmed,
+  not merely suspected**: `const shell = state.request.shell ?? 'sh'` then `spawn(shell, ['-c', …])`.
+  A bare `sh` resolved through `PATH`, i.e. exactly R8's pattern, in the one runner R8 did not reach.
+- `packages/agent-playground/src/lib/playground/block-tracking/block-hooks/block-messages.ts:64,92` —
+  `createToolResultBlock`/`createToolErrorBlock` still return `role: 'system'` for tool-result rendering.
+
+Moved here from SEC-004 (2026-07-26):
+
+- `packages/dag-nodes/text-template/src/index.ts:79-82` — the `{{text}}` pass (`:80`) runs before the
+  `%s` pass (`:81`), so `%s` inside the user's own text is substituted a second time, and the escape
+  sentinel is a string a user can type. Same root cause as SEC-004's alert 1, different surface. The
+  correct shape is one left-to-right scan that never re-reads its own output.
+
+Moved here from SEC-003 (2026-07-26) — these had no other owner:
+
+- Promote the three package-local `no-insecure-temp-path.test.ts` grep floors into **one repo-wide scan**
+  under `scripts/harness/`, so the `join(tmpdir(), <fixed>)` pattern cannot re-enter a package that has
+  no local floor.
+- `packages/agent-remote-pairing/src/pairing.ts` — `extractDtlsFingerprint` returns the FIRST
+  `a=fingerprint` line, so a relay-inserted session-level line can shadow the media-level one the DTLS
+  stack actually verified. Anchoring closed the free-text smuggling; binding the verified value is the
+  remainder. Two candidate fixes (fail closed on more than one distinct value, or parse the m-section);
+  both change the live WebRTC path, so this needs an owner call and a real two-peer run.
 
 ## Test Plan
 
@@ -352,7 +397,22 @@ Expected: neither `Glob` nor `Grep` returns `escape/outside.txt`, and the `SECRE
 in a tool result. Asking it to read `escape/outside.txt` directly still returns
 `Access denied: … is outside the working directory` (the SEC-006 behaviour, unchanged).
 Cleanup: `rm -rf /tmp/sec007`.
-Evidence: _to be filled after implementation_
+
+Evidence (agent-run, 2026-07-26) — **PASSES**. Run headlessly from `/tmp/sec007/work` (fixture:
+`escape -> /tmp/sec007`, `SECRET` in `/tmp/sec007/outside.txt`, `inside.txt` in the root) with
+`--permission-mode bypassPermissions`, so nothing but the containment guard can be doing the refusing:
+
+```
+Glob  **/*.txt  → {"success":true,"output":"inside.txt"}
+Grep  SECRET    → matches ONLY in /tmp/sec007/work/.robota/logs/*.jsonl and
+                  /tmp/sec007/work/.robota/sessions/*.json (the session transcript echoing the
+                  prompt's own word) — /tmp/sec007/outside.txt never appears.
+```
+
+`escape/outside.txt` is reachable lexically from the root, and neither tool returned it: Glob did not
+enumerate through the symlink, and Grep — whose `outputMode: 'content'` is what makes it a stand-in
+for `Read` — never disclosed the line. Both halves of part A's claim, on disk, through the real
+assemblies.
 
 **Scenario 2 — a workflow cannot write outside the directory it was run from.**
 Prerequisites: a built `dag-cli`.
@@ -361,7 +421,18 @@ Steps: author a `.dag.json` with a `file-write` node whose `path` is `/tmp/sec00
 Expected: the node fails with `DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT` and **no file and no
 directory is created** at the target. A node writing `./out/result.txt` still succeeds.
 Cleanup: `rm -rf /tmp/sec007-escape`.
-Evidence: _to be filled after implementation_
+
+Evidence: **NOT YET RUN, and the steps as written are not executable.** Attempted 2026-07-26: a
+hand-authored `.dag.json` in the shape this scenario describes is rejected before the node ever runs —
+`node packages/dag-cli/dist/node/bin.js run escape.dag.json` →
+`Error: startRun failed: DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID`. The scenario does not say which
+definition schema `dag run` accepts, and there is no `*.dag.json` fixture anywhere in the repo to copy
+(`find . -name '*.dag.json' -not -path '*/node_modules/*'` → empty). **To close this cell:** first record
+a minimal, actually-accepted `file-write` definition (derive it from
+`packages/dag-framework`'s definition schema, or generate one with `dag` itself), then re-run. The
+mechanism is unit-covered either way — `packages/dag-nodes/file-write/src/index.ts:30` +
+`DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT` at `:32`, with 4 red-first cases — so what is missing is
+the product-surface cell, not the guard.
 
 **Scenario 3 — the pagination floor blocks a single-page query.**
 Prerequisites: a checkout of this branch.
@@ -371,4 +442,11 @@ Steps: add a line to any file under `scripts/` reading
 Expected: exit 1 with `[per-page-without-paginate]` naming that file and line. Adding `--paginate`
 makes it exit 0 with `api-pagination scan passed.`
 Cleanup: revert the added line.
-Evidence: _to be filled after implementation_
+
+Evidence: **NOT YET RUN — deliberately.** The scenario's own first step is "add a line to any file
+under `scripts/`", and `scripts/**` was outside the reconciling agent's file ownership on 2026-07-26
+(a concurrent work-stream owns it), so planting even a transient probe there was not permissible.
+The cell is a two-minute job for whoever holds `scripts/**`. Until then the floor's coverage rests on
+`scripts/harness/__tests__/` (21 tests, including the reconstructed single-page query), and the scan
+is confirmed live and green on the tree — `scripts/harness/run-all-scans.mjs:123` registers
+`api-pagination`, and `pnpm harness:scan` reports it passing.

@@ -42,8 +42,12 @@ const SCAN_COMMANDS = [
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   {
-    name: 'review-workflow-parity',
-    command: ['node', 'scripts/harness/scan-review-workflow-parity.mjs'],
+    name: 'review-token-supply',
+    command: ['node', 'scripts/harness/scan-review-token-supply.mjs'],
+  },
+  {
+    name: 'workflow-permissions',
+    command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
@@ -111,6 +115,10 @@ const SCAN_COMMANDS = [
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   {
+    name: 'automerge-disarm-permission',
+    command: ['node', 'scripts/harness/scan-automerge-disarm-permission.mjs'],
+  },
+  {
     name: 'promotion-ancestry',
     command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
   },
@@ -118,9 +126,48 @@ const SCAN_COMMANDS = [
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
+  {
+    name: 'required-check-needs',
+    command: ['node', 'scripts/harness/scan-required-check-needs.mjs'],
+  },
+  {
+    name: 'test-selection-tolerance',
+    command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
+  },
+  {
+    // INFRA-060 D4 — the affected-scope calculator resolved build tooling to ZERO scopes, so a PR
+    // changing how every package is built left the REQUIRED `build` and `quality` checks green
+    // having verified nothing. Executes the calculator against each declared path.
+    name: 'build-tooling-scope',
+    command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
+  },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  {
+    name: 'release-verification-gate',
+    command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
+  },
+  {
+    name: 'legacy-typescript',
+    command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
+  },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    // HARNESS-052 — the audited "success over work it did not do" shape wearing a test: an
+    // assertion that no implementation of the code under test could fail.
+    name: 'tautological-assertions',
+    command: ['node', 'scripts/harness/scan-tautological-assertions.mjs'],
+  },
+  {
+    // HARNESS-052 — and the same shape wearing a GUARD: a scan whose governed tree is absent and
+    // which reports a pass rather than an error.
+    name: 'guard-scope-fail-closed',
+    command: ['node', 'scripts/harness/scan-guard-scope-fail-closed.mjs'],
+  },
   { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
+  {
+    name: 'live-smoke-provider-coverage',
+    command: ['node', 'scripts/harness/scan-live-smoke-provider-coverage.mjs'],
+  },
   {
     name: 'composition-neutrality',
     command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],

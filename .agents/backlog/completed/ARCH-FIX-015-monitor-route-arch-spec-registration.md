@@ -34,4 +34,28 @@ Not applicable — documentation-only change. No runnable user-facing behavior c
 
 ## Verification Evidence
 
-(완료 후 각 문서 업데이트 내용 기록)
+Back-filled 2026-07-26 by re-deriving each Solution step against the live tree.
+
+| Fact                                    | Citation                                                                                                                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/monitor` listed in the deployment map | `.agents/specs/architecture-map/apps-and-deployment.md:30` — ``Routes: `/` (→ `/playground`), `/playground`, `/playground/demo`, `/monitor` (CLI second-screen).``        |
+| relationship to the shared GUI package  | `.agents/specs/architecture-map/apps-and-deployment.md:43` — ``its `/monitor` route mounts `SessionMonitor` from the shared GUI core `@robota-sdk/agent-transport-gui`.`` |
+| app SPEC route structure                | `apps/agent-web/docs/SPEC.md:28-31` (the CLI second-screen role, its `NEXT_PUBLIC_CLI_WS_URL` default, and the `SessionMonitor` relationship)                             |
+| component + env inventory rows          | `apps/agent-web/docs/SPEC.md:60` (`MonitorClient`), `:66` (env var), `:97` (imported-component row)                                                                       |
+
+The Solution allowed "SPEC.md 또는 README"; this app has no README, and the SPEC carries it, which
+satisfies the step as written.
+
+**Drift found while back-filling — reported, not papered over.** The registrations above are all
+present, but what they register is now WRONG: `apps/agent-web/src/app/` contains only `playground/`
+and `remote/` — there is no `monitor/` directory and no `MonitorClient` anywhere under
+`apps/agent-web/src`. The monitor moved to the CLI-served surface (`packages/agent-cli-web`) under
+GUI-007, and neither `apps/agent-web/docs/SPEC.md:28-31` nor
+`.agents/specs/architecture-map/apps-and-deployment.md:30,43` was updated. So two architecture
+documents describe a route the app no longer has, and both still name
+`src/app/monitor/MonitorClient.tsx` as its implementation.
+
+That is drift introduced AFTER this item, not a failure of it — the registration this item asked for
+did land — but it is a live defect in the same two documents and should be filed. Deliberately not
+cited above as evidence, because a citation to a path that does not resolve is exactly the unearned
+claim this back-fill exists to remove.

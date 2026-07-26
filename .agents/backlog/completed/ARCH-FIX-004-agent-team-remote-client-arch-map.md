@@ -36,4 +36,21 @@ Not applicable — documentation-only change. No runnable user-facing behavior c
 
 ## Verification Evidence
 
-(완료 후 아키텍처 맵 업데이트 diff 링크 기록)
+Back-filled 2026-07-26 by re-deriving both Test Plan checks against the live tree (the original record
+promised a diff link and never carried one).
+
+**`agent-remote-client` is registered in all three documents**, and the registered direction matches
+the real manifest:
+
+| Check                             | Citation                                                                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| layer table                       | `.agents/specs/architecture-map/dependency-direction.md:21` — `Orchestration["Orchestration\nagent-remote-client"]`, edges at `:44,:45,:51`                                                                                                        |
+| Product Stack diagram node        | `.agents/specs/architecture-map/agent-system.md:101` — `RemoteClient["agent-remote-client…"]`, edges `:109,:111`; ownership row `:128`                                                                                                             |
+| package-family description        | `.agents/specs/architecture-map/repository-overview.md:16`                                                                                                                                                                                         |
+| direction vs. real `package.json` | `packages/agent-remote-client/package.json` deps = `{"@robota-sdk/agent-core":"workspace:*"}` → matches `RemoteClient --> Core`; `packages/agent-playground/package.json` depends on `agent-remote-client` → matches `Playground --> RemoteClient` |
+
+**The `agent-team` half of this item is moot, not fixed.** The package no longer exists —
+`git log --diff-filter=D -- packages/agent-team` → `6acec82ec release: CORE-002~004 embedded API,
+TOOL-003 agent-team removal, CORE-007 embedding guide (#614)`, with the removal documented at
+`content/guide/migration.md:26,242-245`. Its absence from the architecture maps is therefore the
+correct state today, not the defect this item was filed against. Recorded rather than quietly dropped.

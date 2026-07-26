@@ -31,3 +31,31 @@ self-deps and the LGPL @img/sharp-libvips prebuilt family). The red-test above c
 dependency-review executes the config of the PR's MERGE result against the target branch, so the new
 allow-list only gates PRs opened AFTER this lands. Run the GPL-fixture PR against develop after merge;
 only then may this item be closed.
+
+## Status (reconciled 2026-07-26) — the swap landed, the red test was never run
+
+**Done:** the input migration is live on `develop`. `.github/workflows/dependency-review.yml:60` now
+carries `allow-licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BlueOak-1.0.0, CC-BY-4.0,
+CC0-1.0, ISC, MIT, MIT-0, MPL-2.0, Python-2.0, Unlicense, WTFPL`, with `allow-dependencies-licenses`
+purl exemptions for the `@robota-sdk/*` self-deps and the LGPL `@img/sharp-libvips-*` family. There is
+**no `deny-licenses` key and no deprecation note left in the file**. Merged as
+[#1339](https://github.com/woojubb/robota/pull/1339) (`2026-07-24T15:51:34Z`). The v6-bump gate the
+item exists to protect is therefore satisfied — a Dependabot v6 bump is now safe to accept.
+
+**Not done — the item's only stated closing condition.** The GPL-fixture red test has never been run:
+`gh pr list --state all --search GPL` returns no such PR, and no branch carrying a GPL fixture exists.
+Until it runs, "the allow-list actually blocks copyleft ingress" is an argument about a config file,
+not a measurement — which is precisely the shape the item wrote its own Test Plan to avoid.
+
+**The one remaining action, exactly:**
+
+1. Branch off fresh `origin/develop`; add a GPL-licensed package as a **devDependency** to the root
+   `package.json` and refresh `pnpm-lock.yaml` (both are in the workflow's `paths:` filter, so the job
+   will trigger). A clearly-GPL, small, uncontroversial choice keeps the fixture honest.
+2. Open the PR against `develop` and read the `Dependency review` check.
+3. **Expect FAIL** naming the GPL license as not in the allow-list. A pass is a defect in the
+   allow-list, not a green.
+4. Paste the check output here, then CLOSE the PR without merging and delete the branch.
+
+Note the job is advisory (not a required check) and `paths`-filtered, so the fixture PR is safe to open
+and costs nothing to abandon.

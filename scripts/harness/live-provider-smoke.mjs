@@ -10,12 +10,24 @@
  * regressions were each caught three times by a HUMAN running the CLI by hand. This script is the
  * mechanical replacement: one minimal REAL turn per credentialed provider.
  *
- * Gating (the whole point — it must never be able to fail for lack of credentials):
+ * Gating (the whole point — an UNATTENDED run must never fail for lack of credentials):
  *   - A provider is selected only when its definition's `defaults.apiKey` is an `$ENV:<NAME>`
  *     reference AND `<NAME>` is present and non-empty in the environment.
  *   - No credentialed provider at all  →  clean SKIP, exit 0. Never a failure.
  *   - The provider list and the env-var names are read from the provider DEFINITIONS, so a newly
  *     added provider is covered automatically and this file holds no provider-name table.
+ *
+ * INFRA-061 — two corrections to that gating, both about a green run that verified nothing:
+ *
+ *   1. A run that exercised ZERO providers is reported to GitHub as a `::warning::` annotation and in
+ *      the job summary. "Live provider smoke: success" otherwise reads as "the providers answered",
+ *      when it may equally mean "there were no credentials, so nothing was called" — opposite facts
+ *      behind the same green tick. The exit code is deliberately unchanged: a nightly that is red for
+ *      an unprovisioned secret trains people to ignore it.
+ *   2. An EXPLICIT single-provider request (`--provider <type>`) that cannot run is now a FAILURE.
+ *      Someone dispatching the workflow for one named provider is asking a question; answering it with
+ *      a silent green is the defect class this script exists to remove. The unattended nightly passes
+ *      no `--provider`, so its never-fail posture is untouched.
  *
  * What each selected provider runs (two tiny calls, `maxTokens` capped — cents, not dollars):
  *   1. non-streaming `chat()`   — proves auth + request/response wire format.
@@ -38,7 +50,7 @@
  * Prerequisite: the provider packages must be built (`pnpm --filter @robota-sdk/agent-provider-defaults... build:js`).
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { appendFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -277,6 +289,41 @@ export function formatReport({ runnable, unconfigured, skipped }, results) {
   return lines.join('\n');
 }
 
+/**
+ * Why an explicitly-requested provider could not run, or undefined when the request is satisfiable.
+ *
+ * Only an EXPLICIT `--provider <type>` request is judged. Without one the caller asked for "whatever
+ * is credentialed", and "nothing was" is a truthful answer to that question.
+ */
+export function explicitRequestFailure(selection, options = {}) {
+  const requested = options.only;
+  if (requested === undefined) return undefined;
+  if (selection.runnable.some((candidate) => candidate.type === requested)) return undefined;
+
+  const unconfigured = selection.unconfigured.find((entry) => entry.type === requested);
+  if (unconfigured !== undefined) return `--provider ${requested}: ${unconfigured.reason}`;
+
+  const skipped = selection.skipped.find((entry) => entry.type === requested);
+  if (skipped !== undefined) return `--provider ${requested}: ${skipped.reason}`;
+
+  return `--provider ${requested}: no provider definition of that type exists`;
+}
+
+/**
+ * GitHub-Actions surfacing for a run that called nothing. Returns the lines to write, so the decision
+ * is testable without an Actions environment. Empty when there is nothing to disclaim.
+ */
+export function zeroCoverageNotice(selection, env = {}) {
+  if (selection.runnable.length > 0) return [];
+  if (env.GITHUB_ACTIONS !== 'true') return [];
+  const providers = [...selection.skipped, ...selection.unconfigured].map((e) => e.type).join(', ');
+  return [
+    '::warning title=live provider smoke exercised 0 providers::This run called no provider and ' +
+      'therefore verified nothing. A green tick here means "no credentials were available", not ' +
+      `"the providers answered". Uncovered: ${providers || 'none discovered'}.`,
+  ];
+}
+
 function parseArgs(argv) {
   const options = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -354,6 +401,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   const report = redactSecrets(formatReport(selection, results), secrets);
   process.stdout.write(`${report}\n`);
 
+  for (const line of zeroCoverageNotice(selection, env)) process.stdout.write(`${line}\n`);
+  if (env.GITHUB_STEP_SUMMARY !== undefined) {
+    // `report` is already redacted above; the count is the line a reader of the run page needs, since
+    // "success" alone cannot distinguish "the providers answered" from "nothing was called".
+    await appendFile(
+      env.GITHUB_STEP_SUMMARY,
+      `### Live provider smoke\n\n` +
+        `Providers actually called: **${selection.runnable.length}**\n\n` +
+        `${report}\n`,
+      'utf-8',
+    );
+  }
+
   if (options.reportFile !== undefined) {
     const summary = {
       generatedAt: new Date().toISOString(),
@@ -373,6 +433,17 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   }
 
   if (results.some((result) => result.status === 'fail')) {
+    process.exitCode = 1;
+    return;
+  }
+
+  // An explicitly-named provider that could not run is a failure — see the header. Reported after the
+  // report is written so the artefact still records what happened.
+  const unsatisfied = explicitRequestFailure(selection, options);
+  if (unsatisfied !== undefined) {
+    process.stdout.write(
+      `live-provider-smoke: FAIL — the requested provider was never called.\n  ${unsatisfied}\n`,
+    );
     process.exitCode = 1;
   }
 }

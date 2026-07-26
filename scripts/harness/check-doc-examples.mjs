@@ -75,7 +75,21 @@ export function extractBlocks(markdown) {
   return blocks;
 }
 
-function buildTsconfig(dir) {
+/**
+ * PERF-006: this tsconfig carries NO `baseUrl`, and the `paths` values are absolute instead.
+ *
+ * `baseUrl` is deprecated in TypeScript 6 — it is a hard `error TS5101`, not a warning — and is
+ * removed outright in 7. The repo's checked-in tsconfigs were already cleared of it by PERF-004;
+ * this generated one was the last occurrence anywhere in the tree, and it only surfaced when the
+ * tool-side compiler moved from 5.9.3 to 6.0.3 (5.9.3 compiled it silently).
+ *
+ * Absolute `paths` values are the forward-compatible replacement: without `baseUrl` a relative
+ * mapping resolves against THIS file's directory, which is a cache path several levels below the
+ * workspace root, so absolutes keep the mapping correct regardless of where `OUT_DIR` moves — and
+ * they work unchanged if this scan is later moved onto the native compiler.
+ */
+function buildTsconfig(dir, root = WORKSPACE_ROOT) {
+  const at = (relative) => path.join(root, relative);
   return {
     compilerOptions: {
       strict: true,
@@ -88,20 +102,19 @@ function buildTsconfig(dir) {
       skipLibCheck: true,
       jsx: 'react-jsx',
       customConditions: ['source'],
-      baseUrl: WORKSPACE_ROOT,
       paths: {
-        '@robota-sdk/*': ['packages/*/src/index.ts'],
+        '@robota-sdk/*': [at('packages/*/src/index.ts')],
         '@robota-sdk/agent-provider-openai/loggers': [
-          'packages/agent-provider-openai/src/openai/loggers/index.ts',
+          at('packages/agent-provider-openai/src/openai/loggers/index.ts'),
         ],
         '@robota-sdk/agent-provider-gemini/google': [
-          'packages/agent-provider-gemini/src/google/index.ts',
+          at('packages/agent-provider-gemini/src/google/index.ts'),
         ],
         '@robota-sdk/agent-provider-openai-compatible/shared': [
-          'packages/agent-provider-openai-compatible/src/shared/openai-compatible/index.ts',
+          at('packages/agent-provider-openai-compatible/src/shared/openai-compatible/index.ts'),
         ],
-        '@robota-sdk/agent-provider-*': ['packages/agent-provider-*/src/index.ts'],
-        '@robota-sdk/agent-transport/*': ['packages/agent-transport/src/*/index.ts'],
+        '@robota-sdk/agent-provider-*': [at('packages/agent-provider-*/src/index.ts')],
+        '@robota-sdk/agent-transport/*': [at('packages/agent-transport/src/*/index.ts')],
       },
     },
     include: [path.join(dir, '*.ts')],

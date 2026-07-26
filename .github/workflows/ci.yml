@@ -23,7 +23,7 @@ on:
     # That same property has ONE benign instance here, and it is benign only for a reason that could
     # be undone by accident: a develop→main retarget re-dispatches this workflow, and the four
     # develop-side jobs then publish `skipped` over the `success` they had earned against `develop`.
-    # That is harmless ONLY because `build`/`quality`/`scans`/`security audit` are no longer required
+    # That is harmless ONLY because `build`/`quality`/`scans`/`dependency audit` are no longer required
     # on `protect-main`. Putting any of them back in that required list would make a retarget erase
     # its own evidence. `scan-main-required-checks.mjs` is what refuses that combination.
     types: [opened, synchronize, reopened, edited]
@@ -93,7 +93,7 @@ jobs:
   #
   # It is a REQUIRED status check on `protect-main`, alongside `main PR source guard` and
   # `release-grade verification` (INFRA-055). Those three are the whole required list for `main`: the
-  # former no-op contexts (build/quality/scans/security audit/commitlint) were dropped, because on a
+  # former no-op contexts (build/quality/scans/dependency audit/commitlint) were dropped, because on a
   # `main` PR they asserted nothing — see the note above the `build` job.
   promotion-ancestry:
     name: promotion ancestry
@@ -140,6 +140,17 @@ jobs:
   # tui-e2e / examples-typecheck / windows-shell ARE required and DO skip on a docs-only PR; that is deliberate
   # and predates this file — a skipped required check is accepted, which is exactly why the `changes` classifier
   # is fail-safe (every undeterminable case classifies as CODE).
+  #
+  # INFRA-058: the classifier being fail-safe was only HALF the property. `classify-changed-paths.mjs`
+  # always exits 0 (the verdict is its output, not its status), so it can only classify fail-safe —
+  # it cannot protect against this JOB going red for a reason outside the classifier: a checkout
+  # failure, a runner OOM, a syntax error introduced into the script, a Node crash. When that
+  # happens GitHub reports the four dependents as `skipped`, not `failed`, and branch protection
+  # ACCEPTS a skipped required check (INFRA-050, measured on #1424 with three required contexts
+  # reporting `skipping`). `changes` is not itself required, so nothing red would remain on the PR.
+  # The fetch-depth fix removed one CAUSE; the four dependents' `if:` now removes the MECHANISM —
+  # each treats a non-success `changes` as CODE and runs anyway. `scan-required-check-needs.mjs`
+  # keeps that shape from being edited back out.
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -181,7 +192,7 @@ jobs:
           # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
           node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
-  # INFRA-055: `build` / `quality` / `scans` / `security audit` are DEVELOP-side gates. They used to run on a
+  # INFRA-055: `build` / `quality` / `scans` / `dependency audit` are DEVELOP-side gates. They used to run on a
   # `main` PR too, as a "Skip duplicate …" echo with every real step gated on `base_ref != 'main'` — a 3–6
   # second job that asserted nothing. That shape existed for one reason: all four were REQUIRED contexts on
   # `protect-main`, so they had to resolve rather than linger pending. Measured on promotion #1427 they
@@ -382,8 +393,8 @@ jobs:
       - name: Harness scan suite (dist-independent)
         run: pnpm harness:scan -- --skip dist --skip build-contracts
 
-  security-audit:
-    name: security audit
+  dependency-audit:
+    name: dependency audit
     if: github.base_ref != 'main'
     runs-on: ubuntu-latest
 
@@ -406,12 +417,12 @@ jobs:
           changed_files=''
           scan=''
           if [ -z "$bases" ]; then
-            echo "::error::security audit: no merge base between origin/${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
+            echo "::error::dependency audit: no merge base between origin/${BASE_REF} and HEAD. Running the vulnerability scan rather than skipping it."
             scan=forced
           fi
           for base in $bases; do
             if ! diff_files="$(git diff --name-only --diff-filter=ACMRD "$base" HEAD)"; then
-              echo "::error::security audit: git diff against merge base $base failed. Running the vulnerability scan rather than skipping it."
+              echo "::error::dependency audit: git diff against merge base $base failed. Running the vulnerability scan rather than skipping it."
               scan=forced
               break
             fi
@@ -554,10 +565,26 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # INFRA-058: resolve the range into a variable and CHECK it, rather than expanding
+          # `$(git rev-list …)` straight into the `for` word-list. GitHub runs this block as
+          # `bash -e`, and `set -e` does NOT fire on a command substitution used as a word-list: a
+          # failing `git rev-list` produced an EMPTY list, the loop body never ran, and `exit
+          # "$status"` returned 0. MEASURED by extracting this step verbatim and running it with an
+          # unresolvable head sha: two `fatal: Invalid revision range` lines, `Linting  commit(s)`,
+          # and exit 0 — this REQUIRED check reporting green having linted nothing. "Could not
+          # determine" is not "checked and clean"; both now fail closed.
           range="origin/${BASE_REF}..${HEAD_SHA}"
-          echo "Linting $(git rev-list --count --first-parent "$range") commit(s) authored by this PR ($range, first-parent)."
+          if ! commits="$(git rev-list --first-parent "$range")"; then
+            echo "::error::commitlint: could not resolve the commit range '$range'. origin/${BASE_REF} or ${HEAD_SHA} is not present in this checkout (the job checks out with fetch-depth: 0, so this means the head sha was force-pushed away or the base ref was never fetched). Failing rather than linting zero commits."
+            exit 1
+          fi
+          if [ -z "$commits" ]; then
+            echo "::error::commitlint: the range '$range' contains no commits. A PR always authors at least one, so an empty range means the range is degenerate, not that the PR is clean. Failing rather than linting zero commits."
+            exit 1
+          fi
+          echo "Linting $(printf '%s\n' "$commits" | wc -l) commit(s) authored by this PR ($range, first-parent)."
           status=0
-          for sha in $(git rev-list --first-parent "$range"); do
+          for sha in $commits; do
             echo "── $(git log -1 --format='%h %s' "$sha")"
             git log -1 --format=%B "$sha" | pnpm exec commitlint --verbose || status=1
           done
@@ -567,7 +594,12 @@ jobs:
     name: examples-typecheck
     runs-on: ubuntu-latest
     needs: changes
-    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
+    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
+    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
+    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
+    # because a cancelled run is superseded, not unverified.
+    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       - uses: actions/checkout@v7
@@ -603,7 +635,12 @@ jobs:
     name: windows-shell
     runs-on: windows-latest
     needs: changes
-    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
+    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
+    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
+    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
+    # because a cancelled run is superseded, not unverified.
+    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       - uses: actions/checkout@v7
@@ -629,11 +666,21 @@ jobs:
         # minimal job resolves workspace deps from built dist, so agent-process must be built too.
         run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process build
 
+      # INFRA-058: `pnpm exec vitest`, NOT `pnpm ... test -- --run <pattern>`. Both packages' `test`
+      # script is `vitest run --passWithNoTests`, and a name-FILTERED run through it reports success on
+      # zero matches — MEASURED locally: renaming `platform-shell.test.ts` to `shell-resolver.test.ts`
+      # made the identical command print `No test files found, exiting with code 0` and exit 0. An
+      # ordinary rename would therefore have left this REQUIRED check green while executing nothing,
+      # on the only runner in the matrix that can exercise win32 at all. The flag cannot be overridden
+      # on the command line (vitest's cac rejects a repeated `--passWithNoTests`: "Expected a single
+      # value ... received [true, false]"), so the script indirection is bypassed instead. Invoking
+      # vitest directly resolves the same per-package config and exits 1 when the filter matches
+      # nothing — the whole point of selecting tests by name here.
       - name: Verify the cross-platform shell resolver on Windows
-        run: pnpm --filter @robota-sdk/agent-core test -- --run platform-shell
+        run: pnpm --filter @robota-sdk/agent-core exec vitest run platform-shell
 
       - name: Verify the Shell tool actually spawns PowerShell on Windows
-        run: pnpm --filter @robota-sdk/agent-tools test -- --run shell-tool
+        run: pnpm --filter @robota-sdk/agent-tools exec vitest run shell-tool
 
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
   # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
@@ -642,7 +689,12 @@ jobs:
     name: tui-e2e
     runs-on: ubuntu-latest
     needs: changes
-    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
+    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
+    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
+    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
+    # because a cancelled run is superseded, not unverified.
+    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       - uses: actions/checkout@v7
@@ -678,7 +730,12 @@ jobs:
     name: regression-red-proof (advisory)
     runs-on: ubuntu-latest
     needs: changes
-    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
+    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
+    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
+    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
+    # because a cancelled run is superseded, not unverified.
+    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — check-regression-red-proof.mjs resolves the
@@ -718,7 +775,12 @@ jobs:
     name: patch-coverage (advisory)
     runs-on: ubuntu-latest
     needs: changes
-    if: github.base_ref != 'main' && needs.changes.outputs.code == 'true'
+    # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
+    # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
+    # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
+    # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
+    # because a cancelled run is superseded, not unverified.
+    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — check-patch-coverage.mjs takes its changed
