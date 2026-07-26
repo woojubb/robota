@@ -125,14 +125,19 @@ while the guardrails below keep it safe.
 
 **Confirm the merge landed BEFORE deleting the remote branch. Zero exceptions.** A remote branch deleted
 while its PR is still open CLOSES/orphans that PR. So a remote-branch deletion is allowed only once
-`gh pr view <n> --json state` reports `MERGED` (equivalently, `gh pr list --head <branch> --state merged`
-is non-empty). Never run `gh pr merge` and the deletion in one blind sequence — the merge can fail (e.g.
-`mergeStateStatus: DIRTY`) while the deletion still fires. **Enforced** by `.claude/hooks/branch-guard.sh`,
-which blocks `gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --delete <name>`, and
-`git push <remote> :<name>` unless the branch has a merged PR (override for an intentional abandon:
-`BRANCH_GUARD_ALLOW_DELETE=1`).
+`gh pr view <n> --json state` reports `MERGED` **and** no PR is open on the branch right now
+(`gh pr list --head <branch> --state open` is empty). Those are two questions, not one: a merged PR in
+the branch's history is not evidence that nothing is open on it — a reused branch name accumulates
+merged PRs from earlier rounds, and the open one hides behind that count. Never run `gh pr merge` and
+the deletion in one blind sequence — the merge can fail (e.g. `mergeStateStatus: DIRTY`) while the
+deletion still fires. **Enforced** by `.claude/hooks/branch-guard.sh`, which blocks
+`gh api -X DELETE .../git/refs/heads/<name>`, `git push <remote> --delete <name>`, and
+`git push <remote> :<name>` unless both hold, and fails closed when either query cannot answer.
+Override for an intentional abandon: `BRANCH_GUARD_ALLOW_DELETE=1` **inline in the same command**
+(`BRANCH_GUARD_ALLOW_DELETE=1 git push origin --delete <name>`) — the guard reads the command string,
+so an `export` in an earlier statement does not reach it.
 
-**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). Deletion is safe only after the merge is confirmed, never for integration branches. Note the two hazards differ in cost: a deleted `develop` is **recoverable** (re-cut it from `main`), whereas a branch deleted while its PR is unmerged **orphans work**. That asymmetry is why the ban targets the blind, automatic form — not deletion itself, which the agent should do routinely once a merge is confirmed.
+**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). The merged-PR half alone was not enough: `fix/d4-scope-calculator` carried two merged PRs from earlier reuses of the name, so the count read `2` and the deletion proceeded while #1483 was open and `DIRTY` — GitHub closed it. Deletion is safe only after the merge is confirmed, never for integration branches. Note the two hazards differ in cost: a deleted `develop` is **recoverable** (re-cut it from `main`), whereas a branch deleted while its PR is unmerged **orphans work**. That asymmetry is why the ban targets the blind, automatic form — not deletion itself, which the agent should do routinely once a merge is confirmed.
 
 ### Branch Policy
 
