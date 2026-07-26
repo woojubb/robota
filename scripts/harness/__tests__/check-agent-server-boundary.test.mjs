@@ -473,4 +473,19 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("export { a } from 'pkg';", 'pkg')).toBe('used');
     expect(classifySpecifierUsage("import { A } from 'pkg';\nA();", 'pkg')).toBe('used');
   });
+
+  // Same rule as the import side, one review round later on the branch that had not been given it:
+  // `export type { X } from 'pkg'` is erased by the compiler and forwards nothing at runtime.
+  it('does not treat a type-only re-export as wiring', () => {
+    expect(classifySpecifierUsage("export type { X } from 'pkg';", 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage("export { type X } from 'pkg';", 'pkg')).toBe('absent');
+  });
+
+  it('treats every runtime re-export form as wiring', () => {
+    expect(classifySpecifierUsage("export { A } from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export { A as B } from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export { type A, B } from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export * from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export * as ns from 'pkg';", 'pkg')).toBe('used');
+  });
 });

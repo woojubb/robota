@@ -504,11 +504,23 @@ export function classifySpecifierUsage(rawContent, specifier) {
   // `require(`, `import ` or `from ` in front of it.
   const content = stripStringLiteralsExcept(stripComments(rawContent), specifier);
   const quoted = `['"]${escapeForRegExp(specifier)}['"]`;
+  // Re-exports are matched separately from the other evaluated forms, because a type-only one is
+  // erased exactly like `import type` — `export type { X } from 'pkg'` forwards nothing at runtime,
+  // and the single combined pattern counted it as wiring. Same finding as the import side, one
+  // review round later, on the branch that had not been given the same rule.
+  const reExportPattern = new RegExp(`export\\s+([^;]*?)\\s*from\\s*${quoted}`, 'g');
+  for (const reExport of content.matchAll(reExportPattern)) {
+    const clause = reExport[1];
+    // `export *` / `export * as ns` is a namespace forward: always live at runtime.
+    if (/^\s*\*/.test(clause)) return 'used';
+    if (extractBoundNames(clause).length > 0) return 'used';
+  }
+
   const evaluatedPattern = new RegExp(
-    `(?:import\\s*\\(\\s*${quoted}\\s*\\)|require\\s*\\(\\s*${quoted}\\s*\\)|import\\s+${quoted}|export\\s+[^;]*?from\\s*${quoted})`,
+    `(?:import\\s*\\(\\s*${quoted}\\s*\\)|require\\s*\\(\\s*${quoted}\\s*\\)|import\\s+${quoted})`,
   );
   if (evaluatedPattern.test(content)) {
-    // Dynamic import, require, side-effect import, and re-export all evaluate or forward the
+    // Dynamic import, require, and side-effect import all evaluate the
     // specifier — the module wires it by existing.
     return 'used';
   }
