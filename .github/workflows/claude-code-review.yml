@@ -82,15 +82,19 @@ jobs:
             2. `gh pr diff <PR NUMBER>` 로 diff 본문을 한 번에 읽는다. 출력이 잘리면 다시 시도하지
                말고, 1의 목록에서 중요한 파일만 골라 Read 로 확인한다 — PR 브랜치는 이미 작업
                디렉터리에 체크아웃되어 있다.
-            3. 발견은 `mcp__github_inline_comment__create_inline_comment` 로 해당 라인에 남긴다.
-            4. 마지막에 `gh pr comment <PR NUMBER> --body "..."` 로 3줄 이내 요약을 남긴다. 이 요약은
-               반드시 남긴다 — 지적할 것이 없으면 없다고 쓴다. 아무것도 남기지 않은 실행은 리뷰하지
+            3. diff 를 다 읽었으면, 인라인 코멘트를 남기기 **전에** 먼저
+               `gh pr comment <PR NUMBER> --body "..."` 로 요약을 남긴다. 요약에는 발견한 것을
+               심각도 순으로 한 줄씩 적는다(없으면 없다고 쓴다). 이 순서는 의도된 것이다 —
+               예산이 끊기더라도 요약은 이미 남아 있다. 아무것도 남기지 않은 실행은 리뷰하지
                않은 실행과 구분되지 않는다.
+            4. 그다음 `mcp__github_inline_comment__create_inline_comment` 로 심각도가 높은 순서대로
+               해당 라인에 코멘트를 남긴다. 여기서 예산이 끝나도 3의 요약이 이미 있으므로,
+               잃는 것은 세부 위치뿐이다.
 
-            예산 규칙: 턴 예산은 25이고 인라인 코멘트 1건이 1턴을 쓴다. 심각도가 높은 순으로 최대
-            10건까지만 인라인으로 남기고 나머지는 요약에 한 줄씩 적는다. 남은 턴이 5 이하라고 판단되면
-            인라인 코멘트를 그만 남기고 4의 요약부터 먼저 처리한다 — 요약 없이 예산이 끝나는 것이
-            최악의 결과다. 빌드·타입체크·테스트 실행이나 전체 트리 탐색은 하지 않는다.
+            예산 규칙: 인라인 코멘트는 1건이 1턴을 쓰므로 최대 10건까지만 남기고 나머지는 3의
+            요약에 적는다. 이 10건은 스스로 셀 수 있는 수이므로 지킬 수 있다 — 남은 턴 수는
+            액션이 알려주지 않으니 그것을 기준으로 판단하려 하지 마라. 빌드·타입체크·테스트
+            실행이나 전체 트리 탐색은 하지 않는다.
 
             이 레포가 특히 강조하는 규율: strict TypeScript(`any`/`unknown` 금지), no-fallback(오류를
             기본값으로 삼켜 감추지 말 것), SSOT 타입, 일방향 패키지 의존성(순환·pass-through
@@ -112,14 +116,30 @@ jobs:
           # Bash, and no network fetch; --disallowedTools states that rather than leaving it to the
           # default permission behaviour.
           #
-          # --max-turns: 25 is kept deliberately, not by default. Re-measured against a large
-          # multi-area PR with the grant above, a full review — diff, context reads, inline
-          # findings, summary — lands inside it. What the cap really bounds is the number of
-          # FINDINGS (one inline comment costs one turn), which is why the prompt caps inline
-          # comments at 10 instead of asking for a bigger budget: a budget that has to grow with
-          # every large PR is not a fix.
+          # --max-turns counts the agent's back-and-forth exchanges inside ONE run. It is not a
+          # retry count: a run that exhausts it stops at `error_max_turns` and the job goes red.
+          #
+          # 25 was set on the claim that a full review lands inside it. Measured over the 40 most
+          # recent runs of this workflow, that claim was false: 7 failed (17.5%), ALL of them
+          # `error_max_turns` at exactly `num_turns: 26`. Successful runs used 10-22 turns
+          # (median ~16), so the cap sat three turns above the observed maximum and cut the tail
+          # off. Worse, a run that died there had often spent its whole budget and posted NOTHING.
+          #
+          # Two things were wrong, and raising the number alone fixes neither:
+          #
+          #   1. The prompt ordered the summary LAST while saying a missing summary is the worst
+          #      outcome. Exhaustion therefore destroyed the one artifact that always has value.
+          #      The summary now goes FIRST and inline comments follow, so running out costs only
+          #      the line-level detail.
+          #   2. The budget rule was unobservable. "stop when fewer than 5 turns remain" cannot be
+          #      followed, because the action never tells the agent how many it has used. It is now
+          #      a count of its own inline comments, which the agent can actually keep.
+          #
+          # 45 gives the measured tail (22) real headroom rather than three turns of it. The point
+          # is not that bigger is better — with the summary landing first, an exhausted run now
+          # degrades instead of vanishing, and the cap is what stops a runaway.
           claude_args: |
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob"
             --disallowedTools "Write,Edit,NotebookEdit,WebFetch,WebSearch"
-            --max-turns 25
+            --max-turns 45
             --model claude-sonnet-5
