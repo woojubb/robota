@@ -252,6 +252,11 @@ describe('isEmittedSourceFile', () => {
     'robota.test.ts',
     'nested/robota.test.tsx',
     'parser.spec.ts',
+    // `.json` IS an emitted source extension, so a JS/TS-only test pattern let a test fixture count
+    // as a source and touching it marked the package stale. Found in review; measured before the
+    // fix — `isEmittedSourceFile('src/a.test.json')` returned true.
+    'payload.test.json',
+    'payload.spec.json',
     '__tests__/helper.ts',
     '__mocks__/provider.ts',
     '__fixtures__/payload.json',

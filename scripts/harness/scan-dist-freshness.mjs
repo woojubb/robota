@@ -95,7 +95,10 @@ const EMITTED_SOURCE_EXTENSIONS = new Set([
   '.json',
 ]);
 
-const TEST_FILE_PATTERN = /\.(test|spec)\.[cm]?[jt]sx?$/;
+// Any extension, not just JS/TS. `.json` is an emitted source extension, so the JS/TS-only version
+// let `src/a.test.json` count as a source: touching a test fixture marked its package stale.
+// Measured before the fix — `isEmittedSourceFile('src/a.test.json')` returned true.
+const TEST_FILE_PATTERN = /\.(test|spec)\.[A-Za-z0-9]+$/;
 const NON_EMITTED_DIR_PATTERN = /(^|\/)(__tests__|__mocks__|__fixtures__|__snapshots__)(\/|$)/;
 
 /**
