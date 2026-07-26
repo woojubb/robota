@@ -187,6 +187,12 @@ Stated plainly, because this sweep is not exhaustive and should not be read as s
   2026-07-26). GitHub disables schedules after 60 days of repository inactivity; this repo is active
   daily, so the risk is theoretical but unguarded. Nothing alerts on a scheduled run that starts
   failing beyond GitHub's default author notification — nobody watches a cron by definition.
+- **The gitleaks bump widens the default ruleset, and that cuts both ways.** 8.21.2 → 8.30.1 brings
+  nine minor versions of new detection rules. Measured at zero findings on today's tree, but a future
+  PR can trip a rule that did not exist before, and it will look like a regression the PR introduced
+  rather than a rule the bump introduced. That is the correct trade — the version floor is what makes
+  the rule-scoped allowlist apply at all — but the first surprise finding should be read with it in
+  mind, and answered by narrowing that one rule, never by widening the path allowlist back.
 
 ## Test Plan
 
