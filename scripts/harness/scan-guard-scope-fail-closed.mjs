@@ -90,6 +90,18 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'a grafted `--depth` fetch made required jobs report `skipping`, which branch protection accepts — the guard reading zero workflows is the same hole reopened',
   },
   {
+    file: 'scan-workflow-permissions.mjs',
+    finder: 'findWorkflowPermissionFindings',
+    tree: '.github/workflows',
+    why: 'it pins that no workflow holds an unjustified `write` scope; over zero workflows that claim is vacuously true, which is precisely the permission widening it exists to surface',
+  },
+  {
+    file: 'scan-required-check-needs.mjs',
+    finder: 'findRequiredCheckNeedsFindings',
+    tree: '.github/required-status-checks.json',
+    why: 'measured: throws `required-status-checks.json is missing` on an empty root. The dependency edges it asserts are quantified over the declared contexts, so reading none would certify the #1424 bypass as absent',
+  },
+  {
     file: 'scan-automerge-disarm-permission.mjs',
     finder: 'findAutomergePermissionFindings',
     tree: '.github/workflows',
@@ -156,6 +168,16 @@ export const PENDING_CLASSIFICATION = [
     measured: 'fail-closed',
   },
   {
+    file: 'scan-test-selection-tolerance.mjs',
+    finder: 'findTestSelectionFindings',
+    measured: 'vacuous',
+  },
+  {
+    // Measured 2026-07-26: the FINDER returns `{findings: [], invocations: 0}` on an empty root —
+    // vacuous by itself. Its `main()` treats `invocations === 0` as a failure, so the CLI is
+    // fail-closed while the exported finder is not. Recorded rather than pinned because
+    // MANDATORY_TREE_GUARDS asserts the finder's behaviour, and pinning it there would certify a
+    // property the finder does not hold.
     file: 'scan-test-selection-tolerance.mjs',
     finder: 'findTestSelectionFindings',
     measured: 'vacuous',

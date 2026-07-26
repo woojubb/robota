@@ -45,6 +45,10 @@ const SCAN_COMMANDS = [
     name: 'review-workflow-parity',
     command: ['node', 'scripts/harness/scan-review-workflow-parity.mjs'],
   },
+  {
+    name: 'workflow-permissions',
+    command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
+  },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
