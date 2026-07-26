@@ -46,8 +46,10 @@ const WORKFLOW_DIR = '.github/workflows';
 export const JUSTIFIED_WRITE_SCOPES = {
   'claude-code-review.yml': {
     'pull-requests': 'posts the review as inline comments and a summary on the PR',
-    'id-token':
-      'OIDC exchange for the action app token (see INFRA-053 — may go away with github_token)',
+    // `id-token: write` is gone as of INFRA-062: the workflow now supplies `github_token`, so the
+    // action returns before the OIDC exchange this scope existed for and no app token is minted.
+    // D9's own entry anticipated it ("may go away with github_token") — and this scan is what
+    // caught the excuse outliving the grant.
   },
   'codeql.yml': {
     'security-events': 'uploads the SARIF analysis that becomes the code-scanning alerts',

@@ -78,10 +78,10 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
-    file: 'scan-review-workflow-parity.mjs',
-    finder: 'findReviewWorkflowParityFindings',
+    file: 'scan-review-token-supply.mjs',
+    finder: 'findReviewTokenSupplyFindings',
     tree: '.github/workflows',
-    why: 'the parity rule exists because the review action skips and exits 0 on a mismatch; with no workflow to compare, "nothing to guard" is indistinguishable from the failure it guards',
+    why: 'the token-supply rule exists because the review action skips and exits 0 when it authenticates via OIDC against a divergent workflow; with no workflow to inspect, "nothing to guard" is indistinguishable from the failure it guards (INFRA-062 replaced the parity scan here, carrying this classification with it)',
   },
   {
     file: 'scan-ci-base-history.mjs',
@@ -157,16 +157,14 @@ export const PENDING_CLASSIFICATION = [
   // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
   // never classified, so `harness:test` was red on develop itself. Measured here rather than
   // assumed, twice each, by executing the finder against a bare root:
-  //   findRequiredCheckNeedsFindings  → fail-closed
+  //   findRequiredCheckNeedsFindings  → fail-closed. PROMOTED to MANDATORY_TREE_GUARDS by D9
+  //     (#1481), which left this duplicate entry behind — a finder in both tables fails this
+  //     scan's exactly-one rule, so `develop` was red on it. Removed here (INFRA-062); the
+  //     MANDATORY entry is the stronger of the two, since it re-proves the behaviour by execution.
   //   findTestSelectionFindings       → VACUOUS — a live instance of the audited defect. A
   //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
   //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
   //     INFRA-060, not silently pinned as though it were sound.
-  {
-    file: 'scan-required-check-needs.mjs',
-    finder: 'findRequiredCheckNeedsFindings',
-    measured: 'fail-closed',
-  },
   {
     file: 'scan-test-selection-tolerance.mjs',
     finder: 'findTestSelectionFindings',
