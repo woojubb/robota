@@ -98,6 +98,16 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it pins that a build-tooling change selects the FULL workspace; over a tree where those paths are absent the claim is vacuously true, which is exactly the `scopes: []` green that D4 exists to close',
   },
   {
+    // Measured 2026-07-26 against a bare root: reports `the shared resource ceiling is missing`
+    // with `inspected: 0`, so an absent tree reads as a problem rather than as "no vitest config
+    // here, nothing to check". The distinction matters because the property it pins — that every
+    // config inherits the heap ceiling — is exactly the one whose absence caused an OOM.
+    file: 'scan-vitest-resource-ceiling.mjs',
+    finder: 'findCeilingFindings',
+    tree: 'packages/ and apps/ vitest configs plus vitest.shared.ts',
+    why: 'without the shared ceiling V8 grants each worker a RAM-derived heap limit (measured 4144 MB on a 23 GB host); over a tree with no configs that claim would be vacuous',
+  },
+  {
     file: 'scan-workflow-permissions.mjs',
     finder: 'findWorkflowPermissionFindings',
     tree: '.github/workflows',
@@ -186,6 +196,17 @@ export const PENDING_CLASSIFICATION = [
     // property the finder does not hold.
     file: 'scan-test-selection-tolerance.mjs',
     finder: 'findTestSelectionFindings',
+    measured: 'vacuous',
+  },
+  {
+    // Measured 2026-07-26: returns `[]` on a bare root. It is a pure ENUMERATOR — it lists the
+    // vitest configs it finds and renders no verdict — so emptiness is its honest answer, not a
+    // silent pass. The verdict is `findCeilingFindings`, pinned in MANDATORY_TREE_GUARDS, and its
+    // `main()` turns `inspected === 0` into exit 1. Recorded as vacuous rather than pinned, because
+    // pinning it would certify a fail-closed property this function does not have and does not
+    // need.
+    file: 'scan-vitest-resource-ceiling.mjs',
+    finder: 'findVitestConfigs',
     measured: 'vacuous',
   },
   {

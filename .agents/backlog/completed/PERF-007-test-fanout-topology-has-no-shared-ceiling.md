@@ -1,12 +1,13 @@
 ---
 id: PERF-007
 title: 'PERF-007: 80 independent vitest instances have no shared ceiling — the caps are conventions, not invariants'
-status: todo
+status: done
 priority: high
 urgency: soon
 type: INFRA
 area: vitest.config.ts
 created: 2026-07-26
+completed: 2026-07-26
 ---
 
 ## Problem
@@ -79,3 +80,45 @@ item is about.
 - A package added without its own ceiling still runs capped, proven by adding one and measuring.
 - Bypassing the root scripts (`pnpm --filter <pkg> test`) stays capped, proven by measuring.
 - The ceiling scales with the host's core count, proven on at least two different core counts.
+
+## Resolution (2026-07-26)
+
+Closed by the shared ceiling `vitest.shared.ts`, inherited by all 31 configs, plus
+`scan-vitest-resource-ceiling` making the inheritance an invariant rather than a convention.
+
+**The second unbounded quantity, found while closing this.** Process count was only half of it.
+V8 derives its heap limit from system RAM, so on this host each worker was permitted **4144 MB** —
+and the largest worker the OOM killer reaped measured **3.8 GB**, sitting at that ceiling. 84
+workers each permitted 4 GB is 340 GB of permission written against 23 GB of real memory. V8 only
+collects aggressively near its OWN limit and cannot see system-wide pressure, so the kernel reaches
+its limit first. Read directly from inside a worker, before and after:
+
+```
+without vitest.shared   WORKER_HEAP_LIMIT_MB=4144
+with vitest.shared      WORKER_HEAP_LIMIT_MB=560
+```
+
+That also explains the progression that looked like a leak — each worker the killer reaped was
+larger than the last (1.6 → 3.8 GB) because killing one redistributes its files to the survivors,
+which then climb toward their 4 GB permission faster. Retained heap actually plateaus near 340 MB
+across all 796 files.
+
+**Each "done when" against measurement, not against the config file:**
+
+- _A package added without its own ceiling still runs capped_ — `scan-vitest-resource-ceiling` fails
+  on it. Red-proved twice: a config that inherits nothing, and the harder case of a config that
+  imports the ceiling but never passes it to `mergeConfig` (reads as correct in review, applies
+  nothing). Exit 1 both times, exit 0 restored.
+- _Bypassing the root scripts stays capped_ — verified on four invocation paths by reading
+  `heap_size_limit` inside the worker: `pnpm --filter <pkg> test`, `cd <pkg> && vitest`, root-level
+  `vitest run <path>`, and the harness suite. All 560 MB. The root-level path was 4144 MB until the
+  root config was made to inherit the same file, which is the drift this item predicted.
+- _The ceiling scales with the host_ — both values are environment-overridable
+  (`VITEST_MAX_FORKS`, `VITEST_WORKER_HEAP_MB`), verified live: `VITEST_WORKER_HEAP_MB=256` yields
+  `WORKER_HEAP_LIMIT_MB=304`.
+
+Full suite results are unchanged (771 passed / 24 failed / 7494 tests — identical counts), harness
+suite 1294/1294. Peak for `pnpm test`: **7066 MB → 1654 MB**.
+
+**Not done here:** the topology itself. 796 files under one vitest instance is still lighter and
+faster than 80 instances. The ceiling makes the current topology safe; it does not make it optimal.

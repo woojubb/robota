@@ -245,6 +245,10 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/check-build-output-contracts.mjs'],
   },
   { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
+  {
+    name: 'vitest-resource-ceiling',
+    command: ['node', 'scripts/harness/scan-vitest-resource-ceiling.mjs'],
+  },
   { name: 'docs-structure', command: ['pnpm', 'docs:validate-structure'] },
 ];
 
