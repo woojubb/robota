@@ -58,11 +58,13 @@
  * REBUILDS rather than trusting this scan. This check's job is a legible message at the moment of
  * confusion, not a second gate.
  *
- * VISIBILITY CEILING: `run-all-scans.mjs` discards a PASSING scan's output, so under
- * `pnpm harness:scan` a freshness advisory is counted in this scan's own summary but its per-package
- * lines are not displayed. That is HARNESS-052's open "`run-all-scans` distinguishes ran-and-found-
- * nothing from ran-and-measured-nothing" item, not something this file can fix from inside. Run this
- * scan DIRECTLY — the diagnostic moment it exists for — to see the packages named.
+ * VISIBILITY: staleness lines carry `ADVISORY_MARKER`, so they reach `pnpm harness:scan`'s summary
+ * even though this scan exits 0. That marker is load-bearing, not decoration. MEASURED before it
+ * existed: `touch packages/agent-core/src/index.ts && pnpm harness:scan | grep -i stale` printed
+ * NOTHING, because `run-all-scans` surfaces captured output only for scans with a non-zero exit. The
+ * finding was made and discarded, so the misdiagnosis sequence — run `harness:scan`, see green,
+ * conclude the branch is healthy — was completely unchanged by detecting the staleness. A finding
+ * nobody sees is not a finding.
  *
  * Run: node scripts/harness/scan-dist-freshness.mjs
  */
@@ -70,6 +72,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 
 const ROOT = process.cwd();
@@ -252,15 +255,14 @@ export async function collectDistFreshnessResults(root, scopes) {
       continue;
     }
     freshness.stale++;
+    // Kept to ONE compact line per package. It is surfaced through the runner's advisory channel,
+    // where it sits beside up to 77 other scans' output — the full explanation belongs in the
+    // single footer line below, not repeated per package until people stop reading it.
     results.push({
       kind: 'stale',
       message:
         `${scope.workspaceName}: dist/ may be STALE — src/${verdict.srcNewest.path} is ` +
-        `${formatLag(verdict.lagMs)} newer than the newest artefact dist/${verdict.distNewest.path}. ` +
-        'Cross-package `pnpm typecheck` resolves this package to dist/*.d.ts, so a consumer is being ' +
-        'compared against an OLD type surface — it can report a phantom error on correct code, and it ' +
-        'can hide a real one. Run `pnpm build` before trusting a typecheck verdict. ADVISORY: mtime ' +
-        'is evidence, not proof (see header).',
+        `${formatLag(verdict.lagMs)} newer than dist/${verdict.distNewest.path}`,
     });
   }
 
@@ -297,7 +299,12 @@ export async function main() {
       console.error(`\x1b[31m❌ ${result.message}\x1b[0m`);
       errors++;
     } else if (result.kind === 'stale') {
-      console.warn(`\x1b[33m🕒 ${result.message}\x1b[0m`);
+      // ADVISORY_MARKER makes this line reach `pnpm harness:scan`'s summary even though this scan
+      // exits 0. Without it the finding existed and nobody saw it: `touch
+      // packages/agent-core/src/index.ts && pnpm harness:scan | grep -i stale` printed NOTHING,
+      // because the runner discards a passing scan's output. That silence is the whole reason the
+      // stale dist was misdiagnosed as a branch breakage in the first place.
+      console.warn(`\x1b[33m🕒 ${ADVISORY_MARKER} ${result.message}\x1b[0m`);
     } else if (result.kind === 'warn') {
       console.warn(`\x1b[33m⚠️  ${result.message}\x1b[0m`);
       warnings++;
@@ -314,11 +321,14 @@ export async function main() {
       `(${freshness.unmeasurable} not comparable: no src/ or no dist/). ADVISORY — never blocking.`,
   );
   if (freshness.stale > 0) {
+    // The diagnostic instruction, carried on the same advisory channel so it arrives WITH the
+    // package list rather than only on a direct run. This is the routing the item asked for in its
+    // point 3; the rules/skills tree that would otherwise host it is outside this item's ownership.
     console.warn(
-      `\x1b[33m${freshness.stale} package(s) have a dist/ older than their src/. ` +
-        'A cross-package type error seen only in a whole-workspace typecheck should be re-checked ' +
-        'after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before it is treated ' +
-        'as a branch defect.\x1b[0m',
+      `\x1b[33m${ADVISORY_MARKER} ${freshness.stale} package(s) have a dist/ older than their ` +
+        'src/. A cross-package type error seen only in a whole-workspace typecheck should be ' +
+        're-checked after `pnpm build` (or `pnpm harness:verify-like-ci`, which rebuilds) before ' +
+        'it is treated as a branch defect.\x1b[0m',
     );
   }
 

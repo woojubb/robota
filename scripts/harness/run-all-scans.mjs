@@ -19,6 +19,58 @@ import path from 'node:path';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
+ * Sentinel a scan prints to mark ONE line as an ADVISORY finding (HARNESS-053).
+ *
+ * THE GAP THIS CLOSES, measured. Passing scans' output is discarded — `expect(out).not.toContain
+ * ('quiet pass')` is a pinned property of this runner, and a correct one: 78 scans printing their
+ * successes is noise nobody reads. But it left no third channel, so a scan that measured something
+ * worth saying while still passing had nowhere to say it. Measured on the real path:
+ * `touch packages/agent-core/src/index.ts && pnpm harness:scan | grep -i stale` printed NOTHING,
+ * while the `dist` scan had detected and reported the staleness. A finding nobody sees is not a
+ * finding, and this is the exact sequence that cost a misdiagnosis cycle: run `harness:scan`, see
+ * green, conclude the branch is healthy, then blame missing barrel exports for a stale `dist`.
+ *
+ * WHY A LINE MARKER RATHER THAN AN EXIT CODE. Advisories must not be able to change a scan's
+ * verdict — a second non-zero code would eventually be treated as failure by something downstream,
+ * and then "advisory" becomes blocking by accident. A marker is opt-in per LINE, so a scan chooses
+ * exactly which of its output reaches the summary and the rest stays suppressed as before.
+ *
+ * GENERAL, not a special case for one scan: any scan may print it, and several in this repo have
+ * advisory output currently thrown away (e.g. `scan-file-size`'s ratchet-tighten notices).
+ */
+export const ADVISORY_MARKER = '::advisory::';
+
+/**
+ * SGR colour sequences, stripped so a scan's own colouring does not leak into the summary.
+ *
+ * The ESC is written `\x1b`, not as a raw control byte, and it is part of the pattern deliberately:
+ * without it the regex is `/\[[0-9;]*m/`, which matches any bracketed digits ending in `m`, so an
+ * advisory whose text happened to mention `[12m` would have had it silently deleted. A sanitiser
+ * that corrupts the message it is sanitising is worse than none. Both properties are pinned below.
+ */
+const ANSI_SGR_PATTERN = /\x1b\[[0-9;]*m/g;
+
+/**
+ * Advisory texts a scan emitted, in the order printed. Pure, so the rule is testable without
+ * spawning anything.
+ *
+ * A marked line with no text after the marker is DROPPED rather than surfaced as an empty bullet —
+ * an advisory channel that can print a contentless line is a way to look like it reported
+ * something while reporting nothing, which is the class this whole item exists to close.
+ */
+export function extractAdvisories(output) {
+  const advisories = [];
+  for (const rawLine of String(output ?? '').split('\n')) {
+    const line = rawLine.replace(ANSI_SGR_PATTERN, '');
+    const markerAt = line.indexOf(ADVISORY_MARKER);
+    if (markerAt === -1) continue;
+    const text = line.slice(markerAt + ADVISORY_MARKER.length).trim();
+    if (text.length > 0) advisories.push(text);
+  }
+  return advisories;
+}
+
+/**
  * Default scan concurrency (INFRA-037). Each scan is an independent, read-only subprocess, so they run
  * concurrently under a bounded pool instead of one-at-a-time. Cap leaves one core for the parent.
  */
@@ -276,6 +328,11 @@ function spawnScan(command) {
  * Each scan is `{ name, run: () => Promise<{code, output}> | Promise<number> }`. Output is CAPTURED per
  * scan and printed only for FAILURES (passes stay a one-line ✓), so parallel runs do not interleave.
  * Returns the aggregate exit code (0 = all passed). The summary + exit code are order-independent.
+ *
+ * THREE output channels, not two (HARNESS-053): failures print in full, `ADVISORY_MARKER` lines
+ * print from every scan regardless of verdict, and everything else from a passing scan stays
+ * suppressed. Advisories never touch the return value — `runScans` returns 0 for a suite whose only
+ * findings are advisory, and that is pinned by a test.
  */
 export async function runScans(
   scans,
@@ -311,6 +368,21 @@ export async function runScans(
   write('harness scan summary:');
   for (const result of results) {
     write(`${result.code === 0 ? '✓' : '✗'} ${result.name}`);
+  }
+
+  // ADVISORIES from EVERY scan, passing or failing (HARNESS-053). Deliberately placed after the
+  // ✓/✗ list and before the verdict: high enough to be read, low enough that the verdict is still
+  // the last line, so a green run still ENDS in green and the advisory cannot be mistaken for one.
+  const advisories = results.flatMap((result) =>
+    extractAdvisories(result.output).map((text) => ({ name: result.name, text })),
+  );
+  if (advisories.length > 0) {
+    write('');
+    write(
+      `⚑ ${advisories.length} advisory finding(s) — NOT failures. The verdict below is unaffected.`,
+    );
+    for (const advisory of advisories) write(`⚑ ${advisory.name}: ${advisory.text}`);
+    write('');
   }
 
   const failed = results.filter((result) => result.code !== 0);
