@@ -94,13 +94,13 @@
           "context": "release-grade verification",
           "workflow": ".github/workflows/ci.yml",
           "job": "release-grade-verify",
-          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, package tests, binary e2e, typecheck, lint, plus an unconditional osv-scanner."
+          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red."
         }
       ],
       "deliberately_not_required": [
         {
           "context": "build / quality / scans / dependency audit",
-          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the FULL build and the FULL scan/test/typecheck/lint sweep where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `dependency audit`'s is gated on a manifest diff."
+          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the whole-workspace build, the whole scan suite and a whole-workspace typecheck/lint where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `dependency audit`'s is gated on a manifest diff. On the TEST half the word FULL was an over-claim and INFRA-063 removed it: the sweep covers every `test` script plus every enumerated `test:*` suite, and its exclusions are named with reasons under `branches.main` above rather than left to `--if-present`'s silence. `quality`'s develop-side coverage is a subset of that (it runs `test` over affected scopes and the same `test:bin` binary e2e), so the subsumption holds; `tui-e2e` is the one suite required on `develop` and deliberately not re-run here."
         },
         {
           "context": "commitlint",

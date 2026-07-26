@@ -77,7 +77,7 @@
     "harness:plan": "node scripts/harness/plan-change.mjs",
     "harness:pre-push": "node scripts/harness/pre-push.mjs",
     "harness:verify": "node scripts/harness/verify-change.mjs",
-    "harness:verify:release": "pnpm build:deps && pnpm harness:scan && pnpm harness:test && pnpm test && pnpm --filter @robota-sdk/agent-cli test:bin && pnpm typecheck && pnpm lint",
+    "harness:verify:release": "pnpm build:deps && pnpm harness:scan && pnpm harness:test && pnpm test && node scripts/harness/release-test-suites.mjs && pnpm typecheck && pnpm lint",
     "harness:record": "node scripts/harness/record-change.mjs",
     "harness:review": "node scripts/harness/review-change.mjs",
     "harness:self-check": "node scripts/harness/self-check.mjs",

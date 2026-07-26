@@ -187,6 +187,14 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
   },
   {
+    // INFRA-063 D7 — `pnpm test` is `-r --if-present test`, which walks past every suite declared
+    // under any other name. The release gate ran one of them (`test:bin`) only because someone had
+    // written it in by hand, and never saw `agent-cli-web`'s `test:e2e` at all. Enumerates every
+    // `^test(:|$)` script and requires each to be run or excluded with a re-verified reason.
+    name: 'release-sweep-coverage',
+    command: ['node', 'scripts/harness/scan-release-sweep-coverage.mjs'],
+  },
+  {
     // INFRA-060 D4 — the affected-scope calculator resolved build tooling to ZERO scopes, so a PR
     // changing how every package is built left the REQUIRED `build` and `quality` checks green
     // having verified nothing. Executes the calculator against each declared path.
