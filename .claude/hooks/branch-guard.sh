@@ -117,7 +117,33 @@ if [[ -n "$DELETE_BRANCH_NAME" && "${BRANCH_GUARD_ALLOW_DELETE:-0}" != "1" ]]; t
     echo "[branch-guard] Intentional abandon of an unmerged branch? Override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
     exit 2
   fi
-  # MERGED_COUNT >= 1 → the PR merged; deletion is safe. Fall through.
+
+  # A merged PR in the branch's history is NOT proof that nothing is open on it NOW.
+  #
+  # Measured 2026-07-26: `fix/d4-scope-calculator` carried two merged PRs (#1484, #1485) from earlier
+  # reuses of the same branch name. #1483 was open and CONFLICTING at the time — never merged. The
+  # merged-count check saw `2`, allowed the deletion, and GitHub closed #1483 as a result. The exact
+  # outcome this guard exists to prevent, waved through by the guard itself.
+  #
+  # So ask the question that actually matters: is anything OPEN on this branch right now?
+  OPEN_COUNT=""
+  if command -v gh >/dev/null 2>&1; then
+    OPEN_COUNT=$(gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number --jq 'length' 2>/dev/null || echo "")
+  fi
+  if [[ -z "$OPEN_COUNT" ]]; then
+    echo "[branch-guard] Blocked: cannot confirm whether an OPEN PR exists for '$DELETE_BRANCH_NAME' (gh unavailable / query failed)." >&2
+    echo "[branch-guard] Unable to determine is not the same as safe. Check by hand, then override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
+    exit 2
+  fi
+  if [[ "$OPEN_COUNT" != "0" ]]; then
+    OPEN_LIST=$(gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number,mergeStateStatus \
+      --jq '[.[] | "#\(.number) (\(.mergeStateStatus))"] | join(", ")' 2>/dev/null || echo "")
+    echo "[branch-guard] Blocked: '$DELETE_BRANCH_NAME' still has an OPEN PR — $OPEN_LIST." >&2
+    echo "[branch-guard] Deleting it now CLOSES that PR. A merged PR earlier in this branch's history does not make deletion safe." >&2
+    echo "[branch-guard] Merge or close it deliberately first. Intentional abandon? Override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
+    exit 2
+  fi
+  # A merged PR exists AND nothing is open on the branch → deletion is safe. Fall through.
 fi
 
 if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then
