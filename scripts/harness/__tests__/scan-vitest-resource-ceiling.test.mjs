@@ -98,6 +98,18 @@ describe('findVitestConfigs', () => {
     expect(found).toContain(path.join('packages', 'vitest.config.ts'));
   });
 
+  // The depth-1 version of this walk matched `packages/*` and missed `packages/dag-nodes/*`, a real
+  // workspace glob holding a real config. The scan reported 31 of 32 and read as complete; the
+  // missed package still had V8's 4144 MB default.
+  it('finds a config nested deeper than one level', () => {
+    const root = scratch();
+    const nested = path.join(root, 'packages', 'dag-nodes', 'image-source');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(path.join(nested, 'vitest.config.ts'), 'x');
+    const found = findVitestConfigs(root).map((f) => path.relative(root, f));
+    expect(found).toContain(path.join('packages', 'dag-nodes', 'image-source', 'vitest.config.ts'));
+  });
+
   it('does not descend into node_modules', () => {
     const root = scratch();
     const nm = path.join(root, 'packages', 'node_modules');

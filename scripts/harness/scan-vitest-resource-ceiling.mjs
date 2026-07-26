@@ -53,33 +53,38 @@ const WORKSPACE_DIRS = ['packages', 'apps'];
 const CONFIG_RE = /^vitest\.config\.(ts|mts|cts|js|mjs|cjs)$/;
 
 /**
- * Find every vitest config under the workspace directories, one level into each workspace and the
- * workspace directory itself (`packages/vitest.config.ts` is a real config in this repo).
+ * Find every vitest config under the workspace directories, at ANY depth.
  * Returns absolute paths, sorted. Pure apart from the filesystem read — the unit under test.
+ *
+ * The depth is deliberately unbounded. The first version walked one level into each workspace
+ * directory, which matched `packages/*` and missed `packages/dag-nodes/*` — a real workspace glob
+ * in `pnpm-workspace.yaml` holding a real config at
+ * `packages/dag-nodes/image-source/vitest.config.ts`. The scan reported "31 configs inherit the
+ * ceiling" and was telling the truth about 31 of 32; the missed one still had V8's 4144 MB default.
+ *
+ * This repository has been bitten by depth-1 walks before — one certified a tree as covered while
+ * missing 21 nested packages. Recursing costs nothing here and cannot drift from
+ * `pnpm-workspace.yaml` the way a hardcoded depth does.
  */
 export function findVitestConfigs(root, workspaceDirs = WORKSPACE_DIRS) {
   const found = [];
-  const consider = (dir) => {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir)) {
-      if (CONFIG_RE.test(entry)) found.push(path.join(dir, entry));
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (CONFIG_RE.test(entry.name)) found.push(full);
     }
   };
   for (const wd of workspaceDirs) {
     const base = path.join(root, wd);
-    if (!existsSync(base)) continue;
-    consider(base);
-    for (const entry of readdirSync(base)) {
-      if (entry === 'node_modules') continue;
-      const child = path.join(base, entry);
-      let st;
-      try {
-        st = statSync(child);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) consider(child);
-    }
+    if (existsSync(base)) walk(base);
   }
   return found.sort();
 }
