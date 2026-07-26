@@ -190,7 +190,12 @@ jobs:
           # required matrix would trade a real risk for a cosmetic one — a flake here makes
           # tui-e2e / examples-typecheck / windows-shell report `skipping`, which branch protection
           # accepts. review-gate.yml has run `node scripts/harness/*.mjs` bare since #1434.
-          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
+          # INFRA-058 THROWAWAY PROBE — do not merge. Simulates the `changes` job failing for a
+          # reason OUTSIDE the classifier (checkout failure / runner OOM / a syntax error in the
+          # script), which is the only case the fix is for. The step fails BEFORE writing
+          # `code=` to $GITHUB_OUTPUT, so the dependents see result=failure and outputs.code=''.
+          echo "INFRA-058 probe: simulating a changes-job failure"
+          exit 1
 
   # INFRA-055: `build` / `quality` / `scans` / `security audit` are DEVELOP-side gates. They used to run on a
   # `main` PR too, as a "Skip duplicate …" echo with every real step gated on `base_ref != 'main'` — a 3–6
