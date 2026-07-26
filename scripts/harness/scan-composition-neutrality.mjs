@@ -42,9 +42,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import ts from 'typescript';
-
 import { loadHarnessConfig } from './harness-config.mjs';
+import * as ts from './lib/ts-ast.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -169,6 +168,11 @@ function bindPattern(pattern, basePath, aliases, identityLocals) {
   const bindsByName = ts.isObjectBindingPattern(pattern);
   for (const element of pattern.elements) {
     if (!ts.isBindingElement(element) || element.dotDotDotToken !== undefined) continue;
+    // An ARRAY HOLE (`const [, b] = xs`) introduces no binding, so there is nothing to track. The
+    // two parsers spell it differently — the legacy AST emits an `OmittedExpression` (which
+    // `isBindingElement` already rejected above), the native one a `BindingElement` with no `name`
+    // — and this skip makes both reach the same place.
+    if (element.name === undefined) continue;
     let key;
     if (bindsByName) {
       const keyNode = element.propertyName ?? element.name;

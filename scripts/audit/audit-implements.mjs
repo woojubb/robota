@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import * as ts from 'typescript';
+
+import * as ts from '../harness/lib/ts-ast.mjs';
 
 function isTargetFile(file) {
   if (!(file.startsWith('packages/') || file.startsWith('apps/'))) return false;
@@ -125,8 +126,9 @@ for (const c of classes) {
 
 const interfaceImplementations = Array.from(interfaceToImplementers.entries())
   .map(([interfaceName, implementers]) => {
-    const classesSorted = [...implementers].sort((a, b) =>
-      a.className.localeCompare(b.className) || a.file.localeCompare(b.file) || a.line - b.line
+    const classesSorted = [...implementers].sort(
+      (a, b) =>
+        a.className.localeCompare(b.className) || a.file.localeCompare(b.file) || a.line - b.line,
     );
     return {
       interfaceName,
@@ -141,9 +143,15 @@ const interfaceImplementations = Array.from(interfaceToImplementers.entries())
       })),
     };
   })
-  .sort((a, b) => b.implementingClassCount - a.implementingClassCount || a.interfaceName.localeCompare(b.interfaceName));
+  .sort(
+    (a, b) =>
+      b.implementingClassCount - a.implementingClassCount ||
+      a.interfaceName.localeCompare(b.interfaceName),
+  );
 
-const interfacesWithMultipleImplementations = interfaceImplementations.filter((x) => x.implementingClassCount > 1);
+const interfacesWithMultipleImplementations = interfaceImplementations.filter(
+  (x) => x.implementingClassCount > 1,
+);
 
 const baseImplementsThenExtendsChains = [];
 for (const [interfaceName, implementers] of interfaceToImplementers.entries()) {
@@ -161,7 +169,12 @@ for (const [interfaceName, implementers] of interfaceToImplementers.entries()) {
       },
       derivedClassCount: derived.length,
       derivedClasses: [...derived]
-        .sort((a, b) => a.className.localeCompare(b.className) || a.file.localeCompare(b.file) || a.line - b.line)
+        .sort(
+          (a, b) =>
+            a.className.localeCompare(b.className) ||
+            a.file.localeCompare(b.file) ||
+            a.line - b.line,
+        )
         .map((c) => ({
           className: c.className,
           file: c.file,
@@ -177,7 +190,7 @@ baseImplementsThenExtendsChains.sort(
   (a, b) =>
     b.derivedClassCount - a.derivedClassCount ||
     a.interfaceName.localeCompare(b.interfaceName) ||
-    a.baseClass.className.localeCompare(b.baseClass.className)
+    a.baseClass.className.localeCompare(b.baseClass.className),
 );
 
 const report = {
@@ -193,6 +206,8 @@ const report = {
 };
 
 const outFile = 'scripts/audit/output/implements-audit.json';
+// The output directory is gitignored, so a fresh clone has no `output/` and the write would ENOENT.
+fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, JSON.stringify(report, null, 2));
 
 console.log(
@@ -201,7 +216,5 @@ console.log(
     `interfacesWithImplementers=${report.interfacesWithAtLeastOneImplementer} ` +
     `interfacesWithMultiImpl=${report.interfacesWithMultipleImplementations} ` +
     `baseImplementsThenExtendsChains=${report.baseImplementsThenExtendsChains} ` +
-    `out=${outFile}`
+    `out=${outFile}`,
 );
-
-
