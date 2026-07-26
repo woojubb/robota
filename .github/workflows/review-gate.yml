@@ -41,6 +41,9 @@ concurrency:
   group: review-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# The default for every job here. `contents: read` is deliberate: the gate job checks out and runs
+# code from the pull request, so it must never hold a write token. The one job that needs
+# `contents: write` — `disarm-auto-merge` — declares its own block, which REPLACES this one.
 permissions:
   contents: read
   security-events: read
@@ -205,14 +208,11 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" -ne 0 ]; then
-            # Until `review-gate` is listed in the branch ruleset's required checks, a red
-            # non-required check does NOT stop an armed auto-merge — which is the exact hole
-            # INFRA-048 is about. Disarming is the lever that works today; the ruleset entry is
-            # the durable one. `--disable-auto` is a no-op error when auto-merge was never armed.
-            gh pr merge --disable-auto "$PR_NUMBER" \
-              || echo "auto-merge was not armed; nothing to disarm."
+            # The auto-merge disarm does NOT live here any more (INFRA-057). It needs
+            # `contents: write`, and this job checks out and executes code from the pull request —
+            # see the `disarm-auto-merge` job below for why those two must not share a token.
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
-          **Review gate: BLOCKED** — auto-merge has been disarmed.
+          **Review gate: BLOCKED**
 
           \`\`\`
           $(cat gate-report.txt)
@@ -221,3 +221,99 @@ jobs:
             echo "::error::review-gate blocked this PR. See the job summary."
             exit 1
           fi
+
+  # INFRA-057. Disarming an armed auto-merge is INFRA-048's stated lever for the #1409 hole: a red
+  # NON-REQUIRED check does not stop an auto-merge by itself. It had never once worked. Measured on
+  # #1461 and again on the throwaway #1465, from the gate's own log:
+  #
+  #     GraphQL: Resource not accessible by integration (disablePullRequestAutoMerge)
+  #     auto-merge was not armed; nothing to disarm.
+  #
+  # Two defects, one line apart:
+  #
+  #   1. `|| echo "auto-merge was not armed"` fires on ANY non-zero exit, so a permission denial and
+  #      a genuine no-op printed the same benign sentence. Only one of them is benign. The states are
+  #      now decided by READING the auto-merge state before and after — not by parsing an error
+  #      string — so the verdict stays correct whatever the failure was.
+  #   2. The gate job carries `contents: read`. GitHub's auto-merge mutations are a MERGE capability:
+  #      they need `contents: write` as well as `pull-requests: write`. The same token posted a PR
+  #      comment successfully one second later, which is what rules out "the token has no write scope
+  #      at all" and pins the gap to `contents`.
+  #
+  # Why a SEPARATE job rather than `contents: write` on the gate. The gate job checks out the pull
+  # request and executes scripts from it (`classify-changed-paths.mjs`, `github-api.mjs`). Handing a
+  # write token to a job that runs PR-authored code is the standard supply-chain hole. This job
+  # checks nothing out and runs `gh` only, so the write scope never meets PR-controlled code.
+  #
+  # What this lever is and is not. It is belt-and-braces, not the guarantee:
+  #   - On `develop` it is redundant — `review-gate` is a REQUIRED check on `protect-develop`, so a
+  #     red gate stops the merge on its own.
+  #   - On `main` it is the only automatic lever, because `protect-main` requires `promotion
+  #     ancestry` / `main PR source guard` / `release-grade verification` and NOT `review-gate`.
+  #     It is also inherently racy there: those three can go green while this gate is still waiting
+  #     on CodeQL, and auto-merge fires the moment they do. Only a required check is race-free.
+  #   - On a FORK pull request GitHub issues a read-only token whatever `permissions:` says, so the
+  #     disarm cannot work at all. It reports STILL ARMED, loudly, instead of claiming success.
+  disarm-auto-merge:
+    name: disarm-auto-merge
+    needs: review-gate
+    if: ${{ always() && needs.review-gate.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Disarm auto-merge, and report which of the three states actually happened
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # `yes` / `no` / `unknown` — never a silent empty string. An unreadable state is its own
+          # answer and must not be rounded down to "not armed".
+          read_armed() {
+            gh pr view "$PR_NUMBER" --json autoMergeRequest \
+              --jq 'if .autoMergeRequest == null then "no" else "yes" end' 2>/dev/null \
+              || echo 'unknown'
+          }
+
+          before="$(read_armed)"
+          if [ "$before" = 'no' ]; then
+            # STATE 1 — nothing to disarm. The only benign one, and now the only one that says so.
+            echo 'auto-merge: NOTHING TO DISARM — auto-merge was not armed on this PR.'
+            exit 0
+          fi
+          echo "auto-merge was armed on this PR (state before: ${before}); disarming."
+
+          # `unknown` deliberately takes this path too: a state that could not be read is not a
+          # reason to skip the disarm, and it is not a reason to report success.
+          set +e
+          disarm_output="$(gh pr merge --disable-auto "$PR_NUMBER" 2>&1)"
+          disarm_exit=$?
+          set -e
+          # `-e` is on: an `A && B` list whose A is false would exit the step, so this is an `if`.
+          if [ -n "$disarm_output" ]; then printf '%s\n' "$disarm_output"; fi
+
+          after="$(read_armed)"
+          if [ "$after" = 'no' ]; then
+            # STATE 2 — actually disarmed.
+            echo 'auto-merge: DISARMED — the armed auto-merge on this PR has been removed.'
+            gh pr comment "$PR_NUMBER" --body \
+              '**Review gate: BLOCKED** — the auto-merge armed on this PR has been disarmed.' || true
+            exit 0
+          fi
+
+          # STATE 3 — still armed. Permission denial, fork PR, API failure: the cause differs, the
+          # consequence does not, and the consequence is what has to be loud. This job goes RED.
+          echo "::error::review-gate: auto-merge is STILL ARMED on PR #${PR_NUMBER} and could NOT be disarmed (gh exit ${disarm_exit}, state after: ${after}). The review gate is red but the merge is not being held back by this lever — hold the merge by hand, or make review-gate a required status check on this base branch."
+          gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: BLOCKED — and auto-merge could NOT be disarmed.**
+
+          Auto-merge is **still armed** on this PR (\`gh pr merge --disable-auto\` exited \`${disarm_exit}\`, state after: \`${after}\`).
+          If \`review-gate\` is not a required status check on this base branch, this PR can still merge with the gate red. Disarm it by hand or hold the merge.
+
+          \`\`\`
+          ${disarm_output}
+          \`\`\`
+          EOF
+          exit 1

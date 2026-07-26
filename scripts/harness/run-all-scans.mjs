@@ -111,6 +111,10 @@ const SCAN_COMMANDS = [
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   {
+    name: 'automerge-disarm-permission',
+    command: ['node', 'scripts/harness/scan-automerge-disarm-permission.mjs'],
+  },
+  {
     name: 'promotion-ancestry',
     command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
   },
