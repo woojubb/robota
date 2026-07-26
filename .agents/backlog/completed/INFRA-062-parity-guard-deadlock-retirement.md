@@ -1,9 +1,10 @@
 ---
 id: INFRA-062
 title: Two sound guards jointly made claude-code-review.yml unmodifiable — remove the condition, not the guard's teeth
-status: in-progress
+status: done
 priority: high
 type: INFRA
+completed: 2026-07-27
 created: 2026-07-26
 ---
 
@@ -195,3 +196,7 @@ The `MANDATORY_TREE_GUARDS` classification in `scan-guard-scope-fail-closed.mjs`
   INFRA-053 (the turn-budget/denial fix this unblocks), PRs #1472, #1473
 - `.github/workflows/claude-code-review.yml`, `scripts/harness/scan-review-token-supply.mjs`,
   `scripts/harness/__tests__/scan-review-token-supply.test.mjs`
+
+## Closed 2026-07-27
+
+All four acceptance criteria met and checked in the document. The parity deadlock is gone: the review workflow is modifiable, `scan-review-token-supply` replaces the retired parity scan, and no admin bypass was used anywhere.

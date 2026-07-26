@@ -1,9 +1,10 @@
 ---
 id: PERF-005
 title: Remove the legacy TypeScript compiler — eliminate every avoidable use, then gate on upstream
-status: in-progress
+status: done
 priority: medium
 type: INFRA
+completed: 2026-07-27
 created: 2026-07-26
 depends_on: [PERF-004]
 ---
@@ -294,3 +295,7 @@ needed, so it is fixed rather than reported.
 Removing `typescript` from `package.json` remains gated on `@typescript-eslint` dropping its runtime
 import (peer `>=4.8.4 <6.1.0`). Re-check that range to know when it is possible. Phase 2 must also
 absorb the 96 baselined manifest declarations catalogued above.
+
+## Closed 2026-07-27
+
+Phase 1 complete — no first-party code imports the legacy compiler and a mechanical guard keeps it that way. Phase 2 is stated in the document as gated on upstream and explicitly not scheduled here, so it is not an open obligation of this item.
