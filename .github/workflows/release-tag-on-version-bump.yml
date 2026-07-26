@@ -7,13 +7,29 @@ name: Release — tag on version bump
 #
 # Requires an owner-provisioned repo DEPLOY KEY (write) as `secrets.RELEASE_DEPLOY_KEY`. Inert without it
 # (the tag push fails loudly). See the release runbook.
+#
+# AUDIT NOTE (2026-07-26): as of this change the tag-pushing branch of this workflow had NEVER executed.
+# Every one of its ~19 runs took the `version unchanged` early return, because agent-cli has sat at
+# 3.0.0-beta.79 since before RELEASE-001 shipped. The repo's only real tag, v3.0.0-beta.79, was pushed BY
+# HAND on 2026-07-15T17:06:02Z — 39 seconds BEFORE `RELEASE_DEPLOY_KEY` was created (17:06:41Z), so the key
+# has never authenticated a push either. The `workflow_dispatch` dry run below exists so this path can be
+# exercised deliberately instead of debuting during a real release.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Resolve the version and the would-be tag, verify the deploy key authenticates, but push nothing.'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
+  # Reading workflow runs to confirm the pushed tag actually triggered the release workflows.
+  actions: read
 
 concurrency:
   group: release-tag-${{ github.sha }}
@@ -29,21 +45,122 @@ jobs:
           fetch-depth: 2 # need HEAD^ to detect a version change
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }} # push over SSH so the tag fires the v* workflows
 
-      - name: Push v<version> tag on an agent-cli bump
+      # An unset RELEASE_DEPLOY_KEY makes actions/checkout fall back to HTTPS + GITHUB_TOKEN, and the push
+      # then fails deep in the script with an opaque permissions error. Say so up front instead.
+      - name: Assert the deploy key is provisioned
+        env:
+          KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEY" ]; then
+            echo "::error::secrets.RELEASE_DEPLOY_KEY is not set. A tag pushed with GITHUB_TOKEN cannot"
+            echo "::error::trigger the v* release workflows, so the release would produce no assets."
+            exit 1
+          fi
+          echo "RELEASE_DEPLOY_KEY is present."
+
+      - name: Resolve the version change
+        id: resolve
         run: |
           set -euo pipefail
           PKG=packages/agent-cli/package.json
           CUR=$(node -pe "require('./$PKG').version")
-          PREV=$(git show "HEAD^:$PKG" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).version" || echo "")
+
+          # A missing or unparseable previous manifest is "could not determine", NOT "unchanged" and NOT
+          # "changed". Distinguish it explicitly rather than letting an empty string decide by accident.
+          if PREV_JSON=$(git show "HEAD^:$PKG" 2>/dev/null); then
+            PREV=$(printf '%s' "$PREV_JSON" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          else
+            echo "::notice::no HEAD^ copy of $PKG (first commit, or the file is new) — treating as a bump."
+            PREV=""
+          fi
+
+          echo "previous=$PREV" >> "$GITHUB_OUTPUT"
+          echo "current=$CUR" >> "$GITHUB_OUTPUT"
           if [ "$CUR" = "$PREV" ]; then
             echo "agent-cli version unchanged ($CUR) — no release tag."
-            exit 0
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent-cli bumped ${PREV:-<none>} -> $CUR"
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "tag=v$CUR" >> "$GITHUB_OUTPUT"
           fi
-          TAG="v$CUR"
+
+      # Proves the key authenticates against this repo without mutating anything. On a dry run this is the
+      # whole point; on a real bump it turns an auth failure into a clear message before a tag is created.
+      - name: Verify the deploy key authenticates
+        if: steps.resolve.outputs.bumped == 'true'
+        run: |
+          set -euo pipefail
+          git ls-remote --tags origin >/dev/null
+          echo "deploy key authenticated against origin."
+
+      - name: Push the tag
+        if: steps.resolve.outputs.bumped == 'true' && github.event.inputs.dry_run != 'true'
+        id: push
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
             echo "tag $TAG already exists — skip (idempotent)."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "agent-cli bumped ${PREV:-<none>} -> $CUR; pushing $TAG to fire the binary + desktop workflows"
+          echo "pushing $TAG to fire the binary + desktop workflows"
           git tag "$TAG"
           git push origin "refs/tags/$TAG"
+          # Read the ref back: `git push` reporting success is not the same as the remote serving the tag.
+          if ! git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+            echo "::error::$TAG is not present on origin after a successful push."
+            exit 1
+          fi
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dry run — report the tag that would be pushed
+        if: github.event.inputs.dry_run == 'true'
+        env:
+          BUMPED: ${{ steps.resolve.outputs.bumped }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          PREV: ${{ steps.resolve.outputs.previous }}
+          CUR: ${{ steps.resolve.outputs.current }}
+        run: |
+          set -euo pipefail
+          echo "DRY RUN — nothing was pushed."
+          echo "  previous version : ${PREV:-<none>}"
+          echo "  current version  : $CUR"
+          echo "  bump detected    : $BUMPED"
+          echo "  tag that would be pushed: ${TAG:-<none>}"
+
+      # The failure this guards is silent and expensive: a tag that triggers nothing produces a GitHub
+      # Release with no assets, and the only symptom is a download page that is simply empty. Assert the
+      # downstream workflows actually started for this tag.
+      - name: Confirm the tag triggered the release workflows
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + 300 ))   # 5 minutes; a push trigger dispatches within seconds
+          want="release-bun-binaries.yml release-desktop-app.yml"
+          while :; do
+            missing=""
+            for wf in $want; do
+              n=$(gh run list --workflow "$wf" --branch "$TAG" --limit 1 --json databaseId --jq 'length')
+              [ "$n" -ge 1 ] || missing="$missing $wf"
+            done
+            if [ -z "$missing" ]; then
+              echo "both release workflows were triggered by $TAG."
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::$TAG did not trigger:$missing"
+              echo "::error::A tag pushed with GITHUB_TOKEN cannot trigger workflows — check that the"
+              echo "::error::checkout used RELEASE_DEPLOY_KEY. The release would otherwise have no assets."
+              exit 1
+            fi
+            echo "waiting for:$missing"
+            sleep 15
+          done

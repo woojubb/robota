@@ -31,7 +31,12 @@ jobs:
     steps:
       - name: Resolve release tag
         id: tag
-        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        # The tag is read from `env`, never interpolated into the script body: `${{ }}` inside a `run:`
+        # is textual substitution, so a tag containing shell metacharacters would execute here.
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
         with:
@@ -70,9 +75,57 @@ jobs:
       - name: Sanity — host binary prints the real version (no Node)
         run: ./packages/agent-cli/dist/bin/robota-linux-x64 --version
 
+      # Only the host (linux-x64) binary above can actually be EXECUTED on this runner, so the other four
+      # were previously published without a single assertion of any kind. `file` is the cheapest check that
+      # still answers the question that matters for a cross-compile: is each artifact the architecture its
+      # NAME promises. A target silently emitting the host arch — or emitting nothing — reaches users as a
+      # download that cannot run, which is exactly the failure class DIST-002 exists over.
+      - name: Assert all five targets exist, are non-trivial, and match their advertised architecture
+        working-directory: packages/agent-cli/dist/bin
+        run: |
+          set -euo pipefail
+          check() { # check <filename> <expected substring of `file` output>
+            local f="$1" want="$2" size desc
+            if [ ! -f "$f" ]; then
+              echo "::error::$f was not produced by build:bun:all"
+              exit 1
+            fi
+            size=$(wc -c <"$f")
+            # Every one of these binaries is ~70-105 MB; 10 MB only a truncated build falls below.
+            if [ "$size" -lt 10485760 ]; then
+              echo "::error::$f is $size bytes — truncated, refusing to publish."
+              exit 1
+            fi
+            desc=$(file -b "$f")
+            echo "$f  ($size bytes)  $desc"
+            case "$desc" in
+              *"$want"*) ;;
+              *) echo "::error::$f is not a $want build — file(1) says: $desc"; exit 1 ;;
+            esac
+          }
+          check robota-darwin-arm64     'Mach-O 64-bit arm64'
+          check robota-darwin-x64       'Mach-O 64-bit x86_64'
+          check robota-linux-x64        'ELF 64-bit LSB'
+          check robota-linux-arm64      'ELF 64-bit LSB'
+          check robota-windows-x64.exe  'PE32+'
+          # linux-arm64 and linux-x64 share a `file` prefix, so pin their machine type explicitly.
+          file -b robota-linux-x64   | grep -q 'x86-64'  || { echo "::error::robota-linux-x64 is not x86-64"; exit 1; }
+          file -b robota-linux-arm64 | grep -q 'ARM aarch64' || { echo "::error::robota-linux-arm64 is not aarch64"; exit 1; }
+
       - name: Generate SHA-256 checksums
         working-directory: packages/agent-cli/dist/bin
-        run: sha256sum robota-* > SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          sha256sum robota-* > SHA256SUMS.txt
+          # `sha256sum robota-*` silently produces a SHORT manifest if a target is missing, which then
+          # reads as a complete one. The five binaries are asserted above; assert the manifest describes
+          # all five so the file cannot drift from what is uploaded.
+          lines=$(wc -l <SHA256SUMS.txt)
+          if [ "$lines" -ne 5 ]; then
+            echo "::error::SHA256SUMS.txt has $lines entries, expected 5."
+            exit 1
+          fi
+          cat SHA256SUMS.txt
 
       # REL-022 — managed release notes: categorized conventional-commit notes instead of the raw
       # `--generate-notes` PR-title dump. The script auto-detects the previous v* tag (checkout above
@@ -89,6 +142,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           NOTES: ${{ runner.temp }}/release-notes.md
         run: |
+          set -euo pipefail
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
           gh release upload "$TAG" \
             robota-darwin-arm64 \
@@ -98,3 +152,32 @@ jobs:
             robota-windows-x64.exe \
             SHA256SUMS.txt \
             --clobber
+
+      # An upload step exits 0 for "I sent the bytes", not "the release now serves them". Read the release
+      # back and compare each asset's PUBLISHED size against the local file, so a partial or dropped upload
+      # cannot leave a green run behind a release users cannot install from.
+      - name: Verify the assets actually landed on the Release
+        working-directory: packages/agent-cli/dist/bin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"' > published.txt
+          cat published.txt
+          rc=0
+          for f in robota-darwin-arm64 robota-darwin-x64 robota-linux-x64 robota-linux-arm64 robota-windows-x64.exe SHA256SUMS.txt; do
+            local_size=$(wc -c <"$f")
+            published_size=$(awk -v n="$f" '$1 == n { print $2 }' published.txt)
+            if [ -z "$published_size" ]; then
+              echo "::error::$f is missing from the published release."
+              rc=1
+            elif [ "$published_size" != "$local_size" ]; then
+              echo "::error::$f published as $published_size bytes, built as $local_size — truncated upload."
+              rc=1
+            else
+              echo "ok: $f ($local_size bytes)"
+            fi
+          done
+          exit "$rc"
