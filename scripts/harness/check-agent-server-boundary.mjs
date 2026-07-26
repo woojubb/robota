@@ -69,19 +69,26 @@ const PACKAGE_CHECKS = [
   },
 ];
 
+/**
+ * Withdrawn requirement (HARNESS-051, 2026-07-26):
+ * `agent-playground` was required to depend on and import `@robota-sdk/agent-remote-client`.
+ * Measured against the tree, that architecture is not the one implemented: the package reaches the
+ * server through its own `robota-executor/sse-client`, and `@robota-sdk/agent-remote-client` has no
+ * reachable importer anywhere in the repo — the single import lives in a module nothing loads.
+ * Under the wired-seam rule above the requirement can only ever be red, and a gate asserting an
+ * unimplemented design is what made deleting dead code a CI failure in the first place.
+ *
+ * The forbidden-direction rules (no host, CLI, or provider may reach into a remote client, and the
+ * remote client may not reach back into UI) are unaffected — those hold whether or not the seam is
+ * composed. Re-add a required-seam rule when the composition actually exists; do not re-add it as
+ * an aspiration.
+ */
 const REQUIRED_PACKAGE_DEPENDENCIES = [
   {
     file: 'apps/agent-server/package.json',
     dependencyPattern: /^@robota-sdk\/agent-provider(?:-|$)/,
     type: 'agent-server-missing-provider-composition',
     detail: 'agent-server should remain the provider-side composition root for remote execution.',
-  },
-  {
-    file: 'packages/agent-playground/package.json',
-    dependencyPattern: /^@robota-sdk\/agent-remote-client$/,
-    type: 'agent-playground-missing-remote-client-dependency',
-    detail:
-      'agent-playground should compose reusable browser execution through agent-remote-client.',
   },
 ];
 
@@ -166,16 +173,8 @@ const REQUIRED_SOURCE_IMPORTS = [
     detail:
       'agent-web should render Playground through the browser-safe @robota-sdk/agent-playground/client entry.',
   },
-  {
-    dir: 'packages/agent-playground/src',
-    // Package entry sources behind the `.` and `./client` export conditions.
-    entryPattern: /\/src\/(index|client)\.[cm]?[jt]sx?$/,
-    importSpecifier: '@robota-sdk/agent-remote-client',
-    type: 'agent-playground-missing-remote-client-import',
-    unwiredType: 'agent-playground-unwired-remote-client-import',
-    detail:
-      'agent-playground should keep reusable remote execution behavior in the package, backed by agent-remote-client.',
-  },
+  // The agent-playground -> agent-remote-client required import is withdrawn; see the note above
+  // REQUIRED_PACKAGE_DEPENDENCIES.
 ];
 
 const SERVER_FORBIDDEN_OWNERSHIP_PATTERNS = [

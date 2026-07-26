@@ -69,13 +69,10 @@ const requiredSources = {
     'void import("@robota-sdk/agent-playground/client");\n',
   'apps/agent-server/src/app.ts':
     'import { OpenAIProvider } from "@robota-sdk/agent-provider-openai";\n',
-  // Wired seam: an entry source imports the specifier and actually uses the binding.
-  'packages/agent-playground/src/index.ts': [
-    'import { RemoteExecutor } from "@robota-sdk/agent-remote-client";',
-    'export function createExecutor() {',
-    '  return new RemoteExecutor();',
-    '}',
-  ].join('\n'),
+  'packages/agent-playground/src/index.ts':
+    'export { PlaygroundExecutor } from "./lib/playground-executor";\n',
+  'packages/agent-playground/src/lib/playground-executor.ts':
+    'export class PlaygroundExecutor {}\n',
   'packages/agent-remote-client/src/index.ts':
     'import type { IExecutor } from "@robota-sdk/agent-core";\n',
 };
@@ -274,6 +271,22 @@ describe('required imports must be wired, not merely present', () => {
           '  return PlaygroundApp;',
           '}',
         ].join('\n'),
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([]);
+  });
+
+  // The withdrawn requirement (HARNESS-051): agent-playground is no longer required to compose
+  // agent-remote-client, because nothing in the repo does. The forbidden directions still hold.
+  it('does not require agent-playground to import agent-remote-client', async () => {
+    const root = await createFixture(
+      validFixture({
+        'packages/agent-playground/package.json': packageJson('@robota-sdk/agent-playground', {
+          '@robota-sdk/agent-core': 'workspace:*',
+        }),
       }),
     );
 
