@@ -150,6 +150,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
   },
   {
+    file: 'scan-release-sweep-coverage.mjs',
+    finder: 'findReleaseSweepCoverageFindings',
+    tree: 'pnpm-workspace.yaml and the workspace manifests it names',
+    why: 'MEASURED on a bare root before registration, not assumed: it throws `pnpm-workspace.yaml is missing` from `readWorkspaceGlobs`, deliberately, rather than enumerating zero manifests. That distinction is the whole point of the guard — it exists because `pnpm run -r --if-present test` reports success over every workspace it never looked at, and a coverage floor that discovered no test scripts would report exactly the same success over the same silence',
+  },
+  {
     file: 'scan-live-smoke-provider-coverage.mjs',
     finder: 'findUncoveredProviderCredentials',
     tree: '.github/workflows and packages',

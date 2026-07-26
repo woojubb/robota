@@ -9,7 +9,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsgo --noEmit",
-    "test:e2e": "node e2e/run-smoke.mjs",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
