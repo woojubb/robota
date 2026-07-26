@@ -134,6 +134,13 @@ const SCAN_COMMANDS = [
     name: 'test-selection-tolerance',
     command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
   },
+  {
+    // INFRA-060 D4 — the affected-scope calculator resolved build tooling to ZERO scopes, so a PR
+    // changing how every package is built left the REQUIRED `build` and `quality` checks green
+    // having verified nothing. Executes the calculator against each declared path.
+    name: 'build-tooling-scope',
+    command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
+  },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
     name: 'release-verification-gate',
