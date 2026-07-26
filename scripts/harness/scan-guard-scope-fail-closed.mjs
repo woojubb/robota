@@ -157,16 +157,14 @@ export const PENDING_CLASSIFICATION = [
   // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
   // never classified, so `harness:test` was red on develop itself. Measured here rather than
   // assumed, twice each, by executing the finder against a bare root:
-  //   findRequiredCheckNeedsFindings  → fail-closed
+  //   findRequiredCheckNeedsFindings  → fail-closed. PROMOTED to MANDATORY_TREE_GUARDS by D9
+  //     (#1481), which left this duplicate entry behind — a finder in both tables fails this
+  //     scan's exactly-one rule, so `develop` was red on it. Removed here (INFRA-062); the
+  //     MANDATORY entry is the stronger of the two, since it re-proves the behaviour by execution.
   //   findTestSelectionFindings       → VACUOUS — a live instance of the audited defect. A
   //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
   //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
   //     INFRA-060, not silently pinned as though it were sound.
-  {
-    file: 'scan-required-check-needs.mjs',
-    finder: 'findRequiredCheckNeedsFindings',
-    measured: 'fail-closed',
-  },
   {
     file: 'scan-test-selection-tolerance.mjs',
     finder: 'findTestSelectionFindings',
