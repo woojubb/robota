@@ -2,6 +2,27 @@
 
 /**
  * Check the browser/server/playground/remote-client boundary for remote execution.
+ *
+ * Required-import checks verify a WIRED SEAM, not a token.
+ *
+ * Lesson source (HARNESS-051, 2026-07-26): this gate's required-import rule was satisfied
+ * by `packages/agent-playground/src/lib/playground/robota-executor/remote-providers.ts` — a
+ * module nothing in the package imports, holding a function nobody calls. The gate ran, could
+ * fail, and still certified a seam that did not exist: it checked that a token appeared in some
+ * file. Deleting provably dead code turned the gate red, which is the inverse of what a boundary
+ * gate is for.
+ *
+ * A required import now counts only when BOTH hold:
+ * 1. the importing module is reachable from a declared entry point of its own tree, and
+ * 2. the imported binding is actually referenced in that module (a side-effect import, a
+ *    re-export, and a dynamic `import()` expression each count as referenced, since each one
+ *    evaluates or forwards the specifier).
+ *
+ * Deliberate scope limits, so the rule fires zero times on correct code:
+ * - Reachability is computed over relative imports inside the scanned tree only. Test files are
+ *   outside the graph, so a module only tests import is not "wired" — which is the intent.
+ * - Entry points are declared per check (`entryPattern`), never inferred. Framework route files
+ *   (Next.js `page`/`layout`/...) have no in-repo importer and must be declared as entries.
  */
 
 import { promises as fs } from 'node:fs';
@@ -136,15 +157,22 @@ const SOURCE_IMPORT_CHECKS = [
 const REQUIRED_SOURCE_IMPORTS = [
   {
     dir: 'apps/agent-web/src',
+    // Next.js App Router: route files are framework entry points — nothing in the repo imports them.
+    entryPattern:
+      /(^|\/)(page|layout|template|default|route|middleware|error|not-found)\.[cm]?[jt]sx?$/,
     importSpecifier: '@robota-sdk/agent-playground/client',
     type: 'agent-web-missing-browser-safe-playground-import',
+    unwiredType: 'agent-web-unwired-browser-safe-playground-import',
     detail:
       'agent-web should render Playground through the browser-safe @robota-sdk/agent-playground/client entry.',
   },
   {
     dir: 'packages/agent-playground/src',
+    // Package entry sources behind the `.` and `./client` export conditions.
+    entryPattern: /\/src\/(index|client)\.[cm]?[jt]sx?$/,
     importSpecifier: '@robota-sdk/agent-remote-client',
     type: 'agent-playground-missing-remote-client-import',
+    unwiredType: 'agent-playground-unwired-remote-client-import',
     detail:
       'agent-playground should keep reusable remote execution behavior in the package, backed by agent-remote-client.',
   },
@@ -342,25 +370,174 @@ async function findSourceImportFindings(root) {
   return findings;
 }
 
+function toPosixPath(value) {
+  return value.split(path.sep).join('/');
+}
+
+const RESOLUTION_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
+
+/** Resolve a relative import to a file inside the scanned set, or undefined. */
+export function resolveRelativeImport(fileSet, fromFile, specifier) {
+  if (!specifier.startsWith('.')) {
+    return undefined;
+  }
+  const base = path.posix.normalize(
+    path.posix.join(path.posix.dirname(toPosixPath(fromFile)), specifier),
+  );
+  const candidates = [base, ...RESOLUTION_EXTENSIONS.map((extension) => `${base}${extension}`)];
+  for (const extension of RESOLUTION_EXTENSIONS) {
+    candidates.push(`${base}/index${extension}`);
+  }
+  return candidates.find((candidate) => fileSet.has(candidate));
+}
+
+/**
+ * Modules reachable from the declared entry points, following relative imports only.
+ * A module outside this set ships no behavior: nothing loads it.
+ */
+export function collectReachableModules(contentsByFile, entryPattern) {
+  const fileSet = new Set(contentsByFile.keys());
+  const reachable = new Set();
+  const queue = [...fileSet].filter((file) => entryPattern.test(file));
+
+  while (queue.length > 0) {
+    const current = queue.pop();
+    if (reachable.has(current)) {
+      continue;
+    }
+    reachable.add(current);
+    for (const specifier of extractImports(contentsByFile.get(current) ?? '')) {
+      const resolved = resolveRelativeImport(fileSet, current, specifier);
+      if (resolved !== undefined && !reachable.has(resolved)) {
+        queue.push(resolved);
+      }
+    }
+  }
+
+  return reachable;
+}
+
+function escapeForRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Classify how a module references a specifier.
+ *
+ * Returns `'absent'`, `'imported-unused'` (the specifier is imported but no bound name is
+ * referenced anywhere else in the module — an import statement, not a wired seam), or `'used'`.
+ */
+export function classifySpecifierUsage(content, specifier) {
+  const quoted = `['"]${escapeForRegExp(specifier)}['"]`;
+  const evaluatedPattern = new RegExp(
+    `(?:import\\s*\\(\\s*${quoted}\\s*\\)|require\\s*\\(\\s*${quoted}\\s*\\)|import\\s+${quoted}|export\\s+[^;]*?from\\s*${quoted})`,
+  );
+  if (evaluatedPattern.test(content)) {
+    // Dynamic import, require, side-effect import, and re-export all evaluate or forward the
+    // specifier — the module wires it by existing.
+    return 'used';
+  }
+
+  // The clause may span lines but never contains `;` or a quote, so the match cannot swallow a
+  // preceding import statement (which would then mis-read that statement's bound names).
+  const staticPattern = new RegExp(`import\\s+([^;'"]*?)\\s*from\\s*${quoted}`, 'g');
+  const boundNames = new Set();
+  let masked = content;
+  let matchedStaticImport = false;
+  let match;
+  while ((match = staticPattern.exec(content)) !== null) {
+    matchedStaticImport = true;
+    masked = masked.replace(match[0], ' '.repeat(match[0].length));
+    for (const name of extractBoundNames(match[1])) {
+      boundNames.add(name);
+    }
+  }
+
+  if (!matchedStaticImport) {
+    return 'absent';
+  }
+
+  for (const name of boundNames) {
+    if (new RegExp(`\\b${escapeForRegExp(name)}\\b`).test(masked)) {
+      return 'used';
+    }
+  }
+  return 'imported-unused';
+}
+
+/** Local binding names introduced by an import clause (`X`, `* as ns`, `{ a, b as c }`). */
+function extractBoundNames(clause) {
+  const names = [];
+  const withoutTypeKeyword = clause.replace(/^\s*type\s+/, '');
+  const namedMatch = withoutTypeKeyword.match(/\{([^}]*)\}/);
+  if (namedMatch) {
+    for (const entry of namedMatch[1].split(',')) {
+      const parts = entry
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/);
+      const local = (parts[1] ?? parts[0] ?? '').trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(local)) {
+        names.push(local);
+      }
+    }
+  }
+  const namespaceMatch = withoutTypeKeyword.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/);
+  if (namespaceMatch) {
+    names.push(namespaceMatch[1]);
+  }
+  const defaultMatch = withoutTypeKeyword.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:,|$)/);
+  if (defaultMatch) {
+    names.push(defaultMatch[1]);
+  }
+  return names;
+}
+
 async function findRequiredSourceImportFindings(root) {
   const findings = [];
 
   for (const check of REQUIRED_SOURCE_IMPORTS) {
-    let found = false;
+    const contentsByFile = new Map();
     for (const file of await walkFiles(root, check.dir)) {
-      const content = await fs.readFile(path.join(root, file), 'utf8');
-      if (extractImports(content).includes(check.importSpecifier)) {
-        found = true;
+      contentsByFile.set(toPosixPath(file), await fs.readFile(path.join(root, file), 'utf8'));
+    }
+
+    const reachable = collectReachableModules(contentsByFile, check.entryPattern);
+    const importingFiles = [];
+    let wiredFile;
+    let unwiredFile;
+
+    for (const [file, content] of contentsByFile) {
+      const usage = classifySpecifierUsage(content, check.importSpecifier);
+      if (usage === 'absent') {
+        continue;
+      }
+      importingFiles.push(file);
+      if (usage === 'used' && reachable.has(file)) {
+        wiredFile = file;
         break;
       }
+      unwiredFile ??= { file, usage };
     }
-    if (!found) {
-      findings.push({
-        file: check.dir,
-        type: check.type,
-        detail: check.detail,
-      });
+
+    if (wiredFile !== undefined) {
+      continue;
     }
+
+    if (importingFiles.length === 0) {
+      findings.push({ file: check.dir, type: check.type, detail: check.detail });
+      continue;
+    }
+
+    const reason =
+      unwiredFile.usage === 'imported-unused'
+        ? `${unwiredFile.file} imports it without referencing the binding`
+        : `${unwiredFile.file} is not reachable from an entry point`;
+    findings.push({
+      file: unwiredFile.file,
+      type: check.unwiredType,
+      detail: `${check.detail} ${check.importSpecifier} is imported but not wired: ${reason}. An import statement that nothing loads or calls does not satisfy this boundary.`,
+    });
   }
 
   return findings;

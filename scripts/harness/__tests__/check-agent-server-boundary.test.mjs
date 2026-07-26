@@ -5,7 +5,10 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { findAgentServerBoundaryFindings } from '../check-agent-server-boundary.mjs';
+import {
+  classifySpecifierUsage,
+  findAgentServerBoundaryFindings,
+} from '../check-agent-server-boundary.mjs';
 
 async function createFixture(files) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-agent-server-boundary-'));
@@ -66,8 +69,13 @@ const requiredSources = {
     'void import("@robota-sdk/agent-playground/client");\n',
   'apps/agent-server/src/app.ts':
     'import { OpenAIProvider } from "@robota-sdk/agent-provider-openai";\n',
-  'packages/agent-playground/src/remote-providers.ts':
-    'import { RemoteExecutor } from "@robota-sdk/agent-remote-client";\n',
+  // Wired seam: an entry source imports the specifier and actually uses the binding.
+  'packages/agent-playground/src/index.ts': [
+    'import { RemoteExecutor } from "@robota-sdk/agent-remote-client";',
+    'export function createExecutor() {',
+    '  return new RemoteExecutor();',
+    '}',
+  ].join('\n'),
   'packages/agent-remote-client/src/index.ts':
     'import type { IExecutor } from "@robota-sdk/agent-core";\n',
 };
@@ -196,5 +204,131 @@ describe('findAgentServerBoundaryFindings', () => {
           'agent-server SPEC must state that provider semantics, session policy, and Playground UI state are not server-owned.',
       },
     ]);
+  });
+});
+
+// HARNESS-051: the required-import rule used to pass on any file containing the token, so a
+// never-called module satisfied a boundary the code did not implement. These cases pin the
+// difference between an import statement and a wired seam.
+describe('required imports must be wired, not merely present', () => {
+  it('flags a required import held only by a module no entry point reaches', async () => {
+    const root = await createFixture(
+      validFixture({
+        'apps/agent-web/src/app/playground/page.tsx':
+          'export default function Page() {\n  return null;\n}\n',
+        'apps/agent-web/src/lib/legacy-remote.ts': [
+          'import { PlaygroundApp } from "@robota-sdk/agent-playground/client";',
+          'export function renderLegacy() {',
+          '  return PlaygroundApp;',
+          '}',
+        ].join('\n'),
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'apps/agent-web/src/lib/legacy-remote.ts',
+        type: 'agent-web-unwired-browser-safe-playground-import',
+        detail: expect.stringContaining(
+          'apps/agent-web/src/lib/legacy-remote.ts is not reachable from an entry point',
+        ),
+      },
+    ]);
+  });
+
+  it('flags a required import whose binding the importing module never references', async () => {
+    const root = await createFixture(
+      validFixture({
+        'apps/agent-web/src/app/playground/page.tsx':
+          'import { PlaygroundApp } from "@robota-sdk/agent-playground/client";\n',
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'apps/agent-web/src/app/playground/page.tsx',
+        type: 'agent-web-unwired-browser-safe-playground-import',
+        detail: expect.stringContaining(
+          'apps/agent-web/src/app/playground/page.tsx imports it without referencing the binding',
+        ),
+      },
+    ]);
+  });
+
+  it('accepts a required import reached transitively from an entry point', async () => {
+    const root = await createFixture(
+      validFixture({
+        'apps/agent-web/src/app/playground/page.tsx': [
+          'import { PlaygroundHost } from "../../components/playground-host";',
+          'export default function Page() {',
+          '  return PlaygroundHost();',
+          '}',
+        ].join('\n'),
+        'apps/agent-web/src/components/playground-host.tsx': [
+          'import { PlaygroundApp } from "@robota-sdk/agent-playground/client";',
+          'export function PlaygroundHost() {',
+          '  return PlaygroundApp;',
+          '}',
+        ].join('\n'),
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([]);
+  });
+
+  it('still reports a required import that is absent everywhere', async () => {
+    const root = await createFixture(
+      validFixture({
+        'apps/agent-web/src/app/playground/page.tsx':
+          'export default function Page() {\n  return null;\n}\n',
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([
+      {
+        file: 'apps/agent-web/src',
+        type: 'agent-web-missing-browser-safe-playground-import',
+        detail:
+          'agent-web should render Playground through the browser-safe @robota-sdk/agent-playground/client entry.',
+      },
+    ]);
+  });
+});
+
+describe('classifySpecifierUsage', () => {
+  it('reads the bound names of the matching import only', () => {
+    const content = [
+      "import type { IAIProvider } from '@robota-sdk/agent-core';",
+      "import { RemoteExecutor } from '@robota-sdk/agent-remote-client';",
+      'export function make() {',
+      '  return new RemoteExecutor();',
+      '}',
+    ].join('\n');
+
+    expect(classifySpecifierUsage(content, '@robota-sdk/agent-remote-client')).toBe('used');
+    expect(classifySpecifierUsage(content, '@robota-sdk/agent-core')).toBe('imported-unused');
+  });
+
+  it('treats evaluated and forwarding forms as used', () => {
+    expect(classifySpecifierUsage("void import('pkg');", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export { A } from 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("const a = require('pkg');", 'pkg')).toBe('used');
+  });
+
+  it('reports an absent specifier and an aliased binding', () => {
+    expect(classifySpecifierUsage("import { A } from 'other';", 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage("import { A as B } from 'pkg';\nB();", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import { A as B } from 'pkg';\nA();", 'pkg')).toBe(
+      'imported-unused',
+    );
   });
 });
