@@ -2,6 +2,20 @@
 # Bundles the host-arch Bun `robota` runtime (copied to resources-bin/ by scripts/bundle-runtime.mjs) as an
 # extraResource, so the installed app is self-contained (zero external install). Artifacts are UNSIGNED
 # (no certs — Gatekeeper/SmartScreen will warn); signing is a tracked follow-up.
+#
+# electron-builder is pinned EXACTLY (not `^`) in package.json, deliberately. Within the 26.15 patch line
+# alone, two artifact-corrupting regressions shipped as ordinary patches and were fixed several releases
+# later: 26.15.0–26.15.3 dereferenced symlinks after a bundled 7-Zip upgrade, corrupting macOS `.framework`
+# bundles (breaking codesign and Squirrel.Mac auto-update), and 26.15.0–26.15.6 packed snap templates so the
+# snap built fine but failed at launch. Both produced a GREEN build and a broken artifact — the failure mode
+# a caret range cannot protect against, and one CI would not catch either. Bump this deliberately, and read
+# the changelog for the range you are crossing.
+#
+# When upgrading, audit the config against the published JSON Schema diff rather than the release notes:
+#   https://unpkg.com/app-builder-lib@<version>/scheme.json
+# The project's release notes under-report key-level removals (25→26 dropped `includeSubNodeModules` and
+# `win.signDlls` without naming either), and there is no official 25→26 migration guide at all.
+# Known v27 blocker: `dmg.filesystem` default flips HFS+ → APFS; set it explicitly before that upgrade.
 appId: com.robota-sdk.desktop
 productName: Robota
 copyright: Robota
@@ -11,6 +25,17 @@ copyright: Robota
 # single binaries (`robota-<os>-<arch>`), which are lowercase and version-less; the two product families
 # no longer collide on the GitHub release. The installed app is still displayed as "Robota" (productName).
 artifactName: robota-desktop-${version}-${arch}.${ext}
+# REQUIRED since electron-builder 26. Left unset, executableName derives from the package `name`, and the
+# scoped `@robota-sdk/agent-app` collapses to `@robota-sdkagent-app` — which 25 really did ship as the
+# binary name and as `@robota-sdkagent-app.desktop`. 26's AppImage target rejects it outright:
+# `validateCriticalPathString` (app-builder-lib/out/targets/appimage/appImageUtil.js) enforces
+# /^[\p{L}\p{N}._\- ]+$/u on executableName and productFilename, because both are interpolated into the
+# generated AppRun bash script and used as filesystem paths. So 26 did not invent a rule — it turned a
+# latent packaging defect into a visible error. (Verified by running the build, not from the release
+# notes: this validation appears in no 26.x changelog entry or doc.)
+# `robota-desktop` matches the artifactName prefix and stays distinct from the bundled `robota` CLI
+# sidecar in extraResources, which is a DIFFERENT executable.
+executableName: robota-desktop
 # The app has NO native node modules (renderer + electron main + a bundled external runtime binary), and pnpm's
 # non-flat store confuses @electron/rebuild's dep walk — skip the native rebuild entirely.
 npmRebuild: false
