@@ -132,6 +132,10 @@ const SCAN_COMMANDS = [
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
+    name: 'release-verification-gate',
+    command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
+  },
+  {
     name: 'legacy-typescript',
     command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
   },

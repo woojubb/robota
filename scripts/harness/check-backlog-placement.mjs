@@ -23,6 +23,10 @@ import path from 'node:path';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BACKLOG_DIR = '.agents/backlog';
 const COMPLETED_DIR = '.agents/backlog/completed';
+const SPEC_DOCS_DIR = '.agents/spec-docs';
+
+/** The leading ID token of a backlog/spec filename, phase suffix included (`SELFHOST-008-P5`). */
+const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
 
 const TERMINAL_STATUSES = new Set(['done', 'wontfix', 'skipped', 'superseded']);
 const OPEN_STATUSES = new Set(['todo', 'in-progress']);
@@ -109,7 +113,6 @@ export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
   // The ID includes any phase suffix (`-P3`, `-P4-P5`): a phase follow-up filed while its parent
   // is archived (e.g. open `SELFHOST-008-P5-…` alongside completed `SELFHOST-008-…`) is the
   // intended convention, NOT a duplicate — only an identical ID in both places is.
-  const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
 
   const completedById = new Map();
   for (const name of await listMarkdown(path.join(root, COMPLETED_DIR))) {
@@ -143,7 +146,66 @@ export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
     });
   }
 
+  // A spec-doc ID that NO backlog file claims is a retired number, and a new item must not reuse
+  // it. The pairing itself is the convention — 111 IDs currently appear in both trees because a
+  // backlog item and its spec-doc share a number by design — so this fires only when the backlog
+  // file is the FIRST to claim an ID that spec-docs already spent.
+  //
+  // Deliberately NOT a slug-equality check. Slugs drift as an item is reworded
+  // (`cjk-ime-defer-submit` vs `ime-last-character-drop` is one item, not two), and 34 of the 111
+  // pairs differ that way. A guard firing on all 34 would be noise, and a noisy guard gets
+  // suppressed — which costs more than the collisions it would catch.
+  //
+  // Observed 2026-07-26: a new `DIST-002-release-artifact-verification` was filed while
+  // `.agents/spec-docs/done/DIST-002-bun-binary-release-workflow.md` already held that number.
+  const specIds = new Set();
+  for (const dir of await listDirectories(path.join(root, SPEC_DOCS_DIR))) {
+    for (const name of await listMarkdown(path.join(root, SPEC_DOCS_DIR, dir))) {
+      const id = idOf(name);
+      if (id !== null) specIds.add(id);
+    }
+  }
+  for (const [id, name] of rootById) {
+    if (!specIds.has(id)) continue;
+    // Paired with a spec-doc of its own is the normal case; only an ID with no backlog history
+    // before this file is a reuse. `completedById` covers items already archived.
+    if (completedById.has(id)) continue;
+    const paired = await specDocMatchesBacklog(root, id, name);
+    if (paired) continue;
+    findings.push({
+      file: path.join(BACKLOG_DIR, name),
+      problem: `backlog ID ${id} is already spent in ${SPEC_DOCS_DIR}/ by a different item — pick the next free number`,
+    });
+  }
+
   return findings;
+}
+
+/** Directory names under `.agents/spec-docs/` (draft, backlog, todo, active, done, rejected). */
+async function listDirectories(dirAbsolute) {
+  try {
+    const entries = await fs.readdir(dirAbsolute, { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * True when the spec-doc holding `id` is plausibly the SAME item as the backlog file — i.e. this
+ * is the intended backlog↔spec pairing rather than a reused number. Compared on the leading slug
+ * token, which survives rewording far better than the full slug.
+ */
+async function specDocMatchesBacklog(root, id, backlogName) {
+  const lead = (name) => idOf(name) && name.slice(String(idOf(name)).length + 1).split('-')[0];
+  const backlogLead = lead(backlogName);
+  for (const dir of await listDirectories(path.join(root, SPEC_DOCS_DIR))) {
+    for (const name of await listMarkdown(path.join(root, SPEC_DOCS_DIR, dir))) {
+      if (idOf(name) !== id) continue;
+      if (lead(name) === backlogLead) return true;
+    }
+  }
+  return false;
 }
 
 export async function main() {
