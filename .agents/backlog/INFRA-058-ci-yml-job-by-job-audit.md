@@ -208,19 +208,33 @@ Independently surfaced: `scan-review-workflow-parity` exempts only base-`main` P
 `promotion ancestry` forbids a base-`main` PR from carrying new work, so the file cannot currently
 be modified while keeping CI green. Owner-owned.
 
-A fresh datapoint for INFRA-053, from this item's own PR (#1474, run 30195049439) — `Claude review`
-failed, and the run's own summary gives the cause without inference:
+A fresh datapoint for INFRA-053, from this item's own PR (#1474) — and the interesting part is that
+it took two runs of the SAME PR to read it correctly.
+
+Run 30195049439 failed, with the cause in the run's own summary rather than inferred:
 
 ```
 "subtype": "error_max_turns",  "num_turns": 26,  "permission_denials_count": 8
 ##[error]Execution failed: Reached maximum number of turns (25)
 ```
 
-8 of 26 turns spent on permission denials against a 25-turn cap. That is INFRA-053's diagnosis
-(no `allowed_tools` declared, while the prompt directs the reviewer to read `AGENTS.md` and
-`.agents/rules/*`) reproducing exactly, so raising the cap alone would not fix it. `Claude review`
-is NOT a required context on `protect-develop`, so it does not block — which is also why it can
-stay broken without anyone being forced to notice.
+Run 30195184745 — same PR, same prompt, one docs-only commit later — completed `success`.
+
+So `Claude review` is INTERMITTENT, not persistently broken. This item first recorded it as a
+straightforward recurrence ("it can stay broken without anyone being forced to notice"); the very
+next run falsified that framing, and the correction is kept rather than overwritten because the
+corrected reading is the more useful one:
+
+- The 25-turn cap is MARGINAL, not merely too low. The reviewer sometimes fits and sometimes does
+  not, so the same PR can go either way.
+- The 8 permission denials are what make the margin thin. That confirms INFRA-053's conclusion —
+  fix the denials (declare `allowed_tools` for the reads the prompt asks for), do not just raise
+  the cap, which would only move the coin-flip.
+- An intermittent gate is worse than a red one for the reason `review-gate`'s severity split
+  already records: a check that fails at random is a check people learn to re-run rather than read.
+
+`Claude review` is NOT a required context on `protect-develop`, so none of this blocks a merge —
+which is why the flakiness can persist without forcing anyone to look at it.
 
 ## Guards added
 
