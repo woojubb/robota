@@ -123,7 +123,6 @@ async function main() {
   }
 
   const summary = [];
-  let allPassed = true;
 
   for (const planScope of plan.scopes) {
     const scope = scopes.find((candidate) => candidate.relativeDir === planScope.scope);
@@ -168,7 +167,6 @@ async function main() {
         stepResults.test = 'pass';
       } catch (error) {
         stepResults.test = 'fail';
-        allPassed = false;
         throw error;
       }
     }
@@ -179,7 +177,6 @@ async function main() {
         stepResults.lint = 'pass';
       } catch (error) {
         stepResults.lint = 'fail';
-        allPassed = false;
         throw error;
       }
     }
@@ -199,7 +196,6 @@ async function main() {
         stepResults.typecheck = 'pass';
       } catch (error) {
         stepResults.typecheck = 'fail';
-        allPassed = false;
         throw error;
       }
     }
@@ -263,7 +259,6 @@ async function main() {
 
           if (execution.status !== 0) {
             stepResults.scenarios = 'fail';
-            allPassed = false;
             throw new Error(`Command failed: ${execution.rendered}`);
           }
 
@@ -297,7 +292,6 @@ async function main() {
             );
             if (differences.length > 0) {
               stepResults.scenarios = 'fail';
-              allPassed = false;
               throw new Error(
                 `Scenario record drift detected for ${scope.relativeDir} at ${relativePathFromRoot(artifactEntry.artifactPath)}: ${differences.join('; ')}. ` +
                   `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` if the change is intentional.`,
@@ -353,6 +347,11 @@ async function main() {
 
   if (options.reportFile) {
     const format = inferReportFormat(options.reportFile, options.reportFormat);
+    // No `passed` field (HARNESS-051): every check failure throws, so this report is written only
+    // on a fully successful run and its existence IS the outcome. The field it replaced could only
+    // ever be written `true`, which reads like a signal and becomes a fail-open the moment a
+    // consumer trusts it. If a report is ever wanted for failed runs, write it from the failure
+    // path first, then add a field that can actually vary.
     const reportPayload = {
       type: 'verify',
       timestamp: new Date().toISOString(),
@@ -365,7 +364,6 @@ async function main() {
         scenarios: item.scenarios,
         notes: item.notes,
       })),
-      passed: allPassed,
     };
 
     const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
