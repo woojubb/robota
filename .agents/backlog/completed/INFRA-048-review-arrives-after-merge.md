@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-048: PRs can merge before their review feedback is ever read'
-status: in-progress
+status: done
+completed: 2026-07-26
 created: 2026-07-25
 priority: high
 urgency: soon
@@ -166,7 +167,7 @@ workflow at all, so the merge decision sees no review signal.
 ```
 BLOCKING finding (error / security:high)
   review-gate: BLOCK (blocking-findings)
-    - js/incomplete-sanitization [error/security:high] packages/agent-core/src/sanitize.ts:42
+    - js/incomplete-sanitization [error/security:high] packages/agent-core/src/sanitize.ts:42 <!-- evidence-superseded: synthetic fixture output, not a repo path — this block is the gate's own stubbed-gh proof run, alongside the fictional PR number 9999 -->
   [gh] pr merge --disable-auto 9999
   ::error::review-gate blocked this PR.                                        STEP EXIT=1
 
@@ -419,6 +420,29 @@ Precondition 5 is not decorative. Without the label the gate's only auditable ov
 so the first inconvenient block would be resolved with an admin bypass — the exact failure mode this
 design is calibrated against. Create it, confirm 1–4 still hold on the next PR of each shape, and only
 then apply the ruleset change below.
+
+### ARMED 2026-07-26 — all five preconditions measured
+
+`review-gate` is a required status check on `protect-develop` as of 2026-07-26. Each precondition
+was checked against real check runs, not reasoned about:
+
+| #   | Precondition                                            | Evidence                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Defect-2 fix merged, gate producing checks on `develop` | #1439 merged; every PR since carries a `review-gate` check                                                                                                                                                                                                                                                                                                |
+| 2a  | **docs-only** shape                                     | #1441, #1444, #1449, #1463 — `PASS (not-applicable)`; #1463 completed in **9 s**, the shape whose 15 m 23 s block forced the first rollback                                                                                                                                                                                                               |
+| 2b  | **code** shape                                          | #1452, #1453, #1460 — verdict computed from a completed analysis, the wait ending on completion rather than on either deadline                                                                                                                                                                                                                            |
+| 2c  | **promotion** shape (the untested one)                  | #1458 (`release/promote-develop-to-main` → `main`) — passed                                                                                                                                                                                                                                                                                               |
+| 3   | no spurious `verdict-unavailable`                       | none observed across the above. The two blocks that did occur were both **genuine**: #1451 `js/path-injection` on `serve-monitor-ui.ts:112` (a lexical containment guard that a symlink walked straight through — the server really served an out-of-root file, `expected 200 to be 403`), and #1461 `js/insecure-temporary-file` ×3 in the demo recorder |
+| 4   | grace cut reasoned against a real run                   | on #1439 the `Analyze` check run existed at the **first** poll (`0/1 completed`), so the 5-minute grace has ample margin                                                                                                                                                                                                                                  |
+| 5   | escape hatch reachable                                  | `review-findings-acknowledged` **did not exist** — `gh label list` returned only the nine GitHub defaults. Created 2026-07-26. This was the genuinely missing precondition, and without it the first inconvenient block would have gone to an admin bypass                                                                                                |
+
+**What the two real blocks establish is worth more than the passes.** The gate is not merely
+tolerable when armed; it caught two exploitable defects that every other check reported green on,
+and in both cases the authoring agent had initially classified the finding as a false positive.
+
+The first arming attempt was rolled back the same day after being made required on a **one-PR
+sample**, which could not contain the docs-only case that broke it. That is the lesson this table
+exists to prevent repeating.
 
 ### Preconditions for making `review-gate` required again
 
