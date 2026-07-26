@@ -55,6 +55,12 @@
           "workflow": ".github/workflows/ci.yml",
           "job": "windows-shell",
           "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code."
+        },
+        {
+          "context": "review-gate",
+          "workflow": ".github/workflows/review-gate.yml",
+          "job": "review-gate",
+          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS."
         }
       ],
       "deliberately_not_required": [
