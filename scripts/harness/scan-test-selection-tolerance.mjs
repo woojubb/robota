@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Narrowed-test-selection tolerance guard (INFRA-058).
+ * Narrowed-test-selection tolerance guard (INFRA-060).
  *
  * A CI step that runs a SUBSET of a package's tests — selected by name — is asserting that those
  * specific tests pass. If the selector matches nothing, the only honest answer is failure: the
@@ -202,7 +202,7 @@ export async function main() {
   }
 
   if (findings.length > 0) {
-    process.stdout.write('test-selection-tolerance scan failed (INFRA-058):\n');
+    process.stdout.write('test-selection-tolerance scan failed (INFRA-060):\n');
     for (const finding of findings) {
       process.stdout.write(`  - ${finding.workflow} › ${finding.job}: ${finding.detail}\n`);
     }

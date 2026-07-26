@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-058: ci.yml job-by-job audit — three fail-open paths closed, four fidelity gaps filed'
+title: 'INFRA-060: ci.yml job-by-job audit — three fail-open paths closed, four fidelity gaps filed'
 status: in-progress
 created: 2026-07-26
 priority: high

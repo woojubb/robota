@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Required-check dependency-edge guard (INFRA-058).
+ * Required-check dependency-edge guard (INFRA-060).
  *
  * A required status check reports `skipped` — not `failure` — when a job it `needs:` fails.
  * Branch protection ACCEPTS a skipped required check (INFRA-050). So a required job whose
@@ -184,7 +184,7 @@ export async function main() {
   }
 
   if (findings.length > 0) {
-    process.stdout.write('required-check-needs scan failed (INFRA-058):\n');
+    process.stdout.write('required-check-needs scan failed (INFRA-060):\n');
     for (const finding of findings) {
       process.stdout.write(`  - [${finding.branch}] ${finding.context}: ${finding.detail}\n`);
     }
