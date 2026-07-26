@@ -132,6 +132,18 @@ const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
   },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    // HARNESS-052 — the audited "success over work it did not do" shape wearing a test: an
+    // assertion that no implementation of the code under test could fail.
+    name: 'tautological-assertions',
+    command: ['node', 'scripts/harness/scan-tautological-assertions.mjs'],
+  },
+  {
+    // HARNESS-052 — and the same shape wearing a GUARD: a scan whose governed tree is absent and
+    // which reports a pass rather than an error.
+    name: 'guard-scope-fail-closed',
+    command: ['node', 'scripts/harness/scan-guard-scope-fail-closed.mjs'],
+  },
   { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
   {
     name: 'composition-neutrality',

@@ -132,12 +132,20 @@ describe('OpenAI Provider Executor Integration', () => {
       expect(provider.supportsTools()).toBe(true);
     });
 
-    it('should clean up executor when provider is disposed', async () => {
-      // Provider calls dispose on its executor when disposed
+    it('does not dispose an INJECTED executor, whose lifecycle its creator owns', async () => {
+      // HARNESS-052. This test previously read `should clean up executor when provider is
+      // disposed` and asserted `expect(true).toBe(true)` — a claim the assertion could not check
+      // and which `OpenAIProvider.dispose()` does not in fact make: it is empty. The executor is
+      // constructor-injected, so disposing it here would tear down a dependency the caller still
+      // owns and may share with other providers. This asserts the real contract, and goes RED if
+      // provider disposal ever starts reaching into the injected executor.
+      const executorDispose = vi.spyOn(localExecutor, 'dispose');
+
       await provider.dispose();
 
-      // Check that provider was disposed successfully
-      expect(true).toBe(true); // Basic check that dispose completed
+      expect(executorDispose).not.toHaveBeenCalled();
+      // The executor stays usable after the provider that borrowed it is gone.
+      expect(localExecutor.getProvider('openai')).toBeDefined();
     });
   });
 

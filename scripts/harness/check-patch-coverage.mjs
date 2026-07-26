@@ -388,11 +388,26 @@ function fixtureIo(dir) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   if (args[0] === '--detect') {
+    // FAIL-CLOSED (HARNESS-052). This used to catch ANY detect error — most reachably an
+    // unresolvable base ref, which `mergeBase()` raises after both `origin/<base>` and `<base>` fail
+    // — and answer `affected=false`. That is not a degraded result, it is a false statement of fact:
+    // ci.yml gates the job's build and coverage-collection steps on this output, so the whole
+    // patch-coverage context went green having measured nothing, for the same reason INFRA-048 and
+    // INFRA-050 were opened elsewhere. "I could not determine what this PR touches" and "this PR
+    // touches nothing" must not be the same answer. Measured 2026-07-26: with
+    // PATCH_COVERAGE_BASE_REF pointing at a non-existent ref, `--detect` wrote `affected=false` and
+    // exited 0. The gate stays advisory — it is `deliberately_not_required` in
+    // .github/required-status-checks.json — so a red here is a visible signal, not a merge block.
     try {
       detectMode();
     } catch (err) {
-      log(`patch-coverage detect error — ${err?.message ?? err}`);
-      writeGithubOutput(['affected=false', 'packages=']);
+      log(
+        `patch-coverage detect FAILED — ${err?.message ?? err}\n` +
+          'Refusing to report `affected=false` from a detection that did not complete: that would ' +
+          'skip collection and publish a green patch-coverage result over an unmeasured diff. ' +
+          'Fix the base ref (PATCH_COVERAGE_BASE_REF, or fetch the base branch with fetch-depth: 0).',
+      );
+      process.exit(1);
     }
     process.exit(0);
   }

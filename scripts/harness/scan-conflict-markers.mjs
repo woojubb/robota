@@ -52,8 +52,63 @@ function walkMarkdown(root, target) {
   return files;
 }
 
-export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
+/**
+ * Real git conflict debris — the thing everyone means by "conflict marker".
+ *
+ * HARNESS-052: this scan is registered as `conflict-markers` and, until now, checked only for
+ * CONTRADICTORY GUIDANCE in three markdown trees. Falsified 2026-07-26 by appending a literal
+ * `<<<<<<< HEAD` / `=======` / `>>>>>>> develop` block to `packages/agent-core/src/index.ts`: this
+ * scan printed `conflict marker scan passed.`, and no other harness scan detects the pattern either.
+ * A `✓ conflict-markers` line in the merge-gate summary was evidence for a check nobody performed.
+ *
+ * Rather than rename the scan (its registered name `conflict-markers` is the honest one for this
+ * rule), the missing rule is added so the name becomes true.
+ */
+const GIT_CONFLICT_MARKER = /^(?:<{7}|={7}|>{7})(?:\s|$)/;
+
+/** Source trees where merge debris would actually ship. */
+const MARKER_SCAN_ROOTS = ['packages', 'apps', 'scripts'];
+const MARKER_SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '.next', '.turbo']);
+const MARKER_EXTENSIONS = /\.(ts|tsx|mts|cts|js|mjs|cjs|json|md|ya?ml)$/;
+
+function walkSourceFiles(root, relDir, out) {
+  const absolute = path.join(root, relDir);
+  if (!existsSync(absolute)) return out;
+  for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (MARKER_SKIP_DIRS.has(entry.name)) continue;
+      walkSourceFiles(root, path.join(relDir, entry.name), out);
+    } else if (MARKER_EXTENSIONS.test(entry.name)) {
+      out.push(path.join(relDir, entry.name));
+    }
+  }
+  return out;
+}
+
+/** Literal git conflict debris left in a source tree. */
+export function findGitConflictMarkers(root = WORKSPACE_ROOT) {
   const findings = [];
+  const missing = MARKER_SCAN_ROOTS.filter((dir) => !existsSync(path.join(root, dir)));
+  if (missing.length > 0)
+    throw new Error(
+      `governed tree(s) absent under ${root}: ${missing.join(', ')}. This scan will not report a ` +
+        'pass over source it could not read.',
+    );
+  for (const dir of MARKER_SCAN_ROOTS) {
+    for (const rel of walkSourceFiles(root, dir, [])) {
+      const lines = readFileSync(path.join(root, rel), 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (GIT_CONFLICT_MARKER.test(lines[i])) {
+          findings.push({ file: rel, line: i + 1, text: lines[i].trim().slice(0, 120) });
+        }
+      }
+    }
+  }
+  return findings;
+}
+
+export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
+  const findings = findGitConflictMarkers(root);
   for (const target of SCAN_TARGETS) {
     for (const file of walkMarkdown(root, target)) {
       const lines = readFileSync(file, 'utf8').split('\n');

@@ -38,19 +38,30 @@ describe('SEC-003 floor: no insecure temp paths in agent-framework', () => {
     const offenders: string[] = [];
 
     for (const file of walk(SRC_ROOT)) {
+      // This floor file quotes the pattern in its own documentation.
+      if (file === fileURLToPath(import.meta.url)) continue;
       const source = readFileSync(file, 'utf8');
-      const lines = source.split('\n');
 
-      lines.forEach((line, index) => {
-        // Only `join(tmpdir(), …)` matters; the `mkdtemp(join(tmpdir(), …))` wrapper is safe.
-        if (!/\bjoin\(\s*tmpdir\(\)/.test(line)) return;
-        if (/\bmkdtemp(Sync)?\s*\(/.test(line)) return;
+      // HARNESS-052: matched over the WHOLE SOURCE, not line by line. The detector used to run
+      // inside `lines.forEach`, so its `\s*` could never cross a newline and it only fired when
+      // `join(` and `tmpdir()` landed on the same physical line — which Prettier's 100-column wrap
+      // routinely prevents. Falsified: a verbatim CWE-377 `join(\n  tmpdir(),\n  'robota-cache.json',\n)`
+      // in a non-test source left `offenders` empty and this floor green.
+      for (const match of source.matchAll(/\bjoin\(\s*tmpdir\(\)/g)) {
+        const index = match.index ?? 0;
+        const lineNumber = source.slice(0, index).split('\n').length;
+        const line = source.split('\n')[lineNumber - 1] ?? '';
+        // The `mkdtemp(join(tmpdir(), …))` wrapper is safe. Look BACKWARDS across the wrap, not
+        // just on this line, for the same reason the match itself is source-wide. The optional
+        // qualifier admits `mkdtempSync(path.join(tmpdir(), …))`, which is how this repo actually
+        // spells it — without it the floor flags three safe call sites, and an over-firing floor is
+        // one that gets suppressed.
+        const before = source.slice(Math.max(0, index - 200), index);
+        if (/\bmkdtemp(Sync)?\s*\(\s*(?:[A-Za-z_$][\w$]*\s*\.\s*)?$/.test(before)) continue;
         // An assertion that *names* the unsafe path is proving it is not used, not using it.
-        if (/\bexpect\(/.test(line)) return;
-        // This floor file quotes the pattern in its own documentation.
-        if (file === fileURLToPath(import.meta.url)) return;
-        offenders.push(`${relative(SRC_ROOT, file)}:${index + 1}: ${line.trim()}`);
-      });
+        if (/\bexpect\(/.test(line)) continue;
+        offenders.push(`${relative(SRC_ROOT, file)}:${lineNumber}: ${line.trim()}`);
+      }
     }
 
     expect(offenders).toEqual([]);
