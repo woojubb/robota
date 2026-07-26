@@ -141,6 +141,64 @@ falsified from a local checkout.
 - `live-provider-smoke.yml` and `mutation-nightly.yml` are declared green no-ops; both are declared,
   non-required, and correctly excluded from the required lists.
 
+## Second axis — the check runs, can fail, and measures the wrong thing
+
+Added mid-sweep by the owner. A gate that genuinely can go red is still broken if what it fails on is
+not what its name promises. Three sub-shapes: **(A)** checks something other than its name claims,
+**(B)** over-checks beyond its purpose — a noisy gate gets bypassed, costing more than it catches,
+**(C)** criteria that drifted — right once, then the code moved.
+
+`check-agent-server-boundary` is the owner's worked example and is already filed as HARNESS-051: it
+passes, it can fail, and it is satisfied vacuously by a never-called import because it checks that a
+token *appears* rather than that a seam is *wired*. Not duplicated here.
+
+### Fixed in this item
+
+| # | Location | Sub-shape | Verdict |
+| - | -------- | --------- | ------- |
+| G1 | `scripts/harness/check-publish-safety.mjs:91` | A + C | falsified |
+| G2 | `scripts/harness/scan-dist-freshness.mjs:1` | A | falsified |
+
+**G1 — a universal claim over a set enumerated at depth 1.** The scan printed `Checked prepublishOnly
+hooks on all publishable packages` while enumerating `readdirSync(join(root, 'packages'))`, so the 20
+members of `packages/dag-nodes/*` were outside the set its claim covered. Both sub-shapes at once:
+the message says "all" (A), and the enumeration predates the nested group (C). Falsified by making
+`packages/dag-nodes/tool` publishable and deleting its `prepublishOnly` hook — the scan printed the
+"all publishable packages" line and exited 0. After the fix the same mutation exits 1 naming
+`@robota-sdk/dag-node-tool`, and the message reports the count it actually covered (76). Rule 1 of
+the same file already used the nesting-aware SSOT enumerator; rule 2 had never adopted it.
+
+**G2 — a presence gate wearing a temporal name.** `scan-dist-freshness` never compares dist against
+the sources that produced it. Falsified: `touch packages/agent-core/src/index.ts` leaves the source
+28 minutes newer than its dist and the scan still exits 0, reporting "All 86 buildable packages have
+dist/". The behaviour is a correct presence gate; the *name* is the defect. Not renamed here — the
+registered name `dist` appears in a `--skip dist` argument inside `ci.yml`, which is outside this
+item's ownership — so the docstring now states the gap explicitly instead of implying the check.
+`verify-like-ci` already compensates: its `build` stage exists because "locally a STALE dist passes
+the presence-only freshness scan", and it rebuilds rather than trusting this result.
+
+### Guarded
+
+`scripts/harness/workspace-packages.mjs` is the SSOT every nesting-aware scan enumerates through, so
+each scan's coverage is exactly as correct as that module's — and its rule is a *heuristic* (recurse
+one level into a depth-1 directory that is not itself a package), not a reading of
+`pnpm-workspace.yaml`. The two could drift apart silently, which is how G1 happened.
+`scripts/harness/__tests__/workspace-packages.test.mjs` now pins them together, deriving the expected
+set from the manifest rather than from the same recursion under test. Red-proofed: removing the
+nested recursion fails 3 of 5 cases and names all 20 dropped packages. The one-level recursion
+ceiling is asserted too, so it is a known boundary rather than a surprise.
+
+### Recorded, not fixed
+
+- **The `dist` scan should be renamed** to match what it measures, which requires the `--skip dist`
+  argument in `ci.yml` to move with it.
+- **Five more depth-1 `packages/` walkers** (`check-interface-imports`, `check-dep-kind`,
+  `check-orphan-exports`, `scan-memory-neutrality`, `check-design-doc-completeness`) have G1's shape.
+  `hypothesis` for each — only `check-publish-safety` was falsified. A probe found no live violation
+  hiding in the uncovered packages today; the false coverage is the finding, not a current miss.
+- **`check-design-doc-completeness` has never validated a document** and is also a depth-1 walker, so
+  it carries both axes at once: it cannot fail today, and its subject is the wrong set.
+
 ## The mechanical ceiling
 
 Stated rather than implied, because an audit claiming completeness it cannot have is itself the defect:
@@ -158,6 +216,13 @@ Stated rather than implied, because an audit claiming completeness it cannot hav
   guard's derived set.** It covers 20 of ~70 registered scans, by construction, and says so in its
   output.
 - **GitHub-side behaviour cannot be falsified locally.** Every workflow finding above is a hypothesis.
+- **A name/behaviour mismatch is not mechanically detectable at all.** The second axis was audited by
+  reading, and only two of its findings were falsified. No scan can decide whether a check's name
+  describes what it measures — that is a judgement about intent. G1 was found because its message
+  contained the word "all"; a check whose name is merely *optimistic* leaves no such token.
+- **Over-checking (sub-shape B) produced no confirmed finding here**, which is a statement about this
+  sweep's reach, not evidence that none exists: suppression counts and gate runtimes were surveyed,
+  but "noisy enough that people route around it" is measured from behaviour over time, not source.
 
 ## Test Plan
 
@@ -181,6 +246,13 @@ in `## Test Plan`.
 - [x] `scan-tautological-assertions` registered, proven RED on the two live instances and GREEN after.
 - [x] `scan-guard-scope-fail-closed` registered, proven RED on five live instances and GREEN after.
 - [x] `check-patch-coverage --detect` no longer answers `affected=false` from a failed detection.
+- [x] `check-publish-safety` enumerates the workspace's real package set, and its message states the
+      count it covered.
+- [x] The SSOT package enumerator is pinned to the workspace declaration by a red-proofed test.
+- [x] `scan-dist-freshness`' docstring states what it does not measure.
+- [ ] `scan-dist-freshness` is renamed to match what it checks (needs the `--skip dist` argument in
+      `ci.yml` to move with it — outside this item's ownership).
+- [ ] The five remaining depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
 - [ ] The nine remaining vacuous finders in `PENDING_CLASSIFICATION` fail closed.
 - [ ] `check-design-doc-completeness`' subject is decided — required somewhere, or declared optional.
 - [ ] The six depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
