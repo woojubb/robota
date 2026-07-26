@@ -403,12 +403,13 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
 
   for (const line of zeroCoverageNotice(selection, env)) process.stdout.write(`${line}\n`);
   if (env.GITHUB_STEP_SUMMARY !== undefined) {
-    const exercised = selection.runnable.length;
+    // `report` is already redacted above; the count is the line a reader of the run page needs, since
+    // "success" alone cannot distinguish "the providers answered" from "nothing was called".
     await appendFile(
       env.GITHUB_STEP_SUMMARY,
       `### Live provider smoke\n\n` +
-        `Providers actually called: **${exercised}**\n\n` +
-        `${redactSecrets(report, secrets)}\n`,
+        `Providers actually called: **${selection.runnable.length}**\n\n` +
+        `${report}\n`,
       'utf-8',
     );
   }
