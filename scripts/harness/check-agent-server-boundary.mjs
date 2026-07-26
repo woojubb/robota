@@ -165,8 +165,12 @@ const REQUIRED_SOURCE_IMPORTS = [
   {
     dir: 'apps/agent-web/src',
     // Next.js App Router: route files are framework entry points — nothing in the repo imports them.
+    // The full App Router special-file set. `loading` and `global-error` were missing, and a module
+    // reachable only from one of those would have read as unreachable — the gate would then call a
+    // genuinely wired seam dead. Under-listing entry points fails in the direction that produces
+    // false findings, which is the direction that gets a gate disabled.
     entryPattern:
-      /(^|\/)(page|layout|template|default|route|middleware|error|not-found)\.[cm]?[jt]sx?$/,
+      /(^|\/)(page|layout|template|default|route|middleware|error|global-error|not-found|loading)\.[cm]?[jt]sx?$/,
     // apps/agent-web/tsconfig.json maps "@/*" to "./src/*"; an unresolved alias edge would make a
     // live module look unreachable.
     moduleAliases: [{ prefix: '@/', target: 'apps/agent-web/src/' }],
