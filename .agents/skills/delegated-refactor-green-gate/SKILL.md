@@ -62,7 +62,7 @@ Both are conditions you evaluate from observable state, not verdicts: you read e
 lists. Forming a judgement about the diff is step 4's job, and not yours.
 
 **3a. Re-verify the green claim.** The worker's `green` is a hypothesis. Reproduce it in this session:
-run the CI-equivalent verification entry point in the FULL, in the foreground — not a subset of its
+run the CI-equivalent verification entry point in FULL and in the foreground — not a subset of its
 stages — plus a frozen-lockfile install when the lockfile was touched. Read its summary: it names the
 required contexts it could not run locally, and those remain yours to reason about.
 
