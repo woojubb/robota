@@ -20,7 +20,10 @@ import {
 } from '../scan-guard-scope-fail-closed.mjs';
 import { findNoFallbackFindings } from '../scan-no-fallback.mjs';
 import { findFakeInSrc } from '../scan-no-fake-in-src.mjs';
-import { findReviewWorkflowParityFindings, listGovernedWorkflows } from '../scan-review-workflow-parity.mjs';
+import {
+  findReviewWorkflowParityFindings,
+  listGovernedWorkflows,
+} from '../scan-review-workflow-parity.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -148,7 +151,11 @@ describe('the repaired guards fail closed on an absent governed tree', () => {
     const { mkdirSync, writeFileSync } = await import('node:fs');
     const root = await bareRoot();
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
-    writeFileSync(path.join(root, '.github', 'workflows', 'ci.yml'), 'name: ci\njobs: {}\n', 'utf8');
+    writeFileSync(
+      path.join(root, '.github', 'workflows', 'ci.yml'),
+      'name: ci\njobs: {}\n',
+      'utf8',
+    );
     const { findings, checked } = findReviewWorkflowParityFindings(root);
     expect(checked).toEqual([]);
     expect(findings).toHaveLength(1);

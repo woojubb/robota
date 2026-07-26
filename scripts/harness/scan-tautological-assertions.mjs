@@ -44,9 +44,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next', 'coverage',
 export function isTestFile(relPath) {
   const norm = relPath.split(path.sep).join('/');
   if (!/\.(ts|tsx|mts|cts|js|mjs|cjs)$/.test(norm)) return false;
-  return (
-    /\.(test|spec|bintest)\.[cm]?[jt]sx?$/.test(norm) || norm.includes('/__tests__/')
-  );
+  return /\.(test|spec|bintest)\.[cm]?[jt]sx?$/.test(norm) || norm.includes('/__tests__/');
 }
 
 /**
@@ -84,7 +82,8 @@ export const TAUTOLOGY_RULES = [
   {
     id: 'non-negative-length',
     // `.length` is non-negative by construction, so `>= 0` / `> -1` assert nothing.
-    pattern: /\.length\s*\)\s*\.\s*(?:toBeGreaterThanOrEqual\(\s*0\s*\)|toBeGreaterThan\(\s*-1\s*\))/,
+    pattern:
+      /\.length\s*\)\s*\.\s*(?:toBeGreaterThanOrEqual\(\s*0\s*\)|toBeGreaterThan\(\s*-1\s*\))/,
     why: 'a length is never negative — this assertion holds even when the collection is empty',
   },
 ];
@@ -186,7 +185,9 @@ export function main() {
   if (findings.length > 0) {
     process.stdout.write('tautological-assertions scan failed (HARNESS-052):\n');
     for (const finding of findings) {
-      process.stdout.write(`  - ${finding.file}:${finding.line} [${finding.rule}] ${finding.why}\n`);
+      process.stdout.write(
+        `  - ${finding.file}:${finding.line} [${finding.rule}] ${finding.why}\n`,
+      );
       process.stdout.write(`      ${finding.text}\n`);
     }
     process.stdout.write(
