@@ -179,8 +179,10 @@ export function isTypeOnlyImportClause(clause) {
   return clause?.phaseModifier === SyntaxKind.TypeKeyword;
 }
 
-// Every `isXxx` type guard (347 of them), re-exported so call sites read `ts.isClassDeclaration`
-// exactly as they did against the legacy API.
+// The `isXxx` type guards the four scans actually use, re-exported so call sites read
+// `ts.isClassDeclaration` exactly as they did against the legacy API. This is a deliberate subset of
+// the package's 347, not a re-export of all of them: each name here is checked at import time
+// (below), and that check is only meaningful for guards we have a call site for.
 export const {
   isArrayBindingPattern,
   isAsExpression,
