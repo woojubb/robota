@@ -138,6 +138,16 @@ were executed`. A guard there would catch nothing and add surface.
 4. **`live-provider-smoke` verifies nothing until a provider secret is provisioned.** Whether to
    provision one, or to accept a permanently-annotated no-op, is an owner decision.
 5. **`mutation-nightly` thresholds.** 110 surviving mutants stand with no owner and no ratchet.
+6. **`workflow_dispatch` on the two nightlies cannot test the ref it is dispatched from.** Both
+   `mutation-nightly.yml` and `live-provider-smoke.yml` hard-code `ref: develop` in their checkout.
+   The workflow FILE comes from the dispatched ref, but the CODE it runs is always develop's. Measured
+   during this audit: dispatching `live-provider-smoke` from this branch ran develop's smoke script,
+   so the new zero-provider annotation did not appear — the change had to be verified locally instead.
+   That is correct for the unattended nightly and wrong for a dispatch, which is how a human tests a
+   change before it lands. A fix would need the schedule to keep its fixed branch while a dispatch
+   uses `github.ref_name`, e.g.
+   `ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref_name }}` — a change to what
+   the nightly targets, so filed rather than taken.
 
 ## The two checks that were NOT falsified, and how to close them
 
