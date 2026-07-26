@@ -149,13 +149,40 @@ genuinely running: a skipping reviewer finds nothing, twice.
 - [x] Source verification pinned to the version `@v1` resolves to (`v1.0.183` / `be7b93b1`).
 - [x] `pnpm harness:scan`, `pnpm harness:test`, `pnpm harness:verify-like-ci`, YAML parse green.
 
+## Found on `develop` while rebasing (not caused by this branch)
+
+Both verified against a clean `origin/develop` before touching anything, and both fixed here
+because a required check cannot be left red:
+
+1. **`guard-scope-fail-closed` was RED on `develop`.** D9 (#1481) promoted
+   `scan-required-check-needs` into `MANDATORY_TREE_GUARDS` but left its `PENDING_CLASSIFICATION`
+   entry in place; a finder in both tables fails that scan's exactly-one rule. Removed the weaker
+   duplicate — the `MANDATORY` entry is stronger, since it re-proves the behaviour by execution.
+2. **`scan-workflow-permissions` caught this item's own change**, exactly as designed: the
+   `JUSTIFIED_WRITE_SCOPES` excuse for `id-token: write` outlived the permission removed here. D9's
+   entry had even predicted it (_"may go away with github_token"_). Deleted. An anti-rot guard
+   firing on the change that obsoleted its subject is the guard working.
+
+Separately, the classification of `scan-required-check-needs` and `scan-test-selection-tolerance`
+was measured **independently twice** — once here and once in D9 — by the same `measureFinder`
+route, reaching **the same verdicts** (`fail-closed`, `vacuous`). The duplicate work was dropped in
+favour of D9's, which also carries the `MANDATORY_TREE_GUARDS` entry.
+
 ## Renumbering note (PROC-002)
 
-This item was authored as `INFRA-058` and renumbered to `INFRA-062` before merge: `INFRA-058`,
-`059` and `060` were all claimed the same day by audits that merged first. That is PROC-002's
-subject — a number claimed at authoring time in a branch-local file, against a namespace no branch
-observes atomically. Renumbered by hand across the backlog file, its cross-references in INFRA-053,
-the workflow header, and the scan's header comment and failure-message string.
+This item was authored as `INFRA-058`, renumbered to `INFRA-061`, and renumbered **again** to
+`INFRA-062` — `058`, `059`, `060` and then `061` were each claimed by audits that merged first,
+`061` twice on the same day. That is PROC-002's subject, demonstrated twice on one branch: a number
+claimed at authoring time in a branch-local file, against a namespace no branch observes
+atomically, and a rename is not a fix — the second collision happened _after_ the first renumber.
+Renumbered by hand across the backlog file, its cross-references in INFRA-053, the workflow header,
+and the scan's header comment and failure-message string.
+
+**Care needed on the second pass, and worth recording:** a blanket `INFRA-061 → INFRA-062` rewrite
+over `scan-guard-scope-fail-closed.mjs` also clobbered two references belonging to the _other_
+INFRA-061 (the security-workflow audit) that share that file. Restored; my diff to that shared file
+is exactly one registry entry. A renumber that greps by number alone will silently rewrite someone
+else's citations whenever the two items touch the same file.
 
 It also inherits HARNESS-052's two anti-rot hardenings from the scan it replaces, which landed
 upstream while this was in flight: `listGovernedWorkflows` throws rather than returning `[]` on an
