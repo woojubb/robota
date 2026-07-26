@@ -432,10 +432,27 @@ function escapeForRegExp(value) {
 }
 
 /**
+ * Drop the parts of a module that cannot reference a binding: comments and quoted string
+ * literals. Otherwise a name merely MENTIONED in a comment would count as a use — the same
+ * vacuous satisfaction this check exists to reject, one level down.
+ *
+ * Template literals are left intact: `${name}` is a real reference. `://` is preserved so a URL
+ * inside surviving text is not mistaken for a line comment.
+ */
+function stripCommentsAndStringLiterals(content) {
+  return content
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/**
  * Classify how a module references a specifier.
  *
  * Returns `'absent'`, `'imported-unused'` (the specifier is imported but no bound name is
- * referenced anywhere else in the module — an import statement, not a wired seam), or `'used'`.
+ * referenced in the module's executable text — an import statement, not a wired seam), or
+ * `'used'`.
  */
 export function classifySpecifierUsage(content, specifier) {
   const quoted = `['"]${escapeForRegExp(specifier)}['"]`;
@@ -467,8 +484,9 @@ export function classifySpecifierUsage(content, specifier) {
     return 'absent';
   }
 
+  const executable = stripCommentsAndStringLiterals(masked);
   for (const name of boundNames) {
-    if (new RegExp(`\\b${escapeForRegExp(name)}\\b`).test(masked)) {
+    if (new RegExp(`\\b${escapeForRegExp(name)}\\b`).test(executable)) {
       return 'used';
     }
   }

@@ -360,6 +360,27 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("const a = require('pkg');", 'pkg')).toBe('used');
   });
 
+  it('does not count a mention in a comment or a string literal as a use', () => {
+    expect(classifySpecifierUsage("import { A } from 'pkg';\n// A() is coming soon\n", 'pkg')).toBe(
+      'imported-unused',
+    );
+    expect(classifySpecifierUsage("import { A } from 'pkg';\n/* renders A */\n", 'pkg')).toBe(
+      'imported-unused',
+    );
+    expect(classifySpecifierUsage('import { A } from \'pkg\';\nconst label = "A";\n', 'pkg')).toBe(
+      'imported-unused',
+    );
+  });
+
+  it('counts a template-literal reference and survives a URL in a string', () => {
+    expect(classifySpecifierUsage("import { A } from 'pkg';\nconst x = `${A}`;\n", 'pkg')).toBe(
+      'used',
+    );
+    expect(
+      classifySpecifierUsage('import { A } from \'pkg\';\nconst u = "https://x";\nA();\n', 'pkg'),
+    ).toBe('used');
+  });
+
   it('reports an absent specifier and an aliased binding', () => {
     expect(classifySpecifierUsage("import { A } from 'other';", 'pkg')).toBe('absent');
     expect(classifySpecifierUsage("import { A as B } from 'pkg';\nB();", 'pkg')).toBe('used');
