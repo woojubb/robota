@@ -41,8 +41,26 @@ import { defineConfig } from 'vitest/config';
  * editing this file.
  */
 
-const MAX_FORKS = Number(process.env['VITEST_MAX_FORKS'] ?? 4);
-const WORKER_HEAP_MB = Number(process.env['VITEST_WORKER_HEAP_MB'] ?? 512);
+/**
+ * Read a positive-integer override, falling back to the default on anything else.
+ *
+ * Without this, `VITEST_MAX_FORKS=auto` yields `NaN` and `--max-old-space-size=NaN`, which node
+ * accepts and interprets as no limit — the override would silently restore the very default this
+ * file exists to remove. A bad value must degrade to the safe number, never to an unbounded one.
+ */
+function positiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+    process.emitWarning(`${name}="${raw}" is not a positive integer — using ${fallback}.`);
+    return fallback;
+  }
+  return parsed;
+}
+
+const MAX_FORKS = positiveIntEnv('VITEST_MAX_FORKS', 4);
+const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
 
 export const resourceCeiling = defineConfig({
   test: {
