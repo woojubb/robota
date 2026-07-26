@@ -16,6 +16,20 @@ import {
 
 const FILE = 'scripts/probe.mjs';
 
+/** Whether this host permits creating a directory symlink (Windows needs Developer Mode or admin). */
+const CAN_SYMLINK = (() => {
+  const probe = mkdtempSync(path.join(tmpdir(), 'legacy-ts-symlink-probe-'));
+  try {
+    mkdirSync(path.join(probe, 'target'));
+    symlinkSync(path.join(probe, 'target'), path.join(probe, 'link'), 'dir');
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+})();
+
 describe('scan-legacy-typescript — import edge FAIL cases', () => {
   it('flags a default import of the legacy compiler', () => {
     const hits = findLegacyImportsInSource("import ts from 'typescript';\n", FILE);
@@ -390,14 +404,20 @@ describe('scan-legacy-typescript — store edge (collectInstalledCopies)', () =>
     ]);
   });
 
-  it('counts a copy ONCE even though pnpm symlinks it into the top level', () => {
-    const real = install('node_modules/.pnpm/typescript@6.0.3/node_modules/typescript', {
-      name: 'typescript',
-      version: '6.0.3',
-    });
-    symlinkSync(real, path.join(root, 'node_modules', 'typescript'), 'dir');
-    expect(collectInstalledCopies(root)).toHaveLength(1);
-  });
+  // Creating a directory symlink needs Developer Mode or elevation on Windows. Skip rather than
+  // fail there: this asserts a pnpm-layout property, and pnpm's store IS symlinks, so the check is
+  // only meaningful where symlinks exist at all.
+  it.skipIf(!CAN_SYMLINK)(
+    'counts a copy ONCE even though pnpm symlinks it into the top level',
+    () => {
+      const real = install('node_modules/.pnpm/typescript@6.0.3/node_modules/typescript', {
+        name: 'typescript',
+        version: '6.0.3',
+      });
+      symlinkSync(real, path.join(root, 'node_modules', 'typescript'), 'dir');
+      expect(collectInstalledCopies(root)).toHaveLength(1);
+    },
+  );
 
   it('ignores a directory with no manifest at all', () => {
     mkdirSync(path.join(root, 'node_modules', 'typescript'), { recursive: true });
