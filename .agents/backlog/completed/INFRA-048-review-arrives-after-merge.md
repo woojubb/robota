@@ -100,6 +100,18 @@ Three levers were on the table (the original item's options 1–3). What shipped
    not stop an armed auto-merge — which is precisely the #1409 hole. The disarm is the lever that
    works today; the ruleset entry (below) is the durable one.
 
+   > **Correction, 2026-07-26 (INFRA-057).** "The disarm is the lever that works today" was **never
+   > true.** The job declared `contents: read`, and GitHub's auto-merge mutations need
+   > `contents: write`, so every call returned `Resource not accessible by integration` — and the
+   > `|| echo "auto-merge was not armed; nothing to disarm."` printed a state it had not checked,
+   > making a permission denial indistinguishable from a genuine no-op. Measured on a real armed PR
+   > (#1465): after the gate blocked, `autoMergeRequest.enabledAt` was **unchanged and still armed**.
+   > So for the whole period this document claims the lever was carrying the guarantee, only the
+   > ruleset entry ever did. Fixed in INFRA-057, which moved the disarm into its own checkout-free
+   > job, granted the scope there, and proved it on the same armed PR — `auto-merge: DISARMED`,
+   > confirmed from outside the runner. Kept rather than deleted because `protect-main` requires a
+   > different context set that does not include `review-gate`.
+
    **A fail-CLOSED caught in the gate itself, live — and it cost the ruleset entry.** See
    "Defect 2" below. The `unavailable` row above is now three rows: an analysis that exists and
    could not be read still blocks, and an analysis that was never owed passes as `not-applicable`.

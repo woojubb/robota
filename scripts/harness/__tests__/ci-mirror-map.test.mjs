@@ -18,7 +18,7 @@
  * hand-copied lists.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -193,16 +193,29 @@ describe('the build predicate has ONE implementation (anti-drift)', () => {
 });
 
 describe('the ruleset declaration matches the workflow it names', () => {
+  /**
+   * Resolve against the workflow each entry DECLARES, not against `ci.yml`.
+   *
+   * This assertion used to hardcode `ci.yml`, which held only because every required context
+   * happened to live there. `review-gate` is the first that does not — it reads GitHub's
+   * code-scanning API from `.github/workflows/review-gate.yml`. Pinning the filename would have
+   * forced a genuinely-required context to be declared in the wrong workflow just to satisfy the
+   * test, which is the test dictating the architecture rather than checking it.
+   *
+   * What actually matters is unchanged and still asserted for every entry: the declared workflow
+   * exists, it really defines the named job, and the job's `name:` is the context string branch
+   * protection matches on.
+   */
   it.each(REQUIRED.map((entry) => [entry.context, entry.job]))(
-    '`%s` resolves to job `%s` in ci.yml',
+    '`%s` resolves to job `%s` in the workflow it declares',
     (context, job) => {
       const declared = REQUIRED.find((entry) => entry.context === context);
-      expect(declared.workflow).toBe('.github/workflows/ci.yml');
-      expect(() => jobRunSteps(CI_YAML, job)).not.toThrow();
+      const workflowPath = path.join(REPO_ROOT, declared.workflow);
+      expect(existsSync(workflowPath), `${declared.workflow} does not exist`).toBe(true);
+      const source = readFileSync(workflowPath, 'utf8');
+      expect(() => jobRunSteps(source, job)).not.toThrow();
       // The context string is the job's `name:`, which is what branch protection matches on.
-      expect(readFileSync(path.join(REPO_ROOT, declared.workflow), 'utf8')).toContain(
-        `name: ${context}`,
-      );
+      expect(source).toContain(`name: ${context}`);
     },
   );
 });

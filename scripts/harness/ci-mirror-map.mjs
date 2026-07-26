@@ -174,6 +174,17 @@ export const NOT_MIRRORED = [
     manualCommand:
       'no local equivalent off a Windows host — review the win32 branches by hand, or push and read the check.',
   },
+
+  {
+    context: 'review-gate',
+    reason:
+      "reads GitHub's code-scanning API for this PR's merge ref and compares it against the base branch. Both sides only exist once CodeQL has analysed a real pull request, so there is nothing a local run could read — a mirror would either invent the input or report a pass over an analysis that was never performed, which is the exact defect INFRA-048 built this gate to close.",
+    relevance: 'code',
+    relevantWhen:
+      'the diff changes code at all — on a docs-only PR the gate itself resolves to `PASS (not-applicable)` via the same classifier ci.yml gates its build matrix on',
+    manualCommand:
+      'no local equivalent — push and read the check, or query it directly: gh api "repos/<owner>/<repo>/code-scanning/alerts?pr=<n>&state=open" --paginate  (note --paginate: a single page silently truncates, which is how a 40-high backlog once read as clean)',
+  },
 ];
 
 /** The relevance keys the runner knows how to evaluate. */
