@@ -182,7 +182,8 @@ function staticFindingsFor(reference, repoRoot) {
       'is an expression — its value is only known at run time, so no check can verify it. Reference the action literally.',
     );
   }
-  if (reference.kind === 'unpinned') return fail('has no `@ref` — nothing identifies what would run');
+  if (reference.kind === 'unpinned')
+    return fail('has no `@ref` — nothing identifies what would run');
   if (reference.kind === 'unsupported') {
     return fail(
       'is a reference shape this guard cannot verify (only `owner/repo[/path]@ref` and `./local` are supported). Extend the guard before landing it.',
@@ -191,7 +192,9 @@ function staticFindingsFor(reference, repoRoot) {
   if (reference.kind === 'local') {
     const dir = path.join(repoRoot, reference.raw);
     const present = MANIFEST_NAMES.some((name) => fs.existsSync(path.join(dir, name)));
-    return present ? [] : fail('has no `action.yml` / `action.yaml` at that path in this repository');
+    return present
+      ? []
+      : fail('has no `action.yml` / `action.yaml` at that path in this repository');
   }
   if (MOVING_POINTERS.has(reference.ref)) {
     return fail(
@@ -221,7 +224,10 @@ export function liveModeFor(argv, env = process.env) {
   if (argv.includes('--offline')) return { live: false, why: '--offline' };
   if (!env.CI) return { live: false, why: 'not CI — run with --live to verify resolvability' };
   if (env.GITHUB_BASE_REF === 'main') {
-    return { live: false, why: 'promotion to `main` — the develop-side run ruled on this same tree' };
+    return {
+      live: false,
+      why: 'promotion to `main` — the develop-side run ruled on this same tree',
+    };
   }
   return { live: true, why: 'CI' };
 }
@@ -307,7 +313,9 @@ class RepositoryMissingError extends Error {}
 
 /** Collapse a multi-line tool error into one readable line — 80 of them in an outage is enough. */
 function oneLine(value) {
-  const text = String(value).replace(/\s*\n\s*/g, ' | ').trim();
+  const text = String(value)
+    .replace(/\s*\n\s*/g, ' | ')
+    .trim();
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
 }
 
@@ -337,9 +345,20 @@ async function manifestExists(reference, sha) {
  * count of verdicts always equals the count of unique references, including when a probe throws.
  */
 export async function resolveAll(references, probe = probeReference) {
-  const unique = [...new Map(references.map((entry) => [entry.raw, entry])).values()].filter(
-    (entry) => entry.kind === 'action',
-  );
+  // The key includes the CLAIMED TAG, not just `raw`. Deduping on `raw` alone drops every
+  // occurrence but one, and the surviving entry decides the tag-mismatch verdict for all of them:
+  // `actions/checkout@<sha> # v4.1.0` in one file and the same SHA as `# v9.9.9` in another collapse
+  // to a single check, so whichever loses the collision is never verified. That is the failure this
+  // scan exists to catch — a reference asserting something the remote does not say — surviving
+  // inside the scan that checks for it.
+  //
+  // The extra probe this costs happens only when one SHA carries two different claims, which is
+  // precisely the case that must not be skipped.
+  const unique = [
+    ...new Map(
+      references.map((entry) => [`${entry.raw} ${entry.claimedTag ?? ''}`, entry]),
+    ).values(),
+  ].filter((entry) => entry.kind === 'action');
   const results = new Array(unique.length);
   let next = 0;
   const worker = async () => {
@@ -356,7 +375,11 @@ export async function resolveAll(references, probe = probeReference) {
             ? { status: 'repo-missing' }
             : { status: 'unreachable', detail: oneLine(error.message ?? error) };
       }
-      results[index] = { reference, resolution, finding: classifyResolution(reference, resolution) };
+      results[index] = {
+        reference,
+        resolution,
+        finding: classifyResolution(reference, resolution),
+      };
     }
   };
   await Promise.all(
@@ -371,7 +394,9 @@ export async function resolveAll(references, probe = probeReference) {
  * is the same under-reporting of its own subject that the parser counter above fences.
  */
 export function expandFindings(references, results) {
-  const byRaw = new Map(results.filter((result) => result.finding).map((r) => [r.reference.raw, r]));
+  const byRaw = new Map(
+    results.filter((result) => result.finding).map((r) => [r.reference.raw, r]),
+  );
   return references.flatMap((reference) => {
     const hit = byRaw.get(reference.raw);
     if (!hit || reference.kind !== 'action') return [];
@@ -414,7 +439,9 @@ export async function main(argv = process.argv.slice(2)) {
     `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
   );
   for (const { reference, resolution } of results) {
-    write(`  ✓ ${reference.raw} → ${resolution.sha.slice(0, 12)} (${resolution.refName ?? 'commit'})`);
+    write(
+      `  ✓ ${reference.raw} → ${resolution.sha.slice(0, 12)} (${resolution.refName ?? 'commit'})`,
+    );
   }
   const branchPinned = results.filter((r) => r.resolution.refName?.startsWith('refs/heads/'));
   if (branchPinned.length > 0) {

@@ -73,7 +73,10 @@ describe('parseReferences', () => {
 
   it('carries the claimed tag from a `# vX` pin comment', () => {
     const sha = 'a'.repeat(40);
-    const { references } = parseReferences('x.yml', `        uses: actions/checkout@${sha} # v4.2.2\n`);
+    const { references } = parseReferences(
+      'x.yml',
+      `        uses: actions/checkout@${sha} # v4.2.2\n`,
+    );
     expect(references[0]).toMatchObject({ ref: sha, claimedTag: 'v4.2.2' });
   });
 
@@ -128,9 +131,7 @@ describe('static half', () => {
 
   /** A parser blind spot must fail the scan, not shrink its subject silently. */
   it('RED: parsed references fewer than the `uses:` lines counted', () => {
-    const findings = findStaticFindings([
-      { file: 'a.yml', references: [], usesLineCount: 3 },
-    ]);
+    const findings = findStaticFindings([{ file: 'a.yml', references: [], usesLineCount: 3 }]);
     expect(findings[0].detail).toMatch(/parsed 0 of 3/);
   });
 });
@@ -300,7 +301,12 @@ describe('resolveAll — every reference is accounted for', () => {
     const probed = [];
     const results = await resolveAll(references, async (reference) => {
       probed.push(reference.raw);
-      return { status: 'resolved', sha: '1'.repeat(40), refName: 'refs/tags/x', manifest: 'present' };
+      return {
+        status: 'resolved',
+        sha: '1'.repeat(40),
+        refName: 'refs/tags/x',
+        manifest: 'present',
+      };
     });
     expect(probed.sort()).toEqual(['a/b@v1', 'c/d@v2']);
     expect(results).toHaveLength(2);
@@ -336,7 +342,11 @@ describe('expandFindings — one report per occurrence, one probe per reference'
     });
     const references = [make('deploy.yml', 111), make('deploy.yml', 121), make('ci.yml', 9)];
     const results = [
-      { reference: references[0], resolution: { status: 'repo-missing' }, finding: { detail: 'gone' } },
+      {
+        reference: references[0],
+        resolution: { status: 'repo-missing' },
+        finding: { detail: 'gone' },
+      },
     ];
     expect(expandFindings(references, results).map((finding) => finding.where)).toEqual([
       'deploy.yml:111',
@@ -363,5 +373,36 @@ describe('the real repository', () => {
 
   it('holds statically — no malformed, expression-valued or moving-pointer reference', () => {
     expect(findStaticFindings(readWorkflowSources(REPO_ROOT), REPO_ROOT)).toEqual([]);
+  });
+
+  // Deduping on `raw` alone kept one occurrence and let its verdict stand for all of them, so the
+  // same SHA carrying `# v4.1.0` in one file and `# v9.9.9` in another collapsed to a single check
+  // and whichever lost the collision was never verified — the failure this scan exists to catch,
+  // surviving inside the scan that checks for it. Found in review.
+  it('checks each claimed tag separately when one SHA carries two different claims', async () => {
+    const references = [
+      {
+        file: 'a.yml',
+        line: 1,
+        raw: 'actions/checkout@abc123',
+        claimedTag: 'v4.1.0',
+        kind: 'action',
+      },
+      {
+        file: 'b.yml',
+        line: 1,
+        raw: 'actions/checkout@abc123',
+        claimedTag: 'v9.9.9',
+        kind: 'action',
+      },
+    ];
+    const results = await resolveAll(references, async () => ({
+      ok: true,
+      sha: 'abc123',
+      tags: ['v4.1.0'],
+    }));
+    expect(results).toHaveLength(2);
+    const claims = results.map((r) => r.reference?.claimedTag ?? r.claimedTag).sort();
+    expect(claims).toEqual(['v4.1.0', 'v9.9.9']);
   });
 });
