@@ -11,7 +11,7 @@ depends_on: [TERM-001, TERM-002, TERM-003, TERM-005]
 # Windows support follow-up
 
 **Status (2026-06-30):** the code-side work is complete — item 1 (shell selection) shipped as
-[TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md), item 4 (no Unix job-control)
+[TERM-008](../spec-docs/done/TERM-008-cross-platform-shell-execution.md), item 4 (no Unix job-control)
 is audited clean, and item 2's handoff is platform-neutral/Windows-capable by construction with nothing
 left to change without Windows runtime introspection. A **`windows-shell` CI job** (`.github/workflows/ci.yml`,
 `windows-latest`) now runs the resolver + Shell-tool tests on every PR — the Shell tool actually spawns
@@ -29,7 +29,7 @@ framework.
 
 ## What
 
-1. **Shell selection (`resolveShell()` win32)** — ✅ **DONE in [TERM-008](../spec-docs/active/TERM-008-cross-platform-shell-execution.md)** (carved out and implemented): the cross-platform SSOT `resolvePlatformShell()` (agent-core) now backs the `Shell`/`Bash` tool, the hook `command` executor, and the interactive `resolveShell()` seam — POSIX `sh`/`bash` and Windows PowerShell (cmd via `ROBOTA_SHELL`), with per-OS quoting/`-c` equivalents and OS-aware command-syntax hints. The hard `sh`-only failure on Windows is removed.
+1. **Shell selection (`resolveShell()` win32)** — ✅ **DONE in [TERM-008](../spec-docs/done/TERM-008-cross-platform-shell-execution.md)** (carved out and implemented): the cross-platform SSOT `resolvePlatformShell()` (agent-core) now backs the `Shell`/`Bash` tool, the hook `command` executor, and the interactive `resolveShell()` seam — POSIX `sh`/`bash` and Windows PowerShell (cmd via `ROBOTA_SHELL`), with per-OS quoting/`-c` equivalents and OS-aware command-syntax hints. The hard `sh`-only failure on Windows is removed.
 2. **Terminal capabilities (TERM-002 on Windows)** — ⏳ **code-ready; needs a Windows hardware pass.**
    Audit (2026-06-30) confirms the handoff is **platform-neutral by construction**: `TerminalHandoffController`
    uses only Node TTY APIs (`stdin.setRawMode`/`pause`, `isTTY`) + Ink rendering and `spawn(stdio:'inherit')`
@@ -71,3 +71,22 @@ mostly module-local addition rather than a cross-cutting rewrite.
   `process.platform`) is green, but the on-Windows-Terminal handoff/IME behaviour can only be captured
   on real Windows hardware — not available in this environment. This scenario stays unfilled until a
   Windows machine or Windows CI runner runs it.
+
+## Reconciled 2026-07-26 — one remainder, and it is hardware, not engineering
+
+Re-checked against the tree, not against the note above:
+
+- **Item 1 is closed and its spec is DONE**, not active — `.agents/spec-docs/done/TERM-008-cross-platform-shell-execution.md`.
+  The two links in this file pointed at `spec-docs/active/` and were dangling; repointed here.
+- **The `windows-shell` CI job is live and REQUIRED** — `.github/workflows/ci.yml:602-603` defines it,
+  and `:140` records it in the required-check set alongside `tui-e2e`/`examples-typecheck`. So the
+  every-PR Windows shell-execution coverage this item claims is real and maintained, not a one-off pass.
+- **Items 3 and 4 need nothing**: 3 is a declared non-goal, 4 was audited clean.
+
+**Remainder — item 2 only, and it is exactly one thing:** run the interactive TUI handoff on real
+Windows Terminal (full-screen suspend/resume, IME) — `/shell`, an interactive `BashTool` command, and
+`$EDITOR`, confirming the TUI restores with no stale frames or mode artifacts. It cannot be executed on
+a macOS/Linux host and `windows-shell` runs headless, so CI cannot cover it either. Blocked on access to
+a Windows machine or an interactive Windows runner; no code change is pending. Note the shape is the same
+as `CLI-062`'s two macOS cells — both are emulator-behaviour cells that no amount of engineering here can
+close.

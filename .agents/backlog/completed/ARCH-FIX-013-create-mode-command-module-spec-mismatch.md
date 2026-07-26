@@ -46,4 +46,28 @@ Not applicable — result depends on option chosen. If Option A (code change): m
 
 ## Verification Evidence
 
-(완료 후 선택한 옵션과 변경 내용 기록)
+Back-filled 2026-07-26 by re-deriving the outcome from the live tree.
+
+**Resolved as Option A, restructured.** The orphan `agent-command-mode` package was consolidated into
+the single `agent-command` package, and the module is genuinely wired into the default set — so the
+SPEC line was made true rather than deleted:
+
+| Fact                                    | Citation                                                                                                                                      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| implementation                          | `packages/agent-command/src/mode/mode-command-module.ts:48` (`export function createModeCommandModule`), `:50` (`name: 'agent-command-mode'`) |
+| registered in the defaults              | `packages/agent-command/src/default/default-command-modules.ts:13` (import), `:93` (call)                                                     |
+| SPEC ownership moved to the owning pkg  | `packages/agent-command/docs/SPEC.md:97`                                                                                                      |
+| the stale `agent-cli` SPEC line is gone | `rg -n createModeCommandModule packages/agent-cli/docs/` → 0 matches                                                                          |
+| map no longer drifts per-module         | `.agents/specs/architecture-map/agent-cli/composition-tree.md:49` documents the aggregate factory `createDefaultCommandModules()`             |
+| assembly guard                          | `packages/agent-cli/src/__tests__/robota-assembly-equivalence.test.ts:61` asserts `'agent-command-mode'` is in the assembled set              |
+
+Test run for the User Execution Test Scenario's Option-A branch ("mode command behavior should be
+tested"), executed 2026-07-26:
+
+```
+$ npx vitest run --root packages/agent-command \
+    src/mode/__tests__/mode-command-module.test.ts \
+    src/default/__tests__/default-command-modules.test.ts
+Test Files  2 passed (2)
+     Tests  13 passed (13)
+```

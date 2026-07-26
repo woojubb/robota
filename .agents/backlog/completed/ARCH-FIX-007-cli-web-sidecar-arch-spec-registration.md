@@ -39,4 +39,22 @@ Not applicable — documentation-only change. No runnable user-facing behavior c
 
 ## Verification Evidence
 
-(완료 후 각 문서 업데이트 diff 링크 기록)
+Back-filled 2026-07-26 by re-deriving each Solution step against the live tree.
+
+| Solution step                             | Citation                                                                                                                                                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| third execution mode registered           | `.agents/specs/architecture-map/agent-cli/execution-modes.md:70` — `## Runtime Host Mode (\`robota --serve\`)`, landed-note `:72-76`, sequence diagram `:78-97`                                       |
+| WS transport node in the dependency graph | `.agents/specs/architecture-map/agent-cli/target-architecture.md:111` — `TransportWs["@robota-sdk/agent-transport-ws\nWsTransport"]`; allowed-edge row `:160`; `startRuntimeHost` ownership row `:93` |
+| package SPEC section                      | `packages/agent-cli/docs/SPEC.md:7-11` (mode + `startRuntimeHost` + `WsTransport` + `ROBOTA_WS_TOKEN`), transport row `:450`                                                                          |
+| router link                               | `.agents/specs/architecture-map/agent-cli-composition.md:14` routes "transports, or execution flags" to `execution-modes.md`                                                                          |
+
+**The item's premise was retired, not implemented.** It was filed against a `--web` flag; the surface
+shipped as `--serve` / `startRuntimeHost`. That is stated in the destination document itself —
+`.agents/specs/architecture-map/agent-cli/execution-modes.md:99-103`: _"Superseded design. The earlier
+`--web` / `--web-port` flags and `startWebSidecarServer(interactiveSession, port)` were never built."_
+
+**One Solution step is NOT satisfied, recorded rather than glossed:** step 3 asked for the sidecar's
+classes in `.agents/specs/architecture-map/agent-cli/class-interface-inventory.md`, and
+`rg -n "WsTransport|serve-mode|startRuntimeHost|RuntimeHost"` over that file returns **zero matches**
+(its only WS mention is the old→new package-rename row at `:18`). The registration landed in
+`target-architecture.md` and the SPEC instead.
