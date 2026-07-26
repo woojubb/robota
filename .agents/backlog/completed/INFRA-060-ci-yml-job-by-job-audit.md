@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-060: ci.yml job-by-job audit — three fail-open paths closed, four fidelity gaps filed'
-status: in-progress
+status: done
+completed: 2026-07-27
 created: 2026-07-26
 priority: high
 urgency: now
@@ -486,3 +487,21 @@ This audit is not, and cannot be, complete. What no pattern can reach:
 
 Not applicable — CI workflow and harness-guard changes deliver no runnable user-facing surface. The
 enforcement evidence is the red/green proofs recorded above and the checks on this item's own PR.
+
+## Closed 2026-07-27 — every finding now has a real disposition
+
+The audit's ten findings were reconciled against the tree. Three of them said **FILED** with no
+target, which is the same defect the audit itself catalogues: a claim that reads as closed and
+closes nothing. Those are now real files.
+
+|                | Disposition                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| D1, D3, D4, D5 | FIXED and merged                                                                            |
+| D2             | filed as `INFRA-064` (was FILED with no target)                                             |
+| D6             | filed as `HARNESS-056` (was FILED with no target)                                           |
+| D7             | filed as `INFRA-063` — PR open                                                              |
+| D8             | already FIXED — `check-patch-coverage --detect` carries `FAIL-CLOSED (HARNESS-052)` in code |
+| D9             | FIXED — `scan-workflow-permissions` merged (#1481)                                          |
+| D10            | resolved by `INFRA-062`, now closed                                                         |
+
+Nothing from this audit is left holding an obligation of its own.

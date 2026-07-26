@@ -394,7 +394,9 @@ in `## Test Plan`.
 - [ ] The 30 vacuous finders in `PENDING_CLASSIFICATION` fail closed (re-measured every run).
 - [ ] `check-design-doc-completeness`' subject is decided — required somewhere, or declared optional.
 - [ ] The six depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
-- [ ] `run-all-scans` distinguishes "ran and found nothing" from "ran and measured nothing".
+- [x] `run-all-scans` distinguishes "ran and found nothing" from "ran and measured nothing" — the
+      advisory channel landed in HARNESS-053 (#1491); a scan may mark a line and have it surfaced on
+      exit 0. The remaining half — a SKIPPED scan still renders as `✓` — is filed as `HARNESS-056`.
 - [ ] `review-gate.yml` subscribes to `edited`; R7 is extended to `develop`'s required contexts.
 - [ ] `changes` is a required context, or the three jobs it gates stop depending on it.
 - [ ] `.claude/hooks/check-forbidden-patterns.sh` resolves worktree paths.

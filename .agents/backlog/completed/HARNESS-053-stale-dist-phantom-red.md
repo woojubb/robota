@@ -1,11 +1,12 @@
 ---
 id: HARNESS-053
 title: 'HARNESS-053: a stale dist makes `pnpm typecheck` report a phantom breakage of a healthy branch'
-status: in-progress
+status: done
 priority: medium
 urgency: soon
 type: INFRA
 area: scripts/harness
+completed: 2026-07-27
 created: 2026-07-26
 depends_on: [HARNESS-052]
 ---
@@ -271,3 +272,7 @@ Stated plainly rather than quietly dropped:
       (needs build-pipeline ownership).
 - [ ] `pnpm typecheck` fails fast with the staleness explanation (needs root `package.json`).
 - [ ] The diagnostic is routed into the rules/skills tree (needs `.agents/rules|skills` ownership).
+
+## Closed 2026-07-27
+
+Landed as PR #1491. The freshness comparison is real (proven by hiding and phantom directions), and — the part that made it useful — `run-all-scans` gained an advisory channel so the finding reaches `pnpm harness:scan` instead of being discarded with every other passing scan's output. The rule was then narrowed to what the root build actually rebuilds, after three workspaces reported stale by 167-383h immediately after a clean `pnpm build`.
