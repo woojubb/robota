@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';

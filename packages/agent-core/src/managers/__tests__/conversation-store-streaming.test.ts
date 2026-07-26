@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { ConversationStore } from '../conversation-store.js';
-import { isAssistantMessage } from '../../interfaces/messages.js';
 import {
   createUserMessage,
   createAssistantMessage,

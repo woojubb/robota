@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { MemoryCacheStorage } from './memory-cache-storage';
 import type { ICacheEntry } from '../../interfaces/cache';
 import { CacheIntegrityError } from '../../utils/errors';

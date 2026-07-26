@@ -106,6 +106,16 @@ describe('Agent Server HTTP routes', () => {
     });
   });
 
+  describe('Content-Security-Policy', () => {
+    it('sends an API-appropriate restrictive policy on JSON responses', async () => {
+      const res = await request(app).get('/health');
+      const csp = res.headers['content-security-policy'];
+      expect(csp).toBeDefined();
+      expect(csp).toContain("default-src 'none'");
+      expect(csp).toContain("frame-ancestors 'none'");
+    });
+  });
+
   describe('CORS headers', () => {
     it('includes Access-Control-Allow-Origin for allowed origin', async () => {
       const res = await request(app).get('/health').set('Origin', 'http://localhost:3000');

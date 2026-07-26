@@ -1,0 +1,186 @@
+#!/usr/bin/env node
+
+/**
+ * Changed-path classifier — THE single mechanism that decides whether a PR touches CODE or is
+ * documentation-only.
+ *
+ * ## Why this is a shared module and not two copies
+ *
+ * The verdict has two consumers, and they must not be able to disagree:
+ *
+ *  - `.github/workflows/ci.yml` › `changes` — decides whether the heavy matrix (`tui-e2e`,
+ *    `examples-typecheck`, `windows-shell`, patch-coverage, regression-red-proof) runs at all.
+ *  - `.github/workflows/review-gate.yml` — decides whether a code-scanning analysis is EXPECTED for
+ *    this PR. A docs-only PR never triggers CodeQL (`codeql.yml` `paths-ignore`), so no analysis
+ *    record is ever written for it; without this signal the gate waits for an analysis that will
+ *    never arrive and then blocks on its absence (INFRA-048's fail-closed path, misapplied — see
+ *    #1436, which was blocked for a single backlog markdown file).
+ *
+ * If the review gate re-derived "no code changed" with its own weaker rule, that rule would be the
+ * bypass: any PR that could satisfy it would skip the gate entirely. So there is exactly one
+ * implementation, exported here, and both callers invoke it. A PR can only be classified docs-only
+ * by the very rule that also decided to skip its build and test matrix — a code PR cannot satisfy
+ * one without satisfying the other.
+ *
+ * ## The docs set, and why it is pinned to codeql.yml
+ *
+ * `DOCS_ONLY_GLOBS` is byte-equivalent to `codeql.yml`'s `paths-ignore`. That equivalence is what
+ * makes "docs-only" a sound predictor of "no analysis will ever exist", and it is asserted
+ * mechanically in `__tests__/classify-changed-paths.test.mjs` so the two cannot drift apart. If
+ * `paths-ignore` ever grows, the classifier over-reports code (fail-closed: the gate waits and
+ * blocks). If it ever shrinks without this list following, an analysed PR would be treated as
+ * not-applicable — which is the direction the parity test exists to prevent.
+ *
+ * ## Fail-closed
+ *
+ * Every path that cannot determine the answer — no merge base, a failed diff, an empty file list —
+ * classifies as CODE. "Nothing classified" must run the checks, not skip them (INFRA-050: a
+ * `changes` job that errors makes its required dependents report `skipping`, which branch
+ * protection accepts).
+ *
+ * Usage:
+ *   node scripts/harness/classify-changed-paths.mjs --base-ref origin/develop [--head HEAD]
+ *
+ * Prints the merge base(s), the changed files, and a final `code=true|false` line, and appends
+ * `code=<value>` to `$GITHUB_OUTPUT` when running under Actions. Always exits 0 — the verdict is
+ * the output, not the exit code.
+ */
+
+import { spawnSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+
+/**
+ * Paths that are pure documentation. Kept byte-equivalent to `codeql.yml`'s `paths-ignore`; the
+ * parity is enforced by a unit test rather than by a comment.
+ */
+export const DOCS_ONLY_GLOBS = ['**/*.md', '**/*.mdx', 'docs/**', 'content/**'];
+
+/** `DOCS_ONLY_GLOBS` as a matcher over repository-relative paths. */
+export const DOCS_ONLY_PATTERN = /(\.mdx?$|^docs\/|^content\/)/;
+
+/** Whether one repository-relative path is pure documentation. */
+export function isDocsOnlyPath(file) {
+  return DOCS_ONLY_PATTERN.test(String(file ?? ''));
+}
+
+/**
+ * Classify an already-resolved list of changed paths.
+ *
+ * @param {string[]} files repository-relative paths changed by the PR
+ * @returns {{code: boolean, reason: string}}
+ */
+export function classifyFiles(files) {
+  const changed = (files ?? []).map((file) => String(file).trim()).filter(Boolean);
+  if (changed.length === 0) {
+    return {
+      code: true,
+      reason: 'no changed files could be resolved — classifying as CODE so nothing is skipped.',
+    };
+  }
+  const codeFiles = changed.filter((file) => !isDocsOnlyPath(file));
+  return codeFiles.length > 0
+    ? {
+        code: true,
+        reason: `code changes present: full matrix runs (${codeFiles.length} file(s)).`,
+      }
+    : { code: false, reason: 'docs-only PR: no analyzable code changed.' };
+}
+
+function git(args, { cwd } = {}) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  return {
+    ok: result.status === 0,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
+
+/**
+ * Resolve the changed paths of `head` against `baseRef` and classify them.
+ *
+ * The merge base is computed EXPLICITLY (not via the `...` shorthand) so it is visible in the log,
+ * and over `--all` because a criss-cross history (this repo back-merges main <-> develop) can have
+ * several: a file changed against ANY of them counts as changed, so an ambiguous history can only
+ * over-report code, never silently under-report it.
+ *
+ * @returns {{code: boolean, reason: string, files: string[], bases: string[], error?: string}}
+ */
+export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}) {
+  const merge = runGit(['merge-base', '--all', baseRef, head], { cwd });
+  const bases = merge.ok
+    ? merge.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
+  if (bases.length === 0) {
+    return {
+      code: true,
+      bases: [],
+      files: [],
+      reason: 'Classifying as CODE so no required check is silently skipped.',
+      error: `no merge base between ${baseRef} and ${head}.`,
+    };
+  }
+
+  const files = new Set();
+  for (const base of bases) {
+    const diff = runGit(['diff', '--name-only', '--diff-filter=ACMRD', base, head], { cwd });
+    if (!diff.ok) {
+      return {
+        code: true,
+        bases,
+        files: [],
+        reason: 'Classifying as CODE so no required check is silently skipped.',
+        error: `git diff against merge base ${base} failed.`,
+      };
+    }
+    for (const line of diff.stdout.split('\n')) {
+      const file = line.trim();
+      if (file) files.add(file);
+    }
+  }
+
+  const sorted = [...files].sort();
+  return { ...classifyFiles(sorted), bases, files: sorted };
+}
+
+function argValue(argv, flag) {
+  const index = argv.indexOf(flag);
+  return index === -1 ? undefined : argv[index + 1];
+}
+
+export function main(argv = process.argv.slice(2), write = (text) => process.stdout.write(text)) {
+  const baseRef = argValue(argv, '--base-ref');
+  if (!baseRef) {
+    process.stderr.write(
+      'usage: classify-changed-paths.mjs --base-ref <ref> [--head <rev>]\n' +
+        'Classifies a PR as code vs documentation-only. Prints `code=true|false`.\n',
+    );
+    process.exitCode = 1;
+    return undefined;
+  }
+
+  const head = argValue(argv, '--head') ?? 'HEAD';
+  const result = classifyRange({ baseRef, head });
+
+  write(`merge base(s) vs ${baseRef}:\n`);
+  for (const base of result.bases) write(`  ${base}\n`);
+  if (result.error) write(`::error::changes: ${result.error} ${result.reason}\n`);
+  else {
+    write('changed files:\n');
+    for (const file of result.files) write(`  ${file}\n`);
+    write(`→ ${result.reason}\n`);
+  }
+  write(`code=${result.code}\n`);
+
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `code=${result.code}\n`);
+  }
+  return result;
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

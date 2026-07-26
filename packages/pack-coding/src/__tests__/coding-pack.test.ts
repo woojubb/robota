@@ -100,6 +100,32 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
     expect(result.error).toContain('outside the working directory');
   });
 
+  // SEC-007 — the reachability floor. Glob and Grep were registered as MODULE-LEVEL SINGLETONS here,
+  // which are context-free by construction: this pack made `cwd` required so the file-tool guard
+  // could not be disarmed by omission, and then contributed two tools that could enumerate (and, in
+  // Grep's `content` mode, READ) anywhere on the host. Asserting the containment through the PACK,
+  // not through the tool factory, is what pins that the fix is actually wired up.
+  it('DENIES a Glob rooted outside the working directory (SEC-007)', async () => {
+    const result = await invoke(createCodingPack({ cwd: CWD }), 'Glob', {
+      pattern: '*',
+      path: '/etc',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('outside the working directory');
+  });
+
+  it('DENIES a Grep rooted outside the working directory (SEC-007)', async () => {
+    const result = await invoke(createCodingPack({ cwd: CWD }), 'Grep', {
+      pattern: 'root',
+      path: '/etc',
+      outputMode: 'content',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('outside the working directory');
+  });
+
   it('scopes each pack instance to ITS OWN cwd — two packs do not share a scope', async () => {
     const other = await invoke(createCodingPack({ cwd: '/tmp/pack-coding-other' }), 'Read', {
       filePath: `${CWD}/inside.txt`,

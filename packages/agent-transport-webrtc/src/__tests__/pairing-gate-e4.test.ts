@@ -1,6 +1,6 @@
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { PairingGate } from '../pairing-gate.js';
 

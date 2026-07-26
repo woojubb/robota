@@ -14,6 +14,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "types": ["jest", "node"],
     "jsx": "preserve",
     "incremental": true,
     "plugins": [

@@ -6,8 +6,9 @@
     "declarationMap": true,
     "sourceMap": true,
     "skipLibCheck": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": false,
+    "types": ["node"],
     "noEmit": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

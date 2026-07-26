@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PerformancePlugin } from '../performance-plugin';
-import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
+import { ConfigurationError } from '@robota-sdk/agent-core';
 
 describe('PerformancePlugin', () => {
   let plugin: PerformancePlugin;

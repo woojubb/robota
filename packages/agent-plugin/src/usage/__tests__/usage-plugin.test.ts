@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { UsagePlugin } from '../usage-plugin';
-import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
+import { ConfigurationError } from '@robota-sdk/agent-core';
 
 describe('UsagePlugin', () => {
   let plugin: UsagePlugin;

@@ -8,7 +8,7 @@
  * `~/.robota` means control of the host process, which IS the agent. The device pins this host's PUBLIC key
  * at first pair and verifies it on every reconnect (rogue-host defense).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -47,17 +47,37 @@ async function derive(keyPair: CryptoKeyPair): Promise<IHostIdentity> {
 }
 
 /**
- * Load the host identity from `filePath`, or generate + persist a fresh one on first run. The file is written
- * `0600`. A malformed file **throws** (fail-fast) rather than silently minting a new identity — a new
- * identity would force every trusted device to re-pair, so surfacing corruption is the safer failure.
+ * Load the host identity from `filePath`, or generate + persist a fresh one on first run. The file is created
+ * exclusively (`wx` → `O_EXCL`) with mode `0600`. A malformed file **throws** (fail-fast) rather than silently
+ * minting a new identity — a new identity would force every trusted device to re-pair, so surfacing corruption
+ * is the safer failure.
+ *
+ * The exclusive create is what makes first-run safe against a concurrent second run. `existsSync` + `writeFile`
+ * is a TOCTOU pair: if the file appeared in between, (a) `mode` is applied only at CREATION, so the private key
+ * would be left at whatever mode the pre-existing file had, and (b) the write would clobber the identity that
+ * won the race — silently invalidating every device pinned to it. On `EEXIST` we therefore discard the identity
+ * we just generated and adopt the persisted one. The re-entry terminates: the file now exists, so the recursive
+ * call takes the load branch.
  */
 export async function loadOrCreateHostIdentity(
   filePath: string = defaultHostIdentityPath(),
 ): Promise<IHostIdentity> {
-  if (existsSync(filePath)) {
+  // Read first and treat ENOENT as "no identity yet", rather than `existsSync` + read. Two path
+  // lookups can disagree; one read cannot. It also keeps the corrupt-file fail-fast distinct from
+  // the absent-file case, which an existence check conflates with any other read failure.
+  let raw: string | undefined;
+  try {
+    raw = readFileSync(filePath, 'utf8');
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new Error(`remote host identity file is unreadable: ${filePath}`, { cause });
+    }
+  }
+
+  if (raw !== undefined) {
     let parsed: IHostIdentityFile;
     try {
-      parsed = JSON.parse(readFileSync(filePath, 'utf8')) as IHostIdentityFile;
+      parsed = JSON.parse(raw) as IHostIdentityFile;
     } catch (cause) {
       throw new Error(`remote host identity file is corrupt: ${filePath}`, { cause });
     }
@@ -70,6 +90,14 @@ export async function loadOrCreateHostIdentity(
   const keyPair = await generateIdentityKeyPair(true);
   const file: IHostIdentityFile = { version: 1, keyPair: await exportKeyPairJwk(keyPair) };
   mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(file, null, 2), { mode: 0o600 });
+  try {
+    writeFileSync(filePath, JSON.stringify(file, null, 2), { mode: 0o600, flag: 'wx' });
+  } catch (cause) {
+    // `EEXIST` is the lost-race signal from `O_EXCL`; anything else is a real write failure.
+    if (!(cause instanceof Error) || (cause as NodeJS.ErrnoException).code !== 'EEXIST') {
+      throw cause;
+    }
+    return loadOrCreateHostIdentity(filePath);
+  }
   return derive(keyPair);
 }

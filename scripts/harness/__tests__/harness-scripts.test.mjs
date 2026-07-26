@@ -152,11 +152,28 @@ describe('CI build workflow', () => {
     expect(content).toContain("runCommand('pnpm', ['typecheck'], workdir, options.dryRun)");
   });
 
-  it('keeps main PR duplicate jobs as fast successful no-ops', () => {
+  // INFRA-055 inverted this assertion. It used to require the "fast successful no-op" shape — a
+  // "Skip duplicate … for main PR" echo with every real step gated on `base_ref != 'main'` — which
+  // existed only because these four jobs were REQUIRED contexts on `protect-main` and so had to
+  // resolve rather than linger pending. Measured on promotion #1427 they reported 5s/5s/6s/3s of
+  // echo and branch protection reported green from jobs that deliberately did no work. The required
+  // list was moved to the jobs that verify (`promotion ancestry`, `main PR source guard`,
+  // `release-grade verification`), so the echo must NOT come back: a job that resolves rather than
+  // verifies is a lie encoded in YAML.
+  it('excludes the develop-side duplicate jobs on a main PR at the job level, not as echo steps', () => {
     const content = readFileSync('.github/workflows/ci.yml', 'utf8');
 
-    expect(content).toContain("github.base_ref == 'main'");
-    expect(content).toContain('covered by release-grade verification');
+    expect(content).not.toContain('covered by release-grade verification');
+    expect(content).not.toMatch(/name: Skip duplicate/);
+
+    for (const jobId of ['build', 'quality', 'scans', 'security-audit']) {
+      const jobIndex = content.indexOf(`\n  ${jobId}:\n`);
+      expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
+      const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));
+      expect(header, `${jobId} must be excluded on a main PR at the job level`).toContain(
+        "if: github.base_ref != 'main'",
+      );
+    }
   });
 
   it('detects dependency graph changes before the security scan (INFRA-038: osv-scanner, not the retired pnpm audit)', () => {

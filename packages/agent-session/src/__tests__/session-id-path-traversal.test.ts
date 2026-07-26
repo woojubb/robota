@@ -1,0 +1,127 @@
+/**
+ * SEC-006 — a session id is a PATH SEGMENT, and one caller supplies it from an untrusted source.
+ *
+ * `SessionStore.filePath(id)` is `join(baseDir, `${id}.json`)` with no validation, and
+ * `FileSessionLogger.log(sessionId, …)` is `join(logDir, `${sessionId}.jsonl`)` with no validation.
+ * `POST /api/playground/sessions` on `apps/agent-server` takes `resumeSessionId` straight from an
+ * unauthenticated HTTP body, checks only `typeof === 'string'`, and feeds it to `load()` — and the same
+ * value becomes the session's own id, so it also reaches `save()` (writeFileSync + renameSync) and the
+ * JSONL logger. A `../` id therefore reads AND writes outside the store directory.
+ *
+ * The CLI happened to be safe only because `--resume` resolves through `resolveSessionIdByIdOrName`,
+ * an existence-allowlist over `list()`. The HTTP handler bypasses that helper entirely. The guard
+ * belongs at the id boundary so every sink inherits it.
+ */
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { FileSessionLogger } from '../session-logger.js';
+import { SessionStore } from '../session-store.js';
+
+import type { ISessionRecord } from '../session-store.js';
+
+const TRAVERSAL_IDS = [
+  '../escaped',
+  '../../escaped',
+  'nested/../../escaped',
+  'sub/escaped',
+  '..\\escaped',
+  '/absolute',
+];
+
+function makeRecord(id: string): ISessionRecord {
+  return {
+    id,
+    messages: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as unknown as ISessionRecord;
+}
+
+describe('SessionStore — session id path traversal (SEC-006)', () => {
+  let root: string;
+  let baseDir: string;
+  let store: SessionStore;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'sec006-store-'));
+    baseDir = join(root, 'sessions');
+    store = new SessionStore(baseDir);
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each(TRAVERSAL_IDS)('save() rejects a traversing id (%s) and writes nothing outside', (id) => {
+    expect(() => store.save(makeRecord(id))).toThrow(/session id/i);
+    // nothing escaped into the parent of the store directory
+    const escaped = readdirSync(root).filter((f) => f !== 'sessions');
+    expect(escaped).toEqual([]);
+  });
+
+  it.each(TRAVERSAL_IDS)('load() rejects a traversing id (%s)', (id) => {
+    expect(() => store.load(id)).toThrow(/session id/i);
+  });
+
+  it.each(TRAVERSAL_IDS)('delete() rejects a traversing id (%s)', (id) => {
+    expect(() => store.delete(id)).toThrow(/session id/i);
+  });
+
+  it('load() cannot read a JSON file outside the store directory', () => {
+    writeFileSync(join(root, 'secret.json'), JSON.stringify({ id: 'secret', stolen: true }));
+    expect(() => store.load('../secret')).toThrow(/session id/i);
+  });
+
+  it('delete() cannot unlink a file outside the store directory', () => {
+    const victim = join(root, 'victim.json');
+    writeFileSync(victim, '{}');
+    expect(() => store.delete('../victim')).toThrow(/session id/i);
+    expect(existsSync(victim)).toBe(true);
+  });
+
+  it('getFilePath() rejects a traversing id', () => {
+    expect(() => store.getFilePath('../escaped')).toThrow(/session id/i);
+  });
+
+  it('still accepts the id shapes the app actually generates', () => {
+    for (const id of [
+      'session_1730000000000_abc123def',
+      crypto.randomUUID(),
+      'test-session',
+      'a',
+    ]) {
+      expect(() => store.save(makeRecord(id))).not.toThrow();
+      expect(store.load(id)?.id).toBe(id);
+    }
+  });
+});
+
+describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
+  let root: string;
+  let logDir: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'sec006-log-'));
+    logDir = join(root, 'logs');
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('does not append to a path outside the log directory', () => {
+    const logger = new FileSessionLogger(logDir);
+    // the logger swallows its own errors by design (logging must never break a session), so the
+    // observable contract is that NO file appears outside logDir
+    logger.log('../escaped', 'session_init', {});
+    expect(existsSync(join(root, 'escaped.jsonl'))).toBe(false);
+  });
+
+  it('still writes a normal session log', () => {
+    const logger = new FileSessionLogger(logDir);
+    logger.log('session_1730000000000_abc', 'session_init', {});
+    expect(existsSync(join(logDir, 'session_1730000000000_abc.jsonl'))).toBe(true);
+  });
+});

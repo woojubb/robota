@@ -30,7 +30,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
 - Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
-- Do not duplicate a stronger gate with a weaker one. If `pnpm harness:verify -- --base-ref <ref> --skip-record-check` or release-grade verification has already passed for the final diff, the pre-push hook may be treated as the final safety net rather than a separate manual command.
+- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — it runs the same `harness:verify` over the affected scopes, plus the build, the scan suite, the e2e suites and commitlint (INFRA-056). If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
@@ -49,6 +49,19 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   against the pre-fix state (revert the fix / run against the merge-base / defect-reproducing fixture), then
   PASS on the fix. A test that passes on both the buggy and fixed code is accidental-green and guards nothing.
   Owner rule + procedure: [tdd-and-planning.md](tdd-and-planning.md) "Prove the regression test RED".
+
+### Delegated Verification Claims
+
+- A "green" you did not observe is a **hypothesis, not a fact**. A verification result reported by a
+  delegated worker (a subagent, a script, a summary of a run you did not watch) does not satisfy any gate
+  in this file until the actor who will act on it has independently reproduced it.
+- Before staging, committing, pushing, or reporting delegated work as done, re-run the affected gates in
+  your own context — at minimum the CI-equivalent verification entry point named in
+  [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, plus
+  `pnpm install --frozen-lockfile` when the lockfile was touched.
+- This binds whoever consumes the claim, not only whoever invoked a delegation procedure. The pipeline
+  that applies it to one delegated mechanical change is
+  [delegated-refactor-green-gate](../skills/delegated-refactor-green-gate/SKILL.md).
 
 ### Headless CLI Verification Requirement
 
@@ -85,11 +98,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Harness Verification Requirement
 
 - After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
-- Run the following in order:
-  1. `pnpm build` — full monorepo build must pass
-  2. `pnpm test` — all tests must pass with zero failures
-  3. `pnpm harness:scan` — consistency, specs, docs structure check
-  4. `pnpm typecheck` — TypeScript strict mode verification
-- If any step fails, fix the issue before proceeding.
+- Run the CI-equivalent verification entry point named in [git-branch.md](git-branch.md) → Clean
+  Working Tree Before Every Commit and Push. It runs the build, the affected packages' tests, the
+  scan suite and typecheck as ordered stages, and reports which required contexts it could not run.
+  Do not substitute a hand-written list of those commands: a second list is what drifts (INFRA-056).
+- For release prep — a promotion to `main` — run `pnpm harness:verify:release`, which is what the
+  `release-grade verification` required check executes.
+- If any stage fails, fix the issue before proceeding.
 - The harness results must be reported with counts (total tests, failures, build status).
 - This is a blocking gate — no merge to `main` or `release/*` without harness pass.

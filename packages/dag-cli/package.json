@@ -2,7 +2,7 @@
   "name": "@robota-sdk/dag-cli",
   "version": "3.0.0-beta.63",
   "private": true,
-  "description": "DAG for AI agents — build and run AI pipelines via MCP or CLI",
+  "description": "DAG for AI agents \u2014 build and run AI pipelines via MCP or CLI",
   "type": "module",
   "bin": {
     "robota-dag": "./dist/node/bin.js"
@@ -33,7 +33,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
@@ -63,6 +63,7 @@
     "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-provider-defaults": "workspace:*",
     "@robota-sdk/dag-adapters-local": "workspace:*",
     "@robota-sdk/dag-builder": "workspace:*",

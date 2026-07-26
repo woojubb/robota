@@ -1,5 +1,3 @@
-import { AddressInfo } from 'node:net';
-
 import { WebSocket } from 'ws';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 

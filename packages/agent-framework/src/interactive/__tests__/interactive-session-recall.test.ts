@@ -51,7 +51,6 @@ function createProvider(): { provider: IAIProvider; calls: TUniversalMessage[][]
 function createFakeStore(
   recall: (query: string, budget: IMemoryBudget) => Promise<IMemoryRetrievalResult>,
 ): IMemoryStore {
-  const empty = { content: '', references: [], truncated: false } as IMemoryRetrievalResult;
   return {
     loadStartupMemory: async () => ({ content: '', references: [] }),
     list: async () => ({ topics: [], indexPath: '', hasIndex: false }),

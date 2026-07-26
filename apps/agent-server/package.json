@@ -30,7 +30,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "clean": "rm -rf dist lib"
   },
   "dependencies": {

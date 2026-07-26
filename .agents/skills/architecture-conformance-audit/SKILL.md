@@ -9,10 +9,22 @@ The conformance audit is owned by the **agent loop**, not by a prose skill chain
 names the two layers; every judgement lives in the agents (see
 [enforcement-architecture.md](../../rules/enforcement-architecture.md) — no skill-tree tiers).
 
-1. **Mechanical floor.** Run the conformance scan — `pnpm harness:conformance` (see the
-   `harness:*` scripts in the root `package.json` for the current name) plus `pnpm harness:scan`.
-   Exit 0 = conformant; capture the JSON summary verbatim. For just the ground-truth dependency
-   edge set, use [dependency-graph-extraction](../dependency-graph-extraction/SKILL.md).
+1. **Mechanical floor.** This step is deliberately concrete: it is the only part of the audit that must
+   be _reproducible byte-for-byte_ by whoever re-runs it, so the commands and output markers are named
+   literally rather than pointed at (per the neutrality note in
+   [harness-composition-design.md](../../specs/harness-composition-design.md)).
+   - Run the conformance scan — `pnpm harness:conformance` (see the `harness:*` scripts in the root
+     `package.json` for the current name). Exit 0 = conformant; capture its exit code and the JSON
+     summary printed between `CONFORMANCE_JSON_BEGIN`/`END` **verbatim**.
+   - Run `pnpm harness:scan` and capture its **full** output as the consistency baseline for this audit.
+   - Derive the dependency edge set from the manifests — for each workspace package manifest, keep the
+     workspace-internal entries of `dependencies` and `peerDependencies` and emit one `name → [deps]`
+     line per package. That the manifests, not any document, are the ground truth is a rule owned by
+     [.agents/project-structure.md](../../project-structure.md) (which also owns the package listing and
+     the dependency-direction rules the scan enforces).
+
+   This step assigns no verdicts — it produces the input step 2 diffs the documents against.
+
 2. **Agent loop.** Dispatch the [architecture-refresh](../architecture-refresh/SKILL.md) pipeline:
    `architecture-conformance-auditor` (doc↔code claim verdicts — HOLDS/DRIFT/VIOLATION/PHANTOM/
    UNDOCUMENTED — with findings + `ACTIONABLE FINDINGS: <n>`) and `architecture-auditor`

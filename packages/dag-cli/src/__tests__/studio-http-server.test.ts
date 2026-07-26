@@ -157,7 +157,12 @@ describe('startStudioServer', () => {
   // OPTIONS — CORS preflight
   // -------------------------------------------------------------------------
 
-  it('OPTIONS returns 204 with CORS headers', async () => {
+  // SEC-006: this test previously asserted `access-control-allow-origin === '*'`, which ENCODED the
+  // vulnerability — the wildcard let any page the developer visited call this API cross-origin and read
+  // the response (including executing an arbitrary DAG via POST /api/run). The studio UI is served from
+  // `/` on this same origin, so it never needed a CORS grant. The preflight still answers 204, but with
+  // no `Access-Control-*` headers, so the browser blocks the cross-origin request.
+  it('OPTIONS returns 204 without a wildcard CORS grant', async () => {
     const result = await makeRequest({
       hostname: '127.0.0.1',
       port,
@@ -165,7 +170,7 @@ describe('startStudioServer', () => {
       method: 'OPTIONS',
     });
     expect(result.status).toBe(204);
-    expect(result.headers['access-control-allow-origin']).toBe('*');
+    expect(result.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   // -------------------------------------------------------------------------

@@ -33,13 +33,24 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
 const SKILLS_INDEX = path.join(WORKSPACE_ROOT, '.agents/skills/index.md');
 
-/** The closed vocabulary of terminal machine-signals an agent may declare. */
+/**
+ * The closed vocabulary of terminal machine-signals an agent may declare.
+ *
+ * Adding a token here is what makes an agent able to DECLARE it in `signal:` frontmatter — an
+ * unregistered token fails this guard, so an agent that emits one has to omit the field, and the
+ * orchestration map then records a signal nothing can mechanically check. The last three were
+ * shipped by HARNESS-049 increments that could not edit `scripts/**` (file ownership) and so were
+ * left unregistered; registered here (INFRA-048-D).
+ */
 export const CLOSED_SIGNAL_VOCAB = new Set([
   'ACTIONABLE FINDINGS',
   'REVIEW VERDICT',
   'MERGE VERIFIED',
   'DECOMPOSITION',
   'PRIOR_ART_RESEARCH',
+  'CI TRIAGE',
+  'GATE VERDICT',
+  'SCENARIO DRAFTED',
 ]);
 
 const EDIT_TOOLS = ['Edit', 'Write'];

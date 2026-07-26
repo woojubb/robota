@@ -112,7 +112,7 @@ describe('createRtcSignalingClient (REMOTE-009)', () => {
   });
 
   it('a close before joined is an error; an intentional close() is not', () => {
-    const { socket, onError, client } = setup();
+    const { socket, onError } = setup();
     socket.open();
     // close before a joined frame → error
     socket.onclose?.({});

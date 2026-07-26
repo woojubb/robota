@@ -9,12 +9,16 @@ vi.mock('../commands/run.js', () => ({
   applyEnvFile: vi.fn().mockResolvedValue(undefined),
 }));
 
+// SEC: the browser must be opened via `spawn` with an ARGV VECTOR (no shell string concatenation),
+// so a crafted file path can never be interpreted as shell syntax.
 vi.mock('node:child_process', () => ({
-  exec: vi.fn((_cmd: string, cb: () => void) => {
-    cb();
-  }),
+  spawn: vi.fn(() => ({
+    on: vi.fn(),
+    unref: vi.fn(),
+  })),
 }));
 
+import { spawn } from 'node:child_process';
 import { studioCommand } from '../commands/studio.js';
 import { startStudioServer } from '../studio/http-server.js';
 
@@ -40,6 +44,7 @@ function makeIo(): IDagCliIo & { writes: string[] } {
 
 describe('studioCommand', () => {
   beforeEach(() => {
+    vi.mocked(spawn).mockClear();
     vi.mocked(startStudioServer).mockResolvedValue({ port: 7777 } as never);
   });
 
@@ -83,6 +88,46 @@ describe('studioCommand', () => {
     const code = await studioCommand(['--port', '99999'], { io });
     expect(code).toBe(1);
     expect(io.writes.join('')).toContain('--port must be a valid port number');
+  });
+
+  // SEC: the browser-open must not build a shell command string. The URL (which embeds a
+  // user-supplied file path) has to arrive as its own argv element, never concatenated into a
+  // command line that a shell would parse.
+  it('opens the browser with the URL as a separate argv element, not a shell string', async () => {
+    const io = makeIo();
+    fireSigintNextTick();
+    await studioCommand([], { io });
+
+    expect(spawn).toHaveBeenCalledTimes(1);
+    const [command, args] = vi.mocked(spawn).mock.calls[0] as unknown as [string, string[]];
+    const url = 'http://127.0.0.1:7777/';
+
+    // The command is a bare executable name — it must not carry the URL or any quoting.
+    expect(command).not.toContain(url);
+    expect(command).not.toContain(' ');
+    expect(command).not.toContain('"');
+
+    // The URL is its own argv element, byte-for-byte, never embedded in a larger string.
+    expect(Array.isArray(args)).toBe(true);
+    expect(args).toContain(url);
+    for (const arg of args) {
+      expect(arg).not.toContain('"');
+    }
+  });
+
+  it('passes a shell-metacharacter file path as an inert argv element', async () => {
+    const io = makeIo();
+    fireSigintNextTick();
+    await studioCommand(['a";touch /tmp/dag-studio-pwned;"b.dag.json'], { io });
+
+    expect(spawn).toHaveBeenCalledTimes(1);
+    const [command, args] = vi.mocked(spawn).mock.calls[0] as unknown as [string, string[]];
+    expect(command).not.toContain(';');
+    for (const arg of args) {
+      expect(arg).not.toContain(';touch ');
+    }
+    // The URL element is the last argument and is a single, complete URL.
+    expect(args[args.length - 1]).toMatch(/^http:\/\/127\.0\.0\.1:7777\/\?file=/);
   });
 
   it('returns failure when startStudioServer throws', async () => {

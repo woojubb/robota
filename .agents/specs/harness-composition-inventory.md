@@ -46,6 +46,45 @@ files. Anyone expecting a sweeping reorganisation should read that as the headli
 Of the 5 `role` sections, **only 3 distinct agent files are implied**, and one of those is an
 extraction of an existing skill rather than a new role. See [§3](#3-reuse-check).
 
+## Is this inventory trustworthy? — the four-increment reconciliation (2026-07-26)
+
+All four `HARNESS-049` increments have now landed, and each re-derived its rule's ledger from the live
+file. Here is what the four re-derivations measured against what this document originally claimed:
+
+| Rule                   | §7 claimed | Re-derived by the increment | Review round added | Final   | Ratio     |
+| ---------------------- | ---------- | --------------------------- | ------------------ | ------- | --------- |
+| `publish.md`           | 39         | 40                          | —                  | 40      | 1.03×     |
+| `backlog-execution.md` | 44         | 50                          | +1                 | 51      | 1.16×     |
+| `git-branch.md`        | 35         | 77                          | +7                 | 84      | 2.40×     |
+| `spec-workflow.md`     | 35         | 91                          | +0                 | 91      | 2.60×     |
+| **Total**              | **153**    | **258**                     | **+8**             | **266** | **1.74×** |
+
+**Verdict: the classification is trustworthy; the ledger is not, and should be regenerated rather than
+patched.** They failed differently and the distinction matters:
+
+- **§§1–6 and §9 held up well.** Every section's `invariant`/`procedure`/`role` label survived; the
+  destinations were right in three of four rules; the one refuted prediction (§5.4) was refuted
+  _correctly_, and §5.2's partial refutation and §9.4's resolution improved on the original reasoning
+  rather than contradicting it. The routing-gap list (§6) was accurate — all 14 were real and 12 are now
+  closed. Nothing here needs regenerating.
+- **§7 undercounted every rule, by 3% to 160%, and the error is systematic, not random.** Its rows track
+  **section topics**, so a section carrying six independent mandates contributed one row. Two whole
+  CLASSES of statement have no rows at all: **enforcement and override facts** (env-var overrides, hook
+  names, scan triggers, exit-code contracts — predicted by increment 3, confirmed by increment 4) and
+  **subordinate clauses of a headline mandate** (the consequence sentence, the second split trigger, the
+  scope qualifier). Correcting it row-by-row is not worth it: at 1.74× overall the arithmetic no longer
+  supports any claim built on it, and the counting convention itself needs stating up front (see §7.3 on
+  how tables are counted) before a regeneration would be reproducible.
+- **The review round is load-bearing, but its yield shifted.** It caught real ledger misses in
+  increments 2 and 3 — including a live safety regression the increment itself had introduced. In
+  increment 4 it found **zero** missing statements (all 11 of its candidates were already among the 91),
+  and instead caught two **additions of force** the loss-only ledger is structurally blind to. That is
+  the method's next gap, now recorded as a working agreement in the design doc.
+
+**If §7 is regenerated**, do it mechanically-assisted from the live files with the convention stated
+first, and add an "added / strengthened" column — the four increments show that a refactor's risk is
+not only what it drops.
+
 ---
 
 ## 1. The four large rules
@@ -268,6 +307,12 @@ or disappears.
 most-used guardian is the one with no agent file. Phase 2 should treat it as in scope even though
 the item lists only three skills.
 
+> **RESOLVED across increments 2 and 4.** Increment 2 created `.claude/agents/backlog-gate-guard.md`
+> and left the criteria in the skill as a catalogue. Increment 4 finished the job: a catalogue is not a
+> skill (nothing invokes it — `backlog-pipeline` passes it as a _data input_), so it moved to
+> [`.agents/specs/gate-catalogue.md`](gate-catalogue.md) and the design doc now names **fact catalogue**
+> as a fourth artifact kind. The path in the paragraph above is historical.
+
 ### `delegated-refactor-green-gate` (56 lines)
 
 Two roles are inlined:
@@ -302,6 +347,17 @@ commands with no branching — it is not a pipeline at all. **Recommendation: fo
 `architecture-conformance-audit` as step 1**, or into the `architecture-conformance-auditor` agent's
 own procedure, and delete the file. Creating an agent for it would be worse than the status quo.
 
+> **RESOLVED in increment 5**, by the recommended path, with the artifact kind now named. Under the
+> four-kind test the file was a **fact catalogue**: an enumeration a skill consults (which manifests hold
+> the edge set, which commands are the mechanical guards, what their output markers are), stating no
+> mandate of its own — delete it and no _force_ is lost, only an enumeration whose force lives in
+> `project-structure.md` and in `architecture-conformance-audit`'s own step 1. It did **not** become a
+> standalone `.agents/specs/*.md` catalogue: two of its three facts were already duplicated verbatim in
+> its only caller, so a new file would have manufactured an artifact _and_ left the duplication standing.
+> The one non-duplicated fact (how the workspace-internal edge set is derived) moved into that step and
+> the file was deleted. The `INFRA-003` records that count it among "all 5 skills" are archival and were
+> deliberately left untouched.
+
 ---
 
 ## 5. Nesting proposal
@@ -326,7 +382,27 @@ Three phases, each an ordered pipeline with its own gates and its own failure ro
 "a phase is itself a pipeline" case the design describes. A single flat skill would be ~27 steps
 with three unrelated gate vocabularies.
 
-### 5.2 `git-branch.md` — **confirmed**, but the tree is mostly already built
+### 5.2 `git-branch.md` — **partly refuted** (see the increment-3 correction below)
+
+> **Superseded 2026-07-26 by phase 2 increment 3.** Only `post-merge-cycle` was built. The
+> `branch-guard` → "branch-lifecycle" promotion and its `branch-creation` phase were **refuted**:
+> re-growing `branch-guard` would undo `HARNESS-DIET-005`'s deliberate 144 → 33-line cut to a pointer;
+> branch creation is invariants plus a mechanical hook (`.claude/hooks/branch-guard.sh`), not a pipeline;
+> and its only genuinely ordered part — the base reset — is `post-merge-cycle`'s own last phase, so a
+> `branch-creation` skill would have duplicated it. The `Pre-Merge Code-Review Gate` row was also
+> narrowed: only steps 1–2 (wait-for-green, scope the review to the diff) moved to
+> `pr-review-orchestration`; the taxonomy, the merge gate, and the scope table are invariants and stayed.
+> The tree actually built:
+>
+> ```
+> post-merge-cycle                           (NEW top-level, shared)
+>  ├─ merge-verifier                         (existing agent, reused unchanged)
+>  ├─ branch deletion                        (step)
+>  └─ next-branch base reset                 (step)
+> dispatched by: pr-review-orchestration (merge path) + worktree-parallel-orchestration (step 5)
+> ```
+>
+> The original hypothesis is preserved below for the record.
 
 ```
 branch-guard                               (existing pointer stub → promote to branch-lifecycle)
@@ -385,6 +461,26 @@ procedure, keep 14 invariant sections, and resolve the two duplications flagged 
 genuinely different kind of work from the other three, and worth saying plainly rather than forcing
 a new skill into existence to match the prediction.
 
+> **CONFIRMED by increment 4 — the only phase-1 nesting prediction that survived unamended.** Zero new
+> skills, zero new agents. But phase 1 was wrong about two structural things _inside_ the refutation:
+>
+> - It routed § ABSOLUTE RULE's four-step wrong-SPEC exception to `spec-code-conformance`, which
+>   **explicitly disclaims spec correction** ("If the spec appears wrong, that is a separate concern
+>   handled by other workflows"). The real owner is `spec-writing-standard` **Mode C** (drift recovery).
+>   The four steps stayed in the rule (they are the exception's conditions, invariant-shaped) and both
+>   documents gained the interlock — Mode C had read as a flat contradiction of the ABSOLUTE RULE
+>   ("fix the spec to match the current code") with neither naming the other. § Live Spec Policy pointed
+>   at the same wrong skill and now points at Mode C.
+> - It missed a duplication entirely: the rule's change→section table and `spec-writing-standard`
+>   Mode B Step 1's table are the same mapping, already drifted in wording. Resolved with the rule
+>   owning the seven mandate rows and the skill keeping its two authoring-only rows, labelled as such.
+>
+> § HARD GATE's five-step sequence was also **refuted** as an extraction: its step 1 (Architecture
+> review) has no owning skill anywhere, and under "move, never duplicate" content cannot be relocated
+> into a destination that does not exist. § User Request Implementation Gate's four-step sequence _was_
+> removed, because `user-request-gate` Phases 1–4 already own it end to end. Destination availability,
+> not "the items name their owners", is what separates the two.
+
 ---
 
 ## 6. Routing gaps
@@ -423,6 +519,11 @@ the four large rules, so phase 2 can prove no behavioural loss by showing each o
 home. **153 statements.** A statement whose home is "stays" must remain textually in the rule; a
 statement pointing at a skill or agent must be _referenced_ from the rule, never duplicated there.
 
+> ⚠️ **SUPERSEDED BY MEASUREMENT (2026-07-26). All four rules were re-derived; the real total is 266,
+> not 153.** See [the four-increment reconciliation](#is-this-inventory-trustworthy--the-four-increment-reconciliation-2026-07-26)
+> for the per-rule figures and the verdict (regenerate §7; keep §§1–6/§9). The counts below are kept
+> for traceability and are lower bounds, not manifests.
+>
 > ⚠️ **This ledger is known to UNDERCOUNT — audit it against the live rule before each increment.**
 > The `publish.md` increment (#1423) found **40** mandatory statements where this ledger listed 39: it
 > omitted the `REL-022` invariant that a version-bump PR must carry a _regenerated_ changelog. The
@@ -483,7 +584,24 @@ statement pointing at a skill or agent must be _referenced_ from the rule, never
 | BE-43 | An orchestration skill must stay thin — sequence, gate, record; never duplicate or redefine             | **relocate** to `enforcement-architecture.md`                                  |
 | BE-44 | Each of the eleven stop conditions halts the work                                                       | stays; terminate-edges in the orchestrator                                     |
 
-### 7.2 `git-branch.md` — 35 invariants
+### 7.2 `git-branch.md` — 35 invariants (**re-derived 2026-07-26: 84**)
+
+> **The undercount here was the largest of the four rules.** Increment 3 re-derived this rule statement by
+> statement against the live file and found **77** mandatory statements, not 35 — and its review round then
+> found **7 more, for 84** — of which **26+ have no row below at any granularity** and 16 are subordinate
+> clauses folded into a headline row. One of the seven was the single statement the increment was actually
+> relocating, which is the sharpest form of the failure: **the statement a ledger is most likely to omit is
+> the one the change is about to move.** Re-derive, then re-check the ledger specifically against the diff.
+> The pattern
+> increment 2 identified is confirmed and is worse in prose-dense sections: § Commit Cadence, § PR
+> Batching, § Merge Landing Verification and § Pre-Merge Code-Review Gate each contributed **one** row here
+> while carrying 4–6 independent mandates apiece. Examples this table has no row for: "a filling context
+> window is not a reason to stop implementing"; `delete_branch_on_merge` is deliberately off; "never run
+> `gh pr merge` and the deletion in one blind sequence"; "one conventional commit per logical step within
+> the PR"; "no merge — admin or otherwise — before the gate completes"; "never treat `pending` or
+> `not-required-skipped` as pass". **Treat every count in §7 as a lower bound, and re-derive before
+> extracting.** Increment 3's full 77-row ledger, with each statement's post-change home, is recorded in
+> the `HARNESS-049` backlog item.
 
 | ID    | Invariant                                                                                                   | Post-change home                                      |
 | ----- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -523,7 +641,29 @@ statement pointing at a skill or agent must be _referenced_ from the rule, never
 | GB-34 | Scope: code-changing PRs; doc-only exempt; mixed PRs in scope                                               | stays                                                 |
 | GB-35 | Release-branch changes are not deployed until merged to `main`                                              | stays (ownership questioned — §9)                     |
 
-### 7.3 `spec-workflow.md` — 35 invariants
+### 7.3 `spec-workflow.md` — 35 invariants (**re-derived 2026-07-26: 91**)
+
+> **Increment 4 reconciliation — 35 → 91, the largest ratio of the four (2.6×).** Re-derived from the
+> live file at the granularity increments 2 and 3 settled on: **one row per independent mandate**, not
+> per section topic. The confirmed pattern held again — a section with six independent mandates
+> contributed one row. Statements with no row at any granularity include: the User Request gate's
+> zero-exception clause ("regardless of how the request is phrased"); "No exceptions. One-line fixes,
+> evaluation findings, and 'obvious' improvements all require this gate"; **every enforcement fact** —
+> the `.claude/hooks/spec-first-gate.sh` UserPromptSubmit hook, `pnpm harness:conformance`'s exit-code
+> contract, and its `deps`-scan trigger that gates every PR and release (increment 3 predicted exactly
+> this gap and it was there); the whole four-item "Authority order by question" list; "Document
+> authority is determined by path and role, not by a broad word in the filename"; the three named
+> structural documents; the package-local `docs/ARCHITECTURE-MAP.md` mandate; three of the five content
+> promotion rules; and both follow-on clauses of Cross-Package SPEC Reference Policy.
+>
+> **Counting convention, stated explicitly because it is this rule's blind spot.** `spec-workflow.md`
+> is table-dense where `git-branch.md` was prose-dense, so the convention decides the number. **A table
+> counts as ONE statement** — the mandate is "the table binds", and its rows are that mandate's body.
+> Counted per-obligation instead, the change→section table (7 rows), the status/folder table (7 rows)
+> and the Document Authority table (5 rows × 3 obligation columns) alone would add ~31. The coarse
+> convention has a real cost, surfaced by the increment-4 review: **a table-coarse ledger cannot
+> register a mandate change that is a table-ROW addition**, which is exactly what this increment
+> proposed and then reverted (see the design doc's "no unexamined behavioral GAIN" agreement).
 
 | ID    | Invariant                                                                                                                             | Post-change home                                                         |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -702,11 +842,41 @@ is four bullets and no agent would exist to hold it alone — extracting it woul
 than its own frontmatter. Kept as `invariant` with the tension recorded. If a
 `branch-cleanup` worker ever exists for another reason, this is its criteria.
 
+> **RESOLVED 2026-07-26 (increment 3), on a better reason than file size.** All four conditions are
+> **mechanically decidable from observable state**, so they are gate conditions the orchestrator
+> (`post-merge-cycle`) evaluates — not a verdict a role forms. The design doc now settles this as a general
+> corollary. They stay `invariant`; the door to a future `branch-cleanup` agent is closed, not deferred.
+
 **5. `git-branch.md` § Deployment — right content, wrong document.** Cloudflare Pages behaviour, the
 docs-deploy command, and release-branch deploy semantics are deployment topology, not git or branch
 policy. It is invariant either way, so nothing is at risk, but its owner should probably be
 `.agents/project-structure.md` or a deployment spec. Recorded as an ownership question, not a
 classification one.
+
+> **STILL OPEN after increment 3, deliberately.** The relocation was not attempted: the target document was
+> outside that increment's file ownership (the BE-42/BE-43 precedent), and the section's literal
+> "Cloudflare Pages (blog, docs) deploys automatically when `main` is updated" is quoted as evidence by
+> `ARCH-AUDIT-004` and two `.design/architecture-audit/` documents — so a move must be a deliberate change
+> that updates them, not a side effect of a git-rule refactor.
+
+> **RESOLVED 2026-07-26 (increment 4) — the relocation is REFUTED; it is a deletion, not a move.**
+> Three findings settle it:
+>
+> 1. [`architecture-map/apps-and-deployment.md`](architecture-map/apps-and-deployment.md) **already
+>    owns** bullets 1–2 (Cloudflare Pages auto-deploy from `main` for blog + docs; the manual
+>    `deploy-cloudflare-pages.mjs` upload). They are duplication to delete, not content to move.
+> 2. Bullets 3–4 ("release-branch changes are not deployed until merged to `main`"; "create a PR from
+>    the release branch to `main` and ask the user to merge") are **branch policy** and belong exactly
+>    where they are. § Deployment shrinks; it does not relocate.
+> 3. All three quoting documents are **archival** — a `completed/` backlog item and two dated
+>    architecture-audit records. Rewriting them would falsify the historical record, so the "must update
+>    the documents that quote these sentences" instruction in the live rule is itself wrong.
+>
+> **Reported, not fixed (an actual bug, and the increment-3 note has the stale side backwards):**
+> `git-branch.md` and `scripts/docs/deploy-cloudflare-pages.mjs` both target `apps/docs/.vitepress/dist`;
+> `apps/docs` has **no `.vitepress` directory** and builds with `next build && pagefind --site out`, so
+> `pnpm docs:deploy` cannot succeed. `apps-and-deployment.md` is the correct side. Fixing it means
+> editing `scripts/**` and `git-branch.md`, both outside increment 4's ownership.
 
 **6. `spec-workflow.md` § Status levels / Lifecycle folders — duplicated fact, two owners.** The
 status vocabulary (`draft → review-ready → … → done`) and the folder mapping appear both here and as
@@ -714,6 +884,26 @@ the state-machine table in `backlog-pipeline/SKILL.md`. `AGENTS.md` requires exa
 fact. The skill's table is richer (it carries next-action and folder-move columns), which argues for
 the skill owning it and the rule pointing — but that puts a _fact_ in a skill, which the design's
 neutrality section argues against. Genuinely unresolved; flagged for phase 2.
+
+> **RESOLVED 2026-07-26 (increment 4), in the rule's favour — and richness was the wrong tiebreaker.**
+> The rule now owns a full status ↔ folder table under
+> `spec-workflow.md` > **Spec-Document Status and Lifecycle Folders**; `backlog-pipeline` dropped its
+> `Folder` and `Folder move on PASS` columns and **derives** every move ("go to the folder the rule maps
+> the NEXT status to; same folder ⇒ no move"), which was verified to resolve all six transitions.
+> The skill's copy being richer argued for the skill only if richness settles ownership; it does not —
+> the rule absorbed what was missing (`rejected`, and the `in-progress`/`verifying` both-map-to-`active/`
+> fact the old arrow-list actively obscured) and the duplication is gone. **Verified before merging:**
+> this is a different vocabulary from `backlog-execution.md` > Status Invariants (spec-doc lifecycle vs
+> `.agents/backlog/` item placement); they share the tokens `in-progress`/`done` but not their meaning,
+> so neither overrides the other, and the rule now says so.
+>
+> **Reported, not closed:** there is **no mechanical floor** asserting folder ↔ status agreement
+> (`check-spec-doc-frontmatter.mjs` validates the status enum only), and six documents in
+> `spec-docs/done/` currently violate it (`INFRA-016`, `INFRA-019`, `INFRA-020` at `draft`; `PM-026`,
+> `PM-030` at `approved`; `DATA-002` at `in-progress`). Increment 4 therefore kept the pre-existing
+> force — NON-COMPLIANCE **on the next gate run** — rather than promoting it to an unenforced
+> repo-wide assertion, which would have contradicted `enforcement-architecture.md` in the same PR that
+> strengthens it. `scripts/**` is outside the increment's ownership.
 
 **7. `publish.md` § Foundation Package Dependency Rule — a third copy of a dependency rule.**
 Dependency direction is owned by `.agents/project-structure.md` and mechanically checked by the
@@ -736,7 +926,8 @@ which is itself the argument for leaving it alone.
 **10. `dependency-graph-extraction` — a skill that is not a pipeline.** It has no branches, no gates,
 and no routing: three commands run unconditionally. By the design's definitions it is neither an
 orchestration skill (no control flow) nor an agent (no judgement). The honest classification is that
-it should not be a standalone artifact at all — see §4.
+it should not be a standalone artifact at all — see §4. **Resolved in increment 5:** it was a fact
+catalogue, folded into `architecture-conformance-audit` step 1 and deleted. This entry is historical.
 
 **11. Rules that should not change at all.** `frontend.md`, `code-quality.md`, `naming-style.md`,
 `testing-layering.md`, `memory-mirroring.md`, `common-mistakes.md`, and the three pointer stubs are
@@ -749,7 +940,10 @@ churn is not the goal.
 
 ## Revision log
 
-| Date       | Change                                                                                                                                                                                                                                                                                  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-26 | Created as `HARNESS-049` phase 1. 142 sections across 22 rule files classified (116 invariant / 21 procedure / 5 role); reuse check against the 14 existing agents; nesting trees for the four large rules; 14 routing gaps; 153-statement invariant ledger; sequencing recommendation. |
-| 2026-07-26 | Phase 2 increment 1 (`publish.md`, #1423) confirmed the nesting tree and step ranges, added a shared `ci-gate-watch` phase, and **found the invariant ledger undercounts** (40 vs 39 for `publish.md`) — ledger marked provisional, per-increment audit now required.                   |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-26 | Created as `HARNESS-049` phase 1. 142 sections across 22 rule files classified (116 invariant / 21 procedure / 5 role); reuse check against the 14 existing agents; nesting trees for the four large rules; 14 routing gaps; 153-statement invariant ledger; sequencing recommendation.                                                                                                                                                                                                                                                                                                                                                                               |
+| 2026-07-26 | Increment 4 reconciliation for `spec-workflow.md` and the **final four-increment verdict**. §5.4's refutation CONFIRMED (zero new skills/agents) with two phase-1 errors inside it corrected; §9.5 (§ Deployment) resolved as a **refutation** — it is duplication to delete plus branch policy that stays, not a relocation; §9.6 (status ↔ folder) resolved in the rule's favour with `backlog-pipeline` deriving every move. §7.3 re-derived **35 → 91** — the largest ratio of the four — and the table-counting convention is now stated. Added the "is this inventory trustworthy?" reconciliation: **classification trustworthy, ledger not — regenerate §7.** |
+| 2026-07-26 | Marked the invariant ledger **provisional** after increment 1's measured undercount.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-07-26 | Increment 3 reconciliation for `git-branch.md`. §5.2's tree **partly refuted** — only `post-merge-cycle` was built; the `branch-guard` promotion and its `branch-creation` phase were rejected with reasons. §7.2's ledger re-derived from the live file: **35 → 77** (26 statements had no row at any granularity), the largest undercount of the four rules; §7 counts are now explicitly lower bounds.                                                                                                                                                                                                                                                             |
+| 2026-07-26 | Phase 2 increment 1 (`publish.md`, #1423) confirmed the nesting tree and step ranges, added a shared `ci-gate-watch` phase, and **found the invariant ledger undercounts** (40 vs 39 for `publish.md`) — ledger marked provisional, per-increment audit now required.                                                                                                                                                                                                                                                                                                                                                                                                 |

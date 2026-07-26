@@ -1,0 +1,223 @@
+name: Review Gate
+
+# INFRA-048. The checks that gate a merge on `develop` produce no review feedback, and the two jobs
+# that do (`Claude review`, CodeQL `Analyze`) report `success` whether or not they found anything —
+# so an armed auto-merge carries the findings straight into the integration branch (#1409). This
+# job is the missing half: a DISTINCT check that READS the review output and reports the truth.
+#
+# It is deliberately NOT the reviewer itself. A reviewer's own pass/fail is model judgment and, as
+# INFRA-048 measured, a reviewer can report `success` without having run at all; a gate must be
+# something whose execution is verifiable.
+#
+# Severity split (see check-review-gate.mjs for the full rationale): only findings this PR
+# INTRODUCES at severity `error` / security-severity high|critical can block. Everything else is
+# printed and counted but never blocking, because a gate that went red on the standing backlog would
+# be bypassed within a day.
+#
+# The original note here claimed that backlog was "~100 alerts, all severity `note`". That was
+# measured without `--paginate`, so it read only the first page — which happened to be entirely
+# notes while 40 `high` alerts sat on page two. Corrected 2026-07-26: `develop` carries 84 open
+# alerts, 40 of them security-severity `high` (SEC-006 is triaging them). The severity split is
+# still the right design, but its justification is "a standing backlog exists", not "the backlog is
+# harmless". Re-measure with `--paginate` before citing a count here.
+#
+# Not-applicable (the #1436 correction). A docs-only PR never triggers CodeQL (`codeql.yml`
+# `paths-ignore`), so no analysis record is ever written for it. The first version of this gate read
+# that absence as "unreadable" and blocked #1436 — one backlog markdown file, zero code — for
+# 15 m 23 s, which is why the required-check entry had to be rolled back. The classification is NOT
+# re-derived here: it comes from `scripts/harness/classify-changed-paths.mjs`, the same module whose
+# verdict decides whether ci.yml's required build/test matrix runs. A PR can only be treated as
+# not-applicable by the rule that also skipped its entire code pipeline, and if that rule cannot
+# reach a verdict it answers `code=true` — so an undeterminable classification still fails closed.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    # `labeled`/`unlabeled` are included so applying the acknowledge label re-runs the gate rather
+    # than requiring a push.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: read
+  pull-requests: write
+
+jobs:
+  review-gate:
+    name: review-gate
+    runs-on: ubuntu-latest
+    steps:
+      # INFRA-050: `fetch-depth: 0`. The classify step below reads base-relative history (a merge
+      # base against `origin/<base>`), and a depth-limited checkout GRAFTS the ancestry, which would
+      # make that read fail — and a classification that cannot be determined answers `code=true`,
+      # sending every docs-only PR back into the 15-minute wait this change removes.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify this PR (code vs docs-only)
+        id: classify
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # THE SAME classifier ci.yml's `changes` job uses — one implementation, two callers, so
+          # the two cannot disagree about whether this PR contains code. Fail-closed by
+          # construction: no merge base, a failed diff or an empty file list all answer `code=true`.
+          node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
+
+      - name: Wait for the code-scanning analysis of this PR
+        # Skipped entirely when no code changed: there is nothing to wait for, and waiting is what
+        # cost #1436 fifteen minutes before it was blocked.
+        if: steps.classify.outputs.code == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # The gate must read a COMPLETED analysis. Polling here (rather than assuming) is what
+          # keeps "the analysis has not run yet" from being read as "the analysis found nothing".
+          #
+          # Two deadlines, because there are two different things being waited for:
+          #   - GRACE (5 min): no `Analyze` check run has been created AT ALL. CodeQL's check runs
+          #     appear within seconds of the PR event, so after five minutes the honest conclusion
+          #     is that no analysis was scheduled for a PR that does contain code. Concluding early
+          #     is NOT assuming success — this exit writes `analysis_complete=false` exactly like
+          #     the long timeout, and the gate blocks. It only stops the job from spending another
+          #     ten minutes to reach the same answer.
+          #   - DEADLINE (15 min): an analysis exists and is still running. That one is worth
+          #     waiting for, and the loop breaks the moment it completes.
+          start=$(date +%s)
+          grace=$(( start + 300 ))
+          deadline=$(( start + 900 ))
+          while :; do
+            # SEC-007: `/check-runs` is PAGINATED (30 per page by default) and this commit already
+            # carries 21 check runs. Read one page at a time, the `Analyze` runs could sit on page two
+            # — and then `total` is 0 and the grace branch below concludes "nothing analysed", or
+            # worse, a partial page makes `total == done_count` and the gate reports COMPLETE while an
+            # analysis is still running. Both read exactly like a legitimate answer.
+            #
+            # `github-api.mjs` paginates AND asserts the record count against the envelope's
+            # `total_count`, so a truncated read throws instead of returning a smaller number.
+            runs="$(node scripts/harness/github-api.mjs \
+                      "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                      --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
+            total="$(printf '%s' "$runs" | jq 'length')"
+            done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
+            echo "code-scanning analyses: ${done_count}/${total} completed"
+            if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
+              echo "analysis_complete=true" >> "$GITHUB_ENV"
+              break
+            fi
+            now=$(date +%s)
+            if [ "$total" -eq 0 ] && [ "$now" -ge "$grace" ]; then
+              # Deliberately NOT a pass: this PR changes code, and nothing analysed it.
+              echo "::error::review-gate: no code-scanning analysis was scheduled for ${HEAD_SHA} within 5 minutes, and this PR changes code. Nothing has been analysed, so nothing has been cleared."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              break
+            fi
+            if [ "$now" -ge "$deadline" ]; then
+              # Deliberately NOT a pass: an analysis that never completed has cleared nothing.
+              echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} did not complete within 15 minutes."
+              echo "analysis_complete=false" >> "$GITHUB_ENV"
+              break
+            fi
+            sleep 20
+          done
+
+      - name: Collect the review output
+        if: steps.classify.outputs.code == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # `UNAVAILABLE` is the fail-closed sentinel the decision module blocks on. Every failure
+          # path below writes it — none of them writes an empty list, which would read as "clean".
+          #
+          # An empty alert list is only meaningful if an analysis actually produced it. The alerts
+          # endpoint answers `[]` both for "this ref was analysed and is clean" and for "this ref
+          # was never analysed" — the same conflation this whole change exists to remove — so the
+          # analysis RECORD is checked first. (Observed live on #1434: the alerts query returned 0
+          # for the PR ref while `develop` carried 100; the analyses endpoint is what proves the
+          # zero is a real, diff-informed result rather than an absence.)
+          #
+          # allow-unpaginated: a single-record EXISTENCE probe — the only question asked of this
+          # response is `length != 0`, i.e. "was this ref analysed at all?". No count is derived from
+          # it, so page two could not change the answer.
+          analyses="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses?ref=refs/pull/${PR_NUMBER}/merge&per_page=1" \
+            --jq 'length' 2>/dev/null || echo 0)"
+          echo "code-scanning analyses recorded for refs/pull/${PR_NUMBER}/merge: ${analyses}"
+          if [ "${analysis_complete}" != "true" ] || [ "${analyses}" = "0" ]; then
+            echo "UNAVAILABLE" > pr-alerts.json
+          else
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/pull/${PR_NUMBER}/merge&per_page=100" \
+              > pr-alerts.json || echo "UNAVAILABLE" > pr-alerts.json
+          fi
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&ref=refs/heads/${BASE_REF}&per_page=100" \
+            > base-alerts.json || echo "UNAVAILABLE" > base-alerts.json
+          # SEC-007: `/labels` pages at 30. An acknowledge label that landed on page two would read as
+          # "the label is absent", silently disabling the one documented override this gate has.
+          #
+          # Through `github-api.mjs` rather than `gh api --paginate`, because `--paginate` applies
+          # `--jq` PER PAGE: two pages would emit two `a,b,c` lines, and the decision module splits on
+          # `,` only — so the labels either side of the newline would both be mangled into one token
+          # and lost. This reader merges the pages first and projects once.
+          node scripts/harness/github-api.mjs \
+            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            --jq '[.[].name] | join(",")' \
+            > pr-labels.txt || echo "" > pr-labels.txt
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CODE_CHANGED: ${{ steps.classify.outputs.code }}
+        run: |
+          # This step always runs — a gate that reports nothing when its inputs are missing is the
+          # INFRA-048 defect itself. `--code-changed` carries the classifier's verdict; only the
+          # literal `false` selects the not-applicable path, so an empty or unexpected value (the
+          # classify step having failed, say) takes the normal path and blocks on the missing alert
+          # files. When it IS `false` the alert files are not read, and were never written.
+          # No labels are needed on the not-applicable path: the acknowledge override only exists to
+          # overrule a block, and not-applicable never blocks.
+          labels=''
+          if [ -f pr-labels.txt ]; then labels="$(cat pr-labels.txt)"; fi
+          set +e
+          node scripts/harness/check-review-gate.mjs \
+            --code-changed "${CODE_CHANGED}" \
+            --alerts-file pr-alerts.json \
+            --base-alerts-file base-alerts.json \
+            --labels "$labels" | tee gate-report.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo '### Review gate'
+            echo
+            echo '```'
+            cat gate-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            # Until `review-gate` is listed in the branch ruleset's required checks, a red
+            # non-required check does NOT stop an armed auto-merge — which is the exact hole
+            # INFRA-048 is about. Disarming is the lever that works today; the ruleset entry is
+            # the durable one. `--disable-auto` is a no-op error when auto-merge was never armed.
+            gh pr merge --disable-auto "$PR_NUMBER" \
+              || echo "auto-merge was not armed; nothing to disarm."
+            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: BLOCKED** — auto-merge has been disarmed.
+
+          \`\`\`
+          $(cat gate-report.txt)
+          \`\`\`
+          EOF
+            echo "::error::review-gate blocked this PR. See the job summary."
+            exit 1
+          fi

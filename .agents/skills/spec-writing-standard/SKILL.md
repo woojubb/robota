@@ -67,19 +67,19 @@ not rewritten.
 
 ### Step 1 — Identify affected sections
 
-Use the table below to determine which sections need updating:
+Start from the **change → section** table in
+[`spec-workflow.md`](../../rules/spec-workflow.md) > Live Spec Policy. That table is the single owner
+of those rows, because it is simultaneously the list of changes that make a SPEC update **mandatory**
+— a second copy here would let the authoring guidance and the mandate drift apart, which it already
+had. Read it, and update exactly the sections it names.
 
-| What is changing in this PR                    | Section(s) to update                    |
-| ---------------------------------------------- | --------------------------------------- |
-| New or removed public export                   | Public API Surface                      |
-| New or changed type or interface               | Type Ownership                          |
-| New class or changed `implements`/`extends`    | Class Contract Registry                 |
-| New or changed error type or code              | Error Taxonomy                          |
-| New or changed lifecycle event                 | State Lifecycle / Event Architecture    |
-| Changed behavioral semantics                   | Architecture Overview, relevant section |
-| New extension point (abstract class, callback) | Extension Points                        |
-| Changed configuration options                  | Configuration                           |
-| Changed test strategy or coverage              | Test Strategy                           |
+Two further rows are **authoring guidance only, by design** — they route an edit you are already
+making, and are deliberately not triggers of the mandate above:
+
+| What is changing in this PR       | Section(s) to update |
+| --------------------------------- | -------------------- |
+| Changed configuration options     | Configuration        |
+| Changed test strategy or coverage | Test Strategy        |
 
 ### Step 2 — Read the current SPEC sections
 
@@ -112,7 +112,11 @@ split them into separate PRs unless the spec update is a drift recovery (see Mod
 
 ## Mode C — Drift Recovery
 
-Use when a SPEC.md has accumulated drift across multiple PRs that skipped updates.
+Use when a SPEC.md has accumulated drift across multiple PRs that skipped updates. This is the
+dedicated SPEC catch-up [`spec-workflow.md`](../../rules/spec-workflow.md) > Live Spec Policy mandates
+when drift is detected, and the only context in which a SPEC may be edited to describe existing code.
+**Never run it inside a conformance loop** — inside verification the rule is the opposite (fix the
+code, never the SPEC), and editing the SPEC there invalidates the verification.
 
 1. **Enumerate drift**: Run `pnpm harness:review -- --scope <pkg>` and read the current SPEC
    section by section against the actual code.

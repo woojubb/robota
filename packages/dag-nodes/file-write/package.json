@@ -35,7 +35,7 @@
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "prepublishOnly": "bash ../../../scripts/check-pnpm-publish.sh"
   },
   "author": "Robota SDK Team",
@@ -44,6 +44,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "zod": "^3.24.4"

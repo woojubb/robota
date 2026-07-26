@@ -9,7 +9,6 @@
     "composite": false,
     "declaration": true,
     "declarationMap": true,
-    "downlevelIteration": true,
     "lib": ["ES2022"],
     "types": ["node"]
   },

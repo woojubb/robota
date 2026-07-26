@@ -1,6 +1,7 @@
 import { createFileSystemMemoryStore } from './file-system-memory-store.js';
 import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
 import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
+import { PROJECT_MEMORY_TRUST_NOTE, RECALLED_MEMORY_TRUST_NOTE } from './memory-trust-framing.js';
 
 import type {
   IAutomaticMemoryConfig,
@@ -136,7 +137,8 @@ export class AutomaticMemoryController {
 
 export function renderRetrievedMemory(retrieval: IMemoryRetrievalResult): string {
   if (retrieval.content.trim().length === 0) return '';
-  return `<project-memory>\n${retrieval.content}\n</project-memory>`;
+  // SEC-007: the tags alone are delimiters, not framing — see `memory-trust-framing.ts`.
+  return `<project-memory>\n${PROJECT_MEMORY_TRUST_NOTE}\n\n${retrieval.content}\n</project-memory>`;
 }
 
 /**
@@ -146,5 +148,8 @@ export function renderRetrievedMemory(retrieval: IMemoryRetrievalResult): string
  */
 export function renderPerTurnRecall(retrieval: IMemoryRetrievalResult): string {
   if (retrieval.content.trim().length === 0) return '';
-  return `<recalled-memory>\n${retrieval.content}\n</recalled-memory>`;
+  // SEC-007: this block is delivered as a `role: 'system'` message, which the Anthropic adapter
+  // hoists into the top-level `system` field — concatenated onto the operator's own prompt, with its
+  // position (and so its provenance) gone. The framing has to travel INSIDE the text to survive that.
+  return `<recalled-memory>\n${RECALLED_MEMORY_TRUST_NOTE}\n\n${retrieval.content}\n</recalled-memory>`;
 }

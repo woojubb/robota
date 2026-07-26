@@ -1,11 +1,6 @@
 import type { IDagCliIo } from '../types.js';
 import { SUCCESS_EXIT_CODE, USAGE_ERROR_EXIT_CODE } from '../types.js';
-import {
-  readTelemetryConfig,
-  enableTelemetry,
-  disableTelemetry,
-  isTelemetryEnabled,
-} from '../telemetry.js';
+import { readTelemetryConfig, enableTelemetry, disableTelemetry } from '../telemetry.js';
 
 export interface ITelemetryCommandOptions {
   readonly io: IDagCliIo;

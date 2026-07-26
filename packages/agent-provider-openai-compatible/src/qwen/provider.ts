@@ -10,7 +10,6 @@ import { qwenChatWithStreamingAssembly } from './provider-streaming-assembly';
 import { chatStreamWithQwenResponsesApi, chatWithQwenResponsesApi } from './responses-chat';
 import { hasQwenBuiltInWebTools } from './responses-converter';
 import {
-  assembleOpenAICompatibleStream,
   convertToOpenAICompatibleMessages,
   convertToOpenAICompatibleTools,
   toOpenAICompatibleToolChoice,

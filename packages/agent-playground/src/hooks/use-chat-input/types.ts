@@ -1,6 +1,5 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { RefObject } from 'react';
-import type { IUseBlockTrackingResult } from '../use-block-tracking';
 import type { IPlaygroundExecutorResult } from '../../lib/playground/robota-executor';
 
 export interface IChatMessage {
@@ -22,7 +21,6 @@ export interface IChatInputState {
 }
 
 export interface IChatInputOptions {
-  blockTracking?: IUseBlockTrackingResult;
   maxLength?: number;
   enableValidation?: boolean;
   placeholder?: string;

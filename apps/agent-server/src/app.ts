@@ -10,7 +10,6 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
 import { playgroundRouter } from './routes/playground.js';
-import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -34,10 +33,19 @@ export function createApp(): express.Application {
   // Trust proxy for Firebase Functions and load balancers
   app.set('trust proxy', true);
 
-  // Security middleware
+  // Security middleware.
+  // This server is JSON-only (no static assets, no HTML, no `res.sendFile`), so a document CSP has no
+  // markup to protect today — but disabling it outright is a latent trap: the day any handler returns
+  // HTML it would ship with no policy at all. A deny-everything policy is the correct API default: it
+  // costs JSON responses nothing and blocks framing/embedding of anything this origin ever serves.
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allow for API usage
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
       crossOriginEmbedderPolicy: false,
     }),
   );

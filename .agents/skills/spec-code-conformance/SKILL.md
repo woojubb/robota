@@ -5,7 +5,8 @@ description: Mandatory verification loop after any SPEC.md or contract document 
 
 ## Rule Anchor
 
-- "Spec-Code Conformance Verification" in `.agents/rules/process.md`
+- "Spec-Code Conformance Verification" in `.agents/rules/spec-workflow.md`
+- "ABSOLUTE RULE: Verification does not modify SPEC to match code" in `.agents/rules/spec-workflow.md`
 
 ## When to Use
 

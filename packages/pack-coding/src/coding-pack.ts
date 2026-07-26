@@ -4,11 +4,11 @@ import {
   createAskUserQuestionTool,
   createBashTool,
   createEditTool,
+  createGlobTool,
+  createGrepTool,
   createReadTool,
   createShellTool,
   createWriteTool,
-  globTool,
-  grepTool,
   webFetchTool,
   webSearchTool,
 } from '@robota-sdk/agent-tools';
@@ -83,8 +83,11 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
       createReadTool(toolOptions),
       createWriteTool(toolOptions),
       createEditTool(toolOptions),
-      globTool,
-      grepTool,
+      // SEC-007: bound to `options.cwd` like the rest, not the context-free singletons. This pack
+      // makes `cwd` REQUIRED so the file-tool guard cannot be disarmed by omission; registering an
+      // uncontained `Glob`/`Grep` alongside contained file tools defeated exactly that intent.
+      createGlobTool(toolOptions),
+      createGrepTool(toolOptions),
       webFetchTool,
       webSearchTool,
       createAskUserQuestionTool(),

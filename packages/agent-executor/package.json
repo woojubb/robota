@@ -41,7 +41,7 @@
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsgo -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },

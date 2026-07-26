@@ -10,12 +10,14 @@ import {
   loadLocalNodeDefinitions,
 } from '../local-runner/index.js';
 import { extractFinalOutput } from '../commands/run.js';
-import { listAvailableProviders, resolveProvider } from '../providers/index.js';
+import { jsonReply, readBody, sendSSE } from './http-io.js';
+import {
+  routeProvidersConnect,
+  routeProvidersList,
+  routeProvidersNodes,
+} from './provider-routes.js';
+import { isLoopbackHostHeader, resolveContainedFile } from './request-guards.js';
 import { buildStudioHtml } from './ui-html.js';
-
-interface IStudioProviderState {
-  providerId: string;
-}
 
 interface IValidationError {
   code: string;
@@ -23,42 +25,10 @@ interface IValidationError {
   nodeId?: string;
 }
 
-const JSON_CT = 'application/json; charset=utf-8';
 const HTML_CT = 'text/html; charset=utf-8';
 
 export interface IStudioServerOptions {
   cwd: string;
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((res, rej) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => {
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      res(Buffer.concat(chunks).toString('utf8'));
-    });
-    req.on('error', rej);
-  });
-}
-
-function jsonReply(res: ServerResponse, status: number, data: unknown): void {
-  const body = JSON.stringify(data);
-  res.writeHead(status, {
-    'Content-Type': JSON_CT,
-    'Content-Length': Buffer.byteLength(body),
-    'Access-Control-Allow-Origin': '*',
-  });
-  res.end(body);
-}
-
-function sendSSE(res: ServerResponse, data: unknown): void {
-  try {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  } catch {
-    // allow-fallback: client disconnected mid-stream; write errors are silently dropped
-  }
 }
 
 async function parseDagFile(
@@ -96,7 +66,12 @@ async function routeDag(req: IncomingMessage, res: ServerResponse, cwd: string):
     jsonReply(res, 400, { error: 'Missing ?file= parameter' });
     return;
   }
-  const result = await parseDagFile(resolve(cwd, fileParam));
+  const contained = resolveContainedFile(fileParam, cwd);
+  if (!contained.ok) {
+    jsonReply(res, 400, { error: contained.message });
+    return;
+  }
+  const result = await parseDagFile(contained.path);
   if (!result.ok) {
     jsonReply(res, 400, { error: result.message });
     return;
@@ -143,11 +118,11 @@ async function routeNodes(res: ServerResponse): Promise<void> {
 }
 
 async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string): Promise<void> {
+  // SEC-006: no `Access-Control-Allow-Origin` — the studio UI streams this from the same origin.
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
   });
   // Disable Nagle's algorithm so each SSE event is sent as its own TCP packet.
   res.socket?.setNoDelay(true);
@@ -179,7 +154,14 @@ async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string):
     return;
   }
 
-  const dagResult = await parseDagFile(resolve(cwd, file));
+  const contained = resolveContainedFile(file, cwd);
+  if (!contained.ok) {
+    sendSSE(res, { type: 'error', message: contained.message });
+    res.end();
+    return;
+  }
+
+  const dagResult = await parseDagFile(contained.path);
   if (!dagResult.ok) {
     sendSSE(res, { type: 'error', message: dagResult.message });
     res.end();
@@ -187,7 +169,7 @@ async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string):
   }
   const dagDefinition = dagResult.value;
 
-  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(resolve(cwd, file)) });
+  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(contained.path) });
   const builtIn = createCliNodeRegistry();
   const localTypes = new Set(localNodes.map((n) => n.nodeType));
   const nodeDefinitions = [...builtIn.filter((n) => !localTypes.has(n.nodeType)), ...localNodes];
@@ -286,7 +268,17 @@ async function routeValidate(
     return;
   }
 
-  const dagResult = await parseDagFile(resolve(cwd, file));
+  const contained = resolveContainedFile(file, cwd);
+  if (!contained.ok) {
+    jsonReply(res, 400, {
+      ok: false,
+      errors: [{ code: 'PATH_NOT_ALLOWED', message: contained.message }],
+      warnings: [],
+    });
+    return;
+  }
+
+  const dagResult = await parseDagFile(contained.path);
   if (!dagResult.ok) {
     jsonReply(res, 200, {
       ok: false,
@@ -297,7 +289,7 @@ async function routeValidate(
   }
 
   const dag = dagResult.value;
-  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(resolve(cwd, file)) });
+  const localNodes = await loadLocalNodeDefinitions({ projectDir: dirname(contained.path) });
   const builtIn = createCliNodeRegistry();
   const localTypes = new Set(localNodes.map((n) => n.nodeType));
   const nodeDefinitions = [...builtIn.filter((n) => !localTypes.has(n.nodeType)), ...localNodes];
@@ -355,71 +347,23 @@ async function routeValidate(
   jsonReply(res, 200, { ok: errors.length === 0, errors, warnings: [] });
 }
 
-// PROVIDER-010: studio provider state — defaults to local; switched via POST /api/providers/connect.
-const studioProviderState: IStudioProviderState = {
-  providerId: 'local',
-};
-
-async function routeProvidersList(res: ServerResponse): Promise<void> {
-  jsonReply(res, 200, {
-    providers: listAvailableProviders(),
-    active: studioProviderState,
-  });
-}
-
-async function routeProvidersConnect(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  let bodyText: string;
-  try {
-    bodyText = await readBody(req);
-  } catch {
-    // allow-fallback: body read error returns a structured 400 to the studio UI
-    jsonReply(res, 400, { error: 'Failed to read request body.' });
-    return;
-  }
-  let parsed: { providerId?: string; serverUrl?: string };
-  try {
-    parsed = JSON.parse(bodyText) as typeof parsed;
-  } catch {
-    // allow-fallback: invalid JSON from client returns a structured 400
-    jsonReply(res, 400, { error: 'Invalid JSON body.' });
-    return;
-  }
-  const { providerId } = parsed;
-  if (typeof providerId !== 'string' || providerId.length === 0) {
-    jsonReply(res, 400, { error: 'providerId is required.' });
-    return;
-  }
-  studioProviderState.providerId = providerId;
-  jsonReply(res, 200, { ok: true, active: studioProviderState });
-}
-
-async function routeProvidersNodes(res: ServerResponse): Promise<void> {
-  try {
-    // allow-fallback: provider connection failure returns 502 with the underlying error message
-    const provider = await resolveProvider({ provider: studioProviderState.providerId });
-    const nodes = await provider.listNodes();
-    jsonReply(res, 200, { providerId: provider.providerId, nodes });
-  } catch (err) {
-    // allow-fallback: surface upstream error so the studio can show a connection failure
-    const message = err instanceof Error ? err.message : String(err);
-    jsonReply(res, 502, { error: message });
-  }
-}
-
 const MAX_PORT_ATTEMPTS = 10;
 
 function buildRequestHandler(cwd: string) {
-  const CORS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-
   return (req: IncomingMessage, res: ServerResponse): void => {
+    // SEC-006: reject a non-loopback Host so a DNS-rebinding page cannot reach this API even though the
+    // server binds 127.0.0.1 only. Mirrors the monitor-UI serve host's check.
+    if (!isLoopbackHostHeader(req.headers.host)) {
+      jsonReply(res, 403, { error: 'Forbidden host' });
+      return;
+    }
+
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
 
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, CORS);
+      // SEC-006: no CORS grant is issued. The studio UI is same-origin, so cross-origin callers get a
+      // 204 with no `Access-Control-*` headers and the browser blocks their request.
+      res.writeHead(204);
       res.end();
       return;
     }

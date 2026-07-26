@@ -5,7 +5,7 @@ import {
   type IAgentLifecycleEvents,
 } from './agent-factory';
 import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
-import { ConfigurationError, ValidationError } from '../utils/errors';
+import { ConfigurationError } from '../utils/errors';
 import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { TUniversalMessage } from '../interfaces/messages';
@@ -88,7 +88,7 @@ describe('AgentFactory', () => {
   afterEach(async () => {
     // Clean up any active agents
     const activeAgents = factory.getActiveAgents();
-    for (const [agentId, agent] of activeAgents) {
+    for (const agentId of activeAgents.keys()) {
       await factory.destroyAgent(agentId);
     }
   });
@@ -159,8 +159,8 @@ describe('AgentFactory', () => {
     });
 
     it('should track active agents', async () => {
-      const agent1 = await factory.createAgent(Robota, { ...basicConfig, name: 'Agent1' });
-      const agent2 = await factory.createAgent(Robota, { ...basicConfig, name: 'Agent2' });
+      await factory.createAgent(Robota, { ...basicConfig, name: 'Agent1' });
+      await factory.createAgent(Robota, { ...basicConfig, name: 'Agent2' });
 
       const activeAgents = factory.getActiveAgents();
       expect(activeAgents.size).toBe(2);
@@ -255,7 +255,7 @@ describe('AgentFactory', () => {
 
   describe('Agent Lifecycle Management', () => {
     it('should destroy agent successfully', async () => {
-      const agent = await factory.createAgent(Robota as any, {
+      await factory.createAgent(Robota as any, {
         name: 'TestAgent',
         aiProviders: [new MockAIProvider()],
         defaultModel: {
@@ -284,7 +284,7 @@ describe('AgentFactory', () => {
   describe('Statistics and Monitoring', () => {
     it('should track creation statistics', async () => {
       // Create a custom configured agent
-      const agent1 = await factory.createAgent(Robota as any, {
+      await factory.createAgent(Robota as any, {
         name: 'Agent1',
         aiProviders: [new MockAIProvider()],
         defaultModel: {
@@ -294,7 +294,7 @@ describe('AgentFactory', () => {
       });
 
       // Create an agent from template
-      const agent2 = await factory.createFromTemplate(Robota as any, 'test-template');
+      await factory.createFromTemplate(Robota as any, 'test-template');
 
       const stats = factory.getCreationStats();
       expect(stats.totalCreated).toBe(2);
@@ -305,7 +305,7 @@ describe('AgentFactory', () => {
     });
 
     it('should update active count when agents are destroyed', async () => {
-      const agent = await factory.createAgent(Robota as any, {
+      await factory.createAgent(Robota as any, {
         name: 'TestAgent',
         aiProviders: [new MockAIProvider()],
         defaultModel: {

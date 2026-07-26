@@ -1,0 +1,36 @@
+name: Ruleset drift
+
+# INFRA-055. `.github/required-status-checks.json` is the SOURCE of what `protect-main` must require,
+# and `pnpm harness:scan` proves offline that every context it names can actually FAIL on a `main` PR.
+# What that hermetic half cannot see is the ruleset moving underneath it — a context added to or
+# removed from `protect-main` in the GitHub UI leaves the file, and therefore the scan, guarding
+# something that is no longer true.
+#
+# This job closes that half, deliberately OUT of the merge path. It gates nothing: a GitHub API
+# outage costs a red cron, never a blocked promotion — which is why the scan's `--live` half is
+# opt-in rather than part of `harness:scan`. It also surfaces drift BEFORE a promotion PR is opened
+# rather than while one is waiting.
+
+on:
+  schedule:
+    # Daily. Promotion cadence is far slower than this, so drift is always caught before it matters.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    name: required-status-checks vs live ruleset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The scan reads only `.github/required-status-checks.json`, the workflow files and `gh api`
+      # (node: builtins + child_process), so no dependency install is needed — same shape as
+      # `review-gate.yml`, which has run `node scripts/harness/*.mjs` bare since #1434.
+      - name: Reconcile the declaration against the live `protect-main` ruleset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/harness/scan-main-required-checks.mjs --live

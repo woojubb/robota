@@ -1,10 +1,12 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { describeCiSource } from '../ci-mirror-map.mjs';
 import {
+  annotateNotMirrored,
   CI_STAGES,
   collectChangedFiles,
   findMissingDist,
@@ -12,12 +14,14 @@ import {
   lintStagedExtensions,
   listBuildablePackageDirs,
   listNodeModulesOwners,
+  NOT_MIRRORED,
   parseArgs,
   parseDistIndependentScanSkips,
   parseGitFileList,
   readDistIndependentScanSkips,
   readLintStagedExtensions,
   selectFormatTargets,
+  stageGate,
   summarize,
 } from '../verify-like-ci.mjs';
 
@@ -245,31 +249,128 @@ describe('listNodeModulesOwners', () => {
 // ---------------------------------------------------------------------------
 
 describe('CI_STAGES', () => {
-  it('covers the five gates a bare run-all-scans misses', () => {
-    expect(CI_STAGES.map((stage) => stage.name)).toEqual([
-      'harness-self-test',
-      'format-check',
-      'scan-suite',
-      'scan-suite-dist-free',
-      'typecheck',
-    ]);
+  it('covers the build and package-test gates the entry point used to omit (INFRA-056)', () => {
+    const names = CI_STAGES.map((stage) => stage.name);
+    // The two the name promised and the command did not deliver.
+    expect(names).toContain('build');
+    expect(names).toContain('affected-verify');
+    // Cheap, dist-free stages run first so a formatting or commit-message defect surfaces in
+    // seconds rather than behind the minutes-long build and PTY suites.
+    expect(names.indexOf('format-check')).toBeLessThan(names.indexOf('build'));
+    expect(names.indexOf('commitlint')).toBeLessThan(names.indexOf('build'));
+    expect(names.indexOf('build')).toBeLessThan(names.indexOf('scan-suite'));
+    expect(names.indexOf('build')).toBeLessThan(names.indexOf('affected-verify'));
+    expect(names.indexOf('build')).toBeLessThan(names.indexOf('tui-e2e'));
   });
 
   it('mirrors BOTH CI scan halves — the built-tree job and the dist-free job (neither replaces the other)', () => {
     const built = CI_STAGES.find((stage) => stage.name === 'scan-suite');
     const distFree = CI_STAGES.find((stage) => stage.name === 'scan-suite-dist-free');
     // `quality` restores dist before the build-dependent scans; `scans` runs on a fresh checkout.
-    expect(built.ciSource).toMatch(/quality/);
-    expect(distFree.ciSource).toMatch(/scans/);
-    expect(distFree.ciSource).toMatch(/dist/);
-    expect(built.ciSource).not.toEqual(distFree.ciSource);
+    expect(describeCiSource(built)).toMatch(/quality/);
+    expect(describeCiSource(distFree)).toMatch(/scans/);
+    expect(describeCiSource(distFree)).toMatch(/dist/);
+    expect(describeCiSource(built)).not.toEqual(describeCiSource(distFree));
   });
 
-  it('names the real CI/lint-staged definition each stage mirrors (traceable, not guessed)', () => {
+  it('names the real definition each stage mirrors, or says out loud that it mirrors none', () => {
     for (const stage of CI_STAGES) {
-      expect(stage.ciSource).toMatch(/ci\.yml|lintstagedrc/);
+      // A mirrored stage is traceable to the workflow; an `extra` stage must declare what it
+      // covers instead, so no stage can sit in the table without an accountable reason.
+      expect(describeCiSource(stage)).toMatch(stage.mirrors ? /ci\.yml/ : /no CI job/);
       expect(stage.why.length).toBeGreaterThan(0);
     }
+  });
+
+  it('has a runnable implementation for every declared stage — no stage is a table entry only', async () => {
+    const source = readFileSync(path.resolve(import.meta.dirname, '../verify-like-ci.mjs'), 'utf8');
+    const runners = /const STAGE_RUNNERS = \{([\s\S]*?)\n\};/.exec(source);
+    expect(runners).not.toBeNull();
+    for (const stage of CI_STAGES) {
+      expect(
+        runners[1].includes(`'${stage.name}'`) || runners[1].includes(`\n  ${stage.name}:`),
+        `stage \`${stage.name}\` is declared in the mirror map but STAGE_RUNNERS has no runner for it — the map would claim coverage the command cannot execute.`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe('stageGate', () => {
+  const base = { distRequired: false, codeChanged: false, missingDist: [] };
+
+  it('builds when the plan needs build output, exactly as ci.yml → build does', () => {
+    expect(stageGate('build', { ...base, distRequired: true }).run).toBe(true);
+  });
+
+  it('builds when dist is absent — the dist-dependent scans would otherwise silently no-op', () => {
+    expect(stageGate('build', { ...base, missingDist: ['packages/agent-core'] }).run).toBe(true);
+  });
+
+  it('builds on ANY code change: tui-e2e and examples-typecheck build inside their own CI jobs', () => {
+    // The plan predicate alone does not see those two dist consumers — the narrow gate would leave
+    // the PTY suite driving whatever stale binary happened to be in the worktree.
+    expect(stageGate('build', { ...base, codeChanged: true }).run).toBe(true);
+  });
+
+  it('skips the build only when nothing needs it and dist is present', () => {
+    const gate = stageGate('build', base);
+    expect(gate.run).toBe(false);
+    expect(gate.note).toMatch(/ci\.yml/);
+  });
+
+  it('gates binary-e2e and the e2e suites on the same conditions CI gates their jobs on', () => {
+    expect(stageGate('binary-e2e', { ...base, distRequired: true }).run).toBe(true);
+    expect(stageGate('binary-e2e', base).run).toBe(false);
+    expect(stageGate('tui-e2e', { ...base, codeChanged: true }).run).toBe(true);
+    expect(stageGate('tui-e2e', base).run).toBe(false);
+    expect(stageGate('examples-typecheck', { ...base, codeChanged: true }).run).toBe(true);
+    expect(stageGate('examples-typecheck', base).run).toBe(false);
+  });
+
+  it('runs every other stage unconditionally', () => {
+    for (const name of [
+      'format-check',
+      'commitlint',
+      'harness-self-test',
+      'typecheck',
+      'scan-suite',
+      'affected-verify',
+    ]) {
+      expect(stageGate(name, base).run).toBe(true);
+    }
+  });
+});
+
+describe('annotateNotMirrored', () => {
+  it('marks the security audit RELEVANT when the diff touches a manifest or the lockfile', () => {
+    const entries = annotateNotMirrored(['pnpm-lock.yaml']);
+    expect(entries.find((entry) => entry.context === 'security audit').relevant).toBe(true);
+    expect(
+      annotateNotMirrored(['packages/agent-core/package.json']).find(
+        (entry) => entry.context === 'security audit',
+      ).relevant,
+    ).toBe(true);
+  });
+
+  it('leaves it un-flagged on a diff that cannot change the dependency graph', () => {
+    expect(
+      annotateNotMirrored(['.agents/rules/git-branch.md']).find(
+        (entry) => entry.context === 'security audit',
+      ).relevant,
+    ).toBe(false);
+  });
+
+  it('marks windows-shell RELEVANT on a code diff — CI runs that job on every code PR', () => {
+    const find = (files) =>
+      annotateNotMirrored(files).find((entry) => entry.context === 'windows-shell').relevant;
+    expect(find(['packages/agent-core/src/index.ts'])).toBe(true);
+    expect(find(['README.md'])).toBe(false);
+  });
+
+  it('always reports every un-mirrorable context, relevant or not', () => {
+    expect(annotateNotMirrored([]).map((entry) => entry.context)).toEqual(
+      NOT_MIRRORED.map((entry) => entry.context),
+    );
   });
 });
 
@@ -283,6 +384,35 @@ describe('summarize', () => {
     expect(lines.join('\n')).toContain('PASS');
   });
 
+  it('a PARTIAL run refuses to call itself CI-equivalent, and names what it did not run', () => {
+    // `--only format-check` used to print "PASS — all 1 CI-mirroring stage(s) passed": a full
+    // CI-equivalence claim produced by one prettier run. With stages that now cost minutes, that
+    // wording is the cheapest way to hollow this gate out.
+    const { lines, exitCode } = summarize([{ name: 'format-check', status: 'pass' }], {
+      skippedStages: ['build', 'affected-verify', 'tui-e2e'],
+    });
+    expect(exitCode).toBe(0);
+    const text = lines.join('\n');
+    expect(text).toContain('PARTIAL');
+    expect(text).toContain('NOT a CI-equivalent result');
+    expect(text).toContain('build, affected-verify, tui-e2e');
+  });
+
+  it('always prints the un-mirrorable contexts, and shouts when the diff makes one relevant', () => {
+    const quiet = summarize([{ name: 'typecheck', status: 'pass' }], {
+      notMirrored: annotateNotMirrored(['README.md']),
+    }).lines.join('\n');
+    expect(quiet).toContain('security audit — NOT mirrored locally');
+    expect(quiet).toContain('windows-shell — NOT mirrored locally');
+    expect(quiet).not.toContain('this diff makes it relevant');
+
+    const loud = summarize([{ name: 'typecheck', status: 'pass' }], {
+      notMirrored: annotateNotMirrored(['pnpm-lock.yaml']),
+    }).lines.join('\n');
+    expect(loud).toContain('this diff makes it relevant');
+    expect(loud).toContain('osv-scanner');
+  });
+
   it('names the failing stage and exits 1', () => {
     const { lines, exitCode } = summarize([
       { name: 'harness-self-test', status: 'fail' },
@@ -294,7 +424,7 @@ describe('summarize', () => {
     expect(text).toContain('FAIL — 2 of 3 stage(s) failed: harness-self-test, scan-suite');
     expect(text).toContain('dist missing');
     // The failing stage points at the CI definition it mirrors, so the fix target is unambiguous.
-    expect(text).toContain('harness-self-test mirrors ci.yml');
+    expect(text).toContain('harness-self-test covers ci.yml');
   });
 });
 

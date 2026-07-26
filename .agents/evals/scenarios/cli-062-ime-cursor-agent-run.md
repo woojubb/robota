@@ -7,8 +7,10 @@ the OS IME acts on — under the five crash-avoidance invariants of the implemen
 (`.design/investigations/2026-07-25-cli-062-ime-cursor-design.md`).
 **Type:** agent-executable (a real pseudo-terminal drives the BUILT robota binary and a VT
 interpreter reads the raw ANSI stream the way a terminal emulator does; no owner terminal smoke —
-per the agent-run capability rule). The Terminal.app-on-real-hardware manual matrix remains open
-(I5 keeps Apple_Terminal off by default until it passes) — tracked in the CLI-062 backlog.
+per the agent-run capability rule). The **terminal matrix is now agent-run too** — see
+"Terminal matrix" below. What remains genuinely un-runnable off macOS is only the two macOS
+emulators' own rendering and their OS IME (I5 keeps Apple_Terminal off by default until someone
+runs the two macOS cells) — tracked in the CLI-062 backlog.
 
 ## Scenario
 
@@ -64,3 +66,69 @@ FAIL src/flows/__tests__/real-cursor-flow.test.ts
 `useCursor` inside the synchronized frame write, guarded by I1 (measured y only), I2 (never a
 frame ≥ viewport / y out of frame), I3 (no out-of-band writes), I4 (guard fail → today's drawn
 cursor, byte-identical), I5 (Apple_Terminal opt-in via `ROBOTA_IME_CURSOR=1`).
+
+## Terminal matrix (agent-run, 2026-07-26)
+
+The backlog's remaining work was a MANUAL matrix ("iTerm2 + Terminal.app ±`ROBOTA_IME_CURSOR`,
+kitty/WezTerm/Ghostty/Windows Terminal/tmux on real hardware"). It is now a re-runnable suite.
+
+```bash
+# 1. Capability half — 27 cells (9 terminals x {unset, =1, =0}) asserting supportsImeCursorPositioning().
+npx vitest run packages/agent-transport-tui/src/__tests__/terminal-capabilities.test.ts
+# 2. Behavioural half — the SAME 27 cells driving the BUILT binary in a real pty (24-row contract,
+#    plus the 5-row I2 probe wherever the gate would otherwise allow positioning).
+cd packages/agent-transport-tui && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor.ptytest.ts
+# 3. Real-emulator cell — tmux runs the binary in a real pane and reports its OWN cursor position.
+cd packages/agent-transport-tui && npx vitest run --config vitest.pty.config.ts src/__tests__/pty/ime-cursor-tmux.ptytest.ts
+```
+
+**Terminal environments measured on real emulators** (launched on this machine; the env handshake is
+the only channel through which an emulator's identity reaches our code):
+
+```
+Ghostty 1.3.1 (Linux/GTK4, launched under Xvfb with -e <env dump>)
+  TERM=xterm-ghostty  TERM_PROGRAM=ghostty  TERM_PROGRAM_VERSION=1.3.1  COLORTERM=truecolor
+GNOME Terminal 3.52.0 / VTE 0.76.0
+  TERM=xterm-256color  TERM_PROGRAM=<unset>  COLORTERM=truecolor
+tmux 3.4 (inside a real pane)
+  TERM=tmux-256color  TERM_PROGRAM=tmux  TMUX=set
+```
+
+**Real-emulator confirmation (tmux 3.4 reporting its own cursor, `#{cursor_x} #{cursor_y} #{cursor_flag}`):**
+
+```
+24 rows, ROBOTA_IME_CURSOR unset : 7 19 1   ← visible, row 19 = the ` > 안녕` input row, col 7 = 1 + '> ' + 안녕(4)
+24 rows, ROBOTA_IME_CURSOR=0     : 0 23 0   ← hidden, parked at the frame bottom (kill switch)
+ 5 rows, ROBOTA_IME_CURSOR unset : 8  4 0   ← hidden (I2: frame >= viewport, never positioned)
+```
+
+**Red-before-green for the matrix assertions** (each mutation applied to source, both
+`agent-transport-tui` and `agent-cli` rebuilt — the CLI bundles the TUI, so rebuilding only the TUI
+leaves the pty suite accidentally green):
+
+```
+Mutation A — reinstate the historical hardcoded y: 0 in useRealCursorPosition:
+  FAIL real-cursor-positioning.test.tsx > SIGSEGV guard: the positioned row FOLLOWS the layout
+       → AssertionError: banner=1: expected +0 to be 1
+  FAIL pty/ime-cursor.ptytest.ts > Ghostty / ROBOTA_IME_CURSOR unset
+       → AssertionError: expected 18 to be 19
+  FAIL pty/ime-cursor-tmux.ptytest.ts > 24-row pane (tmux's own cursor readout)
+       → AssertionError: expected 18 to be 19
+
+Mutation B — capability gate reduced to `Boolean(process.stdout.isTTY)`:
+  FAIL terminal-capabilities.test.ts — 12 failed / 23 passed
+       (Terminal.app unset -> disabled, and every ROBOTA_IME_CURSOR=0 cell)
+  FAIL pty/ime-cursor.ptytest.ts > Terminal.app (macOS) / ROBOTA_IME_CURSOR unset
+       → AssertionError: expected [ …(2) ] to deeply equal []
+  FAIL pty/ime-cursor.ptytest.ts > Terminal.app (macOS) / ROBOTA_IME_CURSOR=0   (same)
+  FAIL pty/ime-cursor-tmux.ptytest.ts > ROBOTA_IME_CURSOR=0 kill switch
+       → AssertionError: expected true to be false
+```
+
+Both mutations reverted; full suites green afterwards (555 unit tests / 49 pty tests).
+
+**Boundary — what these cells do NOT prove.** For a `documented` profile
+(`src/__tests__/helpers/terminal-profiles.ts`) the cell exercises OUR branch under the environment
+that terminal exports; it says nothing about that emulator's own rendering, its inline pre-edit
+display, or its OS IME. Terminal.app's historical Korean-IME SIGSEGV is an Apple-side defect and can
+only be re-checked on macOS — which is why Apple_Terminal ships off by default (I5).

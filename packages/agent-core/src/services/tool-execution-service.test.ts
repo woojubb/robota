@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolExecutionContext } from '../interfaces/tool';
 import type { IBaseEventData, IEventService, TEventListener } from '../interfaces/event-service';
@@ -525,7 +525,11 @@ describe('ToolExecutionService', () => {
           continueOnError: false,
         });
 
+        // `results` was destructured but never asserted: the point of the guard is that the
+        // invalid request produces NO result, not merely that an error was recorded.
+        expect(results).toHaveLength(0);
         expect(errors).toHaveLength(1);
+        expect(errors[0]).toBeInstanceOf(ValidationError);
         expect(errors[0]?.message).toContain('executionId');
       });
     });

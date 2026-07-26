@@ -17,6 +17,32 @@
 agent file explains _what runs next_, that belongs in the skill above it. If a rule explains _how_
 rather than _what must hold_, it belongs in a skill.
 
+### …and the fourth kind the boundary test keeps producing: the fact catalogue
+
+Applying the boundary test to real files repeatedly turns up content that is **none of the three**: an
+enumeration of repo-specific facts that a rule, a skill, or an agent _consults_. It states no new
+mandate (the rules already mandate what it enumerates), it has no phases and no routing, and it holds
+no judgement discipline. Forcing it into one of the three kinds is what put a gate-criteria catalogue
+under `.agents/skills/` as a "skill" nothing ever invoked.
+
+| Artifact                                  | Owns                                                                         | Must NOT contain                          |
+| ----------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| **Fact catalogue** (`.agents/specs/*.md`) | An enumeration a rule/skill/agent reads: criteria sets, registries, matrices | Mandates of its own; pipelines; judgement |
+
+**A fact catalogue does not always warrant its own file.** Once content is classified as this kind, ask
+where each of its facts is _owned_ before creating one: an invariant inside it ("X is the ground truth,
+not Y") belongs to the rule that owns X, and a short runnable recipe belongs to the step that runs it.
+Only an enumeration with no single owner — a criteria set, a registry, a matrix — earns a file. Minting a
+three-line catalogue is the same manufacturing error as minting a skill to match a prediction. (Measured
+in increment 5: `dependency-graph-extraction` split into one rule bullet and one audit step, and no new
+file.) When a fact does stay concrete inside a skill, the neutrality section requires saying why.
+
+Members today: [`gate-catalogue.md`](gate-catalogue.md) (every named gate's criteria),
+[`orchestration-map.md`](orchestration-map.md) (every pipeline and agent),
+[`deployment-matrix.md`](deployment-matrix.md) (surface × runtime × transport). The test that
+distinguishes it from a rule: **delete it and ask what is lost.** Losing a rule loses force; losing a
+fact catalogue loses an enumeration whose force lives elsewhere.
+
 ## Orchestration nests
 
 A phase of a high-level pipeline is frequently a pipeline in its own right. So an orchestration skill
@@ -60,7 +86,28 @@ rather than leaving it implicit.
 - **Move, never duplicate.** When content relocates, the source loses it. Each fact keeps exactly one
   owner document.
 - **No behavioral loss.** A mandatory constraint that becomes procedure must not lose force. Diff the
-  invariants before/after and show each one's new home.
+  invariants before/after and show each one's new home. Then **re-check the ledger against the diff**: the
+  statement a ledger is most likely to omit is the one the change is about to move, because attention goes
+  to the destination rather than the source. Measured three times now, a deliberate self-re-derivation
+  still misses statements an independent reviewer finds — so the review round is part of the method, not a
+  formality.
+- **No unexamined behavioral GAIN either.** The loss-only ledger is blind in one direction, and a
+  de-duplication is the easiest place to widen a mandate by accident: merging a richer copy into the
+  authoritative one silently promotes its extra rows. Every increment must therefore also declare what it
+  **added or strengthened**, and justify each on its own merits — never as a side effect of "the other
+  copy had it". (Measured in increment 4: absorbing an authoring-aid table into a mandate table would
+  have made every coverage-changing PR require a SPEC edit.) A new mandate also needs a mechanical floor
+  or an explicit deferral; shipping a prose-only one contradicts `enforcement-architecture.md`.
+- **A "neutralization" that swaps a command list for a pointer can silently narrow the gate.** Replacing
+  named commands with "the project's verification entry point" reads as a strengthening and is often the
+  opposite: the entry point covers what CI's _gating_ jobs assert, which need not include the test suite
+  or the build. Before pointing, open the entry point and list what it actually runs; if the original
+  list covered more, the pointer must say "…**plus** X" or the gate has quietly shrunk. (Measured in
+  increment 5: the repo's CI-equivalent entry point has no test and no build stage, so the swap would
+  have dropped tests from a mechanical-refactor gate.)
+- **A precondition of a gate is an invariant, not a step.** Relocating one into a skill weakens it: a rule
+  binds every actor, a skill binds only whoever invokes it. If a sentence states what must be true before a
+  gate may run, it stays in the rule even when the waiting or looping around it becomes procedure.
 - **Incremental.** One rule, one skill, or one role at a time — each merged and verified.
 - **Mechanically checked.** Anything a harness scan references must keep resolving: registered skills,
   agent-definition conventions, anchors. The scans are the floor, not the review.
@@ -94,6 +141,29 @@ one; see `automated-review-convergence` for a worked instance.
 owns its own ordering _and_ its own routing decisions, dispatches skills or agents, and never forms
 verdicts. It differs from the top level only in scope, never in kind.
 
+## How to find a skill that should exist
+
+Two signals have now each produced a real extraction, and both are cheaper to check than re-reading a rule
+looking for numbered lists:
+
+- **Two callers with divergent partial copies.** When two pipelines each carry their own paraphrase of the
+  same sequence, that sequence is a skill neither of them owns. Leaving it in either one duplicates it into
+  the other. (`ci-gate-watch`: two release phases waiting on a gate. `post-merge-cycle`: the PR-review merge
+  path and the parallel-orchestration merge step, which had drifted to different levels of detail — one of
+  them restating a rule's checklist in the same paragraph that said "do not restate it".)
+- **Prose adjacency encoding the wrong order.** Sections written next to each other imply a sequence, and
+  the implied one can contradict the mandated one. A pipeline makes the order explicit and checkable; prose
+  cannot.
+
+## Not every predicted extraction should happen
+
+An inventory that predicts a skill is a hypothesis, not a commitment. **Refuting a predicted extraction is a
+valid, reportable outcome** — and it has happened twice now (`spec-workflow.md` yielded no new pipeline;
+`git-branch.md`'s predicted `branch-creation` skill and `branch-guard` promotion were refuted because
+branch creation is invariants plus a mechanical hook, and its only ordered part already belonged to another
+skill). Manufacturing a skill to match a prediction, or to hit a line-reduction ratio, is the failure mode.
+**A modest reduction on an invariant-dense rule is the correct result**, not a shortfall.
+
 ## Settled
 
 - **The router is a skill.** Routing is procedure — deciding which pipeline a request enters is the same
@@ -102,6 +172,10 @@ verdicts. It differs from the top level only in scope, never in kind.
 - **Intermediate orchestrators follow the orchestrator rules unchanged** (see above).
 - **Orchestrators route on results.** Reading a step's outcome to decide the next step is orchestration;
   producing that outcome is not.
+- **Mechanically decidable preconditions are gate conditions, not verdicts.** A checklist an orchestrator
+  can settle from observable state ("does this branch carry commits the merge did not take?") is control
+  flow it evaluates itself. Only a question that requires forming a judgement from evidence needs a role.
+  This is the corollary that keeps the boundary test from spawning an agent per checklist.
 
 ## Open questions
 
@@ -112,7 +186,10 @@ verdicts. It differs from the top level only in scope, never in kind.
 
 ## Revision log
 
-| Date       | Change                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-26 | Created. Three-artifact split, boundary test, nesting, neutrality, working agreements — captured from the `HARNESS-049` framing and the `worktree-parallel-orchestration` neutrality pass.                                                                                                                                                                                   |
-| 2026-07-26 | Owner clarifications: the router IS a skill; intermediate orchestrators follow the orchestrator rules unchanged; and a pipeline is a **state machine** — an orchestrator routes on each step's outcome (advance / repeat / go back / terminate), which is control flow, not the judgement that belongs to agents. Two open questions closed, one added (what bounds a loop). |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-26 | Created. Three-artifact split, boundary test, nesting, neutrality, working agreements — captured from the `HARNESS-049` framing and the `worktree-parallel-orchestration` neutrality pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-07-26 | Owner clarifications: the router IS a skill; intermediate orchestrators follow the orchestrator rules unchanged; and a pipeline is a **state machine** — an orchestrator routes on each step's outcome (advance / repeat / go back / terminate), which is control flow, not the judgement that belongs to agents. Two open questions closed, one added (what bounds a loop).                                                                                                                                                                                                                                                                                                                                                                       |
+| 2026-07-26 | Learned from `HARNESS-049` increment 4. Named the **fourth artifact kind — the fact catalogue** — after the boundary test kept producing content that is none of the three (a gate-criteria catalogue had been filed as a skill nothing invoked). Added the "no unexamined behavioral GAIN" working agreement: the ledger is loss-only, so a de-duplication can widen a mandate invisibly.                                                                                                                                                                                                                                                                                                                                                         |
+| 2026-07-26 | Learned from `HARNESS-049` increment 5 (defect #2's two remaining skills). Added the **neutralization-can-narrow-a-gate** working agreement — swapping a command list for "the project's verification entry point" reads as a strengthening and measured as a loss (that entry point has no test or build stage). Added **a fact catalogue does not always warrant its own file**: split its facts by owner first, and only an ownerless enumeration earns one. Reinforced two settled points by application: the mechanically-decidable corollary refuted a predicted verification guardian _and_ claimed the file-set half of scope creep, and "reuse beats creating" was refused only on a conflict found in the candidate agent's own charter. |
+| 2026-07-26 | Learned from `HARNESS-049` increments 1–3. Added two discovery signals for a missing skill (two callers with divergent partial copies; prose adjacency encoding the wrong order), the "not every predicted extraction should happen" agreement, and one settled corollary: **mechanically decidable preconditions are gate conditions an orchestrator evaluates, not verdicts needing a role** — without it the boundary test spawns an agent per checklist.                                                                                                                                                                                                                                                                                       |

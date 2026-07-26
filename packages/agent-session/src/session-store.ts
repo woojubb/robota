@@ -17,6 +17,8 @@ import {
 } from 'fs';
 import { join } from 'path';
 
+import { assertSafeSessionId } from './session-id.js';
+
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -69,8 +71,14 @@ export class SessionStore implements ISessionStore {
     }
   }
 
-  /** Absolute path to a session's JSON file */
+  /**
+   * Absolute path to a session's JSON file.
+   *
+   * SEC-006: every public method routes through here, so validating the id at this one point covers
+   * `save` (write), `load` (read), `delete` (unlink) and `getFilePath` at once.
+   */
   private filePath(id: string): string {
+    assertSafeSessionId(id);
     return join(this.baseDir, `${id}.json`);
   }
 

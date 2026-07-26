@@ -41,6 +41,10 @@ const SCAN_COMMANDS = [
   },
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
+  {
+    name: 'review-workflow-parity',
+    command: ['node', 'scripts/harness/scan-review-workflow-parity.mjs'],
+  },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
@@ -106,8 +110,17 @@ const SCAN_COMMANDS = [
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
+  {
+    name: 'promotion-ancestry',
+    command: ['node', 'scripts/harness/scan-promotion-ancestry.mjs'],
+  },
+  {
+    name: 'main-required-checks',
+    command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
+  },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
   {
     name: 'composition-neutrality',
     command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],
@@ -142,6 +155,12 @@ const SCAN_COMMANDS = [
   },
   { name: 'deprecated-markers', command: ['node', 'scripts/harness/scan-deprecated-markers.mjs'] },
   { name: 'done-evidence', command: ['node', 'scripts/harness/check-done-evidence.mjs'] },
+  {
+    // HARNESS-050 — the companion to done-evidence: that one guards evidence DECAY (a cited path
+    // that later vanished), this one guards evidence that was NEVER THERE.
+    name: 'unearned-done-claims',
+    command: ['node', 'scripts/harness/scan-unearned-done-claims.mjs'],
+  },
   { name: 'task-archival', command: ['node', 'scripts/harness/check-task-archival.mjs'] },
   { name: 'test-module-mocks', command: ['node', 'scripts/harness/check-test-module-mocks.mjs'] },
   { name: 'backlog-placement', command: ['node', 'scripts/harness/check-backlog-placement.mjs'] },

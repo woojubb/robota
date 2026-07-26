@@ -1,130 +1,166 @@
 #!/usr/bin/env node
 
 /**
- * Compare the legacy TypeScript compiler against the native one (PERF-003).
+ * Compare the legacy TypeScript compiler against the native one (PERF-003 / PERF-004).
  *
- * The adoption criterion for switching `typecheck` is NOT "the native compiler is faster" — it is
- * "both compilers report the SAME diagnostics". This script makes that comparison reproducible so
- * PERF-004 can re-run it after the tsconfig migration, instead of it living in one session's scrollback.
+ * The adoption criterion for `typecheck` is NOT "the native compiler is faster" — it is "both
+ * compilers report the SAME diagnostics". This script keeps that criterion reproducible, so a future
+ * compiler bump can be re-judged instead of trusting one session's scrollback.
  *
- * Method: for each target package, synthesize a self-contained probe tsconfig — the package's own
- * options merged over the base, minus the options the native compiler removed (`baseUrl`,
- * `downlevelIteration`, `paths`) and with `moduleResolution` set to a supported value. Run both
- * compilers against that identical config so the COMPILER is the only variable, then diff their output.
+ * Method: run BOTH compilers against each project's REAL `tsconfig.json` — the same file, the same
+ * arguments the project's own `typecheck` script uses — so the compiler is the only variable, then
+ * compare the diagnostic lists.
  *
- * Why the probe needs `types` set explicitly: the two compilers do not agree on *automatic* `@types`
- * discovery under pnpm's symlinked `node_modules`. With `types` unset, the legacy compiler picks up the
- * hoisted `@types/jest` (supplying `describe`/`it`/`expect` to vitest files) and the native one does not,
- * producing dozens of phantom "Cannot find name" errors that are a resolution difference, not a code
- * disagreement. Pinning `types` isolates the comparison to real diagnostics. PERF-004 must decide the
- * repo-wide answer for this (explicit `types`, or a different `@types` layout).
+ * PERF-003 could only compare synthesized probe configs, because the native compiler rejected the real
+ * ones outright on options TypeScript 7 removed (`baseUrl`, `moduleResolution: node10`,
+ * `downlevelIteration`). PERF-004 migrated those away, so the probe is gone: comparing the real config
+ * is both simpler and strictly more faithful to what CI runs.
  *
- * Exit code 0 = every target matched, 1 = at least one differed (or a compiler was missing).
+ * Note on `types`: the two compilers do not agree on *automatic* `@types` discovery under pnpm's
+ * symlinked `node_modules`. PERF-004 settled that repo-wide by declaring `types` explicitly in the
+ * projects that depend on ambient types, rather than by special-casing it here. A new project that
+ * leaves `types` unset AND relies on a hoisted `@types/*` package will surface as a mismatch — which is
+ * the intended signal, not a false positive.
+ *
+ * Usage:
+ *   pnpm typecheck:compare                    # every workspace project
+ *   pnpm typecheck:compare agent-core dag-cli # only projects whose path contains one of these
+ *
+ * Exit code 0 = every project matched, 1 = at least one differed.
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** Options the native compiler removed — a probe carrying them fails on config, never reaching the code. */
-const REMOVED_OPTIONS = ['baseUrl', 'downlevelIteration', 'paths'];
-/** Project-graph options that make a standalone probe meaningless. */
-const PROJECT_OPTIONS = ['composite', 'incremental', 'tsBuildInfoFile'];
-
-/** Packages compared by default. Override with CLI args: `pnpm typecheck:compare agent-core agent-cli`. */
-const DEFAULT_TARGETS = [
-  'agent-core',
-  'agent-framework',
-  'agent-tools',
-  'agent-session',
-  'agent-cli',
+/** Directories whose immediate children are workspace projects (mirrors pnpm-workspace.yaml). */
+const PROJECT_PARENTS = [
+  'packages',
+  'packages/dag-nodes',
+  'apps',
+  'examples',
+  'examples/capabilities',
 ];
 
-/** Strip `//` comments so `tsconfig` files parse as JSON. Deliberately naive — these are our own files. */
-function readJsonc(file) {
-  return JSON.parse(readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, ''));
+/** A project participates only if it has a tsconfig AND a `typecheck` script that drives a compiler. */
+function isComparableProject(dir) {
+  const packageJson = path.join(dir, 'package.json');
+  if (!existsSync(packageJson) || !existsSync(path.join(dir, 'tsconfig.json'))) return false;
+  const script = JSON.parse(readFileSync(packageJson, 'utf8')).scripts?.typecheck;
+  return typeof script === 'string' && /\bts(c|go)\b/.test(script);
 }
 
-export function buildProbeConfig(baseConfig, packageConfig) {
-  const compilerOptions = {
-    ...(baseConfig.compilerOptions ?? {}),
-    ...(packageConfig.compilerOptions ?? {}),
-  };
-  for (const key of [...REMOVED_OPTIONS, ...PROJECT_OPTIONS]) delete compilerOptions[key];
-  compilerOptions.moduleResolution = 'bundler';
-  // See the header: automatic @types discovery diverges between the compilers under pnpm.
-  compilerOptions.types = ['node', 'jest'];
-  return {
-    compilerOptions,
-    include: packageConfig.include ?? ['src'],
-    exclude: packageConfig.exclude ?? [],
-  };
-}
-
-function runCompiler(bin, projectFile, cwd) {
-  const started = Date.now();
-  try {
-    execFileSync('npx', [bin, '-p', projectFile, '--noEmit'], {
-      cwd,
-      encoding: 'utf8',
-      stdio: 'pipe',
-    });
-    return { ms: Date.now() - started, output: '' };
-  } catch (error) {
-    return { ms: Date.now() - started, output: `${error.stdout ?? ''}${error.stderr ?? ''}` };
-  }
-}
-
-export function compareTarget(pkg) {
-  const packageDir = path.join(WORKSPACE_ROOT, 'packages', pkg);
-  const probe = buildProbeConfig(
-    readJsonc(path.join(WORKSPACE_ROOT, 'tsconfig.base.json')),
-    readJsonc(path.join(packageDir, 'tsconfig.json')),
-  );
-
-  // Written inside the package so relative `include`/`extends`-free paths resolve as they normally would.
-  const probeFile = path.join(packageDir, 'tsconfig.perf-compare.json');
-  writeFileSync(probeFile, `${JSON.stringify(probe, null, 2)}\n`);
-  try {
-    const legacy = runCompiler('tsc', 'tsconfig.perf-compare.json', packageDir);
-    const native = runCompiler('tsgo', 'tsconfig.perf-compare.json', packageDir);
-    return { pkg, legacy, native, matched: legacy.output === native.output };
-  } finally {
-    rmSync(probeFile, { force: true });
-  }
-}
-
-export async function main(targets = DEFAULT_TARGETS) {
-  const results = [];
-  for (const pkg of targets) results.push(compareTarget(pkg));
-
-  process.stdout.write('typecheck compare — legacy vs native (diagnostics must match):\n');
-  for (const { pkg, legacy, native, matched } of results) {
-    const speedup = legacy.ms > 0 ? (legacy.ms / Math.max(native.ms, 1)).toFixed(1) : '?';
-    process.stdout.write(
-      `  ${matched ? '✓' : '✗'} ${pkg}: legacy ${legacy.ms}ms, native ${native.ms}ms (${speedup}x) — ` +
-        `${matched ? 'diagnostics identical' : 'DIAGNOSTICS DIFFER'}\n`,
-    );
-    if (!matched) {
-      process.stdout.write(`      legacy:\n${legacy.output || '        (none)'}\n`);
-      process.stdout.write(`      native:\n${native.output || '        (none)'}\n`);
+export function findProjects(root = WORKSPACE_ROOT) {
+  const found = [];
+  for (const parent of PROJECT_PARENTS) {
+    const parentDir = path.join(root, parent);
+    if (!existsSync(parentDir)) continue;
+    for (const entry of readdirSync(parentDir).sort()) {
+      const dir = path.join(parentDir, entry);
+      if (!statSync(dir).isDirectory()) continue;
+      if (isComparableProject(dir)) found.push(path.relative(root, dir));
     }
   }
+  return found;
+}
+
+function runCompiler(bin, projectDir) {
+  const started = Date.now();
+  try {
+    execFileSync(
+      path.join(WORKSPACE_ROOT, 'node_modules/.bin', bin),
+      ['-p', 'tsconfig.json', '--noEmit'],
+      { cwd: projectDir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 },
+    );
+    return { ms: Date.now() - started, diagnostics: [] };
+  } catch (error) {
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    return { ms: Date.now() - started, diagnostics: extractDiagnostics(output) };
+  }
+}
+
+/**
+ * Reduce compiler output to a comparable diagnostic identity: file, position, and error code. The
+ * MESSAGE text is deliberately dropped — the two compilers word some diagnostics differently while
+ * flagging the identical defect, and wording is not what the adoption criterion is about.
+ */
+export function extractDiagnostics(output) {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /error TS\d+/.test(line))
+    .map((line) => {
+      const match = /^(.*?)\((\d+),(\d+)\): error (TS\d+)/.exec(line);
+      return match ? `${match[1]}(${match[2]},${match[3]}) ${match[4]}` : line;
+    })
+    .sort();
+}
+
+export function compareProject(project) {
+  const projectDir = path.join(WORKSPACE_ROOT, project);
+  const legacy = runCompiler('tsc', projectDir);
+  const native = runCompiler('tsgo', projectDir);
+  const onlyLegacy = legacy.diagnostics.filter((d) => !native.diagnostics.includes(d));
+  const onlyNative = native.diagnostics.filter((d) => !legacy.diagnostics.includes(d));
+  return {
+    project,
+    legacy,
+    native,
+    onlyLegacy,
+    onlyNative,
+    matched: !onlyLegacy.length && !onlyNative.length,
+  };
+}
+
+export async function main(filters = []) {
+  const projects = findProjects().filter(
+    (p) => filters.length === 0 || filters.some((f) => p.includes(f)),
+  );
+  if (projects.length === 0) {
+    process.stdout.write('No workspace project matched.\n');
+    process.exitCode = 1;
+    return;
+  }
+
+  process.stdout.write(
+    `typecheck compare — legacy vs native on ${projects.length} real project config(s):\n`,
+  );
+  const results = [];
+  let legacyMs = 0;
+  let nativeMs = 0;
+  for (const project of projects) {
+    const result = compareProject(project);
+    results.push(result);
+    legacyMs += result.legacy.ms;
+    nativeMs += result.native.ms;
+    const speedup = (result.legacy.ms / Math.max(result.native.ms, 1)).toFixed(1);
+    process.stdout.write(
+      `  ${result.matched ? '✓' : '✗'} ${project}: ${result.legacy.diagnostics.length} vs ` +
+        `${result.native.diagnostics.length} diagnostic(s), ${result.legacy.ms}ms vs ` +
+        `${result.native.ms}ms (${speedup}x)\n`,
+    );
+    for (const d of result.onlyLegacy) process.stdout.write(`      legacy only: ${d}\n`);
+    for (const d of result.onlyNative) process.stdout.write(`      native only: ${d}\n`);
+  }
+
+  process.stdout.write(
+    `\ntotal compiler time: legacy ${legacyMs}ms, native ${nativeMs}ms ` +
+      `(${(legacyMs / Math.max(nativeMs, 1)).toFixed(1)}x)\n`,
+  );
 
   const differing = results.filter((r) => !r.matched);
   if (differing.length > 0) {
     process.stdout.write(
-      `\n${differing.length} of ${results.length} target(s) disagree — do NOT switch the typecheck ` +
-        'entry point until they match (PERF-003 adoption criterion).\n',
+      `${differing.length} of ${results.length} project(s) DISAGREE — the shared typecheck gate must ` +
+        'not move to a compiler that reports different diagnostics.\n',
     );
     process.exitCode = 1;
     return;
   }
   process.stdout.write(
-    `\nAll ${results.length} target(s) agree. Remaining gate before switching: the tsconfig migration ` +
-      '(PERF-004) — the native compiler rejects the real configs outright until then.\n',
+    `All ${results.length} project(s) agree — the adoption criterion holds on the real configs.\n`,
   );
 }
 
@@ -132,6 +168,5 @@ const isDirectExecution =
   process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
 if (isDirectExecution) {
-  const args = process.argv.slice(2);
-  await main(args.length > 0 ? args : DEFAULT_TARGETS);
+  await main(process.argv.slice(2));
 }

@@ -45,21 +45,27 @@ When given a full path, use it directly.
 
 ## State Machine
 
-| Current `status`  | Folder      | Next Action                                          | Next `status` on PASS | Folder move on PASS           |
-| ----------------- | ----------- | ---------------------------------------------------- | --------------------- | ----------------------------- |
-| (not yet created) | —           | Invoke `backlog-writer` skill                        | `draft`               | → `draft/`                    |
-| `draft`           | `draft/`    | Invoke `backlog-gate-guard` subagent: GATE-WRITE     | `review-ready`        | `draft/` → `backlog/`         |
-| `review-ready`    | `backlog/`  | Invoke `backlog-gate-guard` subagent: GATE-APPROVAL  | `approved`            | `backlog/` → `todo/`          |
-| `approved`        | `todo/`     | Invoke `backlog-gate-guard` subagent: GATE-IMPLEMENT | `in-progress`         | `todo/` → `active/`           |
-| `in-progress`     | `active/`   | Invoke `backlog-gate-guard` subagent: GATE-VERIFY    | `verifying`           | **none — stays in `active/`** |
-| `verifying`       | `active/`   | Invoke `backlog-gate-guard` subagent: GATE-COMPLETE  | `done`                | `active/` → `done/`           |
-| `done`            | `done/`     | No action. Pipeline is complete.                     | —                     | —                             |
-| `rejected`        | `rejected/` | No action. Item is closed.                           | —                     | —                             |
+Dispatch by current status. **The folder each status lives in is not this skill's fact** — the rule
+owns the status ↔ folder mapping ([`spec-workflow.md`](../../rules/spec-workflow.md) >
+Spec-Document Status and Lifecycle Folders), and every move below is derived from it: on PASS the
+document goes to the folder the rule maps the **next** status to. When both statuses map to the same
+folder, there is no move.
+
+| Current `status`  | Next Action                                          | Next `status` on PASS |
+| ----------------- | ---------------------------------------------------- | --------------------- |
+| (not yet created) | Invoke `backlog-writer` skill                        | `draft`               |
+| `draft`           | Invoke `backlog-gate-guard` subagent: GATE-WRITE     | `review-ready`        |
+| `review-ready`    | Invoke `backlog-gate-guard` subagent: GATE-APPROVAL  | `approved`            |
+| `approved`        | Invoke `backlog-gate-guard` subagent: GATE-IMPLEMENT | `in-progress`         |
+| `in-progress`     | Invoke `backlog-gate-guard` subagent: GATE-VERIFY    | `verifying`           |
+| `verifying`       | Invoke `backlog-gate-guard` subagent: GATE-COMPLETE  | `done`                |
+| `done`            | No action. Pipeline is complete.                     | —                     |
+| `rejected`        | No action. Item is closed.                           | —                     |
 
 **Out-of-band gate:** `GATE-CONFORMANCE` (architecture conformance) is NOT a status transition and does
 not appear in this table. It is run separately via `backlog-gate-guard` — on demand, after cross-package
 work, and before a `develop → main` release. See
-[`backlog-gate-guard` > GATE-CONFORMANCE](../backlog-gate-guard/SKILL.md) and
+[gate catalogue > GATE-CONFORMANCE](../../specs/gate-catalogue.md) and
 [`spec-workflow.md` > GATE-CONFORMANCE](../../rules/spec-workflow.md).
 
 ## Execution Steps
@@ -88,7 +94,7 @@ one gate per invocation. The agent owns how to judge; give it only the two input
 ```
 Gate: <GATE>            (e.g. GATE-WRITE)
 Document: <PATH>        (e.g. .agents/spec-docs/draft/CLI-050-some-feature.md)
-Criteria catalogue: .agents/skills/backlog-gate-guard/SKILL.md
+Criteria catalogue: .agents/specs/gate-catalogue.md
 ```
 
 Do not restate the criteria in the prompt — the catalogue is their single owner, and a prompt-side copy
@@ -98,17 +104,19 @@ Wait for its terminal line: `GATE VERDICT: PASS | FAIL | NON-COMPLIANCE`
 
 ### Step 3 — Handle gate result
 
-**PASS (when a folder move is required — all gates except GATE-VERIFY):**
+Look up the folder the rule maps the **next** status to.
 
-1. Run `git mv <current-path> .agents/spec-docs/<next-stage>/<filename>`
+**PASS (the next status maps to a different folder):**
+
+1. Run `git mv <current-path> <that-folder>/<filename>`
 2. Immediately update the frontmatter `status:` field in the moved file to the next status value
-3. Both steps must complete before reporting success. If Step 2 is omitted, the file is in the wrong folder for its status — treat as NON-COMPLIANCE on the next run.
-4. Confirm to user: "Gate X passed. Status: `<next-status>`. File moved to `<next-stage>/`."
+3. Both steps must complete before reporting success — the rule's folder ↔ status agreement is what makes a half-done move a NON-COMPLIANCE on the next run.
+4. Confirm to user: "Gate X passed. Status: `<next-status>`. File moved to `<that-folder>`."
 
-**PASS (GATE-VERIFY — no folder move):**
+**PASS (the next status maps to the same folder — no move):**
 
-1. Update frontmatter `status: verifying` in the file (it stays in `active/`)
-2. Confirm to user: "GATE-VERIFY passed. Status: `verifying`. File stays in `active/`."
+1. Update the frontmatter `status:` field in place
+2. Confirm to user: "Gate X passed. Status: `<next-status>`. File stays in `<that-folder>`."
 
 **FAIL:**
 
@@ -157,4 +165,4 @@ Note: GATE FAIL is NOT a rejection. FAIL means the item can be fixed and re-run.
 | Fixing FAIL items and immediately re-running the gate | Surface the failure to the user first. Re-run only after user confirms fix. |
 | Setting status to `done` before GATE-COMPLETE         | Status changes only follow gate PASS results.                               |
 | Forgetting to update frontmatter after `git mv`       | Both `git mv` and frontmatter update are atomic. Do both immediately.       |
-| Moving file on GATE-VERIFY PASS                       | GATE-VERIFY does NOT move the file. Only update frontmatter status.         |
+| Assuming every PASS moves the file                    | Derive it: no move when both statuses map to the same folder in the rule.   |

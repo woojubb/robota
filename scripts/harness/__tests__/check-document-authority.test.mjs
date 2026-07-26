@@ -168,9 +168,28 @@ describe('base-ref resolution', () => {
     expect(resolveBaseRef({ argv: ['--base-ref', 'base'], env: {}, cwd: root })).toBe('base');
   });
 
-  it('returns undefined (SKIP, not silent pass) when no candidate resolves', async () => {
+  it('returns undefined when no candidate resolves (the caller must FAIL, not pass)', async () => {
     const root = await createGitFixture({});
     expect(resolveBaseRef({ argv: [], env: {}, cwd: root })).toBeUndefined();
+  });
+
+  // INFRA-048-B: the removed `git fetch --depth=50` fallback was itself a graft (INFRA-050). A
+  // fixture repo has no `origin`, so a fetch attempt would be visible as a mutated ref store.
+  it('performs NO fetch while resolving — a depth fetch grafts the history it was meant to supply', async () => {
+    const root = await createGitFixture({});
+    execFileSync('git', ['remote', 'add', 'origin', path.join(root, 'nonexistent-remote')], {
+      cwd: root,
+      env: gitSafeEnv(),
+    });
+    expect(resolveBaseRef({ argv: [], env: { GITHUB_BASE_REF: 'develop' }, cwd: root })).toBe(
+      undefined,
+    );
+    const shallow = spawnSync('git', ['rev-parse', '--is-shallow-repository'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: gitSafeEnv(),
+    });
+    expect(shallow.stdout.trim()).toBe('false');
   });
 
   it('lists changed files against the base ref', async () => {
@@ -201,10 +220,25 @@ describe('end-to-end (subprocess)', () => {
     expect(result.stdout).toContain('document authority scan passed');
   });
 
-  it('SKIP: exits 0 with an explicit SKIP log when no base ref resolves', async () => {
-    const root = await createGitFixture({});
+  // INFRA-048-B — fail closed. Before this, an unresolvable base printed `SKIPPED … Not a pass`
+  // and exited 0, so `run-all-scans` (a REQUIRED CI gate) recorded a pass for a gate that never
+  // ran. The fixture deliberately carries a REAL violation: the point is not "a code path was
+  // taken", it is "a tree with a finding in it reported success".
+  it('FAIL-CLOSED: exits 1 when no base ref resolves, even though the tree violates', async () => {
+    const root = await createGitFixture({
+      '.agents/specs/architecture-map/capability-placement.md': VIOLATING_ARCH_DOC,
+    });
     const result = runScript(root);
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('SKIPPED: no base ref could be resolved');
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('FAILED: no base ref could be resolved');
+  });
+
+  it('FAIL-CLOSED: exits 1 when the base ref is named but the diff cannot run', async () => {
+    const root = await createGitFixture({
+      '.agents/specs/architecture-map/capability-placement.md': VIOLATING_ARCH_DOC,
+    });
+    const result = runScript(root, ['--base-ref', 'origin/never-fetched']);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAILED: (no base ref could be resolved|git diff against)/);
   });
 });

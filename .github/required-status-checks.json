@@ -1,0 +1,110 @@
+{
+  "$schema-note": "INFRA-055 / INFRA-056. SOURCE OF TRUTH for which status checks each protected branch's ruleset must require, keyed by branch. This file is the source, not a mirror. Two consumers read it, with DIFFERENT assertions per branch: `scripts/harness/scan-main-required-checks.mjs` (registered in `pnpm harness:scan`) asserts offline that every `main` context resolves to a workflow job that ACTUALLY RUNS AND CAN FAIL on a PR whose base is `main`, and reconciles both branches against the live rulesets under `--live` (run on a schedule by `.github/workflows/ruleset-drift.yml`); `scripts/harness/ci-mirror-map.mjs` asserts that every `develop` context is either reproduced by a `pnpm harness:verify-like-ci` stage — step for step — or declared un-mirrorable with a reason. Change a ruleset and this file in the same change.",
+  "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`security audit` were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
+  "branches": {
+    "develop": {
+      "ruleset": "protect-develop",
+      "ruleset_id": 18715844,
+      "mirrored_by": "pnpm harness:verify-like-ci",
+      "why": "INFRA-056. `verify-like-ci` is named across the rules and skills as THE CI-equivalent verification entry point, and it ran neither `pnpm build` nor any package's test suite — the two required gates most likely to catch a functional regression. This list is what that claim is measured against: `scripts/harness/ci-mirror-map.mjs` pins every context below to a stage, step for step, or to an explicit un-mirrorable reason, so a context added here without a stage turns `pnpm harness:test` RED.",
+      "required_status_checks": [
+        {
+          "context": "build",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "build",
+          "verifies": "`pnpm build`, gated on the verification plan containing a scope whose checks need the monorepo build output. Produces the `package-dist` artifact every later dist-consuming job restores."
+        },
+        {
+          "context": "quality",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "quality",
+          "verifies": "`pnpm harness:verify` over the affected scopes (their build, TEST, lint and typecheck), plus the dist-dependent build-output contracts scan and the agent-cli binary e2e."
+        },
+        {
+          "context": "scans",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "scans",
+          "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all."
+        },
+        {
+          "context": "security audit",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "security-audit",
+          "verifies": "osv-scanner over `pnpm-lock.yaml`, gated on a package-manifest or lockfile diff."
+        },
+        {
+          "context": "commitlint",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "commitlint",
+          "verifies": "Conventional-commit format for every commit the PR itself authored (first-parent range against the base)."
+        },
+        {
+          "context": "tui-e2e",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "tui-e2e",
+          "verifies": "The TUI PTY e2e suite driven against the built `robota` binary. Gated on the `changes` classifier reporting code."
+        },
+        {
+          "context": "examples-typecheck",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "examples-typecheck",
+          "verifies": "The `examples/` workspaces typecheck against locally-built packages — the public surface as a consumer sees it. Gated on the `changes` classifier reporting code."
+        },
+        {
+          "context": "windows-shell",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "windows-shell",
+          "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code."
+        }
+      ],
+      "deliberately_not_required": [
+        {
+          "context": "regression-red-proof / patch-coverage",
+          "reason": "Advisory by design (HARNESS-041). Both jobs run and print a verdict on every code PR but never block; they are excluded from this list because a required context must be able to fail, and these deliberately cannot."
+        },
+        {
+          "context": "promotion ancestry / main PR source guard / release-grade verification",
+          "reason": "Promotion gates, excluded at the job level on a `develop` PR. They are `protect-main`'s required list, declared under `branches.main`."
+        }
+      ]
+    },
+    "main": {
+      "ruleset": "protect-main",
+      "ruleset_id": 18715845,
+      "required_status_checks": [
+        {
+          "context": "promotion ancestry",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "promotion-ancestry",
+          "verifies": "INFRA-051 A1/A2/A3 — the promotion carries `main`'s ancestry, adds no commit `develop` has never seen, and promotes `develop`'s tree unchanged."
+        },
+        {
+          "context": "main PR source guard",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "main-pr-source-guard",
+          "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork."
+        },
+        {
+          "context": "release-grade verification",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "release-grade-verify",
+          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, package tests, binary e2e, typecheck, lint, plus an unconditional osv-scanner."
+        }
+      ],
+      "deliberately_not_required": [
+        {
+          "context": "build / quality / scans / security audit",
+          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the FULL build and the FULL scan/test/typecheck/lint sweep where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `security audit`'s is gated on a manifest diff."
+        },
+        {
+          "context": "commitlint",
+          "reason": "Excluded on `main` by design — a promotion's merge-commit subject is generated by GitHub, and every commit it promotes was linted on its own PR to `develop`. It was previously REQUIRED here while skipping wholesale, which branch protection accepts."
+        },
+        {
+          "context": "CodeQL / Analyze (javascript-typescript)",
+          "reason": "`codeql.yml` carries `paths-ignore` for markdown/docs, so a docs-only promotion (routine in this repo) never triggers it and the context never reports — a required context that cannot report leaves the PR permanently pending, which is the #1436 review-gate rollback shape. Separately, the `CodeQL` results check is diff-scoped and a promotion's diff is the whole `develop`->`main` delta, so its verdict scales with promotion size rather than with anything the promotion decides (GitHub's own summary on #1427: `Alerts not introduced by this pull request might have been detected because the code changes were too large`). Follow-up: converge on `review-gate`, which fails closed and already shares `classify-changed-paths.mjs` with ci.yml, after it has been observed reporting a real conclusion on both a code and a docs-only promotion."
+        }
+      ]
+    }
+  }
+}
