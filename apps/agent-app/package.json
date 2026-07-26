@@ -38,7 +38,7 @@
     "jsdom": "^25.0.1",
     "playwright": "^1.49.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "vite": "^6.0.7",
     "vitest": "^3.2.6"
   }
