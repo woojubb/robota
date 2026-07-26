@@ -399,9 +399,9 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("import { type A } from 'pkg';\nconst x: A = 1;", 'pkg')).toBe(
       'imported-unused',
     );
-    expect(
-      classifySpecifierUsage("import type * as ns from 'pkg';\nlet x: ns.A;", 'pkg'),
-    ).toBe('imported-unused');
+    expect(classifySpecifierUsage("import type * as ns from 'pkg';\nlet x: ns.A;", 'pkg')).toBe(
+      'imported-unused',
+    );
   });
 
   // A mixed clause binds only its value specifiers.
@@ -410,5 +410,27 @@ describe('classifySpecifierUsage', () => {
     expect(classifySpecifierUsage("import { type A, B } from 'pkg';\nconst x: A = 1;", 'pkg')).toBe(
       'imported-unused',
     );
+  });
+
+  // The `used` branch returned before looking at anything else, and it tested RAW content — so a
+  // commented-out `import('pkg')` classified as a wired seam. Found in review; same mention-instead-
+  // of-wiring shape this item exists to close. Comments are stripped before any import is matched,
+  // but string literals are NOT: every pattern matches the quoted specifier, so blanking strings
+  // would delete what is being searched for and every import would read as absent.
+  it('does not treat a commented-out evaluated import as wiring', () => {
+    expect(classifySpecifierUsage("// await import('pkg');\nconst x = 1;", 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage("/* await import('pkg'); */\nconst x = 1;", 'pkg')).toBe(
+      'absent',
+    );
+    expect(classifySpecifierUsage("// require('pkg');", 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage("// import 'pkg';", 'pkg')).toBe('absent');
+    expect(classifySpecifierUsage("// import { A } from 'pkg';\nA();", 'pkg')).toBe('absent');
+  });
+
+  it('still classifies real evaluated imports as wiring', () => {
+    expect(classifySpecifierUsage("await import('pkg');", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("require('pkg');", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import 'pkg';", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("export { a } from 'pkg';", 'pkg')).toBe('used');
   });
 });

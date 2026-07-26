@@ -440,11 +440,22 @@ function escapeForRegExp(value) {
  * inside surviving text is not mistaken for a line comment.
  */
 function stripCommentsAndStringLiterals(content) {
-  return content
+  return stripComments(content)
     .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
-    .replace(/"(?:\\.|[^"\\\n])*"/g, '""')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
+}
+
+/**
+ * Remove comments only, keeping string literals intact.
+ *
+ * Import detection cannot use the full strip: every import pattern matches a QUOTED specifier, so
+ * blanking string literals deletes the very thing being searched for and every import would read as
+ * absent. But the raw content must not be searched either — a commented-out `import('pkg')` would
+ * then classify as `used`, letting a mention stand in for a wiring in the branch that returns
+ * `'used'` without looking at anything else. Comments out, strings in.
+ */
+function stripComments(content) {
+  return content.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
 /**
@@ -454,7 +465,10 @@ function stripCommentsAndStringLiterals(content) {
  * referenced in the module's executable text — an import statement, not a wired seam), or
  * `'used'`.
  */
-export function classifySpecifierUsage(content, specifier) {
+export function classifySpecifierUsage(rawContent, specifier) {
+  // Comments stripped before ANY import is matched — a commented-out import wires nothing. String
+  // literals are kept, because the patterns below match the quoted specifier itself.
+  const content = stripComments(rawContent);
   const quoted = `['"]${escapeForRegExp(specifier)}['"]`;
   const evaluatedPattern = new RegExp(
     `(?:import\\s*\\(\\s*${quoted}\\s*\\)|require\\s*\\(\\s*${quoted}\\s*\\)|import\\s+${quoted}|export\\s+[^;]*?from\\s*${quoted})`,
