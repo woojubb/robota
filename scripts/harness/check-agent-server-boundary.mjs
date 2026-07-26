@@ -167,6 +167,9 @@ const REQUIRED_SOURCE_IMPORTS = [
     // Next.js App Router: route files are framework entry points — nothing in the repo imports them.
     entryPattern:
       /(^|\/)(page|layout|template|default|route|middleware|error|not-found)\.[cm]?[jt]sx?$/,
+    // apps/agent-web/tsconfig.json maps "@/*" to "./src/*"; an unresolved alias edge would make a
+    // live module look unreachable.
+    moduleAliases: [{ prefix: '@/', target: 'apps/agent-web/src/' }],
     importSpecifier: '@robota-sdk/agent-playground/client',
     type: 'agent-web-missing-browser-safe-playground-import',
     unwiredType: 'agent-web-unwired-browser-safe-playground-import',
@@ -375,14 +378,22 @@ function toPosixPath(value) {
 
 const RESOLUTION_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
 
-/** Resolve a relative import to a file inside the scanned set, or undefined. */
-export function resolveRelativeImport(fileSet, fromFile, specifier) {
-  if (!specifier.startsWith('.')) {
-    return undefined;
+/** Resolve a relative or aliased import to a file inside the scanned set, or undefined. */
+export function resolveRelativeImport(fileSet, fromFile, specifier, moduleAliases = []) {
+  let base;
+  if (specifier.startsWith('.')) {
+    base = path.posix.normalize(
+      path.posix.join(path.posix.dirname(toPosixPath(fromFile)), specifier),
+    );
+  } else {
+    // A tsconfig path alias is an in-tree edge too; missing one would make a live module look
+    // unreachable, and a check that fires on correct code gets suppressed.
+    const alias = moduleAliases.find(({ prefix }) => specifier.startsWith(prefix));
+    if (!alias) {
+      return undefined;
+    }
+    base = path.posix.normalize(`${alias.target}${specifier.slice(alias.prefix.length)}`);
   }
-  const base = path.posix.normalize(
-    path.posix.join(path.posix.dirname(toPosixPath(fromFile)), specifier),
-  );
   const candidates = [base, ...RESOLUTION_EXTENSIONS.map((extension) => `${base}${extension}`)];
   for (const extension of RESOLUTION_EXTENSIONS) {
     candidates.push(`${base}/index${extension}`);
@@ -394,7 +405,7 @@ export function resolveRelativeImport(fileSet, fromFile, specifier) {
  * Modules reachable from the declared entry points, following relative imports only.
  * A module outside this set ships no behavior: nothing loads it.
  */
-export function collectReachableModules(contentsByFile, entryPattern) {
+export function collectReachableModules(contentsByFile, entryPattern, moduleAliases = []) {
   const fileSet = new Set(contentsByFile.keys());
   const reachable = new Set();
   const queue = [...fileSet].filter((file) => entryPattern.test(file));
@@ -406,7 +417,7 @@ export function collectReachableModules(contentsByFile, entryPattern) {
     }
     reachable.add(current);
     for (const specifier of extractImports(contentsByFile.get(current) ?? '')) {
-      const resolved = resolveRelativeImport(fileSet, current, specifier);
+      const resolved = resolveRelativeImport(fileSet, current, specifier, moduleAliases);
       if (resolved !== undefined && !reachable.has(resolved)) {
         queue.push(resolved);
       }
@@ -501,7 +512,11 @@ async function findRequiredSourceImportFindings(root) {
       contentsByFile.set(toPosixPath(file), await fs.readFile(path.join(root, file), 'utf8'));
     }
 
-    const reachable = collectReachableModules(contentsByFile, check.entryPattern);
+    const reachable = collectReachableModules(
+      contentsByFile,
+      check.entryPattern,
+      check.moduleAliases ?? [],
+    );
     const importingFiles = [];
     let wiredFile;
     let unwiredFile;

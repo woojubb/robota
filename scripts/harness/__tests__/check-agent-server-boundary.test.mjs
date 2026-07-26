@@ -256,6 +256,29 @@ describe('required imports must be wired, not merely present', () => {
     ]);
   });
 
+  it('follows a tsconfig path alias when computing reachability', async () => {
+    const root = await createFixture(
+      validFixture({
+        'apps/agent-web/src/app/playground/page.tsx': [
+          'import { PlaygroundHost } from "@/components/playground-host";',
+          'export default function Page() {',
+          '  return PlaygroundHost();',
+          '}',
+        ].join('\n'),
+        'apps/agent-web/src/components/playground-host.tsx': [
+          'import { PlaygroundApp } from "@robota-sdk/agent-playground/client";',
+          'export function PlaygroundHost() {',
+          '  return PlaygroundApp;',
+          '}',
+        ].join('\n'),
+      }),
+    );
+
+    const findings = await findAgentServerBoundaryFindings(root);
+
+    expect(findings).toEqual([]);
+  });
+
   it('accepts a required import reached transitively from an entry point', async () => {
     const root = await createFixture(
       validFixture({
