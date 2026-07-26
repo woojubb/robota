@@ -1,8 +1,14 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import { createVerificationPlan, parsePlanArgs, renderPlanSummary } from './check-plan.mjs';
 import {
+  createVerificationPlan,
+  parsePlanArgs,
+  renderPlanSummary,
+  renderScopeCoverageLine,
+} from './check-plan.mjs';
+import {
+  appendJobSummary,
   collectPackageManifestChanges,
   detectChangedFiles,
   listWorkspaceScopes,
@@ -53,6 +59,7 @@ async function main() {
   });
 
   process.stdout.write(renderPlanSummary(plan));
+  appendJobSummary(`### Verification plan\n\n${renderScopeCoverageLine(plan)}\n`);
 
   if (options.reportFile) {
     await writeReport(
