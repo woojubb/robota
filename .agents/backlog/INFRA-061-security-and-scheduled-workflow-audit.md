@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-060: security and scheduled workflow audit — can each scan fail, and does it check the right thing'
+title: 'INFRA-061: security and scheduled workflow audit — can each scan fail, and does it check the right thing'
 status: in-progress
 created: 2026-07-26
 priority: high
@@ -8,7 +8,7 @@ area: .github/workflows, scripts/harness, .gitleaks.toml
 depends_on: []
 ---
 
-# INFRA-060 — security and scheduled workflow audit
+# INFRA-061 — security and scheduled workflow audit
 
 Audit of the six security/scheduled workflows against two questions, because the first alone is not
 sufficient:
@@ -107,6 +107,41 @@ asked whether the name appeared anywhere in the file and the workflow header lis
 secret in prose. That is the `agent-server-boundary` failure — a criterion met by a token appearing
 rather than a seam being wired. It now requires a real `NAME: ${{ secrets.… }}` binding on a
 non-comment line, and the vacuous pass is kept as a regression test.
+
+### 6. This audit's own guard was vacuous, and HARNESS-052 caught it
+
+`scan-guard-scope-fail-closed` (landed mid-audit) executes every registered root finder against a
+root lacking its governed tree. Handed the half-root case — smoke workflow present, provider packages
+absent — `findUncoveredProviderCredentials` discovered zero credential declarations, reported zero
+findings, and **passed**. A provider-coverage floor answering "all covered" when it found no
+providers. Measured, not read:
+
+```
+bare root                       → fail-closed
+workflow present, no packages/  → VACUOUS      (before)
+workflow present, no packages/  → fail-closed  (after: no-provider-declarations-found)
+```
+
+Now pinned in `MANDATORY_TREE_GUARDS`, so the property is re-executed on every run rather than
+asserted once. That is twice this one guard shipped the defect it was written to catch — first
+satisfied by a mention instead of a wiring, then green over an empty subject. Both are recorded here
+rather than quietly fixed, because the pattern is the finding: a guard author is the last person able
+to see their own guard's blind spot.
+
+### 7. `harness:test` was red on develop, unrelated to this branch
+
+The ci.yml audit (#1474) landed two scans after `scan-guard-scope-fail-closed` (#1480) without
+classifying them, which that guard fails on by design. Measured both by execution, twice each, and
+recorded them honestly rather than pinning them as sound:
+
+| finder                           | measured    |
+| -------------------------------- | ----------- |
+| `findRequiredCheckNeedsFindings` | fail-closed |
+| `findTestSelectionFindings`      | **vacuous** |
+
+`scan-test-selection-tolerance` is a live instance of the audited defect — handed a root with no CI
+workflow it reports nothing to fix, the same answer it gives for a correct one. Recorded unfixed in
+`PENDING_CLASSIFICATION` and owned by INFRA-060 (the ci.yml audit), not silently promoted.
 
 ## What was deliberately NOT changed
 

@@ -17,7 +17,7 @@
  *   - The provider list and the env-var names are read from the provider DEFINITIONS, so a newly
  *     added provider is covered automatically and this file holds no provider-name table.
  *
- * INFRA-060 — two corrections to that gating, both about a green run that verified nothing:
+ * INFRA-061 — two corrections to that gating, both about a green run that verified nothing:
  *
  *   1. A run that exercised ZERO providers is reported to GitHub as a `::warning::` annotation and in
  *      the job summary. "Live provider smoke: success" otherwise reads as "the providers answered",

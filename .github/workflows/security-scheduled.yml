@@ -6,7 +6,7 @@ name: Scheduled security scan
 # lockfile weekly (and on demand) so new advisories surface within days, not at the next manifest edit.
 # Same scanner, same config SSOT (osv-scanner.toml) as ci.yml — one source of accepted-risk truth.
 #
-# INFRA-060: the run used to check out `develop` ONLY, so the branch that is actually released and
+# INFRA-061: the run used to check out `develop` ONLY, so the branch that is actually released and
 # deployed — `main` — was never scanned on any schedule. An advisory against a dependency still pinned on
 # main but already bumped on develop produced a green "Scheduled security scan". Both branches are now
 # separate matrix legs, so the check's name matches what it covers and a finding names the branch it is

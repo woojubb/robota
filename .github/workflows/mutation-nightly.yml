@@ -10,7 +10,7 @@ name: Nightly mutation testing
 # Stryker never fails the run on a low score). The uploaded report is the maintained artefact;
 # surviving mutants become test-hardening work items. This is not a PR gate and blocks nothing.
 #
-# INFRA-060 — an advisory nobody can read is not advisory, it is silent. The 2026-07-26 run scored
+# INFRA-061 — an advisory nobody can read is not advisory, it is silent. The 2026-07-26 run scored
 # 52.63 / 74.42 / 58.62 across the three targets with 110 surviving mutants, and every one of those
 # numbers was reachable only by downloading a zip; the run page said "success". The score now goes to
 # the job summary, so the advisory is visible where the run is. Raising `thresholds.break` above null

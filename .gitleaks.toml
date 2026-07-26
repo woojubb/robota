@@ -2,7 +2,7 @@
 # suppress known-safe patterns so the secret scan is signal, not noise. Add a NARROW entry (with a reason)
 # when a real false positive appears — never broaden to whole product directories that could hide a real leak.
 #
-# INFRA-060 — the allowlist used to be a SINGLE global block whose `paths` list covered every test, e2e,
+# INFRA-061 — the allowlist used to be a SINGLE global block whose `paths` list covered every test, e2e,
 # fixture and evals path in the repo. That suppressed EVERY rule in those paths, not just the noisy one.
 # Measured with the then-pinned gitleaks 8.21.2: a `ghp_…` GitHub PAT planted in
 # `packages/agent-core/src/__tests__/` was reported as a CLEAN scan, while the identical line in a sibling
@@ -49,7 +49,7 @@ description = "generic-api-key ONLY — deterministic fixture tokens in test/e2e
 # doubles, e2e scripts and evals scenarios embed FAKE tokens to drive the scripted provider, permission and
 # transport-auth paths, so this one rule is noise there — and only there. Every other rule still applies to
 # these paths: a real credential committed into a test file is a finding, which is the whole point of the
-# INFRA-060 narrowing.
+# INFRA-061 narrowing.
 targetRules = ["generic-api-key"]
 paths = [
   '''(^|/)__tests__/''',

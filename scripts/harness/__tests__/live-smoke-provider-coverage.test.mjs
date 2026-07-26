@@ -1,5 +1,5 @@
 /**
- * INFRA-060 — the live-smoke provider-coverage floor, proven against both defects it exists for.
+ * INFRA-061 — the live-smoke provider-coverage floor, proven against both defects it exists for.
  *
  * The first suite is the drift the scan was written for: a provider whose credential the workflow
  * never hands to the smoke script. The script cannot report that — an unset key is a "skip", and a

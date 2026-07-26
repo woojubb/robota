@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * INFRA-060 — mechanical floor: every remote provider the workspace defines must have its credential
+ * INFRA-061 — mechanical floor: every remote provider the workspace defines must have its credential
  * passed through to the live provider smoke.
  *
  * ## Why this is a scan and not a note
@@ -35,6 +35,18 @@
  * requiring those in the workflow would be exactly the over-broad check this repo keeps paying for.
  * Local/self-hosted definitions carry a literal apiKey (no `$ENV:`) and so are never flagged — there
  * is no remote credential to provision.
+ *
+ * ## Why the scope stops at `agent-provider-` packages
+ *
+ * Measured, not assumed. Every concrete provider definition in the workspace lives under
+ * `packages/agent-provider-*` today (the only `provider-definition.ts` outside it is agent-core's
+ * INTERFACE). Widening to all packages was tried and rejected: `$ENV:` also appears in ordinary prose
+ * and error strings — `"…stored as environment variable references ($ENV:VAR_NAME)…"`, `($ENV:VAR)` in
+ * a doc comment — which the reference pattern happily matches, so the scan would demand repo secrets
+ * named `VAR` and `VAR_NAME`. Phantom requirements are how a guard earns its wholesale suppression.
+ *
+ * The cost of the narrower scope is stated plainly: a provider definition shipped from a package NOT
+ * named `agent-provider-…` would not be seen here. That is the bound of this floor, not an oversight.
  *
  * Exit 0 = every declared provider credential is wired through, 1 = findings.
  */
@@ -162,12 +174,29 @@ export function findUncoveredProviderCredentials(root = WORKSPACE_ROOT) {
   const bound = boundSecretEnvVars(readFileSync(workflowPath, 'utf8'));
 
   const findings = [];
+  let declaredCount = 0;
   for (const sources of collectProviderSources(root).values()) {
     for (const [envVar, file] of declaredCredentialEnvVars(sources)) {
+      declaredCount += 1;
       if (bound.has(envVar)) continue;
       findings.push({ envVar, file, kind: 'credential-not-wired' });
     }
   }
+
+  // FAIL CLOSED on an empty subject. Measured during INFRA-061 against the HARNESS-052 probe: with
+  // the workflow present but no provider packages found, this scan discovered zero declarations,
+  // reported zero findings and PASSED — a guard whose green meant "there was nothing to check". A
+  // renamed package prefix or a moved provider tree would have produced exactly that. This
+  // repository always has provider packages, so "none discovered" is a broken scan, never a clean
+  // one, and the distinction has to be mechanical because the two look identical from the outside.
+  if (declaredCount === 0) {
+    findings.push({
+      envVar: '(none)',
+      file: 'packages/agent-provider-*',
+      kind: 'no-provider-declarations-found',
+    });
+  }
+
   return findings.sort((a, b) => a.envVar.localeCompare(b.envVar));
 }
 
