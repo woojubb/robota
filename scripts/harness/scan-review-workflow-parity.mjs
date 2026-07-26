@@ -61,7 +61,13 @@ function tryGit(args, cwd) {
 /** Workflow files (repo-relative) that invoke the validated action. Discovered, never hardcoded. */
 export function listGovernedWorkflows(root = WORKSPACE_ROOT) {
   const dir = path.join(root, WORKFLOW_DIR);
-  if (!existsSync(dir)) return [];
+  // FAIL-CLOSED (HARNESS-052). Returning `[]` here made `main()` print "nothing to guard" and exit
+  // 0 — this scan, whose entire subject is an action that skips and exits 0, doing the same thing.
+  if (!existsSync(dir))
+    throw new Error(
+      `${WORKFLOW_DIR} does not exist under ${root}. This scan will not report a pass over a ` +
+        'directory it could not read.',
+    );
   return readdirSync(dir)
     .filter((entry) => /\.ya?ml$/.test(entry))
     .sort()
@@ -87,7 +93,24 @@ export function isPromotionToDefault(env = process.env, defaultBranch = 'main') 
 export function findReviewWorkflowParityFindings(root = WORKSPACE_ROOT) {
   const workflows = listGovernedWorkflows(root);
   if (workflows.length === 0) {
-    return { findings: [], checked: [], defaultRef: undefined };
+    // ANTI-ROT (HARNESS-052). This used to return no findings, so the day the action reference is
+    // renamed, wrapped in a composite action, or pinned under another org, the guard would print
+    // "nothing to guard" and pass forever — while the review it protects went back to being a job
+    // that reports `success` having reviewed nothing. If this repository stops invoking the action,
+    // delete this scan deliberately; do not let it decay into a no-op.
+    return {
+      findings: [
+        {
+          workflow: `(${WORKFLOW_DIR})`,
+          detail:
+            `no workflow invokes ${VALIDATED_ACTION_PATTERN.source}. This scan governs an empty ` +
+            'set, which is not a pass — either the action reference changed spelling (update ' +
+            'VALIDATED_ACTION_PATTERN) or the repository no longer uses it (delete this scan).',
+        },
+      ],
+      checked: [],
+      defaultRef: undefined,
+    };
   }
 
   const defaultRef = DEFAULT_BRANCH_CANDIDATES.find(
@@ -147,13 +170,8 @@ export function main() {
 
   const { findings, checked, defaultRef } = findReviewWorkflowParityFindings();
 
-  if (checked.length === 0) {
-    process.stdout.write(
-      'review-workflow-parity scan: no workflow invokes anthropics/claude-code-action — nothing to guard.\n',
-    );
-    return;
-  }
-
+  // HARNESS-052: findings are read FIRST. This block used to sit above and return 0 whenever
+  // `checked` was empty, which swallowed the empty-governed-set finding introduced there.
   if (findings.length > 0) {
     process.stdout.write('review-workflow-parity scan failed (INFRA-048):\n');
     for (const finding of findings) {

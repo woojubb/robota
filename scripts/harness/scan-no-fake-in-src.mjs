@@ -147,7 +147,15 @@ function isShippableSrc(rel) {
 export function findFakeInSrc(root = WORKSPACE_ROOT) {
   const findings = [];
   const packagesDir = path.join(root, 'packages');
-  if (!existsSync(packagesDir)) return findings;
+  // FAIL-CLOSED (HARNESS-052). Returning the empty finding list here made the no-test-doubles floor
+  // print `scan passed` over a tree it never opened — the same "success over work it did not do"
+  // shape the floor itself exists to fence. An absent `packages/` is a broken checkout, not a clean
+  // one.
+  if (!existsSync(packagesDir))
+    throw new Error(
+      `packages/ does not exist under ${root}. This scan will not report a pass over source it ` +
+        'could not read.',
+    );
   for (const pkg of readdirSync(packagesDir, { withFileTypes: true })) {
     if (!pkg.isDirectory()) continue;
     const srcRel = path.join('packages', pkg.name, 'src');

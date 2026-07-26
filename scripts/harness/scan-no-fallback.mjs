@@ -52,9 +52,16 @@ const ANNOTATION_WITH_REASON = /allow-fallback:\s*\S/;
 
 const SCAN_DIRS = ['packages'];
 
-/** Collect every non-test, non-dist `.ts`/`.tsx` file under a package tree. */
-function walkSource(target) {
-  const full = path.join(WORKSPACE_ROOT, target);
+/**
+ * Collect every non-test, non-dist `.ts`/`.tsx` file under a package tree.
+ *
+ * HARNESS-052: `root` is threaded through rather than closed over `WORKSPACE_ROOT`. It was already a
+ * parameter of the exported finder, but only the relative-path calculation honoured it — so the
+ * function walked the real tree no matter which root it was handed, and read as root-parameterised
+ * while not being so.
+ */
+function walkSource(target, root) {
+  const full = path.join(root, target);
   if (!existsSync(full)) return [];
   if (statSync(full).isFile()) {
     return /\.tsx?$/.test(full) ? [full] : [];
@@ -66,13 +73,13 @@ function walkSource(target) {
     }
     const child = path.join(target, entry.name);
     if (entry.isDirectory()) {
-      files.push(...walkSource(child));
+      files.push(...walkSource(child, root));
     } else if (
       entry.isFile() &&
       /\.tsx?$/.test(entry.name) &&
       !/\.(test|spec)\.tsx?$/.test(entry.name)
     ) {
-      files.push(path.join(WORKSPACE_ROOT, child));
+      files.push(path.join(root, child));
     }
   }
   return files;
@@ -189,8 +196,17 @@ export function findNoFallbackFindingsInSource(source, file = 'fixture.ts') {
 
 export function findNoFallbackFindings(root = WORKSPACE_ROOT) {
   const findings = [];
+  // FAIL-CLOSED (HARNESS-052). An absent `packages/` used to yield zero files and therefore
+  // `no-fallback scan passed.` — a No-Fallback floor announcing a clean result over source it never
+  // opened. A checkout without the governed tree is broken, not clean.
+  const missing = SCAN_DIRS.filter((dir) => !existsSync(path.join(root, dir)));
+  if (missing.length > 0)
+    throw new Error(
+      `governed tree(s) absent under ${root}: ${missing.join(', ')}. This scan will not report a ` +
+        'pass over source it could not read.',
+    );
   for (const dir of SCAN_DIRS) {
-    for (const file of walkSource(dir)) {
+    for (const file of walkSource(dir, root)) {
       // Neutrality/fallback is a property of production source, not test fixtures.
       const rel = path.relative(root, file);
       if (!rel.includes(`${path.sep}src${path.sep}`)) continue; // packages/<name>/src/** only
