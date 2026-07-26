@@ -5,6 +5,7 @@ status: done
 priority: medium
 type: INFRA
 created: 2026-07-26
+completed: 2026-07-26
 ---
 
 # INFRA-058: `deploy.yml` has never once deployed, in 100+ runs over 8 months
