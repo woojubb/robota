@@ -21,9 +21,9 @@ import {
 import { findNoFallbackFindings } from '../scan-no-fallback.mjs';
 import { findFakeInSrc } from '../scan-no-fake-in-src.mjs';
 import {
-  findReviewWorkflowParityFindings,
+  findReviewTokenSupplyFindings,
   listGovernedWorkflows,
-} from '../scan-review-workflow-parity.mjs';
+} from '../scan-review-token-supply.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -124,7 +124,7 @@ describe('the repaired guards fail closed on an absent governed tree', () => {
   it.each([
     ['findBaseHistoryFindings', findBaseHistoryFindings],
     ['findAutomergePermissionFindings', findAutomergePermissionFindings],
-    ['findReviewWorkflowParityFindings', findReviewWorkflowParityFindings],
+    ['findReviewTokenSupplyFindings', findReviewTokenSupplyFindings],
     ['findNoFallbackFindings', findNoFallbackFindings],
     ['findFakeInSrc', findFakeInSrc],
   ])('%s does not report a pass over a tree it never read', async (_name, finder) => {
@@ -142,12 +142,12 @@ describe('the repaired guards fail closed on an absent governed tree', () => {
   });
 
   /**
-   * The parity scan's anti-rot half: a workflows directory that exists but in which nothing invokes
+   * The token-supply scan's anti-rot half (inherited from the parity scan it replaced): a workflows directory that exists but in which nothing invokes
    * the governed action is an empty subject, not a clean one. Before the repair this returned no
    * findings and `main()` printed "nothing to guard" and exited 0 — the scan whose whole subject is
    * an action that exits 0 having reviewed nothing, doing exactly that.
    */
-  it('parity reports an empty governed set as a finding', async () => {
+  it('token-supply reports an empty governed set as a finding', async () => {
     const { mkdirSync, writeFileSync } = await import('node:fs');
     const root = await bareRoot();
     mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
@@ -156,7 +156,7 @@ describe('the repaired guards fail closed on an absent governed tree', () => {
       'name: ci\njobs: {}\n',
       'utf8',
     );
-    const { findings, checked } = findReviewWorkflowParityFindings(root);
+    const { findings, checked } = findReviewTokenSupplyFindings(root);
     expect(checked).toEqual([]);
     expect(findings).toHaveLength(1);
     expect(findings[0].detail).toMatch(/governs an empty set/);

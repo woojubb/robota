@@ -42,8 +42,8 @@ const SCAN_COMMANDS = [
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   {
-    name: 'review-workflow-parity',
-    command: ['node', 'scripts/harness/scan-review-workflow-parity.mjs'],
+    name: 'review-token-supply',
+    command: ['node', 'scripts/harness/scan-review-token-supply.mjs'],
   },
   {
     name: 'workflow-permissions',

@@ -78,10 +78,10 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
-    file: 'scan-review-workflow-parity.mjs',
-    finder: 'findReviewWorkflowParityFindings',
+    file: 'scan-review-token-supply.mjs',
+    finder: 'findReviewTokenSupplyFindings',
     tree: '.github/workflows',
-    why: 'the parity rule exists because the review action skips and exits 0 on a mismatch; with no workflow to compare, "nothing to guard" is indistinguishable from the failure it guards',
+    why: 'the token-supply rule exists because the review action skips and exits 0 when it authenticates via OIDC against a divergent workflow; with no workflow to inspect, "nothing to guard" is indistinguishable from the failure it guards (INFRA-062 replaced the parity scan here, carrying this classification with it)',
   },
   {
     file: 'scan-ci-base-history.mjs',

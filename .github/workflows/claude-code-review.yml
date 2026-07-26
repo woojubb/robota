@@ -1,32 +1,30 @@
 name: Claude Code Review
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
-# EDITING THIS FILE IS A TWO-BRANCH OPERATION. READ THIS BEFORE YOU CHANGE A BYTE.  (INFRA-053)
+# THE `github_token` INPUT BELOW IS LOAD-BEARING. READ THIS BEFORE REMOVING IT.  (INFRA-062)
 #
-# `anthropics/claude-code-action` mints its GitHub App token through an OIDC exchange that validates
-# the invoking workflow against the DEFAULT branch (`main`) BYTE-FOR-BYTE. When the two copies differ
-# the action prints "Skipping action due to workflow validation" and **exits 0** — the check reports
-# `success` having reviewed nothing. It did exactly that for 100 consecutive runs (INFRA-048).
+# Without a `github_token` input, `anthropics/claude-code-action` mints a GitHub App token through an
+# OIDC exchange that validates the invoking workflow against the DEFAULT branch (`main`)
+# BYTE-FOR-BYTE. When the copies differ the action prints "Skipping action due to workflow
+# validation" and **exits 0** — the check reports `success` having reviewed nothing. It did exactly
+# that for 100 consecutive runs (INFRA-048).
 #
-# `scan-review-workflow-parity`, which runs inside the REQUIRED `scans` job, now fails loudly on that
-# divergence instead of letting it pass silently. It exempts PRs whose base IS `main`, because such a
-# PR is the promotion that restores parity. Consequence: an edit here is red on one branch or the
-# other until BOTH carry it. The safe sequence:
+# Supplying `github_token` removes that failure mode at its cause: `setupGitHubToken()` returns the
+# provided token BEFORE the OIDC exchange (src/github/token.ts, verified at v1.0.183 — the commit
+# `@v1` resolves to), and the exchange is the only place the workflow-validation skip exists. With
+# the input present the skip path is unreachable, this file is editable through the normal
+# feature→develop→main flow, and no byte-parity between branches is required.
 #
-#   1. Confirm the queue is EMPTY — no open PRs to `develop`, no agents mid-flight. The window blocks
-#      a required check for everyone, so this is serial-only work.
-#   2. Cut `release/*` from `develop`, edit here, open the PR to `main` (parity-exempt), merge it.
-#   3. IMMEDIATELY back-merge `main` → `develop`. Parity is restored only once both branches match.
-#
-# And note what this means for verification: a change here **cannot be proven by its own PR**. The
-# action compares against `main` whatever the PR's base is, so it skips until step 2 lands. The first
-# honest run of a change made here is the first PR opened after step 3.
+# That is why INFRA-062 retired `scan-review-workflow-parity` (INFRA-048's detector for the skip) and
+# replaced it with `scan-review-token-supply` in the required `scans` job: any workflow invoking this
+# action MUST supply `github_token`, or the silent-skip failure mode returns. Do not remove the input
+# without reading that scan first.
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 
 on:
   pull_request:
-    # This repo's flow is feature→develop→main, so most PRs target `develop`. Because of the parity
-    # rule above, this file has to exist on `main` AND on `develop` as the same bytes.
+    # This repo's flow is feature→develop→main, so most PRs target `develop`. `pull_request` runs use
+    # the merge-ref's copy of this file, so a change here takes effect on its own PR.
     branches: [main, develop]
     types: [opened, synchronize]
 
@@ -34,10 +32,14 @@ concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Exactly what the reviewer does, and nothing more: it reads the checkout and the diff
+# (`contents: read`), and posts inline review comments plus a PR summary comment
+# (`pull-requests: write`). `id-token: write` is gone with the OIDC exchange — the action
+# authenticates with the `github_token` input, so no App token is minted. No `issues`, no
+# `actions`, no write access to code.
 permissions:
   contents: read
   pull-requests: write
-  id-token: write
 
 jobs:
   review:
@@ -55,6 +57,10 @@ jobs:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
         with:
+          # LOAD-BEARING (see header): with this input the action never performs the OIDC exchange
+          # whose workflow-validation silently skips the review on any divergence from `main`.
+          # `scan-review-token-supply` fails the required `scans` job if this line is removed.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           # Authenticate with whichever secret is registered (an empty one is ignored).
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
