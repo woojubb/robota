@@ -192,29 +192,12 @@ describe('CI build workflow', () => {
 });
 
 // ---------------------------------------------------------------------------
-// deploy workflow build shape
-// ---------------------------------------------------------------------------
-describe('deploy workflow', () => {
-  it('uses one root package build and reuses package dist artifacts for Vercel deploys', () => {
-    const content = readFileSync('.github/workflows/deploy.yml', 'utf8');
-
-    expect(content).toContain('run: pnpm build');
-    expect(content).toContain('package-dist.tgz');
-    expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
-    expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
-    expect(content).not.toContain('@robota-sdk/agent-playground... build');
-  });
-
-  it('points deploy artifacts and Vercel working directories at apps/agent-web', () => {
-    const content = readFileSync('.github/workflows/deploy.yml', 'utf8');
-
-    // (The former lcov.info assertion lived in the codecov upload step, removed in the Dependabot
-    // #1309 triage — the path-correctness intent is carried by the remaining assertions.)
-    expect(content).toContain('working-directory: apps/agent-web');
-    expect(content).not.toContain('apps/web');
-  });
-});
-
+// (INFRA-058) The `deploy workflow` block that stood here asserted the build shape of
+// `.github/workflows/deploy.yml` — artifact names, tar invocations, the Vercel working directory.
+// Both assertions passed for eight months while the workflow itself deployed nothing across 206
+// runs, because it referenced `vercel/action`, a repository that does not exist, and died at
+// `Set up job`. Asserting a workflow's TEXT says nothing about whether it runs; these tests were
+// green over a permanently broken job. Removed with the workflow.
 // ---------------------------------------------------------------------------
 // publish workflow
 // ---------------------------------------------------------------------------
