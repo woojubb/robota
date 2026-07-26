@@ -74,13 +74,15 @@ Each implementer produces exactly one PR and does **not** self-merge:
 - **Prove it fails first.** A new or changed regression test does not count as verification until it has
   been demonstrated to FAIL against the pre-change state, then pass. Never skip this because the test is
   green now.
-- **Self-verify in the FOREGROUND, on a fully built tree, using the project's CI-equivalent verification
-  entry point** — the single entry that reproduces what CI asserts — plus the project's test suite. All
-  green, evidence reported. **A partial check is not the gate:** a narrower scan-only or hook-only run can
-  report a pass where CI fails, because it treats baseline notices and missing build outputs as clean, and
-  a freshly-created worktree may not carry the installed hook/formatter toolchain the project's checks
-  assume. Never substitute a narrower command for the CI-equivalent one, and never background the
-  verification and report before it finishes.
+- **Self-verify in the FOREGROUND using the project's CI-equivalent verification entry point** — the
+  single entry that reproduces what CI's required checks assert, including the build and the affected
+  packages' tests. All green, evidence reported. **A partial check is not the gate:** a narrower
+  scan-only or hook-only run can report a pass where CI fails, because it treats baseline notices and
+  missing build outputs as clean, and a freshly-created worktree may not carry the installed
+  hook/formatter toolchain the project's checks assume. Never substitute a narrower command for the
+  CI-equivalent one, never restrict it to a subset of its stages, and never background the
+  verification and report before it finishes. It takes minutes on a code branch — that is the gate,
+  not an overrun.
 - Correct commit footers; open **exactly one** PR against the integration branch.
 - Stop-and-report on a blocker rather than merging or leaving a broken commit.
 

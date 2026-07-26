@@ -332,14 +332,24 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
 }
 
 /**
- * The files this change touches: uncommitted working-tree entries when the tree is dirty, otherwise
- * the branch's diff against its base ref.
+ * The files this change touches: the UNION of the uncommitted working-tree entries and the branch's
+ * diff against its base ref.
  *
- * FAIL-CLOSED (INFRA-048-C). When the tree is clean and NO base ref can be resolved, this throws.
- * It used to return `[]`, which is indistinguishable from a branch that genuinely changed nothing —
- * so `harness:plan` printed "Changed files: 0" and `harness:verify` exited 0 having verified
- * nothing, on a branch carrying real source changes. An empty list is still returned for the
- * legitimate case (base resolved, diff ran, no files differ); only "could not compute" now throws.
+ * FAIL-CLOSED (INFRA-048-C). When NO base ref can be resolved, this throws. It used to return `[]`,
+ * which is indistinguishable from a branch that genuinely changed nothing — so `harness:plan`
+ * printed "Changed files: 0" and `harness:verify` exited 0 having verified nothing, on a branch
+ * carrying real source changes. An empty list is still returned for the legitimate case (base
+ * resolved, diff ran, no files differ); only "could not compute" throws.
+ *
+ * UNION, not either/or (INFRA-056). This used to RETURN EARLY on the working-tree entries whenever
+ * the tree was dirty, and never consult the base diff at all. CI never takes that path — it checks
+ * out clean, so its plan always comes from `origin/<base>...HEAD` — which made every local
+ * "same command CI runs" claim hold only for a clean tree, and fail SILENTLY and in the
+ * UNDER-counting direction otherwise: one dirty untracked scratch file was enough for a branch full
+ * of package-source commits to plan zero package scopes, print "No package or app scope detected"
+ * and exit 0. A dirty tree therefore no longer excuses base-ref resolution either; a change set
+ * computed from half the inputs is exactly the "success over ground it never covered" shape
+ * INFRA-048 closed for the other half.
  */
 export function detectChangedFiles(baseRef = null) {
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
@@ -352,18 +362,15 @@ export function detectChangedFiles(baseRef = null) {
   }
 
   const workingTreeFiles = parseGitStatusFiles(result.stdout);
-  if (workingTreeFiles.length > 0) {
-    return workingTreeFiles;
-  }
-
   const resolvedBaseRef = resolveGitBaseRef(baseRef);
 
   if (!resolvedBaseRef) {
     throw new Error(
       'Unable to resolve a base ref to diff against (tried --base-ref, $HARNESS_BASE_REF, ' +
         'origin/$GITHUB_BASE_REF, $GITHUB_BASE_REF, origin/develop, develop, origin/main, main). ' +
-        'Refusing to report "no changed files" from a base that could not be resolved — that reads ' +
-        'as "nothing to verify" and silently verifies nothing (INFRA-048). ' +
+        'Refusing to report a change set from a base that could not be resolved — an empty list ' +
+        'reads as "nothing to verify" (INFRA-048) and the working-tree entries alone under-count ' +
+        'every commit already on the branch (INFRA-056). ' +
         'Pass --base-ref <ref>, or fetch the base branch.',
     );
   }
@@ -381,7 +388,7 @@ export function detectChangedFiles(baseRef = null) {
     throw new Error(`Unable to read changed files from git diff against ${resolvedBaseRef}.`);
   }
 
-  return parseGitDiffFiles(diffResult.stdout);
+  return [...new Set([...workingTreeFiles, ...parseGitDiffFiles(diffResult.stdout)])];
 }
 
 export function resolveRequestedScopes(scopeTokens, scopes) {

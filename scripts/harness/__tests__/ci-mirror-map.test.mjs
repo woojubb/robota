@@ -1,0 +1,208 @@
+/**
+ * INFRA-056 — the CI-mirror stage list and CI's required jobs cannot drift apart.
+ *
+ * The defect this guards: `verify-like-ci` was named as THE CI-equivalent verification entry point
+ * while running neither `pnpm build` nor any package test suite. Nothing mechanical connected the
+ * stage list to what CI actually requires, so the gap was invisible — and a HARNESS-049 increment
+ * nearly replaced a skill's four hardcoded commands (which INCLUDED the package tests) with a
+ * pointer to it, a "strengthening" that would have silently stopped running tests.
+ *
+ * The pin is STEP-level, not context-level, and that distinction is the whole point. A
+ * context-level pin is satisfied by mapping `quality -> affected-verify` while `quality`'s other
+ * two run-steps go unmirrored — it would certify coverage that does not exist, which is the
+ * original defect wearing a test. Every command-executing step of every mirrored job must be
+ * claimed by a stage or declared CI plumbing with a reason.
+ *
+ * Modelled on the `DOCS_ONLY_GLOBS` <-> `codeql.yml` `paths-ignore` pin in
+ * `classify-changed-paths.test.mjs`: parse the real workflow, compare entry for entry, no
+ * hand-copied lists.
+ */
+
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  CI_SETUP_STEPS,
+  CI_STAGES,
+  claimedSteps,
+  jobRunSteps,
+  MIRRORED_BRANCH,
+  mirrorEntries,
+  NOT_MIRRORED,
+  plumbingSteps,
+  readCiWorkflow,
+  readRequiredContexts,
+  RELEVANCE_KEYS,
+  stagesMirroring,
+} from '../ci-mirror-map.mjs';
+
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const CI_YAML = readCiWorkflow(REPO_ROOT);
+const REQUIRED = readRequiredContexts(REPO_ROOT, MIRRORED_BRANCH);
+
+/** Contexts the map claims it cannot reproduce. */
+const notMirroredContexts = new Set(NOT_MIRRORED.map((entry) => entry.context));
+
+/** Required contexts that a stage is expected to reproduce. */
+const mirroredContexts = REQUIRED.filter((entry) => !notMirroredContexts.has(entry.context));
+
+describe(`every required check on \`${MIRRORED_BRANCH}\` is answered for (anti-drift)`, () => {
+  it('the declaration is non-empty — an empty list would pass everything vacuously', () => {
+    expect(REQUIRED.length).toBeGreaterThan(0);
+  });
+
+  it.each(REQUIRED.map((entry) => entry.context))(
+    '`%s` is either mirrored by a stage or declared un-mirrorable',
+    (context) => {
+      const entry = REQUIRED.find((candidate) => candidate.context === context);
+      const stages = stagesMirroring(entry.job);
+      const declared = NOT_MIRRORED.find((candidate) => candidate.context === context);
+      expect(
+        stages.length > 0 || Boolean(declared),
+        `\`${context}\` is REQUIRED on \`${MIRRORED_BRANCH}\` but no verify-like-ci stage mirrors it and NOT_MIRRORED does not declare it. Add a stage, or declare why it cannot be run locally — a required check the entry point silently drops is the INFRA-056 defect.`,
+      ).toBe(true);
+    },
+  );
+
+  it.each(NOT_MIRRORED.map((entry) => entry.context))(
+    '`%s` is declared un-mirrorable with a reason and a manual command',
+    (context) => {
+      const entry = NOT_MIRRORED.find((candidate) => candidate.context === context);
+      expect(
+        entry.reason.length,
+        'a reason-less exemption rots into a silent omission',
+      ).toBeGreaterThan(40);
+      expect(entry.manualCommand.length).toBeGreaterThan(0);
+      expect(entry.relevantWhen.length).toBeGreaterThan(0);
+      // `relevantWhen` is prose; `relevance` is what the runner evaluates. A sentence with no key
+      // behind it describes a condition nobody computes — the same defect, one size smaller.
+      expect(
+        RELEVANCE_KEYS,
+        `\`${context}\` declares relevance \`${entry.relevance}\`, which the runner cannot evaluate.`,
+      ).toContain(entry.relevance);
+    },
+  );
+
+  it('NOT_MIRRORED names only contexts that are actually required', () => {
+    const required = new Set(REQUIRED.map((entry) => entry.context));
+    for (const entry of NOT_MIRRORED) {
+      expect(
+        required.has(entry.context),
+        `NOT_MIRRORED declares \`${entry.context}\`, which \`${MIRRORED_BRANCH}\` does not require — a stale exemption reads as coverage nobody needs.`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
+  it.each(mirroredContexts.map((entry) => [entry.context, entry.job]))(
+    '`%s` (job `%s`): every run-step is claimed by a stage or declared CI plumbing',
+    (context, job) => {
+      const steps = jobRunSteps(CI_YAML, job);
+      const claimed = claimedSteps(job);
+      const plumbing = plumbingSteps(job);
+      const unanswered = steps.filter((step) => !claimed.has(step) && !plumbing.has(step));
+      expect(
+        unanswered,
+        `ci.yml's REQUIRED job \`${job}\` runs step(s) that no verify-like-ci stage reproduces and CI_SETUP_STEPS does not declare plumbing: ${unanswered.join(', ')}. Add a stage for it, or declare it in CI_SETUP_STEPS with a reason. Leaving it unanswered means "I ran the CI-equivalent check" covers less than it claims (INFRA-056).`,
+      ).toEqual([]);
+    },
+  );
+
+  it.each(mirroredContexts.map((entry) => [entry.context, entry.job]))(
+    '`%s` (job `%s`): no stage claims a step ci.yml no longer has',
+    (context, job) => {
+      const steps = new Set(jobRunSteps(CI_YAML, job));
+      const phantom = [...claimedSteps(job)].filter((step) => !steps.has(step));
+      expect(
+        phantom,
+        `verify-like-ci claims to mirror step(s) that ci.yml's \`${job}\` job no longer runs: ${phantom.join(', ')}. A stage mirroring a step that no longer exists is coverage of nothing.`,
+      ).toEqual([]);
+    },
+  );
+
+  it('CI_SETUP_STEPS declares no phantom step, and every entry carries a reason', () => {
+    for (const [job, entries] of Object.entries(CI_SETUP_STEPS)) {
+      const steps = new Set(jobRunSteps(CI_YAML, job));
+      for (const entry of entries) {
+        expect(
+          steps.has(entry.step),
+          `CI_SETUP_STEPS[${job}] names \`${entry.step}\`, which ci.yml does not run.`,
+        ).toBe(true);
+        expect(
+          entry.reason.length,
+          `CI_SETUP_STEPS[${job}].${entry.step} needs a reason.`,
+        ).toBeGreaterThan(20);
+      }
+    }
+  });
+});
+
+describe('the stage table itself is well-formed', () => {
+  it('every stage either mirrors a real ci.yml job or declares why it is extra', () => {
+    for (const stage of CI_STAGES) {
+      expect(
+        Boolean(stage.mirrors) !== Boolean(stage.extra),
+        `stage \`${stage.name}\` must be exactly one of mirrored or extra`,
+      ).toBe(true);
+      expect(stage.why.length, `stage \`${stage.name}\` needs a why`).toBeGreaterThan(20);
+      for (const entry of mirrorEntries(stage)) {
+        expect(() => jobRunSteps(CI_YAML, entry.job)).not.toThrow();
+        expect(
+          entry.steps.length,
+          `stage \`${stage.name}\` mirrors \`${entry.job}\` but names no step`,
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('stage names are unique', () => {
+    const names = CI_STAGES.map((stage) => stage.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('no stage mirrors a job the ruleset does not require', () => {
+    const requiredJobs = new Set(REQUIRED.map((entry) => entry.job));
+    for (const stage of CI_STAGES) {
+      for (const entry of mirrorEntries(stage)) {
+        expect(
+          requiredJobs.has(entry.job),
+          `stage \`${stage.name}\` mirrors job \`${entry.job}\`, which \`${MIRRORED_BRANCH}\` does not require — the mirror table must track the required list, not an arbitrary job.`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe('the build predicate has ONE implementation (anti-drift)', () => {
+  /**
+   * `ci.yml`'s "Detect build requirement" step still inlines the check set in a heredoc. Until that
+   * call site imports the shared helper (follow-up INFRA-057), this pins the two together so the
+   * copy cannot drift: `verify-like-ci` skipping `pnpm build` on a plan CI would have built for is
+   * a fail-open the whole entry point rests on.
+   */
+  it('PACKAGE_DIST_CHECKS equals the set ci.yml inlines, entry for entry', async () => {
+    const { PACKAGE_DIST_CHECKS } = await import('../check-plan.mjs');
+    const literal = /checksRequiringPackageDist = new Set\(\[([^\]]*)\]\)/.exec(CI_YAML);
+    expect(literal, 'ci.yml must still declare `checksRequiringPackageDist`').not.toBeNull();
+    const fromWorkflow = [...literal[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+    expect([...fromWorkflow].sort()).toEqual([...PACKAGE_DIST_CHECKS].sort());
+  });
+});
+
+describe('the ruleset declaration matches the workflow it names', () => {
+  it.each(REQUIRED.map((entry) => [entry.context, entry.job]))(
+    '`%s` resolves to job `%s` in ci.yml',
+    (context, job) => {
+      const declared = REQUIRED.find((entry) => entry.context === context);
+      expect(declared.workflow).toBe('.github/workflows/ci.yml');
+      expect(() => jobRunSteps(CI_YAML, job)).not.toThrow();
+      // The context string is the job's `name:`, which is what branch protection matches on.
+      expect(readFileSync(path.join(REPO_ROOT, declared.workflow), 'utf8')).toContain(
+        `name: ${context}`,
+      );
+    },
+  );
+});
