@@ -25,7 +25,11 @@ function writeFiles(root, files) {
   }
 }
 
-function scope(relativeDir, workspaceName, scripts = { build: 'tsc' }) {
+// `build:js` is in the default because freshness is only compared for packages the ROOT build
+// rebuilds — `pnpm --filter "./packages/**" build:js`. Presence checks apply to every buildable
+// scope, so `build` alone still exercises those; the freshness half needs both halves of that
+// filter, which is why fixtures asserting freshness live under `packages/`.
+function scope(relativeDir, workspaceName, scripts = { build: 'tsc', 'build:js': 'tsdown' }) {
   return { relativeDir, workspaceName, scripts };
 }
 
@@ -177,7 +181,9 @@ describe('scan-dist-freshness CLI', () => {
       'packages/pkg-a/package.json': JSON.stringify({
         name: '@fixture/pkg-a',
         exports: { '.': './dist/index.js' },
-        scripts: { build: 'tsc' },
+        // `build:js` under `packages/` is what the root build actually rebuilds, and freshness is
+        // only claimed for those. Without it this fixture is correctly reported unmeasurable.
+        scripts: { build: 'tsc', 'build:js': 'tsdown' },
       }),
       'packages/pkg-a/dist/index.js': 'export {};\n',
     };
@@ -441,6 +447,29 @@ describe('collectDistFreshnessResults — freshness integration', () => {
 
   it('assesses freshness for a private package too, when it has both src and dist', async () => {
     const root = await createRoot({
+      'packages/pkg-private/package.json': JSON.stringify({
+        name: '@fixture/pkg-private',
+        private: true,
+      }),
+      'packages/pkg-private/src/index.ts': 'export const a = 1;\n',
+      'packages/pkg-private/dist/index.js': 'export const a = 1;\n',
+    });
+    setMtime(path.join(root, 'packages/pkg-private/dist/index.js'), 1000);
+    setMtime(path.join(root, 'packages/pkg-private/src/index.ts'), 5000);
+
+    const { freshness } = await collectDistFreshnessResults(root, [
+      scope('packages/pkg-private', '@fixture/pkg-private'),
+    ]);
+    expect(freshness.stale).toBe(1);
+  });
+
+  // Freshness is only claimed for what the ROOT build rebuilds — `pnpm --filter "./packages/**"
+  // build:js`. Measured immediately after a clean `pnpm build`, three workspaces still reported
+  // stale by 167-383 hours, and running the command the advisory recommends would never have
+  // cleared any of them. An advisory that survives the action it advises trains people to ignore
+  // the channel.
+  it('does not claim staleness for an app, which the root build never rebuilds', async () => {
+    const root = await createRoot({
       'apps/app-a/package.json': JSON.stringify({ name: '@fixture/app-a', private: true }),
       'apps/app-a/src/index.ts': 'export const a = 1;\n',
       'apps/app-a/dist/index.js': 'export const a = 1;\n',
@@ -448,10 +477,29 @@ describe('collectDistFreshnessResults — freshness integration', () => {
     setMtime(path.join(root, 'apps/app-a/dist/index.js'), 1000);
     setMtime(path.join(root, 'apps/app-a/src/index.ts'), 5000);
 
+    // Declaring `build:js` is not enough — `apps/remote-signaling` declares it and is still outside
+    // the `./packages/**` filter, which is the case that survived the first version of this rule.
     const { freshness } = await collectDistFreshnessResults(root, [
-      scope('apps/app-a', '@fixture/app-a'),
+      scope('apps/app-a', '@fixture/app-a', { build: 'tsdown', 'build:js': 'tsdown' }),
     ]);
-    expect(freshness.stale).toBe(1);
+    expect(freshness.stale).toBe(0);
+    expect(freshness.unmeasurable).toBe(1);
+  });
+
+  it('does not claim staleness for a package the root build skips (no build:js)', async () => {
+    const root = await createRoot({
+      'packages/pkg-vite/package.json': JSON.stringify({ name: '@fixture/pkg-vite' }),
+      'packages/pkg-vite/src/main.tsx': 'export const a = 1;\n',
+      'packages/pkg-vite/dist/index.html': '<html></html>\n',
+    });
+    setMtime(path.join(root, 'packages/pkg-vite/dist/index.html'), 1000);
+    setMtime(path.join(root, 'packages/pkg-vite/src/main.tsx'), 5000);
+
+    const { freshness } = await collectDistFreshnessResults(root, [
+      scope('packages/pkg-vite', '@fixture/pkg-vite', { build: 'vite build' }),
+    ]);
+    expect(freshness.stale).toBe(0);
+    expect(freshness.unmeasurable).toBe(1);
   });
 });
 
@@ -462,7 +510,9 @@ describe('scan-dist-freshness CLI — freshness severity', () => {
       'packages/pkg-a/package.json': JSON.stringify({
         name: '@fixture/pkg-a',
         exports: { '.': './dist/index.js' },
-        scripts: { build: 'tsc' },
+        // `build:js` under `packages/` is what the root build actually rebuilds, and freshness is
+        // only claimed for those. Without it this fixture is correctly reported unmeasurable.
+        scripts: { build: 'tsc', 'build:js': 'tsdown' },
       }),
       'packages/pkg-a/src/index.ts': 'export const a = 1;\n',
       'packages/pkg-a/dist/index.d.ts': 'export declare const a: number;\n',

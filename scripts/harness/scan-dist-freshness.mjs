@@ -243,6 +243,27 @@ export async function collectDistFreshnessResults(root, scopes) {
 
     results.push(...presenceResults(scope, pkg, distWalk.fileCount > 0));
 
+    // Freshness is only compared for packages the STANDARD build rebuilds. Root `pnpm build` is
+    // `pnpm --filter "./packages/**" build:js`, so `apps/**` and any package without a `build:js`
+    // script are never refreshed by it. Measured on a tree immediately after a clean `pnpm build`:
+    // agent-app (312h), remote-signaling (383h) and agent-cli-web (167h) still reported stale, and
+    // no amount of running the command the advisory recommends would ever clear them.
+    //
+    // An advisory that cannot be cleared by the action it advises is the shape that trains people
+    // to ignore the channel — the same defect HARNESS-054 records for a scan whose red has no path
+    // back to green. Their dist genuinely is old; it is just not this scan's claim to make, because
+    // the claim it exists to support is "your cross-package typecheck is reading a stale dist,
+    // rebuild", and rebuilding does not apply to them.
+    // BOTH halves of the filter matter. `apps/remote-signaling` declares `build:js` and is still
+    // never rebuilt, because the filter is `./packages/**` — the script's presence says nothing
+    // about whether the root build reaches it.
+    const rebuiltByRootBuild =
+      scope.relativeDir.startsWith('packages/') && Boolean(scope.scripts['build:js']);
+    if (!rebuiltByRootBuild) {
+      freshness.unmeasurable++;
+      continue;
+    }
+
     const srcWalk = walkTree(join(scopeDir, 'src'), isEmittedSourceFile);
     const verdict = freshnessVerdict(srcWalk.newest, distWalk.newest);
     if (verdict.state === 'unmeasurable') {
