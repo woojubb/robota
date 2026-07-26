@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { createVerificationPlan, parsePlanArgs, renderPlanSummary } from '../check-plan.mjs';
+import {
+  WORKSPACE_WIDE_BUILD_TOOLING_PATHS,
+  createVerificationPlan,
+  listWorkspaceWideTriggers,
+  parsePlanArgs,
+  renderPlanSummary,
+  renderScopeCoverageLine,
+} from '../check-plan.mjs';
 
 const scopes = [
   {
@@ -218,7 +225,122 @@ describe('createVerificationPlan', () => {
   });
 });
 
+// INFRA-060 D4. Each half is asserted separately: the calculator's selection, and the coverage
+// line CI's readers see. The pre-fix defect is pinned in both directions — build tooling must
+// select everything, and a docs-only change must still select nothing WITHOUT failing.
+describe('workspace-wide build tooling (INFRA-060 D4)', () => {
+  it('selects EVERY scope in full for the ordered-types builder — the measured defect', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['scripts/build-types-ordered.mjs'],
+      scopeTokens: [],
+    });
+
+    // Pre-fix this was `[]`, which made CI's `build` job skip `pnpm build` and its `quality`
+    // job verify zero scopes — two REQUIRED checks, both green, on a build-tooling PR.
+    expect(plan.scopes.map((item) => item.scope)).toEqual(scopes.map((item) => item.relativeDir));
+    for (const item of plan.scopes) {
+      expect(item.checks).toEqual(['build', 'test', 'lint', 'typecheck']);
+      expect(item.notes).toContain('workspace-wide:scripts/build-types-ordered.mjs');
+    }
+    expect(plan.workspaceWideTriggers).toEqual(['scripts/build-types-ordered.mjs']);
+  });
+
+  it('selects every scope for each declared path, one at a time', () => {
+    expect(WORKSPACE_WIDE_BUILD_TOOLING_PATHS.length).toBeGreaterThan(0);
+
+    for (const declaredPath of WORKSPACE_WIDE_BUILD_TOOLING_PATHS) {
+      const plan = createVerificationPlan({ scopes, changedFiles: [declaredPath] });
+      expect(plan.scopes.length, `${declaredPath} must select the full workspace`).toBe(
+        scopes.length,
+      );
+    }
+  });
+
+  it('leaves a docs-only change at zero scopes — over-correction is the other failure', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['README.md', 'docs/plans/example.md', '.agents/backlog/EXAMPLE-1.md'],
+      scopeTokens: [],
+    });
+
+    expect(plan.scopes).toEqual([]);
+    expect(plan.workspaceWideTriggers).toEqual([]);
+  });
+
+  it('leaves an ordinary package change scoped to its owner', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['packages/agent-core/src/agent.ts'],
+    });
+
+    expect(plan.scopes.map((item) => item.scope)).toEqual(['packages/agent-core']);
+    expect(plan.workspaceWideTriggers).toEqual([]);
+  });
+
+  it('does not widen an explicitly requested scope', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['package.json'],
+      scopeTokens: ['packages/agent-core'],
+    });
+
+    expect(plan.scopes.map((item) => item.scope)).toEqual(['packages/agent-core']);
+    expect(plan.workspaceWideTriggers).toEqual([]);
+  });
+
+  it('matches build tooling by exact path, not by prefix', () => {
+    expect(listWorkspaceWideTriggers(['package.json'])).toEqual(['package.json']);
+    expect(listWorkspaceWideTriggers(['packages/agent-core/package.json'])).toEqual([]);
+    expect(listWorkspaceWideTriggers(['scripts/build-types-ordered.mjs.bak'])).toEqual([]);
+    expect(listWorkspaceWideTriggers([])).toEqual([]);
+  });
+});
+
+describe('renderScopeCoverageLine (INFRA-060 D4)', () => {
+  it('says in words that nothing was verified when the plan is empty', () => {
+    const plan = createVerificationPlan({ scopes, changedFiles: ['README.md'] });
+
+    expect(renderScopeCoverageLine(plan)).toBe(
+      `Scope coverage: 0 of ${scopes.length} workspace scopes — this plan verifies NO package or app.`,
+    );
+  });
+
+  it('states the count and the reason when the whole workspace is selected', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['scripts/build-types-ordered.mjs'],
+    });
+
+    expect(renderScopeCoverageLine(plan)).toBe(
+      `Scope coverage: ${scopes.length} of ${scopes.length} workspace scopes ` +
+        '(workspace-wide build tooling changed: scripts/build-types-ordered.mjs).',
+    );
+  });
+
+  it('distinguishes a partial plan from an empty one', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['packages/agent-core/src/agent.ts'],
+    });
+
+    expect(renderScopeCoverageLine(plan)).toBe(
+      `Scope coverage: 1 of ${scopes.length} workspace scopes.`,
+    );
+  });
+});
+
 describe('renderPlanSummary', () => {
+  it('always states the scope coverage, empty or not', () => {
+    const empty = createVerificationPlan({ scopes, changedFiles: ['README.md'] });
+    const full = createVerificationPlan({ scopes, changedFiles: ['tsconfig.base.json'] });
+
+    expect(renderPlanSummary(empty)).toContain('this plan verifies NO package or app.');
+    expect(renderPlanSummary(full)).toContain(
+      `Scope coverage: ${scopes.length} of ${scopes.length} workspace scopes`,
+    );
+  });
+
   it('renders selected scope checks and unmapped files', () => {
     const plan = createVerificationPlan({
       scopes,
