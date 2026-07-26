@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * INFRA-058 — mechanical floor: every remote provider the workspace defines must have its credential
+ * INFRA-060 — mechanical floor: every remote provider the workspace defines must have its credential
  * passed through to the live provider smoke.
  *
  * ## Why this is a scan and not a note

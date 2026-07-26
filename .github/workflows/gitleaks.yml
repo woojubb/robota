@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  # INFRA-058: 8.24+ is a FLOOR, not a preference. `.gitleaks.toml` scopes its fixture suppression to a
+  # INFRA-060: 8.24+ is a FLOOR, not a preference. `.gitleaks.toml` scopes its fixture suppression to a
   # single rule via `[[allowlists]] targetRules`, and older gitleaks drops those keys SILENTLY — the config
   # would still parse, the scan would still run, and every rule would again be suppressed in all test paths.
   GITLEAKS_VERSION: 8.30.1

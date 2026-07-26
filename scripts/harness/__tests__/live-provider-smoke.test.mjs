@@ -306,7 +306,7 @@ describe('formatReport', () => {
 });
 
 /**
- * INFRA-058 — the audited defect: on 2026-07-26 the only two runs this workflow has ever had (a
+ * INFRA-060 — the audited defect: on 2026-07-26 the only two runs this workflow has ever had (a
  * schedule and a manual dispatch) both reported `success` while calling ZERO providers, because no
  * provider secret is provisioned. The run log's whole result was:
  *
@@ -316,7 +316,7 @@ describe('formatReport', () => {
  * red for an unprovisioned secret gets muted within a week. It is a DISCLOSURE problem, except in the
  * one case where a human explicitly named the provider they wanted answered.
  */
-describe('zeroCoverageNotice (INFRA-058 — a green run that called nothing)', () => {
+describe('zeroCoverageNotice (INFRA-060 — a green run that called nothing)', () => {
   const nothingRan = {
     runnable: [],
     unconfigured: [],
@@ -346,7 +346,7 @@ describe('zeroCoverageNotice (INFRA-058 — a green run that called nothing)', (
   });
 });
 
-describe('explicitRequestFailure (INFRA-058 — an answered question, or a failure)', () => {
+describe('explicitRequestFailure (INFRA-060 — an answered question, or a failure)', () => {
   const selection = {
     runnable: [{ type: 'anthropic' }],
     unconfigured: [{ type: 'openai', reason: 'OPENAI_API_KEY is set but ships no default model' }],

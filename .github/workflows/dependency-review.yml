@@ -5,7 +5,7 @@ name: Dependency Review
 # License gating matters here — the project is dual-licensed (AGPL + Commercial, no CLA yet), so a runtime
 # dep under a strong-copyleft license would virally break the commercial-relicensing right.
 #
-# INFRA-058 — the scope claim above was checked against GitHub's actual dependency graph for this repo, since
+# INFRA-060 — the scope claim above was checked against GitHub's actual dependency graph for this repo, since
 # the whole gate rests on what that graph contains. It is not manifest-only: transitive, exact-versioned
 # lockfile entries are present with resolved licenses (`brace-expansion@1.1.16 → MIT`, `ip@2.0.1 → MIT`,
 # `minimatch@10.2.5 → BlueOak-1.0.0`), 2440 exact-version entries in all. So the allow-list really is

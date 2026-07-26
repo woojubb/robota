@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-058: security and scheduled workflow audit — can each scan fail, and does it check the right thing'
+title: 'INFRA-060: security and scheduled workflow audit — can each scan fail, and does it check the right thing'
 status: in-progress
 created: 2026-07-26
 priority: high
@@ -8,7 +8,7 @@ area: .github/workflows, scripts/harness, .gitleaks.toml
 depends_on: []
 ---
 
-# INFRA-058 — security and scheduled workflow audit
+# INFRA-060 — security and scheduled workflow audit
 
 Audit of the six security/scheduled workflows against two questions, because the first alone is not
 sufficient:

@@ -4,7 +4,7 @@ name: CodeQL
 # appear in the Security → Code scanning tab and as PR annotations, not as a required merge check unless added
 # to branch protection.
 #
-# INFRA-058 — what a green CodeQL run does and does not mean, measured 2026-07-26 so the claim is auditable:
+# INFRA-060 — what a green CodeQL run does and does not mean, measured 2026-07-26 so the claim is auditable:
 #
 #   - It genuinely reports. The `refs/heads/develop` analysis carried 80 results, matching the open alert
 #     inventory exactly: 35 high + 15 medium + 30 without a security severity. This workflow is not a no-op.
