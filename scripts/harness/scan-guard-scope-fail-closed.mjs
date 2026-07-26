@@ -90,6 +90,14 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'a grafted `--depth` fetch made required jobs report `skipping`, which branch protection accepts — the guard reading zero workflows is the same hole reopened',
   },
   {
+    // Measured on an empty root: reports R1 findings for every declared path that does not exist,
+    // so an absent tree is an error rather than "no build tooling changed, nothing to check".
+    file: 'scan-build-tooling-scope.mjs',
+    finder: 'findBuildToolingScopeFindings',
+    tree: 'the declared workspace-wide build-tooling paths',
+    why: 'it pins that a build-tooling change selects the FULL workspace; over a tree where those paths are absent the claim is vacuously true, which is exactly the `scopes: []` green that D4 exists to close',
+  },
+  {
     file: 'scan-workflow-permissions.mjs',
     finder: 'findWorkflowPermissionFindings',
     tree: '.github/workflows',
