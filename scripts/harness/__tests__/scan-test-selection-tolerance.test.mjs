@@ -104,14 +104,14 @@ describe('stepRun', () => {
   });
 
   it('reads a block run body', () => {
-    expect(stepRun('      - name: x\n        run: |\n          line one\n          line two\n')).toBe(
-      '\nline one\nline two',
-    );
+    expect(
+      stepRun('      - name: x\n        run: |\n          line one\n          line two\n'),
+    ).toBe('\nline one\nline two');
   });
 
   it('returns undefined for a pure `uses:` step', () => {
-    expect(stepRun('      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n')).toBe(
-      undefined,
-    );
+    expect(
+      stepRun('      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n'),
+    ).toBe(undefined);
   });
 });

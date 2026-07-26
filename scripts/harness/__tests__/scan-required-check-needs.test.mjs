@@ -26,7 +26,10 @@ describe('isFailSafeFor', () => {
 
   it('rejects the PRE-FIX shape that let #1424 merge on three `skipping` required checks', () => {
     expect(
-      isFailSafeFor("github.base_ref != 'main' && needs.changes.outputs.code == 'true'", dependency),
+      isFailSafeFor(
+        "github.base_ref != 'main' && needs.changes.outputs.code == 'true'",
+        dependency,
+      ),
     ).toBe(false);
   });
 
@@ -40,9 +43,9 @@ describe('isFailSafeFor', () => {
     // Half-fix #2: the job now runs when `changes` fails, but the condition still reads only
     // `outputs.code`, which is EMPTY on a failed job — so it evaluates false and the job skips
     // anyway. Green scan, unchanged bypass.
-    expect(
-      isFailSafeFor("!cancelled() && needs.changes.outputs.code == 'true'", dependency),
-    ).toBe(false);
+    expect(isFailSafeFor("!cancelled() && needs.changes.outputs.code == 'true'", dependency)).toBe(
+      false,
+    );
   });
 
   it('rejects an absent condition', () => {
@@ -70,7 +73,7 @@ describe('isFailSafeFor', () => {
 
 describe('jobContextName', () => {
   it('prefers the declared `name:` over the job id, because branch protection matches the name', () => {
-    expect(jobContextName('security-audit', "    name: security audit\n    steps:\n")).toBe(
+    expect(jobContextName('security-audit', '    name: security audit\n    steps:\n')).toBe(
       'security audit',
     );
   });
@@ -80,7 +83,7 @@ describe('jobContextName', () => {
   });
 
   it('strips quotes so a quoted name still matches the declared context', () => {
-    expect(jobContextName('x', '    name: \'patch-coverage (advisory)\'\n')).toBe(
+    expect(jobContextName('x', "    name: 'patch-coverage (advisory)'\n")).toBe(
       'patch-coverage (advisory)',
     );
   });
