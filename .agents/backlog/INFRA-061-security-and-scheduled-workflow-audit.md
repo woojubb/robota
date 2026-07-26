@@ -217,6 +217,11 @@ Stated plainly, because this sweep is not exhaustive and should not be read as s
   about today's files. It bounds the noise the narrowing adds now, not forever.
 - **CodeQL and dependency-review were not falsified.** Their failure paths are inferred from GitHub's
   documented behaviour plus the alert/graph inventories, not from a planted defect.
+- **"All 76 scans passed" is weaker evidence than it reads.** This audit's own verification leans on
+  `pnpm harness:scan` being green, and HARNESS-052 measured ~30 entries of that same suite reporting a
+  pass over an absent governed tree. None of THIS item's findings rest on those scans — every one is
+  backed by a planted defect or a real run — but the suite-level green underneath the verification
+  section inherits that weakness, and saying so is cheaper than being caught by it later.
 - **Scheduled workflows are only as live as the default branch.** All six exist on `main` today and
   the crons fire (mutation-nightly and live-provider-smoke both had real scheduled runs on
   2026-07-26). GitHub disables schedules after 60 days of repository inactivity; this repo is active
