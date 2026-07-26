@@ -29,7 +29,7 @@ Stryker-style sweeps stay in INFRA-042.
 **Rollout:** ADVISORY CI job `regression-red-proof` (exits 0 unless `REGRESSION_RED_PROOF_ENFORCE=1`; not in the
 required-checks ruleset). Flip to required once stable across real PRs.
 
-**Byproduct:** editing `package.json` trips the manifest-gated `security-audit` osv-scanner, which surfaced 18
+**Byproduct:** editing `package.json` trips the manifest-gated `dependency-audit` osv-scanner (then named `security-audit`), which surfaced 18
 pre-existing dependency advisories → filed **INFRA-044** (triage + move the audit to a schedule). The checker is
 invoked via `node`, no `package.json` alias, to avoid coupling this feature to that remediation.
 
