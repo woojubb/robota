@@ -48,14 +48,14 @@ Alt A 채택. `asciinema rec` + `agg` 도구로 TUI 세션 녹화. 2분 이내 �
 
 - [x] TC-01: README 설치 섹션 아래에 데모 GIF 또는 이미지가 표시됨 — DONE: grep confirms `![Demo](./docs/demo.gif)` at line 56, before Installation section
 - [x] TC-02: GIF 파일 크기 5MB 이하 — DONE: placeholder `docs/demo.gif` is 41 B; recording instructions in `docs/demo-script.md`
-- [x] TC-03: GIF에 TUI 실행 후 AI가 파일을 읽고 응답하는 장면 포함 — DONE 2026-07-26: `docs/demo.gif` is a real 791×622 / 17-frame / 74 KiB recording of the built binary (PTY + `--session-log` replay provider); the `Read` tool really executes and the answer renders in the TUI
+- [x] TC-03: GIF에 TUI 실행 후 AI가 파일을 읽고 응답하는 장면 포함 — DONE 2026-07-26: `docs/demo.gif` is a real 791×622 / 17-frame / 73 KiB recording of the built binary (PTY + `--session-log` replay provider); the `Read` tool really executes and the answer renders in the TUI
 
 ## Test Plan
 
 | TC-ID | Test Type | Tool / Approach               | Notes                                                                                                |
 | ----- | --------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
 | TC-01 | unit      | grep — README image tag check | PASS: `grep "demo.gif" packages/agent-cli/README.md` → line 56 before Installation ✅                |
-| TC-02 | unit      | file size check — ls -lh      | PASS 2026-07-26: `docs/demo.gif` = 75,787 B (74 KiB), under the 5 MB budget the recorder enforces ✅ |
+| TC-02 | unit      | file size check — ls -lh      | PASS 2026-07-26: `docs/demo.gif` = 74,786 B (73 KiB), under the 5 MB budget the recorder enforces ✅ |
 | TC-03 | manual    | visual GIF review             | PASS 2026-07-26: real PTY recording of the built binary; frames reviewed individually ✅             |
 
 ## Tasks
@@ -118,7 +118,7 @@ The 2026-05-25 GATE-COMPLETE closed on a **41-byte 1×1 placeholder**: TC-02 was
 on the placeholder's file size and TC-03 was skipped, so the README shipped a broken image for two
 months. Reopened via `.agents/backlog/PM-031-readme-demo-gif.md` and closed on a real asset:
 
-- TC-02 [x]: `packages/agent-cli/docs/demo.gif` = 75,787 B (74 KiB), 791×622, 17 frames —
+- TC-02 [x]: `packages/agent-cli/docs/demo.gif` = 74,786 B (73 KiB), 791×622, 17 frames —
   `file(1)`: `GIF image data, version 89a, 791 x 622`. The recorder itself fails above 5 MB.
 - TC-03 [x]: the recording drives the BUILT `bin/robota.cjs` under a real PTY; model turns come from
   the offline `--session-log` replay provider (INFRA-017) while the `Read` tool really executes.
@@ -126,5 +126,9 @@ months. Reopened via `.agents/backlog/PM-031-readme-demo-gif.md` and closed on a
   recorder fails the run if any appears.
 - Reproducible: `pnpm --filter @robota-sdk/agent-cli demo:record`
   (`packages/agent-cli/scripts/record-demo.mjs`, documented in `docs/DEMO-SCRIPT.md`).
+- `review-gate` blocked the first push on three CodeQL `js/insecure-temporary-file` findings in the
+  recorder (a fixed `/tmp/robota-demo` root). Fixed at source — `mkdtemp` root (0700) with 0600
+  files, and a project-relative tool path so the scratch name never reaches the screen — not
+  dismissed with the acknowledgement label.
 - Lesson: a placeholder is not a deliverable — a size check that a 41-byte file passes is not
   evidence for an image.

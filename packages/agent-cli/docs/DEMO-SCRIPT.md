@@ -15,12 +15,15 @@ is already a devDependency of this package.
 
 The scenario is fixed in the script, so two runs produce the same demo:
 
-1. `robota` boots in a throwaway project under the OS temp directory (`robota-demo/task-board`) — a
-   small HTTP "task board" the script writes to disk first.
+1. `robota` boots in a throwaway project — a small HTTP "task board" the script writes into a fresh
+   `mkdtemp` directory first, and removes when the run succeeds.
 2. The prompt `Explain the main entry point of this project` is typed keystroke by keystroke.
 3. The agent answers with a `Read` tool call, which **really executes** against `src/index.ts` in
    that project, and then explains the file that was read.
 4. The finished screen is held for three seconds so the looping GIF stays readable.
+
+The tool call passes a project-relative path, so the throwaway directory's name never reaches the
+screen: the demo shows `Read(src/index.ts)` however the scratch directory happens to be named.
 
 ## Why it needs no API key
 
@@ -49,6 +52,10 @@ Before anything is written, the recorder scans the captured terminal output and 
 it finds a home-directory path, a `user@host` string, the machine's hostname, or an API-key-shaped
 token. A published asset is the wrong place to discover a leak.
 
+The scratch tree is created with `mkdtemp` (mode 0700, unguessable name) and every file inside it is
+written 0600 — a fixed path in a world-writable temp directory can be pre-created as a symlink by
+another user on a shared host, which is CodeQL's `js/insecure-temporary-file`.
+
 ## Options
 
 | Flag            | Default         | Purpose                                                      |
@@ -59,7 +66,7 @@ token. A published asset is the wrong place to discover a leak.
 | `--font-size`   | `14`            | Render font size in pixels.                                  |
 | `--colors <n>`  | `128`           | GIF palette size; lower it if the file ever gets too large.  |
 
-The current asset is **791×622, 17 frames, ~74 KiB** — well inside the 5 MB README budget the
+The current asset is **791×622, 17 frames, 74,786 bytes (73 KiB)** — well inside the 5 MB budget the
 recorder enforces.
 
 ## When to re-record

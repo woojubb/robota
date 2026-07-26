@@ -31,7 +31,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir, hostname, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -47,11 +47,22 @@ const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROBOTA_BIN = join(PKG_ROOT, 'bin/robota.cjs');
 const XTERM_ROOT = dirname(require.resolve('@xterm/xterm/package.json'));
 
-/** Everything the demo run touches lives under here — a neutral path, never the real HOME. */
-const DEMO_ROOT = join(tmpdir(), 'robota-demo');
+/**
+ * Everything the demo run touches lives under here — never the real HOME.
+ *
+ * `mkdtemp`, not a fixed `/tmp/robota-demo`: a predictable path in a world-writable directory can be
+ * pre-created by another user on a shared host as a symlink, so the recorder would follow it out of
+ * the sandbox on the very first write (CodeQL `js/insecure-temporary-file`). `mkdtemp` creates the
+ * root itself, mode 0700, under a name nobody can guess; the files inside are written 0600. The
+ * random name never reaches the screen — the demo's tool call reads a project-relative path.
+ */
+const DEMO_ROOT = mkdtempSync(join(tmpdir(), 'robota-demo-'));
 const PROJECT_DIR = join(DEMO_ROOT, 'task-board');
 const HOME_DIR = join(DEMO_ROOT, 'home');
 const SESSION_LOG = join(DEMO_ROOT, 'demo-session-log.jsonl');
+/** Owner-only file/directory modes for everything the recorder writes into that root. */
+const FILE_MODE = 0o600;
+const DIR_MODE = 0o700;
 
 const options = parseArgs(process.argv.slice(2));
 
@@ -110,7 +121,9 @@ const DEMO_PROMPT = 'Explain the main entry point of this project';
  * tool call — which the CLI really executes — and round 1 explains the file that was read.
  */
 function demoSessionLog() {
-  const readArgs = JSON.stringify({ filePath: join(PROJECT_DIR, 'src/index.ts') });
+  // Project-relative, not absolute: the tool resolves it against the session's working directory, so
+  // the throwaway `mkdtemp` name never appears on screen and the demo shows `Read(src/index.ts)`.
+  const readArgs = JSON.stringify({ filePath: 'src/index.ts' });
   const answer = [
     '`src/index.ts` is the entry point — it boots a tiny task-board HTTP server:',
     '',
@@ -161,14 +174,15 @@ function demoSessionLog() {
 // ---------------------------------------------------------------------------------------------
 
 function writeDemoWorkspace() {
-  rmSync(DEMO_ROOT, { recursive: true, force: true });
+  // No `rmSync` first: `DEMO_ROOT` is a fresh `mkdtemp` directory, so there is nothing to clear and
+  // nothing pre-existing to follow. It is removed at the end of a successful run.
   for (const [relative, contents] of Object.entries(DEMO_PROJECT_FILES)) {
     const target = join(PROJECT_DIR, relative);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, contents, 'utf8');
+    mkdirSync(dirname(target), { recursive: true, mode: DIR_MODE });
+    writeFileSync(target, contents, { encoding: 'utf8', mode: FILE_MODE });
   }
-  mkdirSync(HOME_DIR, { recursive: true });
-  mkdirSync(join(PROJECT_DIR, '.robota'), { recursive: true });
+  mkdirSync(HOME_DIR, { recursive: true, mode: DIR_MODE });
+  mkdirSync(join(PROJECT_DIR, '.robota'), { recursive: true, mode: DIR_MODE });
   // A provider profile so the CLI boots straight into the REPL instead of the first-run wizard. The
   // key is a placeholder and is never used: `--session-log` replaces the provider with the replay one.
   writeFileSync(
@@ -187,14 +201,14 @@ function writeDemoWorkspace() {
       null,
       2,
     )}\n`,
-    'utf8',
+    { encoding: 'utf8', mode: FILE_MODE },
   );
   writeFileSync(
     SESSION_LOG,
     `${demoSessionLog()
       .map((line) => JSON.stringify(line))
       .join('\n')}\n`,
-    'utf8',
+    { encoding: 'utf8', mode: FILE_MODE },
   );
 }
 

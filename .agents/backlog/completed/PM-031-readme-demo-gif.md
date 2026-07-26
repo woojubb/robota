@@ -26,7 +26,7 @@ headless **Chromium** (`playwright`) and screenshotted per output change, and th
 with **`gifenc`** (`pngjs` decodes the screenshots). New devDependencies: `playwright`,
 `@xterm/xterm`, `gifenc`, `pngjs`.
 
-**에셋:** 791 × 622 px, 17 frames, **75,787 bytes (74 KiB)** — 5 MB 예산의 1.5 %.
+**에셋:** 791 × 622 px, 17 frames, **74,786 bytes (73 KiB)** — 5 MB 예산의 1.5 %.
 
 **결정론:** the model turns come from the offline `--session-log` replay provider (INFRA-017), so
 the recording needs no API key and no network; only the model turns are replayed — CLI, TUI, tool
@@ -36,7 +36,18 @@ wall-clock.
 **유출 방지:** the recorder spawns the child with a minimal env (`PATH`, temp `HOME`, `TERM`) and
 scans the captured output before writing anything — a home-directory path, `user@host`, the
 machine's hostname or an API-key-shaped token **fails the run**. The frames were also reviewed
-one by one; the only path on screen is the neutral `/tmp/robota-demo/task-board/src/index.ts`.
+one by one; no filesystem path appears on screen at all — the demo's tool call is project-relative,
+so it renders as `Read(src/index.ts)`.
+
+**임시 파일:** the scratch tree is a fresh `mkdtemp` directory (mode 0700) with every file written
+0600, not a fixed `/tmp/robota-demo` path. `review-gate` blocked the first push on three CodeQL
+`js/insecure-temporary-file` findings (SEC-003's class, which the repo closed 109 of at source with
+zero dismissals): a predictable name in a world-writable directory can be pre-created as a symlink
+by another user on a shared host, and mode alone does not close that. The alternative — keeping the
+scratch tree inside the repo's own working area — was rejected because the recording would then have
+the contributor's home path on screen, which is what the recorder's leak scan exists to prevent.
+The finding was fixed rather than argued from "dev-only script, ships in nothing" (`files` is
+`["dist","bin"]`), which is true but cheaper to moot than to defend.
 
 **재현:** `pnpm --filter @robota-sdk/agent-cli build && pnpm --filter @robota-sdk/agent-cli demo:record`
 — the script (`packages/agent-cli/scripts/record-demo.mjs`) is committed alongside the asset and
@@ -73,7 +84,7 @@ robota
 ## 수용 기준
 
 - [x] README 상단(설치 직후)에 데모 GIF 또는 스크린샷 삽입 — `packages/agent-cli/README.md` Demo 섹션
-- [x] GIF 크기 5MB 이하 — 74 KiB (recorder는 5 MB 초과 시 실패)
+- [x] GIF 크기 5MB 이하 — 73 KiB (recorder는 5 MB 초과 시 실패)
 - [x] TUI의 실제 코딩 어시스턴트 동작이 보임 — 실제 `Read` 툴 실행 + 답변 렌더링
 
 ## 예상 작업 시간
