@@ -197,6 +197,9 @@ jobs:
             --labels "$labels" | tee gate-report.txt
           status=${PIPESTATUS[0]}
           set -e
+          # INFRA-057 PROBE (throwaway branch only, never merged): force the block path so the
+          # disarm lever is exercised on a PR that really has auto-merge armed.
+          status=1
           {
             echo '### Review gate'
             echo
@@ -209,8 +212,10 @@ jobs:
             # non-required check does NOT stop an armed auto-merge — which is the exact hole
             # INFRA-048 is about. Disarming is the lever that works today; the ruleset entry is
             # the durable one. `--disable-auto` is a no-op error when auto-merge was never armed.
+            echo "PROBE auto-merge BEFORE: $(gh pr view "$PR_NUMBER" --json autoMergeRequest -q '.autoMergeRequest')"
             gh pr merge --disable-auto "$PR_NUMBER" \
               || echo "auto-merge was not armed; nothing to disarm."
+            echo "PROBE auto-merge AFTER:  $(gh pr view "$PR_NUMBER" --json autoMergeRequest -q '.autoMergeRequest')"
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: BLOCKED** — auto-merge has been disarmed.
 
