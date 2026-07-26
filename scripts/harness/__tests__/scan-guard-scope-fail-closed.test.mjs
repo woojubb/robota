@@ -10,8 +10,10 @@ import {
   classificationFindings,
   derivedFinders,
   findGuardScopeFindings,
+  ledgerDriftFindings,
   MANDATORY_TREE_GUARDS,
   measuredVacuous,
+  measureFinder,
   PENDING_CLASSIFICATION,
   registeredScanFiles,
   rootFinderExports,
@@ -151,6 +153,39 @@ describe('the repaired guards fail closed on an absent governed tree', () => {
     expect(checked).toEqual([]);
     expect(findings).toHaveLength(1);
     expect(findings[0].detail).toMatch(/governs an empty set/);
+  });
+});
+
+/**
+ * Rule 3. The ledger went stale within the hour it was written — repairing `scan-conflict-markers`
+ * turned it fail-closed while the ledger still recorded `vacuous`. A debt ledger nobody re-measures
+ * is a set of claims about the past presented as facts about the present.
+ */
+describe('ledger freshness', () => {
+  it('every recorded measurement still matches what the finder does', async () => {
+    expect(await ledgerDriftFindings(WORKSPACE_ROOT)).toEqual([]);
+  });
+
+  it('measures by executing, and distinguishes unmeasurable from fail-closed', async () => {
+    const vacuous = await measureFinder(
+      { file: 'scan-orchestration-map.mjs', finder: 'collectOrchestrationMapFindings' },
+      WORKSPACE_ROOT,
+    );
+    expect(vacuous).toBe('vacuous');
+
+    // A module that cannot be loaded has told us nothing about its finder. Scoring that as correct
+    // is how the first ledger recorded several import crashes as `fail-closed`.
+    const unmeasurable = await measureFinder(
+      { file: 'no-such-scan-file.mjs', finder: 'findAnything' },
+      WORKSPACE_ROOT,
+    );
+    expect(unmeasurable).toBe('unmeasurable');
+  });
+
+  it('exempts only the self-referential entry, and states it in data', () => {
+    const exempt = PENDING_CLASSIFICATION.filter((entry) => entry.selfReferential);
+    expect(exempt).toHaveLength(1);
+    expect(exempt[0].file).toBe('scan-guard-scope-fail-closed.mjs');
   });
 });
 
