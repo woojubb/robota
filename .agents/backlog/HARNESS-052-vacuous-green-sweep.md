@@ -54,27 +54,26 @@ from `packages/agent-core/src/core/robota.ts` makes the repaired test fail
 
 ### Found, NOT fixed — recorded with the reason
 
-**Harness scans that report a pass over an absent governed tree** — nine more, all `falsified` by
-executing each finder against a root without its tree. They are listed with their measurements in
-`PENDING_CLASSIFICATION` in `scripts/harness/scan-guard-scope-fail-closed.mjs`, so they cannot be
-forgotten: `scan-orchestration-neutrality`, `check-harness-config-paths`, `scan-conflict-markers`,
-`scan-api-pagination`, `scan-memory-neutrality`, `scan-evals-neutrality`,
-`scan-capability-reachability`, `scan-deprecated-markers`, `check-temp-script-placement`. Not fixed
-here to keep this item's diff reviewable; each needs its governed root named accurately.
+**Harness scans that report a pass over an absent governed tree — 30 of them**, every one
+`falsified` by executing its finder against a root without its tree. They are not listed here,
+deliberately: they live in `PENDING_CLASSIFICATION` in
+`scripts/harness/scan-guard-scope-fail-closed.mjs`, where each recorded verdict is **re-executed on
+every scan run** (rule 3) and a stale entry is a hard failure. A prose list here would be a second
+copy going stale the moment one is fixed — which is the mistake this very paragraph made in its
+first draft, naming nine and then being wrong within the hour. Not fixed here to keep the diff
+reviewable; each needs its governed root named accurately.
 
 **`check-design-doc-completeness` has never validated a document** (`falsified`: `ls -d
 packages/*/docs/design` matches nothing; the scan prints `design-doc completeness scan passed.` and
 has done so since it was written). Fixing it is a policy decision — either design docs become
 required somewhere, or the scan declares its subject optional — not a mechanical repair.
 
-**Six scans read `packages/` at depth 1 and never see the 20 `packages/dag-nodes/*` members**
-(`check-interface-imports`, `check-dep-kind`, `check-orphan-exports`, `scan-no-fake-in-src`,
-`scan-memory-neutrality`, `check-design-doc-completeness`), while `check-publish-safety` prints the
-literal claim "Checked prepublishOnly hooks on all publishable packages" having checked 65 of 85.
-`scripts/harness/workspace-packages.mjs` already solves this and five other scans use it.
-`hypothesis` that a violation is hiding there — a probe found none today; the false coverage claim is
-the finding. Note `check-nested-package-glob-coverage.mjs` exists to catch exactly this shape and
-does not cover these six.
+**Scans that read `packages/` at depth 1 and never see the 21 `packages/dag-nodes/*` members.**
+Two of these were falsified and fixed in this item (`check-publish-safety`, `scan-no-fake-in-src` —
+see G1 and G5 below); the rest are enumerated with their contradicted claims in the second-axis
+section. `scripts/harness/workspace-packages.mjs` already solves this and is now used by eight
+scans. Note `check-nested-package-glob-coverage.mjs` exists to catch exactly this shape for CI globs
+and does not cover the harness's own enumerations.
 
 **`run-all-scans` has no third state between ✓ and ✗.** Passing scans' output is discarded
 (`run-all-scans.mjs:260`), so a scan that ran and measured nothing is rendered identically to one
@@ -256,7 +255,7 @@ package**"), `check-dependency-direction:394` ("**every** `packages/<name>/docs/
 files unchecked, and the asymmetry is _within one file_: its own `findWorkspacePackages` is
 nesting-aware), `check-doc-examples:41` ("**each** `packages/x/README.md`"),
 `check-design-doc-completeness`, `scan-memory-neutrality`. `workspace-packages.mjs` exists for
-exactly this and six scans already use it.
+exactly this and eight scans now use it.
 
 **Presence-of-a-string standing in for a structural property — the `agent-server-boundary` family
 (sub-shape A).** `check-test-coverage-scripts:78` asserts "wired into `harness:scan`" with
@@ -383,7 +382,7 @@ in `## Test Plan`.
 - [ ] `scan-test-plan` gates `.agents/spec-docs/**` (242 files) rather than the archived tree.
 - [ ] `scan-file-size`'s ratchet-tighten notice becomes a failure, as `check-test-module-mocks` does.
 - [ ] The two stale `agent-provider-bytedance` allowlist entries are removed.
-- [ ] The nine remaining vacuous finders in `PENDING_CLASSIFICATION` fail closed.
+- [ ] The 30 vacuous finders in `PENDING_CLASSIFICATION` fail closed (re-measured every run).
 - [ ] `check-design-doc-completeness`' subject is decided — required somewhere, or declared optional.
 - [ ] The six depth-1 `packages/` walkers adopt `workspace-packages.mjs`.
 - [ ] `run-all-scans` distinguishes "ran and found nothing" from "ran and measured nothing".
