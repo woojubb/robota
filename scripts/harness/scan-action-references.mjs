@@ -1,0 +1,436 @@
+#!/usr/bin/env node
+
+/**
+ * Action-reference resolvability guard (INFRA-059).
+ *
+ * `deploy.yml` referenced `vercel/action@v1` — a repository that does not exist — for eight months
+ * and 100+ runs. An unresolvable `uses:` fails at `Set up job`, BEFORE any step runs, so there is no
+ * failing step in the log, `--log-failed` returns only the provisioner banner, and an `if:`-gated or
+ * skipped job reports the whole run GREEN. It is the quietest possible CI failure, and nothing here
+ * would have caught the next one.
+ *
+ * TWO HALVES, because either alone passes over the defect:
+ *
+ *   STATIC (always). Every `uses:` is parsed and must be a shape this guard can verify: no missing
+ *   `@ref`, no `main`/`master`/`HEAD` (a moving pointer cannot be verified — what ran yesterday is
+ *   not what runs today), no `${{ }}` expression, no unsupported scheme, and a local `./` reference
+ *   must actually carry an action manifest. Unrecognised shapes FAIL rather than pass unexamined.
+ *   The parser also counts `uses:` lines INDEPENDENTLY of what it managed to parse and fails when
+ *   the two disagree — a parser blind spot otherwise reports a complete answer from a partial scan,
+ *   the same shape as a single-page `gh` query that looks exactly like a finished one.
+ *
+ *   LIVE. Each unique reference is resolved against the real remote: `git ls-remote` for the
+ *   repository and the ref, then the action manifest is fetched at the resolved commit — which is
+ *   what "resolvable" actually means to the runner, and what catches a valid repo with a typo'd
+ *   subpath. A full-SHA pin is verified to exist, and its `# vX` comment is checked against where
+ *   that tag really points.
+ *
+ * THE NETWORK PATH FAILS CLOSED WHEREVER IT RUNS. Unreachable is a FINDING, never a skip
+ * (INFRA-059's acceptance criterion 3): a "could not determine → exit 0" path reproduces the exact
+ * defect the guard exists to catch. `git ls-remote` runs with `GIT_TERMINAL_PROMPT=0` and a hard
+ * timeout, because a 404 repository against an interactive credential helper otherwise BLOCKS
+ * forever — a hang is not a verdict either.
+ *
+ * WHERE IT RUNS is a separate question from how it fails, and the two were conflated in this item's
+ * first design. The live half is ON in CI on a PR to `develop`, OFF locally, and OFF when
+ * `GITHUB_BASE_REF` is `main` (`--live` / `--offline` force it either way). `harness:scan` is
+ * reached by `harness:verify:release` → the `release-grade verification` REQUIRED check on
+ * `protect-main`, so a live half running there converts any github.com incident into a blocked
+ * promotion — the failure mode `ruleset-drift.yml` documents in its own header ("an outage costs a
+ * red cron, never a blocked promotion"). The develop-side `scans` job already ruled on the identical
+ * tree, which `scan-promotion-ancestry.mjs` A3 pins, so the promotion is not running unverified.
+ *
+ * DELIBERATELY NOT A FINDING: a major ref that resolves through `refs/heads/<v>` rather than a tag
+ * (measured: `pnpm/action-setup@v2`, `actions/dependency-review-action@v5`). It resolves, so it is
+ * verifiable; whether major refs should be SHA-pinned is a separate supply-chain question filed as
+ * HARNESS-055, and answering it here would redden references this item cannot bump. Branch-resolved
+ * references are listed in the summary so the follow-up has a live inventory.
+ *
+ * SCOPE (honest, and measured):
+ *   - This guard is not `actionlint`. It rules on reference RESOLVABILITY only — not expression
+ *     syntax, context typing, or `run:` shell correctness. That coverage is NOT delivered by
+ *     INFRA-059 and is filed as INFRA-064 rather than left implied.
+ *   - The SHA-pin rule has ZERO live subjects today: all 13 references are `@vN`, none is
+ *     SHA-pinned. Its passing says nothing about this repository — only the tests exercise it.
+ *   - PR-time coverage stops at `develop`: the `scans` job carries `if: github.base_ref != 'main'`.
+ *   - A reference rots without a PR (an upstream repo deleted, a tag force-moved). No PR-time check
+ *     can see that; catching it needs a scheduled run, which is INFRA-064's other half.
+ *
+ * Exit 0 = every reference resolves to a commit carrying an action manifest, 1 = at least one does
+ * not, or could not be checked.
+ */
+
+import { execFile } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { promisify } from 'node:util';
+
+import { envWithoutGitVars } from './shared.mjs';
+
+const execFileAsync = promisify(execFile);
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const WORKFLOW_DIR = '.github/workflows';
+const MOVING_POINTERS = new Set(['main', 'master', 'HEAD']);
+const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const MANIFEST_NAMES = ['action.yml', 'action.yaml'];
+const PROBE_CONCURRENCY = 6;
+const GIT_TIMEOUT_MS = 45_000;
+const HTTP_TIMEOUT_MS = 20_000;
+const MAX_REPORTED = 25;
+
+/** Parse every `uses:` in one workflow, and count the lines independently of what parsed. */
+export function parseReferences(file, source) {
+  const references = [];
+  let usesLineCount = 0;
+  source.split('\n').forEach((text, index) => {
+    // Counted INDEPENDENTLY of the parse regex below, and deliberately looser: a `uses:` the parser
+    // does not recognise must still be counted, or the counter can only ever agree with itself.
+    if (!/(?:^|\s)uses:\s/.test(uncomment(text))) return;
+    usesLineCount += 1;
+    const match = /^\s*(?:-\s+)?uses:\s*(\S.*?)\s*$/.exec(text);
+    if (!match) return;
+    const [value, comment] = splitComment(match[1]);
+    const reference = { file, line: index + 1, raw: value, claimedTag: claimedTagOf(comment) };
+    references.push({ ...reference, ...classifyShape(value) });
+  });
+  return { references, usesLineCount };
+}
+
+/** Drop a trailing `#` comment, so a commented-out `# uses:` is not counted as a reference. */
+function uncomment(text) {
+  const at = text.search(/(?:^|\s)#/);
+  return at === -1 ? text : text.slice(0, at);
+}
+
+/** Split `owner/repo@ref # v1.2.3` into its value and its trailing comment. */
+function splitComment(text) {
+  const at = text.indexOf(' #');
+  if (at === -1) return [unquote(text), ''];
+  return [unquote(text.slice(0, at).trim()), text.slice(at + 2).trim()];
+}
+
+function unquote(text) {
+  return /^(['"]).*\1$/.test(text) ? text.slice(1, -1) : text;
+}
+
+function claimedTagOf(comment) {
+  const match = /^(v[\w.+-]+)/.exec(comment);
+  return match ? match[1] : null;
+}
+
+/** Decide what KIND of reference this is — an unrecognised shape is never treated as fine. */
+function classifyShape(value) {
+  if (value.includes('${{')) return { kind: 'expression' };
+  if (value.startsWith('./') || value.startsWith('.\\')) return { kind: 'local' };
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return { kind: 'unsupported' };
+  if (!/^[\w.-]+\/[\w.-]+(\/[\w./-]+)?@.+$/.test(value)) {
+    return { kind: value.includes('@') ? 'unsupported' : 'unpinned' };
+  }
+  const [spec, ref] = splitLast(value, '@');
+  const [owner, repo, ...rest] = spec.split('/');
+  return { kind: 'action', owner, repo, subpath: rest.join('/'), ref };
+}
+
+function splitLast(text, separator) {
+  const at = text.lastIndexOf(separator);
+  return [text.slice(0, at), text.slice(at + 1)];
+}
+
+/** Read `.github/workflows` and parse it. A missing or empty directory yields an EMPTY list. */
+export function readWorkflowSources(repoRoot = WORKSPACE_ROOT) {
+  const dir = path.join(repoRoot, WORKFLOW_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+    .sort()
+    .map((name) => ({
+      file: name,
+      ...parseReferences(name, fs.readFileSync(path.join(dir, name), 'utf8')),
+    }));
+}
+
+/** Everything decidable without the network. `sources` is what `readWorkflowSources` returned. */
+export function findStaticFindings(sources, repoRoot = WORKSPACE_ROOT) {
+  if (sources.length === 0) {
+    return [
+      {
+        where: WORKFLOW_DIR,
+        detail:
+          'no workflow files found — this scan examined nothing, which is an error and never a pass',
+      },
+    ];
+  }
+  const findings = [];
+  for (const { file, references, usesLineCount } of sources) {
+    if (references.length !== usesLineCount) {
+      findings.push({
+        where: file,
+        detail: `parsed ${references.length} of ${usesLineCount} \`uses:\` line(s) — a guard that under-counts its own subject reports a complete answer from a partial scan`,
+      });
+    }
+    for (const reference of references) findings.push(...staticFindingsFor(reference, repoRoot));
+  }
+  return findings;
+}
+
+function staticFindingsFor(reference, repoRoot) {
+  const at = `${reference.file}:${reference.line}`;
+  const fail = (detail) => [{ where: at, detail: `\`${reference.raw}\` ${detail}` }];
+  if (reference.kind === 'expression') {
+    return fail(
+      'is an expression — its value is only known at run time, so no check can verify it. Reference the action literally.',
+    );
+  }
+  if (reference.kind === 'unpinned') return fail('has no `@ref` — nothing identifies what would run');
+  if (reference.kind === 'unsupported') {
+    return fail(
+      'is a reference shape this guard cannot verify (only `owner/repo[/path]@ref` and `./local` are supported). Extend the guard before landing it.',
+    );
+  }
+  if (reference.kind === 'local') {
+    const dir = path.join(repoRoot, reference.raw);
+    const present = MANIFEST_NAMES.some((name) => fs.existsSync(path.join(dir, name)));
+    return present ? [] : fail('has no `action.yml` / `action.yaml` at that path in this repository');
+  }
+  if (MOVING_POINTERS.has(reference.ref)) {
+    return fail(
+      `names the moving branch pointer \`${reference.ref}\` — what ran yesterday is not what runs today, so no verification of it holds`,
+    );
+  }
+  return [];
+}
+
+/**
+ * The STATIC half as one root-taking finder, hermetic and fail-closed on an absent or empty
+ * `.github/workflows`. `scan-guard-scope-fail-closed.mjs` executes this against a bare temporary
+ * root on every run and requires it to report a finding; naming the export around that derivation
+ * would be the audited defect one level up, so the seam is drawn to be visible to it instead.
+ */
+export function findActionReferenceFindings(root = WORKSPACE_ROOT) {
+  return findStaticFindings(readWorkflowSources(root), root);
+}
+
+/**
+ * Where the live half runs. `--live` / `--offline` are explicit; otherwise CI runs it, a developer
+ * machine does not, and a promotion to `main` does not (see the header — a required promotion gate
+ * must not be able to go red on a github.com incident).
+ */
+export function liveModeFor(argv, env = process.env) {
+  if (argv.includes('--live')) return { live: true, why: '--live' };
+  if (argv.includes('--offline')) return { live: false, why: '--offline' };
+  if (!env.CI) return { live: false, why: 'not CI — run with --live to verify resolvability' };
+  if (env.GITHUB_BASE_REF === 'main') {
+    return { live: false, why: 'promotion to `main` — the develop-side run ruled on this same tree' };
+  }
+  return { live: true, why: 'CI' };
+}
+
+/** Turn one probe result into a finding, or `null`. Pure — every live verdict is decided here. */
+export function classifyResolution(reference, resolution) {
+  const at = `${reference.file}:${reference.line}`;
+  const fail = (detail) => ({ where: at, detail: `\`${reference.raw}\` ${detail}` });
+  if (resolution.status === 'repo-missing') {
+    return fail(
+      'the repository does not exist (or is not public). Every run of this workflow dies at `Set up job` with `Unable to resolve action`, before any step reports.',
+    );
+  }
+  if (resolution.status === 'ref-missing') {
+    return fail('the ref does not resolve to a tag, branch or commit in that repository');
+  }
+  if (resolution.status === 'unreachable') {
+    return fail(
+      `could not be verified: ${resolution.detail}. Unreachable is a failure, not a skip — a "could not determine, exit 0" path is the defect this guard exists to catch.`,
+    );
+  }
+  if (resolution.manifest === 'absent') {
+    return fail(
+      `resolves to ${resolution.sha.slice(0, 12)} but carries no \`action.yml\` / \`action.yaml\` at that path — the runner would fail to resolve it`,
+    );
+  }
+  if (reference.claimedTag && resolution.claimedTagSha !== reference.ref) {
+    const points = resolution.claimedTagSha
+      ? `points at ${resolution.claimedTagSha.slice(0, 12)}`
+      : 'no longer exists';
+    return fail(`claims \`${reference.claimedTag}\` in its comment, but that tag ${points}`);
+  }
+  return null;
+}
+
+/** Resolve `owner/repo@ref` against the real remote. Throws only for genuinely unexpected errors. */
+export async function probeReference(reference) {
+  const url = `https://github.com/${reference.owner}/${reference.repo}.git`;
+  let sha = SHA_PATTERN.test(reference.ref) ? reference.ref : null;
+  let refName = null;
+  if (sha === null) {
+    const refs = await lsRemote(url, [
+      `refs/tags/${reference.ref}`,
+      `refs/tags/${reference.ref}^{}`,
+      `refs/heads/${reference.ref}`,
+    ]);
+    if (refs.length === 0) return { status: 'ref-missing' };
+    const peeled = refs.find((entry) => entry.name.endsWith('^{}')) ?? refs[0];
+    sha = peeled.sha;
+    refName = peeled.name.replace(/\^\{\}$/, '');
+  }
+  const manifest = (await manifestExists(reference, sha)) ? 'present' : 'absent';
+  const resolution = { status: 'resolved', sha, refName, manifest };
+  if (!reference.claimedTag) return resolution;
+  const claimed = await lsRemote(url, [
+    `refs/tags/${reference.claimedTag}`,
+    `refs/tags/${reference.claimedTag}^{}`,
+  ]);
+  const peeled = claimed.find((entry) => entry.name.endsWith('^{}')) ?? claimed[0];
+  return { ...resolution, claimedTagSha: peeled ? peeled.sha : null };
+}
+
+async function lsRemote(url, patterns) {
+  try {
+    const { stdout } = await execFileAsync('git', ['ls-remote', url, ...patterns], {
+      timeout: GIT_TIMEOUT_MS,
+      env: { ...envWithoutGitVars(), GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: 'true' },
+    });
+    return stdout
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => ({ sha: line.split('\t')[0], name: line.split('\t')[1] }));
+  } catch (error) {
+    const message = `${error.stderr ?? ''}${error.message ?? ''}`;
+    if (/not found|does not exist|Authentication failed|access denied/i.test(message)) {
+      throw new RepositoryMissingError(message.trim().split('\n')[0]);
+    }
+    throw error;
+  }
+}
+
+class RepositoryMissingError extends Error {}
+
+/** Collapse a multi-line tool error into one readable line — 80 of them in an outage is enough. */
+function oneLine(value) {
+  const text = String(value).replace(/\s*\n\s*/g, ' | ').trim();
+  return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+}
+
+/** The manifest the runner itself needs, at the exact commit the ref resolved to. */
+async function manifestExists(reference, sha) {
+  const base = `https://raw.githubusercontent.com/${reference.owner}/${reference.repo}/${sha}`;
+  const prefix = reference.subpath ? `${reference.subpath}/` : '';
+  // A reusable workflow reference IS its own manifest — its subpath names the file.
+  const candidates = /\.ya?ml$/.test(reference.subpath ?? '')
+    ? [`${base}/${reference.subpath}`]
+    : MANIFEST_NAMES.map((name) => `${base}/${prefix}${name}`);
+  for (const candidate of candidates) {
+    const response = await fetch(candidate, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+    });
+    if (response.ok) return true;
+    if (response.status !== 404) {
+      throw new Error(`HTTP ${response.status} for ${candidate}`);
+    }
+  }
+  return false;
+}
+
+/**
+ * Probe every UNIQUE reference under a bounded pool and return one verdict per reference — the
+ * count of verdicts always equals the count of unique references, including when a probe throws.
+ */
+export async function resolveAll(references, probe = probeReference) {
+  const unique = [...new Map(references.map((entry) => [entry.raw, entry])).values()].filter(
+    (entry) => entry.kind === 'action',
+  );
+  const results = new Array(unique.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const index = next++;
+      if (index >= unique.length) return;
+      const reference = unique[index];
+      let resolution;
+      try {
+        resolution = await probe(reference);
+      } catch (error) {
+        resolution =
+          error instanceof RepositoryMissingError
+            ? { status: 'repo-missing' }
+            : { status: 'unreachable', detail: oneLine(error.message ?? error) };
+      }
+      results[index] = { reference, resolution, finding: classifyResolution(reference, resolution) };
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(PROBE_CONCURRENCY, unique.length)) }, worker),
+  );
+  return results;
+}
+
+/**
+ * One finding per OCCURRENCE, from one verdict per unique reference. `vercel/action@v1` sits on two
+ * lines of `deploy.yml`; reporting it once names one of them and leaves the other unmentioned, which
+ * is the same under-reporting of its own subject that the parser counter above fences.
+ */
+export function expandFindings(references, results) {
+  const byRaw = new Map(results.filter((result) => result.finding).map((r) => [r.reference.raw, r]));
+  return references.flatMap((reference) => {
+    const hit = byRaw.get(reference.raw);
+    if (!hit || reference.kind !== 'action') return [];
+    return [{ where: `${reference.file}:${reference.line}`, detail: hit.finding.detail }];
+  });
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const write = (line) => process.stdout.write(`${line}\n`);
+  const sources = readWorkflowSources();
+  const findings = findStaticFindings(sources);
+  const references = sources.flatMap((entry) => entry.references);
+  const unique = new Set(
+    references.filter((entry) => entry.kind === 'action').map((entry) => entry.raw),
+  ).size;
+  const lines = sources.reduce((sum, entry) => sum + entry.usesLineCount, 0);
+  const mode = liveModeFor(argv);
+
+  let results = [];
+  if (mode.live && findings.length === 0) {
+    results = await resolveAll(references);
+    findings.push(...expandFindings(references, results));
+  }
+
+  if (findings.length > 0) {
+    write(`action-references scan FAILED (INFRA-059) — ${findings.length} finding(s):`);
+    // A GitHub outage reddens every reference at once; the count above is the honest total and the
+    // tail is elided rather than dropped, so a real defect can never hide behind an outage's volume.
+    for (const finding of findings.slice(0, MAX_REPORTED)) {
+      write(`  - ${finding.where}: ${finding.detail}`);
+    }
+    if (findings.length > MAX_REPORTED) {
+      write(`  … and ${findings.length - MAX_REPORTED} more finding(s) not printed`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  write(
+    `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
+  );
+  for (const { reference, resolution } of results) {
+    write(`  ✓ ${reference.raw} → ${resolution.sha.slice(0, 12)} (${resolution.refName ?? 'commit'})`);
+  }
+  const branchPinned = results.filter((r) => r.resolution.refName?.startsWith('refs/heads/'));
+  if (branchPinned.length > 0) {
+    write(
+      `  note: ${branchPinned.length} reference(s) resolve through a branch head, not a tag — a moving pointer that still resolves (HARNESS-055).`,
+    );
+  }
+  if (!mode.live) {
+    // Never a silent skip: the one thing this scan exists to check did not happen on this run, and
+    // the line says so in the words of the defect rather than in the words of a flag.
+    write(
+      `  RESOLVABILITY NOT VERIFIED on this run (${mode.why}): ${unique} reference(s) were parsed but none was resolved. An action that does not exist passes this run.`,
+    );
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  await main();
+}

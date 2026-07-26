@@ -114,6 +114,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it pins that no workflow holds an unjustified `write` scope; over zero workflows that claim is vacuously true, which is precisely the permission widening it exists to surface',
   },
   {
+    file: 'scan-action-references.mjs',
+    finder: 'findActionReferenceFindings',
+    tree: '.github/workflows',
+    why: 'INFRA-059 — an unresolvable `uses:` kills the job before any step reports, so the run reads green; a resolvability guard that inspected no workflow would emit that same green over nothing, which is the failure it exists to end',
+  },
+  {
     file: 'scan-required-check-needs.mjs',
     finder: 'findRequiredCheckNeedsFindings',
     tree: '.github/required-status-checks.json',
