@@ -208,33 +208,37 @@ Independently surfaced: `scan-review-workflow-parity` exempts only base-`main` P
 `promotion ancestry` forbids a base-`main` PR from carrying new work, so the file cannot currently
 be modified while keeping CI green. Owner-owned.
 
-A fresh datapoint for INFRA-053, from this item's own PR (#1474) — and the interesting part is that
-it took two runs of the SAME PR to read it correctly.
+Three fresh datapoints for INFRA-053, from this item's own PR (#1474) — and the useful part is that
+it took all three to read it correctly. Each figure below is quoted from the run's own summary, not
+inferred:
 
-Run 30195049439 failed, with the cause in the run's own summary rather than inferred:
+| Run         | Result    | `num_turns` | `permission_denials_count` |
+| ----------- | --------- | ----------- | -------------------------- |
+| 30195049439 | `failure` | 26          | 8                          |
+| 30195184745 | `success` | —           | —                          |
+| 30195264352 | `failure` | 26          | 6                          |
 
-```
-"subtype": "error_max_turns",  "num_turns": 26,  "permission_denials_count": 8
-##[error]Execution failed: Reached maximum number of turns (25)
-```
+Same PR, same prompt, three runs. This item first recorded run 1 as a straightforward recurrence
+("it can stay broken without anyone being forced to notice"); run 2 falsified that framing, and run
+3 falsified the "coin-flip" reading that replaced it. Both corrections are kept rather than
+overwritten, because the third reading is sharper than either and could not have been reached from
+one run:
 
-Run 30195184745 — same PR, same prompt, one docs-only commit later — completed `success`.
-
-So `Claude review` is INTERMITTENT, not persistently broken. This item first recorded it as a
-straightforward recurrence ("it can stay broken without anyone being forced to notice"); the very
-next run falsified that framing, and the correction is kept rather than overwritten because the
-corrected reading is the more useful one:
-
-- The 25-turn cap is MARGINAL, not merely too low. The reviewer sometimes fits and sometimes does
-  not, so the same PR can go either way.
-- The 8 permission denials are what make the margin thin. That confirms INFRA-053's conclusion —
-  fix the denials (declare `allowed_tools` for the reads the prompt asks for), do not just raise
-  the cap, which would only move the coin-flip.
-- An intermittent gate is worse than a red one for the reason `review-gate`'s severity split
-  already records: a check that fails at random is a check people learn to re-run rather than read.
+- **It is not random.** Both failures overran by EXACTLY ONE TURN (26 against a cap of 25). The
+  reviewer's workload is essentially fixed; it lands on the boundary every time, and which side it
+  falls on is decided by a turn or two of noise.
+- **The denials are the whole margin, and they are not the same size each run** (8, then 6). At
+  ~6-8 of 26 turns, roughly a quarter of the budget is spent being told no. Removing them takes the
+  run to ~18-20 turns — comfortably under the existing cap, with room to spare.
+- **So the fix is `allowed_tools`, not a bigger cap**, and now with a number behind it: raising 25
+  to 26 would flip these two runs green while leaving the reviewer one unlucky turn from red again.
+  Declaring the reads the prompt already asks for (`AGENTS.md`, `.agents/rules/*`) is what buys
+  actual headroom. That is INFRA-053's conclusion, and this is the measurement supporting it.
+- **An intermittent gate is worse than a red one**, for the reason `review-gate`'s severity split
+  already records: a check that fails on a coin-flip is one people learn to re-run rather than read.
 
 `Claude review` is NOT a required context on `protect-develop`, so none of this blocks a merge —
-which is why the flakiness can persist without forcing anyone to look at it.
+which is why it can stay this way without forcing anyone to look at it.
 
 ## Guards added
 
