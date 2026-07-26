@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       verify_only:
-        description: 'Skip packaging; only run the macOS artifact verification gate against the tag''s ALREADY-PUBLISHED assets.'
+        description: "Skip packaging; only run the macOS artifact verification gate against the tag's ALREADY-PUBLISHED assets."
         required: false
         default: false
         type: boolean
