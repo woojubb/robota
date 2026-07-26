@@ -101,6 +101,15 @@ flag is load-bearing, and it is imported by 19+ modules. Product change — file
 **`packages/agent-cli-web/package.json:12` defines `test:e2e` that nothing invokes**, and the package
 has no `test` script, so root `pnpm test` skips it entirely.
 
+**`verify-like-ci` runs its `typecheck` stage before its `build` stage, and the workspace typecheck
+includes `examples/*`, which resolve `@robota-sdk/*` to `dist`** (`falsified`: on an unbuilt tree the
+stage fails with `TS7016: Could not find a declaration file`, and the same `pnpm -w typecheck` exits
+0 once `build` has run). The stage order is deliberate — cheap stages first — but this one is not
+cheap-and-independent as assumed. It is a false **RED**, the opposite direction from everything else
+in this item and therefore far less dangerous: it costs a confusing run, not a missed defect. Worth
+fixing so the mirror's verdict means what it says; the fix is either to order `typecheck` after
+`build` or to exclude the dist-dependent example projects from the pre-build stage.
+
 **`.claude/hooks/check-forbidden-patterns.sh` is inert for worktree agents** (`falsified`). Its scope
 filter is `case "$FILE_PATH" in "$PROJECT_DIR"/packages/*/src/*.ts)`, and `PROJECT_DIR` is
 `${CLAUDE_PROJECT_DIR:-.}`. Measured: a payload writing a `catch { return null; }` into
