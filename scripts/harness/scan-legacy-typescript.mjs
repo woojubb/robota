@@ -13,7 +13,14 @@
  * happily, and re-growing the surface phase 2 is waiting to delete. This scan is what makes that
  * regrowth loud.
  *
- * It reports FOUR finding kinds:
+ * PERF-006 extended it. The owner's decision on 2026-07-26 is that the repository stops using
+ * TypeScript 5 entirely: the native compiler for everything we compile and type-check, and a 6.x
+ * line kept ONLY for tools that still need a programmatic compiler API — today just the ESLint
+ * toolchain. So the guard no longer asks merely WHETHER a manifest declares the package; it also
+ * asks at WHAT VERSION, because a surface frozen at "97 manifests" can still rot back to 5.x one
+ * manifest at a time without a single new entry appearing.
+ *
+ * It reports FIVE finding kinds:
  *
  *  1. `legacy-typescript-import` — a first-party file imports the `typescript` package (static
  *     import, `export … from`, `import x = require()`, dynamic `import()`, or `require()`).
@@ -32,9 +39,14 @@
  *     (`legacy-typescript-baseline.json`), the same shape `check-spec-public-surface` uses: a
  *     manifest not already in the baseline may not start declaring it, and the list may only ever
  *     shrink. That keeps the edge ON at today's boundary instead of trading it for a smaller diff.
- *  3. `reasonless-annotation` — anti-rot on the escape hatch: an `allow-legacy-typescript`
+ *  3. `legacy-typescript-version` — PERF-006. A manifest declares `typescript` at a range that can
+ *     resolve BELOW 6. This edge is deliberately NOT suppressed by the baseline or by the root
+ *     exemption: those excuse the dependency's PRESENCE while upstream forces it, not its version.
+ *     A baselined manifest silently reverting `^6.0.3` to `^5.9.3` would otherwise be invisible,
+ *     which is the exact creep this edge exists to stop.
+ *  4. `reasonless-annotation` — anti-rot on the escape hatch: an `allow-legacy-typescript`
  *     annotation with no `: <reason>`. Every suppression must state WHY.
- *  4. `stale-annotation` — anti-rot the other way: an `allow-legacy-typescript: <reason>` that
+ *  5. `stale-annotation` — anti-rot the other way: an `allow-legacy-typescript: <reason>` that
  *     suppresses nothing. A suppression outliving the thing it excused is how an allowlist quietly
  *     becomes 641 entries long and switches its own gate off (the failure `check-spec-public-surface`
  *     had to be rescued from). Unlike `scan-no-fallback`, stale detection is implemented here rather
@@ -42,10 +54,16 @@
  *     annotation that covers no flagged import is unambiguously dead rather than merely inert.
  *
  * THE ONE DECLARED EXEMPTION is the root `package.json` devDependency (see `EXEMPTIONS`).
- * `@typescript-eslint`'s `typescript-estree` imports `typescript` AT RUNTIME and pins a peer range
- * of `>=4.8.4 <6.1.0`, which excludes 7 — so the package must remain installed for `pnpm lint` to
- * work at all. It is a devDependency and ships in nothing. That is a reasoned exemption for a
- * dependency we do not control, NOT a licence for first-party code to import the compiler.
+ * `@typescript-eslint`'s `typescript-estree` imports `typescript` AT RUNTIME, and the native package
+ * exposes only `version`/`versionMajorMinor` under that name — so the package must remain installed
+ * for `pnpm lint` to work at all. It is a devDependency and ships in nothing. That is a reasoned
+ * exemption for a dependency we do not control, NOT a licence for first-party code to import the
+ * compiler.
+ *
+ * THE EXIT CONDITION. `typescript@7.1` is the release Microsoft says will carry the new programmatic
+ * API; when typescript-eslint adopts it, the tool-side line disappears and the repository is
+ * single-compiler. Re-check typescript-eslint issue #10940 (open, labelled `blocked by external
+ * API`) rather than waiting for an announcement — that is the issue that will move.
  *
  * Detection is a token PREFILTER followed by an AST confirmation: only files that mention the word
  * at all are parsed, and the finding is raised from a real module specifier rather than a line
@@ -80,11 +98,100 @@ const LEGACY_PACKAGE = 'typescript';
 const EXEMPTIONS = new Map([
   [
     'package.json',
-    '@typescript-eslint/typescript-estree imports `typescript` at runtime and its peer range ' +
-      '(>=4.8.4 <6.1.0) excludes 7, so `pnpm lint` cannot run without it. devDependency only — ' +
-      'ships in nothing. Removing it is PERF-005 phase 2, gated on upstream.',
+    '@typescript-eslint/typescript-estree imports `typescript` at runtime, and under the native ' +
+      'package that name exposes only `version`/`versionMajorMinor`, so `pnpm lint` cannot run ' +
+      'without a real compiler installed. devDependency only — ships in nothing. Removing it is ' +
+      'PERF-005 phase 2, gated on typescript-eslint adopting the 7.1 API (issue #10940).',
   ],
 ]);
+
+/**
+ * PERF-006. The lowest major the `typescript` declaration may resolve to. Below this and the 5.x
+ * line is creeping back — the whole point of the item was to stop using TypeScript 5 at all.
+ */
+const MINIMUM_MAJOR = 6;
+
+/**
+ * The lowest major version an npm range can resolve to, or `undefined` when the range is not a form
+ * this guard can prove anything about.
+ *
+ * Deliberately hand-rolled rather than pulling in `semver`: nothing else in `scripts/harness` uses
+ * it, it is not a declared dependency of this repo (only a transitive one), and a mechanical gate
+ * must not depend on a package that could vanish from the tree on any unrelated lockfile change.
+ * The input domain is narrow — ranges WE write in OUR OWN manifests — and every form below is
+ * covered by a test.
+ *
+ * Unrecognised forms return `undefined` and are reported. For a ratchet, "cannot prove it is >= 6"
+ * and "is < 6" deserve the same answer; silently passing an unparsed range is how a floor rots.
+ */
+export function lowestMajorAdmitted(range) {
+  if (typeof range !== 'string') return undefined;
+  const trimmed = range.trim();
+  if (trimmed === '') return undefined;
+
+  // `a || b` admits anything either alternative admits, so the floor is the LOWEST of the two.
+  const alternatives = trimmed.split('||');
+  let lowest;
+  for (const alternative of alternatives) {
+    const floor = alternativeFloorMajor(alternative);
+    if (floor === undefined) return undefined;
+    if (lowest === undefined || floor < lowest) lowest = floor;
+  }
+  return lowest;
+}
+
+/** The lowest major a single comparator set (no `||`) can resolve to, or undefined if unrecognised. */
+function alternativeFloorMajor(alternative) {
+  const tokens = alternative.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return undefined;
+
+  // A comparator set with NO lower bound (`*`, `<7`, `x`) starts at 0 — it admits 5.x and below.
+  let floor = 0;
+  let sawLowerBound = false;
+  /** In a hyphen range (`5.0.0 - 6.0.0`) the token AFTER the dash is an upper bound, not a floor. */
+  let nextIsUpperBound = false;
+
+  for (const token of tokens) {
+    if (token === '-') {
+      nextIsUpperBound = true;
+      continue;
+    }
+    if (nextIsUpperBound) {
+      nextIsUpperBound = false;
+      continue;
+    }
+    if (token === '*' || token === 'x' || token === 'X') return 0;
+    const match = /^(\^|~|>=|>|<=|<|=|v)?\s*(\d+|[xX*])(?:\.\S*)?$/.exec(token);
+    if (match === null) return undefined;
+    const [, operator = '', majorText] = match;
+    if (majorText === 'x' || majorText === 'X' || majorText === '*') return 0;
+    const major = Number(majorText);
+    if (operator === '<' || operator === '<=') continue; // upper bound; says nothing about the floor.
+    // `^`, `~`, `>=`, `>`, `=`, `v` and a bare version all pin the floor at this major.
+    sawLowerBound = true;
+    if (major > floor) floor = major;
+  }
+  return sawLowerBound ? floor : 0;
+}
+
+/**
+ * PERF-006 version edge: the `typescript` declarations in one manifest that can resolve below the
+ * minimum major. Pure. Returns `{ section, range, reason }` entries.
+ */
+export function findBelowMinimumDeclarations(manifest, minimumMajor = MINIMUM_MAJOR) {
+  const below = [];
+  for (const section of ['dependencies', 'devDependencies', 'peerDependencies']) {
+    const range = manifest?.[section]?.[LEGACY_PACKAGE];
+    if (range === undefined) continue;
+    const floor = lowestMajorAdmitted(range);
+    if (floor === undefined) {
+      below.push({ section, range, reason: 'cannot be proven to resolve at or above ' });
+    } else if (floor < minimumMajor) {
+      below.push({ section, range, reason: 'can resolve below ' });
+    }
+  }
+  return below;
+}
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
 const ANNOTATION = /allow-legacy-typescript/;
@@ -224,6 +331,18 @@ export function findLegacyTypeScriptFindings(root = WORKSPACE_ROOT, options = {}
           });
         }
       }
+      // PERF-006 version edge. Checked for EVERY manifest — the baseline and the root exemption
+      // excuse the dependency's presence while upstream forces it, never its version.
+      for (const { section, range, reason } of findBelowMinimumDeclarations(manifest)) {
+        findings.push({
+          file,
+          line: 1,
+          kind: 'legacy-typescript-version',
+          text:
+            `declares '${LEGACY_PACKAGE}': '${range}' in ${section}, which ${reason}` +
+            `${MINIMUM_MAJOR} — bump it to a 6.x range (PERF-006)`,
+        });
+      }
       if (sections.length === 0 && exemption !== undefined) {
         findings.push({
           file,
@@ -321,6 +440,11 @@ function main() {
       '    decision for the backlog item, not a new import.\n' +
       '  - legacy-typescript-dependency: only the root manifest may declare it, and only while\n' +
       "    @typescript-eslint's runtime import forces it (PERF-005 phase 2 removes it).\n" +
+      '  - legacy-typescript-version: PERF-006 retired the 5.x line. Everything we compile and\n' +
+      `    type-check runs on the native compiler; '${LEGACY_PACKAGE}' exists ONLY for tools that\n` +
+      `    still need a programmatic compiler API, and must be a ${MINIMUM_MAJOR}.x range. Not\n` +
+      '    waivable by the baseline or the root exemption — those excuse the presence of the\n' +
+      '    dependency, never its version.\n' +
       '  - reasonless-annotation: every `allow-legacy-typescript` MUST carry a `: <reason>`.\n' +
       '  - stale-annotation / unused-exemption: the excuse outlived what it excused — delete it.',
   );
