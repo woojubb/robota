@@ -56,10 +56,11 @@ volta install node@22
 
 ## Demo
 
-<!-- TODO: Add demo GIF here -->
-<!-- Run `pnpm demo:record` to capture a demo recording — see docs/DEMO-SCRIPT.md for instructions -->
+![robota reading a project file and explaining its entry point in the terminal](./docs/demo.gif)
 
-![Demo](./docs/demo.gif)
+Recorded from the real CLI with `pnpm --filter @robota-sdk/agent-cli demo:record`. The tools run for
+real; the model turns are replayed from a recorded session log so the recording needs no API key —
+see [docs/DEMO-SCRIPT.md](./docs/DEMO-SCRIPT.md).
 
 ## Installation
 
@@ -370,13 +371,13 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 
 ### Providers & Settings
 
-| Command                  | Description                                                          |
+| Command | Description |
 | ------------------------ | -------------------------------------------------------------------- | ------- | -------------------------------------------------- |
 | `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
-| `/mode [mode]`           | Show or switch permission mode                                       |
-| `/permissions [mode]`    | Show permission rules or change permission mode                      |
-| `/settings`              | Open transport settings (enable/disable transports)                  |
-| `/language [lang]`       | Set response language (ko, en, ja, zh), saves and restarts           |
+| `/mode [mode]` | Show or switch permission mode |
+| `/permissions [mode]` | Show permission rules or change permission mode |
+| `/settings` | Open transport settings (enable/disable transports) |
+| `/language [lang]` | Set response language (ko, en, ja, zh), saves and restarts |
 | `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |
 
 ### Tools & Memory
