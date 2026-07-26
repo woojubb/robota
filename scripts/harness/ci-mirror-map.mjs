@@ -157,13 +157,13 @@ export const CI_STAGES = [
  */
 export const NOT_MIRRORED = [
   {
-    context: 'security audit',
+    context: 'dependency audit',
     reason:
       'downloads the osv-scanner binary from GitHub and scans the lockfile against the OSV.dev database — it needs network access and an external toolchain, so a local run could not be made deterministic or offline.',
     relevance: 'manifest-or-lockfile',
     relevantWhen: 'the diff touches `pnpm-lock.yaml` or any `package.json`',
     manualCommand:
-      'osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → security-audit for the pinned version)',
+      'osv-scanner scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml   (see ci.yml → dependency-audit for the pinned version)',
   },
   {
     context: 'windows-shell',

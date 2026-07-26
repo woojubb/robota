@@ -29,22 +29,22 @@ with stubbed inputs, or its command run directly, the way INFRA-048 and INFRA-05
 
 14 jobs (the brief said 13; the count is 14, confirmed by parsing `jobs:`).
 
-| #   | Job (context)                                         | Required | Purpose a reader would infer                                                                            | Fidelity                                                     | Falsified?                                                                                                                      | Verdict                               |
-| --- | ----------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| 1   | `main-pr-source-guard` (`main PR source guard`)       | main     | A PR to `main` comes from develop/release/hotfix in THIS repo                                           | matches                                                      | **yes** — 6 cases run under `bash -e`: develop✓, feature✗, fork-named-develop✗, release/*✓, empty head_ref✗                     | PASS                                  |
-| 2   | `promotion-ancestry` (`promotion ancestry`)           | main     | The promotion carries `main`'s ancestry (INFRA-051 A1/A3)                                               | matches                                                      | **yes** — ran the scan with `GITHUB_BASE_REF=main` + a non-promotion head; exit 1 on A1                                         | PASS                                  |
-| 3   | `changes`                                             | **no**   | Classifies the PR code vs docs-only                                                                     | matches                                                      | **yes** — probe PR #1476 forced the job to fail and the consequence was measured (see D3)                                       | PASS, but see D3                      |
-| 4   | `build`                                               | develop  | The monorepo builds                                                                                     | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                    |
-| 5   | `quality`                                             | develop  | The affected scopes' build/test/lint/typecheck pass                                                     | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                    |
-| 6   | `scans`                                               | develop  | The harness suite + full dist-independent scan suite pass                                               | matches                                                      | **yes** — run in verification, 70 scans + 1153 harness tests                                                                    | PASS, but see D6                      |
-| 7   | `security-audit` (`security audit`)                   | develop  | _Reads as:_ the PR was audited for security. _Is:_ an OSV dependency scan, only when a manifest changed | **over-claims in the name**                                  | **yes** — step extracted; unresolvable base ref correctly forces `changed=true`; regex verified on nested/lock/code-only inputs | ENFORCEMENT PASS, fidelity filed (D5) |
-| 8   | `release-grade-verify` (`release-grade verification`) | main     | The FULL build/scan/test/typecheck/lint sweep                                                           | **over-claims** — `pnpm test` is `-r --if-present`           | partly — measured the 5 silently-skipped workspaces                                                                             | ENFORCEMENT PASS, fidelity filed (D7) |
-| 9   | `commitlint`                                          | develop  | Every commit this PR authored is conventional                                                           | matches                                                      | **yes** — exited **0** on an unresolvable range                                                                                 | **DEFECT — FIXED**                    |
-| 10  | `examples-typecheck`                                  | develop  | `examples/` typecheck against locally-built packages                                                    | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                     |
-| 11  | `windows-shell`                                       | develop  | Cross-platform shell execution verified on real Windows                                                 | **step 1 over-reaches; both steps could pass on zero tests** | **yes** — a rename made it print `No test files found, exiting with code 0`                                                     | **DEFECT — FIXED**, plus D2 filed     |
-| 12  | `tui-e2e`                                             | develop  | TUI PTY e2e against the built binary                                                                    | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                     |
-| 13  | `regression-red-proof (advisory)`                     | no       | Advisory — name says so                                                                                 | matches (honest name)                                        | **graph** measured (#1476); internal path reasoned                                                                              | PASS                                  |
-| 14  | `patch-coverage (advisory)`                           | no       | Advisory — name says so                                                                                 | matches                                                      | **graph** measured (#1476); internal path reasoned                                                                              | PASS, but see D8                      |
+| #   | Job (context)                                         | Required | Purpose a reader would infer                                      | Fidelity                                                     | Falsified?                                                                                                                      | Verdict                              |
+| --- | ----------------------------------------------------- | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1   | `main-pr-source-guard` (`main PR source guard`)       | main     | A PR to `main` comes from develop/release/hotfix in THIS repo     | matches                                                      | **yes** — 6 cases run under `bash -e`: develop✓, feature✗, fork-named-develop✗, release/*✓, empty head_ref✗                     | PASS                                 |
+| 2   | `promotion-ancestry` (`promotion ancestry`)           | main     | The promotion carries `main`'s ancestry (INFRA-051 A1/A3)         | matches                                                      | **yes** — ran the scan with `GITHUB_BASE_REF=main` + a non-promotion head; exit 1 on A1                                         | PASS                                 |
+| 3   | `changes`                                             | **no**   | Classifies the PR code vs docs-only                               | matches                                                      | **yes** — probe PR #1476 forced the job to fail and the consequence was measured (see D3)                                       | PASS, but see D3                     |
+| 4   | `build`                                               | develop  | The monorepo builds                                               | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                   |
+| 5   | `quality`                                             | develop  | The affected scopes' build/test/lint/typecheck pass               | matches after D4                                             | **yes** — see D4                                                                                                                | **DEFECT — FIXED**                   |
+| 6   | `scans`                                               | develop  | The harness suite + full dist-independent scan suite pass         | matches                                                      | **yes** — run in verification, 70 scans + 1153 harness tests                                                                    | PASS, but see D6                     |
+| 7   | `dependency-audit` (`dependency audit`)               | develop  | An OSV dependency scan over the lockfile, when a manifest changed | matches after D5 (was `security audit`)                      | **yes** — step extracted; unresolvable base ref correctly forces `changed=true`; regex verified on nested/lock/code-only inputs | ENFORCEMENT PASS, **D5 FIXED**       |
+| 8   | `release-grade-verify` (`release-grade verification`) | main     | The FULL build/scan/test/typecheck/lint sweep                     | **over-claims** — `pnpm test` is `-r --if-present`           | partly — measured the 5 silently-skipped workspaces                                                                             | ENFORCEMENT PASS, D7 → **INFRA-063** |
+| 9   | `commitlint`                                          | develop  | Every commit this PR authored is conventional                     | matches                                                      | **yes** — exited **0** on an unresolvable range                                                                                 | **DEFECT — FIXED**                   |
+| 10  | `examples-typecheck`                                  | develop  | `examples/` typecheck against locally-built packages              | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                    |
+| 11  | `windows-shell`                                       | develop  | Cross-platform shell execution verified on real Windows           | **step 1 over-reaches; both steps could pass on zero tests** | **yes** — a rename made it print `No test files found, exiting with code 0`                                                     | **DEFECT — FIXED**, plus D2 filed    |
+| 12  | `tui-e2e`                                             | develop  | TUI PTY e2e against the built binary                              | matches                                                      | **graph** measured (#1476: dispatched on a failed `changes`); internal failure path reasoned                                    | PASS after D3 fix                    |
+| 13  | `regression-red-proof (advisory)`                     | no       | Advisory — name says so                                           | matches (honest name)                                        | **graph** measured (#1476); internal path reasoned                                                                              | PASS                                 |
+| 14  | `patch-coverage (advisory)`                           | no       | Advisory — name says so                                           | matches                                                      | **graph** measured (#1476); internal path reasoned                                                                              | PASS, but see D8                     |
 
 **Falsified: 8 of 14** — jobs 1, 2, 3, 4, 5, 7, 9, 11, via seven local step-level proofs plus the
 live probe PR #1476.
@@ -245,13 +245,78 @@ behind the decision, which is the part that will still be checkable in six month
 should resolve to many. The converse — a path that resolves to SOME scopes when it should resolve
 to more — was not audited, and `mapFilesToScopes`'s prefix rule makes it plausible.
 
-### D5 — `security audit` claims more than it checks — **FILED**
+### D5 — `security audit` claimed more than it checked — **FIXED**, renamed `dependency audit`
 
-The context name reads as "this PR was audited for security". It is an OSV **dependency** scan over
+The context name read as "this PR was audited for security". It is an OSV **dependency** scan over
 `pnpm-lock.yaml`, gated on a manifest/lockfile diff. A PR adding a command injection, a leaked
-credential or a permissive CORS policy gets a green `security audit`. The narrow gating is itself
-sound and complemented by `security-scheduled.yml` (INFRA-044 part 2) — the defect is the NAME.
-Correcting it renames a required context: a ruleset change.
+credential or a permissive CORS policy gets a green check. The narrow gating is itself sound and
+complemented by `security-scheduled.yml` (INFRA-044 part 2) — the defect was the NAME, and it is the
+same deception as a green check that did nothing, wearing a different mask: the check list is what a
+human reads when deciding whether a merge is safe.
+
+`dependency audit` matches the behaviour exactly, and makes visible that the security surface is
+covered by SEVERAL checks (CodeQL, `Secret scan (gitleaks)`, `Dependency review`, `review-gate`)
+rather than by this one.
+
+**The operational hazard, and how it was sequenced.** The context string is a required status check
+on `protect-develop`, and branch protection matches on the job's `name:`. A required context that
+does not exist reports `expected` forever and blocks every open PR. So the rename was held until the
+PR queue was empty (verified 0 open PRs immediately before pushing) and split across two actors: this
+PR lands the whole repository side, the owner PATCHes the ruleset's one context string. Between the
+two, `main-required-checks --live` is expected to be RED — and it is, which is the point:
+
+```
+$ node scripts/harness/scan-main-required-checks.mjs --live
+main-required-checks scan failed (INFRA-055):
+  - security audit: the LIVE `develop` ruleset requires it, but .github/required-status-checks.json
+    does not declare it under `branches.develop` — so nothing has checked that it is covered.
+  - dependency audit: .github/required-status-checks.json declares it required on `develop`, but the
+    LIVE ruleset does not require it — it is enforcing nothing.
+```
+
+A reconciler that stayed SILENT through a rename would not be reconciling. This one names the drift
+in both directions.
+
+**Which pins noticed, measured rather than assumed.** The failure mode of a rename is one reference
+left behind, so each pin was run against a half-renamed tree instead of being trusted:
+
+| Pin                                     | Noticed? | Evidence                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ci-mirror-map.test.mjs`                | **yes**  | With `ci-mirror-map` left on the old name it failed THREE ways: the develop context is required but unmirrored; `NOT_MIRRORED` declares a context nothing requires; and ci.yml's job `dependency-audit` runs steps no stage reproduces. Bidirectional, and it resolves `job:` → a real ci.yml job                        |
+| `harness-scripts.test.mjs`              | **yes**  | Reads ci.yml and asserts the job id exists carrying a job-level `if:` — red when `security-audit` is gone                                                                                                                                                                                                                |
+| `verify-like-ci.test.mjs`               | **yes**  | Three assertions pinned the context string, in `NOT_MIRRORED` and in the summary output                                                                                                                                                                                                                                  |
+| `scan-main-required-checks` **offline** | **no**   | **Finding.** Its R1-R7 are quantified over `branches.main` only, so a `develop` context pointing at a job that no longer exists is invisible to it. Documented behaviour, not a bug — but it means the develop-side rename is guarded ENTIRELY by one test in `ci-mirror-map.test.mjs`, and by nothing in `harness:scan` |
+| `scan-main-required-checks --live`      | **yes**  | Reconciles both branches; output above                                                                                                                                                                                                                                                                                   |
+
+The row worth carrying forward is the fourth. `scan-main-required-checks` is the artefact whose name
+and docstring make a reader expect it to cover this, and it does not; the coverage comes from a test
+in a different file. Here that happened to be enough — which is luck, not design.
+
+**Deliberate remaining mentions.** After the rename, `security audit` survives only in: CHANGELOG
+entries; `.agents/spec-docs/done/**` and `.agents/backlog/completed/**` GATE records; the frozen
+`INFRA-055-pre-correction.md.txt` fixture (a byte-for-byte reproduction of a historical document —
+editing it would destroy the thing it exists to preserve); and a few `(then named …)` /
+`Renamed from …` notes written so the old name still resolves for a reader of the history.
+
+Two live references were **not** changed, being outside this branch's ownership:
+`.github/workflows/dependency-review.yml:46` and `.github/workflows/security-scheduled.yml:3`, both
+COMMENTS naming the job. Neither is a `needs:` edge nor a context pin, so nothing is broken by them —
+but they are stale, and **INFRA-061** owns those two files.
+
+`.agents/specs/verification-pipeline-plan.md` also still says `security-audit`, and is left alone on
+purpose: it is a planning document ("No implementation is authorized by this document alone")
+describing a PROPOSED pipeline — and its own description of that very row already reads "Run
+**dependency audit** as an independent job". The plan named the job correctly; the implementation
+shipped under a broader name. The over-claim entered at implementation time, not at design time, and
+no gate compares the two.
+
+**Kinship with HARNESS-053.** `scan-dist-freshness` was found in the same window to be a presence
+gate wearing a temporal name — which is why `harness:scan` was green on precisely the tree that made
+`typecheck` red. Same class: a name promising more than the behaviour delivers. That is three
+instances in one audit window (D5, D7 → INFRA-063, HARNESS-053) on top of the four already tabulated
+in `.agents/memory/check-validity-two-axes.md`. The durable output is that memory entry's rule:
+**judge a check on two axes — can it fail, and does it check what its name promises — because green
+on the first is routinely mistaken for both.**
 
 ### D6 — `run-all-scans` renders SKIPPED as ✓ — **FILED**
 
@@ -260,13 +325,27 @@ A scan that prints SKIPPED and exits 0 is counted as a pass in the `N of M scans
 promotion), but the aggregation cannot distinguish "checked and clean" from "did not run". This is
 INFRA-048's defect surviving at the suite level. Out of scope here: it touches all 72 scans.
 
-### D7 — `release-grade verification` silently skips 5 workspaces — **FILED**
+### D7 — `release-grade verification` silently skips 5 workspaces — **FILED as INFRA-063**
 
 `harness:verify:release` runs `pnpm test` = `pnpm run -r --if-present test`. Five workspaces declare
 no `test` script and are walked past silently: `packages/agent-cli-web`, `apps/blog`, `apps/docs`,
 `apps/starter-nextjs`, `apps/www`. `check-test-coverage-scripts.mjs` explicitly exempts them
 (`if (typeof testScript !== 'string') return false`), so nothing guards the absence. The manifest
 calls this context "the FULL test/typecheck/lint sweep".
+
+**Split from D5 rather than folded into it, and the reason is itself the finding.** The two read as
+the same over-claim; they are not the same shape. D5's lived in the required-context NAME — the
+string branch protection matches on — so it cost a ruleset change and an empty-queue window. D7's
+lives in the declaration PROSE (`.github/required-status-checks.json`); the context name
+`release-grade verification` never claims to be full. **So D7 needs no ruleset change and carries
+none of D5's hazard.**
+
+And it is not merely prose. `packages/agent-cli-web` declares a **`test:e2e`** script, which
+`pnpm run -r --if-present test` does not match — a suite that exists, is maintained, and is never
+run by the release gate. `harness:verify:release` already appends
+`pnpm --filter @robota-sdk/agent-cli test:bin` by hand for exactly this reason: the identical case,
+recognised once and never generalised. So D7 is a COVERAGE fix plus a prose correction — filed as
+**INFRA-063**, not folded in as a rename.
 
 ### D8 — `check-patch-coverage --detect` fails OPEN — **FILED**
 

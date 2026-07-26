@@ -342,12 +342,12 @@ describe('stageGate', () => {
 });
 
 describe('annotateNotMirrored', () => {
-  it('marks the security audit RELEVANT when the diff touches a manifest or the lockfile', () => {
+  it('marks the dependency audit RELEVANT when the diff touches a manifest or the lockfile', () => {
     const entries = annotateNotMirrored(['pnpm-lock.yaml']);
-    expect(entries.find((entry) => entry.context === 'security audit').relevant).toBe(true);
+    expect(entries.find((entry) => entry.context === 'dependency audit').relevant).toBe(true);
     expect(
       annotateNotMirrored(['packages/agent-core/package.json']).find(
-        (entry) => entry.context === 'security audit',
+        (entry) => entry.context === 'dependency audit',
       ).relevant,
     ).toBe(true);
   });
@@ -355,7 +355,7 @@ describe('annotateNotMirrored', () => {
   it('leaves it un-flagged on a diff that cannot change the dependency graph', () => {
     expect(
       annotateNotMirrored(['.agents/rules/git-branch.md']).find(
-        (entry) => entry.context === 'security audit',
+        (entry) => entry.context === 'dependency audit',
       ).relevant,
     ).toBe(false);
   });
@@ -402,7 +402,7 @@ describe('summarize', () => {
     const quiet = summarize([{ name: 'typecheck', status: 'pass' }], {
       notMirrored: annotateNotMirrored(['README.md']),
     }).lines.join('\n');
-    expect(quiet).toContain('security audit — NOT mirrored locally');
+    expect(quiet).toContain('dependency audit — NOT mirrored locally');
     expect(quiet).toContain('windows-shell — NOT mirrored locally');
     expect(quiet).not.toContain('this diff makes it relevant');
 

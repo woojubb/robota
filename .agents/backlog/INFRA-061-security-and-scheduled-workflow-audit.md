@@ -157,7 +157,7 @@ were executed`. A guard there would catch nothing and add surface.
 
 1. **Three PR-time security checks gate nothing.** Neither branch ruleset lists `Secret scan
 (gitleaks)`, `CodeQL`, or `Dependency review` in required-status-checks. Required on develop today:
-   build, quality, scans, security audit, commitlint, tui-e2e, examples-typecheck, windows-shell,
+   build, quality, scans, dependency audit, commitlint, tui-e2e, examples-typecheck, windows-shell,
    review-gate. A committed secret, a high-severity SAST finding, and a copyleft dependency each go
    red and block nothing. Recommendation: promote `Secret scan (gitleaks)` first — it is now proven to
    fire, measured at 0 false positives on a clean tree, and a leaked credential is the one finding
@@ -165,7 +165,7 @@ were executed`. A guard there would catch nothing and add surface.
 2. **35 open HIGH CodeQL alerts** (plus 15 medium), nothing gating them. Needs a triage decision
    before CodeQL could be made required, or the gate would be bypassed on day one.
 3. **`ci.yml` downloads and executes osv-scanner with no checksum**, twice (lines 434-435 and
-   488-489), including in the _required_ `security audit` job. Same defect fixed here in
+   488-489), including in the _required_ `dependency audit` job. Same defect fixed here in
    `security-scheduled.yml`; `ci.yml` is owned by another agent. The digest to pin is
    `3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8`. A repo-wide guard
    ("a workflow that curls an executable must verify a checksum") was deliberately NOT added, because

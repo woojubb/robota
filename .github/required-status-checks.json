@@ -1,6 +1,6 @@
 {
   "$schema-note": "INFRA-055 / INFRA-056. SOURCE OF TRUTH for which status checks each protected branch's ruleset must require, keyed by branch. This file is the source, not a mirror. Two consumers read it, with DIFFERENT assertions per branch: `scripts/harness/scan-main-required-checks.mjs` (registered in `pnpm harness:scan`) asserts offline that every `main` context resolves to a workflow job that ACTUALLY RUNS AND CAN FAIL on a PR whose base is `main`, and reconciles both branches against the live rulesets under `--live` (run on a schedule by `.github/workflows/ruleset-drift.yml`); `scripts/harness/ci-mirror-map.mjs` asserts that every `develop` context is either reproduced by a `pnpm harness:verify-like-ci` stage — step for step — or declared un-mirrorable with a reason. Change a ruleset and this file in the same change.",
-  "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`security audit` were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
+  "why": "Measured on promotion #1427: all five contexts `protect-main` then required were no-ops on a `main` PR — `build`/`quality`/`scans`/`dependency audit` (then still named `security audit`) were 3-6 second echoes whose every real step was gated on `base_ref != 'main'`, and `commitlint` was skipped wholesale. Branch protection reported green from jobs that deliberately did no work, while the job that verifies a promotion (`release-grade verification`, 7m31s) was not required and CodeQL failed without blocking.",
   "branches": {
     "develop": {
       "ruleset": "protect-develop",
@@ -27,10 +27,10 @@
           "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all."
         },
         {
-          "context": "security audit",
+          "context": "dependency audit",
           "workflow": ".github/workflows/ci.yml",
-          "job": "security-audit",
-          "verifies": "osv-scanner over `pnpm-lock.yaml`, gated on a package-manifest or lockfile diff."
+          "job": "dependency-audit",
+          "verifies": "osv-scanner over `pnpm-lock.yaml` — known-vulnerable DEPENDENCIES only, gated on a package-manifest or lockfile diff. It inspects no first-party source: injection, secrets and misconfiguration in this repository's own code are `review-gate`'s and CodeQL's surface, not this context's. Renamed from `security audit` by INFRA-060 D5, which is the name that invited it to be read as a whole-PR security review."
         },
         {
           "context": "commitlint",
@@ -99,8 +99,8 @@
       ],
       "deliberately_not_required": [
         {
-          "context": "build / quality / scans / security audit",
-          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the FULL build and the FULL scan/test/typecheck/lint sweep where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `security audit`'s is gated on a manifest diff."
+          "context": "build / quality / scans / dependency audit",
+          "reason": "Develop-side gates. On a `main` PR they are excluded at the job level and `release-grade verification` subsumes them: it runs the FULL build and the FULL scan/test/typecheck/lint sweep where these are affected-scope-selective via `--base-ref`, and its osv-scanner step is unconditional where `dependency audit`'s is gated on a manifest diff."
         },
         {
           "context": "commitlint",

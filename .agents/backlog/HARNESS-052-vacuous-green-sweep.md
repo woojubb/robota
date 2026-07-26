@@ -137,7 +137,7 @@ falsified from a local checkout.
 - `ci.yml:260` — `build` (required) is `pnpm build` behind an `if:`, with an `echo` on the else
   branch. This is the `protect-main` incident's shape on the develop side, and
   `scan-main-required-checks`' R3/R4 cannot see it: R3 matches only `github.base_ref` in a step
-  `if:`, and R4 requires _every_ step to be conditional. `ci.yml:431` (`security audit`, required)
+  `if:`, and R4 requires _every_ step to be conditional. `ci.yml:431` (`dependency audit`, required)
   has the same shape.
 - `review-gate.yml:260` — the auto-merge disarm is `needs.review-gate.result == 'failure'`, but the
   workflow sets `cancel-in-progress: true` and triggers on `labeled`, so a cancelled run leaves auto

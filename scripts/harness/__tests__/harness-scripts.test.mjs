@@ -166,7 +166,7 @@ describe('CI build workflow', () => {
     expect(content).not.toContain('covered by release-grade verification');
     expect(content).not.toMatch(/name: Skip duplicate/);
 
-    for (const jobId of ['build', 'quality', 'scans', 'security-audit']) {
+    for (const jobId of ['build', 'quality', 'scans', 'dependency-audit']) {
       const jobIndex = content.indexOf(`\n  ${jobId}:\n`);
       expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
       const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));

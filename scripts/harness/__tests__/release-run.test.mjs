@@ -62,7 +62,7 @@ function greenReleaseRun() {
 
 - Merged PRs: #999
 - Published version: 3.0.0-beta.99
-- Validation gates: build, quality, security audit
+- Validation gates: build, quality, dependency audit
 - Skipped checks: none
 `;
 }

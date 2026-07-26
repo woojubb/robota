@@ -16,7 +16,7 @@ deciding whether a merge is safe. Measured instances:
 
 | Check                        | Axis A | Axis B                                                                                                      |
 | ---------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `security audit`             | fine   | names a discipline, runs an OSV **dependency** scan                                                         |
+| `security audit`             | fine   | named a discipline, ran an OSV **dependency** scan — RENAMED to `dependency audit` (INFRA-060 D5)           |
 | `release-grade verification` | fine   | "the FULL sweep" — walks past 5 workspaces via `--if-present`                                               |
 | `agent-server-boundary`      | fine   | satisfied **vacuously by a never-called import** — it checks that a token appears, not that a seam is wired |
 | `scan-dist-freshness`        | fine   | named freshness, measures **presence**                                                                      |
