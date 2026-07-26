@@ -1,8 +1,13 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 
-export default defineConfig({
-  test: {
-    environment: 'node',
-    include: ['__tests__/**/*.{test,spec}.ts'],
-  },
-});
+import { resourceCeiling } from '../../vitest.shared';
+
+export default mergeConfig(
+  resourceCeiling,
+  defineConfig({
+    test: {
+      environment: 'node',
+      include: ['__tests__/**/*.{test,spec}.ts'],
+    },
+  }),
+);
