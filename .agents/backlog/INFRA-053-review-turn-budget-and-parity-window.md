@@ -31,6 +31,38 @@ green-and-empty to red-and-honest, which is a real improvement — the failure i
 It is not blocking, though: `Claude review` is advisory, and the required `review-gate` reads
 code-scanning output rather than this review, so the merge gate itself is unaffected.
 
+### 1b. The budget is not the root cause — **17 of the 25 turns are permission denials**
+
+Corrected 2026-07-26 after reading a full run log (`30189528981`) rather than the summary line:
+
+```
+"subtype": "error_max_turns",
+"permission_denials_count": 17
+##[error]Execution failed: Reached maximum number of turns (25)
+ANTHROPIC_API_KEY:
+```
+
+Three findings, and two of them invalidate earlier diagnoses in this repo:
+
+1. **Authentication is fine.** A sub-agent reported the failure as an unset `ANTHROPIC_API_KEY`
+   secret. It is not: the trailing `ANTHROPIC_API_KEY:` is an env echo printed _after_ the failure,
+   the run authenticates through `CLAUDE_CODE_OAUTH_TOKEN` (which exists), and the review demonstrably
+   runs for ~2 minutes before exhausting its turns. Nothing is missing from the repository secrets.
+2. **Most of the budget is spent being refused.** 17 denials out of a 25-turn cap. Raising
+   `--max-turns` alone would buy proportionally more denials — the number to fix first is 17, not 25.
+   The workflow declares **no `allowed_tools`**, so the reviewer runs on the action's default set
+   while the prompt instructs it to read `AGENTS.md`, `.agents/rules/*`, `CLAUDE.md` and
+   `CONTRIBUTING.md`.
+3. **`fetch-depth: 1` cannot produce a diff.** The checkout fetches a single commit, so there is no
+   base ref against which `git diff` could resolve — yet the prompt's entire task is "review this
+   PR's diff" and it explicitly tells the reviewer not to explore the tree. Whatever the reviewer is
+   reading, it is not reaching the diff the way a local reviewer would.
+
+So the honest ordering is: **grant the tools the prompt requires, give the checkout enough history to
+diff, and only then decide whether 25 turns is the constraint.** Measure the denial count after each
+change; a budget raised over an unfixed denial loop is the "more of a thing that does not work"
+shape.
+
 ### 2. Editing that workflow at all is a two-step with a blocking window
 
 `anthropics/claude-code-action` compares its invoking workflow byte-for-byte against the **default
