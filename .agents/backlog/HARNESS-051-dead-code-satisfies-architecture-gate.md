@@ -1,11 +1,33 @@
 ---
 id: HARNESS-051
 title: An architecture gate is satisfied vacuously by dead code, and the linter was blind to the code that hid it
-status: todo
+status: in-progress
 priority: medium
 type: INFRA
 created: 2026-07-26
 ---
+
+## Progress (2026-07-26)
+
+Findings 1 (the gate) and 3 (`verify-change.mjs`) are resolved. Finding 2 (the test-file
+`no-unused-vars` exemption) is untouched — it needs a measured alert count before and after, and it
+belongs to the ESLint configuration owner, not to the harness scans.
+
+- `scripts/harness/check-agent-server-boundary.mjs` — a required import now counts only when the
+  importing module is **reachable from a declared entry point** and the **imported binding is
+  actually referenced** there. Falsified rather than trusted green: against the pre-fix checker both
+  vacuous shapes (unreachable module, imports-only module) return no finding; against the repaired
+  one both are reported, and the genuinely wired `agent-web → @robota-sdk/agent-playground/client`
+  seam stays clean, including when reached transitively.
+- The `agent-playground → agent-remote-client` requirement (dependency **and** import) is
+  **withdrawn**, with the reason recorded in the checker. The composition does not exist: the
+  package reaches the server through its own `robota-executor/sse-client`, and the remote client has
+  no reachable importer anywhere in the repo. The forbidden-direction rules are untouched.
+- `verify-change.mjs` no longer reports a `passed` field that could only be written `true`.
+
+**This unblocks the playground dead chain** (`agent-session.ts`, `remote-providers.ts` and the
+`orphan-exports` cascade behind them): the gate that made deleting them a CI failure no longer
+requires them. The deletion itself stays with SEC-005 / the package owner.
 
 ## Problem
 
@@ -67,11 +89,13 @@ elsewhere. Fix it or remove it — a value that cannot vary should not be report
 
 ## Acceptance
 
-- [ ] The `agent-server-boundary` gate either verifies a wired seam or its requirement is restated to
-      match what it can actually check — with the playground's dead chain removed either way.
+- [x] The `agent-server-boundary` gate either verifies a wired seam or its requirement is restated to
+      match what it can actually check — the gate now verifies a wired seam, and the requirement the
+      dead chain was propping up is withdrawn. The dead chain is now deletable and its removal is
+      tracked in SEC-005 (it needs the `orphan-exports` cascade resolved inside the package).
 - [ ] The test-file `no-unused-vars` exemption is justified in place or narrowed, and the alert count
       in tests is measured after the change.
-- [ ] `verify-change.mjs`'s `passed` field varies with the outcome, or is gone.
+- [x] `verify-change.mjs`'s `passed` field varies with the outcome, or is gone — gone.
 
 ## References
 

@@ -54,12 +54,12 @@
     },
     "VerifyReport": {
       "type": "object",
-      "required": ["type", "timestamp", "passed", "scopes"],
+      "description": "Written only on a fully successful run — every check failure throws before the report is produced, so there is no `passed` field to vary (HARNESS-051).",
+      "required": ["type", "timestamp", "scopes"],
       "additionalProperties": false,
       "properties": {
         "type": { "const": "verify" },
         "timestamp": { "type": "string", "format": "date-time" },
-        "passed": { "type": "boolean" },
         "scopes": {
           "type": "array",
           "items": { "$ref": "#/$defs/VerifyScopeResult" }
