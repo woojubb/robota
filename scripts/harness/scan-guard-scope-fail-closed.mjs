@@ -119,6 +119,12 @@ export const MANDATORY_TREE_GUARDS = [
     tree: 'packages, apps and scripts',
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
   },
+  {
+    file: 'scan-live-smoke-provider-coverage.mjs',
+    finder: 'findUncoveredProviderCredentials',
+    tree: '.github/workflows and packages',
+    why: 'INFRA-061 measured this guard VACUOUS on the half-root case — workflow present, provider packages absent: zero declarations discovered, zero findings, green. It now reports `no-provider-declarations-found`, because a provider-coverage floor that found no providers has not found them all covered',
+  },
 ];
 
 /**
@@ -136,6 +142,24 @@ export const MANDATORY_TREE_GUARDS = [
  * Every `measured` value here was produced by executing the finder, not by reading it.
  */
 export const PENDING_CLASSIFICATION = [
+  // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
+  // never classified, so `harness:test` was red on develop itself. Measured here rather than
+  // assumed, twice each, by executing the finder against a bare root:
+  //   findRequiredCheckNeedsFindings  → fail-closed
+  //   findTestSelectionFindings       → VACUOUS — a live instance of the audited defect. A
+  //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
+  //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
+  //     INFRA-060, not silently pinned as though it were sound.
+  {
+    file: 'scan-required-check-needs.mjs',
+    finder: 'findRequiredCheckNeedsFindings',
+    measured: 'fail-closed',
+  },
+  {
+    file: 'scan-test-selection-tolerance.mjs',
+    finder: 'findTestSelectionFindings',
+    measured: 'vacuous',
+  },
   {
     file: 'check-agent-server-boundary.mjs',
     finder: 'findAgentServerBoundaryFindings',

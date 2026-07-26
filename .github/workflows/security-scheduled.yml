@@ -5,6 +5,12 @@ name: Scheduled security scan
 # accumulate invisibly (18 did exactly that before INFRA-044 part 1). This scheduled run scans the
 # lockfile weekly (and on demand) so new advisories surface within days, not at the next manifest edit.
 # Same scanner, same config SSOT (osv-scanner.toml) as ci.yml — one source of accepted-risk truth.
+#
+# INFRA-061: the run used to check out `develop` ONLY, so the branch that is actually released and
+# deployed — `main` — was never scanned on any schedule. An advisory against a dependency still pinned on
+# main but already bumped on develop produced a green "Scheduled security scan". Both branches are now
+# separate matrix legs, so the check's name matches what it covers and a finding names the branch it is
+# on. When main and develop are identical the second leg costs ~30s.
 
 on:
   schedule:
@@ -15,17 +21,37 @@ on:
 permissions:
   contents: read
 
+env:
+  OSV_SCANNER_VERSION: v2.0.2
+  # Checksum of the release asset this job downloads and then EXECUTES. Pinning the version does not pin
+  # the bytes: a release asset can be replaced under an existing tag, and this is a SECURITY job — running
+  # an unverified binary to prove the tree is clean inverts the point. Recompute when bumping the version:
+  #   curl -fsSL <url> | sha256sum -
+  OSV_SCANNER_SHA256: 3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8
+
 jobs:
   osv-scan:
-    name: osv-scanner (scheduled, full lockfile)
+    name: osv-scanner (${{ matrix.branch }}, full lockfile)
     runs-on: ubuntu-latest
+    strategy:
+      # fail-fast off: an advisory on one branch must not cancel — and so hide — the other branch's result.
+      fail-fast: false
+      matrix:
+        branch: [main, develop]
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: ${{ matrix.branch }}
+
+      - name: Install osv-scanner
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
+            -o "$RUNNER_TEMP/osv-scanner"
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
 
       - name: Vulnerability scan (osv-scanner) over the full lockfile
         run: |
-          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
-          chmod +x "$RUNNER_TEMP/osv-scanner"
+          set -euo pipefail
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml

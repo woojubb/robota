@@ -154,6 +154,10 @@ const SCAN_COMMANDS = [
   },
   { name: 'api-pagination', command: ['node', 'scripts/harness/scan-api-pagination.mjs'] },
   {
+    name: 'live-smoke-provider-coverage',
+    command: ['node', 'scripts/harness/scan-live-smoke-provider-coverage.mjs'],
+  },
+  {
     name: 'composition-neutrality',
     command: ['node', 'scripts/harness/scan-composition-neutrality.mjs'],
   },

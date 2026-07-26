@@ -14,6 +14,19 @@ name: Live provider smoke
 # job SKIPS that provider and still exits 0 — it can never fail for lack of credentials. Until the
 # owner provisions at least one key secret, this workflow is a green no-op.
 #
+# INFRA-061 — that green no-op is the current state, not a hypothetical: on 2026-07-26, both runs
+# this workflow has ever had (one schedule, one manual dispatch) reported `success` having called
+# ZERO providers, because no provider secret is provisioned. The exit code stays 0 by design, but the
+# run no longer LOOKS like a verified provider fleet: the smoke emits a `::warning::` annotation and
+# a job-summary line naming what was actually exercised, and an explicit `--provider <type>` dispatch
+# that cannot run is now a FAILURE (an explicitly asked question must not be answered with a silent
+# green). The machinery itself is verified working — one real Anthropic turn, chat + stream, was run
+# against this exact script during the INFRA-061 audit; the only missing piece here is the secret.
+#
+# `scan-live-smoke-provider-coverage` (pnpm harness:scan) fails if a provider definition declares an
+# `$ENV:` credential that the env block below does not bind, so this list cannot silently fall behind
+# the provider definitions.
+#
 # Secrets consumed (all optional, add only the providers you want covered):
 #   ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, DASHSCOPE_API_KEY
 # OpenAI ships no default model, so covering it also needs the repo VARIABLE

@@ -3,6 +3,21 @@ name: CodeQL
 # Static analysis (SAST) for JavaScript/TypeScript — GitHub's standard code-scanning gate. Advisory: results
 # appear in the Security → Code scanning tab and as PR annotations, not as a required merge check unless added
 # to branch protection.
+#
+# INFRA-061 — what a green CodeQL run does and does not mean, measured 2026-07-26 so the claim is auditable:
+#
+#   - It genuinely reports. The `refs/heads/develop` analysis carried 80 results, matching the open alert
+#     inventory exactly: 35 high + 15 medium + 30 without a security severity. This workflow is not a no-op.
+#   - Those 35 HIGH alerts gate nothing. CodeQL is not in either branch ruleset's required-status-checks
+#     list, so a high-severity finding blocks no merge. Making it required is a merge-gate change and is
+#     filed for the owner, not taken here.
+#   - A green tick on a PULL REQUEST is not a repo-clean signal. Every `refs/pull/*/merge` analysis reports
+#     0 results because CodeQL runs diff-informed on PRs: it reports alerts in the CHANGED code, not the
+#     standing inventory. The push/schedule runs on develop are what cover the rest.
+#   - The alert COUNT must be read with `--paginate`. The alerts endpoint sorts by `created` descending and
+#     pages at 100, so a burst of low-severity alerts pushes every high-severity one onto page two and a
+#     single-page query answers `0 high` on any ref — indistinguishable from a clean repository. That false
+#     all-clear happened here (SEC-006) and is now fenced by the `api-pagination` scan.
 on:
   push:
     branches: [main, develop]
