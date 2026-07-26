@@ -493,28 +493,42 @@ export function classifySpecifierUsage(content, specifier) {
   return 'imported-unused';
 }
 
-/** Local binding names introduced by an import clause (`X`, `* as ns`, `{ a, b as c }`). */
+/**
+ * RUNTIME binding names introduced by an import clause (`X`, `* as ns`, `{ a, b as c }`).
+ *
+ * Type-only imports bind nothing. `import type { X }` and `import { type X }` are erased by the
+ * compiler, so the emitted module never references them — the seam is not wired, whatever the
+ * source looks like. An earlier version stripped the `type` keyword and counted them as bindings,
+ * which would let a purely type-level reference satisfy a gate whose whole purpose is to prove a
+ * seam is actually reachable at runtime. That is the exact defect class HARNESS-051 is closing, so
+ * counting them here would have reintroduced it inside the fix.
+ *
+ * Returns `[]` for a wholly type-only clause; drops individually `type`-marked specifiers from a
+ * mixed one (`import { type A, B }` binds only `B`).
+ */
 function extractBoundNames(clause) {
+  // `import type …` — the entire clause is erased. Nothing is bound at runtime.
+  if (/^\s*type\s+/.test(clause)) return [];
+
   const names = [];
-  const withoutTypeKeyword = clause.replace(/^\s*type\s+/, '');
-  const namedMatch = withoutTypeKeyword.match(/\{([^}]*)\}/);
+  const namedMatch = clause.match(/\{([^}]*)\}/);
   if (namedMatch) {
     for (const entry of namedMatch[1].split(',')) {
-      const parts = entry
-        .trim()
-        .replace(/^type\s+/, '')
-        .split(/\s+as\s+/);
+      const trimmed = entry.trim();
+      // `{ type A }` / `{ type A as B }` — an inline type specifier, erased like the clause form.
+      if (/^type\s+/.test(trimmed)) continue;
+      const parts = trimmed.split(/\s+as\s+/);
       const local = (parts[1] ?? parts[0] ?? '').trim();
       if (/^[A-Za-z_$][\w$]*$/.test(local)) {
         names.push(local);
       }
     }
   }
-  const namespaceMatch = withoutTypeKeyword.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/);
+  const namespaceMatch = clause.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/);
   if (namespaceMatch) {
     names.push(namespaceMatch[1]);
   }
-  const defaultMatch = withoutTypeKeyword.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:,|$)/);
+  const defaultMatch = clause.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:,|$)/);
   if (defaultMatch) {
     names.push(defaultMatch[1]);
   }

@@ -388,4 +388,27 @@ describe('classifySpecifierUsage', () => {
       'imported-unused',
     );
   });
+
+  // A type-only import is erased by the compiler, so the emitted module never touches the seam.
+  // Counting it as wiring would let a purely type-level reference satisfy a gate that exists to
+  // prove runtime reachability — the same defect class this item is closing. Found in review.
+  it('does not treat a type-only import as wiring', () => {
+    expect(classifySpecifierUsage("import type { A } from 'pkg';\nconst x: A = 1;", 'pkg')).toBe(
+      'imported-unused',
+    );
+    expect(classifySpecifierUsage("import { type A } from 'pkg';\nconst x: A = 1;", 'pkg')).toBe(
+      'imported-unused',
+    );
+    expect(
+      classifySpecifierUsage("import type * as ns from 'pkg';\nlet x: ns.A;", 'pkg'),
+    ).toBe('imported-unused');
+  });
+
+  // A mixed clause binds only its value specifiers.
+  it('counts the value half of a mixed type/value import', () => {
+    expect(classifySpecifierUsage("import { type A, B } from 'pkg';\nB();", 'pkg')).toBe('used');
+    expect(classifySpecifierUsage("import { type A, B } from 'pkg';\nconst x: A = 1;", 'pkg')).toBe(
+      'imported-unused',
+    );
+  });
 });
