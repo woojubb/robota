@@ -20,7 +20,17 @@
  * asks at WHAT VERSION, because a surface frozen at "97 manifests" can still rot back to 5.x one
  * manifest at a time without a single new entry appearing.
  *
- * It reports FIVE finding kinds:
+ * PERF-006 follow-up extended it AGAIN, and the gap is worth stating because it is the exact hole
+ * that let the 5.x line survive a change whose whole point was to end it. Every edge below the
+ * store edge inspects a DECLARATION — a manifest we write, an import we write. None of them can see
+ * what is actually INSTALLED. After the 6.0.3 bump all 97 of our manifests were clean, the scan was
+ * green, and `node_modules/.pnpm/typescript@5.9.3` was still on disk: a transitive package four
+ * levels down (`apps/agent-app` -> `electron-builder@25` -> `app-builder-lib` -> `config-file-ts`)
+ * took `typescript@^5.4.3` as a hard `dependencies` entry, so pnpm materialised it a private copy.
+ * A guard that only reads our own manifests reports success while the goal is unmet. The store edge
+ * closes that: it asks what the tree RESOLVES, not what we declare.
+ *
+ * It reports SIX finding kinds:
  *
  *  1. `legacy-typescript-import` — a first-party file imports the `typescript` package (static
  *     import, `export … from`, `import x = require()`, dynamic `import()`, or `require()`).
@@ -44,9 +54,19 @@
  *     exemption: those excuse the dependency's PRESENCE while upstream forces it, not its version.
  *     A baselined manifest silently reverting `^6.0.3` to `^5.9.3` would otherwise be invisible,
  *     which is the exact creep this edge exists to stop.
- *  4. `reasonless-annotation` — anti-rot on the escape hatch: an `allow-legacy-typescript`
+ *  4. `legacy-typescript-installed` — PERF-006 follow-up. A copy of `typescript` BELOW 6 is
+ *     materialised in `node_modules`, whoever declared it. This is the only edge that reads the
+ *     installed tree rather than a declaration, and it is the one that actually answers the owner's
+ *     question ("is TypeScript 5 gone?"). It is deliberately NOT waivable — not by the baseline, not
+ *     by the root exemption, and there is no annotation for it. A resolved 5.x copy is either
+ *     removable (upgrade or drop whatever pulls it) or it is a decision to bring to the owner; an
+ *     escape hatch here would just be the manifest-only blind spot rebuilt one suppression at a time.
+ *     The fix that cleared the last one was an honest dependency upgrade (`electron-builder` 25 -> 26,
+ *     whose `app-builder-lib` dropped `config-file-ts` for `jiti`), NOT a `pnpm.overrides` entry
+ *     forcing someone else's private dependency onto a major it never declared support for.
+ *  5. `reasonless-annotation` — anti-rot on the escape hatch: an `allow-legacy-typescript`
  *     annotation with no `: <reason>`. Every suppression must state WHY.
- *  5. `stale-annotation` — anti-rot the other way: an `allow-legacy-typescript: <reason>` that
+ *  6. `stale-annotation` — anti-rot the other way: an `allow-legacy-typescript: <reason>` that
  *     suppresses nothing. A suppression outliving the thing it excused is how an allowlist quietly
  *     becomes 641 entries long and switches its own gate off (the failure `check-spec-public-surface`
  *     had to be rescued from). Unlike `scan-no-fallback`, stale detection is implemented here rather
@@ -74,7 +94,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
@@ -191,6 +211,144 @@ export function findBelowMinimumDeclarations(manifest, minimumMajor = MINIMUM_MA
     }
   }
   return below;
+}
+
+/**
+ * PERF-006 follow-up — the STORE edge. Everything above reads a declaration; this reads the tree.
+ *
+ * The major an installed copy reports, or `undefined` when the version is not a form we can judge.
+ * Same ratchet stance as `lowestMajorAdmitted`: an unreadable version is reported, never passed.
+ */
+export function installedMajor(version) {
+  if (typeof version !== 'string') return undefined;
+  const match = /^\s*v?(\d+)\./.exec(version);
+  if (match === null) return undefined;
+  return Number(match[1]);
+}
+
+/**
+ * The installed copies that sit below the floor. Pure — takes the copies the walk found, so the
+ * judgement is testable without a node_modules tree on disk.
+ *
+ * Each copy is `{ dir, version }`. Returns `{ dir, version, reason }` entries.
+ */
+export function findBelowMinimumInstalled(copies, minimumMajor = MINIMUM_MAJOR) {
+  const below = [];
+  for (const copy of copies) {
+    const major = installedMajor(copy.version);
+    if (major === undefined) {
+      below.push({
+        ...copy,
+        reason: 'reports a version this guard cannot read, so it cannot prove',
+      });
+    } else if (major < minimumMajor) {
+      below.push({ ...copy, reason: 'resolves below' });
+    }
+  }
+  return below;
+}
+
+/**
+ * How many `node_modules` levels deep the walk descends. pnpm — the package manager this repo pins —
+ * materialises EVERY copy at exactly two levels (`node_modules/.pnpm/<id>/node_modules/<name>`), so
+ * this is generous headroom rather than a guess, and it also covers npm's nested layout for anyone
+ * who installs differently.
+ */
+const STORE_WALK_MAX_LEVELS = 8;
+
+/** The version of the package rooted at `dir`, but ONLY if it really is the legacy compiler. */
+function installedVersionAt(dir) {
+  const manifestPath = path.join(dir, 'package.json');
+  if (!existsSync(manifestPath)) return undefined;
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  } catch {
+    return undefined;
+  }
+  // The authoritative confirmation, mirroring the import edge's AST check: a directory NAMED
+  // `typescript` is not enough. `@scope/typescript` would sit in a directory of that name too, and
+  // its manifest name would not be `typescript`.
+  if (manifest?.name !== LEGACY_PACKAGE) return undefined;
+  return manifest.version;
+}
+
+/**
+ * Every `typescript` copy materialised under `root/node_modules`, as `{ dir, version }` with `dir`
+ * relative to `root`. Returns `undefined` — distinct from `[]` — when there is no `node_modules` at
+ * all, because "nothing installed" is not evidence of a clean tree and must not read as one.
+ *
+ * The walk follows the module-resolution structure rather than every subdirectory, so it stays fast:
+ * a `node_modules` level holds package dirs, `@scope` dirs and pnpm's `.pnpm` store, and only those
+ * can lead to another `node_modules`. Copies are deduplicated by real path, since pnpm's top-level
+ * entries are symlinks into `.pnpm` and would otherwise be counted twice.
+ */
+export function collectInstalledCopies(root, { maxLevels = STORE_WALK_MAX_LEVELS } = {}) {
+  const entryPoint = path.join(root, 'node_modules');
+  if (!existsSync(entryPoint)) return undefined;
+
+  const copies = [];
+  const visitedRealPaths = new Set();
+
+  /** `dir` is a directory that directly contains package directories. */
+  const visitNodeModules = (dir, level) => {
+    if (level > maxLevels) return;
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const child = path.join(dir, entry.name);
+      if (entry.name === '.pnpm') {
+        // pnpm's virtual store: each child is one package identity holding its own node_modules.
+        let storeEntries;
+        try {
+          storeEntries = readdirSync(child, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const storeEntry of storeEntries) {
+          visitNodeModules(path.join(child, storeEntry.name, 'node_modules'), level + 1);
+        }
+        continue;
+      }
+      if (entry.name.startsWith('@')) {
+        // A scope directory holds package directories, but is not itself one.
+        let scoped;
+        try {
+          scoped = readdirSync(child, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const scopedEntry of scoped) visitPackage(path.join(child, scopedEntry.name), level);
+        continue;
+      }
+      if (entry.name.startsWith('.')) continue;
+      visitPackage(child, level);
+    }
+  };
+
+  /** `dir` is one installed package. */
+  const visitPackage = (dir, level) => {
+    let realPath;
+    try {
+      realPath = realpathSync(dir);
+    } catch {
+      return;
+    }
+    if (visitedRealPaths.has(realPath)) return;
+    visitedRealPaths.add(realPath);
+
+    const version = installedVersionAt(dir);
+    if (version !== undefined) copies.push({ dir: path.relative(root, dir), version });
+    visitNodeModules(path.join(dir, 'node_modules'), level + 1);
+  };
+
+  visitNodeModules(entryPoint, 1);
+  copies.sort((a, b) => a.dir.localeCompare(b.dir));
+  return copies;
 }
 
 /** A well-formed escape hatch: the token followed by `:` and at least one non-space reason char. */
@@ -380,6 +538,29 @@ export function findLegacyTypeScriptFindings(root = WORKSPACE_ROOT, options = {}
     }
   }
 
+  // PERF-006 follow-up: the STORE edge. Asked once, over the whole installed tree, rather than
+  // per-file — it is a property of the resolution, not of any manifest we own.
+  const installed = collectInstalledCopies(root);
+  if (installed === undefined) {
+    // Not installed, so unobservable. Loud rather than silent: a scan that quietly skips its only
+    // resolution-level edge on an uninstalled tree is indistinguishable from one that passed it.
+    notices.push(
+      `no node_modules at ${root} — the installed-copy edge could not run. Run the install first; ` +
+        'CI always does, so this is only reachable locally.',
+    );
+  } else {
+    for (const { dir, version, reason } of findBelowMinimumInstalled(installed)) {
+      findings.push({
+        file: dir,
+        line: 1,
+        kind: 'legacy-typescript-installed',
+        text:
+          `'${LEGACY_PACKAGE}@${version}' is materialised here, which ${reason} ` +
+          `${MINIMUM_MAJOR} — find whatever pulls it in and upgrade or drop that (PERF-006)`,
+      });
+    }
+  }
+
   // The ratchet may only tighten: a baselined manifest that has since dropped the dependency must be
   // removed from the baseline in the same PR, or the freed slot silently stays available for reuse.
   for (const baselined of baseline) {
@@ -445,6 +626,16 @@ function main() {
       `    still need a programmatic compiler API, and must be a ${MINIMUM_MAJOR}.x range. Not\n` +
       '    waivable by the baseline or the root exemption — those excuse the presence of the\n' +
       '    dependency, never its version.\n' +
+      '  - legacy-typescript-installed: a 5.x copy is ON DISK regardless of what we declare, so the\n' +
+      '    goal is not met. FIRST run `pnpm prune`: pnpm does NOT evict a store entry that a\n' +
+      '    dependency change orphaned, so after switching branches or bumping a package the copy can\n' +
+      '    be a stale leftover the lockfile no longer references. `pnpm install` does not clear it.\n' +
+      '    If it survives a prune it is real — find the hard `dependencies` entry that pulls it: parse each manifest\n' +
+      `    under node_modules/.pnpm and look up the literal '${LEGACY_PACKAGE}' key; do NOT grep the\n` +
+      '    string, which also matches @typescript-eslint/* and @typescript/native-preview — then\n' +
+      '    UPGRADE or DROP whatever depends on it. There is no annotation for this edge on purpose:\n' +
+      '    a pnpm.overrides entry forcing a third party onto an unsupported major is a decision for\n' +
+      '    the owner, not a suppression.\n' +
       '  - reasonless-annotation: every `allow-legacy-typescript` MUST carry a `: <reason>`.\n' +
       '  - stale-annotation / unused-exemption: the excuse outlived what it excused — delete it.',
   );
