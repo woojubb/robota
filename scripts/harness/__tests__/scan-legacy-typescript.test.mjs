@@ -4,12 +4,14 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
   collectInstalledCopies,
   findBelowMinimumDeclarations,
   findBelowMinimumInstalled,
   findLegacyDependencies,
   findLegacyImportsInSource,
+  formatNotices,
   installedMajor,
   lowestMajorAdmitted,
 } from '../scan-legacy-typescript.mjs';
@@ -422,5 +424,30 @@ describe('scan-legacy-typescript — store edge (collectInstalledCopies)', () =>
   it('ignores a directory with no manifest at all', () => {
     mkdirSync(path.join(root, 'node_modules', 'typescript'), { recursive: true });
     expect(collectInstalledCopies(root)).toEqual([]);
+  });
+});
+
+// ── notice VISIBILITY ────────────────────────────────────────────────────────
+
+/**
+ * HARNESS-052, reachability axis. This scan's own comment calls its uninstalled-tree notice "Loud
+ * rather than silent", and it was MEASURED silent on the only path anyone runs it on: `run-all-scans`
+ * discards a passing scan's stdout, so `pnpm harness:scan` printed `✓ legacy-typescript` and nothing
+ * else — byte-identical to a run where the installed-copy edge DID execute. Notices now carry
+ * `ADVISORY_MARKER`, the one channel that survives a 0 exit (HARNESS-053).
+ */
+describe('formatNotices', () => {
+  it('emits nothing when there is nothing to say', () => {
+    expect(formatNotices([])).toEqual([]);
+  });
+
+  it('marks every notice so a PASSING run still surfaces it', () => {
+    const lines = formatNotices(['no node_modules at /x', 'y/package.json no longer declares it']);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line).toContain(ADVISORY_MARKER);
+    expect(extractAdvisories(lines.join('\n'))).toEqual([
+      'no node_modules at /x',
+      'y/package.json no longer declares it',
+    ]);
   });
 });

@@ -98,6 +98,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } fr
 import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/legacy-typescript-baseline.json');
@@ -575,6 +576,22 @@ export function findLegacyTypeScriptFindings(root = WORKSPACE_ROOT, options = {}
   return findings;
 }
 
+/**
+ * Render each notice as ONE advisory line.
+ *
+ * HARNESS-052, reachability axis. The uninstalled-tree notice above calls itself "Loud rather than
+ * silent", and it was MEASURED silent: `run-all-scans` discards a passing scan's stdout, so
+ * `pnpm harness:scan` — the only path anyone runs this on — printed `✓ legacy-typescript` and
+ * nothing else, byte-identical to a run where the installed-copy edge DID execute. `ADVISORY_MARKER`
+ * (HARNESS-053) is the one channel that survives a 0 exit, and it cannot change the verdict.
+ *
+ * Both notice kinds route through here deliberately: the ratchet-tighten notice has exactly the same
+ * problem — it asks for work in the same PR and nobody could see it being asked.
+ */
+export function formatNotices(notices) {
+  return notices.map((notice) => `${ADVISORY_MARKER} ${notice}`);
+}
+
 /** Freeze the manifests that currently declare the dependency (excluding the reasoned exemption). */
 function writeBaseline() {
   const manifests = [];
@@ -604,7 +621,7 @@ function main() {
   }
   const notices = [];
   const findings = findLegacyTypeScriptFindings(WORKSPACE_ROOT, { notices });
-  for (const notice of notices) console.log(`note: ${notice}`);
+  for (const line of formatNotices(notices)) console.log(line);
   if (findings.length === 0) {
     console.log('legacy-typescript scan passed.');
     process.exit(0);
