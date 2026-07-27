@@ -21,7 +21,7 @@
   "packages/agent-core/src/services/execution-stream.ts": 317,
   "packages/agent-core/src/utils/errors.ts": 315,
   "packages/agent-executor/src/background-tasks/background-task-manager.ts": 398,
-  "packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts": 441,
+  "packages/agent-framework/src/checkpoints/edit-checkpoint-store.ts": 396,
   "packages/agent-framework/src/index.ts": 670,
   "packages/agent-framework/src/interactive/interactive-session-background-tracker.ts": 334,
   "packages/agent-framework/src/interactive/interactive-session-base.ts": 387,
