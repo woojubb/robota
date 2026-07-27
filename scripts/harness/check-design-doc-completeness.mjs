@@ -21,8 +21,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { listManifestPackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const PACKAGES_DIR = path.join(WORKSPACE_ROOT, 'packages');
 
 const MUST_SECTIONS = [
   { label: 'Context & Goal', re: /^##\s+Context\b/im },
@@ -44,26 +46,31 @@ function walkMarkdown(dir) {
   return out;
 }
 
-/** Discover package-local design docs: packages/<pkg>/docs/design/**.md */
-function discoverDesignDocs() {
-  if (!existsSync(PACKAGES_DIR)) return [];
+/**
+ * Discover package-local design docs: `packages/<pkg>/docs/design/**.md`.
+ *
+ * HARNESS-052: the enumeration was a depth-1 `readdir` of `packages/`, so a design doc written by
+ * one of the 20 members of the nested `packages/dag-nodes/*` group would never have been validated.
+ * Nesting-aware via the SSOT enumerator now.
+ */
+function discoverDesignDocs(root = WORKSPACE_ROOT) {
   const out = [];
-  for (const pkg of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
-    if (!pkg.isDirectory()) continue;
-    out.push(...walkMarkdown(path.join(PACKAGES_DIR, pkg.name, 'docs', 'design')));
+  for (const pkgDir of listManifestPackageDirs(root)) {
+    out.push(...walkMarkdown(path.join(pkgDir, 'docs', 'design')));
   }
   return out;
 }
 
-export function findDesignDocFindings(target) {
+export function findDesignDocFindings(target, root = WORKSPACE_ROOT) {
   const blocking = [];
   const warnings = [];
   let files;
   if (target) {
     files = existsSync(target) && statSync(target).isFile() ? [target] : walkMarkdown(target);
   } else {
-    files = discoverDesignDocs();
+    files = discoverDesignDocs(root);
   }
+  const examined = files.length;
   for (const file of files) {
     const rel = path.relative(WORKSPACE_ROOT, file);
     const text = readFileSync(file, 'utf8');
@@ -74,16 +81,33 @@ export function findDesignDocFindings(target) {
       warnings.push({ file: rel, detail: 'no link to the owning SPEC.md — recommended' });
     }
   }
-  return { blocking, warnings };
+  return { blocking, warnings, examined };
 }
 
 export function main(argv = process.argv) {
   const arg = argv[2];
   const target = arg ? path.resolve(WORKSPACE_ROOT, arg) : undefined;
-  const { blocking, warnings } = findDesignDocFindings(target);
+  const { blocking, warnings, examined } = findDesignDocFindings(target);
   for (const w of warnings) process.stdout.write(`- [warn] ${w.file}: ${w.detail}\n`);
   if (blocking.length === 0) {
-    process.stdout.write('design-doc completeness scan passed.\n');
+    // HARNESS-052 asked this scan's subject to be DECIDED, because it has never validated a
+    // document: `packages/*/docs/design/` matches nothing and has since the scan was written, so
+    // `design-doc completeness scan passed.` was a green over an empty set — indistinguishable from
+    // a run that checked something. The decision recorded here is the one the scan was built with
+    // and the `design-doc-authoring` skill already states: the design/LLD type is OPTIONAL; only
+    // its STRUCTURE is mechanically enforceable, and "when is a design doc required" is a judgement
+    // this guard cannot make. What was missing was saying so out loud, so the count is now in the
+    // pass line and a zero-document run raises an advisory (HARNESS-053's third channel) instead of
+    // rendering as an ordinary tick.
+    if (examined === 0) {
+      process.stdout.write(
+        `${ADVISORY_MARKER} design-doc completeness examined 0 documents — the design/LLD type is ` +
+          'OPTIONAL (RULE-009), so this is a measured zero, not a validated corpus.\n',
+      );
+    }
+    process.stdout.write(
+      `design-doc completeness scan passed (${examined} design document(s) examined).\n`,
+    );
     return;
   }
   process.stdout.write('design-doc completeness scan failed:\n');

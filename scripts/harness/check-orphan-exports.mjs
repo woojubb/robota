@@ -31,9 +31,19 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** Symbols intentionally exported without in-repo consumers. Keep reasons. */
+/**
+ * Symbols intentionally exported without in-repo consumers. Keep reasons.
+ *
+ * Two entry shapes. A BARE symbol name exempts that name everywhere, which is as wide as the
+ * workspace and should be used only for framework conventions that really are name-keyed. A
+ * `<workspace-relative file>:<symbol>` entry exempts exactly one declaration — prefer it, because a
+ * bare name silently exempts every future symbol that happens to share it (HARNESS-052 sub-shape B:
+ * an exemption wider than its reason is a guard quietly retired).
+ */
 export const ORPHAN_EXPORT_ALLOWLIST = new Set([
   'collections', // Astro content.config.ts convention export — loaded by the framework by path (apps/blog)
   'generateMetadata', // Next.js app-router convention export — called by the framework (apps/docs)
@@ -44,6 +54,13 @@ export const ORPHAN_EXPORT_ALLOWLIST = new Set([
   'resolveAliasRef', // dag-cli alias command
   'loadSavedInstantNodes', // dag-cli instant-nodes handler
   'RunStore', // dag-cli run-store (consumers use the getRunStore factory)
+  // HARNESS-052 baseline (2026-07-27), NOT a judgement that the export is intentional. Widening
+  // this scan's enumerator to the nested `packages/dag-nodes/*` group surfaced it on the first run:
+  // a GENUINE orphan (used only inside its own module, via `z.array(ProviderEntrySchema)`), whose
+  // repair is deleting one `export` keyword in `packages/**` — a tree the branch that fixed the
+  // enumerator did not own. Recorded file-scoped so it exempts this declaration and nothing else,
+  // and so the burndown is a one-line diff plus this entry's removal.
+  'packages/dag-nodes/llm-text/src/config.ts:ProviderEntrySchema',
 ]);
 
 const ENTRY_BASENAMES = new Set(['index.ts', 'index.tsx', 'browser.ts', 'bin.ts', 'node.ts']);
@@ -70,18 +87,17 @@ function isTestFile(filePath) {
   return /__tests__|\.(test|spec)\./.test(filePath);
 }
 
+/**
+ * Every workspace package whose source is both swept for orphans AND used as the reference corpus.
+ *
+ * HARNESS-052: this read `packages/` at depth 1, so the 20 members of `packages/dag-nodes/*` were
+ * outside the set on BOTH sides of the rule — their exports were never swept, and their imports
+ * could not rescue a symbol exported elsewhere either, which is the more dangerous half (an orphan
+ * verdict is quantified over the corpus). The claim in this scan's own message is "referenced
+ * nowhere else in the workspace"; the enumerator now covers the workspace the manifest declares.
+ */
 function listSourcePackages(root) {
-  const dirs = [];
-  for (const family of ['packages', 'apps']) {
-    const familyDir = path.join(root, family);
-    if (!existsSync(familyDir)) continue;
-    for (const entry of readdirSync(familyDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const pkgDir = path.join(familyDir, entry.name);
-      if (existsSync(path.join(pkgDir, 'package.json'))) dirs.push(pkgDir);
-    }
-  }
-  return dirs;
+  return listWorkspacePackageDirs(root);
 }
 
 function exportSourceEntries(pkgDir) {
@@ -167,8 +183,9 @@ export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = 
       if (barrelExemptModules.has(file) || barrelExemptModules.has(fileNoExt)) continue;
 
       const content = corpusContents.get(file) ?? '';
+      const relativeFile = path.relative(root, file).split(path.sep).join('/');
       for (const symbol of extractRuntimeExports(content)) {
-        if (allowlist.has(symbol)) continue;
+        if (allowlist.has(symbol) || allowlist.has(`${relativeFile}:${symbol}`)) continue;
         const pattern = new RegExp(`\\b${symbol}\\b`);
         let referenced = false;
         for (const [otherFile, otherContent] of corpusContents) {
@@ -179,7 +196,6 @@ export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = 
           }
         }
         if (!referenced) {
-          const relativeFile = path.relative(root, file);
           findings.push({
             file: relativeFile,
             type: 'orphan-export',

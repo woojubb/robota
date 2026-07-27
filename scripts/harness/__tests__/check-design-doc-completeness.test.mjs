@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { findDesignDocFindings } from '../check-design-doc-completeness.mjs';
+import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../check-design-doc-completeness.mjs', import.meta.url));
 
@@ -100,11 +101,27 @@ describe('check-design-doc-completeness CLI', () => {
     }
   }
 
-  it('exits 0 with a pass message on a green fixture dir', async () => {
+  it('exits 0 with a pass message on a green fixture dir, naming the count it examined', async () => {
     const root = await createDesignDir({ 'design/session-store.md': GREEN_DESIGN_DOC });
     const result = runScan([path.join(root, 'design')]);
-    expect(result.stdout).toContain('design-doc completeness scan passed.');
+    // HARNESS-052: the count is the point. `passed.` alone read the same over one validated
+    // document and over the empty set this scan had been reporting on since it was written.
+    expect(result.stdout).toContain('design-doc completeness scan passed (1 design document(s)');
+    expect(result.stdout).not.toContain(ADVISORY_MARKER);
     expect(result.status).toBe(0);
+  });
+
+  /**
+   * The decision HARNESS-052 asked for, pinned. The design/LLD type is OPTIONAL, so zero documents
+   * is a legitimate PASS — but it must not render as an ordinary tick, because "validated the
+   * corpus" and "there was no corpus" were the same green for this scan's whole life.
+   */
+  it('marks a zero-document run as an advisory rather than a silent pass', async () => {
+    const root = await createDesignDir({ 'design/notes.txt': 'not markdown' });
+    const result = runScan([path.join(root, 'design')]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`${ADVISORY_MARKER} design-doc completeness examined 0`);
+    expect(result.stdout).toContain('design-doc completeness scan passed (0 design document(s)');
   });
 
   it('exits 1 and lists missing sections on a violating fixture (RED)', async () => {

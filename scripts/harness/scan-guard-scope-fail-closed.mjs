@@ -162,6 +162,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'MEASURED on a bare root before registration, not assumed: it throws `pnpm-workspace.yaml is missing` from `readWorkspaceGlobs`, deliberately, rather than enumerating zero manifests. That distinction is the whole point of the guard — it exists because `pnpm run -r --if-present test` reports success over every workspace it never looked at, and a coverage floor that discovered no test scripts would report exactly the same success over the same silence',
   },
   {
+    file: 'scan-memory-neutrality.mjs',
+    finder: 'findMemoryNeutralityFindings',
+    tree: 'packages',
+    why: 'HARNESS-052 measured it VACUOUS — `if (!existsSync(packagesDir)) return findings` answered "no neutrality findings" for a checkout with no library source at all. The library tree is the whole subject of a library-neutrality floor: finding no library is not finding it neutral',
+  },
+  {
     file: 'scan-live-smoke-provider-coverage.mjs',
     finder: 'findUncoveredProviderCredentials',
     tree: '.github/workflows and packages',
@@ -357,11 +363,6 @@ export const PENDING_CLASSIFICATION = [
     measured: 'fail-closed',
   },
   { file: 'scan-memory-mirror.mjs', finder: 'collectMemoryMirrorFindings', measured: 'vacuous' },
-  {
-    file: 'scan-memory-neutrality.mjs',
-    finder: 'findMemoryNeutralityFindings',
-    measured: 'vacuous',
-  },
   {
     file: 'scan-orchestration-map.mjs',
     finder: 'collectOrchestrationMapFindings',

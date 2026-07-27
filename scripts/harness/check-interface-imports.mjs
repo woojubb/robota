@@ -21,7 +21,9 @@
  */
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { join, resolve, relative } from 'node:path';
+import { basename, join, resolve, relative, sep } from 'node:path';
+
+import { listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const TRANSPORT_SRC = join(ROOT, 'packages/agent-interface-transport/src');
@@ -98,20 +100,18 @@ function collectSourceFiles(srcDir) {
  * packages in `packages/*` AND apps in `apps/*` (INFRA-014). agent-framework
  * and agent-interface-* are exempt (the former owns the runtime values; the
  * latter own the contract SSOT).
+ *
+ * HARNESS-052: the enumeration was a depth-1 `readdir`, so this scan's stated claim — "scans EVERY
+ * implementation-package `src`" — excluded the 20 members of `packages/dag-nodes/*` that
+ * `pnpm-workspace.yaml` declares. It now enumerates through the nesting-aware SSOT.
  */
-function findScannablePackages() {
+export function findScannablePackages() {
   const result = [];
-  for (const baseName of ['packages', 'apps']) {
-    const base = join(ROOT, baseName);
-    if (!existsSync(base)) continue;
-    for (const entry of readdirSync(base, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const dirName = entry.name;
-      if (isExemptPackage(dirName)) continue;
-      const srcDir = join(base, dirName, 'src');
-      if (existsSync(srcDir) && statSync(srcDir).isDirectory()) {
-        result.push({ dirName: `${baseName}/${dirName}`, srcDir });
-      }
+  for (const pkgDir of listWorkspacePackageDirs(ROOT)) {
+    if (isExemptPackage(basename(pkgDir))) continue;
+    const srcDir = join(pkgDir, 'src');
+    if (existsSync(srcDir) && statSync(srcDir).isDirectory()) {
+      result.push({ dirName: relative(ROOT, pkgDir).split(sep).join('/'), srcDir });
     }
   }
   return result;

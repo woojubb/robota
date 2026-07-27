@@ -38,6 +38,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { listPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -141,13 +142,33 @@ export function isSeededMemoryContent(rel) {
   return norm.includes(`/${CORPUS_TOPICS_SEGMENT}/`) && norm.endsWith('.md');
 }
 
+/**
+ * HARNESS-052, two defects in four lines.
+ *
+ * (1) `if (!existsSync(packagesDir)) return findings` reported a PASS over a checkout with no
+ * library source at all — the audited "reports success over work it did not do" shape. The library
+ * tree is mandatory here: a neutrality floor that found no library has not found it neutral. It now
+ * throws.
+ *
+ * (2) The enumeration was a depth-1 `readdir`, so the 20 members of the nested
+ * `packages/dag-nodes/*` group the workspace declares were never read. It now enumerates through
+ * the nesting-aware SSOT.
+ */
 export function findMemoryNeutralityFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   const packagesDir = path.join(root, LIBRARY_PACKAGES_DIR);
-  if (!existsSync(packagesDir)) return findings;
-  for (const pkg of readdirSync(packagesDir, { withFileTypes: true })) {
-    if (!pkg.isDirectory()) continue;
-    const srcRel = path.join(LIBRARY_PACKAGES_DIR, pkg.name, 'src');
+  if (!existsSync(packagesDir))
+    throw new Error(
+      `${LIBRARY_PACKAGES_DIR}/ is missing from ${root}. The library tree this scan governs is ` +
+        'mandatory: reporting "no neutrality findings" over a tree that was never opened is the ' +
+        'pass-over-nothing this floor exists to prevent (HARNESS-052).',
+    );
+  for (const pkgDir of listPackageDirs(
+    root,
+    (dir) => existsSync(path.join(dir, 'package.json')),
+    LIBRARY_PACKAGES_DIR,
+  )) {
+    const srcRel = path.relative(root, path.join(pkgDir, 'src'));
     if (!existsSync(path.join(root, srcRel)) || !statSync(path.join(root, srcRel)).isDirectory()) {
       continue;
     }
