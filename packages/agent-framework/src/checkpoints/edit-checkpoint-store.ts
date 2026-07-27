@@ -1,10 +1,20 @@
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
+import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core';
 import { CheckpointTree } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem, NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { projectPaths } from '../paths.js';
 import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
+import {
+  DEFAULT_BRANCH_ID,
+  isInside,
+  migrateManifestsToTree,
+  pathExists,
+  readDirSyncSafe,
+  readJsonManifest,
+  safePathSegment,
+} from './edit-checkpoint-store-helpers.js';
 
 import type {
   IEditCheckpointFileRecord,
@@ -22,7 +32,6 @@ const SNAPSHOT_DIR = 'files';
 const ID_PAD = 4;
 const SNAPSHOT_PAD = 6;
 /** SELFHOST-007: the default branch a session's checkpoints belong to. */
-const DEFAULT_BRANCH_ID = 'main';
 interface IActiveEditCheckpointTurn {
   manifest: IEditCheckpointManifest;
   dir: string;
@@ -101,6 +110,13 @@ export class EditCheckpointStore {
     const originalPath = resolve(this.cwd, filePath);
     if (this.activeTurn.capturedPaths.has(originalPath)) return;
     if (isInside(this.rootDir, originalPath)) return;
+
+    // Runs BEFORE the contained tool refuses, so without this the snapshot IS the read the sandbox
+    // denied: `Write { filePath: '/etc/shadow' }` copied it into `<cwd>/.robota/checkpoints/…` and
+    // then returned "Access denied", leaving the bytes for a later in-sandbox `Read`. Canonical
+    // path, so a symlink cannot walk out (SEC-006's rule, its helper). Nothing is lost — a file the
+    // tools refuse to edit never needs a restore point.
+    if (!isPathInside(canonicalizePath(this.cwd), canonicalizePath(originalPath))) return;
 
     const record = await this.createFileRecord(originalPath, this.activeTurn);
     this.activeTurn.manifest.files.push(record);
@@ -376,65 +392,4 @@ function toSummary(manifest: IEditCheckpointManifest): IEditCheckpointSummary {
     createdAt: manifest.createdAt,
     fileCount: manifest.fileCount,
   };
-}
-
-/**
- * SELFHOST-007 migration: reconstruct the branch tree for legacy (v1) manifests. A v1 manifest has no
- * `parentId`/`branchId`, so — sorted by sequence — it is treated as a LINEAR chain: each node's parent
- * is the previous node, all on the `'main'` branch. v2 manifests keep their stored branch fields. Pure;
- * does not mutate the inputs.
- */
-function migrateManifestsToTree(manifests: IEditCheckpointManifest[]): IEditCheckpointManifest[] {
-  return manifests.map((manifest, index) => {
-    if (manifest.version === 2 && manifest.branchId !== undefined) return manifest;
-    const previous = index > 0 ? manifests[index - 1] : undefined;
-    return {
-      ...manifest,
-      version: 2,
-      branchId: DEFAULT_BRANCH_ID,
-      ...(previous ? { parentId: previous.id } : {}),
-    };
-  });
-}
-
-function safePathSegment(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
-
-function isInside(parent: string, child: string): boolean {
-  const rel = relative(parent, child);
-  return rel.length === 0 || (!rel.startsWith('..') && !rel.startsWith('/'));
-}
-
-async function pathExists(
-  fsAsync: IFileSystemAsync,
-  fs: IFileSystem,
-  path: string,
-): Promise<boolean> {
-  try {
-    await fsAsync.access(path, fs.constants.F_OK);
-    return true;
-  } catch {
-    // allow-fallback: access failure means file absent, false is the correct result
-    return false;
-  }
-}
-
-function readDirSyncSafe(fs: IFileSystem, dir: string): string[] {
-  try {
-    return fs.readdirSync(dir);
-  } catch {
-    // allow-fallback: missing directory returns empty list, not an error
-    return [];
-  }
-}
-
-function readJsonManifest(fs: IFileSystem, path: string): IEditCheckpointManifest | undefined {
-  try {
-    const raw = fs.readFileSync(path, 'utf8');
-    return JSON.parse(raw) as IEditCheckpointManifest;
-  } catch {
-    // allow-fallback: corrupted/missing manifest is filtered out by caller
-    return undefined;
-  }
 }
