@@ -1,25 +1,4 @@
-import {
-  createBashTool,
-  createEditTool,
-  createReadTool,
-  createShellTool,
-  createWriteTool,
-  globTool,
-  grepTool,
-  webFetchTool,
-  webSearchTool,
-  type ISandboxToolOptions,
-} from '@robota-sdk/agent-tools';
-import { type ITool } from '@robota-sdk/agent-core';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
-
-/**
- * Structural tool contract these agent-tools builtins satisfy (`FunctionTool` is owned by
- * `@robota-sdk/agent-core`, DATA-005 SSOT). Typed by the `ITool` interface rather than the concrete
- * class so it unifies across agent-core's dual ESM/CJS `.d.ts` (the class's private `eventService`
- * would otherwise read as a distinct nominal type). Only `.execute()` is used here.
- */
-type FunctionTool = ITool;
 import {
   buildTaskExecutionError,
   buildValidationError,
@@ -33,36 +12,21 @@ import {
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
 
-/**
- * A builtin factory receives sandbox/cwd options; pure builtins (glob/grep/web-*)
- * ignore them and return their shared singleton instance.
- */
-type ToolFactory = (options: ISandboxToolOptions) => FunctionTool;
+import { resolveContainmentRoot } from './containment.js';
+import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
 
-/** Static allowlist mapping `toolName` → the agent-tools builtin factory. */
-const TOOL_FACTORIES: Readonly<Record<string, ToolFactory>> = {
-  read: (o) => createReadTool(o),
-  write: (o) => createWriteTool(o),
-  edit: (o) => createEditTool(o),
-  shell: (o) => createShellTool(o),
-  bash: (o) => createBashTool(o),
-  glob: () => globTool,
-  grep: () => grepTool,
-  'web-fetch': () => webFetchTool,
-  'web-search': () => webSearchTool,
-};
-
-/** The builtin tool names this node can run in-process. */
-export const TOOL_NODE_ALLOWED_TOOLS: readonly string[] = Object.freeze(
-  Object.keys(TOOL_FACTORIES),
-);
+export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
 export const ToolNodeConfigSchema = z.object({
   /** Which in-process agent-tools builtin to run (see TOOL_NODE_ALLOWED_TOOLS). */
   toolName: z.string().min(1),
   /** Static tool arguments; the `params` input port is merged over these (input wins). */
   params: z.record(z.unknown()).default({}),
-  /** Path restriction forwarded to file/shell builtins (ISandboxToolOptions.cwd). */
+  /**
+   * NARROWS the containment root. Omitted, the root is the directory the run was invoked from; set,
+   * it must resolve INSIDE that directory or the node refuses to run (SEC-007). It cannot widen the
+   * root, because it arrives in the same `.dag.json` as the path it would be containing.
+   */
   cwd: z.string().optional(),
   /** Base credit cost per successful call (for cost estimation). */
   baseCredits: z.number().nonnegative().default(0),
@@ -240,8 +204,11 @@ export class ToolNodeDefinition extends AbstractNodeDefinition<typeof ToolNodeCo
     const paramsResult = resolveInputParams(io.getInput('params'), config.toolName);
     if (!paramsResult.ok) return paramsResult;
 
+    const rootResult = resolveContainmentRoot(config.cwd, context.nodeDefinition.nodeId);
+    if (!rootResult.ok) return rootResult;
+
     const merged = { ...config.params, ...paramsResult.value };
-    const tool = factory(config.cwd !== undefined ? { cwd: config.cwd } : {});
+    const tool = factory({ cwd: rootResult.value });
     return runBuiltin(tool, merged, config.toolName, context.nodeDefinition.nodeId);
   }
 }
