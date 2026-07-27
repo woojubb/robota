@@ -22,6 +22,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MATRIX = path.join(WORKSPACE_ROOT, '.agents/specs/deployment-matrix.md');
@@ -81,6 +82,11 @@ function transportSourceFiles(dir) {
  * catches less than one that fires narrowly.
  */
 export function findTransportNames(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'deployment-matrix',
+    why:
+      'Transport names are enumerated FROM the package tree; over an absent one the matrix would read as entirely phantom or entirely complete depending on the caller, neither of which is a measurement.',
+  });
   const names = new Set();
   const packagesDir = path.join(root, 'packages');
   if (!existsSync(packagesDir)) return names;

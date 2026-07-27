@@ -31,6 +31,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { TOKEN_PATTERN, listWorkspacePackageNames } from './check-workspace-refs.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -102,6 +103,11 @@ function listPackageDirNames(root) {
 }
 
 export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'ghost-package-refs',
+    why:
+      'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
+  });
   const findings = [];
   const workspaceNames = listWorkspacePackageNames(root);
   const packageDirNames = listPackageDirNames(root);

@@ -36,6 +36,7 @@ import path from 'node:path';
 // per-line regex, which read any value prettier had wrapped onto the next line as '' — turning a
 // fully-evidenced capability spec into a false "dodged the user-execution gate" failure.
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const DONE_DIR = '.agents/spec-docs/done';
@@ -64,6 +65,11 @@ export function evaluateSpec(frontmatter, filename, scenarioExists) {
 }
 
 export function findCapabilityReachabilityFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [DONE_DIR], {
+    scan: 'capability-reachability',
+    why:
+      'Declared capabilities live in completed spec documents; with none the reachability claim covers no capability at all.',
+  });
   const findings = [];
   const doneDir = path.join(root, DONE_DIR);
   if (!existsSync(doneDir)) return findings;

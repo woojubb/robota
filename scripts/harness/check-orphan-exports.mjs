@@ -32,6 +32,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -140,6 +141,11 @@ function extractRuntimeExports(content) {
 }
 
 export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = {}) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'orphan-exports',
+    why:
+      'An orphan verdict is quantified over the workspace reference corpus; an empty corpus makes every export an orphan and reports none.',
+  });
   const allowlist = options.allowlist ?? ORPHAN_EXPORT_ALLOWLIST;
   const findings = [];
 

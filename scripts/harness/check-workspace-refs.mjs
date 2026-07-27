@@ -15,6 +15,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -108,6 +109,11 @@ export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
 }
 
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'workspace-refs',
+    why:
+      'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
+  });
   const findings = [];
   const packageJsonFiles = listPackageJsonFiles(root);
 

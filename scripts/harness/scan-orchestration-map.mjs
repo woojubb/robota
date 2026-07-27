@@ -22,6 +22,7 @@ import { pathToFileURL } from 'node:url';
 // replaced was not anchored to the `---` block, so a `name:` inside a body example could become the
 // identity the map was checked against.
 import { asScalar, frontmatterObject } from './frontmatter.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -52,6 +53,11 @@ export function mapRowNames(mapText) {
 }
 
 export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['.claude/agents'], {
+    scan: 'orchestration-map',
+    why:
+      'The agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing.',
+  });
   const agentsDir = path.join(root, '.claude/agents');
   const mapPath = path.join(root, '.agents/specs/orchestration-map.md');
 

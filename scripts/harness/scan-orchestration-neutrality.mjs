@@ -26,6 +26,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -40,8 +41,14 @@ const FORBIDDEN = new RegExp(`\\w*(${NEUTRALITY.orchestrationForbiddenTerms.join
 // Directories whose orchestration source is the neutral surface under scan.
 const SCAN_DIRS = NEUTRALITY.orchestrationScanDirs;
 
-function walkSource(target) {
-  const full = path.join(WORKSPACE_ROOT, target);
+/**
+ * `root` is a PARAMETER, not decoration (HARNESS-052, the same defect this item fixed in
+ * `scan-no-fallback`): this walker closed over `WORKSPACE_ROOT`, so the finder's `root` argument
+ * changed nothing and every caller — including the fail-closed measurement harness — was silently
+ * handed a verdict about the real repository instead of the root it asked about.
+ */
+function walkSource(target, root) {
+  const full = path.join(root, target);
   if (!existsSync(full)) return [];
   if (statSync(full).isFile()) return full.endsWith('.ts') ? [full] : [];
   const files = [];
@@ -50,9 +57,9 @@ function walkSource(target) {
     if (entry.name === '__tests__') continue;
     const child = path.join(target, entry.name);
     if (entry.isDirectory()) {
-      files.push(...walkSource(child));
+      files.push(...walkSource(child, root));
     } else if (entry.isFile() && entry.name.endsWith('.ts')) {
-      files.push(path.join(WORKSPACE_ROOT, child));
+      files.push(path.join(root, child));
     }
   }
   return files;
@@ -75,9 +82,13 @@ export function findNeutralityViolationsInSource(source, file = 'fixture.ts') {
 }
 
 export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, SCAN_DIRS, {
+    scan: 'orchestration-neutrality',
+    why: 'The configured orchestration contract directories ARE the subject: over a root without them, "no app-domain identity leaks into the neutral contracts" is a statement about no contracts.',
+  });
   const findings = [];
   for (const dir of SCAN_DIRS) {
-    for (const file of walkSource(dir)) {
+    for (const file of walkSource(dir, root)) {
       const rel = path.relative(root, file);
       findings.push(...findNeutralityViolationsInSource(readFileSync(file, 'utf8'), rel));
     }

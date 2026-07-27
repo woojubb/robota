@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { collectMemoryMirrorFindings } from '../scan-memory-mirror.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-memory-mirror.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 
 async function createFixture(files = {}) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-memory-mirror-'));
@@ -24,9 +27,15 @@ async function createFixture(files = {}) {
 const GREEN_INDEX = '# Memory Index\n\n- [Fact one](fact-one.md) — the first fact\n';
 
 describe('collectMemoryMirrorFindings', () => {
-  it('passes when no in-repo memory exists yet', async () => {
+  /**
+   * HARNESS-052. This asserted "passes when no in-repo memory exists yet" — the audited defect
+   * written down as a requirement. `memory-mirroring.md` makes the in-repo corpus MANDATORY in this
+   * repository, so an absent `.agents/memory/` is a broken checkout, not a repository that has not
+   * started one, and "the index and the fact files agree" over no corpus is a claim about nothing.
+   */
+  it('throws when there is no in-repo memory corpus at all', async () => {
     const root = await createFixture();
-    expect(collectMemoryMirrorFindings(root)).toEqual([]);
+    expect(() => collectMemoryMirrorFindings(root)).toThrow(/\.agents\/memory/);
   });
 
   it('passes a consistent index + fact-file pair', async () => {
@@ -88,6 +97,10 @@ describe('scan-memory-mirror CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-memory-mirror.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(
+      GOVERNED_TREE_MODULE,
+      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
+    );
     return { root, scriptCopy };
   }
 

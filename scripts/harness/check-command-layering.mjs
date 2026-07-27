@@ -8,6 +8,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
 
@@ -216,6 +217,11 @@ function findCliPackageDependencyFindings(packageJson) {
 }
 
 export async function findCommandLayeringFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'commands',
+    why:
+      'The layering rule governs shipped command packages; a checkout without packages/ is broken, not clean.',
+  });
   const findings = [];
 
   for (const forbiddenPath of FORBIDDEN_PATHS) {

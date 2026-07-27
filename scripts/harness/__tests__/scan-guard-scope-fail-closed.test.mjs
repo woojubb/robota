@@ -195,8 +195,12 @@ describe('ledger freshness', () => {
   });
 
   it('measures by executing, and distinguishes unmeasurable from fail-closed', async () => {
+    // The `vacuous` example was `scan-orchestration-map#collectOrchestrationMapFindings` until
+    // HARNESS-052 repaired it. This one is a pure ENUMERATOR whose caller renders the verdict, so
+    // its empty answer over a bare root is honest and expected to stay `vacuous` — a fixed point to
+    // measure against rather than a defect waiting to be fixed out from under the test.
     const vacuous = await measureFinder(
-      { file: 'scan-orchestration-map.mjs', finder: 'collectOrchestrationMapFindings' },
+      { file: 'scan-vitest-resource-ceiling.mjs', finder: 'findVitestConfigs' },
       WORKSPACE_ROOT,
     );
     expect(vacuous).toBe('vacuous');

@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { collectOrchestrationMapFindings } from '../scan-orchestration-map.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-orchestration-map.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 const FRONTMATTER_MODULE = fileURLToPath(new URL('../frontmatter.mjs', import.meta.url));
 
 const GREEN_MAP = `# Orchestration Map
@@ -159,12 +162,18 @@ describe('collectOrchestrationMapFindings', () => {
     expect(collectOrchestrationMapFindings(root)).toEqual({ mapMissing: false, findings: [] });
   });
 
-  it('passes when there is no agents directory at all', async () => {
+  /**
+   * HARNESS-052. This case used to assert the opposite — "passes when there is no agents directory
+   * at all" — which is the audited defect written down as a requirement. The map is checked AGAINST
+   * the agent definitions, so with none there is nothing to check and "every agent is listed" is
+   * true of the empty set. The missing MAP was already an error; the missing SUBJECT was not.
+   */
+  it('throws when there is no agents directory at all', async () => {
     const root = await createFixture({
       '.agents/specs/orchestration-map.md': GREEN_MAP,
     });
 
-    expect(collectOrchestrationMapFindings(root)).toEqual({ mapMissing: false, findings: [] });
+    expect(() => collectOrchestrationMapFindings(root)).toThrow(/\.claude\/agents/);
   });
 });
 
@@ -177,6 +186,10 @@ describe('scan-orchestration-map CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-orchestration-map.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(
+      GOVERNED_TREE_MODULE,
+      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
+    );
     copyFileSync(FRONTMATTER_MODULE, path.join(path.dirname(scriptCopy), 'frontmatter.mjs'));
     return { root, scriptCopy };
   }

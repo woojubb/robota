@@ -18,6 +18,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -48,6 +49,11 @@ function walkSources(dir) {
 }
 
 export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'stub-markers',
+    why:
+      'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
+  });
   const findings = [];
 
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).

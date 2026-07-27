@@ -21,6 +21,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { envWithoutGitVars } from './shared.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const COMPLETED_DIR = '.agents/backlog/completed';
@@ -82,6 +83,11 @@ function pathExists(root, relativePath) {
 }
 
 export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [COMPLETED_DIR], {
+    scan: 'done-evidence',
+    why:
+      'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
+  });
   const findings = [];
   const exemptions = [];
   const completedAbsolute = path.join(root, COMPLETED_DIR);

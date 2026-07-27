@@ -36,6 +36,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -181,6 +182,11 @@ function walkFiles(target, root = WORKSPACE_ROOT) {
 }
 
 export function findUnpaginatedApiQueries(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'api-pagination',
+    why:
+      'The pagination floor governs shipped source; reading no source is not finding it paginated.',
+  });
   const findings = [];
   for (const scanRoot of SCAN_ROOTS) {
     for (const rel of walkFiles(scanRoot, root)) {

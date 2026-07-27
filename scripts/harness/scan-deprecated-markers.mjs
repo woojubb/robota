@@ -19,6 +19,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -42,6 +43,11 @@ function walkSources(dir) {
 }
 
 export function findDeprecatedMarkerFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'deprecated-markers',
+    why:
+      'Deprecated markers are searched in shipped package source; the absence of that source is not their absence.',
+  });
   const findings = [];
 
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).

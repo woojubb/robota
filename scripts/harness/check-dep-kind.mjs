@@ -25,6 +25,7 @@ import path from 'node:path';
 
 import { WORKSPACE_ROOT } from './shared.mjs';
 import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 /** Allowlist: `${packageName}:${importedModule}` → reason. Empty today by design. */
 export const DEP_KIND_ALLOWLIST = new Map();
@@ -100,6 +101,11 @@ function collectValueImports(source) {
  * summary line went on claiming all of them. The enumerator is now the nesting-aware SSOT.
  */
 export async function findDevDepOnlyRuntimeImports(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'dep-kind',
+    why:
+      'It quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true.',
+  });
   const findings = [];
   const exemptions = [];
   const packageDirs = listWorkspacePackageDirs(root);
