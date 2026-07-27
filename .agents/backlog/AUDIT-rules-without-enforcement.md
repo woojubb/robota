@@ -844,18 +844,42 @@ content moved to `publish.md` and remains guarded by `check-release-governance.m
 
 # Part 5 — Proposed remediation (described, not filed — no IDs assigned)
 
+## In-flight overlap — read this before filing anything
+
+Checked against open PRs at the moment this audit was written. **PR #1514
+(`fix/hook-reachability-audit`) and PR #1510 (`fix/push-guard-unreachable-in-compound-commands`) are
+already remediating a large part of Part 1**, independently and concurrently:
+
+| Finding                                              | Covered by #1514 / #1510?                                                                                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| U1 — `branch-guard.sh` anchoring                     | **Yes**                                                                                                                                                |
+| U2 — `pre-push-check.sh` anchoring                   | **Yes** (both PRs)                                                                                                                                     |
+| U4 — `check-forbidden-patterns.sh` scope filter      | **Yes** — rewritten to match the path's shape rather than a `CLAUDE_PROJECT_DIR` prefix; also closes a `MultiEdit` matcher gap this audit did not find |
+| Proposal 2 — hook↔`settings.json` registration floor | **Yes** — `scripts/harness/__tests__/hook-command-reachability.test.mjs` asserts every hook is registered or verifiably chained from one that is       |
+| U3 — `ROBOTA_AGENT_WORKTREE` never set in production | **No.** The diff still sets the marker only inside test fixtures; the guard continues to fail open in a real worktree session                          |
+| U5, U6, U7, U8                                       | **No**                                                                                                                                                 |
+| W1-W6                                                | **No**                                                                                                                                                 |
+
+So the anchoring class is being closed as this audit lands, by a fix that arrived at the same defect from
+the other direction. **That convergence is itself the strongest evidence for the audit's thesis:** two
+independent passes over the same harness both landed on "registered but unreachable" as the dominant
+defect. What remains open below is the residue that fix does not reach.
+
+## Items
+
 Ordered by measured rework, not by ease.
 
-1. **De-anchor the Bash hook command matchers.** Replace the `^`-anchored `GITPFX` in `branch-guard.sh:58`
-   and the `^`-anchored push filter in `pre-push-check.sh:23` with the segment-boundary form
-   `worktree-cwd-guard.sh` already uses. Prove it by fixture: the rule's own prescribed command
-   (`git fetch origin && git checkout -b …`) must go from pass to block.
-2. **Give `.claude/hooks/` the floor `scripts/harness/` has.** A registration scan (every hook file
-   appears in `.claude/settings.json` and vice versa) plus a fixture suite per hook, run in `harness:test`.
-   Nothing in the repo reads `settings.json` today. This is the root cause of U1-U4, not four separate bugs.
+1. ~~**De-anchor the Bash hook command matchers.**~~ **Superseded by #1514 / #1510.** Verify at review
+   that the fixture proves the rule's own prescribed command (`git fetch origin && git checkout -b …`)
+   goes from pass to block, rather than only testing a `cd`-prefixed form.
+2. ~~**Give `.claude/hooks/` the floor `scripts/harness/` has.**~~ **Substantially covered by #1514's
+   `hook-command-reachability.test.mjs`.** Residue worth confirming at review: it is a test, not a
+   registered scan, so it gates `harness:test` (which CI runs) but not `pnpm harness:scan`. Confirm that
+   is intentional.
 3. **Make hook fixtures reproduce the worktree geometry.** Every hook fixture must include a case where
-   `CLAUDE_PROJECT_DIR` is the main clone and the target path is inside `.claude/worktrees/`. `self-check.mjs`
-   and `check-forbidden-patterns.sh` both fail this today.
+   `CLAUDE_PROJECT_DIR` is the main clone and the target path is inside `.claude/worktrees/`.
+   `self-check.mjs:83-93` still constructs its fixture path under `projectDir` and so cannot exercise the
+   mismatch even after #1514 fixes the hook it is testing.
 4. **Resolve `worktree-cwd-guard`'s marker.** Either have the launcher export `ROBOTA_AGENT_WORKTREE`, or
    re-derive the assignment from the hook-input `cwd` (which _is_ available), or retire the guard. Shipping
    a passing test suite over a guard that cannot fire is worse than not having it.
