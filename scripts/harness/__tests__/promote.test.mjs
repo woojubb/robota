@@ -56,7 +56,20 @@ async function run(root, extraArgv = []) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
   const code = await main({
-    argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
+    // `--skip-release-gate`: these cases drive promote against a scratch repository to exercise the
+    // ANCESTRY mechanics. The release gate is a full workspace verification that has nothing to
+    // verify there, and running it made one case take 91s and then fail on the empty scratch tree.
+    // The gate's own wiring is pinned separately, by promotion-preflight-parity.
+    argv: [
+      ...extraArgv,
+      '--skip-release-gate',
+      '--main-ref',
+      'main',
+      '--develop-ref',
+      'develop',
+      '--baseline',
+      'develop',
+    ],
     cwd: root,
     out: (text) => {
       output += text;
