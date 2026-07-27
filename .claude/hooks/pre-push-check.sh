@@ -19,8 +19,24 @@ fi
 
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
-# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`)
-echo "$COMMAND" | grep -qE '^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*push(\s|$)' || exit 0
+# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
+#
+# Matched at any STATEMENT boundary, not only at the start of the command. The `^`-anchored version
+# fired only when the whole command began with `git push`, so every compound form slipped past it
+# silently — and `cd <repo> && git push`, or a multi-line block whose push is on a later line, is how
+# a push is normally written here. Measured 2026-07-27: EVERY push in a long session bypassed this
+# guard, which is why the branch-hygiene rule it enforces kept being violated. The guard existed, was
+# registered, and was unreachable from the way commands are actually issued — enforcement that no
+# real invocation can reach is indistinguishable from no enforcement.
+#
+# Boundaries are line start, `;`, `&&`, `||`, `|`, and `(`. A `git push` mentioned inside a quoted
+# string on its own line can false-positive; that is the deliberate trade. A false positive costs one
+# blocked command whose branch is already unclean, and it passes on a clean branch. A false negative
+# cost this repository a promotion-ancestry break.
+# `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
+# with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
+# one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
+echo "$COMMAND" | grep -qE '(^|[;&|(]|[[:space:]]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
