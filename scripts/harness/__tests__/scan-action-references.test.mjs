@@ -20,6 +20,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
   classifyResolution,
   expandFindings,
@@ -29,6 +30,7 @@ import {
   parseReferences,
   readWorkflowSources,
   resolveAll,
+  unverifiedResolvabilityLine,
 } from '../scan-action-references.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -461,5 +463,29 @@ describe('the real repository', () => {
         classifyResolution({ raw: 'x', ref: SHA, claimedTag: 'v9.9.9' }, resolved(undefined)),
       ).not.toBeNull();
     });
+  });
+});
+
+// ── the OFF-run notice, and whether anyone can read it ──────────────────────
+
+/**
+ * HARNESS-052, reachability axis. The live half is off locally AND off when `GITHUB_BASE_REF` is
+ * `main` — and `harness:scan` is the only path that runs this scan in either place. `run-all-scans`
+ * discards a passing scan's stdout, so the line saying "an action that does not exist passes this
+ * run" was itself unreadable on every run that printed it. It now carries `ADVISORY_MARKER`
+ * (HARNESS-053), which survives the 0 exit without changing the verdict.
+ */
+describe('unverifiedResolvabilityLine', () => {
+  it('is absent on a live run — there is nothing unverified to declare', () => {
+    expect(unverifiedResolvabilityLine({ live: true, why: 'CI' }, 12)).toBeNull();
+  });
+
+  it('reaches a reader of a PASSING run, naming the mode and the unchecked count', () => {
+    const line = unverifiedResolvabilityLine({ live: false, why: '--offline' }, 12);
+    expect(line).toContain(ADVISORY_MARKER);
+    const [advisory] = extractAdvisories(line);
+    expect(advisory).toContain('--offline');
+    expect(advisory).toContain('12 reference(s)');
+    expect(advisory).toContain('does not exist passes this run');
   });
 });

@@ -5,14 +5,47 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { ADVISORY_MARKER, extractAdvisories } from '../run-all-scans.mjs';
 import {
   findDtsExtensionFindings,
   findDistFileFindings,
   findBinPathFindings,
   findExportPathFindings,
+  renderDistCoverage,
 } from '../check-build-output-contracts.mjs';
 
 const PKG = '@test/pkg';
+
+// ── dist COVERAGE reporting ─────────────────────────────────────────────────
+
+/**
+ * HARNESS-052, reachability axis. `findDistFileFindings` returns `[]` the moment a package has no
+ * `dist/` (measured: the same package with an EMPTY `dist/` yields two findings), and ci.yml's
+ * `quality` job restores `dist` only `if: needs.build.outputs.package_dist_required == 'true'` —
+ * false for every docs-only, `.agents/**` or `scripts/harness/**` PR (measured through
+ * `createVerificationPlan`). On those PRs the job's `pnpm harness:scan:build-contracts` step ran the
+ * dist-file rule against nothing and printed `Build output contract check passed for N package(s)`.
+ * The count in the pass line is now the count whose `dist/` was actually READ, and the shortfall is
+ * an advisory rather than silence.
+ */
+describe('renderDistCoverage', () => {
+  it('states the resolved count and says nothing extra when every dist/ was read', () => {
+    const lines = renderDistCoverage({ checked: 31, distPresent: 31 });
+    expect(lines).toEqual([
+      'Build output contract check passed for 31 package(s), dist/ read on 31.',
+    ]);
+    expect(extractAdvisories(lines.join('\n'))).toEqual([]);
+  });
+
+  it('advertises the shortfall when dist/ was absent, so the no-op is not read as coverage', () => {
+    const lines = renderDistCoverage({ checked: 31, distPresent: 0 });
+    expect(lines[0]).toContain('dist/ read on 0');
+    const advisories = extractAdvisories(lines.join('\n'));
+    expect(advisories).toHaveLength(1);
+    expect(advisories[0]).toContain('31');
+    expect(lines.some((line) => line.includes(ADVISORY_MARKER))).toBe(true);
+  });
+});
 
 // ── findDtsExtensionFindings ────────────────────────────────────────────────
 
