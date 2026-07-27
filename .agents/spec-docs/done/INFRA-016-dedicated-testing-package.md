@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 type: INFRA
 tags: [build, testing]
 ---

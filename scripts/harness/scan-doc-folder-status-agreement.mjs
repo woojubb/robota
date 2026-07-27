@@ -89,8 +89,30 @@ function specDocuments(dir, prefix = '') {
  * `check-spec-doc-frontmatter`'s finding, not this one). A document sitting directly in the
  * spec-docs root is reported: it is in no lifecycle folder at all.
  */
+/**
+ * The one disagreement that is NOT a filing mistake, recorded rather than silently reclassified.
+ *
+ * `DATA-002` says `status: in-progress`, sits in `done/`, and its Evidence Log shows all three
+ * phases SHIPPED with **no GATE-COMPLETE entry at all**. Neither correction is available without a
+ * judgement: setting `status: done` manufactures a completion no gate recorded (which
+ * `scan-unearned-done-claims` exists to catch), and moving it to `active/` says work is in progress
+ * that shipped in July — and subjects a finished record to the live-document rules, which is how
+ * this was first discovered (`spec-research` went red on it).
+ *
+ * So it stays where it is, named here, until someone runs the gate. The anti-rot below is the whole
+ * point: the moment the disagreement is resolved, this entry fails and must be deleted, so the
+ * exception cannot outlive what it excuses.
+ */
+const RECORDED_EXCEPTIONS = new Map([
+  [
+    'done/DATA-002-unified-node-persistence.md',
+    'shipped in all three phases but never gated; needs GATE-COMPLETE run, not a frontmatter edit',
+  ],
+]);
+
 export function findFolderStatusFindings(specDir = SPEC_DIR, mapping) {
   const findings = [];
+  const exercised = new Set();
   for (const relative of specDocuments(specDir)) {
     const segments = relative.split('/');
     const actualFolder = segments.length > 1 ? segments[0] : null;
@@ -98,9 +120,34 @@ export function findFolderStatusFindings(specDir = SPEC_DIR, mapping) {
     if (typeof status !== 'string' || !mapping.has(status)) continue;
     const expectedFolder = mapping.get(status);
     if (actualFolder !== expectedFolder) {
+      if (RECORDED_EXCEPTIONS.has(relative)) {
+        exercised.add(relative);
+        continue;
+      }
       findings.push({ file: relative, status, actualFolder, expectedFolder });
     }
   }
+
+  // Anti-rot: an exception whose disagreement no longer exists is itself a finding. Without this the
+  // list quietly becomes a permanent exemption, which is the failure mode every allowlist has.
+  //
+  // Scoped to the REAL spec tree. The exceptions name paths in this repository, so over a scratch
+  // tree none of them can be exercised and an unscoped check would report every entry stale on every
+  // fixture — an anti-rot firing over a subject it does not govern, which is noise, and noise is how
+  // a guard gets switched off. The same narrowing `scan-workflow-permissions` needed.
+  if (specDir !== SPEC_DIR) return findings.sort((a, b) => a.file.localeCompare(b.file));
+
+  for (const [file, reason] of RECORDED_EXCEPTIONS) {
+    if (!exercised.has(file)) {
+      findings.push({
+        file,
+        status: '(stale exception)',
+        actualFolder: '—',
+        expectedFolder: `no longer disagrees — delete this entry (recorded reason: ${reason})`,
+      });
+    }
+  }
+
   return findings.sort((a, b) => a.file.localeCompare(b.file));
 }
 
@@ -109,7 +156,9 @@ function main() {
   const ruleFile = process.argv[3] ? path.resolve(process.argv[3]) : RULE_FILE;
 
   if (!existsSync(ruleFile)) {
-    console.error(`❌ Folder/status mapping owner not found: ${path.relative(WORKSPACE_ROOT, ruleFile)}`);
+    console.error(
+      `❌ Folder/status mapping owner not found: ${path.relative(WORKSPACE_ROOT, ruleFile)}`,
+    );
     process.exit(1);
   }
   const mapping = parseStatusFolderMapping(readFileSync(ruleFile, 'utf8'));

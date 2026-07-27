@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: FLOW
 tags: [ci, github-action, ecosystem]
 ---
