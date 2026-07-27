@@ -101,6 +101,14 @@ const SCAN_COMMANDS = [
     name: 'workflow-permissions',
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
+  {
+    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an
+    // unresolvable `uses:` dies at `Set up job`, so there is no failing step to read and a skipped
+    // job reports the run green. The resolvability half runs in CI (see the scan's header for why
+    // it stays off on a promotion to `main`); the static half runs everywhere.
+    name: 'action-references',
+    command: ['node', 'scripts/harness/scan-action-references.mjs'],
+  },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {

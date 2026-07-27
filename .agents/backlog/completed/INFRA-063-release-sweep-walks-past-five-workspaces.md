@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-063: the release sweep calls itself FULL and walks past five workspaces — one of which has a suite'
-status: in-progress
+status: done
+completed: 2026-07-27
 created: 2026-07-26
 priority: medium
 urgency: soon
@@ -300,3 +301,11 @@ tells those two states apart.
   surfaced on every scan pass rather than closed here — wiring them needs the desktop release
   pipeline, not a promotion gate.
 - `pnpm build`'s `build:js` skip of `packages/agent-cli-web`, per the sweep table above.
+
+## Closed 2026-07-27
+
+Landed as PR #1498. The sweep enumerates the workspace test-named scripts instead of carrying a
+hand-written list, and `scan-release-sweep-coverage` requires all 172 to be accounted for — swept,
+run, or excluded with a reason. Red-proved by adding an unaccounted suite (exit 1) and removing it
+(exit 0). The scan states its own ceiling in its output: being accounted for is not the same as
+being run.
