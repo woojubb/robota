@@ -146,3 +146,7 @@ stryker.log
 .worktrees/
 .claude/worktrees/
 .gstack/
+
+# Fixture roots for tests that must live inside the invocation directory (SEC-007 containment).
+# `afterAll` removes them; this is the net for a SIGKILL/timeout that skips the hook.
+.tmp-dag-tool-run-*/
