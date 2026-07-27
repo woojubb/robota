@@ -101,6 +101,14 @@ const SCAN_COMMANDS = [
     name: 'workflow-permissions',
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
+  {
+    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an
+    // unresolvable `uses:` dies at `Set up job`, so there is no failing step to read and a skipped
+    // job reports the run green. The resolvability half runs in CI (see the scan's header for why
+    // it stays off on a promotion to `main`); the static half runs everywhere.
+    name: 'action-references',
+    command: ['node', 'scripts/harness/scan-action-references.mjs'],
+  },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {
@@ -185,6 +193,14 @@ const SCAN_COMMANDS = [
   {
     name: 'test-selection-tolerance',
     command: ['node', 'scripts/harness/scan-test-selection-tolerance.mjs'],
+  },
+  {
+    // INFRA-063 D7 — `pnpm test` is `-r --if-present test`, which walks past every suite declared
+    // under any other name. The release gate ran one of them (`test:bin`) only because someone had
+    // written it in by hand, and never saw `agent-cli-web`'s `test:e2e` at all. Enumerates every
+    // `^test(:|$)` script and requires each to be run or excluded with a re-verified reason.
+    name: 'release-sweep-coverage',
+    command: ['node', 'scripts/harness/scan-release-sweep-coverage.mjs'],
   },
   {
     // INFRA-060 D4 — the affected-scope calculator resolved build tooling to ZERO scopes, so a PR

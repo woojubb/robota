@@ -114,6 +114,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it pins that no workflow holds an unjustified `write` scope; over zero workflows that claim is vacuously true, which is precisely the permission widening it exists to surface',
   },
   {
+    file: 'scan-action-references.mjs',
+    finder: 'findActionReferenceFindings',
+    tree: '.github/workflows',
+    why: 'INFRA-059 — an unresolvable `uses:` kills the job before any step reports, so the run reads green; a resolvability guard that inspected no workflow would emit that same green over nothing, which is the failure it exists to end',
+  },
+  {
     file: 'scan-required-check-needs.mjs',
     finder: 'findRequiredCheckNeedsFindings',
     tree: '.github/required-status-checks.json',
@@ -148,6 +154,12 @@ export const MANDATORY_TREE_GUARDS = [
     finder: 'findGitConflictMarkers',
     tree: 'packages, apps and scripts',
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
+  },
+  {
+    file: 'scan-release-sweep-coverage.mjs',
+    finder: 'findReleaseSweepCoverageFindings',
+    tree: 'pnpm-workspace.yaml and the workspace manifests it names',
+    why: 'MEASURED on a bare root before registration, not assumed: it throws `pnpm-workspace.yaml is missing` from `readWorkspaceGlobs`, deliberately, rather than enumerating zero manifests. That distinction is the whole point of the guard — it exists because `pnpm run -r --if-present test` reports success over every workspace it never looked at, and a coverage floor that discovered no test scripts would report exactly the same success over the same silence',
   },
   {
     file: 'scan-live-smoke-provider-coverage.mjs',

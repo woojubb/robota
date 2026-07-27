@@ -1,9 +1,10 @@
 ---
 id: HARNESS-051
 title: An architecture gate is satisfied vacuously by dead code, and the linter was blind to the code that hid it
-status: in-progress
+status: done
 priority: medium
 type: INFRA
+completed: 2026-07-27
 created: 2026-07-26
 ---
 
@@ -101,3 +102,7 @@ elsewhere. Fix it or remove it — a value that cannot vary should not be report
 
 - `.agents/backlog/SEC-005-codeql-dead-code-backlog.md`
 - `scripts/harness/verify-change.mjs`, the `agent-server-boundary` and `orphan-exports` scans
+
+## Closed 2026-07-27
+
+Landed as PR #1492. Across review rounds the gate stopped accepting a MENTION for a wiring: type-only imports and type-only re-exports (erased at compile time), commented-out imports, and imports written inside string literals all classify unwired. The comment stripper was rebuilt as a single left-to-right scan after the two-pass version was measured deleting real code.
