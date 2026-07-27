@@ -254,7 +254,13 @@ export function classifyResolution(reference, resolution) {
       `resolves to ${resolution.sha.slice(0, 12)} but carries no \`action.yml\` / \`action.yaml\` at that path — the runner would fail to resolve it`,
     );
   }
-  if (reference.claimedTag && resolution.claimedTagSha !== reference.ref) {
+  // Compared against what the REF RESOLVES TO, not the ref string. `reference.ref` is only a commit
+  // for a full-SHA pin; for `actions/checkout@v4 # v4.1.0` it is the string `v4`, so comparing a SHA
+  // to it never matches and a correct, common annotation reads as a mismatch. Measured before the
+  // fix: that shape produced a finding saying `v4.1.0` "points at" the very commit `v4` resolves to.
+  // The repository passes today only because no reference currently uses it — a latent false
+  // positive, and a guard that fires on correct configuration is one that gets switched off.
+  if (reference.claimedTag && resolution.claimedTagSha !== resolution.sha) {
     const points = resolution.claimedTagSha
       ? `points at ${resolution.claimedTagSha.slice(0, 12)}`
       : 'no longer exists';

@@ -420,4 +420,46 @@ describe('the real repository', () => {
     expect(out).toHaveLength(1);
     expect(out[0].where).toBe('b.yml:1');
   });
+
+  // The tag-claim check compared `claimedTagSha` against `reference.ref`, which is a commit only for
+  // a full-SHA pin. For `actions/checkout@v4 # v4.1.0` the ref is the string `v4`, so a SHA never
+  // matched it and a correct, common annotation read as a mismatch. Latent — the repository passes
+  // today only because no reference uses that shape. Found in review.
+  describe('classifyResolution — the claimed-tag comparison', () => {
+    const SHA = 'abc123def456abc123def456abc123def456abcd';
+    const OTHER = 'f'.repeat(40);
+    const resolved = (claimedTagSha) => ({
+      ok: true,
+      sha: SHA,
+      manifest: 'present',
+      claimedTagSha,
+    });
+
+    it('accepts a tag ref whose comment names a tag pointing at the same commit', () => {
+      expect(
+        classifyResolution({ raw: 'x', ref: 'v4', claimedTag: 'v4.1.0' }, resolved(SHA)),
+      ).toBeNull();
+    });
+
+    it('accepts a SHA pin whose comment names a tag pointing at it', () => {
+      expect(
+        classifyResolution({ raw: 'x', ref: SHA, claimedTag: 'v4.1.0' }, resolved(SHA)),
+      ).toBeNull();
+    });
+
+    it('still catches a mismatch on both ref shapes', () => {
+      expect(
+        classifyResolution({ raw: 'x', ref: SHA, claimedTag: 'v9.9.9' }, resolved(OTHER)),
+      ).not.toBeNull();
+      expect(
+        classifyResolution({ raw: 'x', ref: 'v4', claimedTag: 'v9.9.9' }, resolved(OTHER)),
+      ).not.toBeNull();
+    });
+
+    it('catches a comment naming a tag that no longer exists', () => {
+      expect(
+        classifyResolution({ raw: 'x', ref: SHA, claimedTag: 'v9.9.9' }, resolved(undefined)),
+      ).not.toBeNull();
+    });
+  });
 });
