@@ -38,6 +38,19 @@ concurrency:
   group: ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# INFRA-061: osv-scanner is downloaded from a GitHub release and then EXECUTED, in TWO jobs below —
+# one of which (`dependency audit`) is a REQUIRED status check. Pinning the version does not pin the
+# bytes: a release asset can be replaced under an existing tag, so an unverified download is arbitrary
+# code execution on a runner that has the repository checked out. Running an unverified binary to prove
+# the tree is clean inverts the point of the job. Both call sites now verify this digest before
+# `chmod +x`, and both read it from here so the two can never drift apart.
+# Recompute when bumping the version:
+#   curl -fsSL https://github.com/google/osv-scanner/releases/download/<version>/osv-scanner_linux_amd64 | sha256sum -
+# Kept identical to security-scheduled.yml's pin — same scanner, same bytes, one accepted-risk SSOT.
+env:
+  OSV_SCANNER_VERSION: v2.0.2
+  OSV_SCANNER_SHA256: 3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8
+
 jobs:
   # Recurrence guard for the #1216 incident: a feature branch was PR'd straight to `main`, skipping `develop`,
   # which swept the whole develop delta onto main and diverged the branches. The feature→develop→main flow is
@@ -442,7 +455,11 @@ jobs:
       - name: Vulnerability scan (osv-scanner) for dependency graph changes
         if: steps.dependency_changes.outputs.changed == 'true'
         run: |
-          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
+          set -euo pipefail
+          curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
+            -o "$RUNNER_TEMP/osv-scanner"
+          # INFRA-061: verify BEFORE chmod +x — a mismatch must stop the job, not run and then complain.
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
@@ -496,7 +513,11 @@ jobs:
       # INFRA-038: osv-scanner (pnpm-lockfile-based) — the retired npm audit endpoint broke `pnpm audit`.
       - name: Vulnerability scan (osv-scanner)
         run: |
-          curl -fsSL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_linux_amd64 -o "$RUNNER_TEMP/osv-scanner"
+          set -euo pipefail
+          curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
+            -o "$RUNNER_TEMP/osv-scanner"
+          # INFRA-061: verify BEFORE chmod +x — a mismatch must stop the job, not run and then complain.
+          echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
           chmod +x "$RUNNER_TEMP/osv-scanner"
           "$RUNNER_TEMP/osv-scanner" scan source --config osv-scanner.toml --lockfile pnpm-lock.yaml
 
