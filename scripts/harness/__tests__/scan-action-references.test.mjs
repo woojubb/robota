@@ -405,4 +405,19 @@ describe('the real repository', () => {
     const claims = results.map((r) => r.reference?.claimedTag ?? r.claimedTag).sort();
     expect(claims).toEqual(['v4.1.0', 'v9.9.9']);
   });
+
+  // `expandFindings` keyed on `raw` alone, undoing `resolveAll`'s disambiguation one step later:
+  // both occurrences were then reported with whichever verdict survived the map, so a correctly
+  // annotated line was told it claims a tag it does not. Wrong attribution is worse than a missed
+  // finding — it sends the reader to a file that is fine. Found in review.
+  it('attributes a tag-mismatch only to the occurrence that claims it', () => {
+    const refs = [
+      { file: 'a.yml', line: 1, raw: 'actions/checkout@abc', claimedTag: 'v4.1.0', kind: 'action' },
+      { file: 'b.yml', line: 1, raw: 'actions/checkout@abc', claimedTag: 'v9.9.9', kind: 'action' },
+    ];
+    const results = [{ reference: refs[1], finding: { detail: 'claims v9.9.9 ...' } }];
+    const out = expandFindings(refs, results);
+    expect(out).toHaveLength(1);
+    expect(out[0].where).toBe('b.yml:1');
+  });
 });

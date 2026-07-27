@@ -355,9 +355,7 @@ export async function resolveAll(references, probe = probeReference) {
   // The extra probe this costs happens only when one SHA carries two different claims, which is
   // precisely the case that must not be skipped.
   const unique = [
-    ...new Map(
-      references.map((entry) => [`${entry.raw} ${entry.claimedTag ?? ''}`, entry]),
-    ).values(),
+    ...new Map(references.map((entry) => [referenceKey(entry), entry])).values(),
   ].filter((entry) => entry.kind === 'action');
   const results = new Array(unique.length);
   let next = 0;
@@ -394,14 +392,25 @@ export async function resolveAll(references, probe = probeReference) {
  * is the same under-reporting of its own subject that the parser counter above fences.
  */
 export function expandFindings(references, results) {
-  const byRaw = new Map(
-    results.filter((result) => result.finding).map((r) => [r.reference.raw, r]),
+  // Keyed exactly as `resolveAll` keys its probes. Keying on `raw` alone here undoes that
+  // disambiguation one step later: two occurrences sharing a SHA with different `# vX` claims yield
+  // two verdicts, the map keeps one, and BOTH occurrences are then reported with it — so a
+  // correctly-annotated line is told it claims a tag it does not, and the genuinely wrong line is
+  // described by someone else's verdict. Wrong attribution is worse than a missed finding: it sends
+  // the reader to a file that is fine.
+  const byReference = new Map(
+    results.filter((result) => result.finding).map((r) => [referenceKey(r.reference), r]),
   );
   return references.flatMap((reference) => {
-    const hit = byRaw.get(reference.raw);
+    const hit = byReference.get(referenceKey(reference));
     if (!hit || reference.kind !== 'action') return [];
     return [{ where: `${reference.file}:${reference.line}`, detail: hit.finding.detail }];
   });
+}
+
+/** The identity a verdict belongs to: the reference AND what its comment claims about it. */
+function referenceKey(reference) {
+  return `${reference.raw} ${reference.claimedTag ?? ''}`;
 }
 
 export async function main(argv = process.argv.slice(2)) {
