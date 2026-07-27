@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -47,12 +49,32 @@ const INTERCEPTORS = [{ hook: 'pre-push-check.sh', verb: 'git push -u origin fea
  * path returns stdout only — so a hook that spoke and exited 0 would read as silence and this test
  * would report a bypass that is not there. It did, on the first run.
  */
-function runHook(hookFile, command) {
+/**
+ * A throwaway repository for the hook to judge.
+ *
+ * Pointing `CLAUDE_PROJECT_DIR` at the real working tree made these probes run the hook's real work
+ * — `pnpm install` for the lockfile check — against the developer's own checkout, once per command
+ * form, and made the verdict depend on that tree's state. A reachability test must answer "did the
+ * hook react", and nothing about that question needs the real repository.
+ */
+function scratchProject() {
+  const dir = mkdtempSync(path.join(tmpdir(), 'hook-reach-'));
+  const git = (args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+  git(['init', '--quiet', '--initial-branch=develop']);
+  git(['config', 'user.email', 'harness@example.test']);
+  git(['config', 'user.name', 'Harness']);
+  writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  git(['add', '-A']);
+  git(['commit', '--quiet', '-m', 'chore: root']);
+  return dir;
+}
+
+function runHook(hookFile, command, projectDir = scratchProject()) {
   const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
   const result = spawnSync('bash', [path.join(HOOKS_DIR, hookFile)], {
     input: payload,
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: WORKSPACE_ROOT },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir },
   });
   return {
     status: result.status ?? 1,
