@@ -1,8 +1,4 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
-
-import { resolveContainmentRoot } from './containment.js';
-import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
-
 import {
   buildTaskExecutionError,
   buildValidationError,
@@ -15,6 +11,9 @@ import {
   type TResult,
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
+
+import { resolveContainmentRoot } from './containment.js';
+import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
 
 export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
