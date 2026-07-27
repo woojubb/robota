@@ -841,3 +841,33 @@ Per increment: `pnpm harness:verify-like-ci` green (the consistency + agent-conv
 mechanical floor here). Plus an explicit invariant-preservation check — list the mandatory statements
 in the rule before the change and show each one's post-change home. For an extracted agent, dispatch it
 once on a real task and confirm it produces the same verdict the inline version would have.
+
+## Deferrals closed 2026-07-27
+
+All four increments this item was holding are discharged.
+
+- **BE-42 / BE-43 relocated.** Bullets 1–3 to `project-structure.md`; BE-43 to
+  `enforcement-architecture.md`, with `backlog-execution.md` keeping a router. The fourth bullet
+  governs skills, not packages, so it folded into BE-43 rather than following the item's routing.
+- **`§ Deployment`'s two duplicated bullets removed**, along with an ownership note instructing an
+  update to three documents that are all archival.
+- **`CLOSED_SIGNAL_VOCAB` was already closed** — all three tokens landed in INFRA-048 (#1434). The
+  deferral was stale, not open. Nothing changed.
+- **The folder ↔ status floor exists and is registered.** `scan-doc-folder-status-agreement` derives
+  its criteria by parsing the rule's own table, so the mapping keeps one owner, and it now runs in
+  `pnpm harness:scan`.
+
+**The six live violations are five plus one.** Five carried `[GATE-COMPLETE] — ✅ PASS` in their own
+Evidence Log, so `status: done` was derivable rather than a judgement, and they are fixed.
+
+`DATA-002` is the one that is not. Its Evidence Log shows GATE-WRITE PASS, GATE-APPROVAL PASS and
+all three phases SHIPPED — and **no GATE-COMPLETE entry at all**. Neither correction is available
+without deciding something: `status: done` manufactures a completion no gate recorded, and moving it
+to `active/` claims work is in progress that shipped in July — and subjects a finished record to the
+live-document rules, which is how the attempt was caught (`spec-research` went red on it).
+
+So it is a RECORDED EXCEPTION in the scan, with its reason, under anti-rot: the moment the
+disagreement resolves, the entry fails and must be deleted. Red-proved both ways — resolving
+DATA-002's status fails the stale entry, and a fresh disagreement elsewhere is still caught.
+
+**Left for the owner:** run `GATE-COMPLETE` on DATA-002, or decide it does not qualify.

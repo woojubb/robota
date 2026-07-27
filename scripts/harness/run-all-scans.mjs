@@ -323,6 +323,10 @@ export const SCAN_COMMANDS = [
   },
   { name: 'dist', command: ['node', 'scripts/harness/scan-dist-freshness.mjs'] },
   {
+    name: 'doc-folder-status',
+    command: ['node', 'scripts/harness/scan-doc-folder-status-agreement.mjs'],
+  },
+  {
     name: 'vitest-resource-ceiling',
     command: ['node', 'scripts/harness/scan-vitest-resource-ceiling.mjs'],
   },

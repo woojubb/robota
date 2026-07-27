@@ -1,5 +1,5 @@
 ---
-status: approved
+status: done
 type: BEHAVIOR
 tags: [cli, telemetry, privacy]
 ---

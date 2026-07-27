@@ -389,11 +389,9 @@ to the agent's own admin merges to `develop` exactly as to `main`.
 
 ### Deployment
 
-> Ownership note: this is deployment topology, not git or branch policy. Its likely owner is
-> [`.agents/project-structure.md`](../project-structure.md) or a dedicated deployment spec; the move is
-> tracked in `HARNESS-049` and must update the documents that quote these sentences as evidence.
+What this rule owns is the **branch** side of deployment. The topology — which app deploys to which
+platform, on which trigger, by which script — is owned by
+[`.agents/specs/architecture-map/apps-and-deployment.md`](../specs/architecture-map/apps-and-deployment.md).
 
-- **Cloudflare Pages** (blog, docs) deploys automatically when `main` is updated.
-- Manual docs deployment uses `pnpm docs:deploy`, which uploads `apps/docs/.vitepress/dist` to Cloudflare Pages with Wrangler.
 - Changes on release branches are NOT deployed until merged to `main`.
 - When deployment is needed, create a PR from the release branch to `main` and ask the user to merge it.
