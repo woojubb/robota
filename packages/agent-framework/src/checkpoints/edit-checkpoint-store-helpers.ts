@@ -1,4 +1,4 @@
-import { dirname, join, relative, resolve } from 'node:path';
+import { relative } from 'node:path';
 
 import type { IEditCheckpointManifest } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';

@@ -1,4 +1,4 @@
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core';
 import { CheckpointTree } from '@robota-sdk/agent-session';
