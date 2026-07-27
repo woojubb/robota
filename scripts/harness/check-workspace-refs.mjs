@@ -29,7 +29,6 @@ const EXAMPLE_TOKEN_ALLOWLIST = new Set([
   '@robota-sdk/other',
   // Defunct-name literals seeded in check-ghost-package-refs' GHOST_PACKAGE_ALLOWLIST.
   '@robota-sdk/dag-nodes',
-  '@robota-sdk/agent-provider-bytedance',
 ]);
 
 function readJson(filePath) {
@@ -125,6 +124,20 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
           detail: `${token} does not resolve to any workspace package.`,
         });
       }
+    }
+  }
+
+  // ANTI-ROT (HARNESS-052): an allowlist entry naming a package that DOES resolve is stale by
+  // construction — it exempts nothing today and silently exempts a real ghost the day that package
+  // is deleted. `@robota-sdk/agent-provider-bytedance` sat here as "not a workspace package" while
+  // being one; the entry was inert, and inert is exactly how a suppression survives review.
+  for (const token of EXAMPLE_TOKEN_ALLOWLIST) {
+    if (workspaceNames.has(token)) {
+      findings.push({
+        file: path.relative(root, import.meta.filename),
+        type: 'stale-allowlist-entry',
+        detail: `${token} is allowlisted as a non-workspace token but resolves to a real workspace package. Remove the entry.`,
+      });
     }
   }
 
