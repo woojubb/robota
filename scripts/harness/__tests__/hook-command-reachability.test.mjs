@@ -27,11 +27,20 @@ const COMPOUND_FORMS = [
   (verb) => `git status; ${verb}`,
 ];
 
-/** Hooks that intercept a specific command verb, and a command they MUST recognise. */
-const INTERCEPTORS = [
-  { hook: 'pre-push-check.sh', verb: 'git push -u origin feat/probe' },
-  { hook: 'branch-guard.sh', verb: 'git push origin --delete feat/probe' },
-];
+/**
+ * Hooks that intercept command verbs, and commands they MUST recognise — **every** verb, not one.
+ *
+ * Listing one verb per hook is how this test was green while four of `branch-guard`'s five verbs
+ * were unreachable: the one I happened to pick, `--delete`, has a separately un-anchored matcher.
+ * A hand-listed set standing in for an enumerated one is a recurring defect in this repository, and
+ * it recurred here inside the test written to catch a sibling of it.
+ *
+ * `branch-guard.sh` is deliberately absent below: repairing all five of its verbs is a larger change
+ * to a hook another branch is rewriting, and pinning it here with one verb would restore exactly the
+ * false assurance this comment records. It is covered by that branch's own suite, which derives each
+ * hook's verbs from the hook's source rather than from a list.
+ */
+const INTERCEPTORS = [{ hook: 'pre-push-check.sh', verb: 'git push -u origin feat/probe' }];
 
 /**
  * `spawnSync`, not `execFileSync`: hooks write their notices to stderr, and `execFileSync`'s SUCCESS

@@ -29,14 +29,19 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 # registered, and was unreachable from the way commands are actually issued — enforcement that no
 # real invocation can reach is indistinguishable from no enforcement.
 #
-# Boundaries are line start, `;`, `&&`, `||`, `|`, and `(`. A `git push` mentioned inside a quoted
-# string on its own line can false-positive; that is the deliberate trade. A false positive costs one
-# blocked command whose branch is already unclean, and it passes on a clean branch. A false negative
-# cost this repository a promotion-ancestry break.
+# Boundaries are STATEMENT separators only — line start, `;`, `&&`, `||`, `|`, `(`, and the literal
+# `\n` that survives JSON extraction. Bare whitespace is NOT a boundary, deliberately: with it,
+# `gh pr create --body "… git push …"` and `git commit -m "fix: git push guard"` both match, and a
+# guard that blocks ordinary work is one that gets switched off.
+#
+# That false positive does not reproduce today only because the shared COMMAND extraction truncates
+# at the first escaped quote, so the text after `--body \"` is never seen (HARNESS-061). It would
+# come alive the moment that extraction is repaired — so it is excluded here rather than left as a
+# trap for whoever fixes it.
 # `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
 # with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
 # one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
-echo "$COMMAND" | grep -qE '(^|[;&|(]|[[:space:]]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+echo "$COMMAND" | grep -qE '(^|[;&|(]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
