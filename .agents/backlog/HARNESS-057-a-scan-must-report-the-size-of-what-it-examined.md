@@ -6,7 +6,9 @@ urgency: now
 type: INFRA
 area: scripts/harness
 created: 2026-07-28
-depends_on: [HARNESS-052, HARNESS-053, HARNESS-056]
+# HARNESS-053 and HARNESS-056 are the completed/open halves this builds on; HARNESS-052 is the
+# sweep that found the class. Listed as lineage, not as blockers — 053 is already in completed/.
+depends_on: [HARNESS-052, HARNESS-056]
 ---
 
 # HARNESS-057 — one invariant that subsumes three recurring classes
