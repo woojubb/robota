@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateFileSizes } from '../scan-file-size.mjs';
+import { baselineDriftFindings, evaluateFileSizes } from '../scan-file-size.mjs';
 
 /**
  * HARNESS-DIET-003 — the file-size RATCHET. The scan was warn-only (vacuous) for a year; these tests
@@ -73,5 +73,29 @@ describe('scan-file-size ratchet (HARNESS-DIET-003)', () => {
   it('a deleted baselined file is reported stale', () => {
     const { stale } = evaluateFileSizes([], { 'packages/x/src/gone.ts': 500 }, MAX);
     expect(stale).toEqual(['packages/x/src/gone.ts']);
+  });
+});
+
+/**
+ * HARNESS-052. Tightenable and stale entries were PRINTED and the scan exited 0 — 21 advisory lines
+ * on every run, and 21 files licensed to grow back to a number they had already beaten. A ratchet
+ * whose tightening step is optional is a ratchet that only ever loosens.
+ */
+describe('baseline drift is a failure, not a notice', () => {
+  it('turns a shrunk file into a ratchet-tighten finding', () => {
+    const findings = baselineDriftFindings({ tightenable: ['packages/x/src/legacy.ts'] });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].type).toBe('ratchet-tighten');
+    expect(findings[0].detail).toContain('--write-baseline');
+  });
+
+  it('turns a baseline entry for a deleted file into a stale-baseline finding', () => {
+    const findings = baselineDriftFindings({ stale: ['packages/x/src/gone.ts'] });
+    expect(findings.map((f) => f.type)).toEqual(['stale-baseline']);
+  });
+
+  it('reports nothing when the baseline is already tight', () => {
+    expect(baselineDriftFindings({ tightenable: [], stale: [] })).toEqual([]);
+    expect(baselineDriftFindings()).toEqual([]);
   });
 });

@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { collectSpecResearchFindings } from '../scan-spec-research.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-spec-research.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 
 const GREEN_SPEC = `---
 status: draft
@@ -95,6 +98,10 @@ describe('scan-spec-research CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-spec-research.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(
+      GOVERNED_TREE_MODULE,
+      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
+    );
     return { root, scriptCopy };
   }
 

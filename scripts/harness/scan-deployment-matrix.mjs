@@ -22,6 +22,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MATRIX = path.join(WORKSPACE_ROOT, '.agents/specs/deployment-matrix.md');
@@ -65,13 +66,32 @@ function transportSourceFiles(dir) {
   return out;
 }
 
-/** Enumerate the transport `name` set declared across the transport packages (both declaration forms). */
+/**
+ * Enumerate the transport `name` set declared across the transport packages (both declaration forms).
+ *
+ * HARNESS-052 sub-shape A: this scan's stated subject is "the adapters that declare a `name`", and
+ * what it actually matched was a directory-name PREFIX. `agent-transport-` (with the hyphen)
+ * excluded `packages/agent-transport` itself, so `createHeadlessTransport`'s `name: 'headless'` —
+ * the factory form this scan exists to parse — could never contribute, and the matrix went on
+ * asserting the set was "exactly {tui, ws, webrtc, http, mcp}". Measured, not reasoned: including
+ * the base package discovers `headless` and nothing else.
+ *
+ * The `*transport*.ts` filename filter STAYS. Measured too: dropping it also matches
+ * `name: 'robota-agent'` and `name: 'submit'` in `mcp-server.ts` — unrelated object literals that
+ * would turn this floor into three phantom findings per run, and a floor people route around
+ * catches less than one that fires narrowly.
+ */
 export function findTransportNames(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'deployment-matrix',
+    why:
+      'Transport names are enumerated FROM the package tree; over an absent one the matrix would read as entirely phantom or entirely complete depending on the caller, neither of which is a measurement.',
+  });
   const names = new Set();
   const packagesDir = path.join(root, 'packages');
   if (!existsSync(packagesDir)) return names;
   for (const pkg of readdirSync(packagesDir)) {
-    if (!pkg.startsWith('agent-transport-') || EXCLUDED_PACKAGES.has(pkg)) continue;
+    if (!/^agent-transport(-|$)/.test(pkg) || EXCLUDED_PACKAGES.has(pkg)) continue;
     const srcDir = path.join(packagesDir, pkg, 'src');
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
     for (const file of transportSourceFiles(srcDir)) {

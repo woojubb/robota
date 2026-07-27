@@ -1,5 +1,11 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, it, expect } from 'vitest';
-import { hasTestPlanSection } from '../scan-test-plan.mjs';
+
+import { collectTestPlanFindings, hasTestPlanSection } from '../scan-test-plan.mjs';
 
 describe('hasTestPlanSection', () => {
   it('returns true for ## Test Plan with enough content', () => {
@@ -52,5 +58,57 @@ describe('hasTestPlanSection', () => {
     const filler = 'a'.repeat(49);
     const doc = `# Plan\n\n## Test Plan\n\n${filler}\n`;
     expect(hasTestPlanSection(doc)).toBe(false);
+  });
+});
+
+/**
+ * HARNESS-052 — WHICH tree this gate covers, and what it refuses to cover.
+ *
+ * It gated `docs/superpowers/**` (which another guard classifies as dated historical artifacts)
+ * while the live pipeline `.agents/spec-docs/**` went unscanned. The states are now chosen: gated
+ * from `backlog/` onward (post-GATE-WRITE, where a verification test plan is required), never in
+ * `draft/` (pre-GATE-WRITE, incomplete by design) and never in `done/` or `rejected/` (immutable
+ * history). Sweeping all 242 spec documents would have fired on 6 archived records and 1 legitimate
+ * draft — a gate firing on things nobody can act on is one that gets suppressed.
+ */
+describe('collectTestPlanFindings — the gated tree', () => {
+  async function specDocsFixture(files) {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-'));
+    for (const state of ['draft', 'backlog', 'todo', 'active', 'done', 'rejected']) {
+      mkdirSync(path.join(root, '.agents/spec-docs', state), { recursive: true });
+    }
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, content, 'utf8');
+    }
+    return root;
+  }
+
+  const NO_PLAN = '---\nstatus: approved\n---\n\n# X\n\n## Problem\n\nSomething is broken.\n';
+
+  it('flags a live-pipeline spec document with no test plan', async () => {
+    const root = await specDocsFixture({ '.agents/spec-docs/todo/CLI-999-thing.md': NO_PLAN });
+    const { findings, examined } = await collectTestPlanFindings(root);
+    expect(examined).toBe(1);
+    expect(findings.map((f) => f.file)).toEqual([
+      path.join('.agents/spec-docs/todo', 'CLI-999-thing.md'),
+    ]);
+  });
+
+  it('does not gate draft/, done/ or rejected/', async () => {
+    const root = await specDocsFixture({
+      '.agents/spec-docs/draft/CLI-998-thing.md': NO_PLAN,
+      '.agents/spec-docs/done/CLI-997-thing.md': NO_PLAN,
+      '.agents/spec-docs/rejected/CLI-996-thing.md': NO_PLAN,
+    });
+    const { findings, examined } = await collectTestPlanFindings(root);
+    expect(findings).toEqual([]);
+    expect(examined).toBe(0);
+  });
+
+  it('throws rather than passing when the spec-doc pipeline is absent', async () => {
+    const bare = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-bare-'));
+    await expect(collectTestPlanFindings(bare)).rejects.toThrow(/spec-docs/);
   });
 });

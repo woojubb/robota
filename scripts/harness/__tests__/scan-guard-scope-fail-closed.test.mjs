@@ -91,6 +91,27 @@ describe('derivation (the half that cannot be dodged by editing a table)', () =>
     expect(classificationFindings(WORKSPACE_ROOT)).toEqual([]);
   });
 
+  /**
+   * HARNESS-052. "Exactly one" was enforced only ACROSS the two tables, so a finder listed twice in
+   * PENDING_CLASSIFICATION passed — and one was: `scan-test-selection-tolerance
+   * #findTestSelectionFindings`, measured twice per run and counted twice in the summary. A rule
+   * whose stated claim is "exactly one" and whose implementation checks "not in both tables" is this
+   * item's subject at one-line scale.
+   */
+  it('reports a finder listed twice within one table', () => {
+    const duplicated = { ...PENDING_CLASSIFICATION[0] };
+    PENDING_CLASSIFICATION.push(duplicated);
+    try {
+      const findings = classificationFindings(WORKSPACE_ROOT);
+      expect(findings.map((f) => f.detail).join('\n')).toContain(
+        'appears 2 times in PENDING_CLASSIFICATION',
+      );
+    } finally {
+      PENDING_CLASSIFICATION.pop();
+    }
+    expect(classificationFindings(WORKSPACE_ROOT)).toEqual([]);
+  });
+
   it('reports a derived finder that no table classifies', () => {
     const declared = new Set(
       [...MANDATORY_TREE_GUARDS, ...PENDING_CLASSIFICATION].map((e) => `${e.file}#${e.finder}`),
@@ -174,8 +195,12 @@ describe('ledger freshness', () => {
   });
 
   it('measures by executing, and distinguishes unmeasurable from fail-closed', async () => {
+    // The `vacuous` example was `scan-orchestration-map#collectOrchestrationMapFindings` until
+    // HARNESS-052 repaired it. This one is a pure ENUMERATOR whose caller renders the verdict, so
+    // its empty answer over a bare root is honest and expected to stay `vacuous` — a fixed point to
+    // measure against rather than a defect waiting to be fixed out from under the test.
     const vacuous = await measureFinder(
-      { file: 'scan-orchestration-map.mjs', finder: 'collectOrchestrationMapFindings' },
+      { file: 'scan-vitest-resource-ceiling.mjs', finder: 'findVitestConfigs' },
       WORKSPACE_ROOT,
     );
     expect(vacuous).toBe('vacuous');

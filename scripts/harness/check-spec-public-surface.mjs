@@ -58,6 +58,7 @@ import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/spec-surface-baseline.json');
@@ -249,6 +250,11 @@ function packageName(pkgDir, root) {
  * where `names` is sorted. Packages with zero undocumented exports are omitted.
  */
 export function collectUndocumentedExports(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'spec-public-surface',
+    why:
+      'The documented-vs-exported comparison needs both sides; with no packages/ neither exists.',
+  });
   const byPackage = {};
   for (const pkgDir of listSpecPackageDirs(root)) {
     const specPath = path.join(pkgDir, 'docs', 'SPEC.md');
@@ -311,6 +317,11 @@ export function evaluateUndocumentedExports(undocumentedByPackage, baseline) {
 }
 
 export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT, options = {}) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'spec-public-surface',
+    why:
+      'Same corpus as the collector above: an absent packages/ makes "every advertised identifier exists in src/" true of nothing.',
+  });
   const baseline = options.baseline ?? loadUndocumentedExportBaseline();
   const notices = options.notices ?? [];
   const findings = [];

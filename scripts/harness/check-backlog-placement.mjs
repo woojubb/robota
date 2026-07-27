@@ -19,6 +19,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BACKLOG_DIR = '.agents/backlog';
@@ -59,6 +60,11 @@ async function listMarkdown(dirAbsolute) {
 }
 
 export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [BACKLOG_DIR, COMPLETED_DIR], {
+    scan: 'backlog-placement',
+    why:
+      'Placement is a claim about the backlog tree; with no tree there are no misplaced items and no correct ones either.',
+  });
   const findings = [];
 
   for (const name of await listMarkdown(path.join(root, BACKLOG_DIR))) {
@@ -109,6 +115,11 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
  * each file is individually consistent. Observed 2026-07-25 (HARNESS-043).
  */
 export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [BACKLOG_DIR, COMPLETED_DIR], {
+    scan: 'backlog-placement',
+    why:
+      'An ID collision is a relation between two directories \u2014 reading neither cannot establish that neither collides.',
+  });
   const findings = [];
   // The ID includes any phase suffix (`-P3`, `-P4-P5`): a phase follow-up filed while its parent
   // is archived (e.g. open `SELFHOST-008-P5-…` alongside completed `SELFHOST-008-…`) is the

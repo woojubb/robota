@@ -26,6 +26,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const HARNESS_DIR = path.join(WORKSPACE_ROOT, 'scripts', 'harness');
@@ -49,6 +50,11 @@ function listHarnessScripts(dir) {
 }
 
 export function findHarnessConfigPathFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['scripts/harness'], {
+    scan: 'harness-config-paths',
+    why:
+      'The harness scripts are the documents whose quoted paths this scan validates.',
+  });
   const findings = [];
 
   for (const scriptPath of listHarnessScripts(path.join(root, 'scripts', 'harness'))) {

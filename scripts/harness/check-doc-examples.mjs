@@ -24,9 +24,11 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { globSync } from 'node:fs';
+
+import { listManifestPackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT_DIR = path.join(WORKSPACE_ROOT, 'node_modules/.cache/doc-examples');
@@ -35,11 +37,27 @@ const OUT_DIR = path.join(WORKSPACE_ROOT, 'node_modules/.cache/doc-examples');
 const FENCE_PATTERN = /(^|\n)([^\n]*)\n(?:[ \t]*\n)*```(ts|typescript)\n([\s\S]*?)```/g;
 const SKIP_PATTERN = /<!--\s*doc-example-skip:\s*(.+?)\s*-->/;
 
-/** README files under scan: root + every packages/x/README.md. */
+/**
+ * README files under scan: root + every workspace package's README.md.
+ *
+ * HARNESS-052: the glob was `packages/*​/README.md`, which the docstring described as "each
+ * `packages/x/README.md`" while `pnpm-workspace.yaml` also declares `packages/dag-nodes/*`. The
+ * set is now the UNION of the depth-1 glob and the nesting-aware SSOT, so a README added to a nested
+ * group member is compiled like any other while the group container's own README
+ * (`packages/dag-nodes/README.md`, which the glob matched and the package enumerator does not, the
+ * container having no `package.json`) keeps its coverage. Measured at the time of the change: 40
+ * README files before, 40 after plus every future nested one — no member ships a README yet, so this
+ * bought coverage rather than subjects, and dropping the union would have silently traded one
+ * uncovered file for another.
+ */
 export function listReadmeFiles(root = WORKSPACE_ROOT) {
   const files = ['README.md'];
   for (const entry of globSync('packages/*/README.md', { cwd: root })) {
     files.push(entry);
+  }
+  for (const pkgDir of listManifestPackageDirs(root)) {
+    const readme = path.join(pkgDir, 'README.md');
+    if (existsSync(readme)) files.push(path.relative(root, readme).split(path.sep).join('/'));
   }
   // DOCS-019: the content/ guide corpus is in scope. Excluded by design: content/v2.0.0
   // (preserved historical docs), content/ko (translations mirror en), content/images.
@@ -56,7 +74,7 @@ export function listReadmeFiles(root = WORKSPACE_ROOT) {
       files.push(entry);
     }
   }
-  return files.sort();
+  return [...new Set(files)].sort();
 }
 
 /** Extract ts blocks with their skip-marker state. */

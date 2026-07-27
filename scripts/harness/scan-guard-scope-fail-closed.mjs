@@ -17,6 +17,13 @@
  * subject of five of the ten incidents. The 20 that fail closed are the proof the shape is
  * avoidable, not inherent.
  *
+ * SINCE REPAIRED (HARNESS-052, second pass): 27 of those 30 now throw on their absent governed tree,
+ * via the shared `requireGovernedTree` helper, and each was moved into `MANDATORY_TREE_GUARDS` only
+ * after this scan MEASURED the change by execution — the ledger itself demanded every promotion,
+ * one finding at a time. Four vacuous entries remain, each with its reason recorded below: two are
+ * pure enumerators whose caller renders the verdict, one governs `node_modules` (not a checked-in
+ * tree, so its absence is a legitimate state), and one is owned by another item.
+ *
  * THE RULE, in three parts, because each alone can be satisfied vacuously:
  *
  *   1. CLASSIFICATION COMPLETENESS. Every scan registered in `run-all-scans.mjs` that exports a
@@ -52,12 +59,14 @@
  * the exported `measureFinder`, the same path rule 3 verifies with.
  *
  * THE CEILING, stated rather than implied. `PENDING_CLASSIFICATION` is not an exemption list and
- * must not be read as one — 30 of its entries were MEASURED to report a pass over an absent governed
- * tree and are recorded, unfixed, in HARNESS-052. The behavioural half covers only the seven guards
- * in `MANDATORY_TREE_GUARDS`. Anything outside the derived finder set — a scan that walks its tree
- * inline in `main()`, or one that takes no root — is invisible here. A pass from this scan means
- * "the seven classified guards fail closed and the ledger is current", never "no guard can be
- * satisfied vacuously".
+ * must not be read as one — every entry carries the verdict its finder actually produces, and the
+ * four that still measure `vacuous` are live instances (or reasoned permanent exceptions) recorded
+ * in HARNESS-052. The behavioural half covers only the guards listed in `MANDATORY_TREE_GUARDS`.
+ * Anything outside the derived finder set — a scan that walks its tree inline in `main()`, or one
+ * that takes no root — is invisible here. A pass from this scan means "the classified guards fail
+ * closed and the ledger is current", never "no guard can be satisfied vacuously". It also says
+ * NOTHING about whether a guard's rules are correct when its tree IS present, which is the whole of
+ * this item's second axis.
  *
  * Exit code 0 = every classified guard behaves as declared, 1 = violation found.
  */
@@ -162,10 +171,184 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'MEASURED on a bare root before registration, not assumed: it throws `pnpm-workspace.yaml is missing` from `readWorkspaceGlobs`, deliberately, rather than enumerating zero manifests. That distinction is the whole point of the guard — it exists because `pnpm run -r --if-present test` reports success over every workspace it never looked at, and a coverage floor that discovered no test scripts would report exactly the same success over the same silence',
   },
   {
+    file: 'scan-test-plan.mjs',
+    finder: 'collectTestPlanFindings',
+    tree: '.agents/spec-docs',
+    why: 'every directory this scan reads was optional, so a root with none of them printed "test-plan scan passed" — "no planning documents were found" wearing the words "every planning document has a test plan". The spec-doc pipeline is mandatory here, so its absence is an error',
+  },
+  {
+    file: 'scan-orchestration-neutrality.mjs',
+    finder: 'findOrchestrationNeutralityFindings',
+    tree: 'the configured orchestration contract directories',
+    why: 'over a root without them, "no app-domain identity leaks into the neutral contracts" is a statement about no contracts. Its `root` was also DECORATIVE — the walker closed over the real workspace root, so every caller was handed a verdict about this repository no matter which root it asked about, the same defect this item fixed in scan-no-fallback',
+  },
+  {
+    file: 'scan-memory-neutrality.mjs',
+    finder: 'findMemoryNeutralityFindings',
+    tree: 'packages',
+    why: 'HARNESS-052 measured it VACUOUS — `if (!existsSync(packagesDir)) return findings` answered "no neutrality findings" for a checkout with no library source at all. The library tree is the whole subject of a library-neutrality floor: finding no library is not finding it neutral',
+  },
+  {
     file: 'scan-live-smoke-provider-coverage.mjs',
     finder: 'findUncoveredProviderCredentials',
     tree: '.github/workflows and packages',
     why: 'INFRA-061 measured this guard VACUOUS on the half-root case — workflow present, provider packages absent: zero declarations discovered, zero findings, green. It now reports `no-provider-declarations-found`, because a provider-coverage floor that found no providers has not found them all covered',
+  },
+  {
+    file: 'check-architecture-map-paths.mjs',
+    finder: 'findArchitectureMapPathFindings',
+    tree: '.agents/specs/architecture-map',
+    why: 'MEASURED vacuous on a bare root before the repair: the map corpus IS the subject, so "every cited path exists" over no map is a claim about nothing',
+  },
+  {
+    file: 'check-backlog-placement.mjs',
+    finder: 'findBacklogPlacementFindings',
+    tree: '.agents/backlog and .agents/backlog/completed',
+    why: 'placement is a claim about the backlog tree; with no tree there are no misplaced items and no correctly-placed ones either',
+  },
+  {
+    file: 'check-backlog-placement.mjs',
+    finder: 'findDuplicateIdFindings',
+    tree: '.agents/backlog and .agents/backlog/completed',
+    why: 'an ID collision is a relation between two directories — reading neither cannot establish that neither collides, and eight collisions landed in one week',
+  },
+  {
+    file: 'check-command-layering.mjs',
+    finder: 'findCommandLayeringFindings',
+    tree: 'packages',
+    why: 'the layering rule governs shipped command packages; a checkout without packages/ is broken, not clean',
+  },
+  {
+    file: 'check-dep-kind.mjs',
+    finder: 'findDevDepOnlyRuntimeImports',
+    tree: 'packages and apps',
+    why: 'it quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true',
+  },
+  {
+    file: 'check-done-evidence.mjs',
+    finder: 'findDoneEvidenceFindings',
+    tree: '.agents/backlog/completed',
+    why: 'the completed-backlog tree is the evidence corpus, and a readdir failure was CAUGHT and returned as "no unearned done claims" — a swallowed error wearing a verdict',
+  },
+  {
+    file: 'check-ghost-package-refs.mjs',
+    finder: 'findGhostPackageRefFindings',
+    tree: 'packages',
+    why: 'a reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token is unresolvable while none is reported',
+  },
+  {
+    file: 'check-harness-config-paths.mjs',
+    finder: 'findHarnessConfigPathFindings',
+    tree: 'scripts/harness',
+    why: 'the harness scripts are the documents whose quoted paths this scan validates; no scripts means no validation, not valid paths',
+  },
+  {
+    file: 'check-orphan-exports.mjs',
+    finder: 'findOrphanExportFindings',
+    tree: 'packages',
+    why: 'an orphan verdict is quantified over the workspace reference corpus; an empty corpus makes every export an orphan and reports none of them',
+  },
+  {
+    file: 'check-publish-safety.mjs',
+    finder: 'findPublishClaimFindings',
+    tree: 'packages',
+    why: 'it checks publish claims in package SPECs, and its own summary says "all publishable packages" — over no packages that sentence is the audited defect verbatim',
+  },
+  {
+    file: 'check-sdk-public-surface.mjs',
+    finder: 'findSdkPublicSurfaceFindings',
+    tree: 'packages/agent-framework/src',
+    why: 'the SDK source tree is the surface under audit; walking zero files reports a clean surface it never saw',
+  },
+  {
+    file: 'check-spec-paths.mjs',
+    finder: 'findSpecPathFindings',
+    tree: 'packages',
+    why: 'it validates the paths cited by package SPECs; with no packages/ there are no SPECs, and the pass means nothing was read',
+  },
+  {
+    file: 'check-spec-public-surface.mjs',
+    finder: 'collectUndocumentedExports',
+    tree: 'packages',
+    why: 'the documented-vs-exported comparison needs both sides; with no packages/ neither exists and the difference is empty by construction',
+  },
+  {
+    file: 'check-spec-public-surface.mjs',
+    finder: 'findPublicSurfaceFindings',
+    tree: 'packages',
+    why: 'same corpus as the collector above: an absent packages/ makes "every advertised identifier exists in src/" true of nothing',
+  },
+  {
+    file: 'check-stub-markers.mjs',
+    finder: 'findStubMarkerFindings',
+    tree: 'packages',
+    why: 'stub markers are searched in shipped package source; no packages/ means no search, not a clean search',
+  },
+  {
+    file: 'check-task-archival.mjs',
+    finder: 'findTaskArchivalFindings',
+    tree: '.agents/tasks',
+    why: 'the task tree is the subject, and a readdir failure was CAUGHT and returned as "nothing to archive"',
+  },
+  {
+    file: 'check-temp-script-placement.mjs',
+    finder: 'findParkedTempScripts',
+    tree: 'packages and apps',
+    why: 'it globs the two source families for parked temp scripts; over neither, "none parked" is a statement about an empty glob',
+  },
+  {
+    file: 'check-workspace-refs.mjs',
+    finder: 'findWorkspaceRefFindings',
+    tree: 'packages',
+    why: 'resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported',
+  },
+  {
+    file: 'scan-api-pagination.mjs',
+    finder: 'findUnpaginatedApiQueries',
+    tree: 'packages and apps',
+    why: 'the pagination floor governs shipped source; reading no source is not finding it paginated',
+  },
+  {
+    file: 'scan-capability-reachability.mjs',
+    finder: 'findCapabilityReachabilityFindings',
+    tree: '.agents/spec-docs/done',
+    why: 'declared capabilities live in completed spec documents; with none, the reachability claim covers no capability at all — and this floor exists precisely because a declared capability was dodged',
+  },
+  {
+    file: 'scan-deployment-matrix.mjs',
+    finder: 'findTransportNames',
+    tree: 'packages',
+    why: 'transport names are enumerated FROM the package tree; over an absent one the matrix reads as entirely phantom, which is a verdict about the reader rather than a measurement of the code',
+  },
+  {
+    file: 'scan-deprecated-markers.mjs',
+    finder: 'findDeprecatedMarkerFindings',
+    tree: 'packages',
+    why: 'deprecated markers are searched in shipped package source; the absence of that source is not their absence',
+  },
+  {
+    file: 'scan-evals-neutrality.mjs',
+    finder: 'findEvalsNeutralityFindings',
+    tree: 'packages',
+    why: 'a library-neutrality floor that found no library has not found it neutral — the same repair, and the same reasoning, as scan-memory-neutrality',
+  },
+  {
+    file: 'scan-memory-mirror.mjs',
+    finder: 'collectMemoryMirrorFindings',
+    tree: '.agents/memory',
+    why: 'memory-mirroring.md makes the in-repo memory corpus mandatory HERE, so its absence is a broken checkout rather than a repository that has not started one',
+  },
+  {
+    file: 'scan-orchestration-map.mjs',
+    finder: 'collectOrchestrationMapFindings',
+    tree: '.claude/agents',
+    why: 'the agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing (the missing MAP was already an error — the missing SUBJECT was not)',
+  },
+  {
+    file: 'scan-spec-research.mjs',
+    finder: 'collectSpecResearchFindings',
+    tree: '.agents/spec-docs',
+    why: 'the spec-doc pipeline is the corpus and every stage directory was optional, so a root with none of them printed a pass over nothing',
   },
 ];
 
@@ -184,6 +367,7 @@ export const MANDATORY_TREE_GUARDS = [
  * Every `measured` value here was produced by executing the finder, not by reading it.
  */
 export const PENDING_CLASSIFICATION = [
+
   // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
   // never classified, so `harness:test` was red on develop itself. Measured here rather than
   // assumed, twice each, by executing the finder against a bare root:
@@ -195,11 +379,6 @@ export const PENDING_CLASSIFICATION = [
   //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
   //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
   //     INFRA-060, not silently pinned as though it were sound.
-  {
-    file: 'scan-test-selection-tolerance.mjs',
-    finder: 'findTestSelectionFindings',
-    measured: 'vacuous',
-  },
   {
     // Measured 2026-07-26: the FINDER returns `{findings: [], invocations: 0}` on an empty root —
     // vacuous by itself. Its `main()` treats `invocations === 0` as a failure, so the CLI is
@@ -227,26 +406,20 @@ export const PENDING_CLASSIFICATION = [
     measured: 'fail-closed',
   },
   {
-    file: 'check-architecture-map-paths.mjs',
-    finder: 'findArchitectureMapPathFindings',
-    measured: 'vacuous',
-  },
-  {
     file: 'check-background-workspace-conformance.mjs',
     finder: 'findBackgroundWorkspaceConformanceFindings',
     measured: 'fail-closed',
   },
   {
+    // RE-MEASURED 2026-07-27 in HARNESS-052's second pass and DELIBERATELY left here. It returns the
+    // exemptions its sibling APPLIED, so an empty result is the honest answer for a tree with no
+    // exemptions in it — the verdict is `findBackgroundWorkspaceConformanceFindings`, which measures
+    // fail-closed. Forcing this one to throw would certify a property it does not hold and does not
+    // need, which is the mistake of treating this ledger as a to-do list.
     file: 'check-background-workspace-conformance.mjs',
     finder: 'findUsedExemptions',
     measured: 'vacuous',
   },
-  {
-    file: 'check-backlog-placement.mjs',
-    finder: 'findBacklogPlacementFindings',
-    measured: 'vacuous',
-  },
-  { file: 'check-backlog-placement.mjs', finder: 'findDuplicateIdFindings', measured: 'vacuous' },
   {
     file: 'check-build-output-contracts.mjs',
     finder: 'findBuildOutputContractFindings',
@@ -258,65 +431,14 @@ export const PENDING_CLASSIFICATION = [
     measured: 'fail-closed',
   },
   {
-    file: 'check-command-layering.mjs',
-    finder: 'findCommandLayeringFindings',
-    measured: 'vacuous',
-  },
-  { file: 'check-dep-kind.mjs', finder: 'findDevDepOnlyRuntimeImports', measured: 'vacuous' },
-  { file: 'check-done-evidence.mjs', finder: 'findDoneEvidenceFindings', measured: 'vacuous' },
-  {
     file: 'check-functional-coverage.mjs',
     finder: 'collectFunctionalCoverageFindings',
     measured: 'fail-closed',
   },
   {
-    file: 'check-ghost-package-refs.mjs',
-    finder: 'findGhostPackageRefFindings',
-    measured: 'vacuous',
-  },
-  {
-    file: 'check-harness-config-paths.mjs',
-    finder: 'findHarnessConfigPathFindings',
-    measured: 'vacuous',
-  },
-  { file: 'check-orphan-exports.mjs', finder: 'findOrphanExportFindings', measured: 'vacuous' },
-  { file: 'check-publish-safety.mjs', finder: 'findPublishClaimFindings', measured: 'vacuous' },
-  {
-    file: 'check-sdk-public-surface.mjs',
-    finder: 'findSdkPublicSurfaceFindings',
-    measured: 'vacuous',
-  },
-  { file: 'check-spec-paths.mjs', finder: 'findSpecPathFindings', measured: 'vacuous' },
-  {
-    file: 'check-spec-public-surface.mjs',
-    finder: 'collectUndocumentedExports',
-    measured: 'vacuous',
-  },
-  {
-    file: 'check-spec-public-surface.mjs',
-    finder: 'findPublicSurfaceFindings',
-    measured: 'vacuous',
-  },
-  { file: 'check-stub-markers.mjs', finder: 'findStubMarkerFindings', measured: 'vacuous' },
-  { file: 'check-task-archival.mjs', finder: 'findTaskArchivalFindings', measured: 'vacuous' },
-  { file: 'check-temp-script-placement.mjs', finder: 'findParkedTempScripts', measured: 'vacuous' },
-  { file: 'check-workspace-refs.mjs', finder: 'findWorkspaceRefFindings', measured: 'vacuous' },
-  { file: 'scan-api-pagination.mjs', finder: 'findUnpaginatedApiQueries', measured: 'vacuous' },
-  {
-    file: 'scan-capability-reachability.mjs',
-    finder: 'findCapabilityReachabilityFindings',
-    measured: 'vacuous',
-  },
-  {
     file: 'scan-conflict-markers.mjs',
     finder: 'findConflictMarkerFindings',
     measured: 'fail-closed',
-  },
-  { file: 'scan-deployment-matrix.mjs', finder: 'findTransportNames', measured: 'vacuous' },
-  {
-    file: 'scan-deprecated-markers.mjs',
-    finder: 'findDeprecatedMarkerFindings',
-    measured: 'vacuous',
   },
   {
     // RE-MEASURED 2026-07-26 after HARNESS-053 replaced this scan's presence-only body with a real
@@ -336,7 +458,6 @@ export const PENDING_CLASSIFICATION = [
     finder: 'collectDistFreshnessResults',
     measured: 'fail-closed',
   },
-  { file: 'scan-evals-neutrality.mjs', finder: 'findEvalsNeutralityFindings', measured: 'vacuous' },
   {
     file: 'scan-guard-scope-fail-closed.mjs',
     finder: 'findGuardScopeFindings',
@@ -345,7 +466,17 @@ export const PENDING_CLASSIFICATION = [
   },
   { file: 'scan-hook-catalog.mjs', finder: 'collectFiringEvents', measured: 'fail-closed' },
   { file: 'scan-hook-catalog.mjs', finder: 'findHookCatalogFindings', measured: 'fail-closed' },
-  { file: 'scan-legacy-typescript.mjs', finder: 'collectInstalledCopies', measured: 'vacuous' },
+  {
+    // Left vacuous DELIBERATELY (re-measured 2026-07-27). Its governed tree is `node_modules`, which
+    // is not checked in: a fresh clone before `pnpm install`, and every git worktree in this repo's
+    // own parallel-agent workflow, legitimately has none. Making its absence an error would fail on
+    // a correct tree, and a guard that fires on correct data is one that gets suppressed. The
+    // finder returns `undefined` rather than `[]` for exactly this reason, so its caller can tell
+    // "no copies" from "nothing to look in".
+    file: 'scan-legacy-typescript.mjs',
+    finder: 'collectInstalledCopies',
+    measured: 'vacuous',
+  },
   {
     file: 'scan-legacy-typescript.mjs',
     finder: 'findLegacyTypeScriptFindings',
@@ -356,28 +487,11 @@ export const PENDING_CLASSIFICATION = [
     finder: 'findRequiredCheckFindings',
     measured: 'fail-closed',
   },
-  { file: 'scan-memory-mirror.mjs', finder: 'collectMemoryMirrorFindings', measured: 'vacuous' },
-  {
-    file: 'scan-memory-neutrality.mjs',
-    finder: 'findMemoryNeutralityFindings',
-    measured: 'vacuous',
-  },
-  {
-    file: 'scan-orchestration-map.mjs',
-    finder: 'collectOrchestrationMapFindings',
-    measured: 'vacuous',
-  },
-  {
-    file: 'scan-orchestration-neutrality.mjs',
-    finder: 'findOrchestrationNeutralityFindings',
-    measured: 'vacuous',
-  },
   {
     file: 'scan-review-findings.mjs',
     finder: 'collectReviewFindingsFindings',
     measured: 'fail-closed',
   },
-  { file: 'scan-spec-research.mjs', finder: 'collectSpecResearchFindings', measured: 'vacuous' },
   {
     file: 'scan-unearned-done-claims.mjs',
     finder: 'findUnearnedDoneClaimFindings',
@@ -391,7 +505,12 @@ export const measuredVacuous = () =>
 
 /** Scan scripts registered in `run-all-scans.mjs`, as bare filenames. Parsed, never hand-listed. */
 export function registeredScanFiles(root = WORKSPACE_ROOT) {
-  const source = readFileSync(path.join(root, REGISTRATION_FILE), 'utf8');
+  // Comments are stripped first (HARNESS-052): the raw text of the registration file names scans in
+  // its own docstrings and in `// …` notes beside table entries, so a scan that had been COMMENTED
+  // OUT of the table — or deleted from it and merely mentioned — still counted as registered. That
+  // is the presence-of-a-string shape this item's second axis is about, in this scan's own
+  // derivation. Structure lives in the array; comments are prose.
+  const source = stripJsComments(readFileSync(path.join(root, REGISTRATION_FILE), 'utf8'));
   const files = [...source.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
   if (files.length === 0)
     throw new Error(
@@ -484,6 +603,26 @@ export function classificationFindings(root = WORKSPACE_ROOT) {
       subject: key,
       detail: 'appears in BOTH tables — it must appear in exactly one.',
     });
+
+  // EXACTLY ONE means exactly one, including within a single table. The cross-table rule above was
+  // the whole of it, so `scan-test-selection-tolerance#findTestSelectionFindings` sat in
+  // PENDING_CLASSIFICATION TWICE — measured twice, counted twice in the summary line, and a future
+  // repair would have had to be noticed twice. A rule stated as "exactly one" that only checks
+  // "not two tables" is the audited shape in miniature.
+  for (const [table, keys] of [
+    ['MANDATORY_TREE_GUARDS', mandatory],
+    ['PENDING_CLASSIFICATION', pending],
+  ]) {
+    const counts = new Map();
+    for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
+    for (const [key, count] of counts) {
+      if (count > 1)
+        findings.push({
+          subject: key,
+          detail: `appears ${count} times in ${table} — it must appear exactly once.`,
+        });
+    }
+  }
   return findings;
 }
 

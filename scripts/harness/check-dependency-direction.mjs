@@ -29,6 +29,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
+import { listSpecPackageDirs } from './workspace-packages.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
@@ -391,13 +392,13 @@ function collectArchitectureDocFiles(root, docConfig) {
     const abs = join(root, dir);
     if (existsSync(abs)) walkMarkdown(abs, files);
   }
-  const pkgBase = join(root, 'packages');
-  if (existsSync(pkgBase)) {
-    for (const entry of readdirSync(pkgBase, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const spec = join(pkgBase, entry.name, 'docs', 'SPEC.md');
-      if (existsSync(spec)) files.push(spec);
-    }
+  // HARNESS-052: the SPEC sweep was a depth-1 `readdir` of `packages/` while the rule's stated
+  // subject is "EVERY `packages/<name>/docs/SPEC.md`" — leaving the 20 SPECs of the nested
+  // `packages/dag-nodes/*` group unchecked. The asymmetry was inside this one file: its own
+  // `findWorkspacePackages` was already nesting-aware, so the scan knew about packages it then
+  // declined to read the SPECs of.
+  for (const pkgDir of listSpecPackageDirs(root)) {
+    files.push(join(pkgDir, 'docs', 'SPEC.md'));
   }
   return files.sort();
 }

@@ -80,8 +80,17 @@ const DEFAULT_SCAN_CONCURRENCY = Math.max(
     1,
 );
 
-/** Ordered scan list — mirrors the former harness:scan chain. */
-const SCAN_COMMANDS = [
+/**
+ * Ordered scan list — mirrors the former harness:scan chain.
+ *
+ * EXPORTED (HARNESS-052) so a scan can ask whether it is registered by reading this ARRAY rather
+ * than by grepping this file's text. `check-test-coverage-scripts` proved its own wiring with
+ * `readFileSync(run-all-scans.mjs).includes('check-test-coverage-scripts.mjs')`, which stays true
+ * when the registration is commented out, deleted from the array but named in a comment, or
+ * mentioned in this very docstring. A presence-of-a-string standing in for a structural property is
+ * the sub-shape that item's second axis is about; the structure is here, so read the structure.
+ */
+export const SCAN_COMMANDS = [
   { name: 'consistency', command: ['node', 'scripts/harness/scan-consistency.mjs'] },
   { name: 'memory-mirror', command: ['node', 'scripts/harness/scan-memory-mirror.mjs'] },
   { name: 'spec-research', command: ['node', 'scripts/harness/scan-spec-research.mjs'] },

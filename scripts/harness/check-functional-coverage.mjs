@@ -22,6 +22,43 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MANIFEST_PATH = path.join(import.meta.dirname, 'functional-coverage-manifest.json');
 
 /**
+ * Strip block and line comments so a marker MENTIONED in a comment is not evidence of use.
+ *
+ * HARNESS-052 sub-shape A: this check claimed "every framework capability … drives a REAL
+ * InteractiveSession" while accepting `source.includes('scriptedSession')` — true of the token in a
+ * comment beside a `describe.skip`, which is the precise case its own docstring forbids.
+ */
+export function stripComments(sourceText) {
+  return String(sourceText ?? '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/** Is the harness marker actually CALLED (or constructed / used as a type argument) here? */
+export function usesMarker(code, marker) {
+  const escaped = String(marker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:new\\s+)?\\b${escaped}\\s*[(<]`).test(String(code ?? ''));
+}
+
+/**
+ * Does the file declare at least one test that is not skipped?
+ *
+ * The manifest's contract is "not a skipped E2E". A file whose every case is `it.skip` still
+ * contains the marker, still passes a substring check, and covers nothing. Deliberately narrow: a
+ * PARTIALLY skipped file is fine — flagging those would fire on legitimate work, and a guard that
+ * fires on correct data is one that gets suppressed.
+ */
+export function hasLiveTest(code) {
+  const declarations = String(code ?? '').matchAll(
+    /\b(?:it|test)((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g,
+  );
+  for (const match of declarations) {
+    if (!/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) return true;
+  }
+  return false;
+}
+
+/**
  * Pure finding collector. Returns { findings, capabilityCount }; `findings` non-empty means the
  * check fails. Manifest-shape violations (missing/invalid manifest, empty markers/capabilities)
  * are findings of the same kind — the CLI wrapper prints them identically to the original.
@@ -73,10 +110,15 @@ export function collectFunctionalCoverageFindings(
       findings.push(`${id}: functional test not found: ${test}`);
       continue;
     }
-    const source = readFileSync(abs, 'utf8');
-    if (!markers.some((marker) => source.includes(marker))) {
+    const code = stripComments(readFileSync(abs, 'utf8'));
+    if (!markers.some((marker) => usesMarker(code, marker))) {
       findings.push(
-        `${id}: ${test} does not use the functional harness (expected one of: ${markers.join(', ')})`,
+        `${id}: ${test} does not use the functional harness (expected a call to one of: ${markers.join(', ')})`,
+      );
+    }
+    if (!hasLiveTest(code)) {
+      findings.push(
+        `${id}: ${test} declares no live test — every case is skipped, so the capability is covered on paper only`,
       );
     }
   }

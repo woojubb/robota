@@ -28,6 +28,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_DIR = '.agents/tasks';
@@ -87,6 +88,11 @@ export function classifyTaskFile(content) {
 }
 
 export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [TASKS_DIR], {
+    scan: 'task-archival',
+    why:
+      'The task tree is the subject; a readdir failure was swallowed and returned as "nothing to archive".',
+  });
   const findings = [];
   const exemptions = [];
   const tasksAbsolute = path.join(root, TASKS_DIR);

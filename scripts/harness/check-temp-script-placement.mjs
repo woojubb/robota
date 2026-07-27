@@ -16,6 +16,7 @@
 
 import path from 'node:path';
 import { globSync } from 'node:fs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -23,6 +24,11 @@ export const TEMP_PATTERNS = ['*-user-execution.*', '*-proxy.mjs', '*-mode.txt']
 
 /** List temp-pattern files under packages/ and apps/ (node_modules/dist excluded). */
 export function findParkedTempScripts(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'temp-script-placement',
+    why:
+      'It globs the two source families for parked temp scripts; over neither, "none parked" is a statement about an empty glob.',
+  });
   const found = [];
   for (const tier of ['packages', 'apps']) {
     for (const pattern of TEMP_PATTERNS) {

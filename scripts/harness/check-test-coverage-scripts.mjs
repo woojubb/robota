@@ -8,9 +8,9 @@
  * explicit and opt-in.
  */
 
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { SCAN_COMMANDS } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 
 const ROOT_PACKAGE_JSON_PATH = path.join(process.cwd(), 'package.json');
@@ -73,19 +73,19 @@ export function findRootCoverageScriptFindings(packageJson) {
   }
 
   const harnessScan = scripts['harness:scan'];
-  // harness:scan delegates to the aggregating runner (HARNESS-011); the wiring
-  // invariant is satisfied when the runner's scan table includes this scan.
-  const runnerWired = (() => {
-    try {
-      return readFileSync(
-        path.join(process.cwd(), 'scripts/harness/run-all-scans.mjs'),
-        'utf8',
-      ).includes('check-test-coverage-scripts.mjs');
-    } catch {
-      // allow-fallback: missing runner file means the wiring invariant fails below
-      return false;
-    }
-  })();
+  // harness:scan delegates to the aggregating runner (HARNESS-011); the wiring invariant is
+  // satisfied when the runner's scan table includes this scan.
+  //
+  // HARNESS-052: this read the runner's SOURCE TEXT and asked whether the string
+  // `check-test-coverage-scripts.mjs` appeared in it. That is satisfied by a commented-out
+  // registration, by a line removed from the table but still named in a comment, and by this very
+  // comment — a check proving "wired into harness:scan" with evidence that survives being unwired.
+  // The registration is a data structure; it is now read AS one.
+  const runnerWired = SCAN_COMMANDS.some((scan) =>
+    (scan.command ?? []).some((argument) =>
+      String(argument).endsWith('scripts/harness/check-test-coverage-scripts.mjs'),
+    ),
+  );
   if (
     typeof harnessScan !== 'string' ||
     (!harnessScan.includes('harness:scan:coverage-scripts') &&
