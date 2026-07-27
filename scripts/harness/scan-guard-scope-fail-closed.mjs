@@ -202,11 +202,6 @@ export const PENDING_CLASSIFICATION = [
   //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
   //     INFRA-060, not silently pinned as though it were sound.
   {
-    file: 'scan-test-selection-tolerance.mjs',
-    finder: 'findTestSelectionFindings',
-    measured: 'vacuous',
-  },
-  {
     // Measured 2026-07-26: the FINDER returns `{findings: [], invocations: 0}` on an empty root —
     // vacuous by itself. Its `main()` treats `invocations === 0` as a failure, so the CLI is
     // fail-closed while the exported finder is not. Recorded rather than pinned because
@@ -392,7 +387,12 @@ export const measuredVacuous = () =>
 
 /** Scan scripts registered in `run-all-scans.mjs`, as bare filenames. Parsed, never hand-listed. */
 export function registeredScanFiles(root = WORKSPACE_ROOT) {
-  const source = readFileSync(path.join(root, REGISTRATION_FILE), 'utf8');
+  // Comments are stripped first (HARNESS-052): the raw text of the registration file names scans in
+  // its own docstrings and in `// …` notes beside table entries, so a scan that had been COMMENTED
+  // OUT of the table — or deleted from it and merely mentioned — still counted as registered. That
+  // is the presence-of-a-string shape this item's second axis is about, in this scan's own
+  // derivation. Structure lives in the array; comments are prose.
+  const source = stripJsComments(readFileSync(path.join(root, REGISTRATION_FILE), 'utf8'));
   const files = [...source.matchAll(/scripts\/harness\/([a-z0-9-]+\.mjs)/g)].map((m) => m[1]);
   if (files.length === 0)
     throw new Error(
@@ -485,6 +485,26 @@ export function classificationFindings(root = WORKSPACE_ROOT) {
       subject: key,
       detail: 'appears in BOTH tables — it must appear in exactly one.',
     });
+
+  // EXACTLY ONE means exactly one, including within a single table. The cross-table rule above was
+  // the whole of it, so `scan-test-selection-tolerance#findTestSelectionFindings` sat in
+  // PENDING_CLASSIFICATION TWICE — measured twice, counted twice in the summary line, and a future
+  // repair would have had to be noticed twice. A rule stated as "exactly one" that only checks
+  // "not two tables" is the audited shape in miniature.
+  for (const [table, keys] of [
+    ['MANDATORY_TREE_GUARDS', mandatory],
+    ['PENDING_CLASSIFICATION', pending],
+  ]) {
+    const counts = new Map();
+    for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
+    for (const [key, count] of counts) {
+      if (count > 1)
+        findings.push({
+          subject: key,
+          detail: `appears ${count} times in ${table} — it must appear exactly once.`,
+        });
+    }
+  }
   return findings;
 }
 

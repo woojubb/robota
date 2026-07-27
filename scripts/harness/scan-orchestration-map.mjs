@@ -25,6 +25,32 @@ import { asScalar, frontmatterObject } from './frontmatter.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+/**
+ * Agent names that own a ROW in one of the map's registry tables — the first cell of a table line,
+ * as a backticked token.
+ *
+ * HARNESS-052 sub-shape A. The rule was `mapText.includes(name)`, which proves "listed in the
+ * Orchestration Map" with any occurrence anywhere: the name in prose, inside a fenced diagram, in a
+ * footnote, or as a SUBSTRING of a different agent's name — `pr-review-review` is contained in
+ * `pr-review-reviewer`, so deleting one agent's row could leave another's check satisfied by it.
+ * "Listed" means it has a row, and a row is a structure, so the structure is what is read.
+ *
+ * Measured before tightening, because a rule that fires on correct data gets suppressed: every agent
+ * definition in this repository already owns a first-cell row, so this narrows the accepted evidence
+ * without inventing work. What it does NOT demand is a formatting convention — the name may be
+ * backticked, bolded or bare, because the structural claim is "it has a row", not "it is written a
+ * particular way", and a guard that also polices styling is one people learn to route around.
+ */
+export function mapRowNames(mapText) {
+  const names = new Set();
+  for (const line of String(mapText ?? '').split('\n')) {
+    if (!line.trimStart().startsWith('|')) continue;
+    const firstCell = (line.split('|')[1] ?? '').replace(/[`*_[\]]/g, ' ');
+    for (const match of firstCell.matchAll(/[A-Za-z0-9][\w-]*/g)) names.add(match[0]);
+  }
+  return names;
+}
+
 export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
   const agentsDir = path.join(root, '.claude/agents');
   const mapPath = path.join(root, '.agents/specs/orchestration-map.md');
@@ -33,16 +59,17 @@ export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
     return { mapMissing: true, findings: [] };
   }
   const mapText = readFileSync(mapPath, 'utf8');
+  const rowNames = mapRowNames(mapText);
 
   const findings = [];
   if (existsSync(agentsDir)) {
     for (const file of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
       const text = readFileSync(path.join(agentsDir, file), 'utf8');
       const name = asScalar(frontmatterObject(text).name) || file.replace(/\.md$/, '');
-      // Require the agent name to appear in the map (e.g. as `name` in a table/diagram).
-      if (!mapText.includes(name)) {
+      // Require the agent to own a registry ROW, not merely to be mentioned somewhere in the file.
+      if (!rowNames.has(name)) {
         findings.push(
-          `agent "${name}" (.claude/agents/${file}) is not listed in the Orchestration Map — add it (role, signal, pipeline).`,
+          `agent "${name}" (.claude/agents/${file}) has no row in the Orchestration Map — add one (role, signal, pipeline). A mention in prose or inside a diagram is not a listing.`,
         );
       }
     }

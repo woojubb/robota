@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -5,6 +7,7 @@ import {
   findRootCoverageScriptFindings,
   isCoverageScriptRequired,
 } from '../check-test-coverage-scripts.mjs';
+import { SCAN_COMMANDS } from '../run-all-scans.mjs';
 
 describe('isCoverageScriptRequired', () => {
   it('requires coverage for Vitest packages that expose test', () => {
@@ -86,5 +89,29 @@ describe('findRootCoverageScriptFindings', () => {
         detail: 'Root harness:scan must include harness:scan:coverage-scripts.',
       },
     ]);
+  });
+
+  /**
+   * HARNESS-052. The wiring half of this check proved "registered in the runner" with
+   * `readFileSync(run-all-scans.mjs).includes('check-test-coverage-scripts.mjs')` — true of a
+   * commented-out registration, of a line deleted from the table but named in a comment, and of the
+   * runner's own docstring. Falsified by commenting the registration out: the substring was still
+   * present twice and the check stayed green, while reading the exported array reports
+   * `coverage-scan-not-wired`. This pins the structural read so the string test cannot come back.
+   */
+  it('proves registration from the runner’s exported table, not from its source text', () => {
+    const source = readFileSync(
+      new URL('../check-test-coverage-scripts.mjs', import.meta.url),
+      'utf8',
+    );
+    expect(source).toContain("import { SCAN_COMMANDS } from './run-all-scans.mjs'");
+    expect(source).not.toMatch(/readFileSync\([^)]*run-all-scans/);
+    expect(
+      SCAN_COMMANDS.some((scan) =>
+        (scan.command ?? []).some((argument) =>
+          String(argument).endsWith('check-test-coverage-scripts.mjs'),
+        ),
+      ),
+    ).toBe(true);
   });
 });
