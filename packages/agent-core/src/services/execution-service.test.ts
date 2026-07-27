@@ -933,13 +933,20 @@ describe('ExecutionService', () => {
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 
+    // Timings are in milliseconds and are raced against REAL timers, so the margin between a delta
+    // and the deadline it refreshes is the whole test. The original spacing — deltas at 10ms and
+    // 25ms against a 30ms idle timeout, resolving at 40ms — left 15ms of slack, and a loaded CI
+    // runner ate it: this failed in `release-grade verification` with `expected false to be true`
+    // while passing locally every time. The ratios below are identical and every interval is 10x
+    // longer, so the same behaviour is exercised with 150ms of slack instead of 15ms. The test
+    // still finishes in well under a second.
     it('should refresh provider idle timeout when streaming deltas arrive', async () => {
       const streamed = 'still working';
       mockProvider.chat = vi.fn(
         (_messages: TUniversalMessage[], options?: IChatOptions) =>
           new Promise<TUniversalMessage>((resolve) => {
-            setTimeout(() => options?.onTextDelta?.('still '), 10);
-            setTimeout(() => options?.onTextDelta?.('working'), 25);
+            setTimeout(() => options?.onTextDelta?.('still '), 100);
+            setTimeout(() => options?.onTextDelta?.('working'), 250);
             setTimeout(() => {
               resolve({
                 id: 'msg-streaming',
@@ -948,7 +955,7 @@ describe('ExecutionService', () => {
                 state: 'complete' as const,
                 timestamp: new Date(),
               });
-            }, 40);
+            }, 400);
           }),
       );
 
@@ -963,7 +970,7 @@ describe('ExecutionService', () => {
             model: 'gpt-4',
           },
           systemMessage: 'You are a helpful assistant.',
-          timeout: 30,
+          timeout: 300,
         },
         {
           conversationId: 'provider-timeout-refresh-test',
