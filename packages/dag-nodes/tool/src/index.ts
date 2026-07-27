@@ -1,25 +1,8 @@
-import {
-  createBashTool,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createShellTool,
-  createWriteTool,
-  webFetchTool,
-  webSearchTool,
-} from '@robota-sdk/agent-tools';
-import { isPathInside, type ITool } from '@robota-sdk/agent-core';
-import { resolve } from 'node:path';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 
-/**
- * Structural tool contract these agent-tools builtins satisfy (`FunctionTool` is owned by
- * `@robota-sdk/agent-core`, DATA-005 SSOT). Typed by the `ITool` interface rather than the concrete
- * class so it unifies across agent-core's dual ESM/CJS `.d.ts` (the class's private `eventService`
- * would otherwise read as a distinct nominal type). Only `.execute()` is used here.
- */
-type FunctionTool = ITool;
+import { resolveContainmentRoot } from './containment.js';
+import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
+
 import {
   buildTaskExecutionError,
   buildValidationError,
@@ -33,40 +16,7 @@ import {
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
 
-/**
- * A builtin factory, always given a containment root (SEC-007).
- *
- * `cwd` is REQUIRED here rather than optional, for the reason `pack-coding`'s `ICodingPackOptions`
- * makes it required: `checkPathWithinCwd` is a NO-OP when `cwd` is `undefined`, so an optional root is
- * a guard that disarms itself by omission. The two builtins that reach the network (`web-fetch`,
- * `web-search`) have no filesystem path to contain and ignore it.
- */
-type ToolFactory = (options: { cwd: string }) => FunctionTool;
-
-/** Static allowlist mapping `toolName` → the agent-tools builtin factory. */
-const TOOL_FACTORIES: Readonly<Record<string, ToolFactory>> = {
-  read: (o) => createReadTool(o),
-  write: (o) => createWriteTool(o),
-  edit: (o) => createEditTool(o),
-  // SEC-007: for these two the root is the DEFAULT WORKING DIRECTORY, not a boundary — deliberately,
-  // and not to be "fixed" by reflex. A cwd guard on arbitrary command execution is undone by the
-  // first `cd ..`, so it would constrain nothing while READING as a boundary in review. The real
-  // boundary for command execution is the permission layer and the sandbox seam.
-  shell: (o) => createShellTool(o),
-  bash: (o) => createBashTool(o),
-  // SEC-007: built per invocation and bound to the root, not the module-level `globTool`/`grepTool`
-  // singletons this node used to hand back. Those are documented as UNCONTAINED precisely because a
-  // singleton is context-free by construction — there is nothing for a containment root to bind to.
-  glob: (o) => createGlobTool(o),
-  grep: (o) => createGrepTool(o),
-  'web-fetch': () => webFetchTool,
-  'web-search': () => webSearchTool,
-};
-
-/** The builtin tool names this node can run in-process. */
-export const TOOL_NODE_ALLOWED_TOOLS: readonly string[] = Object.freeze(
-  Object.keys(TOOL_FACTORIES),
-);
+export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
 export const ToolNodeConfigSchema = z.object({
   /** Which in-process agent-tools builtin to run (see TOOL_NODE_ALLOWED_TOOLS). */
@@ -122,49 +72,6 @@ function coerceToolResult(data: unknown): { output: string; isError: boolean } {
     // allow-fallback: non-JSON output is plain success text
   }
   return { output: text, isError: false };
-}
-
-/**
- * SEC-007 — resolve the containment root every builtin this node runs is bound to.
- *
- * The boundary is the directory the run was invoked from. That is the same anchor the `file-read` and
- * `file-write` nodes use, and for the same stated reason: `INodeExecutionContext` carries no workspace
- * root, so this makes explicit the boundary the node was already implicitly claiming rather than
- * inventing a new concept. Without it this node was the way AROUND those two — `toolName: "read"`
- * with an absolute path did what `file-read` refuses.
- *
- * `config.cwd` may only NARROW that root. It comes out of the same LLM-authorable `.dag.json` as the
- * paths it is nominally containing, so honouring it as the boundary would let `{"cwd":"/"}` disarm
- * the guard by writing one line — a root the attacker supplies is not a root.
- *
- * Decided canonically through agent-core's shared `isPathInside` SSOT, so a `cwd` reached through a
- * symlink that escapes is refused too. A lexical check passes `escape/…` when `escape -> /`, because
- * `resolve()` never consults the filesystem; segment validation would not catch it either, since
- * `escape` is a perfectly plain segment.
- */
-function resolveContainmentRoot(
-  configCwd: string | undefined,
-  nodeId: string,
-): TResult<string, IDagError> {
-  const invocationRoot = process.cwd();
-  if (configCwd === undefined) return { ok: true, value: invocationRoot };
-
-  const requested = resolve(invocationRoot, configCwd);
-  if (!isPathInside(invocationRoot, requested)) {
-    return {
-      ok: false,
-      error: buildValidationError(
-        'DAG_VALIDATION_TOOL_CWD_OUTSIDE_ROOT',
-        `cwd "${configCwd}" resolves outside the working directory`,
-        { nodeId },
-        {
-          action: 'set_config',
-          suggestion: 'Set cwd to a directory inside the directory the run was invoked from',
-        },
-      ),
-    };
-  }
-  return { ok: true, value: requested };
 }
 
 function invalidParamsError(toolName: string, message: string, suggestion: string): IDagError {
