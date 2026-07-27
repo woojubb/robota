@@ -19,8 +19,36 @@ fi
 
 COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
-# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`)
-echo "$COMMAND" | grep -qE '^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*push(\s|$)' || exit 0
+# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
+#
+# Matched at any STATEMENT boundary, not only at the start of the command. The `^`-anchored version
+# fired only when the whole command began with `git push`, so every compound form slipped past it
+# silently — and `cd <repo> && git push`, or a multi-line block whose push is on a later line, is how
+# a push is normally written here. Measured 2026-07-27: EVERY push in a long session bypassed this
+# guard, which is why the branch-hygiene rule it enforces kept being violated. The guard existed, was
+# registered, and was unreachable from the way commands are actually issued — enforcement that no
+# real invocation can reach is indistinguishable from no enforcement.
+#
+# Boundaries are STATEMENT separators only — line start, `;`, `&&`, `||`, `|`, `(`, and the literal
+# `\n` that survives JSON extraction. Bare whitespace is NOT a boundary, deliberately: with it,
+# `gh pr create --body "… git push …"` and `git commit -m "fix: git push guard"` both match, and a
+# guard that blocks ordinary work is one that gets switched off.
+#
+# THE CEILING, stated rather than discovered later. This is `grep` over a command string; it does not
+# understand shell quoting, so a separator INSIDE a quoted argument —
+# `git commit -m 'note: cd x; git push'` — reads as a real one and the hook runs. That is a genuine
+# false positive and the trade is deliberate: a missed push cost a promotion-ancestry break, while a
+# spurious run costs one lockfile check and passes silently on a clean branch. Understanding quoting
+# needs the shell-aware extraction filed as HARNESS-061, not a longer regex.
+#
+# That false positive does not reproduce today only because the shared COMMAND extraction truncates
+# at the first escaped quote, so the text after `--body \"` is never seen (HARNESS-061). It would
+# come alive the moment that extraction is repaired — so it is excluded here rather than left as a
+# trap for whoever fixes it.
+# `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
+# with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
+# one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
+echo "$COMMAND" | grep -qE '(^|[;&|({]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
