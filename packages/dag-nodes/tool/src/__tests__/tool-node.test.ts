@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -91,14 +91,22 @@ describe('ToolNodeDefinition execution', () => {
   const node = new ToolNodeDefinition();
   let dir: string;
   let file: string;
+  let originalCwd: string;
 
+  // SEC-007: the builtins this node runs are contained to the invocation directory, so these
+  // plumbing cases (params merging, result coercion) exercise a file INSIDE it. They previously read
+  // out of `tmpdir()` while the process ran elsewhere, which only passed because nothing was
+  // contained — the assertion was documenting the hole, not the contract.
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'dag-tool-node-'));
+    originalCwd = process.cwd();
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'dag-tool-node-')));
     file = join(dir, 'hello.txt');
     writeFileSync(file, 'alpha\nbeta\ngamma\n', 'utf8');
+    process.chdir(dir);
   });
 
   afterAll(() => {
+    process.chdir(originalCwd);
     rmSync(dir, { recursive: true, force: true });
   });
 
