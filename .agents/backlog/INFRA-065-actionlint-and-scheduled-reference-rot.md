@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-064: the two halves INFRA-059 did NOT deliver — actionlint`s lint pass, and a scheduled re-check for references that rot without a PR'
+title: 'INFRA-065: the two halves INFRA-059 did NOT deliver — actionlint`s lint pass, and a scheduled re-check for references that rot without a PR'
 status: todo
 created: 2026-07-26
 priority: medium
@@ -8,7 +8,7 @@ area: .github/workflows, scripts/harness
 depends_on: [INFRA-059]
 ---
 
-# INFRA-064 — what the resolvability guard does not cover, written down instead of implied
+# INFRA-065 — what the resolvability guard does not cover, written down instead of implied
 
 INFRA-059 shipped `scripts/harness/scan-action-references.mjs`: every `uses:` reference is resolved
 against the real remote, and an unresolvable one is a finding. That closed the defect it was filed

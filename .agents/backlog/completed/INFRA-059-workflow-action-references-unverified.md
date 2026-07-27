@@ -1,9 +1,10 @@
 ---
 id: INFRA-059
 title: 'INFRA-059: Nothing checks that a workflow`s `uses:` references resolve — one has been dead for 8 months'
-status: in-progress
+status: done
 priority: medium
 type: INFRA
+completed: 2026-07-27
 created: 2026-07-26
 urgency: soon
 area: .github/workflows, scripts/harness
@@ -45,7 +46,7 @@ So what landed is a resolvability guard, `scripts/harness/scan-action-references
   SHA pin's `# vX.Y.Z` comment is checked against where that tag really points.
 
 `actionlint`'s own subject — expression syntax, context typing, `run:` shellcheck — is **not**
-delivered here and is filed as **INFRA-064**, together with the scheduled re-check for references
+delivered here and is filed as **INFRA-065**, together with the scheduled re-check for references
 that rot with no PR in flight. The moving-branch-head exposure the live run measured is **HARNESS-055**.
 
 ### Where the live half runs
@@ -79,7 +80,7 @@ deletion is an owner decision, so the owner's call on INFRA-058 now gates this i
 
 Criterion 1 as originally written ("a CI job runs `actionlint`") is **superseded**, for the measured
 reason above: it does not check resolvability. It is not silently reinterpreted — it is carried
-forward as INFRA-064 and replaced here by what actually closes the defect.
+forward as INFRA-065 and replaced here by what actually closes the defect.
 
 - [x] A CI check verifies that every `uses:` reference in every workflow resolves — repository, ref
       and subpath — proven by `scripts/harness/scan-action-references.mjs` registered in
@@ -111,14 +112,14 @@ Every row was executed on 2026-07-26 against github.com. The fixture rows drive 
 functions (`readWorkflowSources` → `resolveAll` → `probeReference` → `classifyResolution`) over a
 throwaway workflow tree; the repository rows run the scan's own entry point.
 
-| # | defect shape                | input                                                        | result |
-| - | --------------------------- | ------------------------------------------------------------ | ------ |
-| 1 | repository does not exist   | the real tree (`deploy.yml` → `vercel/action@v1`)             | exit 1 — reported at BOTH `deploy.yml:111` and `:121` |
-| 2 | ref does not resolve        | `actions/checkout@v99.9.9`                                    | exit 1 — "the ref does not resolve to a tag, branch or commit" |
-| 3 | subpath carries no manifest | `github/codeql-action/typo-not-real@v4`                       | exit 1 — resolves to `e4fba868fa4b`, "carries no `action.yml`" |
-| 4 | pin claims a tag it is not  | `actions/checkout@8ade135a…` (v4.1.0) commented `# v4.2.2`    | exit 1 — "claims `v4.2.2` … but that tag points at 11bd71901bbe" |
-| 5 | network unreachable         | the real tree with `https_proxy=http://127.0.0.1:1`           | exit 1 — 77 findings, "Unreachable is a failure, not a skip" |
-| 6 | GREEN (control)             | `actions/checkout@v4`, `github/codeql-action/init@v4`, `actions/checkout@8ade135a… # v4.1.0` | exit 0 — all three resolved, manifests present |
+| #   | defect shape                | input                                                                                        | result                                                           |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1   | repository does not exist   | the real tree (`deploy.yml` → `vercel/action@v1`)                                            | exit 1 — reported at BOTH `deploy.yml:111` and `:121`            |
+| 2   | ref does not resolve        | `actions/checkout@v99.9.9`                                                                   | exit 1 — "the ref does not resolve to a tag, branch or commit"   |
+| 3   | subpath carries no manifest | `github/codeql-action/typo-not-real@v4`                                                      | exit 1 — resolves to `e4fba868fa4b`, "carries no `action.yml`"   |
+| 4   | pin claims a tag it is not  | `actions/checkout@8ade135a…` (v4.1.0) commented `# v4.2.2`                                   | exit 1 — "claims `v4.2.2` … but that tag points at 11bd71901bbe" |
+| 5   | network unreachable         | the real tree with `https_proxy=http://127.0.0.1:1`                                          | exit 1 — 77 findings, "Unreachable is a failure, not a skip"     |
+| 6   | GREEN (control)             | `actions/checkout@v4`, `github/codeql-action/init@v4`, `actions/checkout@8ade135a… # v4.1.0` | exit 0 — all three resolved, manifests present                   |
 
 Row 6 is what makes rows 1–5 mean anything: the guard is not simply failing on everything. Rows 1
 and 5 use the same tree and differ only in reachability, and produce different verdicts.
@@ -153,10 +154,25 @@ continued:
 - "ship red and disclose" understates the consequence → restated as a merge-order dependency on
   INFRA-058;
 - acceptance criterion 1 must be amended in the open, not reinterpreted, and the dropped `actionlint`
-  coverage filed → INFRA-064.
+  coverage filed → INFRA-065.
 
 ## User Execution Test Scenarios
 
 Not applicable, on the narrow ground the rule allows: this item ships no user-facing surface, no
 command behaviour and no runtime behaviour. Its entire product is a CI verdict, and the verdict is
 verified by executing the check itself — the six rows above, run by the agent, not reasoned about.
+
+## Closed 2026-07-27
+
+Landed as PR #1497. Every workflow `uses:` reference is parsed and, under `--live`, resolved against
+the remote. Red-proved against the exact incident — replacing one reference with `vercel/action@v1`
+names the file and line and explains that the run dies at `Set up job`.
+
+Two review findings were repaired before merge, both the same shape: a dedup key that discarded what
+the check was comparing. `resolveAll` keyed probes on the reference alone, so one SHA carrying two
+different `# vX` claims collapsed to a single check; `expandFindings` then re-keyed the same way and
+attributed one verdict to both occurrences, telling a correctly-annotated line it claims a tag it
+does not. Both call one `referenceKey` now, so they cannot drift apart again.
+
+What this does NOT cover is filed rather than implied: `HARNESS-055` (two references resolve through
+a branch head) and `INFRA-065` (actionlint`s lint pass, and a scheduled re-check for rot).
