@@ -162,6 +162,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'MEASURED on a bare root before registration, not assumed: it throws `pnpm-workspace.yaml is missing` from `readWorkspaceGlobs`, deliberately, rather than enumerating zero manifests. That distinction is the whole point of the guard — it exists because `pnpm run -r --if-present test` reports success over every workspace it never looked at, and a coverage floor that discovered no test scripts would report exactly the same success over the same silence',
   },
   {
+    file: 'scan-test-plan.mjs',
+    finder: 'collectTestPlanFindings',
+    tree: '.agents/spec-docs',
+    why: 'every directory this scan reads was optional, so a root with none of them printed "test-plan scan passed" — "no planning documents were found" wearing the words "every planning document has a test plan". The spec-doc pipeline is mandatory here, so its absence is an error',
+  },
+  {
     file: 'scan-memory-neutrality.mjs',
     finder: 'findMemoryNeutralityFindings',
     tree: 'packages',
