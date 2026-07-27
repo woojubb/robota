@@ -52,6 +52,20 @@ async function newRepo() {
   return { root, git };
 }
 
+/** Same as `run`, but WITHOUT `--skip-release-gate`, so the preflight actually executes. */
+async function runWithGate(root, extraArgv = []) {
+  let output = '';
+  const code = await main({
+    argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
+    cwd: root,
+    fetch: false,
+    out: (text) => {
+      output += text;
+    },
+  });
+  return { code, output };
+}
+
 async function run(root, extraArgv = []) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
@@ -170,5 +184,30 @@ describe('promote.mjs (INFRA-051)', () => {
     expect(code).toBe(1);
     expect(output).not.toMatch(/CONFLICTS/);
     expect(output).toMatch(/resolving refs\/heads\/does-not-exist failed/);
+  });
+
+  // The release gate itself, driven WITHOUT the skip flag. Every other case opts out, so until this
+  // existed the new preflight had no execution-based coverage at all — the reviewer's point, and a
+  // fair one: `promotion-preflight-parity` pins that promote INVOKES the right command, not that a
+  // failing invocation actually stops the promotion.
+  //
+  // The scratch repository has no `harness:verify:release` script, so the gate fails immediately.
+  // That is the condition under test: a failing gate must abandon the branch rather than declare it
+  // ready.
+  it('abandons the promotion when the release gate fails', async () => {
+    const { root, git } = await newRepo();
+    git(['checkout', 'develop']);
+    commit(root, git, 'feature.md', 'work\n', 'feat: something');
+
+    const { code, output } = await runWithGate(root);
+
+    expect(code).not.toBe(0);
+    expect(output).toMatch(/release gate/i);
+    expect(output).not.toMatch(/is ready/);
+
+    // The branch must not survive a failed gate — a half-built promotion left behind is worse than
+    // none, because the next run would push it.
+    const branches = git(['branch', '--list', 'release/promote-develop-to-main']).stdout.trim();
+    expect(branches).toBe('');
   });
 });
