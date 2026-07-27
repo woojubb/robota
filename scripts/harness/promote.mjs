@@ -30,6 +30,7 @@
  * requires explicit user approval (`.agents/rules/git-branch.md`). It prints the exact next commands.
  */
 
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { ADOPTION_BASELINE, evaluatePromotion, runGit } from './scan-promotion-ancestry.mjs';
@@ -62,6 +63,7 @@ export async function main({
   const git = (args) => runGit(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
   const dryRun = argv.includes('--dry-run');
+  const skipReleaseGate = argv.includes('--skip-release-gate');
   const mainRef = flag(argv, '--main-ref', 'origin/main');
   const developRef = flag(argv, '--develop-ref', 'origin/develop');
   const baseline = flag(argv, '--baseline', ADOPTION_BASELINE);
@@ -182,8 +184,36 @@ export async function main({
       );
     }
 
+    // The main-only gate, run HERE rather than discovered on the promotion PR.
+    //
+    // `release-grade verification` is required on `protect-main` and runs nowhere else, so a defect
+    // it catches is invisible until the promotion PR is already open. Measured 2026-07-27: two
+    // consecutive promotions failed on it — a timing-flaky test, then a fixture outside a newly
+    // contained root — each costing an open-PR/CI/diagnose/fix/re-promote round trip. The command
+    // below is byte-identical to what that job runs and was available both times.
+    //
+    // Default-on, because the cost of running it is bounded and the cost of skipping it was
+    // measured. `--skip-release-gate` exists for a deliberate bypass and says so in the output, so
+    // a skip is a visible choice rather than an omission.
+    if (!skipReleaseGate) {
+      out('\npromote: running the main-only release gate (pnpm harness:verify:release)…\n');
+      const gate = spawnSync('pnpm', ['harness:verify:release'], {
+        stdio: 'inherit',
+        shell: false,
+      });
+      if (gate.status !== 0) {
+        restore(previousBranch, branchExisted);
+        throw new PromoteError(
+          'the release gate FAILED, so the promotion branch was discarded rather than pushed.\n' +
+            'This is the same check `release-grade verification` runs on the promotion PR — fixing it\n' +
+            'here costs one local run instead of an open-PR round trip. Re-run promote when green.',
+        );
+      }
+    }
+
     out(
-      `\npromote: ${branch} is ready — A1/A2/A3 hold (non-merge debt on main: ${currentDebt}).\n` +
+      `\npromote: ${branch} is ready — A1/A2/A3 hold (non-merge debt on main: ${currentDebt}).` +
+        `${skipReleaseGate ? '\npromote: RELEASE GATE SKIPPED (--skip-release-gate) — `release-grade verification` is unverified.' : '\npromote: release gate PASSED locally.'}\n` +
         `\nNext (promoting to \`main\` is a release-level action needing explicit user approval):\n` +
         `  git push -u origin ${branch}\n` +
         `  gh pr create --base main --head ${branch} --title "chore(release): promote develop to main"\n` +
