@@ -104,14 +104,19 @@ export function findBareRatioProgressStatements(messageText, policy) {
       // 2026-07-26 and again on 2026-07-28, a message reading `제 문장의 "6/7"(버전 번호)을 …
       // 오인해` was itself reported, so writing about the false positive reproduced it. A guard
       // that cannot be discussed without tripping is a guard nobody can fix.
-      if (/["'“‘「『]\s*$/.test(before) && /^\s*["'”’」』]/.test(after)) {
-        continue;
-      }
+      // Narrow deliberately: a quoted ratio FOLLOWED BY a completion word is asserting completion
+      // with the quotes used for emphasis (`'6/7' 완료`), and must still be caught. Only a quoted
+      // ratio the sentence then talks ABOUT is a citation.
+      const quoted = /["'“‘「『]\s*$/.test(before) && /^\s*["'”’」』]/.test(after);
+      const assertedAfterQuote = completionPattern.test(after.replace(/^\s*["'”’」』]\s*/, ''));
+      if (quoted && !assertedAfterQuote) continue;
 
       // Preceded by a transition arrow — `5 → 6/7` is a version or state transition, not a count
       // of finished work out of a total. Measured on the same transcript: a line about migrating
       // between tool versions was read as six sevenths of a task being done.
-      if (/(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
+      // A NUMBER must sit before the arrow: `5 → 6/7` is one version to another. `작업 → 6/7 완료`
+      // is a progress statement that happens to use an arrow, and stays a violation.
+      if (/(?:^|[^\w.])\d[\d.]*\s*(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
 
       findings.push({
         line: i + 1,
