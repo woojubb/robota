@@ -161,6 +161,41 @@ describe('a hook examines the command that will run', () => {
     expect(result.output).toMatch(/protected branch/);
   });
 
+  it('does not let a quoted mention choose which repository is judged', () => {
+    // The asymmetry review caught after the first pass: verb detection ignored quoted contents while
+    // the `git -C` extraction — which decides WHICH repository the branch check runs against — still
+    // read them. A commit message naming another checkout redirected the guard there, and a push to
+    // a protected branch went through silently. Worse than the false positive it sat beside.
+    const protectedRepo = scratchRepo('main');
+    const elsewhere = scratchRepo('feat/elsewhere');
+    const result = runHook(
+      'branch-guard.sh',
+      `git commit -m "note git -C ${elsewhere} here" && git push origin main`,
+      { cwd: protectedRepo },
+    );
+
+    expect(
+      result.status,
+      'a `git -C` written inside a quoted argument redirected the branch check at another ' +
+        'repository. Locate the flag in a masked command; read its value from the original.',
+    ).toBe(2);
+  });
+
+  it('still reads a real -C target, quoted or not', () => {
+    // The other half, and why the mention case cannot be fixed by blanking quotes here: a path is
+    // routinely quoted, and a guard that loses it judges the wrong repository in the other
+    // direction. Both spellings must resolve to the same checkout.
+    const cwd = scratchRepo('main');
+    const elsewhere = scratchRepo('feat/elsewhere');
+
+    for (const target of [elsewhere, `"${elsewhere}"`]) {
+      const result = runHook('branch-guard.sh', `git -C ${target} push origin feat/elsewhere`, {
+        cwd,
+      });
+      expect(result.status, `branch-guard judged the wrong repository for -C ${target}`).toBe(0);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

@@ -111,7 +111,9 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # --hard` — the exact cross-checkout shape this guard exists for — resolved to the worktree and passed.
 # `|| true` is load-bearing: grep exits 1 when there is no `-C`, and under `set -euo pipefail` a
 # failed command substitution aborts the hook silently before any check runs.
-GIT_C_PATH=$(printf '%s' "$SCAN" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
+# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
+# redirect this guard at another repository. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$SCAN" || true)
 EFFECTIVE_DIR=""
 if [[ -n "$GIT_C_PATH" ]]; then
   EFFECTIVE_DIR="$GIT_C_PATH"

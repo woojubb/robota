@@ -61,7 +61,9 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # `|| true` is load-bearing: grep exits 1 when the command has no `-C`, which is the common case, and
 # under `set -euo pipefail` a failed command substitution ABORTS the hook — silently, exit 1, before
 # a single check runs. That is a total bypass wearing the costume of a passing guard.
-GIT_C_PATH=$(printf '%s' "$COMMAND_EXEC" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
+# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
+# redirect this guard at another repository. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
 EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   EFFECTIVE_DIR="$HOOK_CWD"

@@ -73,7 +73,9 @@ printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'])[[:space:]]*(\S+=\S+[[
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
-GIT_C_PATH=$(printf '%s' "$COMMAND_EXEC" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
+# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
+# redirect this guard at another repository. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   PROJECT_DIR="$HOOK_CWD"

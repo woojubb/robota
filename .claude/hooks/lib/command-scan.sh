@@ -82,13 +82,17 @@ hook_strip_heredocs() {
     BEGIN { inbody = 0 }
     inbody {
       line = $0
-      sub(/^[ \t]+/, "", line)     # <<- allows a tab-indented terminator
+      # Only `<<-` lets the terminator be indented. Stripping indentation unconditionally means an
+      # indented body line that happens to equal the terminator ends the body early, and the rest of
+      # the body is then scanned as if it were commands.
+      if (dashed) { sub(/^[ \t]+/, "", line) }
       if (line == term) { inbody = 0 }
       next
     }
     {
       if (match($0, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
         term = substr($0, RSTART, RLENGTH)
+        dashed = (substr(term, 3, 1) == "-")
         sub(/^<<-?[ \t]*/, "", term)
         gsub(/[\047"]/, "", term)
         inbody = 1
@@ -139,4 +143,51 @@ hook_blank_quoted_args() {
 # extraction find nothing — a guard that stops seeing what it is protecting.
 hook_verb_scan() {
   hook_blank_quoted_args "$(hook_executable_part "$1")"
+}
+
+
+# The directory a command will act on, read from a real `git -C` and not from a quoted mention.
+#
+# This is the asymmetry review caught: verb detection blanked quoted contents, while the extraction
+# that decides WHICH REPOSITORY gets judged still read them. `git commit -m "... git -C /other ..."
+# && git push origin main` then pointed the branch check at /other and let a push to a protected
+# branch through — worse than the false positive the blanking removed, because it is silent.
+#
+# Blanking cannot simply be applied here: a path is often quoted (`git -C "/a b"`), and blanking it
+# would leave the guard with no path at all. So the command is MASKED — every character inside
+# quotes replaced one-for-one, preserving offsets — the flag is located in the mask, where a
+# mention cannot match, and the value is then read from the ORIGINAL at the same offset.
+hook_git_c_path() {
+  printf '%s' "$1" | awk '
+    {
+      s = $0
+      mask = ""
+      q = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (q == "") {
+          mask = mask c
+          if (c == "\"" || c == "\047") { q = c }
+        } else if (c == q) {
+          mask = mask c
+          q = ""
+        } else {
+          mask = mask "\001"      # same length, so offsets in the mask are offsets in s
+        }
+      }
+
+      if (!match(mask, /(^|[ \t;&|({])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { next }
+      p = RSTART + RLENGTH                # first character of the value, in both strings
+      c = substr(s, p, 1)
+      if (c == "\"" || c == "\047") {
+        p++
+        end = index(substr(s, p), c)
+        print (end > 0 ? substr(s, p, end - 1) : substr(s, p))
+      } else {
+        v = substr(s, p)
+        sub(/[ \t].*$/, "", v)
+        print v
+      }
+    }
+  ' | head -1
 }
