@@ -842,6 +842,21 @@ describe('a hook examines the command that will run', () => {
     expect(result.status, 'a comment with one quote in it hid the command that followed').toBe(2);
   });
 
+  it('does not read a # inside a multi-line quoted argument as a comment', () => {
+    // The comment stripper reset its quote state at each line while the masker it feeds joins them
+    // — so a `#` on the continuation line of a multi-line message was read as a comment start, and
+    // the rest of that line, including the real closing quote and everything chained after it, was
+    // discarded. The same defect class as the bug it was fixing, through the opposite mechanism.
+    const cwd = scratchRepo('feat/probe');
+    const command = [
+      'git commit -m "line one',
+      'line two # not a comment" && git push origin --delete develop',
+    ].join('\n');
+    const result = runHook('branch-guard.sh', command, { cwd });
+
+    expect(result.status, 'a delete after a multi-line message went unseen').toBe(2);
+  });
+
   it('still ignores a verb named inside a comment', () => {
     // The other side: a `#` remark is prose, and quote-awareness must not cost that.
     const cwd = scratchRepo('feat/probe');

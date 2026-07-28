@@ -217,26 +217,35 @@ hook_strip_heredocs() {
 # does, and what the masker already knows how to determine.
 hook_strip_comments() {
   awk '
-    {
+    { lines[NR] = $0 }
+    END {
+      # Quote state carries ACROSS lines, exactly as the masker does. Resetting it per line meant a
+      # `#` on the continuation line of a multi-line quoted argument was read as a comment start,
+      # and the rest of that line — the real closing quote, and anything chained after it — was
+      # discarded. That removed a real command from what the guards see: the same defect class, via
+      # the opposite mechanism, in the fix for it.
       q = ""
       esc = 0
-      out = ""
-      n = length($0)
-      for (i = 1; i <= n; i++) {
-        c = substr($0, i, 1)
-        if (esc) { esc = 0; out = out c; continue }
-        if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
-        if (q == "") {
-          if (c == "\"" || c == "\047") { q = c; out = out c; continue }
-          # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
-          if (c == "#" && (i == 1 || substr($0, i - 1, 1) ~ /[ \t;&|(]/)) { break }
-          out = out c
-        } else {
-          if (c == q) { q = "" }
-          out = out c
+      for (n = 1; n <= NR; n++) {
+        s = lines[n]
+        out = ""
+        len = length(s)
+        for (i = 1; i <= len; i++) {
+          c = substr(s, i, 1)
+          if (esc) { esc = 0; out = out c; continue }
+          if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
+          if (q == "") {
+            if (c == "\"" || c == "\047") { q = c; out = out c; continue }
+            # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
+            if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;&|(]/)) { break }
+            out = out c
+          } else {
+            if (c == q) { q = "" }
+            out = out c
+          }
         }
+        print out
       }
-      print out
     }
   '
 }
