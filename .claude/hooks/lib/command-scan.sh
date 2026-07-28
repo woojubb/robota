@@ -203,9 +203,42 @@ hook_strip_heredocs() {
   '
 }
 
-# Strip trailing shell comments so a `#` remark naming a verb cannot trip a matcher.
+# Strip shell comments — quote-aware, because a comment is only a comment outside quotes.
+#
+# This was `sed 's/[[:space:]]#[^"]*$//'`. The `[^"]*` was there so a `#` inside a quoted string
+# would not be treated as a comment, and it worked by refusing to match whenever a quote appeared
+# anywhere after the `#` — including inside the comment itself. So `echo ok # a "half-open remark`
+# stripped nothing, the stray quote opened a string the masker never saw closed, and EVERY LINE
+# AFTER IT was masked away: a `git push origin --delete develop` on the next line was invisible to
+# all four guards. A new instance of the class this library exists to close, in the one helper that
+# had no state machine.
+#
+# A `#` starts a comment when it is outside quotes and begins a word — which is what the shell
+# does, and what the masker already knows how to determine.
 hook_strip_comments() {
-  sed 's/[[:space:]]#[^"]*$//'
+  awk '
+    {
+      q = ""
+      esc = 0
+      out = ""
+      n = length($0)
+      for (i = 1; i <= n; i++) {
+        c = substr($0, i, 1)
+        if (esc) { esc = 0; out = out c; continue }
+        if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
+        if (q == "") {
+          if (c == "\"" || c == "\047") { q = c; out = out c; continue }
+          # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
+          if (c == "#" && (i == 1 || substr($0, i - 1, 1) ~ /[ \t;&|(]/)) { break }
+          out = out c
+        } else {
+          if (c == q) { q = "" }
+          out = out c
+        }
+      }
+      print out
+    }
+  '
 }
 
 # What a guard should actually examine: the command with heredoc bodies and comments removed.

@@ -828,6 +828,28 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('survives an unbalanced quote inside a comment', () => {
+    // Comment stripping was `sed 's/[[:space:]]#[^\"]*$//'`, which refused to match whenever a quote
+    // appeared after the `#` — including inside the comment itself. The stray quote then opened a
+    // string the masker never saw closed, and EVERY LINE AFTER IT was masked away: the delete on
+    // the next line was invisible to all four guards.
+    const cwd = scratchRepo('main');
+    const command = ['echo ok # a "half-open remark', 'git push origin --delete develop'].join(
+      '\n',
+    );
+    const result = runHook('branch-guard.sh', command, { cwd });
+
+    expect(result.status, 'a comment with one quote in it hid the command that followed').toBe(2);
+  });
+
+  it('still ignores a verb named inside a comment', () => {
+    // The other side: a `#` remark is prose, and quote-awareness must not cost that.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook('branch-guard.sh', 'git status # note about git push', { cwd });
+
+    expect(result.status, 'a comment was read as a command').toBe(0);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
