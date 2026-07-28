@@ -65,6 +65,26 @@ describe('findBareRatioProgressStatements — the rule', () => {
 });
 
 describe('findBareRatioProgressStatements — measured false-positive classes stay silent', () => {
+  it('stays silent on a ratio that is being QUOTED rather than asserted', () => {
+    // Measured 2026-07-26 and again 2026-07-28: a message about this scan's own false positive —
+    // `제 문장의 "6/7"(버전 번호)을 진행률 비율로 오인해` — was itself reported. Writing about the
+    // defect reproduced it, and the scan blocked the release gate both times. A guard that cannot
+    // be discussed without tripping is a guard nobody can fix.
+    expect(
+      findBareRatioProgressStatements(
+        '스캔이 제 문장의 "6/7"(버전 번호)을 진행률 비율로 오인해 막고 있습니다',
+        POLICY,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('stays silent on a version transition written with an arrow', () => {
+    // `5 → 6/7` is a transition between tool versions, not six sevenths of a task finished.
+    expect(
+      findBareRatioProgressStatements('**5 → 6/7 병행 전환 완료.** 타입체크·빌드는 통과', POLICY),
+    ).toHaveLength(0);
+  });
+
   it.each([
     ['completed result, not mid-work progress', '45/45 scans pass — all green, work complete.'],
     ['identifier list', 'ARL-04/05/06/07 resolved and moved to done.'],

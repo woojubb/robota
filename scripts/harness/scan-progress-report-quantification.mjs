@@ -99,6 +99,20 @@ export function findBareRatioProgressStatements(messageText, policy) {
       if (identifierNounPattern.test(before)) continue;
       if (identifierNounSuffixPattern.test(after)) continue;
 
+      // QUOTED — the ratio is being cited, not asserted. Without this the scan fires on any
+      // sentence that discusses a ratio, including a sentence about this scan: measured on
+      // 2026-07-26 and again on 2026-07-28, a message reading `제 문장의 "6/7"(버전 번호)을 …
+      // 오인해` was itself reported, so writing about the false positive reproduced it. A guard
+      // that cannot be discussed without tripping is a guard nobody can fix.
+      if (/["'“‘「『]\s*$/.test(before) && /^\s*["'”’」』]/.test(after)) {
+        continue;
+      }
+
+      // Preceded by a transition arrow — `5 → 6/7` is a version or state transition, not a count
+      // of finished work out of a total. Measured on the same transcript: a line about migrating
+      // between tool versions was read as six sevenths of a task being done.
+      if (/(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
+
       findings.push({
         line: i + 1,
         excerpt: line.trim().slice(0, 200),
