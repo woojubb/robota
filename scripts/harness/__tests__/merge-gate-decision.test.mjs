@@ -201,6 +201,29 @@ describe('the merge gate decides on CI and on a current review', () => {
     );
   });
 
+  it('ignores an override attached to some other statement', () => {
+    // The override is documented as a visible, deliberate choice about THIS merge. Matched anywhere
+    // in the command, `MERGE_GATE_ACK=1 date; gh pr merge 7 --merge` disarmed the gate with an
+    // assignment that belongs to an unrelated statement and never reaches the merge at all.
+    const verdict = judge(
+      { state: 'BLOCKED', headAt: '', comments: [] },
+      'MERGE_GATE_ACK=1 date; gh pr merge 7 --merge',
+    );
+
+    expect(verdict.status, 'an override bound to another statement disarmed the gate').toBe(2);
+  });
+
+  it('honours an override written after a cd', () => {
+    // The other side of that boundary: `cd <repo> && MERGE_GATE_ACK=1 gh pr merge` is the ordinary
+    // spelling, and tightening the match must not cost it.
+    const verdict = judge(
+      { state: 'BLOCKED', headAt: '', comments: [] },
+      'cd /repo && MERGE_GATE_ACK=1 gh pr merge 7 --merge',
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('says nothing about a command that is not a merge', () => {
     const verdict = judge({ state: 'CLEAN', headAt: '', comments: [] }, 'git status');
 

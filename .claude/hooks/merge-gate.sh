@@ -48,7 +48,12 @@ printf '%s' "$COMMAND_VERBS" |
   grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+merge\b' || exit 0
 
 # Deliberate bypass, stated in the output so it is never mistaken for the gate having passed.
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])MERGE_GATE_ACK=1([[:space:]]|$)'; then
+# The override must be an env prefix OF THE MERGE, not a token loose in the command. Matched
+# anywhere, `MERGE_GATE_ACK=1 date; gh pr merge 7 --merge` disarmed the gate while the assignment
+# belonged to an unrelated statement — which is not the visible, deliberate choice the override is
+# documented to be. Other assignments may sit between; a `;` or `&&` may not.
+if printf '%s' "$COMMAND_VERBS" |
+  grep -qE '(^|[[:space:];&|(])MERGE_GATE_ACK=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+gh[[:space:]]+pr[[:space:]]+merge\b'; then
   echo "[merge-gate] Override: MERGE_GATE_ACK=1 — CI and review state NOT verified by this hook." >&2
   exit 0
 fi
