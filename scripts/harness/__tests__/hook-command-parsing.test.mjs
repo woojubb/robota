@@ -428,6 +428,13 @@ describe('a hook examines the command that will run', () => {
       'ssh host "git push --force origin main"',
       'timeout 5 bash -c "git push origin main"',
       'myfish -c "git push origin main"',
+      // More than one argument between the interpreter and its string. Allowing exactly one meant
+      // every one of these fell out of the exception and was masked — the bypass class this
+      // exception exists to close, reopened by the shape of the expression rather than the list.
+      'bash -x -c "git push origin main"',
+      'ssh -o StrictHostKeyChecking=no host "git push origin main"',
+      'python3 -u -c "os.system(1); git push origin main"',
+      '/bin/bash -c "git push origin main"',
     ];
 
     for (const command of cases) {

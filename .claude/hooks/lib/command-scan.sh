@@ -200,8 +200,10 @@ hook_executable_part() {
 # Commands that RUN a string argument. When one precedes a quoted string, nothing inside it is
 # masked, because that text is a command and must be read as one.
 #
-# `[^ \t;&|(\n/]*sh` matches any shell-named binary, so a wrapper this list never heard of is still
-# covered; `ssh`, `expect`, `tclsh`, `timeout`, `nohup`, `sudo` and `env` were added after review
+# `[^ \t;&|(\n/]*sh` matches any shell-named binary and an optional path prefix allows
+# `/bin/bash`, so a wrapper this list never heard of is still covered. Any number of arguments
+# may sit between the interpreter and its string — allowing exactly one meant `bash -x -c "…"`,
+# `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked; `ssh`, `expect`, `tclsh`, `timeout`, `nohup`, `sudo` and `env` were added after review
 # observed that a closed list is a list of the ways past the guard.
 #
 # The boundary is real, and stated rather than implied: this is still an allowlist, so a quoted
@@ -211,7 +213,7 @@ hook_executable_part() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh)[ \t]+(-[[:alnum:]]*[ceE][ \t]+|[^ \t;&|(-][^ \t;&|(]*[ \t]+))|ssh[ \t]+[^ \t;&|(-][^ \t;&|(]*[ \t]+|eval[ \t]+)$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])(([^ \t;&|(\n]*/)?([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n]+[ \t]+)*|eval[ \t]+)$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
