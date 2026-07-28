@@ -26,18 +26,29 @@
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(printf '%s' "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 |
-  sed 's/.*"command"[[:space:]]*:[[:space:]]*"//; s/"$//' || true)
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+
+# The shared parser, for the reason it exists: the hand-rolled grep this replaces stopped at the
+# first quote inside the command, and a `gh pr merge` written after any quoted argument was never
+# examined. Refusing when it cannot decode is the same rule the other hooks follow — a gate that
+# cannot read its subject must not wave it through.
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[merge-gate] Blocked: the tool command could not be decoded, so the merge cannot be judged." >&2
+  echo "[merge-gate] Install jq or python3 so this gate can read what it is judging." >&2
+  exit 2
+fi
+COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
 # Statement boundaries, not a start-anchor. A `^`-anchored matcher only fires when the whole command
 # begins with the verb, and nearly every command here begins with `cd <repo>` — that defect made
 # `pre-push-check` unreachable for an entire session. `\n` is the two literal characters that survive
 # JSON extraction, which was the exact form that slipped through.
-printf '%s' "$COMMAND" |
-  grep -qE '(^|[;&|({]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+merge\b' || exit 0
+printf '%s' "$COMMAND_VERBS" |
+  grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*gh[[:space:]]+pr[[:space:]]+merge\b' || exit 0
 
 # Deliberate bypass, stated in the output so it is never mistaken for the gate having passed.
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])MERGE_GATE_ACK=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])MERGE_GATE_ACK=1([[:space:]]|$)'; then
   echo "[merge-gate] Override: MERGE_GATE_ACK=1 — CI and review state NOT verified by this hook." >&2
   exit 0
 fi
@@ -46,7 +57,7 @@ fi
 # substitution aborts the whole hook — exit 1, no output, before a single check runs. A total bypass
 # wearing the costume of a working guard. That is not hypothetical; it is what this hook did on its
 # first run, and the same trap the hook audit hit hours earlier.
-PR=$(printf '%s' "$COMMAND" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[[:space:]]+[0-9]+' |
+PR=$(printf '%s' "$COMMAND_VERBS" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[[:space:]]+[0-9]+' |
   grep -oE '[0-9]+$' | head -1 || true)
 
 # Fail closed. Every branch below that cannot answer refuses, because "I could not check" and

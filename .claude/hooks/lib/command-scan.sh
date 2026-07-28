@@ -311,6 +311,7 @@ HOOK_SCAN_AWK='
         keep = 0
       } else {
         m[i] = keep ? c : "\001"
+        if (q == "\047") { sq[i] = 1 }
       }
     }
 
@@ -318,6 +319,15 @@ HOOK_SCAN_AWK='
     # original — the SPAN, not the whole enclosing string. Keeping the entire string meant a message
     # holding both a substitution and an unrelated mention of a guarded verb was read as that verb.
     for (i = 1; i <= len; i++) {
+      # An escaped substitution does not substitute — it is the literal character. Skipping the
+      # escape here is what stops a commit message written with markdown code spans from being read
+      # as a subshell; the gate blocked its own commit before this line existed.
+      # Single quotes suppress every expansion, so nothing inside them is restored. Without
+      # this the pass reached into a single-quoted argument and read its text as a subshell
+      # — the gate blocked its own commit that way, which is the self-blocking this whole
+      # change exists to remove.
+      if (sq[i]) { continue }
+      if (substr(s, i, 1) == "\\") { i++; continue }
       if (substr(s, i, 2) == "$(") {
         depth = 0
         for (j = i + 1; j <= len; j++) {
