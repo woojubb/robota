@@ -11,13 +11,27 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+# One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
+# version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
+# command, so everything after `-m "…"` — including the verb being guarded — was never examined.
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+
+TOOL_NAME=$(hook_json_string "$INPUT" 'tool_name' || true)
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
 fi
 
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[pre-push-check] Blocked: the tool command could not be decoded, so the push cannot be judged." >&2
+  echo "[pre-push-check] Install jq or python3 so this guard can read what it is judging." >&2
+  exit 2
+fi
+
+# Heredoc bodies and comments are text; only the rest is a command. Shared with the other Bash
+# hooks so all three answer "what will run" the same way.
+COMMAND_EXEC=$(hook_executable_part "$COMMAND")
 
 # Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
 #
@@ -48,12 +62,12 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 # `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
 # with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
 # one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
-echo "$COMMAND" | grep -qE '(^|[;&|({]|\\n)[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[;&|({])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
-HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
-GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
+HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
+GIT_C_PATH=$(printf '%s' "$COMMAND_EXEC" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   PROJECT_DIR="$HOOK_CWD"

@@ -10,34 +10,48 @@ set -euo pipefail
 
 INPUT=$(cat)
 
+# One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
+# version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
+# command, so everything after `-m "…"` — including the verb being guarded — was never examined.
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+
 # Extract tool_name without jq — match "tool_name":"Bash"
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+TOOL_NAME=$(hook_json_string "$INPUT" 'tool_name' || true)
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
 fi
 
 # Extract command from tool_input.command
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[branch-guard] Blocked: the tool command could not be decoded, so it cannot be judged." >&2
+  echo "[branch-guard] Install jq or python3 so this guard can read what it is judging." >&2
+  exit 2
+fi
 
 # Honor inline override tokens written IN the command string (e.g. `BRANCH_GUARD_ALLOW_DELETE=1 git push …`).
 # The `VAR=1` prefix runs in the TOOL's shell, not this hook's process, so a plain env check never sees it —
 # the documented overrides were unusable inline until this. Worktree-parallel subagents rely on
 # BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 to each carry their own concurrent branch (git-branch.md § Git Worktree).
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
+# The executable part, computed BEFORE the overrides are read: an override named inside a heredoc
+# body is text, and text must not be able to switch this guard off.
+COMMAND_EXEC=$(hook_executable_part "$COMMAND")
+
+if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_DELETE=1
 fi
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
 fi
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_BADNAME=1
 fi
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
 # producing false blocks. Precedence: `git -C <path>` in the command > hook-input `cwd` > project dir.
-HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
+HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # Unanchored: `git -C <path>` is almost never the first thing on the line (`cd /elsewhere && git -C
 # <repo> commit`). The `^`-anchored version simply never found it, so the hook fired and then judged
 # whichever checkout it happened to sit in — passing a commit it should have refused.
@@ -82,24 +96,8 @@ IS_GH_DELETE_BRANCH=false
 # Deliberately narrow: it strips only `<<MARKER … MARKER`, whose boundaries are unambiguous. A verb
 # inside an ordinary quoted argument (`-m 'run git checkout -b x'`) still matches, because telling
 # quoting apart needs the shell-aware extraction filed as HARNESS-061, not a longer regex here.
-strip_heredocs() {
-  printf '%s' "$1" | sed 's/\\n/\n/g' | awk '
-    /<<-?'"'"'?[A-Za-z_][A-Za-z0-9_]*'"'"'?/ && !inbody {
-      marker = $0
-      sub(/.*<<-?'"'"'?/, "", marker)
-      sub(/'"'"'?[[:space:]].*$/, "", marker)
-      sub(/'"'"'.*$/, "", marker)
-      inbody = 1
-      print
-      next
-    }
-    inbody { if ($0 == marker) { inbody = 0 }; next }
-    { print }
-  '
-}
-COMMAND_EXEC=$(strip_heredocs "$COMMAND")
 
-GITPFX='(^|[;&|(]|[[:space:]]|\\n)[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+GITPFX='(^|[;&|({]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -118,7 +116,7 @@ echo "$COMMAND_EXEC" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" && 
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
 # to sit in the same command segment as `gh pr merge` (no intervening ; | &). This
 # avoids false positives from the flag mentioned in a comment or a separate echo.
-COMMAND_NO_COMMENTS=$(printf '%s' "$COMMAND" | sed 's/[[:space:]]#[^"]*$//')
+COMMAND_NO_COMMENTS="$COMMAND_EXEC"
 if printf '%s' "$COMMAND_NO_COMMENTS" | grep -qE 'gh[[:space:]]+pr[[:space:]]+merge\b[^|;&]*--delete-branch'; then
   IS_GH_DELETE_BRANCH=true
 fi
@@ -140,7 +138,7 @@ DELETE_BRANCH_NAME=""
 # Scan only the command up to the first heredoc opener (`<<`): everything after it is DATA
 # (e.g. a `git commit -F - <<'EOF' …` message that may legitimately mention `git push --delete`
 # or `refs/heads/`), not an executed command. This prevents a commit message from tripping the guard.
-DELETE_SCAN="${COMMAND_NO_COMMENTS%%<<*}"
+DELETE_SCAN="$COMMAND_NO_COMMENTS"
 if printf '%s' "$DELETE_SCAN" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*/git/refs/heads/'; then
   DELETE_BRANCH_NAME=$(printf '%s' "$DELETE_SCAN" | sed -E 's#.*/git/refs/heads/([A-Za-z0-9._/-]+).*#\1#')
 elif printf '%s' "$DELETE_SCAN" | grep -qE 'git[[:space:]]+push[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+(--delete[[:space:]]|:)'; then
@@ -247,7 +245,7 @@ fi
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
-  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*[[:space:]]-[bBcC][[:space:]]+([^[:space:]]+).*/\1/')
+  NEW_BRANCH=$(printf '%s' "$COMMAND_EXEC" | sed -E 's/.*[[:space:]]-[bBcC][[:space:]]+([^[:space:]]+).*/\1/')
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then

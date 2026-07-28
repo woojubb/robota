@@ -28,15 +28,25 @@ set -euo pipefail
 
 INPUT=$(cat)
 
+# One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
+# version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
+# command, so everything after `-m "…"` — including the verb being guarded — was never examined.
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+
 # Extract tool_name without jq — match "tool_name":"Bash"
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+TOOL_NAME=$(hook_json_string "$INPUT" 'tool_name' || true)
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
 fi
 
 # Extract command from tool_input.command
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[worktree-cwd-guard] Blocked: the tool command could not be decoded, so the command cannot be judged." >&2
+  echo "[worktree-cwd-guard] Install jq or python3 so this guard can read what it is judging." >&2
+  exit 2
+fi
 
 # Honor the inline override token written IN the command string. The `VAR=1` prefix runs in the
 # TOOL's shell, not this hook's process, so a plain env check never sees it (same reasoning as
@@ -55,8 +65,7 @@ fi
 # --- Detect destructive git commands ------------------------------------------------------------
 # Scan only up to the first heredoc opener (`<<`) and strip trailing comments, so a commit message
 # or echoed text mentioning these commands cannot trip the guard (same defense as branch-guard).
-COMMAND_NO_COMMENTS=$(printf '%s' "$COMMAND" | sed 's/[[:space:]]#[^"]*$//')
-SCAN="${COMMAND_NO_COMMENTS%%<<*}"
+SCAN=$(hook_executable_part "$COMMAND")
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.
@@ -67,7 +76,7 @@ SCAN="${COMMAND_NO_COMMENTS%%<<*}"
 # Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
 # by exactly that shape — and a destructive command on a later line of a block is the shape of the
 # incident it exists to prevent.
-GITPFX='(^|[[:space:];&|(]|\\n)([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
+GITPFX='(^|[[:space:];&|({])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
 
 IS_DESTRUCTIVE=false
 # git reset --hard
@@ -90,13 +99,13 @@ fi
 # — resolving its toplevel would judge an unrelated checkout (this caused a fail-safe bug: a non-git
 # cwd fell back to `.`, which resolved to the hook's own checkout and blocked). If no concrete dir can
 # be named, we cannot positively confirm anything → FAIL-SAFE, do not block.
-HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
+HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # Unanchored: `git -C <path>` is almost never the first thing on the line. Anchored, the highest-
 # precedence input to this resolution was never available, so a `cd <worktree> && git -C <main> reset
 # --hard` — the exact cross-checkout shape this guard exists for — resolved to the worktree and passed.
 # `|| true` is load-bearing: grep exits 1 when there is no `-C`, and under `set -euo pipefail` a
 # failed command substitution aborts the hook silently before any check runs.
-GIT_C_PATH=$(printf '%s' "$COMMAND" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
+GIT_C_PATH=$(printf '%s' "$SCAN" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
 EFFECTIVE_DIR=""
 if [[ -n "$GIT_C_PATH" ]]; then
   EFFECTIVE_DIR="$GIT_C_PATH"
