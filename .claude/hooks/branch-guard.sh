@@ -40,20 +40,23 @@ fi
 # The `VAR=1` prefix runs in the TOOL's shell, not this hook's process, so a plain env check never sees it —
 # the documented overrides were unusable inline until this. Worktree-parallel subagents rely on
 # BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1 to each carry their own concurrent branch (git-branch.md § Git Worktree).
-# The executable part, computed BEFORE the overrides are read: an override named inside a heredoc
-# body is text, and text must not be able to switch this guard off.
+# Computed BEFORE the overrides are read, and the overrides read the MASKED form. An override
+# named inside a heredoc body or a quoted argument is text, and text must not be able to switch this
+# guard off — `git commit -m "note: BRANCH_GUARD_ALLOW_DELETE=1 was tried" && git push origin
+# --delete develop` did exactly that, disarming the check that exists because develop was once
+# deleted by accident.
 COMMAND_EXEC=$(hook_executable_part "$COMMAND")
 # Verb detection reads the same command with quoted ARGUMENTS blanked; extraction below keeps them,
 # because branch names and `-C` paths are routinely quoted.
 COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
-if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_DELETE=1
 fi
-if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
 fi
-if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_BADNAME=1
 fi
 

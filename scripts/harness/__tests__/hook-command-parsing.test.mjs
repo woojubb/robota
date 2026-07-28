@@ -464,6 +464,63 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('scans a MultiEdit the same as an Edit', () => {
+    // The bug this hook's own comment records — MultiEdit carries its replacements in an `edits`
+    // array, so neither field the extraction read existed, content came back empty and the hook
+    // passed content it refuses from Edit. The fix went in without a case that sends an actual
+    // MultiEdit payload, so it could regress to silently unscanned and stay green: the
+    // accidental-green shape this repo has a rule against.
+    const cwd = scratchRepo('main');
+    const src = path.join(cwd, 'packages/p/src');
+    mkdirSync(src, { recursive: true });
+    const forbidden = 'try {\n  go();\n} catch (e) {\n  return 0;\n}\n';
+
+    const payloads = [
+      {
+        tool_name: 'Edit',
+        tool_input: { file_path: path.join(src, 'a.ts'), new_string: forbidden },
+      },
+      {
+        tool_name: 'MultiEdit',
+        tool_input: {
+          file_path: path.join(src, 'a.ts'),
+          edits: [{ old_string: 'x', new_string: forbidden }],
+        },
+      },
+    ];
+
+    for (const payload of payloads) {
+      const result = spawnSync('bash', [path.join(HOOKS_DIR, 'check-forbidden-patterns.sh')], {
+        input: JSON.stringify(payload),
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: cwd },
+      });
+      expect(result.status, `${payload.tool_name} content went unscanned`).toBe(2);
+    }
+  });
+
+  it('is registered for every tool whose content it scans', () => {
+    // Reading the content was only half the bypass: MultiEdit was also absent from the hook's
+    // matcher, so the handling could not run at all. Unguarded twice over — once by shape, once by
+    // registration — and the second half is invisible to any test that invokes the hook directly.
+    const settings = JSON.parse(
+      readFileSync(path.join(WORKSPACE_ROOT, '.claude/settings.json'), 'utf8'),
+    );
+    const matchers = (settings.hooks?.PreToolUse ?? [])
+      .filter((entry) =>
+        (entry.hooks ?? []).some((h) => `${h.command}`.includes('check-forbidden-patterns')),
+      )
+      .map((entry) => entry.matcher ?? '');
+
+    expect(matchers.length, 'check-forbidden-patterns is not registered at all').toBeGreaterThan(0);
+    for (const tool of ['Write', 'Edit', 'MultiEdit']) {
+      expect(
+        matchers.some((m) => m.split('|').includes(tool)),
+        `check-forbidden-patterns never runs for ${tool}, so its handling of it cannot fire`,
+      ).toBe(true);
+    }
+  });
+
   it('refuses an edit it cannot read', () => {
     // check-forbidden-patterns guards a different tool and was left out of this PR's fail-closed
     // pass. Its FIRST field came from bare jq, so a machine without jq read an empty file path and
@@ -507,6 +564,22 @@ describe('a hook examines the command that will run', () => {
     });
 
     expect(result.status, 'check-forbidden-patterns passed an edit it could not read').toBe(2);
+  });
+
+  it('does not let a quoted mention disarm an override', () => {
+    // Overrides were the last check reading unmasked text. `git commit -m \"note:
+    // BRANCH_GUARD_ALLOW_DELETE=1 was tried\" && git push origin --delete develop` set the override
+    // from inside the message and skipped the protected-branch refusal — the guard that exists
+    // because develop was once deleted by accident, switched off by prose.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook(
+      'branch-guard.sh',
+      'git commit -m "note: BRANCH_GUARD_ALLOW_DELETE=1 was tried" && git push origin --delete develop',
+      { cwd },
+    );
+
+    expect(result.status, 'a quoted mention switched the delete guard off').toBe(2);
+    expect(result.output).toMatch(/protected branch/);
   });
 
   it('leaves ordinary work alone', () => {
