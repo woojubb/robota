@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -57,8 +57,16 @@ const INTERCEPTORS = [{ hook: 'pre-push-check.sh', verb: 'git push -u origin fea
  * form, and made the verdict depend on that tree's state. A reachability test must answer "did the
  * hook react", and nothing about that question needs the real repository.
  */
+/** Scratch roots created during the run, removed in `afterAll` so probes leave no litter. */
+const scratchRoots = [];
+
+afterAll(() => {
+  for (const dir of scratchRoots) rmSync(dir, { recursive: true, force: true });
+});
+
 function scratchProject() {
   const dir = mkdtempSync(path.join(tmpdir(), 'hook-reach-'));
+  scratchRoots.push(dir);
   const git = (args) => spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
   git(['init', '--quiet', '--initial-branch=develop']);
   git(['config', 'user.email', 'harness@example.test']);
