@@ -311,6 +311,37 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('reads what eval and command substitution will run', () => {
+    // `eval \"...\"` is the plainest way a shell runs a string, and it fell out of the interpreter
+    // list when that expression was rewritten — a regression introduced by a fix. `$(...)` and
+    // backticks run whatever the surrounding quotes are, so a masked region containing them hides a
+    // real command.
+    const cwd = scratchRepo('main');
+    const cases = ['eval "git push --force origin main"', 'echo "$(git push origin main)"'];
+
+    for (const command of cases) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard missed a push in: ${command}`).toBe(2);
+    }
+  });
+
+  it('reads a new branch name from the checkout that creates it', () => {
+    // The extraction ran a greedy `.*` over the whole command and took whatever followed the LAST
+    // -b/-B/-c/-C, so a later `git -C /other` supplied the \"branch name\" and a correctly named
+    // branch was refused. Worktree-parallel work puts those two in one command routinely.
+    const cwd = scratchRepo('develop');
+    const elsewhere = scratchRepo('main');
+    const result = runHook(
+      'branch-guard.sh',
+      `git checkout -b feat/x && git -C ${elsewhere} status`,
+      {
+        cwd,
+      },
+    );
+
+    expect(result.status, 'a `-C` path was read as the new branch name').toBe(0);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

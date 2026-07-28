@@ -255,7 +255,15 @@ fi
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
-  NEW_BRANCH=$(printf '%s' "$COMMAND_EXEC" | sed -E 's/.*[[:space:]]-[bBcC][[:space:]]+([^[:space:]]+).*/\1/')
+  # Read the branch name out of the checkout/switch invocation itself. The previous expression
+  # ran a greedy `.*` over the WHOLE command and captured whatever followed the LAST
+  # -b/-B/-c/-C, so `git checkout -b feat/x && git -C /other status` yielded /other and
+  # refused a correctly named branch. Adding -C to that alternation made a long-standing
+  # weakness reachable.
+  GIT_PREFIX_RE='((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+|-[^[:space:]]+[[:space:]]+)*'
+  NEW_BRANCH=$(printf '%s' "$COMMAND_VERBS" |
+    grep -oE "git[[:space:]]+${GIT_PREFIX_RE}(checkout|switch)[[:space:]]+${GIT_PREFIX_RE}-[bBcC][[:space:]]+[^[:space:]]+" |
+    head -1 | grep -oE '[^[:space:]]+$' || true)
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then

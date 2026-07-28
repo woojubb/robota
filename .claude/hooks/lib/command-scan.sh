@@ -154,7 +154,7 @@ hook_executable_part() {
 # returns the masked command for verb matching; MODE=gitc locates `git -C` in the mask, where a
 # mention cannot match, and reads its value from the ORIGINAL at the same offset, because a path is
 # routinely quoted and masking it would leave the guard with no path at all.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[ \t]+-[[:alnum:]]*[ceE][ \t]*$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])(((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[ \t]+-[[:alnum:]]*[ceE]|eval)[ \t]+$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
@@ -174,6 +174,14 @@ HOOK_SCAN_AWK='
         if (c == "\"" || c == "\047") {
           q = c
           keep = (substr(s, 1, i - 1) ~ IRE)
+          # A double-quoted string still expands `$(...)` and backticks, so its contents are run no
+          # matter what surrounds them. Look ahead to the closing quote and keep such a region.
+          if (!keep && c == "\"") {
+            rest = substr(s, i + 1)
+            endq = index(rest, "\"")
+            inner = (endq > 0 ? substr(rest, 1, endq - 1) : rest)
+            if (index(inner, "$(") > 0 || index(inner, "`") > 0) { keep = 1 }
+          }
         }
       } else if (c == q) {
         mask = mask c
