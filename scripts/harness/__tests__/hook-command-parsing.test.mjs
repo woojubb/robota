@@ -744,6 +744,56 @@ describe('a hook examines the command that will run', () => {
     expect(`${result.stderr}`, 'an absolute path leaked into the refusal').not.toContain(elsewhere);
   });
 
+  it('expands an unquoted heredoc body the way the shell does', () => {
+    // `<<EOF` is expanded: `$(…)` and backticks in the body genuinely run. `<<\'EOF\'` and `<<"EOF"`
+    // are literal. Treating every body as data meant `git commit -F- <<EOF` with a push inside a
+    // substitution executed it while no guard saw it — the principle this file applies to quoted
+    // strings, not applied to the one place the shell applies it too.
+    const live = scratchRepo('main');
+    const inert = scratchRepo('feat/probe');
+
+    const expanded = runHook(
+      'branch-guard.sh',
+      ['git commit -F- <<EOF', '$(git push --force origin main)', 'EOF'].join('\n'),
+      { cwd: live },
+    );
+    expect(expanded.status, 'a substitution in an expanded heredoc body went unseen').toBe(2);
+
+    const literal = runHook(
+      'branch-guard.sh',
+      ["git commit -F- <<'EOF'", '$(git push --force origin main)', 'EOF'].join('\n'),
+      { cwd: inert },
+    );
+    expect(literal.status, 'a quoted delimiter makes the body data; it was read as a command').toBe(
+      0,
+    );
+
+    const prose = runHook(
+      'branch-guard.sh',
+      ['git commit -F- <<EOF', 'prose about git push here', 'EOF'].join('\n'),
+      { cwd: inert },
+    );
+    expect(prose.status, 'prose in an expanded body is still prose').toBe(0);
+  });
+
+  it("runs only the interpreter's own argument", () => {
+    // The exception ran to every quoted string later in the statement, so the positional argument in
+    // `python3 -c "x=1" "…"` was scanned as code and an ordinary command was refused. A quoted
+    // argument ends the run; the first string still counts.
+    const cwd = scratchRepo('feat/probe');
+    const positional = runHook(
+      'branch-guard.sh',
+      'python3 -c "x=1" "just text mentioning git push"',
+      { cwd },
+    );
+    expect(positional.status, 'a positional argument was read as code').toBe(0);
+
+    const real = runHook('branch-guard.sh', 'bash -x -c "git push origin main"', {
+      cwd: scratchRepo('main'),
+    });
+    expect(real.status, "the interpreter's own string stopped being read").toBe(2);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

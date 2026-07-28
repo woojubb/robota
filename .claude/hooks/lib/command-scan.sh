@@ -150,7 +150,36 @@ hook_strip_heredocs() {
       # indented body line that happens to equal the terminator ends the body early, and the rest of
       # the body is then scanned as if it were commands.
       if (dashed) { sub(/^[ \t]+/, "", line) }
-      if (line == term) { inbody = 0 }
+      if (line == term) { inbody = 0; next }
+
+      # `<<EOF` — an UNQUOTED delimiter — is expanded by the shell, so `$(…)` and backticks in the
+      # body genuinely run. `<<\047EOF\047` and `<<"EOF"` are literal and stay data. Treating every
+      # body as data meant `git commit -F- <<EOF` with `$(git push --force …)` inside executed the
+      # push while no guard saw it — the same principle applied elsewhere in this file to quoted
+      # strings, and not here. Only the substitution spans are emitted; the prose around them is
+      # still data.
+      if (!quoted) {
+        out = ""
+        n = length($0)
+        for (i = 1; i <= n; i++) {
+          if (substr($0, i, 2) == "$(") {
+            depth = 0
+            for (j = i + 1; j <= n; j++) {
+              cj = substr($0, j, 1)
+              if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
+            }
+            stop = (j <= n) ? j : n
+            out = out substr($0, i, stop - i + 1) " "
+            i = stop
+          } else if (substr($0, i, 1) == "`") {
+            for (j = i + 1; j <= n; j++) { if (substr($0, j, 1) == "`") { break } }
+            stop = (j <= n) ? j : n
+            out = out substr($0, i, stop - i + 1) " "
+            i = stop
+          }
+        }
+        if (out != "") { print out }
+      }
       next
     }
     {
@@ -163,6 +192,7 @@ hook_strip_heredocs() {
       if (match(probe, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
         term = substr(probe, RSTART, RLENGTH)
         dashed = (substr(term, 3, 1) == "-")
+        quoted = (term ~ /[\047"]/)
         sub(/^<<-?[ \t]*/, "", term)
         gsub(/[\047"]/, "", term)
         inbody = 1
@@ -203,7 +233,10 @@ hook_executable_part() {
 # The shells are NAMED. `[^ \t;&|(\n/]*sh` matched any token ending in those two letters —
 # `git stash push -m "…"` read `stash` as an interpreter and opened the message to verb
 # scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`. Any number of arguments
-# may sit between the interpreter and its string — allowing exactly one meant `bash -x -c "…"`,
+# may sit between the interpreter and its string, but none of them may itself be quoted: after
+# `python3 -c "x=1"` the NEXT quoted argument is a positional one the interpreter does not run,
+# and treating it as code refused ordinary commands. Allowing exactly one argument meant
+# `bash -x -c "…"`,
 # `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked.
 #
 # `ssh`, `expect` and `tclsh` are on the list because a closed list is a list of the ways past the
@@ -218,7 +251,7 @@ hook_executable_part() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n]+[ \t]+)*|eval[ \t]+)$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
