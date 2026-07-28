@@ -419,6 +419,50 @@ describe('a hook examines the command that will run', () => {
     );
   });
 
+  it('reads strings run by wrappers, not only by bash', () => {
+    // A closed interpreter list is a list of the ways past the guard. `ssh`, `expect`, `timeout`
+    // and any shell-named wrapper run their strings; masking them made a precise guard a blind one.
+    const cwd = scratchRepo('main');
+    const cases = [
+      'ssh host "git push --force origin main"',
+      'timeout 5 bash -c "git push origin main"',
+      'myfish -c "git push origin main"',
+    ];
+
+    for (const command of cases) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard missed a push in: ${command}`).toBe(2);
+    }
+  });
+
+  it('still says nothing about a search for those words', () => {
+    // The boundary the widened list must not cross. `rg "git push" docs/` is ordinary work here,
+    // and reading its argument as a command would refuse routine commands many times a day — the
+    // self-blocking these hooks have already inflicted once.
+    const cwd = scratchRepo('main');
+
+    for (const command of ['rg "git push" docs/', 'grep -rn "git push --force" .']) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard blocked a search: ${command}`).toBe(0);
+    }
+  });
+
+  it('refuses a payload carrying no command', () => {
+    // jq's `// ""` made an absent field decode "successfully" as empty, which then matched nothing
+    // — a silent pass wearing the costume of a clean scan.
+    const cwd = scratchRepo('main');
+    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: {} });
+
+    for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh']) {
+      const result = spawnSync('bash', [path.join(HOOKS_DIR, hook)], {
+        input: payload,
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: cwd, ROBOTA_AGENT_WORKTREE: '1' },
+      });
+      expect(result.status, `${hook} passed a payload with no command`).toBe(2);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

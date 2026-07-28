@@ -58,7 +58,13 @@ sys.stdout.write(node if isinstance(node, str) else "")
 
 # The Bash tool's command. Non-zero return means "could not decode" — refuse, do not proceed.
 hook_command_of() {
-  hook_json_string "$1" 'tool_input.command'
+  local cmd
+  cmd=$(hook_json_string "$1" 'tool_input.command') || return 1
+  # jq's `// ""` turns an absent or null field into a successful empty string, so a payload with no
+  # command decoded "fine" and then matched nothing — a silent pass wearing the costume of a clean
+  # scan. A Bash call without a command is not something this guard can judge.
+  [[ -n "$cmd" ]] || return 1
+  printf '%s' "$cmd"
 }
 
 # The tool being invoked.
@@ -154,7 +160,21 @@ hook_executable_part() {
 # returns the masked command for verb matching; MODE=gitc locates `git -C` in the mask, where a
 # mention cannot match, and reads its value from the ORIGINAL at the same offset, because a path is
 # routinely quoted and masking it would leave the guard with no path at all.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])(((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[ \t]+-[[:alnum:]]*[ceE]|eval)[ \t]+$'
+# Commands that RUN a string argument. When one precedes a quoted string, nothing inside it is
+# masked, because that text is a command and must be read as one.
+#
+# `[^ \t;&|(\n/]*sh` matches any shell-named binary, so a wrapper this list never heard of is still
+# covered; `ssh`, `expect`, `tclsh`, `timeout`, `nohup`, `sudo` and `env` were added after review
+# observed that a closed list is a list of the ways past the guard.
+#
+# The boundary is real, and stated rather than implied: this is still an allowlist, so a quoted
+# string run by something outside it is masked and its verbs go unseen. Inverting the default —
+# examine every quoted string unless a known message flag precedes it — was considered and
+# rejected: in this repository `rg "git push" docs/` and `grep -E "git push"` are ordinary
+# commands, and reading their arguments as commands would refuse routine work many times a day.
+# That is the self-blocking these hooks have already inflicted once. The trade runs this way
+# because of the threat model: the commands guarded here are the agent's own, written plainly.
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh|xargs|env|timeout|nohup|nice|flock|sudo|su)[ \t]+(-[[:alnum:]]*[ceE][ \t]+|[^ \t;&|(-][^ \t;&|(]*[ \t]+))|eval[ \t]+)$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
