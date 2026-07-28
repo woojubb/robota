@@ -264,5 +264,11 @@ hook_deleted_branch() {
     [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
   fi
 
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)'
+  # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)')
+  [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
+
+  # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
+  # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+--delete[ \t]+[^ \t]+[ \t]+'
 }

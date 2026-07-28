@@ -373,6 +373,35 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('refuses a payload that names no tool', () => {
+    // The fail-open moved to the call site: left bare, a non-zero return aborts the assignment under
+    // `set -e` and the hook exits 1 saying nothing — which the hook protocol treats as non-blocking.
+    // The same conflation the decode path already refuses, one line further out.
+    const cwd = scratchRepo('main');
+    const payload = JSON.stringify({ tool_input: { command: 'git push origin main' } });
+
+    for (const hook of ['branch-guard.sh', 'pre-push-check.sh', 'worktree-cwd-guard.sh']) {
+      const result = spawnSync('bash', [path.join(HOOKS_DIR, hook)], {
+        input: payload,
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: cwd, ROBOTA_AGENT_WORKTREE: '1' },
+      });
+      expect(result.status, `${hook} exited non-blocking on a payload with no tool_name`).toBe(2);
+      expect(`${result.stderr}`, `${hook} refused without saying why`).toMatch(/names no tool/);
+    }
+  });
+
+  it('sees a delete however the flag is ordered', () => {
+    // `git push --delete <remote> <branch>` is accepted by git and was never matched — pre-existing,
+    // and a delete the guard misses is a delete it permits.
+    const cwd = scratchRepo('feat/probe');
+
+    for (const command of ['git push origin --delete gone', 'git push --delete origin gone']) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard let a delete through: ${command}`).toBe(2);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

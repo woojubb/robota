@@ -35,7 +35,13 @@ INPUT=$(cat)
 source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
-TOOL_NAME=$(hook_tool_name_of "$INPUT")
+# Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
+# under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
+# non-blocking. Silent exit and "it is fine" are the two states this file refuses to conflate.
+if ! TOOL_NAME=$(hook_tool_name_of "$INPUT"); then
+  echo "[worktree-cwd-guard] Blocked: the hook payload names no tool, so nothing can be judged." >&2
+  exit 2
+fi
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
