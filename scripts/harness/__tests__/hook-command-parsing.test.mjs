@@ -695,6 +695,25 @@ describe('a hook examines the command that will run', () => {
     expect(result.status, 'branch-guard read a stash message as a push').toBe(0);
   });
 
+  it('reaches a push introduced by a plain word', () => {
+    // pre-push-check alone kept whitespace out of its boundary set, so `time git push`,
+    // `command git push` and `nice git push` never reached it and skipped branch-hygiene and
+    // lockfile checks entirely. The exclusion existed for a false positive that masking has since
+    // removed — the same reachability gap this PR fixes twice over, left in the third hook.
+    const cwd = scratchRepo('feat/probe');
+
+    for (const command of [
+      'time git push origin feat/probe',
+      'command git push origin feat/probe',
+      'nice git push origin feat/probe',
+    ]) {
+      const result = runHook('pre-push-check.sh', command, { cwd });
+      expect(result.output.trim().length, `pre-push-check never saw: ${command}`).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

@@ -51,7 +51,8 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # real invocation can reach is indistinguishable from no enforcement.
 #
 # Boundaries are STATEMENT separators only — line start, `;`, `&&`, `||`, `|`, `(`, and the literal
-# a real newline, matched by grep's own `^`. Bare whitespace is NOT a boundary, deliberately: with it,
+# a real newline, matched by grep's own `^`. Whitespace IS a boundary — `time git push`, `command git push`, `nice git push` reach the
+# guard only through it. It was excluded while the false positive below was live:
 # `gh pr create --body "… git push …"` and `git commit -m "fix: git push guard"` both match, and a
 # guard that blocks ordinary work is one that gets switched off.
 #
@@ -66,15 +67,14 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # at the first escaped quote, so the text after `--body \"` is never seen (HARNESS-061). It would
 # come alive the moment that extraction is repaired — so it is excluded here rather than left as a
 # trap for whoever fixes it.
-# `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
-# with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
-# one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
-# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
-# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
-# verb is then `"`, so without this the preserved string matched nothing and the exception was
-# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
-# false positive it sits next to.
-printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+# Boundaries: line start, `;`, `&&`, `||`, `|`, `(`, `{`, a quote, a backtick, a newline — and
+# whitespace. `time git push`, `command git push` and `nice git push` reach this guard only through
+# the last one, and it was excluded while the false positive it guarded against was live: back then
+# the whole command was scanned raw, so `gh pr create --body "… git push …"` matched. Quoted
+# payloads are masked before this runs now, so the exclusion protected nothing and cost the forms
+# above. A quote and a backtick are boundaries because a kept region — `bash -c "git push"`,
+# `` `git push` `` — puts one immediately before the verb.
+printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.

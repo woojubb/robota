@@ -77,17 +77,16 @@ VERBS=$(hook_verb_scan "$COMMAND")
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.
 #
-# `\n` — the two literal characters backslash-n — is a boundary too. The command arrives as JSON and
+# A newline is a boundary too. The command arrives decoded as JSON with real newlines, and
 # is decoded as JSON now and carries real newlines, so grep's `^` is a line start and the second line
 # of `cd <repo>` + newline + `git reset --hard` begins with no whitespace, no `;` and no `&`.
 # Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
 # by exactly that shape — and a destructive command on a later line of a block is the shape of the
 # incident it exists to prevent.
-# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
-# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
-# verb is then `"`, so without this the preserved string matched nothing and the exception was
-# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
-# false positive it sits next to.
+# A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick
+# subshell — puts one immediately before the verb, and without them the region survived masking and
+# still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
+# false positive it sits beside.
 GITPFX='(^|[[:space:];&|({"'"'"'`])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
 
 IS_DESTRUCTIVE=false

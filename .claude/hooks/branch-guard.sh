@@ -112,11 +112,10 @@ IS_GH_DELETE_BRANCH=false
 # inside an ordinary quoted argument (`-m 'run git checkout -b x'`) still matches, because telling
 # quoting apart needs the shell-aware extraction filed as HARNESS-061, not a longer regex here.
 
-# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
-# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
-# verb is then `"`, so without this the preserved string matched nothing and the exception was
-# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
-# false positive it sits next to.
+# A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick
+# subshell — puts one immediately before the verb, and without them the region survived masking and
+# still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
+# false positive it sits beside.
 GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
