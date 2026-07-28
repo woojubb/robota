@@ -42,7 +42,10 @@ const COMPOUND_FORMS = [
  * false assurance this comment records. It is covered by that branch's own suite, which derives each
  * hook's verbs from the hook's source rather than from a list.
  */
-const INTERCEPTORS = [{ hook: 'pre-push-check.sh', verb: 'git push -u origin feat/probe' }];
+const INTERCEPTORS = [
+  { hook: 'pre-push-check.sh', verb: 'git push -u origin feat/probe' },
+  { hook: 'merge-gate.sh', verb: 'gh pr merge 1 --merge' },
+];
 
 /**
  * `spawnSync`, not `execFileSync`: hooks write their notices to stderr, and `execFileSync`'s SUCCESS
