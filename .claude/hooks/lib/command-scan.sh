@@ -203,9 +203,55 @@ hook_strip_heredocs() {
   '
 }
 
-# Strip trailing shell comments so a `#` remark naming a verb cannot trip a matcher.
+# Strip shell comments — quote-aware, because a comment is only a comment outside quotes.
+#
+# This was `sed 's/[[:space:]]#[^"]*$//'`. The `[^"]*` was there so a `#` inside a quoted string
+# would not be treated as a comment, and it worked by refusing to match whenever a quote appeared
+# anywhere after the `#` — including inside the comment itself. So `echo ok # a "half-open remark`
+# stripped nothing, the stray quote opened a string the masker never saw closed, and EVERY LINE
+# AFTER IT was masked away: a `git push origin --delete develop` on the next line was invisible to
+# all four guards. A new instance of the class this library exists to close, in the one helper that
+# had no state machine.
+#
+# A `#` starts a comment when it is outside quotes and begins a word — which is what the shell
+# does, and what the masker already knows how to determine.
 hook_strip_comments() {
-  sed 's/[[:space:]]#[^"]*$//'
+  awk '
+    { lines[NR] = $0 }
+    END {
+      # Quote state carries ACROSS lines, exactly as the masker does. Resetting it per line meant a
+      # `#` on the continuation line of a multi-line quoted argument was read as a comment start,
+      # and the rest of that line — the real closing quote, and anything chained after it — was
+      # discarded. That removed a real command from what the guards see: the same defect class, via
+      # the opposite mechanism, in the fix for it.
+      q = ""
+      for (n = 1; n <= NR; n++) {
+        s = lines[n]
+        out = ""
+        # `q` carries across lines; `esc` does NOT. A trailing backslash escapes the NEWLINE — the
+        # shell joins the two physical lines and the backslash-newline vanishes — it does not leave
+        # the first character of the next line escaped. Sharing the flag made that character bypass
+        # the quote-open and comment-start decisions entirely.
+        esc = 0
+        len = length(s)
+        for (i = 1; i <= len; i++) {
+          c = substr(s, i, 1)
+          if (esc) { esc = 0; out = out c; continue }
+          if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
+          if (q == "") {
+            if (c == "\"" || c == "\047") { q = c; out = out c; continue }
+            # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
+            if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;&|(]/)) { break }
+            out = out c
+          } else {
+            if (c == q) { q = "" }
+            out = out c
+          }
+        }
+        print out
+      }
+    }
+  '
 }
 
 # What a guard should actually examine: the command with heredoc bodies and comments removed.

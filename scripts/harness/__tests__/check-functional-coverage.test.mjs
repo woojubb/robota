@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectFunctionalCoverageFindings } from '../check-functional-coverage.mjs';
+import { collectFunctionalCoverageFindings, hasLiveTest } from '../check-functional-coverage.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../check-functional-coverage.mjs', import.meta.url));
 
@@ -159,8 +159,7 @@ describe('collectFunctionalCoverageFindings', () => {
 
   it('accepts a file that skips ONE case and runs another', async () => {
     const root = await createFixture({
-      'tests/chat-basic.functional.test.ts':
-        `${GREEN_TEST_SOURCE}\nit.skip('the flaky one', () => {});\n`,
+      'tests/chat-basic.functional.test.ts': `${GREEN_TEST_SOURCE}\nit.skip('the flaky one', () => {});\n`,
     });
     const manifestPath = manifestOn(root, GREEN_MANIFEST);
 
@@ -233,5 +232,24 @@ describe('check-functional-coverage CLI', () => {
     expect(result.stderr).toContain(
       'chat-basic: functional test not found: tests/chat-basic.functional.test.ts',
     );
+  });
+});
+
+describe('hasLiveTest — a suite skipped as a whole is not coverage', () => {
+  it('counts no live test when describe.skip wraps every case', () => {
+    // The check read only the modifiers attached to `it`/`test`, so a whole suite wrapped in
+    // `describe.skip` counted as live coverage — the paper-coverage this check exists to catch, in
+    // its most common spelling.
+    expect(hasLiveTest('describe.skip("s", () => { it("a", () => {}); });')).toBe(false);
+    expect(hasLiveTest('describe.todo("s", () => { it("a", () => {}); });')).toBe(false);
+  });
+
+  it('still counts a live suite beside a skipped one', () => {
+    // Deliberately narrow, as the function's own contract says: a PARTIALLY skipped file is fine.
+    expect(
+      hasLiveTest(
+        'describe.skip("s", () => { it("a", () => {}); });\ndescribe("t", () => { it("b", () => {}); });',
+      ),
+    ).toBe(true);
   });
 });

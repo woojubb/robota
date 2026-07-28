@@ -41,19 +41,58 @@ export function usesMarker(code, marker) {
 }
 
 /**
+ * The [start, end) spans of `describe.skip(...)` / `describe.todo(...)` blocks.
+ *
+ * Parenthesis counting, not a regex: a suite body is arbitrary code, and the only way to know where
+ * one ends is to count. Strings containing unbalanced parens would confuse it, which is stated
+ * rather than hidden — the alternative is parsing, and this file is a grep-level guard by design.
+ */
+function skippedSuiteSpans(code) {
+  const spans = [];
+  const opener = /\bdescribe((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g;
+  for (const match of code.matchAll(opener)) {
+    if (!/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) continue;
+    let depth = 0;
+    let end = code.length;
+    for (let i = match.index + match[0].length - 1; i < code.length; i++) {
+      const c = code[i];
+      if (c === '(') depth++;
+      else if (c === ')') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    spans.push([match.index, end]);
+  }
+  return spans;
+}
+
+/**
  * Does the file declare at least one test that is not skipped?
  *
  * The manifest's contract is "not a skipped E2E". A file whose every case is `it.skip` still
  * contains the marker, still passes a substring check, and covers nothing. Deliberately narrow: a
  * PARTIALLY skipped file is fine — flagging those would fire on legitimate work, and a guard that
  * fires on correct data is one that gets suppressed.
+ *
+ * A case inside a `describe.skip(...)` block does not run either, and the first version of this
+ * check read only the modifiers attached to `it`/`test` — so a whole suite wrapped in
+ * `describe.skip` counted as live coverage. That is the same paper-coverage this check was added
+ * to catch, in its most common spelling.
  */
 export function hasLiveTest(code) {
-  const declarations = String(code ?? '').matchAll(
+  const source = String(code ?? '');
+  const skipped = skippedSuiteSpans(source);
+  const declarations = source.matchAll(
     /\b(?:it|test)((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g,
   );
   for (const match of declarations) {
-    if (!/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) return true;
+    if (/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) continue;
+    if (skipped.some(([start, end]) => match.index > start && match.index < end)) continue;
+    return true;
   }
   return false;
 }

@@ -828,6 +828,43 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('survives an unbalanced quote inside a comment', () => {
+    // Comment stripping was `sed 's/[[:space:]]#[^\"]*$//'`, which refused to match whenever a quote
+    // appeared after the `#` — including inside the comment itself. The stray quote then opened a
+    // string the masker never saw closed, and EVERY LINE AFTER IT was masked away: the delete on
+    // the next line was invisible to all four guards.
+    const cwd = scratchRepo('main');
+    const command = ['echo ok # a "half-open remark', 'git push origin --delete develop'].join(
+      '\n',
+    );
+    const result = runHook('branch-guard.sh', command, { cwd });
+
+    expect(result.status, 'a comment with one quote in it hid the command that followed').toBe(2);
+  });
+
+  it('does not read a # inside a multi-line quoted argument as a comment', () => {
+    // The comment stripper reset its quote state at each line while the masker it feeds joins them
+    // — so a `#` on the continuation line of a multi-line message was read as a comment start, and
+    // the rest of that line, including the real closing quote and everything chained after it, was
+    // discarded. The same defect class as the bug it was fixing, through the opposite mechanism.
+    const cwd = scratchRepo('feat/probe');
+    const command = [
+      'git commit -m "line one',
+      'line two # not a comment" && git push origin --delete develop',
+    ].join('\n');
+    const result = runHook('branch-guard.sh', command, { cwd });
+
+    expect(result.status, 'a delete after a multi-line message went unseen').toBe(2);
+  });
+
+  it('still ignores a verb named inside a comment', () => {
+    // The other side: a `#` remark is prose, and quote-awareness must not cost that.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook('branch-guard.sh', 'git status # note about git push', { cwd });
+
+    expect(result.status, 'a comment was read as a command').toBe(0);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
@@ -838,6 +875,39 @@ describe('a hook examines the command that will run', () => {
       expect(result.status, `${hook} blocked an ordinary command`).toBe(0);
     }
   });
+});
+
+describe('every hook and the library it shares parse as bash', () => {
+  /**
+   * The cheapest floor in this directory, and the one that was missing.
+   *
+   * The shared library holds an awk program inside a single-quoted shell string. An apostrophe
+   * written into one of its comments closes that string, and the file stops parsing — at which
+   * point every hook that sources it fails, and since these hooks run on EVERY Bash tool call, the
+   * session can no longer run any command at all. Measured on 2026-07-28: one apostrophe in one
+   * comment, and nothing could be executed until the file was repaired with an editor.
+   *
+   * A syntax error is not a subtle defect. It only needs someone to look, and nothing did.
+   */
+  const shellFiles = [
+    ...readdirSync(HOOKS_DIR)
+      .filter((name) => name.endsWith('.sh'))
+      .map((name) => path.join(HOOKS_DIR, name)),
+    ...readdirSync(path.join(HOOKS_DIR, 'lib'))
+      .filter((name) => name.endsWith('.sh'))
+      .map((name) => path.join(HOOKS_DIR, 'lib', name)),
+  ];
+
+  it('finds shell files to check', () => {
+    expect(shellFiles.length).toBeGreaterThan(1);
+  });
+
+  for (const file of shellFiles) {
+    it(`${path.relative(HOOKS_DIR, file)} parses`, () => {
+      const result = spawnSync('bash', ['-n', file], { encoding: 'utf8' });
+      expect(result.status, `${path.basename(file)} does not parse:\n${result.stderr}`).toBe(0);
+    });
+  }
 });
 
 describe('the command parse has one owner', () => {
