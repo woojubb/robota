@@ -163,7 +163,9 @@ fi
 # The reviewer's own machine-readable count, when it emitted one. `pr-review-reviewer` declares
 # `ACTIONABLE FINDINGS: <n>` as its output contract precisely so a pipeline can route on it.
 BODY=$(printf '%s' "$LAST_REVIEW" | jq -r '.body // ""' 2>/dev/null || echo "")
-COUNT=$(printf '%s' "$BODY" | grep -oiE 'ACTIONABLE FINDINGS:[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
+# The LAST numeric match, not the first: the contract puts the count on the summary's final line,
+# and a review quoting an earlier round carries that round's number ahead of its own.
+COUNT=$(printf '%s' "$BODY" | grep -oiE 'ACTIONABLE FINDINGS:[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | tail -1 || true)
 if [[ -n "$COUNT" && "$COUNT" != "0" ]]; then
   echo "[merge-gate] Blocked: the review on #$PR reports ACTIONABLE FINDINGS: $COUNT." >&2
   echo "[merge-gate] Resolve them, then re-review. git-branch.md: only after ALL findings are resolved." >&2
@@ -174,18 +176,19 @@ fi
 # judgement, and a hook guessing at it would be a check measuring the wrong thing. What it has
 # established: CI is green, a review exists, and it is newer than what is being merged.
 #
-# An absent count is SAID, not silently read as zero. Review called the silence a fail-open, and the
-# silence was the problem — but refusing on it would be worse than the defect: measured over the 38
-# most recent reviews on this repository, 4 carried the marker. A gate that blocks 34 of 38 merges
-# teaches everyone to pass MERGE_GATE_ACK=1, which is the bypass this hook exists to prevent, and an
-# earlier round of this same review said so. So the count is now required of the reviewer
-# (claude-code-review.yml) rather than assumed of it, and until it arrives the gate reports exactly
-# what it knows: nothing about the findings.
+# An absent count is a refusal, like every other unreadable state in this file. It was a warning and
+# an exit 0, on the argument that only 4 of the 38 most recent reviews carried the marker and a
+# refusal would make the override routine. That argument is spent: the count is now required of the
+# reviewer in claude-code-review.yml, and the review that produced this change carried it. What
+# remains is the script's own rule, which the findings check was the single exception to — "I could
+# not check" and "it is fine" are the two states a guard must never conflate, and a review with real
+# findings written only in prose is exactly the merge-past-findings incident (#1503, #1510) this
+# hook exists to stop.
 if [[ -z "$COUNT" ]]; then
-  echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head — but it carries no" >&2
-  echo "[merge-gate] 'ACTIONABLE FINDINGS: <n>' line, so this gate counted NOTHING. Its prose is the" >&2
-  echo "[merge-gate] only signal that findings are resolved. READ IT before merging." >&2
-  exit 0
+  echo "[merge-gate] Blocked: the review on #$PR carries no 'ACTIONABLE FINDINGS: <n>' line, so" >&2
+  echo "[merge-gate] this gate cannot tell whether findings remain. Re-run the review, or read it" >&2
+  echo "[merge-gate] and override deliberately: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
 fi
 
 echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head, ACTIONABLE FINDINGS: 0. READ IT." >&2

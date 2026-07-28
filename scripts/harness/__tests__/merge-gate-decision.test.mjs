@@ -81,7 +81,11 @@ function judge(world, command = 'cd /repo && gh pr merge 7 --merge') {
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
-const REVIEW = (createdAt, body = 'looks fine') => ({
+/**
+ * A review as the reviewer is contracted to write one: prose, then the count on the last line.
+ * Cases that mean to test an ABSENT count pass a body without it, deliberately.
+ */
+const REVIEW = (createdAt, body = 'looks fine\nACTIONABLE FINDINGS: 0') => ({
   author: { login: 'github-actions' },
   createdAt,
   body,
@@ -133,20 +137,36 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/ACTIONABLE FINDINGS: 2/);
   });
 
-  it('says it counted nothing when the review carries no count', () => {
-    // Absence was read as zero, silently — review called that a fail-open and was right about the
-    // silence. Refusing on it would be worse than the defect: measured over the 38 most recent
-    // reviews here, 4 carried the marker, so a refusal blocks 34 of 38 merges and makes the override
-    // routine. The count is required of the reviewer now; until it arrives the gate says what it
-    // knows, which is nothing about the findings.
+  it('refuses when the review carries no count', () => {
+    // Absence was a warning and an exit 0, argued from measurement: 4 of the 38 most recent reviews
+    // carried the marker, and refusing would have made the override routine. That argument is spent
+    // — the count is required of the reviewer now, and the review that forced this change carried
+    // it. What remains is this script's own rule, which the findings check was the one exception to.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
       comments: [REVIEW('2026-07-28T10:05:00Z', 'prose only, no marker')],
     });
 
+    expect(verdict.status, 'an uncountable review was merged past').toBe(2);
+    expect(verdict.output).toMatch(/carries no 'ACTIONABLE FINDINGS/);
+  });
+
+  it('reads the last count in the body, not the first', () => {
+    // The contract puts the count on the summary's final line, and a review quoting an earlier
+    // round carries that round's number ahead of its own — `head -1` then read the stale one.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW(
+          '2026-07-28T10:05:00Z',
+          'last round said ACTIONABLE FINDINGS: 3, all fixed.\nACTIONABLE FINDINGS: 0',
+        ),
+      ],
+    });
+
     expect(verdict.status, verdict.output).toBe(0);
-    expect(verdict.output, 'the gate implied it had counted findings').toMatch(/counted NOTHING/);
   });
 
   it('allows when the review reports zero findings', () => {
@@ -201,7 +221,13 @@ describe('the merge gate decides on CI and on a current review', () => {
       const verdict = judge({
         state: 'CLEAN',
         headAt: '2026-07-28T10:00:00Z',
-        comments: [{ author: { login }, createdAt: '2026-07-28T10:05:00Z', body: 'fine' }],
+        comments: [
+          {
+            author: { login },
+            createdAt: '2026-07-28T10:05:00Z',
+            body: 'fine\nACTIONABLE FINDINGS: 0',
+          },
+        ],
       });
 
       expect(verdict.status, `${login} was not recognised as the reviewer`).toBe(0);
