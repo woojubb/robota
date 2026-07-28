@@ -108,7 +108,20 @@ export function findBareRatioProgressStatements(messageText, policy) {
       // with the quotes used for emphasis (`'6/7' 완료`), and must still be caught. Only a quoted
       // ratio the sentence then talks ABOUT is a citation.
       const quoted = /["'“‘「『]\s*$/.test(before) && /^\s*["'”’」』]/.test(after);
-      const assertedAfterQuote = completionPattern.test(after.replace(/^\s*["'”’」』]\s*/, ''));
+      // The FIRST TOKEN after the closing quote, not a window of characters.
+      //
+      // The 10-character `after` slice is sized for short suffix words like `단계`, and a closing
+      // quote plus a space eats two of the ten — so `remaining`, `completing`, `converted` and
+      // `processed` were truncated before the word boundary could match, the sentence read as a
+      // citation, and the violation was dropped. Widening the window instead reached a completion
+      // word further along the sentence — `"6/7"(버전 번호)을 진행률 비율로 오인해` contains
+      // `진행` — and broke the suppression it was written for. Adjacency is what actually
+      // distinguishes the two: `'6/7' 완료` asserts, `"6/7"(...)` is talked about.
+      const afterQuote = line
+        .slice(match.index + matched.length, match.index + matched.length + 64)
+        .replace(/^\s*["'”’」』]\s*/, '');
+      const nextToken = /^[^\s.,;:!?()[\]{}]+/.exec(afterQuote)?.[0] ?? '';
+      const assertedAfterQuote = completionPattern.test(nextToken);
       if (quoted && !assertedAfterQuote) continue;
 
       // Preceded by a transition arrow — `5 → 6/7` is a version or state transition, not a count

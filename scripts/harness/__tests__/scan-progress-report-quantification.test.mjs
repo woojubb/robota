@@ -87,6 +87,19 @@ describe('findBareRatioProgressStatements — measured false-positive classes st
     ).toHaveLength(1);
   });
 
+  it('still catches a quoted report whose keyword is a long word', () => {
+    // The suppression tested the 10-character `after` slice, which a closing quote and a space cut
+    // to seven or eight — so `remaining`, `completing`, `converted` and `processed` were truncated
+    // before the word boundary could match and the violation was dropped. Only `완료` (two
+    // characters) was covered, which is why the shipped tests did not see it.
+    for (const keyword of ['remaining', 'completing', 'converted', 'processed']) {
+      expect(
+        findBareRatioProgressStatements(`'6/7' ${keyword}, continuing later`, POLICY),
+        keyword,
+      ).toHaveLength(1);
+    }
+  });
+
   it('still catches a real progress report quoted for emphasis', () => {
     // The quote suppression is for a ratio the sentence talks ABOUT. Quotes used for emphasis
     // around an asserted ratio — `'6/7' 완료` — are still an assertion, and still a violation.
