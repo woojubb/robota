@@ -427,7 +427,12 @@ describe('a hook examines the command that will run', () => {
     const cases = [
       'ssh host "git push --force origin main"',
       'timeout 5 bash -c "git push origin main"',
-      'myfish -c "git push origin main"',
+      // A NAMED shell, not an arbitrary token ending in `sh`. Matching `[^/]*sh` covered unknown
+      // wrappers but also read `git stash push -m "…"` as an interpreter and refused it. The
+      // boundary is stated in command-scan.sh: a string run by something outside the list is
+      // masked, and that is the price of not refusing ordinary commands.
+      'fish -c "git push origin main"',
+      'ksh -c "git push origin main"',
       // More than one argument between the interpreter and its string. Allowing exactly one meant
       // every one of these fell out of the exception and was masked — the bypass class this
       // exception exists to close, reopened by the shape of the expression rather than the list.
