@@ -216,6 +216,20 @@ HOOK_SCAN_AWK='
     # guard with nothing. Every extraction that decides WHAT a guard acts on goes through here — the
     # `git -C` target, and the branch name a delete would remove. Writing each by hand is how the
     # delete checks kept reading quoted text as commands after every other check had stopped.
+    # Anchor in the mask, then search the ORIGINAL from that offset. Needed when the value sits
+    # INSIDE a quoted argument — a `gh api` refs/heads URL nearly always does — where the mask
+    # hides it. Reading the original from position zero instead is what let a decoy in a commit
+    # message stand in for the real branch being deleted.
+    if (MODE == "after") {
+      if (!match(mask, ERE)) { exit }
+      rest = substr(s, RSTART)
+      if (!match(rest, VRE)) { exit }
+      v = substr(rest, RSTART + RLENGTH)
+      sub(/[ \t\n"\047].*$/, "", v)
+      print v
+      exit
+    }
+
     if (!match(mask, ERE)) { exit }
     p = RSTART + RLENGTH
     c = substr(s, p, 1)
@@ -234,12 +248,18 @@ HOOK_SCAN_AWK='
 # Print the token that follows a match, located where quotes cannot lie. $2 is an ERE ending where
 # the value begins.
 hook_match_extract() {
-  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="" "$HOOK_SCAN_AWK"
+}
+
+# Like hook_match_extract, but the value is found by $3 searched in the ORIGINAL starting at the
+# anchor $2's position in the mask. For values that legitimately live inside a quoted argument.
+hook_match_extract_after() {
+  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_SCAN_AWK"
 }
 
 # What a verb-detection matcher should read.
 hook_verb_scan() {
-  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" "$HOOK_SCAN_AWK"
+  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_SCAN_AWK"
 }
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
@@ -259,8 +279,11 @@ hook_deleted_branch() {
   verbs=$(hook_verb_scan "$1")
 
   if printf '%s' "$verbs" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*'; then
-    name=$(printf '%s' "$1" | grep -oE '/git/refs/heads/[A-Za-z0-9._/-]+' | head -1 |
-      sed 's#.*/git/refs/heads/##')
+    # From the `gh api` call's own position, not from the start of the string. Taking the first
+    # match anywhere meant `git commit -m "note /git/refs/heads/scratch" && gh api -X DELETE
+    # .../heads/develop` reported scratch, so the protected-branch and merged-PR checks never saw
+    # the branch actually being deleted.
+    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047])gh[ \t]+api([ \t]|$)' '/git/refs/heads/')
     [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
   fi
 

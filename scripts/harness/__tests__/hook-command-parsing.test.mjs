@@ -402,6 +402,23 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('names the branch the delete actually targets', () => {
+    // The `gh api` path read the first `/git/refs/heads/…` anywhere in the raw command, so a decoy
+    // in a quoted commit message stood in for the real target and the protected-branch and
+    // merged-PR checks were run against a branch nobody was deleting. The verb was judged in the
+    // mask; only the value was not position-mapped to it.
+    const cwd = scratchRepo('feat/probe');
+    const command =
+      'git commit -m "note /git/refs/heads/scratch" && ' +
+      'gh api -X DELETE repos/o/r/git/refs/heads/develop';
+    const result = runHook('branch-guard.sh', command, { cwd });
+
+    expect(result.status, 'a decoy branch name displaced the real delete target').toBe(2);
+    expect(result.output, 'the refusal named the decoy, not the branch being deleted').toMatch(
+      /develop/,
+    );
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
