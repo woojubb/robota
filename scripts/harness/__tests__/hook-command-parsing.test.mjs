@@ -260,6 +260,40 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('reads a -C target inside a string an interpreter runs', () => {
+    // The interpreter exception kept `bash -c \"git push\"` visible to verb detection but not to the
+    // `-C` extraction, so the branch check judged some other directory while the real target went
+    // unexamined. Verb and target must be read out of the same string.
+    const protectedRepo = scratchRepo('main');
+    const cwd = scratchRepo('feat/elsewhere');
+    const result = runHook(
+      'branch-guard.sh',
+      `bash -c "git -C ${protectedRepo} push origin main"`,
+      {
+        cwd,
+      },
+    );
+
+    expect(
+      result.status,
+      'the `-C` target inside an interpreter string was masked away, so the guard judged the ' +
+        'wrong repository and let a push to a protected branch through.',
+    ).toBe(2);
+  });
+
+  it('exempts only the string the interpreter runs', () => {
+    // Applying the exception to the whole command meant one `bash -c` anywhere unmasked every other
+    // quoted argument on the line, and an ordinary commit whose message mentioned a push was read
+    // as a push. Each quoted string answers for itself.
+    const cwd = scratchRepo('feat/probe');
+    const command = 'bash -c "echo hi" && git commit -m "dont run git push in CI"';
+
+    for (const hook of ['branch-guard.sh', 'pre-push-check.sh']) {
+      const result = runHook(hook, command, { cwd });
+      expect(result.status, `${hook} read an unrelated message as a command`).toBe(0);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

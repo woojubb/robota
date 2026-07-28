@@ -134,108 +134,76 @@ hook_executable_part() {
   printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
 }
 
-# Mask the CONTENTS of quoted strings, one character for one, so offsets are preserved.
+# Quoted contents are masked one character for one — EXCEPT the string an interpreter is told to
+# run, which is a command and is left intact.
 #
-# Whole-input, not per line. The `sed 's/"[^"]*"/""/g'` this replaces worked a line at a time, so a
-# quoted argument spanning a newline had its opening and closing quotes on different lines and was
-# never masked — a second line reading `git push` inside a message would then be read as a push.
-hook_mask_quoted() {
-  awk '
-    { lines[NR] = $0 }
-    END {
-      q = ""
-      for (n = 1; n <= NR; n++) {
-        s = lines[n]
-        out = ""
-        for (i = 1; i <= length(s); i++) {
-          c = substr(s, i, 1)
-          if (q == "") {
-            out = out c
-            if (c == "\"" || c == "\047") { q = c }
-          } else if (c == q) {
-            out = out c
-            q = ""
-          } else {
-            out = out "\001"
-          }
+# The exception is per-string, not per-command. Applying it to the whole command the moment any
+# interpreter appeared produced both errors at once, and review found both: a `-C` inside
+# `bash -c "..."` was masked away so the branch check judged the wrong repository, and an unrelated
+# commit message on the same line stayed unmasked so an ordinary commit was read as a push. Deciding
+# at the opening quote — by what immediately precedes it — is what makes each string answer for
+# itself.
+#
+# One program serves both readers so they can never disagree about what the command says. MODE=mask
+# returns the masked command for verb matching; MODE=gitc locates `git -C` in the mask, where a
+# mention cannot match, and reads its value from the ORIGINAL at the same offset, because a path is
+# routinely quoted and masking it would leave the guard with no path at all.
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[ \t]+-[[:alnum:]]*[ceE][ \t]*$'
+
+HOOK_SCAN_AWK='
+  { lines[NR] = $0 }
+  END {
+    # One string, so a quote opened on one line still masks the next. The sed this replaces worked a
+    # line at a time and left multi-line arguments unmasked entirely.
+    s = ""
+    for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
+
+    mask = ""
+    q = ""
+    keep = 0
+    for (i = 1; i <= length(s); i++) {
+      c = substr(s, i, 1)
+      if (q == "") {
+        mask = mask c
+        if (c == "\"" || c == "\047") {
+          q = c
+          keep = (substr(s, 1, i - 1) ~ IRE)
         }
-        print out
+      } else if (c == q) {
+        mask = mask c
+        q = ""
+        keep = 0
+      } else {
+        mask = mask (keep ? c : "\001")
       }
     }
-  '
-}
 
-# Commands that RUN a string argument. When one is present nothing is masked, because the quoted
-# text is a command and must be read as one.
-#
-# `bash -c` was the whole list; `python3 -c`, `node -e`, `perl -e` run their strings just as truly,
-# and masking theirs turned a false positive into a bypass. The list errs toward preserving: a
-# command wrongly left unmasked is examined too closely, which is the only direction a guard may be
-# wrong in.
-HOOK_INTERPRETER_RE='(^|[[:space:];&|(])((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[[:space:]]+(-[[:alnum:]]*[ceE])([[:space:]]|$)|(^|[[:space:];&|(])eval([[:space:]]|$)'
+    if (MODE == "mask") { print mask; exit }
 
-# What a verb-detection matcher should read: the executable part, with quoted contents masked.
-#
-# Deliberately NOT the string used to extract names and paths. A branch name, a `git -C` target and
-# a `refs/heads/<name>` URL are routinely quoted; `hook_git_c_path` masks to LOCATE and reads the
-# ORIGINAL to extract, which is how both properties hold at once.
+    # A quote is a boundary. Inside a preserved interpreter string the character before the
+    # verb is `"`, and without it here the exception that keeps that string readable found
+    # nothing in it — the finding review raised.
+    if (!match(mask, /(^|[ \t;&|({\n"\047])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { exit }
+    p = RSTART + RLENGTH
+    c = substr(s, p, 1)
+    if (c == "\"" || c == "\047") {
+      p++
+      end = index(substr(s, p), c)
+      print (end > 0 ? substr(s, p, end - 1) : substr(s, p))
+    } else {
+      v = substr(s, p)
+      sub(/[ \t\n].*$/, "", v)
+      print v
+    }
+  }
+'
+
+# What a verb-detection matcher should read.
 hook_verb_scan() {
-  local exec_part
-  exec_part=$(hook_executable_part "$1")
-  if printf '%s' "$exec_part" | grep -qE "$HOOK_INTERPRETER_RE"; then
-    printf '%s\n' "$exec_part"
-    return 0
-  fi
-  printf '%s\n' "$exec_part" | hook_mask_quoted
+  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" "$HOOK_SCAN_AWK"
 }
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
-#
-# This is the asymmetry review caught: verb detection blanked quoted contents, while the extraction
-# that decides WHICH REPOSITORY gets judged still read them. `git commit -m "... git -C /other ..."
-# && git push origin main` then pointed the branch check at /other and let a push to a protected
-# branch through — worse than the false positive the blanking removed, because it is silent.
-#
-# Blanking cannot simply be applied here: a path is often quoted (`git -C "/a b"`), and blanking it
-# would leave the guard with no path at all. So the command is MASKED — every character inside
-# quotes replaced one-for-one, preserving offsets — the flag is located in the mask, where a
-# mention cannot match, and the value is then read from the ORIGINAL at the same offset.
 hook_git_c_path() {
-  printf '%s\n' "$1" | awk '
-    { lines[NR] = $0 }
-    END {
-      # One string, so a quote opened on one line still masks the next — the same whole-input rule
-      # hook_mask_quoted follows, and the reason this is not two passes over separate strings.
-      s = ""
-      for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
-
-      mask = ""
-      q = ""
-      for (i = 1; i <= length(s); i++) {
-        c = substr(s, i, 1)
-        if (q == "") {
-          mask = mask c
-          if (c == "\"" || c == "\047") { q = c }
-        } else if (c == q) {
-          mask = mask c
-          q = ""
-        } else {
-          mask = mask "\001"
-        }
-      }
-
-      if (!match(mask, /(^|[ \t;&|({\n])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { exit }
-      p = RSTART + RLENGTH                # first character of the value, in both strings
-      c = substr(s, p, 1)
-      if (c == "\"" || c == "\047") {
-        p++
-        end = index(substr(s, p), c)
-        print (end > 0 ? substr(s, p, end - 1) : substr(s, p))
-      } else {
-        v = substr(s, p)
-        sub(/[ \t\n].*$/, "", v)
-        print v
-      }
-    }
-  '
+  printf '%s\n' "$1" | awk -v MODE=gitc -v IRE="$HOOK_INTERPRETER_RE" "$HOOK_SCAN_AWK"
 }
