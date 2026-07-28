@@ -88,7 +88,7 @@ VERBS=$(hook_verb_scan "$COMMAND")
 # verb is then `"`, so without this the preserved string matched nothing and the exception was
 # decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
 # false positive it sits next to.
-GITPFX='(^|[[:space:];&|({"'"'"'])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
+GITPFX='(^|[[:space:];&|({"'"'"'`])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
 
 IS_DESTRUCTIVE=false
 # git reset --hard

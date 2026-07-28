@@ -200,8 +200,9 @@ hook_executable_part() {
 # Commands that RUN a string argument. When one precedes a quoted string, nothing inside it is
 # masked, because that text is a command and must be read as one.
 #
-# `[^ \t;&|(\n/]*sh` matches any shell-named binary and an optional path prefix allows
-# `/bin/bash`, so a wrapper this list never heard of is still covered. Any number of arguments
+# The shells are NAMED. `[^ \t;&|(\n/]*sh` matched any token ending in those two letters —
+# `git stash push -m "…"` read `stash` as an interpreter and opened the message to verb
+# scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`. Any number of arguments
 # may sit between the interpreter and its string — allowing exactly one meant `bash -x -c "…"`,
 # `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked.
 #
@@ -217,7 +218,7 @@ hook_executable_part() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])(([^ \t;&|(\n]*/)?([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n]+[ \t]+)*|eval[ \t]+)$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n]+[ \t]+)*|eval[ \t]+)$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
@@ -357,7 +358,7 @@ hook_verb_scan() {
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+'
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
@@ -376,15 +377,15 @@ hook_deleted_branch() {
     # match anywhere meant `git commit -m "note /git/refs/heads/scratch" && gh api -X DELETE
     # .../heads/develop` reported scratch, so the protected-branch and merged-PR checks never saw
     # the branch actually being deleted.
-    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047])gh[ \t]+api([ \t]|$)' '/git/refs/heads/')
+    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047`])gh[ \t]+api([ \t]|$)' '/git/refs/heads/')
     [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
   fi
 
   # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
-  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)')
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)')
   [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
 
   # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
   # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+--delete[ \t]+[^ \t]+[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t]+[ \t]+'
 }

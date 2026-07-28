@@ -74,7 +74,7 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # verb is then `"`, so without this the preserved string matched nothing and the exception was
 # decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
 # false positive it sits next to.
-printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.

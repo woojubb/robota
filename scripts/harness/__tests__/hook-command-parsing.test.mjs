@@ -659,6 +659,37 @@ describe('a hook examines the command that will run', () => {
     expect(result.status, 'prose beside a substitution was read as a command').toBe(0);
   });
 
+  it('sees a backtick subshell', () => {
+    // `$(...)` was covered because `(` sits in every boundary set; the backtick spelling of the same
+    // substitution had no boundary character at all, so the verb right after it matched nothing.
+    // Closing one spelling of a construct and leaving the other is the asymmetry, not the depth.
+    const cwd = scratchRepo('main');
+    const cases = [
+      { hook: 'branch-guard.sh', env: {}, command: 'echo `git push origin main`' },
+      {
+        hook: 'worktree-cwd-guard.sh',
+        env: { ROBOTA_AGENT_WORKTREE: '1' },
+        command: 'echo `git reset --hard origin/main`',
+      },
+    ];
+
+    for (const { hook, command, env } of cases) {
+      const result = runHook(hook, command, { cwd, env });
+      expect(result.status, `${hook} missed a backtick subshell: ${command}`).toBe(2);
+    }
+  });
+
+  it('does not mistake a token ending in sh for a shell', () => {
+    // `[^ /]*sh` matched `stash`, `squash`, `wash`. `git stash push -m \"…\"` therefore read `stash`
+    // as an interpreter, opened its message to verb scanning, and refused an ordinary command.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook('branch-guard.sh', 'git stash push -m "wip before git push to main"', {
+      cwd,
+    });
+
+    expect(result.status, 'branch-guard read a stash message as a push').toBe(0);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
