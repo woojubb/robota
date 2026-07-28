@@ -294,6 +294,23 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('does not mistake a herestring for a heredoc', () => {
+    // `<<< \"x\"` has no body and no terminator, but the opener pattern matched from the second `<`,
+    // so every line after it was swallowed as body and never came back — one Bash call, and the
+    // command that mattered was the one nobody looked at. A new instance of the exact class this
+    // whole change exists to close, and green until this case existed.
+    const cwd = scratchRepo('main');
+    const command = 'cat <<< \"x\"\ngit push --force origin main';
+
+    for (const [hook, env] of [
+      ['branch-guard.sh', {}],
+      ['worktree-cwd-guard.sh', { ROBOTA_AGENT_WORKTREE: '1' }],
+    ]) {
+      const result = runHook(hook, command, { cwd, env });
+      expect(result.status, `${hook} lost every command after a herestring`).toBe(2);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

@@ -111,8 +111,14 @@ hook_strip_heredocs() {
       next
     }
     {
-      if (match($0, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
-        term = substr($0, RSTART, RLENGTH)
+      # A herestring is not a heredoc. `<<< "x"` has no body and no terminator, but the pattern
+      # below matches from the SECOND `<`, so everything after it was swallowed as body and never
+      # came back — every later command in that call went unexamined. Neutralising `<<<` first is
+      # length-preserving, so offsets into $0 stay valid.
+      probe = $0
+      gsub(/<<</, "\002\002\002", probe)
+      if (match(probe, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
+        term = substr(probe, RSTART, RLENGTH)
         dashed = (substr(term, 3, 1) == "-")
         sub(/^<<-?[ \t]*/, "", term)
         gsub(/[\047"]/, "", term)
