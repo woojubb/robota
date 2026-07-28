@@ -106,7 +106,16 @@ if [[ -z "$LAST_REVIEW_AT" ]]; then
   exit 2
 fi
 
-if [[ -n "$HEAD_AT" && "$LAST_REVIEW_AT" < "$HEAD_AT" ]]; then
+# Fail closed on an unreadable head date. `-n "$HEAD_AT" && …` skipped the whole recency check when
+# the extraction returned empty — reading "I could not tell" as "it is fine", which is the exact
+# conflation this hook's own header forbids. Review's MUST, and correct.
+if [[ -z "$HEAD_AT" ]]; then
+  echo "[merge-gate] Blocked: could not read PR #$PR's head commit date, so review recency is unknown." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+if [[ "$LAST_REVIEW_AT" < "$HEAD_AT" ]]; then
   echo "[merge-gate] Blocked: the newest review on #$PR predates its head commit." >&2
   echo "[merge-gate]   review: $LAST_REVIEW_AT   head: $HEAD_AT" >&2
   echo "[merge-gate] It judged code that is no longer what would merge. Wait for the re-review." >&2
