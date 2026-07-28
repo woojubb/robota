@@ -374,6 +374,20 @@ comment (or the PR description):
 No CONFIRMED/PLAUSIBLE finding may be left silently unaddressed. **Only after all findings are resolved**
 may the PR be merged.
 
+**Enforced** by `.claude/hooks/merge-gate.sh`, which refuses `gh pr merge` unless the PR is `CLEAN`
+and carries a review newer than its head commit, and refuses outright when the reviewer's own
+`ACTIONABLE FINDINGS: <n>` says findings remain. It fails closed: an unreadable state is a refusal,
+never a pass. Deliberate exception: `MERGE_GATE_ACK=1` **inline in the same command**, which prints
+that the gate did not verify — an override is a visible choice, not a silent one.
+
+The hook deliberately does NOT judge whether a prose finding was addressed; that is the reviewer's
+call, and a hook guessing at it would be a check measuring the wrong thing. It establishes only that
+CI is green and that a current review exists to be read.
+
+This exists because the sentence above was not enough on its own: on 2026-07-28, with this rule, the
+orchestration skill and its three agents all in place, two PRs were merged past unread findings in a
+single session — #1503, whose MUST needed #1507, and #1510, whose High needed #1517.
+
 The loop that drives a PR to that state is owned by
 [`pr-review-orchestration`](../skills/pr-review-orchestration/SKILL.md) (review → record → fix, to
 convergence) and [`automated-review-convergence`](../skills/automated-review-convergence/SKILL.md) (the

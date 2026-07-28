@@ -53,7 +53,10 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
 
 ## Merge path (on `ACTIONABLE FINDINGS: 0`)
 
-Hand to the gated merge path (detailed wiring is HARNESS-018d). It MUST honor [git-branch.md](../../rules/git-branch.md):
+Hand to the gated merge path (detailed wiring is HARNESS-018d). The gate is mechanical:
+`.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and a review newer than the
+head commit exists, and refuses outright while `ACTIONABLE FINDINGS: <n>` is non-zero — so a step of
+this pipeline cannot be skipped by merging directly. It MUST honor [git-branch.md](../../rules/git-branch.md):
 
 - Merge allowed only when there is **no unresolved MUST** and **every SHOULD is fixed or filed-and-linked** as a
   justified backlog item (never silently deferred), AND required CI checks are green.

@@ -794,6 +794,40 @@ describe('a hook examines the command that will run', () => {
     expect(real.status, "the interpreter's own string stopped being read").toBe(2);
   });
 
+  it('does not expand what the shell would not expand', () => {
+    // Two ways the substitution restore over-reached, both found by it blocking its own commit.
+    //
+    //   * `\\$(…)` and an escaped backtick are literal characters, not substitutions.
+    //   * SINGLE quotes suppress every expansion, so nothing inside them is a command — the restore
+    //     pass ignored quoting entirely and read a single-quoted payload as a subshell.
+    //
+    // Over-restoring is the self-blocking direction: it refuses ordinary commands, which is the
+    // failure this whole change exists to end.
+    const cwd = scratchRepo('feat/probe');
+    const inert = [
+      'git commit -m "a \\`gh pr merge\\` here"',
+      'git commit -m "use \\$(cmd) with git push"',
+      "echo '$(git push origin main)'",
+      'printf \'{"command":"git push origin main"}\' | cat',
+    ];
+
+    for (const command of inert) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard expanded what the shell would not: ${command}`).toBe(0);
+    }
+  });
+
+  it('still expands what the shell does expand', () => {
+    // The limit of the rule above. A real substitution runs whatever quoting surrounds it, and
+    // under-restoring is the bypass direction.
+    const cwd = scratchRepo('main');
+
+    for (const command of ['echo `git push origin main`', 'echo "$(git push origin main)"']) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard missed a real substitution: ${command}`).toBe(2);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
