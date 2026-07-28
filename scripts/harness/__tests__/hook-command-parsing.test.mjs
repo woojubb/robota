@@ -621,6 +621,44 @@ describe('a hook examines the command that will run', () => {
     expect(bad.status, 'branch-guard stopped checking names altogether').toBe(2);
   });
 
+  it('reads a quoted verb as the verb it is', () => {
+    // Quoting a bare word changes nothing about what the shell runs, so `git \"push\"` must read
+    // exactly as `git push`. Masking every quoted region by default made all of these invisible —
+    // and quoting each token is ordinary defensive shell style, so this was reachable by habit,
+    // not only by someone routing around the guard.
+    const cwd = scratchRepo('main');
+    const cases = [
+      { hook: 'branch-guard.sh', env: {}, command: 'git \"push\" origin main' },
+      { hook: 'branch-guard.sh', env: {}, command: "git 'push' origin main" },
+      { hook: 'branch-guard.sh', env: {}, command: 'git \"commit\" -m x' },
+      { hook: 'branch-guard.sh', env: {}, command: 'gh pr merge 1 --merge \"--delete-branch\"' },
+      {
+        hook: 'worktree-cwd-guard.sh',
+        env: { ROBOTA_AGENT_WORKTREE: '1' },
+        command: 'git reset \"--hard\" origin/main',
+      },
+    ];
+
+    for (const { hook, command, env } of cases) {
+      const result = runHook(hook, command, { cwd, env });
+      expect(result.status, `${hook} did not see a quoted verb: ${command}`).toBe(2);
+    }
+  });
+
+  it('restores only the substitution, not the message around it', () => {
+    // Keeping the WHOLE quoted string once it contained a substitution meant an ordinary message
+    // holding both `$(...)` and an unrelated mention of a guarded verb was read as that verb. Only
+    // the substitution's own span runs, so only that span is restored.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook(
+      'branch-guard.sh',
+      'git commit -m \"Bumps $(cat VERSION); prose about git push\"',
+      { cwd },
+    );
+
+    expect(result.status, 'prose beside a substitution was read as a command').toBe(0);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

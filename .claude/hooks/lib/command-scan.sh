@@ -203,8 +203,12 @@ hook_executable_part() {
 # `[^ \t;&|(\n/]*sh` matches any shell-named binary and an optional path prefix allows
 # `/bin/bash`, so a wrapper this list never heard of is still covered. Any number of arguments
 # may sit between the interpreter and its string — allowing exactly one meant `bash -x -c "…"`,
-# `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked; `ssh`, `expect`, `tclsh`, `timeout`, `nohup`, `sudo` and `env` were added after review
-# observed that a closed list is a list of the ways past the guard.
+# `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked.
+#
+# `ssh`, `expect` and `tclsh` are on the list because a closed list is a list of the ways past the
+# guard. `env`, `timeout`, `nohup`, `nice`, `flock`, `sudo`, `su` and `xargs` are deliberately NOT:
+# they exec an argument vector rather than evaluating a string, so listing them would widen
+# over-blocking for nothing. `timeout 5 bash -c "…"` stays covered — by the `bash -c` inside it.
 #
 # The boundary is real, and stated rather than implied: this is still an allowlist, so a quoted
 # string run by something outside it is masked and its verbs go unseen. Inverting the default —
@@ -222,68 +226,86 @@ HOOK_SCAN_AWK='
     # line at a time and left multi-line arguments unmasked entirely.
     s = ""
     for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
+    len = length(s)
 
-    mask = ""
     q = ""
     keep = 0
     esc = 0
-    for (i = 1; i <= length(s); i++) {
+    for (i = 1; i <= len; i++) {
       c = substr(s, i, 1)
 
       # A backslash-escaped quote neither opens nor closes a string. Without this the tracker went
-      # out of phase at the first `\\"` and every offset after it was wrong — and this parser is now
-      # the only thing three guards believe. Single quotes are the exception: inside them a
-      # backslash is an ordinary character, which is why `q` is checked here.
-      if (esc) {
-        esc = 0
-        mask = mask (q == "" ? c : (keep ? c : "\001"))
-        continue
-      }
-      if (c == "\\" && q != "\047") {
-        esc = 1
-        mask = mask (q == "" ? c : (keep ? c : "\001"))
-        continue
-      }
+      # out of phase at the first escaped quote and every offset after it was wrong. Inside single
+      # quotes a backslash is an ordinary character, which is why q is checked.
+      if (esc) { esc = 0; m[i] = (q == "" || keep) ? c : "\001"; continue }
+      if (c == "\\" && q != "\047") { esc = 1; m[i] = (q == "" || keep) ? c : "\001"; continue }
 
       if (q == "") {
-        mask = mask c
+        m[i] = c
         if (c == "\"" || c == "\047") {
           q = c
+          openq = i
           keep = (substr(s, 1, i - 1) ~ IRE)
-          # A double-quoted string still expands `$(...)` and backticks, so its contents are run no
-          # matter what surrounds them. Look ahead to the closing quote and keep such a region.
-          if (!keep && c == "\"") {
-            # Walk to the TRUE closing quote, stepping over backslash escapes. `index(rest, "\"")`
-            # stopped at the first `\\"` inside the string, so a `$(...)` written after one was not
-            # seen, the region was masked, and the command bash actually runs disappeared from the
-            # scan. Escapes and substitution had a test each; both in one string had none.
+
+          # A quoted SINGLE WORD is a token of the command line, not a data payload. Quoting one
+          # changes nothing about what runs, so `git "push" origin main`, `git reset "--hard"` and
+          # `gh pr merge 1 --merge "--delete-branch"` must read exactly as their bare forms — and
+          # quoting every token is ordinary defensive shell style, not an exotic evasion. Only a
+          # quoted string containing whitespace is treated as a payload.
+          if (!keep) {
             j = i + 1
-            while (j <= length(s)) {
+            spaced = 0
+            while (j <= len) {
               ch = substr(s, j, 1)
-              if (ch == "\\") { j += 2; continue }
-              if (ch == "\"") { break }
-              if (ch == "`") { keep = 1 }
-              if (ch == "$" && substr(s, j + 1, 1) == "(") { keep = 1 }
+              if (ch == "\\" && q != "\047") { j += 2; continue }
+              if (ch == q) { break }
+              if (ch == " " || ch == "\t" || ch == "\n") { spaced = 1; break }
               j++
             }
+            if (!spaced) { keep = 1 }
           }
+
+          # The quote characters themselves become spaces around a KEPT region, so a matcher reads
+          # `git "push"` exactly as `git  push `. Without this the region survived masking and still
+          # matched nothing, because every verb pattern expects whitespace before the verb. Length is
+          # preserved one for one, so the offsets the extractors depend on stay valid.
+          if (keep) { m[openq] = " " }
         }
       } else if (c == q) {
-        mask = mask c
+        m[i] = keep ? " " : c
         q = ""
         keep = 0
       } else {
-        mask = mask (keep ? c : "\001")
+        m[i] = keep ? c : "\001"
       }
     }
 
+    # Command substitution runs whatever the quoting around it, so its span is restored from the
+    # original — the SPAN, not the whole enclosing string. Keeping the entire string meant a message
+    # holding both a substitution and an unrelated mention of a guarded verb was read as that verb.
+    for (i = 1; i <= len; i++) {
+      if (substr(s, i, 2) == "$(") {
+        depth = 0
+        for (j = i + 1; j <= len; j++) {
+          cj = substr(s, j, 1)
+          if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
+        }
+        stop = (j <= len) ? j : len
+        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
+        i = stop
+      } else if (substr(s, i, 1) == "`") {
+        for (j = i + 1; j <= len; j++) { if (substr(s, j, 1) == "`") { break } }
+        stop = (j <= len) ? j : len
+        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
+        i = stop
+      }
+    }
+
+    mask = ""
+    for (i = 1; i <= len; i++) { mask = mask m[i] }
+
     if (MODE == "mask") { print mask; exit }
 
-    # Locate in the MASK, where a quoted mention cannot match; read the value from the ORIGINAL at
-    # the same offset, because the value itself is routinely quoted and masking it would leave the
-    # guard with nothing. Every extraction that decides WHAT a guard acts on goes through here — the
-    # `git -C` target, and the branch name a delete would remove. Writing each by hand is how the
-    # delete checks kept reading quoted text as commands after every other check had stopped.
     # Anchor in the mask, then search the ORIGINAL from that offset. Needed when the value sits
     # INSIDE a quoted argument — a `gh api` refs/heads URL nearly always does — where the mask
     # hides it. Reading the original from position zero instead is what let a decoy in a commit
@@ -298,6 +320,9 @@ HOOK_SCAN_AWK='
       exit
     }
 
+    # Locate in the MASK, where a quoted mention cannot match; read the value from the ORIGINAL at
+    # the same offset, because the value itself is routinely quoted and masking it would leave the
+    # guard with nothing.
     if (!match(mask, ERE)) { exit }
     p = RSTART + RLENGTH
     c = substr(s, p, 1)
@@ -307,7 +332,7 @@ HOOK_SCAN_AWK='
       print (endq > 0 ? substr(s, p, endq - 1) : substr(s, p))
     } else {
       v = substr(s, p)
-      sub(/[ \t\n"\047].*$/, "", v)   # a value inside a quoted argument ends at the closing quote
+      sub(/[ \t\n"\047].*$/, "", v)
       print v
     }
   }
