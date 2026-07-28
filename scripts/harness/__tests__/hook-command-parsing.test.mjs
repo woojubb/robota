@@ -714,6 +714,36 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('reports a repo-relative path for a file outside the project dir', () => {
+    // The scope filter was widened to accept any prefix so worktree paths would be checked, but the
+    // strip that makes a path repo-relative still assumed the file sat under CLAUDE_PROJECT_DIR. A
+    // path that does not survived whole, so the refusal and blocks.jsonl printed an absolute path —
+    // in exactly the scenario the widening was for.
+    const projectDir = scratchRepo('main');
+    const elsewhere = mkdtempSync(path.join(tmpdir(), 'hook-elsewhere-'));
+    scratchRoots.push(elsewhere);
+    const file = path.join(elsewhere, 'packages/p/src/a.ts');
+    mkdirSync(path.dirname(file), { recursive: true });
+
+    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'check-forbidden-patterns.sh')], {
+      input: JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: file,
+          new_string: 'try {\n  go();\n} catch (e) {\n  return 0;\n}\n',
+        },
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: projectDir },
+    });
+
+    expect(result.status, 'the forbidden pattern was not caught at all').toBe(2);
+    expect(`${result.stderr}`, 'an absolute path leaked into the refusal').toContain(
+      'packages/p/src/a.ts',
+    );
+    expect(`${result.stderr}`, 'an absolute path leaked into the refusal').not.toContain(elsewhere);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

@@ -79,6 +79,16 @@ fi
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 RELATIVE_PATH="${FILE_PATH#$PROJECT_DIR/}"
+# The scope filter above was widened to accept any prefix so worktree paths would be checked; this
+# strip was not, so a path under `.claude/worktrees/<agent>/` does not begin with $PROJECT_DIR and
+# survived whole — the log and the refusal then printed an absolute path, in exactly the scenario
+# the widening was for. Fall back to cutting at the workspace segment the filter matched on.
+if [[ "$RELATIVE_PATH" == /* ]]; then
+  case "$FILE_PATH" in
+    */packages/*) RELATIVE_PATH="packages/${FILE_PATH#*/packages/}" ;;
+    */apps/*) RELATIVE_PATH="apps/${FILE_PATH#*/apps/}" ;;
+  esac
+fi
 SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
