@@ -225,10 +225,14 @@ hook_strip_comments() {
       # discarded. That removed a real command from what the guards see: the same defect class, via
       # the opposite mechanism, in the fix for it.
       q = ""
-      esc = 0
       for (n = 1; n <= NR; n++) {
         s = lines[n]
         out = ""
+        # `q` carries across lines; `esc` does NOT. A trailing backslash escapes the NEWLINE — the
+        # shell joins the two physical lines and the backslash-newline vanishes — it does not leave
+        # the first character of the next line escaped. Sharing the flag made that character bypass
+        # the quote-open and comment-start decisions entirely.
+        esc = 0
         len = length(s)
         for (i = 1; i <= len; i++) {
           c = substr(s, i, 1)

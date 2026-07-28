@@ -877,6 +877,39 @@ describe('a hook examines the command that will run', () => {
   });
 });
 
+describe('every hook and the library it shares parse as bash', () => {
+  /**
+   * The cheapest floor in this directory, and the one that was missing.
+   *
+   * The shared library holds an awk program inside a single-quoted shell string. An apostrophe
+   * written into one of its comments closes that string, and the file stops parsing — at which
+   * point every hook that sources it fails, and since these hooks run on EVERY Bash tool call, the
+   * session can no longer run any command at all. Measured on 2026-07-28: one apostrophe in one
+   * comment, and nothing could be executed until the file was repaired with an editor.
+   *
+   * A syntax error is not a subtle defect. It only needs someone to look, and nothing did.
+   */
+  const shellFiles = [
+    ...readdirSync(HOOKS_DIR)
+      .filter((name) => name.endsWith('.sh'))
+      .map((name) => path.join(HOOKS_DIR, name)),
+    ...readdirSync(path.join(HOOKS_DIR, 'lib'))
+      .filter((name) => name.endsWith('.sh'))
+      .map((name) => path.join(HOOKS_DIR, 'lib', name)),
+  ];
+
+  it('finds shell files to check', () => {
+    expect(shellFiles.length).toBeGreaterThan(1);
+  });
+
+  for (const file of shellFiles) {
+    it(`${path.relative(HOOKS_DIR, file)} parses`, () => {
+      const result = spawnSync('bash', ['-n', file], { encoding: 'utf8' });
+      expect(result.status, `${path.basename(file)} does not parse:\n${result.stderr}`).toBe(0);
+    });
+  }
+});
+
 describe('the command parse has one owner', () => {
   /**
    * The defects above were one defect copied four times. Sharing the parser is what makes fixing it
