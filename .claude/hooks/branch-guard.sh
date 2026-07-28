@@ -126,7 +126,9 @@ echo "$COMMAND_VERBS" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" &&
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
 # to sit in the same command segment as `gh pr merge` (no intervening ; | &). This
 # avoids false positives from the flag mentioned in a comment or a separate echo.
-COMMAND_NO_COMMENTS="$COMMAND_EXEC"
+# Delete detection reads the MASKED command, like every other verb check. It was the last pair
+# still scanning quoted text, so a commit message naming `--delete-branch` refused the commit.
+COMMAND_NO_COMMENTS="$COMMAND_VERBS"
 if printf '%s' "$COMMAND_NO_COMMENTS" | grep -qE 'gh[[:space:]]+pr[[:space:]]+merge\b[^|;&]*--delete-branch'; then
   IS_GH_DELETE_BRANCH=true
 fi
@@ -148,12 +150,7 @@ DELETE_BRANCH_NAME=""
 # Scan only the command up to the first heredoc opener (`<<`): everything after it is DATA
 # (e.g. a `git commit -F - <<'EOF' …` message that may legitimately mention `git push --delete`
 # or `refs/heads/`), not an executed command. This prevents a commit message from tripping the guard.
-DELETE_SCAN="$COMMAND_NO_COMMENTS"
-if printf '%s' "$DELETE_SCAN" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*/git/refs/heads/'; then
-  DELETE_BRANCH_NAME=$(printf '%s' "$DELETE_SCAN" | sed -E 's#.*/git/refs/heads/([A-Za-z0-9._/-]+).*#\1#')
-elif printf '%s' "$DELETE_SCAN" | grep -qE 'git[[:space:]]+push[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+(--delete[[:space:]]|:)'; then
-  DELETE_BRANCH_NAME=$(printf '%s' "$DELETE_SCAN" | sed -E 's#.*git[[:space:]]+push[[:space:]]+[^[:space:]]+[[:space:]]+(--delete[[:space:]]+|:)([A-Za-z0-9._/-]+).*#\2#')
-fi
+DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND_EXEC" || true)
 
 if [[ -n "$DELETE_BRANCH_NAME" && "${BRANCH_GUARD_ALLOW_DELETE:-0}" != "1" ]]; then
   if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then

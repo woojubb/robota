@@ -167,8 +167,25 @@ HOOK_SCAN_AWK='
     mask = ""
     q = ""
     keep = 0
+    esc = 0
     for (i = 1; i <= length(s); i++) {
       c = substr(s, i, 1)
+
+      # A backslash-escaped quote neither opens nor closes a string. Without this the tracker went
+      # out of phase at the first `\\"` and every offset after it was wrong — and this parser is now
+      # the only thing three guards believe. Single quotes are the exception: inside them a
+      # backslash is an ordinary character, which is why `q` is checked here.
+      if (esc) {
+        esc = 0
+        mask = mask (q == "" ? c : (keep ? c : "\001"))
+        continue
+      }
+      if (c == "\\" && q != "\047") {
+        esc = 1
+        mask = mask (q == "" ? c : (keep ? c : "\001"))
+        continue
+      }
+
       if (q == "") {
         mask = mask c
         if (c == "\"" || c == "\047") {
@@ -194,30 +211,58 @@ HOOK_SCAN_AWK='
 
     if (MODE == "mask") { print mask; exit }
 
-    # A quote is a boundary. Inside a preserved interpreter string the character before the
-    # verb is `"`, and without it here the exception that keeps that string readable found
-    # nothing in it — the finding review raised.
-    if (!match(mask, /(^|[ \t;&|({\n"\047])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { exit }
+    # Locate in the MASK, where a quoted mention cannot match; read the value from the ORIGINAL at
+    # the same offset, because the value itself is routinely quoted and masking it would leave the
+    # guard with nothing. Every extraction that decides WHAT a guard acts on goes through here — the
+    # `git -C` target, and the branch name a delete would remove. Writing each by hand is how the
+    # delete checks kept reading quoted text as commands after every other check had stopped.
+    if (!match(mask, ERE)) { exit }
     p = RSTART + RLENGTH
     c = substr(s, p, 1)
     if (c == "\"" || c == "\047") {
       p++
-      end = index(substr(s, p), c)
-      print (end > 0 ? substr(s, p, end - 1) : substr(s, p))
+      endq = index(substr(s, p), c)
+      print (endq > 0 ? substr(s, p, endq - 1) : substr(s, p))
     } else {
       v = substr(s, p)
-      sub(/[ \t\n].*$/, "", v)
+      sub(/[ \t\n"\047].*$/, "", v)   # a value inside a quoted argument ends at the closing quote
       print v
     }
   }
 '
 
+# Print the token that follows a match, located where quotes cannot lie. $2 is an ERE ending where
+# the value begins.
+hook_match_extract() {
+  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" "$HOOK_SCAN_AWK"
+}
+
 # What a verb-detection matcher should read.
 hook_verb_scan() {
-  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" "$HOOK_SCAN_AWK"
+  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" "$HOOK_SCAN_AWK"
 }
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 hook_git_c_path() {
-  printf '%s\n' "$1" | awk -v MODE=gitc -v IRE="$HOOK_INTERPRETER_RE" "$HOOK_SCAN_AWK"
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+'
+}
+
+# The branch a remote-delete would remove, in either spelling the guard recognises.
+#
+# The VERB is judged in the mask, so a delete named inside a commit message is not a delete. The
+# VALUE is then read from the original, because an argument is legitimately quoted — a `gh api`
+# URL almost always is — and masking it would leave the guard unable to name what it is protecting.
+# That split is the whole rule; writing it out by hand at each site is how these two checks stayed
+# on unmasked text after every other check had moved off it.
+hook_deleted_branch() {
+  local verbs name
+  verbs=$(hook_verb_scan "$1")
+
+  if printf '%s' "$verbs" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*'; then
+    name=$(printf '%s' "$1" | grep -oE '/git/refs/heads/[A-Za-z0-9._/-]+' | head -1 |
+      sed 's#.*/git/refs/heads/##')
+    [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
+  fi
+
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)'
 }

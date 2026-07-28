@@ -342,6 +342,37 @@ describe('a hook examines the command that will run', () => {
     expect(result.status, 'a `-C` path was read as the new branch name').toBe(0);
   });
 
+  it('does not read a delete named in a message as a delete', () => {
+    // The last pair still scanning unmasked text after every other check had moved off it. A commit
+    // message quoting `--delete-branch` refused the commit — the same class this change closes
+    // everywhere else, left in the two places that reach out to `gh` before refusing.
+    const cwd = scratchRepo('feat/probe');
+    const cases = [
+      'git commit -m "example: gh pr merge --delete-branch"',
+      'git commit -m "e.g. git push origin --delete old-branch"',
+      'git commit -m "she said \\"hi\\"" && git commit -m x',
+    ];
+
+    for (const command of cases) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard read a quoted mention as a delete: ${command}`).toBe(0);
+    }
+  });
+
+  it('still refuses a real delete', () => {
+    // The other half. `--delete-branch` once removed the develop integration branch, and a remote
+    // delete is refused until a merged PR is confirmed — neither may be lost to the masking above.
+    const cwd = scratchRepo('feat/probe');
+
+    for (const command of [
+      'gh pr merge 1 --merge --delete-branch',
+      'git push origin --delete some-branch',
+    ]) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard let a real delete through: ${command}`).toBe(2);
+    }
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
