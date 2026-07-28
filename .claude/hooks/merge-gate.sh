@@ -57,6 +57,12 @@ if [[ -z "$PR" ]]; then
   exit 2
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo "[merge-gate] Blocked: 'jq' is unavailable, so the review cannot be identified." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge <n> --merge" >&2
+  exit 2
+fi
+
 if ! command -v gh >/dev/null 2>&1; then
   echo "[merge-gate] Blocked: 'gh' is unavailable, so CI and review state cannot be read." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
@@ -83,7 +89,15 @@ fi
 # --- 2. Review --------------------------------------------------------------------------------
 # A review that predates the head commit has not seen what is about to be merged.
 HEAD_AT=$(gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' 2>/dev/null || echo "")
-LAST_REVIEW_AT=$(gh pr view "$PR" --json comments --jq '.comments[-1].createdAt // ""' 2>/dev/null || echo "")
+
+# The newest comment BY THE REVIEWER, not the newest comment. Reading `comments[-1]` unconditionally
+# meant anyone — including the person merging — could post a remark after the review and satisfy both
+# the recency check and the findings check with text that is not a review at all. A gate a single
+# comment disarms is not a gate.
+REVIEWER='github-actions'
+LAST_REVIEW=$(gh pr view "$PR" --json comments \
+  --jq "[.comments[] | select(.author.login == \"$REVIEWER\")] | last // {}" 2>/dev/null || echo '{}')
+LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.createdAt // ""' 2>/dev/null || echo "")
 
 if [[ -z "$LAST_REVIEW_AT" ]]; then
   echo "[merge-gate] Blocked: PR #$PR carries no review comment." >&2
@@ -101,7 +115,7 @@ fi
 
 # The reviewer's own machine-readable count, when it emitted one. `pr-review-reviewer` declares
 # `ACTIONABLE FINDINGS: <n>` as its output contract precisely so a pipeline can route on it.
-BODY=$(gh pr view "$PR" --json comments --jq '.comments[-1].body // ""' 2>/dev/null || echo "")
+BODY=$(printf '%s' "$LAST_REVIEW" | jq -r '.body // ""' 2>/dev/null || echo "")
 COUNT=$(printf '%s' "$BODY" | grep -oiE 'ACTIONABLE FINDINGS:[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
 if [[ -n "$COUNT" && "$COUNT" != "0" ]]; then
   echo "[merge-gate] Blocked: the review on #$PR reports ACTIONABLE FINDINGS: $COUNT." >&2
