@@ -62,9 +62,18 @@ PR=$(printf '%s' "$COMMAND_VERBS" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[
 
 # Fail closed. Every branch below that cannot answer refuses, because "I could not check" and
 # "it is fine" are the two states a guard must never conflate — the whole subject of PROC-003.
+# `gh pr merge` with no number means "the PR for the current branch", which is how it is usually
+# written. Refusing that outright made the gate friction rather than a check, so it resolves the
+# same way gh does. A failure to resolve is still a refusal: not knowing which PR is being merged
+# and merging anyway are the two states this hook exists to keep apart.
+if [[ -z "$PR" ]] && command -v gh >/dev/null 2>&1; then
+  PR=$(gh pr view --json number --jq '.number' 2>/dev/null || true)
+fi
+
 if [[ -z "$PR" ]]; then
-  echo "[merge-gate] Blocked: could not read a PR number from the command." >&2
-  echo "[merge-gate] Pass it explicitly — 'gh pr merge <n> --merge' — so this gate can check that PR." >&2
+  echo "[merge-gate] Blocked: could not tell which PR this merges." >&2
+  echo "[merge-gate] No number in the command, and no PR resolves for the current branch." >&2
+  echo "[merge-gate] Pass it explicitly: gh pr merge <n> --merge" >&2
   exit 2
 fi
 
@@ -105,12 +114,25 @@ HEAD_AT=$(gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' 2>/d
 # meant anyone — including the person merging — could post a remark after the review and satisfy both
 # the recency check and the findings check with text that is not a review at all. A gate a single
 # comment disarms is not a gate.
-REVIEWER='github-actions'
+# Measured on this repository: `gh` reports the reviewing bot as `github-actions`, four matches to
+# zero against the `[bot]` spelling. Both are accepted anyway — the exact normalisation is gh's to
+# change, and a gate that silently stops recognising reviews would block every merge and teach
+# everyone to pass MERGE_GATE_ACK=1, which is the bypass it exists to prevent.
+REVIEWER_RE='^github-actions(\\[bot\\])?$'
 LAST_REVIEW=$(gh pr view "$PR" --json comments \
-  --jq "[.comments[] | select(.author.login == \"$REVIEWER\")] | last // {}" 2>/dev/null || echo '{}')
+  --jq "[.comments[] | select(.author.login | test(\"$REVIEWER_RE\"))] | last // {}" 2>/dev/null || echo '{}')
 LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.createdAt // ""' 2>/dev/null || echo "")
 
 if [[ -z "$LAST_REVIEW_AT" ]]; then
+  # Distinguish "nobody reviewed" from "the reviewer is not who this gate thinks it is". Reported
+  # identically, a name mismatch reads as a missing review forever and is diagnosed by nobody.
+  AUTHORS=$(gh pr view "$PR" --json comments --jq '[.comments[].author.login] | unique | join(", ")' 2>/dev/null || echo "")
+  if [[ -n "$AUTHORS" ]]; then
+    echo "[merge-gate] Blocked: no comment on #$PR is from the reviewer this gate looks for." >&2
+    echo "[merge-gate]   looked for: $REVIEWER_RE   comments are from: $AUTHORS" >&2
+    echo "[merge-gate] If the reviewer's login changed, fix REVIEWER_RE — do not route around it." >&2
+    exit 2
+  fi
   echo "[merge-gate] Blocked: PR #$PR carries no review comment." >&2
   echo "[merge-gate] git-branch.md requires findings resolved before merge; there is nothing to resolve" >&2
   echo "[merge-gate] against. Run the review, or override inline if this PR is out of that gate's scope." >&2
