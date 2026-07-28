@@ -99,8 +99,9 @@ IS_GH_DELETE_BRANCH=false
 # from pre-push-check; it lived here in a variable and was reused for every action. A guard no real
 # invocation reaches is indistinguishable from no guard.
 #
-# Boundaries are line start, `;`, `&&`, `||`, `|`, `(`, whitespace, and the literal `\n` that
-# survives JSON extraction (the command is read with grep, not a JSON parser, so a multi-line block
+# Boundaries are line start, `;`, `&&`, `||`, `|`, `(`, whitespace and a quote. A newline is one too:
+# the command is decoded as JSON now and carries REAL newlines, so grep's `^` is a line start (a
+# multi-line block
 # keeps its escapes — and that is the shape that slipped through).
 # A heredoc BODY is data, not commands. `git commit -F - <<'EOF' … EOF` carries prose that may
 # quote a git invocation — this hook blocked a commit whose MESSAGE contained
@@ -266,10 +267,11 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1"
   # -b/-B/-c/-C, so `git checkout -b feat/x && git -C /other status` yielded /other and
   # refused a correctly named branch. Adding -C to that alternation made a long-standing
   # weakness reachable.
-  GIT_PREFIX_RE='((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+|-[^[:space:]]+[[:space:]]+)*'
-  NEW_BRANCH=$(printf '%s' "$COMMAND_VERBS" |
-    grep -oE "git[[:space:]]+${GIT_PREFIX_RE}(checkout|switch)[[:space:]]+${GIT_PREFIX_RE}-[bBcC][[:space:]]+[^[:space:]]+" |
-    head -1 | grep -oE '[^[:space:]]+$' || true)
+  # Read the name from the ORIGINAL, positioned by a match in the masked text — the same rule the
+  # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
+  # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
+  NEW_BRANCH=$(hook_match_extract "$COMMAND_EXEC" \
+    '(^|[ \t;&|({\n"\047])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+' || true)
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then

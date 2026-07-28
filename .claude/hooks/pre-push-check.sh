@@ -51,7 +51,7 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # real invocation can reach is indistinguishable from no enforcement.
 #
 # Boundaries are STATEMENT separators only — line start, `;`, `&&`, `||`, `|`, `(`, and the literal
-# `\n` that survives JSON extraction. Bare whitespace is NOT a boundary, deliberately: with it,
+# a real newline, matched by grep's own `^`. Bare whitespace is NOT a boundary, deliberately: with it,
 # `gh pr create --body "… git push …"` and `git commit -m "fix: git push guard"` both match, and a
 # guard that blocks ordinary work is one that gets switched off.
 #

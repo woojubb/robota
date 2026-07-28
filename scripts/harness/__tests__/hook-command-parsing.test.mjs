@@ -582,6 +582,38 @@ describe('a hook examines the command that will run', () => {
     expect(result.output).toMatch(/protected branch/);
   });
 
+  it('sees a substitution written after an escaped quote', () => {
+    // Escapes had a test and substitution had a test; both in one string had none, and that is
+    // exactly where the lookahead broke. It stopped at the first `\\"` inside the argument, so a
+    // real `$(...)` after one was never seen, the region was masked, and the command bash actually
+    // runs vanished from the scan.
+    const cwd = scratchRepo('main');
+    const result = runHook(
+      'branch-guard.sh',
+      'git commit -m "note \\"x\\" $(git push --force origin main)"',
+      { cwd },
+    );
+
+    expect(result.status, 'a push inside a substitution went unseen after an escaped quote').toBe(
+      2,
+    );
+  });
+
+  it('accepts a quoted branch name', () => {
+    // The new-branch name was pulled straight out of the MASKED text, so a quoted name came back as
+    // the \\001 fill and a correctly named branch was refused. Position in the mask, value from the
+    // original — the rule the other two extractions already follow.
+    const cwd = scratchRepo('develop');
+
+    for (const command of ['git checkout -b "feat/my-branch"', 'git checkout -b feat/my-branch']) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard refused a well-named branch: ${command}`).toBe(0);
+    }
+
+    const bad = runHook('branch-guard.sh', 'git checkout -b BAD_NAME', { cwd });
+    expect(bad.status, 'branch-guard stopped checking names altogether').toBe(2);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
     for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {

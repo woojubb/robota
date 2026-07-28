@@ -78,7 +78,7 @@ VERBS=$(hook_verb_scan "$COMMAND")
 # `git -c k=v push`) — the same pattern branch-guard uses.
 #
 # `\n` — the two literal characters backslash-n — is a boundary too. The command arrives as JSON and
-# is read with grep, not a JSON parser, so a multi-line block keeps its escapes and the second line
+# is decoded as JSON now and carries real newlines, so grep's `^` is a line start and the second line
 # of `cd <repo>` + newline + `git reset --hard` begins with no whitespace, no `;` and no `&`.
 # Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
 # by exactly that shape — and a destructive command on a later line of a block is the shape of the

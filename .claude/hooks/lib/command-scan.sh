@@ -251,10 +251,19 @@ HOOK_SCAN_AWK='
           # A double-quoted string still expands `$(...)` and backticks, so its contents are run no
           # matter what surrounds them. Look ahead to the closing quote and keep such a region.
           if (!keep && c == "\"") {
-            rest = substr(s, i + 1)
-            endq = index(rest, "\"")
-            inner = (endq > 0 ? substr(rest, 1, endq - 1) : rest)
-            if (index(inner, "$(") > 0 || index(inner, "`") > 0) { keep = 1 }
+            # Walk to the TRUE closing quote, stepping over backslash escapes. `index(rest, "\"")`
+            # stopped at the first `\\"` inside the string, so a `$(...)` written after one was not
+            # seen, the region was masked, and the command bash actually runs disappeared from the
+            # scan. Escapes and substitution had a test each; both in one string had none.
+            j = i + 1
+            while (j <= length(s)) {
+              ch = substr(s, j, 1)
+              if (ch == "\\") { j += 2; continue }
+              if (ch == "\"") { break }
+              if (ch == "`") { keep = 1 }
+              if (ch == "$" && substr(s, j + 1, 1) == "(") { keep = 1 }
+              j++
+            }
           }
         }
       } else if (c == q) {
