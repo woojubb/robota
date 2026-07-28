@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -461,6 +462,51 @@ describe('a hook examines the command that will run', () => {
       });
       expect(result.status, `${hook} passed a payload with no command`).toBe(2);
     }
+  });
+
+  it('refuses an edit it cannot read', () => {
+    // check-forbidden-patterns guards a different tool and was left out of this PR's fail-closed
+    // pass. Its FIRST field came from bare jq, so a machine without jq read an empty file path and
+    // exited 0 before any check ran — the same silent bypass, in the one hook nobody was looking at.
+    const cwd = scratchRepo('main');
+    const src = path.join(cwd, 'packages/p/src');
+    mkdirSync(src, { recursive: true });
+    const payload = JSON.stringify({
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: path.join(src, 'a.ts'),
+        new_string: 'try {\n  go();\n} catch (e) {\n  return 0;\n}\n',
+      },
+    });
+
+    // A PATH with neither jq nor python3 on it — the condition the ladder exists for.
+    const bin = mkdtempSync(path.join(tmpdir(), 'hook-nojson-edit-'));
+    scratchRoots.push(bin);
+    for (const tool of [
+      'bash',
+      'dirname',
+      'grep',
+      'sed',
+      'awk',
+      'head',
+      'tr',
+      'cat',
+      'date',
+      'mkdir',
+      'cut',
+    ]) {
+      const found = spawnSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' });
+      const target = (found.stdout ?? '').trim();
+      if (target) symlinkSync(target, path.join(bin, tool));
+    }
+
+    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'check-forbidden-patterns.sh')], {
+      input: payload,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: bin, CLAUDE_PROJECT_DIR: cwd },
+    });
+
+    expect(result.status, 'check-forbidden-patterns passed an edit it could not read').toBe(2);
   });
 
   it('leaves ordinary work alone', () => {

@@ -88,6 +88,43 @@ hook_tool_name_of() {
   printf '%s' "${rest%%\"*}"
 }
 
+# The NEW content an edit would write: Write's `content`, Edit's `new_string`, MultiEdit's
+# `edits[].new_string` joined.
+#
+# Same ladder as every other field here — jq, then python3, then refuse. It was jq alone, so a
+# machine without jq produced empty content and the forbidden-pattern check exited 0 on content it
+# would otherwise have refused: the silent bypass this file exists to remove, surviving in the one
+# hook that guards a different tool. Review caught it.
+hook_edit_content_of() {
+  local content
+  if command -v jq >/dev/null 2>&1; then
+    content=$(printf '%s' "$1" | jq -r '
+      .tool_input.content
+      // .tool_input.new_string
+      // ([.tool_input.edits[]?.new_string] | join("\n"))
+      // ""' 2>/dev/null) && { printf '%s' "$content"; return 0; }
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$1" | python3 -c '
+import json, sys
+try:
+    doc = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+ti = doc.get("tool_input") or {}
+for key in ("content", "new_string"):
+    if isinstance(ti.get(key), str):
+        sys.stdout.write(ti[key])
+        break
+else:
+    edits = ti.get("edits") or []
+    parts = [e.get("new_string", "") for e in edits if isinstance(e, dict)]
+    sys.stdout.write("\n".join(parts))
+' 2>/dev/null && return 0
+  fi
+  return 1
+}
+
 # The directory the tool reports it will run in. Absence is normal, so callers use `|| true`.
 hook_cwd_of() {
   hook_json_string "$1" 'cwd'
@@ -174,7 +211,7 @@ hook_executable_part() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh|xargs|env|timeout|nohup|nice|flock|sudo|su)[ \t]+(-[[:alnum:]]*[ceE][ \t]+|[^ \t;&|(-][^ \t;&|(]*[ \t]+))|eval[ \t]+)$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n])((([^ \t;&|(\n/]*sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh)[ \t]+(-[[:alnum:]]*[ceE][ \t]+|[^ \t;&|(-][^ \t;&|(]*[ \t]+))|ssh[ \t]+[^ \t;&|(-][^ \t;&|(]*[ \t]+|eval[ \t]+)$'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }

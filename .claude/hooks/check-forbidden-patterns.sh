@@ -18,11 +18,21 @@
 set -uo pipefail
 
 INPUT=$(cat)
+
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
 # ── scope filter ──────────────────────────────────────────────────────────────
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
+# The first field read is the first place a missing decoder could pass silently — and it did:
+# without jq this came back empty and the hook exited 0 before reaching any check. An absent path
+# is normal (many tools carry none) and still exits 0; only an UNREADABLE payload refuses.
+if ! FILE_PATH=$(hook_json_string "$INPUT" 'tool_input.file_path'); then
+  echo "[check-forbidden-patterns] Blocked: the hook payload could not be decoded, so the edit" >&2
+  echo "[check-forbidden-patterns] cannot be checked. Install jq or python3." >&2
+  exit 2
+fi
 
 if [ -z "$FILE_PATH" ]; then
   exit 0
@@ -57,11 +67,11 @@ esac
 #
 # NotebookEdit is deliberately NOT handled: it carries `notebook_path`/`new_source` and never a
 # TypeScript `file_path`, so the packages/*/src scope filter above can never match it.
-CONTENT=$(echo "$INPUT" | jq -r '
-  .tool_input.content
-  // .tool_input.new_string
-  // ([.tool_input.edits[]?.new_string] | join("\n"))
-  // ""')
+if ! CONTENT=$(hook_edit_content_of "$INPUT"); then
+  echo "[check-forbidden-patterns] Blocked: the edit content could not be decoded, so it cannot be" >&2
+  echo "[check-forbidden-patterns] checked. Install jq or python3." >&2
+  exit 2
+fi
 
 if [ -z "$CONTENT" ]; then
   exit 0
@@ -69,7 +79,7 @@ fi
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 RELATIVE_PATH="${FILE_PATH#$PROJECT_DIR/}"
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
 
