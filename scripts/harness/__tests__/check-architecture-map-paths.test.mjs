@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { findArchitectureMapPathFindings } from '../check-architecture-map-paths.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../check-architecture-map-paths.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 
 const MAP_DOC = '.agents/specs/architecture-map/pkg-map.md';
 const REAL_SOURCE = 'packages/pkg-a/src/index.ts';
@@ -77,6 +80,10 @@ describe('check-architecture-map-paths CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/check-architecture-map-paths.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(
+      GOVERNED_TREE_MODULE,
+      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
+    );
     return { root, scriptCopy };
   }
 

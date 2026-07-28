@@ -39,6 +39,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -142,6 +143,11 @@ export function findEvalsContentInSource(source, file = 'fixture.ts') {
 }
 
 export function findEvalsNeutralityFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, [LIBRARY_PACKAGES_DIR], {
+    scan: 'evals-neutrality',
+    why:
+      'A library-neutrality floor that found no library has not found it neutral (the same repair as scan-memory-neutrality).',
+  });
   const findings = [];
   const packagesDir = path.join(root, LIBRARY_PACKAGES_DIR);
   if (!existsSync(packagesDir)) return findings;

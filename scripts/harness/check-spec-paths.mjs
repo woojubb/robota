@@ -18,6 +18,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listSpecPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -34,6 +35,11 @@ function listSpecFiles(root) {
 }
 
 export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'spec-paths',
+    why:
+      'It validates the paths cited by package SPECs; with no packages/ there are no SPECs and the pass means nothing was read.',
+  });
   const findings = [];
 
   for (const { packageDir, specPath } of listSpecFiles(root)) {

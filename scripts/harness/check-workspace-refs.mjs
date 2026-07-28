@@ -15,6 +15,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -29,7 +30,6 @@ const EXAMPLE_TOKEN_ALLOWLIST = new Set([
   '@robota-sdk/other',
   // Defunct-name literals seeded in check-ghost-package-refs' GHOST_PACKAGE_ALLOWLIST.
   '@robota-sdk/dag-nodes',
-  '@robota-sdk/agent-provider-bytedance',
 ]);
 
 function readJson(filePath) {
@@ -109,6 +109,11 @@ export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
 }
 
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'workspace-refs',
+    why:
+      'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
+  });
   const findings = [];
   const packageJsonFiles = listPackageJsonFiles(root);
 
@@ -125,6 +130,20 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
           detail: `${token} does not resolve to any workspace package.`,
         });
       }
+    }
+  }
+
+  // ANTI-ROT (HARNESS-052): an allowlist entry naming a package that DOES resolve is stale by
+  // construction — it exempts nothing today and silently exempts a real ghost the day that package
+  // is deleted. `@robota-sdk/agent-provider-bytedance` sat here as "not a workspace package" while
+  // being one; the entry was inert, and inert is exactly how a suppression survives review.
+  for (const token of EXAMPLE_TOKEN_ALLOWLIST) {
+    if (workspaceNames.has(token)) {
+      findings.push({
+        file: path.relative(root, import.meta.filename),
+        type: 'stale-allowlist-entry',
+        detail: `${token} is allowlisted as a non-workspace token but resolves to a real workspace package. Remove the entry.`,
+      });
     }
   }
 

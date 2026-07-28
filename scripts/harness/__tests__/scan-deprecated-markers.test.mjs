@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { findDeprecatedMarkerFindings } from '../scan-deprecated-markers.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-deprecated-markers.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 const WORKSPACE_PACKAGES_HELPER = fileURLToPath(
   new URL('../workspace-packages.mjs', import.meta.url),
 );
@@ -96,6 +99,7 @@ describe('scan-deprecated-markers CLI', () => {
     mkdirSync(harnessDir, { recursive: true });
     copyFileSync(SCAN_SCRIPT, path.join(harnessDir, 'scan-deprecated-markers.mjs'));
     copyFileSync(WORKSPACE_PACKAGES_HELPER, path.join(harnessDir, 'workspace-packages.mjs'));
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(harnessDir, 'governed-tree.mjs'));
     return { root, scriptCopy: path.join(harnessDir, 'scan-deprecated-markers.mjs') };
   }
 

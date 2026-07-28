@@ -24,6 +24,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { WORKSPACE_ROOT } from './shared.mjs';
+import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 /** Allowlist: `${packageName}:${importedModule}` → reason. Empty today by design. */
 export const DEP_KIND_ALLOWLIST = new Map();
@@ -91,22 +93,22 @@ function collectValueImports(source) {
   return modules;
 }
 
-/** Scan every workspace package; returns findings + applied allowlist exemptions. */
+/**
+ * Scan every workspace package; returns findings + applied allowlist exemptions.
+ *
+ * HARNESS-052: "every workspace package" was a depth-1 `readdir` of `packages/` and `apps/`, so the
+ * 20 members of the `packages/dag-nodes/*` group the manifest declares were never scanned while the
+ * summary line went on claiming all of them. The enumerator is now the nesting-aware SSOT.
+ */
 export async function findDevDepOnlyRuntimeImports(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'dep-kind',
+    why:
+      'It quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true.',
+  });
   const findings = [];
   const exemptions = [];
-  const packageDirs = [];
-  for (const tier of ['packages', 'apps']) {
-    let entries = [];
-    try {
-      entries = await fs.readdir(path.join(root, tier), { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory()) packageDirs.push(path.join(root, tier, entry.name));
-    }
-  }
+  const packageDirs = listWorkspacePackageDirs(root);
 
   for (const pkgDir of packageDirs) {
     let manifest;

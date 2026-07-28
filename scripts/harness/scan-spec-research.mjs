@@ -23,11 +23,17 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const STAGES = ['draft', 'todo', 'active'];
 
 export function collectSpecResearchFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['.agents/spec-docs'], {
+    scan: 'spec-research',
+    why:
+      'The spec-doc pipeline is the corpus; each stage directory was optional, so a root with none printed a pass over nothing.',
+  });
   const specRoot = path.join(root, '.agents/spec-docs');
   const findings = [];
 

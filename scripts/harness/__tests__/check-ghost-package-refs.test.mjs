@@ -82,6 +82,35 @@ describe('check-ghost-package-refs', () => {
     expect(source).not.toMatch(/@robota-sdk\\\//);
   });
 
+  /**
+   * HARNESS-052. The allowlist called `@robota-sdk/agent-provider-bytedance` "not a workspace
+   * package"; it was one. Falsified before the removal: a doc referencing that token in a workspace
+   * WITHOUT the package returned ZERO findings — the guard reporting clean over the exact shape it
+   * exists to catch. An entry that resolves is stale by construction, so it is now a finding.
+   *
+   * The rule is matched per SHAPE — a name token against the manifest names, a `packages/<dir>`
+   * token against the directory names. Checking both flagged `@robota-sdk/dag-nodes`, whose
+   * directory exists as a group container shipping no package: a false positive caught by running
+   * the rule rather than by reasoning about it.
+   */
+  it('reports an allowlist entry that resolves to a real workspace package', async () => {
+    const root = await createFixture({
+      'package.json': pkg('root'),
+      'packages/dag-nodes/leaf/package.json': pkg('@robota-sdk/dag-nodes'),
+    });
+    const findings = await findGhostPackageRefFindings(root);
+    expect(findings.map((f) => f.type)).toContain('stale-allowlist-entry');
+  });
+
+  it('does not flag a group-container path whose directory ships no package', async () => {
+    const root = await createFixture({
+      'package.json': pkg('root'),
+      'packages/dag-nodes/leaf/package.json': pkg('@robota-sdk/dag-node-leaf'),
+    });
+    const findings = await findGhostPackageRefFindings(root);
+    expect(findings.filter((f) => f.type === 'stale-allowlist-entry')).toHaveLength(0);
+  });
+
   it('passes on the live repository (exit 0, no findings)', async () => {
     expect(await findGhostPackageRefFindings()).toHaveLength(0);
   });

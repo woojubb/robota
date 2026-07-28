@@ -21,6 +21,7 @@ import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { listManifestPackageDirs, listSpecPackageDirs } from './workspace-packages.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const PUBLISH_CLAIM = /\bpublish(?:ed|es)?\b[^.\n]*\bnpm\b/i;
 const NEGATED = /\b(not|never|un-?published|internal|private|do(?:es)? not)\b/i;
@@ -31,6 +32,11 @@ const NEGATED = /\b(not|never|un-?published|internal|private|do(?:es)? not)\b/i;
  * covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
  */
 export function findPublishClaimFindings(root) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'publish-safety',
+    why:
+      'It checks publish claims in package SPECs; with no packages/ the "all publishable packages" claim covers nothing.',
+  });
   const findings = [];
 
   for (const pkgDir of listSpecPackageDirs(root)) {

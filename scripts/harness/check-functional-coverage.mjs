@@ -22,6 +22,82 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MANIFEST_PATH = path.join(import.meta.dirname, 'functional-coverage-manifest.json');
 
 /**
+ * Strip block and line comments so a marker MENTIONED in a comment is not evidence of use.
+ *
+ * HARNESS-052 sub-shape A: this check claimed "every framework capability … drives a REAL
+ * InteractiveSession" while accepting `source.includes('scriptedSession')` — true of the token in a
+ * comment beside a `describe.skip`, which is the precise case its own docstring forbids.
+ */
+export function stripComments(sourceText) {
+  return String(sourceText ?? '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/** Is the harness marker actually CALLED (or constructed / used as a type argument) here? */
+export function usesMarker(code, marker) {
+  const escaped = String(marker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:new\\s+)?\\b${escaped}\\s*[(<]`).test(String(code ?? ''));
+}
+
+/**
+ * The [start, end) spans of `describe.skip(...)` / `describe.todo(...)` blocks.
+ *
+ * Parenthesis counting, not a regex: a suite body is arbitrary code, and the only way to know where
+ * one ends is to count. Strings containing unbalanced parens would confuse it, which is stated
+ * rather than hidden — the alternative is parsing, and this file is a grep-level guard by design.
+ */
+function skippedSuiteSpans(code) {
+  const spans = [];
+  const opener = /\bdescribe((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g;
+  for (const match of code.matchAll(opener)) {
+    if (!/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) continue;
+    let depth = 0;
+    let end = code.length;
+    for (let i = match.index + match[0].length - 1; i < code.length; i++) {
+      const c = code[i];
+      if (c === '(') depth++;
+      else if (c === ')') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    spans.push([match.index, end]);
+  }
+  return spans;
+}
+
+/**
+ * Does the file declare at least one test that is not skipped?
+ *
+ * The manifest's contract is "not a skipped E2E". A file whose every case is `it.skip` still
+ * contains the marker, still passes a substring check, and covers nothing. Deliberately narrow: a
+ * PARTIALLY skipped file is fine — flagging those would fire on legitimate work, and a guard that
+ * fires on correct data is one that gets suppressed.
+ *
+ * A case inside a `describe.skip(...)` block does not run either, and the first version of this
+ * check read only the modifiers attached to `it`/`test` — so a whole suite wrapped in
+ * `describe.skip` counted as live coverage. That is the same paper-coverage this check was added
+ * to catch, in its most common spelling.
+ */
+export function hasLiveTest(code) {
+  const source = String(code ?? '');
+  const skipped = skippedSuiteSpans(source);
+  const declarations = source.matchAll(
+    /\b(?:it|test)((?:\s*\.\s*[A-Za-z]+(?:\([^()]*\))?)*)\s*\(/g,
+  );
+  for (const match of declarations) {
+    if (/\b(?:skip|todo|skipIf)\b/.test(match[1] ?? '')) continue;
+    if (skipped.some(([start, end]) => match.index > start && match.index < end)) continue;
+    return true;
+  }
+  return false;
+}
+
+/**
  * Pure finding collector. Returns { findings, capabilityCount }; `findings` non-empty means the
  * check fails. Manifest-shape violations (missing/invalid manifest, empty markers/capabilities)
  * are findings of the same kind — the CLI wrapper prints them identically to the original.
@@ -73,10 +149,15 @@ export function collectFunctionalCoverageFindings(
       findings.push(`${id}: functional test not found: ${test}`);
       continue;
     }
-    const source = readFileSync(abs, 'utf8');
-    if (!markers.some((marker) => source.includes(marker))) {
+    const code = stripComments(readFileSync(abs, 'utf8'));
+    if (!markers.some((marker) => usesMarker(code, marker))) {
       findings.push(
-        `${id}: ${test} does not use the functional harness (expected one of: ${markers.join(', ')})`,
+        `${id}: ${test} does not use the functional harness (expected a call to one of: ${markers.join(', ')})`,
+      );
+    }
+    if (!hasLiveTest(code)) {
+      findings.push(
+        `${id}: ${test} declares no live test — every case is skipped, so the capability is covered on paper only`,
       );
     }
   }

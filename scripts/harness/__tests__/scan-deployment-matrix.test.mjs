@@ -65,7 +65,36 @@ describe('diffDeploymentMatrix — undocumented + phantom', () => {
 });
 
 describe('findTransportNames — the live transport packages', () => {
-  it('enumerates exactly {tui, ws, webrtc, http, mcp} from code', () => {
-    expect([...findTransportNames()].sort()).toEqual(['http', 'mcp', 'tui', 'webrtc', 'ws']);
+  /**
+   * HARNESS-052. `headless` joined this set without a transport being written: the enumerator
+   * filtered on the directory prefix `agent-transport-`, so `packages/agent-transport` — the base
+   * package, where `createHeadlessTransport` declares `name: 'headless'` in exactly the factory form
+   * this scan parses — could never contribute. This assertion, and the matrix line it mirrors,
+   * asserted a complete set that the code contradicted.
+   */
+  it('enumerates exactly {tui, headless, ws, webrtc, http, mcp} from code', () => {
+    expect([...findTransportNames()].sort()).toEqual([
+      'headless',
+      'http',
+      'mcp',
+      'tui',
+      'webrtc',
+      'ws',
+    ]);
+  });
+
+  it('includes the BASE agent-transport package, not only its hyphenated siblings', () => {
+    expect([...findTransportNames()]).toContain('headless');
+  });
+
+  /**
+   * The other half of the repair, kept honest: the `*transport*.ts` filename filter stays. Dropping
+   * it also matches `name: 'robota-agent'` and `name: 'submit'` in `mcp-server.ts` — unrelated
+   * object literals. Widening a rule until it fires on correct data is how a floor gets suppressed.
+   */
+  it('does not pick up unrelated `name:` literals from non-transport modules', () => {
+    const names = findTransportNames();
+    expect(names.has('submit')).toBe(false);
+    expect(names.has('robota-agent')).toBe(false);
   });
 });

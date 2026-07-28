@@ -20,6 +20,28 @@ current) is [.agents/specs/orchestration-map.md](../specs/orchestration-map.md).
 
 A skill/agent that both produces and judges, or that judges and also routes, violates this rule. Split it.
 
+## An orchestration skill stays thin
+
+An orchestration skill may coordinate other skills as a pipeline, but it must stay thin:
+
+- It may select and sequence skills.
+- It may enforce gates, PR order, and verification checkpoints.
+- It may record status and handoff points.
+- It must not duplicate the detailed procedures of invoked skills.
+- It must not absorb detailed behavior owned by the skills **or packages** it invokes.
+- It must not redefine mandatory rules.
+- It must delegate package-specific, testing, branch, writing, architecture, and verification work
+  to the relevant owner skills.
+
+[`harness-composition-design.md`](../specs/harness-composition-design.md) owns the artifact-kind
+boundaries these bullets apply — which content is a rule, an orchestration skill, an agent, or a fact
+catalogue.
+
+Relocated from `backlog-execution.md` (HARNESS-049): the rule governs how skills are written, not how a
+backlog item is executed. The `or packages` clause is that section's fourth Layering-Rule bullet, folded
+in here because it constrains skills; the other three were package-ownership statements and moved to
+[`.agents/project-structure.md`](../project-structure.md) § Implementation Owner Boundaries.
+
 ## Reliability comes from (verdict + a script), not from skill-tree depth
 
 `.agents/skills/` are agent-invoked prose, not auto-firing, so **nesting skills more deeply does not make a

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectFunctionalCoverageFindings } from '../check-functional-coverage.mjs';
+import { collectFunctionalCoverageFindings, hasLiveTest } from '../check-functional-coverage.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../check-functional-coverage.mjs', import.meta.url));
 
@@ -16,7 +16,19 @@ const GREEN_MANIFEST = {
   capabilities: [{ id: 'chat-basic', test: 'tests/chat-basic.functional.test.ts' }],
 };
 
-const GREEN_TEST_SOURCE = "import { createFunctionalKit } from '@fixture/testing';\n";
+/**
+ * A green functional test USES the harness and runs at least one live case. HARNESS-052 tightened
+ * the rule from "the marker appears in the file" to "the marker is called, and something runs", so
+ * this fixture had to become a real test file — the old one was a bare import line, which is
+ * exactly the evidence the tightened rule stops accepting.
+ */
+const GREEN_TEST_SOURCE = `import { createFunctionalKit } from '@fixture/testing';
+
+it('drives a real session', async () => {
+  const kit = createFunctionalKit();
+  await kit.run();
+});
+`;
 
 async function createFixture(files) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-functional-coverage-'));
@@ -101,9 +113,57 @@ describe('collectFunctionalCoverageFindings', () => {
     const manifestPath = manifestOn(root, GREEN_MANIFEST);
 
     const { findings } = collectFunctionalCoverageFindings(root, manifestPath);
-    expect(findings).toEqual([
-      'chat-basic: tests/chat-basic.functional.test.ts does not use the functional harness (expected one of: createFunctionalKit)',
-    ]);
+    expect(findings).toContainEqual(
+      'chat-basic: tests/chat-basic.functional.test.ts does not use the functional harness (expected a call to one of: createFunctionalKit)',
+    );
+  });
+
+  /**
+   * HARNESS-052 sub-shape A. The rule was `source.includes(marker)`, and this check's own docstring
+   * forbids exactly what that accepts: the marker named in a comment beside a skipped case. Both
+   * files below contain the marker; neither drives anything.
+   */
+  it('does not accept the marker mentioned only in a comment (RED)', async () => {
+    const root = await createFixture({
+      'tests/chat-basic.functional.test.ts':
+        '// TODO: rewrite this on createFunctionalKit\ndescribe.skip("chat", () => {\n  it("works", () => {});\n});\n',
+    });
+    const manifestPath = manifestOn(root, GREEN_MANIFEST);
+
+    const { findings } = collectFunctionalCoverageFindings(root, manifestPath);
+    expect(findings.join('\n')).toContain('does not use the functional harness');
+  });
+
+  it('does not accept an imported-but-never-called harness (RED)', async () => {
+    const root = await createFixture({
+      'tests/chat-basic.functional.test.ts':
+        "import { createFunctionalKit } from '@fixture/testing';\n\nit('runs', () => {});\n",
+    });
+    const manifestPath = manifestOn(root, GREEN_MANIFEST);
+
+    const { findings } = collectFunctionalCoverageFindings(root, manifestPath);
+    expect(findings.join('\n')).toContain('does not use the functional harness');
+  });
+
+  it('flags a file whose every case is skipped (RED)', async () => {
+    const root = await createFixture({
+      'tests/chat-basic.functional.test.ts':
+        "import { createFunctionalKit } from '@fixture/testing';\n\n" +
+        "it.skip('runs', async () => {\n  const kit = createFunctionalKit();\n  await kit.run();\n});\n",
+    });
+    const manifestPath = manifestOn(root, GREEN_MANIFEST);
+
+    const { findings } = collectFunctionalCoverageFindings(root, manifestPath);
+    expect(findings.join('\n')).toContain('declares no live test');
+  });
+
+  it('accepts a file that skips ONE case and runs another', async () => {
+    const root = await createFixture({
+      'tests/chat-basic.functional.test.ts': `${GREEN_TEST_SOURCE}\nit.skip('the flaky one', () => {});\n`,
+    });
+    const manifestPath = manifestOn(root, GREEN_MANIFEST);
+
+    expect(collectFunctionalCoverageFindings(root, manifestPath).findings).toEqual([]);
   });
 
   it('flags duplicate capability ids and entries missing id/test (RED)', async () => {
@@ -172,5 +232,24 @@ describe('check-functional-coverage CLI', () => {
     expect(result.stderr).toContain(
       'chat-basic: functional test not found: tests/chat-basic.functional.test.ts',
     );
+  });
+});
+
+describe('hasLiveTest — a suite skipped as a whole is not coverage', () => {
+  it('counts no live test when describe.skip wraps every case', () => {
+    // The check read only the modifiers attached to `it`/`test`, so a whole suite wrapped in
+    // `describe.skip` counted as live coverage — the paper-coverage this check exists to catch, in
+    // its most common spelling.
+    expect(hasLiveTest('describe.skip("s", () => { it("a", () => {}); });')).toBe(false);
+    expect(hasLiveTest('describe.todo("s", () => { it("a", () => {}); });')).toBe(false);
+  });
+
+  it('still counts a live suite beside a skipped one', () => {
+    // Deliberately narrow, as the function's own contract says: a PARTIALLY skipped file is fine.
+    expect(
+      hasLiveTest(
+        'describe.skip("s", () => { it("a", () => {}); });\ndescribe("t", () => { it("b", () => {}); });',
+      ),
+    ).toBe(true);
   });
 });

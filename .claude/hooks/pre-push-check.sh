@@ -11,21 +11,77 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+# One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
+# version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
+# command, so everything after `-m "…"` — including the verb being guarded — was never examined.
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+
+# Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
+# under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
+# non-blocking. Silent exit and "it is fine" are the two states this file refuses to conflate.
+if ! TOOL_NAME=$(hook_tool_name_of "$INPUT"); then
+  echo "[pre-push-check] Blocked: the hook payload names no tool, so nothing can be judged." >&2
+  exit 2
+fi
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
 fi
 
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+if ! COMMAND=$(hook_command_of "$INPUT"); then
+  echo "[pre-push-check] Blocked: the tool command could not be decoded, so the push cannot be judged." >&2
+  echo "[pre-push-check] Install jq or python3 so this guard can read what it is judging." >&2
+  exit 2
+fi
 
-# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`)
-echo "$COMMAND" | grep -qE '^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*push(\s|$)' || exit 0
+# Heredoc bodies and comments are text; only the rest is a command. Shared with the other Bash
+# hooks so all three answer "what will run" the same way.
+COMMAND_EXEC=$(hook_executable_part "$COMMAND")
+COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
+
+# Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
+#
+# Matched at any STATEMENT boundary, not only at the start of the command. The `^`-anchored version
+# fired only when the whole command began with `git push`, so every compound form slipped past it
+# silently — and `cd <repo> && git push`, or a multi-line block whose push is on a later line, is how
+# a push is normally written here. Measured 2026-07-27: EVERY push in a long session bypassed this
+# guard, which is why the branch-hygiene rule it enforces kept being violated. The guard existed, was
+# registered, and was unreachable from the way commands are actually issued — enforcement that no
+# real invocation can reach is indistinguishable from no enforcement.
+#
+# Boundaries are STATEMENT separators only — line start, `;`, `&&`, `||`, `|`, `(`, and the literal
+# a real newline, matched by grep's own `^`. Whitespace IS a boundary — `time git push`, `command git push`, `nice git push` reach the
+# guard only through it. It was excluded while the false positive below was live:
+# `gh pr create --body "… git push …"` and `git commit -m "fix: git push guard"` both match, and a
+# guard that blocks ordinary work is one that gets switched off.
+#
+# THE CEILING, stated rather than discovered later. This is `grep` over a command string; it does not
+# understand shell quoting, so a separator INSIDE a quoted argument —
+# `git commit -m 'note: cd x; git push'` — reads as a real one and the hook runs. That is a genuine
+# false positive and the trade is deliberate: a missed push cost a promotion-ancestry break, while a
+# spurious run costs one lockfile check and passes silently on a clean branch. Understanding quoting
+# needs the shell-aware extraction filed as HARNESS-061, not a longer regex.
+#
+# That false positive does not reproduce today only because the shared COMMAND extraction truncates
+# at the first escaped quote, so the text after `--body \"` is never seen (HARNESS-061). It would
+# come alive the moment that extraction is repaired — so it is excluded here rather than left as a
+# trap for whoever fixes it.
+# Boundaries: line start, `;`, `&&`, `||`, `|`, `(`, `{`, a quote, a backtick, a newline — and
+# whitespace. `time git push`, `command git push` and `nice git push` reach this guard only through
+# the last one, and it was excluded while the false positive it guarded against was live: back then
+# the whole command was scanned raw, so `gh pr create --body "… git push …"` matched. Quoted
+# payloads are masked before this runs now, so the exclusion protected nothing and cost the forms
+# above. A quote and a backtick are boundaries because a kept region — `bash -c "git push"`,
+# `` `git push` `` — puts one immediately before the verb.
+printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
-HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
-GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
+HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
+# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
+# redirect this guard at another repository. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   PROJECT_DIR="$HOOK_CWD"

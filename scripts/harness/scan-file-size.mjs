@@ -100,6 +100,36 @@ export function evaluateFileSizes(files, baseline, maxLines = MAX_LINES) {
   return { findings, tightenable, stale };
 }
 
+/**
+ * Baseline drift — a shrunk file whose gain is not locked in, or an entry for a file that is gone.
+ *
+ * HARNESS-052 (sub-shape B, the one this item found by reading rather than measuring). Both were
+ * printed and then exit 0: 21 advisory lines on EVERY run, which is how a ratchet loosens. "Regenerate
+ * in the same PR" was a request, so 21 files kept a standing licence to grow back to the number they
+ * had already beaten, and the notices themselves became scenery. They are findings now, exactly as
+ * `check-test-module-mocks` treats its stale entries — and the remedy is one command, printed with
+ * the finding, so the cost of the failure is bounded.
+ */
+export function baselineDriftFindings({ tightenable = [], stale = [] } = {}) {
+  return [
+    ...tightenable.map((relPath) => ({
+      file: relPath,
+      type: 'ratchet-tighten',
+      detail:
+        'shrank below its baseline. Run `node scripts/harness/scan-file-size.mjs --write-baseline` ' +
+        'in the SAME change so the ratchet keeps the gain — an unlocked gain is a licence to grow ' +
+        'back to the old number.',
+    })),
+    ...stale.map((relPath) => ({
+      file: relPath,
+      type: 'stale-baseline',
+      detail:
+        'no longer exists. Run `node scripts/harness/scan-file-size.mjs --write-baseline` — a ' +
+        'baseline entry for a deleted file is debt the ratchet can never collect.',
+    })),
+  ];
+}
+
 async function measureAll() {
   const measured = [];
   for (const root of SCAN_ROOTS) {
@@ -140,16 +170,7 @@ async function main() {
   const baseline = await loadBaseline();
   const { findings, tightenable, stale } = evaluateFileSizes(measured, baseline);
 
-  for (const relPath of tightenable) {
-    process.stdout.write(
-      `- [ratchet-tighten] ${relPath} shrank below its baseline — run \`node scripts/harness/scan-file-size.mjs --write-baseline\` to lock in the gain.\n`,
-    );
-  }
-  for (const relPath of stale) {
-    process.stdout.write(
-      `- [stale-baseline] ${relPath} no longer exists — regenerate the baseline.\n`,
-    );
-  }
+  findings.push(...baselineDriftFindings({ tightenable, stale }));
 
   if (findings.length === 0) {
     process.stdout.write(

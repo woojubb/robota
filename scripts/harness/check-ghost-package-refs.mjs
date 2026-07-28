@@ -31,6 +31,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { TOKEN_PATTERN, listWorkspacePackageNames } from './check-workspace-refs.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -51,7 +52,6 @@ const ABSENCE_VOCAB = /\(planned\)|\(removed\)|\(deleted\)|\(renamed\)|no longer
  */
 export const GHOST_PACKAGE_ALLOWLIST = new Set([
   '@robota-sdk/dag-nodes', // group-container README title (packages/dag-nodes holds nested dag-node-* packages); the container itself ships no package
-  '@robota-sdk/agent-provider-bytedance', // names a phantom/unused agent-server dependency slated for removal (backlog DEP-001); not a workspace package
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
 ]);
 
@@ -103,9 +103,39 @@ function listPackageDirNames(root) {
 }
 
 export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['packages'], {
+    scan: 'ghost-package-refs',
+    why:
+      'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
+  });
   const findings = [];
   const workspaceNames = listWorkspacePackageNames(root);
   const packageDirNames = listPackageDirNames(root);
+
+  // ANTI-ROT (HARNESS-052): an allowlist entry naming a package that DOES resolve is stale by
+  // construction. `@robota-sdk/agent-provider-bytedance` was listed here as "not a workspace
+  // package" while `packages/agent-provider-bytedance` shipped a manifest under that exact name, and
+  // its cited backlog item had already moved to `completed/`. Falsified before removal: a doc
+  // referencing that token in a workspace WITHOUT the package returned zero findings — the guard
+  // reporting clean over the one shape it exists to catch.
+  //
+  // Each entry is checked against the set its own SHAPE is matched against, not against both: a
+  // package-name token against the manifest names, a `packages/<dir>` token against the directory
+  // names. Measured while writing this — checking both flagged `@robota-sdk/dag-nodes`, whose
+  // `packages/dag-nodes` directory exists as a group CONTAINER that ships no package. A rule that
+  // fires on correct data gets suppressed, and a suppressed rule costs more than it catches.
+  for (const token of GHOST_PACKAGE_ALLOWLIST) {
+    const resolves = token.startsWith('packages/')
+      ? packageDirNames.has(token.slice('packages/'.length))
+      : workspaceNames.has(token);
+    if (resolves) {
+      findings.push({
+        file: path.relative(root, import.meta.filename),
+        type: 'stale-allowlist-entry',
+        detail: `${token} is allowlisted as a defunct name but resolves in this workspace. Remove the entry.`,
+      });
+    }
+  }
 
   for (const docPath of listMarkdownFiles(root)) {
     const rel = path.relative(root, docPath);

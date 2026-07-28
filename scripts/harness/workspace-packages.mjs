@@ -9,6 +9,10 @@
  *
  * A depth-1 directory under `packages/` that carries the requested marker is a package; a depth-1
  * directory WITHOUT it is treated as a group container and recursed exactly one level.
+ *
+ * The family directory is a parameter (default `packages`) so a scan that reads its governed tree
+ * name from configuration keeps that indirection instead of hard-coding `packages` to reach the
+ * nesting-aware walk.
  */
 
 import { existsSync, readdirSync } from 'node:fs';
@@ -30,8 +34,8 @@ function childDirs(dir) {
  * decides whether a directory is a package (e.g. it owns `docs/SPEC.md`, or a `package.json`). A
  * depth-1 directory that is not itself a package is recursed one level to find nested members.
  */
-export function listPackageDirs(root, hasMarker) {
-  const packagesDir = path.join(root, 'packages');
+export function listPackageDirs(root, hasMarker, family = 'packages') {
+  const packagesDir = path.join(root, family);
   const dirs = [];
   for (const dir of childDirs(packagesDir)) {
     if (hasMarker(dir)) {
@@ -53,4 +57,31 @@ export function listSpecPackageDirs(root) {
 /** Package directories that own a `package.json`. */
 export function listManifestPackageDirs(root) {
   return listPackageDirs(root, (dir) => existsSync(path.join(dir, 'package.json')));
+}
+
+/**
+ * `apps/*` members that own a `package.json`.
+ *
+ * Flat by DECLARATION, not by assumption: `pnpm-workspace.yaml` declares `apps/*` and no
+ * `apps/<group>/*` pattern, so a depth-1 read is the whole set. Stated here because the same
+ * assumption applied to `packages/` — where the manifest DOES declare a nested pattern — is the
+ * defect this module exists to fix.
+ */
+export function listAppDirs(root) {
+  const appsDir = path.join(root, 'apps');
+  return childDirs(appsDir).filter((dir) => existsSync(path.join(dir, 'package.json')));
+}
+
+/**
+ * Every workspace package directory the manifest declares under `packages/` and `apps/`.
+ *
+ * The set most harness scans mean when they say "every workspace package". Using it instead of a
+ * per-scan `for (const family of ['packages', 'apps']) readdirSync(...)` loop is what keeps a scan's
+ * universal claim ("scans every implementation package", "checks all publishable packages") true of
+ * the nested `packages/dag-nodes/*` group rather than of the 55 members a depth-1 read happens to
+ * see. `examples/*` and `scratch` are workspace members too, and are deliberately NOT here: the
+ * harness excludes them by design (see `shared.mjs listWorkspaceScopes`).
+ */
+export function listWorkspacePackageDirs(root) {
+  return [...listManifestPackageDirs(root), ...listAppDirs(root)];
 }

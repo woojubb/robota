@@ -166,10 +166,14 @@ reads the mapping to decide where a document belongs; it does not redefine it.
 | `rejected`              | `.agents/spec-docs/rejected/` | Closed deliberately; not a gate FAIL      |
 
 A gate PASS that changes the status and the folder does both or neither: a document left in the wrong
-folder for its status is treated as NON-COMPLIANCE **on its next gate run**. (That is the force this
-mapping has always carried, from `backlog-pipeline`; there is no mechanical floor asserting
-folder ↔ status agreement, and documents already in `spec-docs/done/` predate the rule — see
-`HARNESS-049` for the reported gap.) Each status transition is a gate, and every gate must leave an
+folder for its status is treated as NON-COMPLIANCE **on its next gate run**. A document that has
+already reached `done/` has no next gate run, which is why that force alone was never enough;
+`scripts/harness/scan-doc-folder-status-agreement.mjs` checks the agreement over the whole tree
+instead, deriving this table as its criteria rather than copying it, and it runs in
+`pnpm harness:scan`. The tree agrees today: five documents that predated the rule were corrected
+from their own recorded `[GATE-COMPLETE] — ✅ PASS`, and `DATA-002` — shipped in all three phases
+with no GATE-COMPLETE entry at all — is a recorded exception in the scan under anti-rot, because
+neither available correction is derivable without running that gate. Each status transition is a gate, and every gate must leave an
 Evidence Log entry (PASS / FAIL / NON-COMPLIANCE) in the format the
 [gate catalogue](../specs/gate-catalogue.md) defines.
 

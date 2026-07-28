@@ -18,22 +18,37 @@
 set -uo pipefail
 
 INPUT=$(cat)
+
+# shellcheck source=lib/command-scan.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
 # ── scope filter ──────────────────────────────────────────────────────────────
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
+# The first field read is the first place a missing decoder could pass silently — and it did:
+# without jq this came back empty and the hook exited 0 before reaching any check. An absent path
+# is normal (many tools carry none) and still exits 0; only an UNREADABLE payload refuses.
+if ! FILE_PATH=$(hook_json_string "$INPUT" 'tool_input.file_path'); then
+  echo "[check-forbidden-patterns] Blocked: the hook payload could not be decoded, so the edit" >&2
+  echo "[check-forbidden-patterns] cannot be checked. Install jq or python3." >&2
+  exit 2
+fi
 
 if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
-# Only check production TypeScript under packages/*/src
+# Only check production TypeScript under packages/*/src.
+#
+# Matched on the path's SHAPE, not on a `"$CLAUDE_PROJECT_DIR"` prefix. A worktree lives at
+# `<project>/.claude/worktrees/<agent>/packages/…`, which never carries the `<project>/packages/…`
+# prefix the old patterns required — so for a worktree-parallel agent, which is how work is normally
+# done here, this guard was off for every write it exists to check. Measured 2026-07-28: identical
+# offending content blocked in the main checkout, waved through in a worktree. A relative
+# `file_path`, and an unset CLAUDE_PROJECT_DIR (making the prefix a bare `.`), were blind the same way.
 case "$FILE_PATH" in
-  "$PROJECT_DIR"/packages/*/src/*.ts|\
-  "$PROJECT_DIR"/packages/*/src/**/*.ts|\
-  "$PROJECT_DIR"/packages/*/src/*.tsx|\
-  "$PROJECT_DIR"/packages/*/src/**/*.tsx) ;;
+  */packages/*/src/*.ts|packages/*/src/*.ts|\
+  */packages/*/src/*.tsx|packages/*/src/*.tsx) ;;
   *) exit 0 ;;
 esac
 
@@ -43,8 +58,20 @@ case "$FILE_PATH" in
 esac
 
 # ── extract NEW content from stdin (not disk) ─────────────────────────────────
-# Write tool → tool_input.content  |  Edit tool → tool_input.new_string
-CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // ""')
+# Write → tool_input.content | Edit → tool_input.new_string | MultiEdit → tool_input.edits[].new_string
+#
+# MultiEdit was measured bypassing this guard entirely on 2026-07-28: it carries its replacements in
+# an `edits` array, so neither field above existed, CONTENT came back empty and the hook exited 0 on
+# content it would have refused from Edit. It was also absent from the hook's matcher in
+# settings.json, so the same content was unguarded twice over — once by registration, once by shape.
+#
+# NotebookEdit is deliberately NOT handled: it carries `notebook_path`/`new_source` and never a
+# TypeScript `file_path`, so the packages/*/src scope filter above can never match it.
+if ! CONTENT=$(hook_edit_content_of "$INPUT"); then
+  echo "[check-forbidden-patterns] Blocked: the edit content could not be decoded, so it cannot be" >&2
+  echo "[check-forbidden-patterns] checked. Install jq or python3." >&2
+  exit 2
+fi
 
 if [ -z "$CONTENT" ]; then
   exit 0
@@ -52,7 +79,17 @@ fi
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 RELATIVE_PATH="${FILE_PATH#$PROJECT_DIR/}"
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""')
+# The scope filter above was widened to accept any prefix so worktree paths would be checked; this
+# strip was not, so a path under `.claude/worktrees/<agent>/` does not begin with $PROJECT_DIR and
+# survived whole — the log and the refusal then printed an absolute path, in exactly the scenario
+# the widening was for. Fall back to cutting at the workspace segment the filter matched on.
+if [[ "$RELATIVE_PATH" == /* ]]; then
+  case "$FILE_PATH" in
+    */packages/*) RELATIVE_PATH="packages/${FILE_PATH#*/packages/}" ;;
+    */apps/*) RELATIVE_PATH="apps/${FILE_PATH#*/apps/}" ;;
+  esac
+fi
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
 

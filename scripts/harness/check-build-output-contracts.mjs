@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
 const DIST_PATH_PATTERN = /(?:^|\/)dist\//u;
@@ -207,9 +208,40 @@ export async function findBuildOutputContractFindings(root = WORKSPACE_ROOT) {
   return findings;
 }
 
+/**
+ * The pass-line plus, when the dist-file rule could not run everywhere, ONE advisory line.
+ *
+ * HARNESS-052, reachability axis. `findDistFileFindings` returns `[]` the moment a package has no
+ * `dist/` — measured: the same manifest with an EMPTY `dist/` yields two findings — and ci.yml's
+ * `quality` job restores `dist` only `if: needs.build.outputs.package_dist_required == 'true'`.
+ * Measured through `createVerificationPlan`, that is FALSE for every docs-only, `.agents/**` and
+ * `scripts/harness/**` PR, so on those the job's `pnpm harness:scan:build-contracts` step ran the
+ * dist-file rule against nothing while printing `Build output contract check passed for N
+ * package(s)` — a count of manifests inspected, read as a count of contracts resolved.
+ *
+ * The pass line now states the count whose `dist/` was actually READ, and the shortfall goes out on
+ * `ADVISORY_MARKER` (HARNESS-053), which reaches `pnpm harness:scan`'s summary without touching the
+ * verdict. Turning the shortfall into a FAILURE would redden `quality` on every docs-only PR; that
+ * is a workflow change (this file cannot restore an artifact) and is recorded, not made here.
+ */
+export function renderDistCoverage({ checked, distPresent }) {
+  const lines = [
+    `Build output contract check passed for ${checked} package(s), dist/ read on ${distPresent}.`,
+  ];
+  if (distPresent < checked) {
+    lines.push(
+      `${ADVISORY_MARKER} the dist-file rule resolved NOTHING for ${checked - distPresent} of ` +
+        `${checked} package(s) with a dist contract — no dist/ on this tree. Declared ` +
+        `main/types/exports paths went unverified for them; run \`pnpm build\` first to check them.`,
+    );
+  }
+  return lines;
+}
+
 async function main() {
   const scopes = await listWorkspaceScopes();
   let checkedPackages = 0;
+  let distPresentPackages = 0;
   const findings = [];
 
   for (const scope of scopes.filter((item) => item.kind === 'package')) {
@@ -218,6 +250,7 @@ async function main() {
     if (!hasDistContract(packageJson)) continue;
 
     checkedPackages += 1;
+    if (fs.existsSync(path.join(pkgDir, 'dist'))) distPresentPackages += 1;
     const name = scope.workspaceName;
     findings.push(...findScriptPairFindings(name, packageJson));
     findings.push(...findPackageFieldFindings(name, packageJson));
@@ -235,7 +268,12 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Build output contract check passed for ${checkedPackages} package(s).`);
+  for (const line of renderDistCoverage({
+    checked: checkedPackages,
+    distPresent: distPresentPackages,
+  })) {
+    console.log(line);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

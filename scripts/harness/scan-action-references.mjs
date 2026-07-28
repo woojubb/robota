@@ -65,6 +65,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -419,6 +420,28 @@ function referenceKey(reference) {
   return `${reference.raw} ${reference.claimedTag ?? ''}`;
 }
 
+/**
+ * The line an OFF run owes its reader, or `null` when the live half ran.
+ *
+ * Never a silent skip: the one thing this scan exists to check did not happen on this run, and the
+ * line says so in the words of the defect rather than in the words of a flag.
+ *
+ * HARNESS-052, reachability axis: saying it was not enough. The live half is off locally AND off
+ * when `GITHUB_BASE_REF` is `main`, and `harness:scan` is the only path that runs this scan in
+ * either place — where `run-all-scans` discards a passing scan's stdout. So the sentence "an action
+ * that does not exist passes this run" was itself unreadable on every run that printed it, which is
+ * the same shape as the reference it warns about. `ADVISORY_MARKER` (HARNESS-053) survives the 0
+ * exit and reaches the summary; it cannot change the verdict, which is what keeps a github.com
+ * outage from blocking a promotion.
+ */
+export function unverifiedResolvabilityLine(mode, unique) {
+  if (mode.live) return null;
+  return (
+    `  ${ADVISORY_MARKER} RESOLVABILITY NOT VERIFIED on this run (${mode.why}): ${unique} ` +
+    `reference(s) were parsed but none was resolved. An action that does not exist passes this run.`
+  );
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const write = (line) => process.stdout.write(`${line}\n`);
   const sources = readWorkflowSources();
@@ -464,13 +487,8 @@ export async function main(argv = process.argv.slice(2)) {
       `  note: ${branchPinned.length} reference(s) resolve through a branch head, not a tag — a moving pointer that still resolves (HARNESS-055).`,
     );
   }
-  if (!mode.live) {
-    // Never a silent skip: the one thing this scan exists to check did not happen on this run, and
-    // the line says so in the words of the defect rather than in the words of a flag.
-    write(
-      `  RESOLVABILITY NOT VERIFIED on this run (${mode.why}): ${unique} reference(s) were parsed but none was resolved. An action that does not exist passes this run.`,
-    );
-  }
+  const unverified = unverifiedResolvabilityLine(mode, unique);
+  if (unverified !== null) write(unverified);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

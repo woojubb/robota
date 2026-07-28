@@ -18,6 +18,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MAP_DIR_RELATIVE = '.agents/specs/architecture-map';
@@ -44,6 +45,11 @@ function walkMarkdown(dir) {
 const SKIP_FILES = new Set(['layering-audit.md', 'architecture-lessons.md']);
 
 export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
+  requireGovernedTree(root, ['.agents/specs/architecture-map'], {
+    scan: 'arch-map-paths',
+    why:
+      'The architecture-map corpus IS this scan\u2019s subject: with no map to read, "every cited path exists" is true of nothing.',
+  });
   const findings = [];
   for (const docPath of walkMarkdown(path.join(root, MAP_DIR_RELATIVE))) {
     if (SKIP_FILES.has(path.basename(docPath))) continue;

@@ -10,6 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { collectOrchestrationMapFindings } from '../scan-orchestration-map.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-orchestration-map.mjs', import.meta.url));
+// HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
+// the shared `requireGovernedTree` helper alongside it.
+const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
 const FRONTMATTER_MODULE = fileURLToPath(new URL('../frontmatter.mjs', import.meta.url));
 
 const GREEN_MAP = `# Orchestration Map
@@ -64,8 +67,54 @@ describe('collectOrchestrationMapFindings', () => {
     const { mapMissing, findings } = collectOrchestrationMapFindings(root);
     expect(mapMissing).toBe(false);
     expect(findings).toEqual([
-      'agent "unlisted-agent" (.claude/agents/unlisted-agent.md) is not listed in the Orchestration Map — add it (role, signal, pipeline).',
+      'agent "unlisted-agent" (.claude/agents/unlisted-agent.md) has no row in the Orchestration Map — add one (role, signal, pipeline). A mention in prose or inside a diagram is not a listing.',
     ]);
+  });
+
+  /**
+   * HARNESS-052 sub-shape A. "Listed in the Orchestration Map" was proved by `mapText.includes(name)`
+   * — satisfied by the name in prose, inside a fenced mermaid diagram, in a footnote, or as a
+   * SUBSTRING of another agent's name. Each case below is a map where the agent is genuinely absent
+   * from every registry table while the old rule reported it listed.
+   */
+  it('does not accept a mention in prose or inside a diagram as a listing', async () => {
+    const root = await createFixture({
+      '.agents/specs/orchestration-map.md':
+        `${GREEN_MAP}\nThe fixture-guardian agent runs after the worker.\n\n` +
+        '```mermaid\ngraph TD\n  W[fixture-worker] --> G[fixture-guardian]\n```\n',
+      '.claude/agents/fixture-worker.md': GREEN_AGENT,
+      '.claude/agents/fixture-guardian.md': '---\nname: fixture-guardian\n---\n\nGuardian.\n',
+    });
+
+    const { findings } = collectOrchestrationMapFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('fixture-guardian');
+  });
+
+  it('does not accept another agent’s row satisfying a name that is its substring', async () => {
+    const root = await createFixture({
+      '.agents/specs/orchestration-map.md': GREEN_MAP,
+      '.claude/agents/fixture-worker.md': GREEN_AGENT,
+      // `fixture-work` is a substring of the listed `fixture-worker`.
+      '.claude/agents/fixture-work.md': '---\nname: fixture-work\n---\n\nAnother agent.\n',
+    });
+
+    const { findings } = collectOrchestrationMapFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toContain('fixture-work"');
+  });
+
+  it('accepts a row whether the name is backticked, bolded or bare', async () => {
+    const root = await createFixture({
+      '.agents/specs/orchestration-map.md':
+        '# Map\n\n| Agent | Role |\n| ----- | ---- |\n| `a-one` | worker |\n' +
+        '| **a-two** | guardian |\n| a-three | orchestrator |\n',
+      '.claude/agents/a-one.md': '---\nname: a-one\n---\n',
+      '.claude/agents/a-two.md': '---\nname: a-two\n---\n',
+      '.claude/agents/a-three.md': '---\nname: a-three\n---\n',
+    });
+
+    expect(collectOrchestrationMapFindings(root).findings).toEqual([]);
   });
 
   it('falls back to the filename when the agent has no name frontmatter (RED)', async () => {
@@ -113,12 +162,18 @@ describe('collectOrchestrationMapFindings', () => {
     expect(collectOrchestrationMapFindings(root)).toEqual({ mapMissing: false, findings: [] });
   });
 
-  it('passes when there is no agents directory at all', async () => {
+  /**
+   * HARNESS-052. This case used to assert the opposite — "passes when there is no agents directory
+   * at all" — which is the audited defect written down as a requirement. The map is checked AGAINST
+   * the agent definitions, so with none there is nothing to check and "every agent is listed" is
+   * true of the empty set. The missing MAP was already an error; the missing SUBJECT was not.
+   */
+  it('throws when there is no agents directory at all', async () => {
     const root = await createFixture({
       '.agents/specs/orchestration-map.md': GREEN_MAP,
     });
 
-    expect(collectOrchestrationMapFindings(root)).toEqual({ mapMissing: false, findings: [] });
+    expect(() => collectOrchestrationMapFindings(root)).toThrow(/\.claude\/agents/);
   });
 });
 
@@ -131,6 +186,10 @@ describe('scan-orchestration-map CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-orchestration-map.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
+    copyFileSync(
+      GOVERNED_TREE_MODULE,
+      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
+    );
     copyFileSync(FRONTMATTER_MODULE, path.join(path.dirname(scriptCopy), 'frontmatter.mjs'));
     return { root, scriptCopy };
   }

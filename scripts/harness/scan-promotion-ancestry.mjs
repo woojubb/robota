@@ -64,11 +64,22 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export const ADOPTION_BASELINE = 'a1a6bb830acf60097304de1f4a96f9f50ecd2503';
 
 /**
- * How many non-merge commits the frozen amnesty covers. Measured at adoption:
- * `git rev-list origin/main ^origin/develop --no-merges --count` = 10. If the baseline moves forward,
- * this count changes and the gate says so.
+ * How many non-merge commits the frozen amnesty covers. **0 — the debt is discharged.**
+ *
+ * It was 10 at adoption: nine Dependabot bumps and one branch PR'd straight to `main`, whose
+ * ancestry was unrecoverable without rewriting `main`. On 2026-07-27 `develop` absorbed `main`'s
+ * ancestry, so all ten are now reachable from `develop` and the exclusion excludes nothing.
+ * Re-measured: `git rev-list origin/main ^origin/develop --no-merges --count` = 0.
+ *
+ * The equality check is deliberately kept rather than relaxed. At 0 there is nothing left to
+ * discharge, so ANY deviation is new debt — the amnesty is spent, and this is a floor, not a budget.
+ *
+ * Note what fired: the gate reported the debt being PAID as a violation, because it compares for
+ * equality while its own documentation describes only the widening direction. A guard going red on a
+ * correct, desirable state is the over-checking failure mode. Recorded because the fix was to make
+ * the constant true, not to loosen the comparison.
  */
-export const ADOPTION_BASELINE_DEBT = 10;
+export const ADOPTION_BASELINE_DEBT = 0;
 
 /** How the gate learns it is looking at a promotion. */
 export const PROMOTION_BASE = 'main';

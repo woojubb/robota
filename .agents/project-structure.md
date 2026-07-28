@@ -132,6 +132,27 @@ agent-cli         ← product/UI layer: consumes agent-framework and selected co
 - **Legacy SDK-embedded commands are not precedent.** Existing SDK-embedded command behavior is migration debt unless it is only generic command infrastructure. New internal commands must be implemented as command modules first; expanding SDK command implementation files requires a SPEC-backed migration plan and a mechanical check exception.
 - **Per-product assembly ownership — no shared product factory.** Each deployable product (the CLI, a second CLI, an embedded host, an app) owns its own composition/wiring of provider, preset, and command modules. The reusable, product-agnostic capability lives in the framework/transport layers (e.g., the interaction runtime and the in-process/built-binary driver adapters over a shared interaction contract). Do NOT extract a shared cross-product assembly factory (e.g., a `createCliAgent`): a product shell is one assembler among many, not a shared utility. Reuse is achieved by sharing lower-layer materials, not by sharing the product's assembly. **Carve-out (ARCH-005, coupled to mechanical guards):** a **pure, IO-free, data-driven assembler that hard-codes no product's choices** IS a lower-layer material (a composition mechanism), not a shared product factory, and MAY be published and shared — this carve-out covers `@robota-sdk/agent-product`'s `assembleProduct` and is deliberately narrow: it does **NOT** bless "profile-driven assemblers" in general (a profile-driven function could still accrete `if (profile.id === '…')` branches and become a de-facto shared product factory). The relaxation holds ONLY while the assembler stays pure — it is coupled to the composition-neutrality guards (`scripts/harness/scan-composition-neutrality.mjs`: (a) no concrete transport/TUI/CLI dependency, (b) no fs/env/settings read, (c) no product-identity conditional). A shared factory that bakes in any product's provider/preset/command/transport choices remains forbidden. See `feedback_no_shared_cli_factory`.
 
+### Implementation Owner Boundaries
+
+Which tier owns which kind of behaviour. The layer diagram above says what may depend on what; this
+says what may be _implemented_ where, and it is the statement a conformance audit checks a diff against:
+
+- `agent-cli` owns UI/TUI rendering, prompt intake, keyboard navigation, and local host adapter
+  wiring.
+- SDK/runtime or other lower owner packages own reusable contracts, lifecycle, state machines,
+  storage policy, command behavior, and process/task semantics.
+- Command packages expose user-visible commands through SDK/runtime contracts.
+
+Relocated from `rules/backlog-execution.md` § Layering Rule (HARNESS-049), which is not the owner of
+package ownership. **The scope widened deliberately**: the sentences read "backlog implementation must
+preserve owner boundaries", and here they bind every change. That is not a new mandate — each already
+has a materially equivalent general statement in this document (the `Command module isolation`,
+`CLI/TUI command thinness`, and `Orchestrator/adapter split` rules above, plus
+[§ Command Package Rule](#command-package-rule)) — so what changed is that the boundary is now stated
+once, in the document that owns it, instead of twice with one copy artificially scoped to backlog work.
+The fourth bullet of that section governed **skills**, not packages, and moved to
+[rules/enforcement-architecture.md](rules/enforcement-architecture.md) instead.
+
 ## Library Neutrality Rule (packages/ vs apps/)
 
 Everything under `packages/` is a **library and must be universal and neutral** — usable by any

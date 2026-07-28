@@ -46,6 +46,24 @@ describe('check-workspace-refs', () => {
     expect(await findWorkspaceRefFindings(root)).toHaveLength(0);
   });
 
+  /**
+   * HARNESS-052. `@robota-sdk/agent-provider-bytedance` was allowlisted here as a non-workspace
+   * example token while `packages/agent-provider-bytedance` shipped a manifest under that exact
+   * name. Inert today, and the day that package is deleted it exempts a genuine dangling reference —
+   * which is how a suppression outlives its reason. An entry that RESOLVES is stale by construction.
+   */
+  it('reports an allowlist entry that resolves to a real workspace package', async () => {
+    const root = await createFixture({
+      'package.json': pkg('root'),
+      'packages/other/package.json': pkg('@robota-sdk/other'),
+    });
+    const findings = await findWorkspaceRefFindings(root);
+    expect(findings.map((f) => f.type)).toContain('stale-allowlist-entry');
+    expect(findings.find((f) => f.type === 'stale-allowlist-entry').detail).toContain(
+      '@robota-sdk/other',
+    );
+  });
+
   it('reports unresolved tokens inside scripts/*.mjs helper files', async () => {
     const root = await createFixture({
       'package.json': pkg('root'),

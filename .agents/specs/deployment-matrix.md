@@ -15,12 +15,18 @@ missing a row here (undocumented) or a Transport-`name` row here names a nonexis
 ## Matrix
 
 The **Transport `name`** column is the drift-scanned key — the set of transport adapters that declare a `name`,
-verified in code as exactly `{tui, ws, webrtc, http, mcp}`. The **Client / presentation** column is NOT a
-transport (React/browser packages carry no transport `name`) and is out of scope for the drift floor.
+verified in code as exactly `{tui, headless, ws, webrtc, http, mcp}`. The **Client / presentation** column is NOT
+a transport (React/browser packages carry no transport `name`) and is out of scope for the drift floor.
 
-| Surface        | Runtime                                           | Transport `name`   | Client / presentation        | Prior art in-repo     |
-| -------------- | ------------------------------------------------- | ------------------ | ---------------------------- | --------------------- |
-| CLI / terminal | local `agent-cli` process                         | `tui`              | `agent-transport` print      | —                     |
+`headless` was added by HARNESS-052, not by a new transport: the drift scan matched the package-directory prefix
+`agent-transport-`, so `packages/agent-transport` — the base package, where `createHeadlessTransport` declares
+`name: 'headless'` in exactly the factory form the scan parses — could never contribute a name. The set above had
+been asserted as complete by a check structurally incapable of reading one of its members.
+
+| Surface         | Runtime                                           | Transport `name`   | Client / presentation        | Prior art in-repo     |
+| --------------- | ------------------------------------------------- | ------------------ | ---------------------------- | --------------------- |
+| CLI / terminal  | local `agent-cli` process                         | `tui`              | `agent-transport` print      | —                     |
+| CLI / one-shot  | local `agent-cli` print mode (`-p`), non-interactive | `headless`      | —                            | `agent-transport/headless` (print / JSON / stream-json runner) |
 | Desktop        | headless `robota --serve` spawned by Electron     | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001 |
 | Web            | `apps/agent-server` (Express + WS) / browser peer | `ws`               | `agent-transport-webrtc-web` | playground stack      |
 | HTTP/WS server | headless `robota --serve` / `apps/agent-server`   | `http` / `ws`      | —                            | RUNTIME-001           |
@@ -36,7 +42,9 @@ The drift scan parses both forms (a transport declares its `name` in one of two 
   `webrtc` (`agent-transport-webrtc`).
 - **Factory form** — `name: '…'` on a factory object-literal implementing plain `ITransportAdapter` (no
   `defaultEnabled`; mounted outside `startAll`'s fan-out but still `attach(session)` over the DIP): `http`
-  (`agent-transport-http`), `mcp` (`agent-transport-mcp`), `ws` (`agent-transport-ws/ws-transport.ts`).
+  (`agent-transport-http`), `mcp` (`agent-transport-mcp`), `ws` (`agent-transport-ws/ws-transport.ts`),
+  `headless` (`agent-transport/headless/headless-transport.ts` — the BASE package, which the drift scan's
+  package-prefix filter used to skip).
 
 **Excluded** (export no transport `name`): `agent-transport-protocol` (shared protocol lib),
 `agent-transport-gui` + `agent-transport-webrtc-web` (React/browser presentation).

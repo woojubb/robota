@@ -2,8 +2,8 @@
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
 status: todo
 created: 2026-07-25
-priority: medium
-urgency: later
+priority: high
+urgency: now
 area: .github/workflows/ci.yml, repo rulesets
 depends_on: []
 ---
@@ -124,3 +124,18 @@ gh api repos/woojubb/robota/rulesets/<id> > ruleset.json                # captur
 # edit the required_status_checks rule's required_status_checks[] array, then:
 gh api -X PUT repos/woojubb/robota/rulesets/<id> --input ruleset.json
 ```
+
+## Evidence added 2026-07-28 — this is not a rollout question any more
+
+A four-way recurrence audit measured what these two floors are currently worth:
+
+- `check-regression-red-proof` is **not registered in `run-all-scans`** at all. It runs only as
+  `ci.yml`'s `regression-red-proof (advisory)`, exits 0 on failure, and its enforcing branch is
+  gated on `REGRESSION_RED_PROOF_ENFORCE` — **set in no workflow**. Same shape for
+  `check-patch-coverage`.
+- The defect it exists to catch recurred **twice in one session** (ARCH-004 RUNTIME-14, CORE-026
+  RUNTIME-12) and is `common-mistakes` #82.
+
+So the repository has a built, tested floor for its accidental-green class and **nothing can fail on
+it**. The change is two environment variables and moving two contexts to required — the smallest
+mechanical prevention on the whole audit's list, against a class with confirmed recurrence.

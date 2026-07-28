@@ -387,34 +387,14 @@ the user's.**
 The ordering, the drift handling, and the failure edges are owned by
 [`multi-backlog-initiative`](../skills/multi-backlog-initiative/SKILL.md).
 
-## Layering Rule
+## Owner Boundaries
 
-Backlog implementation must preserve owner boundaries:
+Backlog implementation preserves the repo's owner boundaries; this rule does not own them.
 
-- `agent-cli` owns UI/TUI rendering, prompt intake, keyboard navigation, and local host adapter
-  wiring.
-- SDK/runtime or other lower owner packages own reusable contracts, lifecycle, state machines,
-  storage policy, command behavior, and process/task semantics.
-- Command packages expose user-visible commands through SDK/runtime contracts.
-- Skills may orchestrate workflows, but they must not absorb detailed behavior owned by the skills
-  or packages they invoke.
-
-## Orchestration Skill Rule
-
-An orchestration skill may coordinate other skills as a pipeline, but it must stay thin:
-
-- It may select and sequence skills.
-- It may enforce gates, PR order, and verification checkpoints.
-- It may record status and handoff points.
-- It must not duplicate the detailed procedures of invoked skills.
-- It must not redefine mandatory rules.
-- It must delegate package-specific, testing, branch, writing, architecture, and verification work
-  to the relevant owner skills.
-
-See [enforcement-architecture.md](enforcement-architecture.md) for the orchestrator / worker / guardian
-split this rule follows, and
-[`harness-composition-design.md`](../specs/harness-composition-design.md) for the artifact-kind
-boundaries.
+- Package/tier ownership (which layer implements which kind of behaviour) —
+  [`.agents/project-structure.md`](../project-structure.md) § Implementation Owner Boundaries.
+- Orchestration-skill thinness (what a pipeline skill may and may not absorb) —
+  [enforcement-architecture.md](enforcement-architecture.md) § An orchestration skill stays thin.
 
 ## Stop Conditions
 

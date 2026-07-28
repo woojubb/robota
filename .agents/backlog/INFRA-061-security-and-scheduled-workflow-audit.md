@@ -143,6 +143,45 @@ recorded them honestly rather than pinning them as sound:
 workflow it reports nothing to fix, the same answer it gives for a correct one. Recorded unfixed in
 `PENDING_CLASSIFICATION` and owned by INFRA-060 (the ci.yml audit), not silently promoted.
 
+### 8. `ci.yml` ran an unverified downloaded binary, twice (filed as owner item 3, then taken)
+
+Both osv-scanner call sites in `ci.yml` — including the one inside the **required** `dependency audit`
+job — did `curl … | chmod +x | execute` with no integrity check. Pinning the version does not pin the
+bytes: a GitHub release asset can be replaced under an existing tag. That is arbitrary code execution
+on a runner with the repository checked out, in the job whose entire purpose is to prove the tree is
+clean.
+
+Filed for the owner originally on the reasoning that `ci.yml` was owned by another agent, not that it
+was a contract decision. It is not one: verifying a download changes nothing about what gates a merge,
+what a check is named, or when it runs. A correct artifact produces the identical result. So it was
+taken once `.github/workflows/` ownership allowed.
+
+Both sites now `sha256sum -c -` **before** `chmod +x`, reading `OSV_SCANNER_VERSION` and
+`OSV_SCANNER_SHA256` from one workflow-level `env` block so the two cannot drift apart. The digest was
+recomputed from the asset rather than copied from this document, and matches the pin already in
+`security-scheduled.yml`.
+
+Falsified against the defect, not merely observed green. The two step bodies were extracted from the
+PARSED workflow — so the thing under test is what CI will run, not a re-typed copy — and executed with
+the download shimmed to serve either the genuine 41,324,728-byte asset or the same bytes plus one
+appended `\0`:
+
+| ci.yml revision | artifact | exit | left executable |
+| --------------- | -------- | ---- | --------------- |
+| pre-fix         | tampered | 0    | **yes**         |
+| post-fix        | tampered | 1    | no              |
+| post-fix        | genuine  | 0    | yes             |
+
+The pre-fix row is the point: the old body accepted the swapped binary, marked it executable and ran
+it. The genuine post-fix run went all the way through the real scan — `2130 packages`, 5 filtered,
+`No issues found`.
+
+This was the LAST unverified executable download in `.github/workflows` (`gitleaks.yml` and
+`security-scheduled.yml` already verified theirs), which retires the reason the repo-wide
+"a workflow that curls an executable must verify a checksum" guard was deferred — it would no longer
+turn the required `scans` job red. The guard itself is not added here: `scripts/harness/` is outside
+this change's ownership.
+
 ## What was deliberately NOT changed
 
 - **`dependency-review.yml`'s paths filter and advisory posture.** The header's reasoning is correct:
@@ -164,12 +203,12 @@ were executed`. A guard there would catch nothing and add surface.
    that cannot be undone after merge.
 2. **35 open HIGH CodeQL alerts** (plus 15 medium), nothing gating them. Needs a triage decision
    before CodeQL could be made required, or the gate would be bypassed on day one.
-3. **`ci.yml` downloads and executes osv-scanner with no checksum**, twice (lines 434-435 and
-   488-489), including in the _required_ `dependency audit` job. Same defect fixed here in
-   `security-scheduled.yml`; `ci.yml` is owned by another agent. The digest to pin is
-   `3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8`. A repo-wide guard
-   ("a workflow that curls an executable must verify a checksum") was deliberately NOT added, because
-   it would immediately fail on `ci.yml` and turn the required `scans` job red.
+3. ~~**`ci.yml` downloads and executes osv-scanner with no checksum.**~~ **RESOLVED** — see "What was
+   fixed" §8. On re-reading, this was never a contract decision: verifying a download changes nothing
+   about what gates a merge, what a check is named, or when it runs, and a correct artifact produces
+   an identical result. It was only an OWNERSHIP blocker, so it was taken rather than filed. The
+   repo-wide guard is now unblocked (no unverified download remains in `.github/workflows`) and is
+   listed as a follow-up rather than a permanent exception.
 4. **`live-provider-smoke` verifies nothing until a provider secret is provisioned.** Whether to
    provision one, or to accept a permanently-annotated no-op, is an owner decision.
 5. **`mutation-nightly` thresholds.** 110 surviving mutants stand with no owner and no ratchet.
@@ -321,3 +360,48 @@ that.
 
 **Evidence:** Run during the audit: passed, then failed with exactly that finding, then passed again
 after restoring. The mention-vs-wiring distinction is covered by a regression test.
+
+### Scenario 4 — `ci.yml` refuses a swapped osv-scanner binary
+
+**Prerequisites:** a clone at this branch; `curl`, `sha256sum`.
+
+**Steps:** run what `ci.yml` runs, against a good artifact and then a tampered one. The step body is
+never re-typed — it is read out of the workflow, so the thing under test is what CI executes.
+
+```bash
+cd "$(git rev-parse --show-toplevel)"
+eval "$(python3 - <<'PY'
+import yaml
+d = yaml.safe_load(open('.github/workflows/ci.yml'))
+for k, v in d['env'].items():
+    print(f'export {k}={v}')
+PY
+)"
+export RUNNER_TEMP="$(mktemp -d)"
+curl -fsSL "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
+  -o "$RUNNER_TEMP/osv-scanner"
+
+# 1. genuine bytes — the verification CI performs
+echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -; echo "exit=$?"
+
+# 2. one byte appended: the smallest possible supply-chain swap
+printf '\0' >> "$RUNNER_TEMP/osv-scanner"
+echo "${OSV_SCANNER_SHA256}  $RUNNER_TEMP/osv-scanner" | sha256sum -c -; echo "exit=$?"
+```
+
+**Expected:** `OK` / `exit=0`, then `FAILED` / `exit=1`. Under `set -e` (both steps set it) the second
+aborts the job before `chmod +x`, so the swapped binary is never executed.
+
+**Cleanup:** `rm -rf "$RUNNER_TEMP"`
+
+**Evidence:** Run on this branch, driven by a harness that extracted both step bodies from the parsed
+`ci.yml` and executed them with the download shimmed:
+
+```
+pre-fix  ci.yml + tampered artifact   exit 0   left executable: YES   ← the defect
+post-fix ci.yml + tampered artifact   exit 1   left executable: no
+post-fix ci.yml + genuine artifact    exit 0   Scanned … 2130 packages / Filtered 5 / No issues found
+```
+
+Both osv-scanner steps were exercised in every row. Independently recomputed digest:
+`3abcfd7126c453a00421487e721b296e0cb68085bd431d6cef60872774170fc8` (41,324,728 bytes).
