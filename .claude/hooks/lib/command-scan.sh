@@ -61,6 +61,27 @@ hook_command_of() {
   hook_json_string "$1" 'tool_input.command'
 }
 
+# The tool being invoked.
+#
+# Kept separate from `hook_command_of` on purpose. `tool_name` is a bare identifier — `Bash`,
+# `Edit` — and can never contain a quote, so the grep read that is wrong for a command is exactly
+# right for this field. That matters: routing `TOOL_NAME` through the JSON decoders would make a
+# machine without jq AND without python3 produce an empty tool name, and every hook would then take
+# its "not a Bash call" branch and exit 0 in silence. Three guards disabled, nothing said — the
+# fail-open this file exists to eliminate, reintroduced by the fix for it. Review caught it.
+hook_tool_name_of() {
+  local name rest
+  name=$(hook_json_string "$1" 'tool_name') && [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
+
+  # Pure parameter expansion — no grep, no sed, no subprocess. The point of this fallback is a
+  # machine missing jq AND python3, and a fallback that needs its own tools would fail there too,
+  # which is how the first attempt turned a silent bypass into exit 127.
+  rest="${1#*\"tool_name\"}"
+  [[ "$rest" == "$1" ]] && return 1
+  rest="${rest#*\"}"
+  printf '%s' "${rest%%\"*}"
+}
+
 # The directory the tool reports it will run in. Absence is normal, so callers use `|| true`.
 hook_cwd_of() {
   hook_json_string "$1" 'cwd'
@@ -113,38 +134,60 @@ hook_executable_part() {
   printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
 }
 
-# Blank the CONTENTS of quoted strings, so a verb written inside an argument is not read as a verb.
+# Mask the CONTENTS of quoted strings, one character for one, so offsets are preserved.
 #
-# Same principle as the heredoc body: `gh pr create --body "notes; git push later"` contains the
-# characters of a push and performs none. Until the decode was fixed, the truncated command hid this
-# by accident — `pre-push-check`'s own comment said so, and said the trap would come alive the day
-# the decode was corrected. This is that day, and that hook BLOCKS, so the false positive would be
-# one more self-inflicted stop of exactly the kind these guards exist to avoid.
+# Whole-input, not per line. The `sed 's/"[^"]*"/""/g'` this replaces worked a line at a time, so a
+# quoted argument spanning a newline had its opening and closing quotes on different lines and was
+# never masked — a second line reading `git push` inside a message would then be read as a push.
+hook_mask_quoted() {
+  awk '
+    { lines[NR] = $0 }
+    END {
+      q = ""
+      for (n = 1; n <= NR; n++) {
+        s = lines[n]
+        out = ""
+        for (i = 1; i <= length(s); i++) {
+          c = substr(s, i, 1)
+          if (q == "") {
+            out = out c
+            if (c == "\"" || c == "\047") { q = c }
+          } else if (c == q) {
+            out = out c
+            q = ""
+          } else {
+            out = out "\001"
+          }
+        }
+        print out
+      }
+    }
+  '
+}
+
+# Commands that RUN a string argument. When one is present nothing is masked, because the quoted
+# text is a command and must be read as one.
 #
-# The quotes and the shape of the command are kept — `git push origin "main"` becomes
-# `git push origin ""`, still a push, still matched. Only what is INSIDE them goes.
+# `bash -c` was the whole list; `python3 -c`, `node -e`, `perl -e` run their strings just as truly,
+# and masking theirs turned a false positive into a bypass. The list errs toward preserving: a
+# command wrongly left unmasked is examined too closely, which is the only direction a guard may be
+# wrong in.
+HOOK_INTERPRETER_RE='(^|[[:space:];&|(])((ba|z|da|k|c)?sh|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|xargs|env)[[:space:]]+(-[[:alnum:]]*[ceE])([[:space:]]|$)|(^|[[:space:];&|(])eval([[:space:]]|$)'
+
+# What a verb-detection matcher should read: the executable part, with quoted contents masked.
 #
-# Exception, and it is the important one: `bash -c "git push"` really does run a push, so when the
-# command invokes a shell on a string, nothing is stripped and the string is examined in full.
-# Erring toward examining more is the only direction a guard may err in.
-hook_blank_quoted_args() {
-  local text="$1"
-  if printf '%s' "$text" | grep -qE '(^|[[:space:];&|(])(ba|z|da)?sh[[:space:]]+-[[:alnum:]]*c([[:space:]]|$)|(^|[[:space:];&|(])eval([[:space:]]|$)'; then
-    printf '%s\n' "$text"
+# Deliberately NOT the string used to extract names and paths. A branch name, a `git -C` target and
+# a `refs/heads/<name>` URL are routinely quoted; `hook_git_c_path` masks to LOCATE and reads the
+# ORIGINAL to extract, which is how both properties hold at once.
+hook_verb_scan() {
+  local exec_part
+  exec_part=$(hook_executable_part "$1")
+  if printf '%s' "$exec_part" | grep -qE "$HOOK_INTERPRETER_RE"; then
+    printf '%s\n' "$exec_part"
     return 0
   fi
-  printf '%s\n' "$text" | sed 's/"[^"]*"/""/g; s/\x27[^\x27]*\x27/\x27\x27/g'
+  printf '%s\n' "$exec_part" | hook_mask_quoted
 }
-
-# What a verb-detection matcher should read: the executable part, with quoted arguments blanked.
-#
-# Deliberately NOT the same string used to extract names and paths. A branch name, a `git -C`
-# target and a `refs/heads/<name>` URL are routinely quoted, and blanking them there would make the
-# extraction find nothing — a guard that stops seeing what it is protecting.
-hook_verb_scan() {
-  hook_blank_quoted_args "$(hook_executable_part "$1")"
-}
-
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 #
@@ -158,9 +201,14 @@ hook_verb_scan() {
 # quotes replaced one-for-one, preserving offsets — the flag is located in the mask, where a
 # mention cannot match, and the value is then read from the ORIGINAL at the same offset.
 hook_git_c_path() {
-  printf '%s' "$1" | awk '
-    {
-      s = $0
+  printf '%s\n' "$1" | awk '
+    { lines[NR] = $0 }
+    END {
+      # One string, so a quote opened on one line still masks the next — the same whole-input rule
+      # hook_mask_quoted follows, and the reason this is not two passes over separate strings.
+      s = ""
+      for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
+
       mask = ""
       q = ""
       for (i = 1; i <= length(s); i++) {
@@ -172,11 +220,11 @@ hook_git_c_path() {
           mask = mask c
           q = ""
         } else {
-          mask = mask "\001"      # same length, so offsets in the mask are offsets in s
+          mask = mask "\001"
         }
       }
 
-      if (!match(mask, /(^|[ \t;&|({])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { next }
+      if (!match(mask, /(^|[ \t;&|({\n])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+/)) { exit }
       p = RSTART + RLENGTH                # first character of the value, in both strings
       c = substr(s, p, 1)
       if (c == "\"" || c == "\047") {
@@ -185,9 +233,9 @@ hook_git_c_path() {
         print (end > 0 ? substr(s, p, end - 1) : substr(s, p))
       } else {
         v = substr(s, p)
-        sub(/[ \t].*$/, "", v)
+        sub(/[ \t\n].*$/, "", v)
         print v
       }
     }
-  ' | head -1
+  '
 }

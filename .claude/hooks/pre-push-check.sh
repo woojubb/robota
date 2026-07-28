@@ -17,7 +17,7 @@ INPUT=$(cat)
 # shellcheck source=lib/command-scan.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 
-TOOL_NAME=$(hook_json_string "$INPUT" 'tool_name' || true)
+TOOL_NAME=$(hook_tool_name_of "$INPUT")
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0

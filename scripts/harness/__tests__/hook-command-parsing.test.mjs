@@ -1,5 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -193,6 +200,63 @@ describe('a hook examines the command that will run', () => {
         cwd,
       });
       expect(result.status, `branch-guard judged the wrong repository for -C ${target}`).toBe(0);
+    }
+  });
+
+  it('reads a command an interpreter is told to run', () => {
+    // `bash -c` was the entire exception list, and `python3 -c` / `node -e` run their strings just
+    // as truly. Masking theirs converted the false positive that masking removed into a bypass,
+    // which is the trade a guard may never make.
+    const cwd = scratchRepo('main');
+    const cases = [
+      `python3 -c "import os; os.system('git push origin main')"`,
+      `node -e "sh('git push origin main')"`,
+    ];
+
+    for (const command of cases) {
+      const result = runHook('branch-guard.sh', command, { cwd });
+      expect(result.status, `branch-guard missed a push inside: ${command}`).toBe(2);
+    }
+  });
+
+  it('masks a quoted argument that spans lines', () => {
+    // The masking was `sed`, which works a line at a time, so an argument opened on one line and
+    // closed on the next was never masked — and a second line reading `git push` blocked an
+    // ordinary commit. Multi-line messages are exactly where that text appears.
+    const cwd = scratchRepo('feat/probe');
+    const result = runHook(
+      'branch-guard.sh',
+      'git commit -m "line one\nthen git push origin main"',
+      {
+        cwd,
+      },
+    );
+
+    expect(result.status, 'a push named on the second line of a message was read as a push').toBe(
+      0,
+    );
+  });
+
+  it('refuses rather than falls silent when it cannot decode', () => {
+    // The regression review caught: routing tool_name through the JSON decoders meant a machine
+    // with neither jq nor python3 produced an empty tool name, every hook took its "not a Bash
+    // call" branch, and three guards switched off without a word. Measured before the fix: exit 0.
+    const cwd = scratchRepo('main');
+    const bin = mkdtempSync(path.join(tmpdir(), 'hook-nojson-'));
+    scratchRoots.push(bin);
+    for (const tool of ['bash', 'dirname', 'grep', 'sed', 'awk', 'head', 'tr', 'cat', 'git']) {
+      const found = spawnSync('sh', ['-c', `command -v ${tool}`], { encoding: 'utf8' });
+      const target = (found.stdout ?? '').trim();
+      if (target) symlinkSync(target, path.join(bin, tool));
+    }
+
+    for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh']) {
+      const result = runHook(hook, 'git push origin main', {
+        cwd,
+        env: { PATH: bin, ROBOTA_AGENT_WORKTREE: '1' },
+      });
+      expect(result.status, `${hook} passed silently with no JSON decoder available`).not.toBe(0);
+      expect(result.output, `${hook} refused without saying why`).toMatch(/could not be decoded/);
     }
   });
 

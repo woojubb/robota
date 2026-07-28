@@ -17,7 +17,7 @@ INPUT=$(cat)
 source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
-TOOL_NAME=$(hook_json_string "$INPUT" 'tool_name' || true)
+TOOL_NAME=$(hook_tool_name_of "$INPUT")
 
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
