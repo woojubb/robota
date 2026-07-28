@@ -60,7 +60,14 @@ SCAN="${COMMAND_NO_COMMENTS%%<<*}"
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.
-GITPFX='(^|[[:space:];&|(])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
+#
+# `\n` — the two literal characters backslash-n — is a boundary too. The command arrives as JSON and
+# is read with grep, not a JSON parser, so a multi-line block keeps its escapes and the second line
+# of `cd <repo>` + newline + `git reset --hard` begins with no whitespace, no `;` and no `&`.
+# Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
+# by exactly that shape — and a destructive command on a later line of a block is the shape of the
+# incident it exists to prevent.
+GITPFX='(^|[[:space:];&|(]|\\n)([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
 
 IS_DESTRUCTIVE=false
 # git reset --hard
@@ -84,7 +91,12 @@ fi
 # cwd fell back to `.`, which resolved to the hook's own checkout and blocked). If no concrete dir can
 # be named, we cannot positively confirm anything → FAIL-SAFE, do not block.
 HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
-GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
+# Unanchored: `git -C <path>` is almost never the first thing on the line. Anchored, the highest-
+# precedence input to this resolution was never available, so a `cd <worktree> && git -C <main> reset
+# --hard` — the exact cross-checkout shape this guard exists for — resolved to the worktree and passed.
+# `|| true` is load-bearing: grep exits 1 when there is no `-C`, and under `set -euo pipefail` a
+# failed command substitution aborts the hook silently before any check runs.
+GIT_C_PATH=$(printf '%s' "$COMMAND" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
 EFFECTIVE_DIR=""
 if [[ -n "$GIT_C_PATH" ]]; then
   EFFECTIVE_DIR="$GIT_C_PATH"

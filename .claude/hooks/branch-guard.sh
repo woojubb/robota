@@ -38,7 +38,13 @@ fi
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
 # producing false blocks. Precedence: `git -C <path>` in the command > hook-input `cwd` > project dir.
 HOOK_CWD=$(echo "$INPUT" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//' || true)
-GIT_C_PATH=$(printf '%s' "$COMMAND" | sed -nE 's/^[[:space:]]*git[[:space:]]+-C[[:space:]]+"?([^"[:space:]]+)"?.*/\1/p')
+# Unanchored: `git -C <path>` is almost never the first thing on the line (`cd /elsewhere && git -C
+# <repo> commit`). The `^`-anchored version simply never found it, so the hook fired and then judged
+# whichever checkout it happened to sit in — passing a commit it should have refused.
+# `|| true` is load-bearing: grep exits 1 when the command has no `-C`, which is the common case, and
+# under `set -euo pipefail` a failed command substitution ABORTS the hook — silently, exit 1, before
+# a single check runs. That is a total bypass wearing the costume of a passing guard.
+GIT_C_PATH=$(printf '%s' "$COMMAND" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
 EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   EFFECTIVE_DIR="$HOOK_CWD"
@@ -55,14 +61,58 @@ IS_BRANCH_CREATE=false
 IS_GH_DELETE_BRANCH=false
 # GITPFX tolerates global git flags before the subcommand — `git -C <path> commit`, `git -c k=v push` —
 # which previously slipped past every action regex (worktree-blindness, parallel-wave lesson).
-GITPFX='^\s*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
-echo "$COMMAND" | grep -qE "${GITPFX}commit\b" && IS_COMMIT=true
-echo "$COMMAND" | grep -qE "${GITPFX}push(\s|$)" && IS_PUSH=true
-echo "$COMMAND" | grep -qE "${GITPFX}merge\b" && IS_MERGE=true
-# Tolerate flags between the subcommand and -b/-c (e.g. `git checkout -q -b x`, which
-# previously slipped past the create-guard entirely).
-echo "$COMMAND" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-b\b" && IS_BRANCH_CREATE=true
-echo "$COMMAND" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-c\b" && IS_BRANCH_CREATE=true
+#
+# It matches at any STATEMENT boundary, not only at the start of the command. The `^`-anchored
+# version fired only when the WHOLE command began with the verb — and a branch is created as
+# `cd <repo> && git checkout -b …`, a commit made after a `cd`, a merge on a later line of a block.
+# Measured 2026-07-28 against a scratch repository on `main`: commit, push, merge, `checkout -b` and
+# `switch -c` were ALL bypassed in 4 of the 5 shapes commands are actually written in here. The
+# branch-create guard had therefore never fired on a real branch creation. Same defect #1510 removed
+# from pre-push-check; it lived here in a variable and was reused for every action. A guard no real
+# invocation reaches is indistinguishable from no guard.
+#
+# Boundaries are line start, `;`, `&&`, `||`, `|`, `(`, whitespace, and the literal `\n` that
+# survives JSON extraction (the command is read with grep, not a JSON parser, so a multi-line block
+# keeps its escapes — and that is the shape that slipped through).
+# A heredoc BODY is data, not commands. `git commit -F - <<'EOF' … EOF` carries prose that may
+# quote a git invocation — this hook blocked a commit whose MESSAGE contained
+# "branches are made as `cd <repo> && git checkout -b …`", reading the sentence as the act it
+# describes. Verb detection therefore runs over the command with heredoc bodies removed.
+#
+# Deliberately narrow: it strips only `<<MARKER … MARKER`, whose boundaries are unambiguous. A verb
+# inside an ordinary quoted argument (`-m 'run git checkout -b x'`) still matches, because telling
+# quoting apart needs the shell-aware extraction filed as HARNESS-061, not a longer regex here.
+strip_heredocs() {
+  printf '%s' "$1" | sed 's/\\n/\n/g' | awk '
+    /<<-?'"'"'?[A-Za-z_][A-Za-z0-9_]*'"'"'?/ && !inbody {
+      marker = $0
+      sub(/.*<<-?'"'"'?/, "", marker)
+      sub(/'"'"'?[[:space:]].*$/, "", marker)
+      sub(/'"'"'.*$/, "", marker)
+      inbody = 1
+      print
+      next
+    }
+    inbody { if ($0 == marker) { inbody = 0 }; next }
+    { print }
+  '
+}
+COMMAND_EXEC=$(strip_heredocs "$COMMAND")
+
+GITPFX='(^|[;&|(]|[[:space:]]|\\n)[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+# Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
+# read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
+# match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
+# ending a line (`git commit\ngit push`), which a bare `(\s|$)` misses.
+GITEND='([^-[:alnum:]_]|$)'
+echo "$COMMAND_EXEC" | grep -qE "${GITPFX}commit${GITEND}" && IS_COMMIT=true
+echo "$COMMAND_EXEC" | grep -qE "${GITPFX}push${GITEND}" && IS_PUSH=true
+echo "$COMMAND_EXEC" | grep -qE "${GITPFX}merge${GITEND}" && IS_MERGE=true
+# Tolerate flags between the subcommand and the create flag (e.g. `git checkout -q -b x`, which
+# previously slipped past the create-guard entirely). `-B`/`-C` are the force-create spellings and
+# create a branch just as much as `-b`/`-c` do.
+echo "$COMMAND_EXEC" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-[bB]${GITEND}" && IS_BRANCH_CREATE=true
+echo "$COMMAND_EXEC" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -158,11 +208,17 @@ if [[ -z "$CURRENT_BRANCH" ]]; then
   exit 0
 fi
 
-# Block new branch creation when local branches have commits not yet in main.
-# Uses git rev-list --count main..<branch>: non-zero means unmerged commits exist.
+# Block new branch creation when local branches have commits not yet in the INTEGRATION branch.
+# `git-branch.md` § One-Branch-At-A-Time names the comparison itself — `git branch --no-merged
+# develop` — and this compared against `main`. `main` trails `develop` between promotions, so 53 of
+# 140 local branches here were counted unmerged while already being in `develop`. Measured, and a
+# straight contradiction of the rule this check enforces.
 # This correctly handles squash-merged branches (their commits appear reachable
 # from main after squash) as long as the local branch pointer is deleted post-merge.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" != "1" ]]; then
+  # Prefer the remote-tracking integration head; fall back to local `develop` when offline.
+  INTEGRATION_REF=origin/develop
+  git -C "$PROJECT_DIR" rev-parse --verify --quiet "$INTEGRATION_REF" >/dev/null 2>&1 || INTEGRATION_REF=develop
   UNMERGED_BRANCHES=()
   SKIP_PATTERNS="^(main|master|develop|gh-pages)$"
   while IFS= read -r candidate; do
@@ -170,9 +226,9 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
     candidate="${candidate#\* }"  # strip current-branch marker
     [[ "$candidate" =~ $SKIP_PATTERNS ]] && continue
     [[ -z "$candidate" ]] && continue
-    ahead=$(git -C "$PROJECT_DIR" rev-list --count "main..$candidate" 2>/dev/null || echo 0)
+    ahead=$(git -C "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
     if [[ "$ahead" -gt 0 ]]; then
-      UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of main)")
+      UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
     fi
   done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
 
@@ -191,7 +247,7 @@ fi
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
-  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*[[:space:]](-b|-c)[[:space:]]+([^[:space:]]+).*/\2/')
+  NEW_BRANCH=$(printf '%s' "$COMMAND" | sed -E 's/.*[[:space:]]-[bBcC][[:space:]]+([^[:space:]]+).*/\1/')
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
   if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
