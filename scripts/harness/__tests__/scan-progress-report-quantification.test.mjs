@@ -65,6 +65,54 @@ describe('findBareRatioProgressStatements — the rule', () => {
 });
 
 describe('findBareRatioProgressStatements — measured false-positive classes stay silent', () => {
+  it('stays silent on a ratio that is being QUOTED rather than asserted', () => {
+    // Measured 2026-07-26 and again 2026-07-28: a message about this scan's own false positive —
+    // `제 문장의 "6/7"(버전 번호)을 진행률 비율로 오인해` — was itself reported. Writing about the
+    // defect reproduced it, and the scan blocked the release gate both times. A guard that cannot
+    // be discussed without tripping is a guard nobody can fix.
+    expect(
+      findBareRatioProgressStatements(
+        '스캔이 제 문장의 "6/7"(버전 번호)을 진행률 비율로 오인해 막고 있습니다',
+        POLICY,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('still catches a real progress report that happens to use an arrow', () => {
+    // The suppression is for a version transition, `5 → 6/7`, where a NUMBER sits before the arrow.
+    // An arrow used as ordinary punctuation must not become a way to write a bare ratio — and a
+    // test covering only the suppressed shape would pass whether or not that held.
+    expect(
+      findBareRatioProgressStatements('마이그레이션 작업 → 6/7 완료. 계속합니다.', POLICY),
+    ).toHaveLength(1);
+  });
+
+  it('still catches a quoted report whose keyword is a long word', () => {
+    // The suppression tested the 10-character `after` slice, which a closing quote and a space cut
+    // to seven or eight — so `remaining`, `completing`, `converted` and `processed` were truncated
+    // before the word boundary could match and the violation was dropped. Only `완료` (two
+    // characters) was covered, which is why the shipped tests did not see it.
+    for (const keyword of ['remaining', 'completing', 'converted', 'processed']) {
+      expect(
+        findBareRatioProgressStatements(`'6/7' ${keyword}, continuing later`, POLICY),
+        keyword,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('still catches a real progress report quoted for emphasis', () => {
+    // The quote suppression is for a ratio the sentence talks ABOUT. Quotes used for emphasis
+    // around an asserted ratio — `'6/7' 완료` — are still an assertion, and still a violation.
+    expect(findBareRatioProgressStatements("'6/7' 완료. 계속 진행합니다.", POLICY)).toHaveLength(1);
+  });
+
+  it('stays silent on a version transition written with an arrow', () => {
+    // `5 → 6/7` is a transition between tool versions, not six sevenths of a task finished.
+    expect(
+      findBareRatioProgressStatements('**5 → 6/7 병행 전환 완료.** 타입체크·빌드는 통과', POLICY),
+    ).toHaveLength(0);
+  });
+
   it.each([
     ['completed result, not mid-work progress', '45/45 scans pass — all green, work complete.'],
     ['identifier list', 'ARL-04/05/06/07 resolved and moved to done.'],

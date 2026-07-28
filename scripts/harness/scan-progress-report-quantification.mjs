@@ -99,6 +99,38 @@ export function findBareRatioProgressStatements(messageText, policy) {
       if (identifierNounPattern.test(before)) continue;
       if (identifierNounSuffixPattern.test(after)) continue;
 
+      // QUOTED — the ratio is being cited, not asserted. Without this the scan fires on any
+      // sentence that discusses a ratio, including a sentence about this scan: measured on
+      // 2026-07-26 and again on 2026-07-28, a message reading `제 문장의 "6/7"(버전 번호)을 …
+      // 오인해` was itself reported, so writing about the false positive reproduced it. A guard
+      // that cannot be discussed without tripping is a guard nobody can fix.
+      // Narrow deliberately: a quoted ratio FOLLOWED BY a completion word is asserting completion
+      // with the quotes used for emphasis (`'6/7' 완료`), and must still be caught. Only a quoted
+      // ratio the sentence then talks ABOUT is a citation.
+      const quoted = /["'“‘「『]\s*$/.test(before) && /^\s*["'”’」』]/.test(after);
+      // The FIRST TOKEN after the closing quote, not a window of characters.
+      //
+      // The 10-character `after` slice is sized for short suffix words like `단계`, and a closing
+      // quote plus a space eats two of the ten — so `remaining`, `completing`, `converted` and
+      // `processed` were truncated before the word boundary could match, the sentence read as a
+      // citation, and the violation was dropped. Widening the window instead reached a completion
+      // word further along the sentence — `"6/7"(버전 번호)을 진행률 비율로 오인해` contains
+      // `진행` — and broke the suppression it was written for. Adjacency is what actually
+      // distinguishes the two: `'6/7' 완료` asserts, `"6/7"(...)` is talked about.
+      const afterQuote = line
+        .slice(match.index + matched.length, match.index + matched.length + 64)
+        .replace(/^\s*["'”’」』]\s*/, '');
+      const nextToken = /^[^\s.,;:!?()[\]{}]+/.exec(afterQuote)?.[0] ?? '';
+      const assertedAfterQuote = completionPattern.test(nextToken);
+      if (quoted && !assertedAfterQuote) continue;
+
+      // Preceded by a transition arrow — `5 → 6/7` is a version or state transition, not a count
+      // of finished work out of a total. Measured on the same transcript: a line about migrating
+      // between tool versions was read as six sevenths of a task being done.
+      // A NUMBER must sit before the arrow: `5 → 6/7` is one version to another. `작업 → 6/7 완료`
+      // is a progress statement that happens to use an arrow, and stays a violation.
+      if (/(?:^|[^\w.])\d[\d.]*\s*(?:->|=>|~>|→|⇒)\s*$/.test(before)) continue;
+
       findings.push({
         line: i + 1,
         excerpt: line.trim().slice(0, 200),
