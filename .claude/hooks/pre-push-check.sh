@@ -32,6 +32,7 @@ fi
 # Heredoc bodies and comments are text; only the rest is a command. Shared with the other Bash
 # hooks so all three answer "what will run" the same way.
 COMMAND_EXEC=$(hook_executable_part "$COMMAND")
+COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
 # Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
 #
@@ -62,7 +63,12 @@ COMMAND_EXEC=$(hook_executable_part "$COMMAND")
 # `\n` appears as the two literal characters backslash-n: the command arrives as JSON and is read
 # with grep, not a JSON parser, so a multi-line block keeps its escapes. That form — `cd <repo>` on
 # one line, `git push` on the next — is exactly the one that slipped through, so it is a boundary too.
-printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[;&|({])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
+# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
+# verb is then `"`, so without this the preserved string matched nothing and the exception was
+# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
+# false positive it sits next to.
+printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.

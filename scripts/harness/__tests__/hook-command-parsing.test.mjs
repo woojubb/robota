@@ -135,9 +135,35 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('reads a quoted argument as text, not as a command', { timeout: 120_000 }, () => {
+    // The mirror image, and the one that BLOCKS. `pre-push-check`'s own comment recorded this trap
+    // as latent — unreachable only because the decoder truncated at the first quote — and predicted
+    // it would come alive the day the decode was fixed. It was fixed here, so it is live here.
+    // `gh pr create --body "...; git push later"` performs no push, and a guard that stops it is a
+    // guard stopping its own author, which is the failure this whole PR exists to end.
+    const cwd = scratchRepo('main');
+    const mention = 'gh pr create --body "notes; git push later"';
+
+    for (const hook of ['branch-guard.sh', 'pre-push-check.sh']) {
+      const result = runHook(hook, mention, { cwd });
+      expect(result.status, `${hook} treated a quoted mention of a push as a push`).toBe(0);
+    }
+  });
+
+  it('still reads a command a shell is told to run', { timeout: 120_000 }, () => {
+    // The limit of the rule above, and why it cannot be "ignore anything in quotes": `bash -c` runs
+    // its string. Blanking that content would convert a false positive into a bypass, which is the
+    // one direction a guard must never trade in.
+    const cwd = scratchRepo('main');
+    const result = runHook('branch-guard.sh', 'bash -c "git push origin main"', { cwd });
+
+    expect(result.status, 'branch-guard missed a push inside `bash -c`').toBe(2);
+    expect(result.output).toMatch(/protected branch/);
+  });
+
   it('leaves ordinary work alone', () => {
     const cwd = scratchRepo('feat/probe');
-    for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh']) {
+    for (const hook of ['branch-guard.sh', 'worktree-cwd-guard.sh', 'pre-push-check.sh']) {
       const result = runHook(hook, `cd ${cwd} && git status`, {
         cwd,
         env: { ROBOTA_AGENT_WORKTREE: '1' },

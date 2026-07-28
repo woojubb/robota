@@ -66,6 +66,7 @@ fi
 # Scan only up to the first heredoc opener (`<<`) and strip trailing comments, so a commit message
 # or echoed text mentioning these commands cannot trip the guard (same defense as branch-guard).
 SCAN=$(hook_executable_part "$COMMAND")
+VERBS=$(hook_verb_scan "$COMMAND")
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.
@@ -76,17 +77,22 @@ SCAN=$(hook_executable_part "$COMMAND")
 # Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
 # by exactly that shape — and a destructive command on a later line of a block is the shape of the
 # incident it exists to prevent.
-GITPFX='(^|[[:space:];&|({])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
+# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
+# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
+# verb is then `"`, so without this the preserved string matched nothing and the exception was
+# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
+# false positive it sits next to.
+GITPFX='(^|[[:space:];&|({"'"'"'])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
 
 IS_DESTRUCTIVE=false
 # git reset --hard
-printf '%s' "$SCAN" | grep -qE "${GITPFX}reset\b[^|;&]*--hard\b" && IS_DESTRUCTIVE=true
+printf '%s' "$VERBS" | grep -qE "${GITPFX}reset\b[^|;&]*--hard\b" && IS_DESTRUCTIVE=true
 # git clean with a force flag (-f, -fd, -fdx, -xf, --force)
-printf '%s' "$SCAN" | grep -qE "${GITPFX}clean\b[^|;&]*(-[[:alnum:]]*f|--force)" && IS_DESTRUCTIVE=true
+printf '%s' "$VERBS" | grep -qE "${GITPFX}clean\b[^|;&]*(-[[:alnum:]]*f|--force)" && IS_DESTRUCTIVE=true
 # git checkout -- <path> (discards working-tree changes, e.g. `git checkout -- .`)
-printf '%s' "$SCAN" | grep -qE "${GITPFX}checkout\b[^|;&]*[[:space:]]--([[:space:]]|$)" && IS_DESTRUCTIVE=true
+printf '%s' "$VERBS" | grep -qE "${GITPFX}checkout\b[^|;&]*[[:space:]]--([[:space:]]|$)" && IS_DESTRUCTIVE=true
 # git push --force / --force-with-lease
-printf '%s' "$SCAN" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIVE=true
+printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIVE=true
 
 if [[ "$IS_DESTRUCTIVE" != "true" ]]; then
   exit 0

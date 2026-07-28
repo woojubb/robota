@@ -37,6 +37,9 @@ fi
 # The executable part, computed BEFORE the overrides are read: an override named inside a heredoc
 # body is text, and text must not be able to switch this guard off.
 COMMAND_EXEC=$(hook_executable_part "$COMMAND")
+# Verb detection reads the same command with quoted ARGUMENTS blanked; extraction below keeps them,
+# because branch names and `-C` paths are routinely quoted.
+COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
 if printf '%s' "$COMMAND_EXEC" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_DELETE=1
@@ -58,7 +61,7 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # `|| true` is load-bearing: grep exits 1 when the command has no `-C`, which is the common case, and
 # under `set -euo pipefail` a failed command substitution ABORTS the hook — silently, exit 1, before
 # a single check runs. That is a total bypass wearing the costume of a passing guard.
-GIT_C_PATH=$(printf '%s' "$COMMAND" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
+GIT_C_PATH=$(printf '%s' "$COMMAND_EXEC" | grep -oE 'git[[:space:]]+-C[[:space:]]+"?[^"[:space:]]+' | head -1 | sed -E 's/.*-C[[:space:]]+"?//' || true)
 EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
 if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   EFFECTIVE_DIR="$HOOK_CWD"
@@ -97,20 +100,25 @@ IS_GH_DELETE_BRANCH=false
 # inside an ordinary quoted argument (`-m 'run git checkout -b x'`) still matches, because telling
 # quoting apart needs the shell-aware extraction filed as HARNESS-061, not a longer regex here.
 
-GITPFX='(^|[;&|({]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+# A quote is a boundary too. `bash -c "git push origin main"` really runs a push, and
+# hook_blank_quoted_args deliberately leaves that string intact — but the character before the
+# verb is then `"`, so without this the preserved string matched nothing and the exception was
+# decorative. Elsewhere quoted content is already blanked, so this cannot resurrect the
+# false positive it sits next to.
+GITPFX='(^|[;&|({"'"'"']|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
 # ending a line (`git commit\ngit push`), which a bare `(\s|$)` misses.
 GITEND='([^-[:alnum:]_]|$)'
-echo "$COMMAND_EXEC" | grep -qE "${GITPFX}commit${GITEND}" && IS_COMMIT=true
-echo "$COMMAND_EXEC" | grep -qE "${GITPFX}push${GITEND}" && IS_PUSH=true
-echo "$COMMAND_EXEC" | grep -qE "${GITPFX}merge${GITEND}" && IS_MERGE=true
+echo "$COMMAND_VERBS" | grep -qE "${GITPFX}commit${GITEND}" && IS_COMMIT=true
+echo "$COMMAND_VERBS" | grep -qE "${GITPFX}push${GITEND}" && IS_PUSH=true
+echo "$COMMAND_VERBS" | grep -qE "${GITPFX}merge${GITEND}" && IS_MERGE=true
 # Tolerate flags between the subcommand and the create flag (e.g. `git checkout -q -b x`, which
 # previously slipped past the create-guard entirely). `-B`/`-C` are the force-create spellings and
 # create a branch just as much as `-b`/`-c` do.
-echo "$COMMAND_EXEC" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-[bB]${GITEND}" && IS_BRANCH_CREATE=true
-echo "$COMMAND_EXEC" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" && IS_BRANCH_CREATE=true
+echo "$COMMAND_VERBS" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-[bB]${GITEND}" && IS_BRANCH_CREATE=true
+echo "$COMMAND_VERBS" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag

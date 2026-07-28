@@ -108,3 +108,35 @@ hook_strip_comments() {
 hook_executable_part() {
   printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
 }
+
+# Blank the CONTENTS of quoted strings, so a verb written inside an argument is not read as a verb.
+#
+# Same principle as the heredoc body: `gh pr create --body "notes; git push later"` contains the
+# characters of a push and performs none. Until the decode was fixed, the truncated command hid this
+# by accident — `pre-push-check`'s own comment said so, and said the trap would come alive the day
+# the decode was corrected. This is that day, and that hook BLOCKS, so the false positive would be
+# one more self-inflicted stop of exactly the kind these guards exist to avoid.
+#
+# The quotes and the shape of the command are kept — `git push origin "main"` becomes
+# `git push origin ""`, still a push, still matched. Only what is INSIDE them goes.
+#
+# Exception, and it is the important one: `bash -c "git push"` really does run a push, so when the
+# command invokes a shell on a string, nothing is stripped and the string is examined in full.
+# Erring toward examining more is the only direction a guard may err in.
+hook_blank_quoted_args() {
+  local text="$1"
+  if printf '%s' "$text" | grep -qE '(^|[[:space:];&|(])(ba|z|da)?sh[[:space:]]+-[[:alnum:]]*c([[:space:]]|$)|(^|[[:space:];&|(])eval([[:space:]]|$)'; then
+    printf '%s\n' "$text"
+    return 0
+  fi
+  printf '%s\n' "$text" | sed 's/"[^"]*"/""/g; s/\x27[^\x27]*\x27/\x27\x27/g'
+}
+
+# What a verb-detection matcher should read: the executable part, with quoted arguments blanked.
+#
+# Deliberately NOT the same string used to extract names and paths. A branch name, a `git -C`
+# target and a `refs/heads/<name>` URL are routinely quoted, and blanking them there would make the
+# extraction find nothing — a guard that stops seeing what it is protecting.
+hook_verb_scan() {
+  hook_blank_quoted_args "$(hook_executable_part "$1")"
+}
