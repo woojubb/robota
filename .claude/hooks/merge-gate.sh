@@ -173,5 +173,20 @@ fi
 # The gate stops here on purpose. Whether a finding written in prose was addressed is the reviewer's
 # judgement, and a hook guessing at it would be a check measuring the wrong thing. What it has
 # established: CI is green, a review exists, and it is newer than what is being merged.
-echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head. READ IT before merging." >&2
+#
+# An absent count is SAID, not silently read as zero. Review called the silence a fail-open, and the
+# silence was the problem — but refusing on it would be worse than the defect: measured over the 38
+# most recent reviews on this repository, 4 carried the marker. A gate that blocks 34 of 38 merges
+# teaches everyone to pass MERGE_GATE_ACK=1, which is the bypass this hook exists to prevent, and an
+# earlier round of this same review said so. So the count is now required of the reviewer
+# (claude-code-review.yml) rather than assumed of it, and until it arrives the gate reports exactly
+# what it knows: nothing about the findings.
+if [[ -z "$COUNT" ]]; then
+  echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head — but it carries no" >&2
+  echo "[merge-gate] 'ACTIONABLE FINDINGS: <n>' line, so this gate counted NOTHING. Its prose is the" >&2
+  echo "[merge-gate] only signal that findings are resolved. READ IT before merging." >&2
+  exit 0
+fi
+
+echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head, ACTIONABLE FINDINGS: 0. READ IT." >&2
 exit 0

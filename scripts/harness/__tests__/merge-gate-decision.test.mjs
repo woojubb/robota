@@ -133,6 +133,22 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/ACTIONABLE FINDINGS: 2/);
   });
 
+  it('says it counted nothing when the review carries no count', () => {
+    // Absence was read as zero, silently — review called that a fail-open and was right about the
+    // silence. Refusing on it would be worse than the defect: measured over the 38 most recent
+    // reviews here, 4 carried the marker, so a refusal blocks 34 of 38 merges and makes the override
+    // routine. The count is required of the reviewer now; until it arrives the gate says what it
+    // knows, which is nothing about the findings.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [REVIEW('2026-07-28T10:05:00Z', 'prose only, no marker')],
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'the gate implied it had counted findings').toMatch(/counted NOTHING/);
+  });
+
   it('allows when the review reports zero findings', () => {
     const verdict = judge({
       state: 'CLEAN',
@@ -141,6 +157,9 @@ describe('the merge gate decides on CI and on a current review', () => {
     });
 
     expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'a counted zero must not read like an absent count').toMatch(
+      /ACTIONABLE FINDINGS: 0/,
+    );
   });
 
   it('refuses when the head commit date cannot be read', () => {
