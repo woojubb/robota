@@ -96,6 +96,42 @@ describe('a feature-branch push carries a reviewed diff', () => {
     expect(verdict.output).toMatch(/the diff has changed since/);
   });
 
+  it('refuses a record that matches the commit but reports open findings', () => {
+    // The enforcement point is this hook, and it was checking the sha alone. `record-local-review`
+    // refuses to WRITE such a record and its `isReviewed()` checks both — but the hook never calls
+    // that function, so the duplicated logic had drifted from its own spec, and no test covered the
+    // combination. Exactly the accidental-green gap: every existing case passed either way.
+    const dir = scratchRepo('feat/probe');
+    record(dir, 'feat/probe', headSha(dir), 3);
+
+    const verdict = push(dir);
+    expect(verdict.status, 'a record with open findings satisfied the gate').toBe(2);
+    expect(verdict.output).toMatch(/3 finding\(s\) still open/);
+  });
+
+  it('refuses a record whose findings count is unreadable', () => {
+    // Absent is not zero. A record missing the field cannot say the review was clean.
+    const dir = scratchRepo('feat/probe');
+    const file = recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews'));
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ branch: 'feat/probe', headSha: headSha(dir) }));
+
+    expect(push(dir).status, 'a record with no findings field passed as clean').toBe(2);
+  });
+
+  it('refuses a push from a detached HEAD', () => {
+    // No branch means no key for a record, and falling through produced one shared filename that
+    // every detached push would satisfy for every other. The hygiene check above exempts the empty
+    // case because it has nothing to compare; this one has something to protect and no key for it.
+    const dir = scratchRepo('feat/probe');
+    record(dir, 'feat/probe', headSha(dir));
+    spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
+
+    const verdict = push(dir, 'git push origin HEAD:refs/heads/feat/probe');
+    expect(verdict.status, 'a detached-HEAD push skipped the gate').toBe(2);
+    expect(verdict.output).toMatch(/detached HEAD/);
+  });
+
   it('honours an inline override and says the diff was unreviewed', () => {
     const dir = scratchRepo('feat/probe');
     const verdict = push(dir, 'PRE_PUSH_ALLOW_UNREVIEWED=1 git push -u origin feat/probe');

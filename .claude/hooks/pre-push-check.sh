@@ -164,6 +164,18 @@ case "$CUR_BRANCH" in
   main | master | develop | gh-pages | release/promote-*) exit 0 ;;
 esac
 
+# A detached HEAD has no branch to key a record against, and falling through produced a single
+# shared filename — `.agents/local-reviews/.json` — that every detached push would satisfy for every
+# other. The branch-hygiene check above exempts the empty case because it has nothing to compare;
+# this one has something to protect and no key for it, so it refuses. Review asked whether the
+# difference was intentional: it is now, and stated.
+if [[ -z "$CUR_BRANCH" ]]; then
+  echo "[pre-push-check] Blocked: pushing from a detached HEAD, so a review record cannot be keyed" >&2
+  echo "[pre-push-check] to a branch. Check out the branch you are pushing, or override inline:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
+  exit 2
+fi
+
 # The override must be an env prefix OF THE PUSH, not a token loose in the command. Matched
 # anywhere, `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that
 # belongs to an unrelated statement and never reaches the push. `merge-gate` already carries this
@@ -177,13 +189,30 @@ fi
 HEAD_SHA=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
 RECORD="$PROJECT_DIR/.agents/local-reviews/${CUR_BRANCH//\//__}.json"
 REVIEWED_SHA=""
+REVIEWED_FINDINGS=""
 if [[ -f "$RECORD" ]]; then
   REVIEWED_SHA=$(grep -o '"headSha"[[:space:]]*:[[:space:]]*"[0-9a-f]*"' "$RECORD" |
     grep -oE '[0-9a-f]{7,}' | head -1 || true)
+  REVIEWED_FINDINGS=$(grep -o '"findings"[[:space:]]*:[[:space:]]*[0-9]*' "$RECORD" |
+    grep -oE '[0-9]+$' | head -1 || true)
 fi
 
 if [[ -z "$HEAD_SHA" ]]; then
   echo "[pre-push-check] Blocked: could not read HEAD, so the review record cannot be checked." >&2
+  exit 2
+fi
+
+# The record's contract is "a review ran at this commit AND reported zero gating findings".
+# `record-local-review.mjs` refuses to WRITE a record with open findings, and its `isReviewed()`
+# checks both — but this hook is the enforcement point and was checking only the sha, so a record
+# with a matching sha and open findings satisfied it silently. Duplicated logic drifting from its own
+# spec is the shape this session kept finding; both halves are checked here now, and an absent or
+# non-zero count refuses.
+if [[ "$REVIEWED_SHA" == "$HEAD_SHA" && "$REVIEWED_FINDINGS" != "0" ]]; then
+  echo "[pre-push-check] Blocked: the review recorded for ${CUR_BRANCH} reports" >&2
+  echo "[pre-push-check] ${REVIEWED_FINDINGS:-an unreadable number of} finding(s) still open." >&2
+  echo "[pre-push-check] Resolve them, review again, then record. Deliberate exception:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
   exit 2
 fi
 
