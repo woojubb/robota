@@ -54,7 +54,7 @@ function scratchRepo(branches) {
  * `--state merged` is the only query the hook makes here; anything else exits non-zero so a change
  * in what the hook asks for shows up as an unread answer rather than a silently different verdict.
  */
-function stubbedPath(mergedHeads, { broken = false } = {}) {
+function stubbedPath(mergedRefs, { broken = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
   scratch.push(dir);
   const gh = path.join(dir, 'gh');
@@ -65,7 +65,7 @@ function stubbedPath(mergedHeads, { broken = false } = {}) {
       broken ? 'exit 1' : '',
       'case "$*" in',
       '  *"--state merged"*)',
-      mergedHeads.map((h) => `    echo ${JSON.stringify(h)}`).join('\n'),
+      mergedRefs.map((r) => `    echo ${JSON.stringify(r)}`).join('\n'),
       '    exit 0 ;;',
       'esac',
       'exit 1',
@@ -77,7 +77,15 @@ function stubbedPath(mergedHeads, { broken = false } = {}) {
   return `${dir}:${process.env.PATH}`;
 }
 
-function judge(cwd, mergedHeads, options) {
+/** The line gh returns for a merged PR: the branch name and the commit that was merged. */
+function mergedRef(dir, branch) {
+  const oid = spawnSync('git', ['-C', dir, 'rev-parse', branch], {
+    encoding: 'utf8',
+  }).stdout.trim();
+  return `${branch} ${oid}`;
+}
+
+function judge(cwd, mergedRefs, options) {
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       tool_name: 'Bash',
@@ -87,7 +95,7 @@ function judge(cwd, mergedHeads, options) {
     encoding: 'utf8',
     env: {
       ...process.env,
-      PATH: stubbedPath(mergedHeads, options),
+      PATH: stubbedPath(mergedRefs, options),
       CLAUDE_PROJECT_DIR: cwd,
     },
   });
@@ -97,7 +105,7 @@ function judge(cwd, mergedHeads, options) {
 describe('branch-guard counts only branches that are really still open', () => {
   it('allows a new branch when every open-looking branch has a merged PR', () => {
     const cwd = scratchRepo(['feat/a', 'feat/b']);
-    const verdict = judge(cwd, ['feat/a', 'feat/b']);
+    const verdict = judge(cwd, [mergedRef(cwd, 'feat/a'), mergedRef(cwd, 'feat/b')]);
 
     expect(
       verdict.status,
@@ -109,11 +117,31 @@ describe('branch-guard counts only branches that are really still open', () => {
   it('still refuses while a branch has no merged PR', () => {
     // The rule itself is unchanged: real unmerged work still blocks a new branch.
     const cwd = scratchRepo(['feat/a', 'feat/open']);
-    const verdict = judge(cwd, ['feat/a']);
+    const verdict = judge(cwd, [mergedRef(cwd, 'feat/a')]);
 
     expect(verdict.status, 'genuinely unmerged work stopped blocking').toBe(2);
     expect(verdict.output).toMatch(/feat\/open/);
     expect(verdict.output, 'a merged branch was named as unmerged').not.toMatch(/- feat\/a /);
+  });
+
+  it('does not accept a merged name carrying new commits', () => {
+    // A branch name gets reused: merge `feat/a`, leave the local branch, stack new work on it. Matching
+    // the NAME alone waves those commits through and disables the rule this check enforces. The
+    // delete-guard in the same file already carries that lesson; this path was written without it.
+    const cwd = scratchRepo(['feat/a']);
+    const mergedAt = mergedRef(cwd, 'feat/a');
+
+    const git = (...args) => spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
+    git('checkout', '--quiet', 'feat/a');
+    writeFileSync(path.join(cwd, 'after-merge'), 'z\n');
+    git('add', '-A');
+    git('commit', '--quiet', '-m', 'feat: work stacked after the merge');
+    git('checkout', '--quiet', 'develop');
+
+    const verdict = judge(cwd, [mergedAt]);
+
+    expect(verdict.status, 'new commits on a merged branch name were counted as merged').toBe(2);
+    expect(verdict.output).toMatch(/feat\/a/);
   });
 
   it('says so when merged PRs could not be read', () => {

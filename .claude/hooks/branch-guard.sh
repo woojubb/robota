@@ -239,13 +239,29 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   # that gets overridden as a reflex, and it was: twice in one session, by me. The message under
   # this loop already told people to delete squash-merged branches; the check never used what the
   # message knew.
-  MERGED_HEADS=""
-  MERGED_HEADS_READ=false
+  #
+  # Matched on NAME AND COMMIT, never name alone. A branch name gets reused: merge `feat/x`, leave the
+  # local branch, and stack new work on it, and a name-only match would wave those new commits through
+  # — silently disabling the very rule this check enforces. The delete-guard below already carries that
+  # lesson ("a merged PR earlier in this branch's history does not make deletion safe"); this path was
+  # written without it.
+  MERGED_REFS=""
+  MERGED_REFS_READ=false
+  MERGED_LIMIT=500
   if command -v gh >/dev/null 2>&1; then
-    if MERGED_HEADS=$(gh pr list --state merged --limit 500 --json headRefName \
-      --jq '.[].headRefName' 2>/dev/null); then
-      MERGED_HEADS_READ=true
+    if MERGED_REFS=$(gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
+      --jq '.[] | "\(.headRefName) \(.headRefOid)"' 2>/dev/null); then
+      MERGED_REFS_READ=true
     fi
+  fi
+
+  # A full page may mean the list was truncated, so older merged branches would be missing and the
+  # check would over-report again — without the notice that explains why. Say it rather than let the
+  # list quietly grow back.
+  MERGED_TRUNCATED=false
+  if [[ "$MERGED_REFS_READ" == "true" ]] &&
+    [[ "$(printf '%s\n' "$MERGED_REFS" | grep -c .)" -ge "$MERGED_LIMIT" ]]; then
+    MERGED_TRUNCATED=true
   fi
 
   UNMERGED_BRANCHES=()
@@ -258,10 +274,13 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
     [[ -z "$candidate" ]] && continue
     ahead=$(git -C "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
     [[ "$ahead" -gt 0 ]] || continue
-    # A merged PR settles it, whatever the ancestry says.
-    if [[ "$MERGED_HEADS_READ" == "true" ]] &&
-      printf '%s\n' "$MERGED_HEADS" | grep -Fxq -- "$candidate"; then
-      continue
+    # A merged PR settles it — for the COMMIT that was merged, not for the name.
+    if [[ "$MERGED_REFS_READ" == "true" ]]; then
+      candidate_sha=$(git -C "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
+      if [[ -n "$candidate_sha" ]] &&
+        printf '%s\n' "$MERGED_REFS" | grep -Fxq -- "$candidate $candidate_sha"; then
+        continue
+      fi
     fi
     UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
   done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
@@ -273,9 +292,12 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
       echo "  - $b" >&2
     done
     echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
-    if [[ "$MERGED_HEADS_READ" != "true" ]]; then
+    if [[ "$MERGED_REFS_READ" != "true" ]]; then
       echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
       echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
+    elif [[ "$MERGED_TRUNCATED" == "true" ]]; then
+      echo "[branch-guard] NOTE: the merged-PR list came back full ($MERGED_LIMIT), so older merged" >&2
+      echo "[branch-guard] branches may be missing from it and listed here as unmerged." >&2
     fi
     echo "[branch-guard] To override: set BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1" >&2
     exit 2
