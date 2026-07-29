@@ -160,21 +160,19 @@ echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with 
 #
 # Not enforced for the integration branches or a promotion branch: a promotion carries develop's
 # already-reviewed content and no diff of its own.
+# Deliberately NOT the same list as the branch-hygiene exemption above, which answers a different
+# question. That one asks "does comparing this branch to develop mean anything", so it exempts every
+# `release/*` and `hotfix/*` because their base is not develop. This one asks "does this push carry
+# a diff someone should have reviewed", and a hotfix or a release branch carries exactly that — they
+# are the pushes least worth waving through. Only `release/promote-*` is exempt here, because a
+# promotion carries develop's already-reviewed content and no diff of its own.
+#
+# Review flagged the difference as possible drift and asked whether it was intentional. It is, and
+# the tests below pin both sides so unifying the lists breaks loudly instead of quietly.
 case "$CUR_BRANCH" in
   main | master | develop | gh-pages | release/promote-*) exit 0 ;;
 esac
 
-# A detached HEAD has no branch to key a record against, and falling through produced a single
-# shared filename — `.agents/local-reviews/.json` — that every detached push would satisfy for every
-# other. The branch-hygiene check above exempts the empty case because it has nothing to compare;
-# this one has something to protect and no key for it, so it refuses. Review asked whether the
-# difference was intentional: it is now, and stated.
-if [[ -z "$CUR_BRANCH" ]]; then
-  echo "[pre-push-check] Blocked: pushing from a detached HEAD, so a review record cannot be keyed" >&2
-  echo "[pre-push-check] to a branch. Check out the branch you are pushing, or override inline:" >&2
-  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
-  exit 2
-fi
 
 # The override must be an env prefix OF THE PUSH, not a token loose in the command. Matched
 # anywhere, `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that
@@ -194,6 +192,18 @@ ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || tru
 if [[ "$ACK_COUNT" -gt 0 && "$ACK_COUNT" -ge "$PUSH_COUNT" ]]; then
   echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
   exit 0
+fi
+
+# A detached HEAD has no branch to key a record against, and falling through produced a single
+# shared filename — `.agents/local-reviews/.json` — that every detached push would satisfy for every
+# other. The branch-hygiene check above exempts the empty case because it has nothing to compare;
+# this one has something to protect and no key for it, so it refuses. Review asked whether the
+# difference was intentional: it is now, and stated.
+if [[ -z "$CUR_BRANCH" ]]; then
+  echo "[pre-push-check] Blocked: pushing from a detached HEAD, so a review record cannot be keyed" >&2
+  echo "[pre-push-check] to a branch. Check out the branch you are pushing, or override inline:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
+  exit 2
 fi
 
 # The verdict comes from `record-local-review.mjs --show`, which owns it. The first version of this

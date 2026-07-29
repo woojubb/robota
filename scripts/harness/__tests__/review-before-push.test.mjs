@@ -132,6 +132,20 @@ describe('a feature-branch push carries a reviewed diff', () => {
     expect(verdict.output).toMatch(/detached HEAD/);
   });
 
+  it('lets the advertised override work from a detached HEAD', () => {
+    // The detached-HEAD refusal named an override that sat BELOW it, so following the instruction
+    // changed nothing and the message pointed at a door that was not there. A guard that tells you
+    // how to proceed and then refuses anyway is the kind that gets worked around.
+    const dir = scratchRepo('feat/probe');
+    spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
+    const verdict = push(
+      dir,
+      'PRE_PUSH_ALLOW_UNREVIEWED=1 git push origin HEAD:refs/heads/feat/probe',
+    );
+
+    expect(verdict.status, 'the override the message advertises does not work').toBe(0);
+  });
+
   it('honours an inline override and says the diff was unreviewed', () => {
     const dir = scratchRepo('feat/probe');
     const verdict = push(dir, 'PRE_PUSH_ALLOW_UNREVIEWED=1 git push -u origin feat/probe');
@@ -174,6 +188,17 @@ describe('a feature-branch push carries a reviewed diff', () => {
     const verdict = push(dir, 'PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push -u origin feat/probe');
 
     expect(verdict.status, 'an override bound to another statement disarmed the gate').toBe(2);
+  });
+
+  it('does not exempt a hotfix or an ordinary release branch', () => {
+    // The exemption list here is deliberately narrower than the branch-hygiene one above it, which
+    // answers a different question: that one asks whether comparing to develop means anything, this
+    // one asks whether the push carries a diff someone should have reviewed. A hotfix carries
+    // exactly that, and is the push least worth waving through.
+    for (const branch of ['hotfix/urgent', 'release/1.2.0']) {
+      const dir = scratchRepo(branch);
+      expect(push(dir, `git push origin ${branch}`).status, branch).toBe(2);
+    }
   });
 
   it('exempts the integration branches and a promotion branch', () => {
