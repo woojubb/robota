@@ -37,11 +37,30 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const WORKSPACE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-export const RECORD_DIR = path.join(WORKSPACE_ROOT, '.agents/local-reviews');
+const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-function git(args, cwd = WORKSPACE_ROOT) {
+function git(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+}
+
+/**
+ * The repository this invocation is about — resolved from the CALLER's directory, not from where
+ * this file lives. `pre-push-check` runs in whatever checkout the push targets, which may be a
+ * worktree; keying off the script's own location would record and read the main clone's state while
+ * judging another one.
+ */
+function repoRoot(cwd = process.cwd()) {
+  try {
+    return git(['rev-parse', '--show-toplevel'], cwd);
+  } catch {
+    return SCRIPT_ROOT;
+  }
+}
+
+export const RECORD_DIR = path.join(SCRIPT_ROOT, '.agents/local-reviews');
+
+function recordDirFor(root) {
+  return path.join(root, '.agents/local-reviews');
 }
 
 /** The record path for a branch. Slashes become `__` so the name stays one file. */
@@ -80,17 +99,41 @@ function parseArgs(argv) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const branch = git(['branch', '--show-current']);
-  const headSha = git(['rev-parse', 'HEAD']);
+  const root = repoRoot();
+  const branch = git(['branch', '--show-current'], root);
+  const headSha = git(['rev-parse', 'HEAD'], root);
 
   if (args.show) {
-    const file = recordPathFor(branch);
+    // The single owner of "is this commit reviewed". `pre-push-check` calls this and routes on the
+    // exit code rather than re-parsing the record in bash — the duplicated-logic drift this whole
+    // change is about, which the first version of that hook reproduced.
+    const dir = recordDirFor(root);
+    const file = recordPathFor(branch, dir);
     if (!existsSync(file)) {
-      console.log(`no local review recorded for ${branch} (HEAD ${headSha.slice(0, 9)})`);
+      console.log(`no local review recorded for ${branch} at ${headSha.slice(0, 9)}`);
       process.exit(1);
     }
-    console.log(readFileSync(file, 'utf8'));
-    process.exit(isReviewed(branch, headSha) ? 0 : 1);
+    let stored;
+    try {
+      stored = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      console.log(`the review record for ${branch} is unreadable, so it is not a review`);
+      process.exit(1);
+    }
+    if (stored.headSha !== headSha) {
+      console.log(
+        `last reviewed ${String(stored.headSha ?? '?').slice(0, 9)} — the diff has changed since`,
+      );
+      process.exit(1);
+    }
+    if (stored.findings !== 0) {
+      console.log(
+        `the recorded review reports ${stored.findings ?? 'an unreadable number of'} finding(s) still open`,
+      );
+      process.exit(1);
+    }
+    console.log(`reviewed at ${headSha.slice(0, 9)} — 0 findings`);
+    process.exit(0);
   }
 
   if (!Number.isInteger(args.findings) || args.findings < 0) {
@@ -111,7 +154,7 @@ function main() {
     process.exit(1);
   }
 
-  mkdirSync(RECORD_DIR, { recursive: true });
+  mkdirSync(recordDirFor(root), { recursive: true });
   const record = {
     branch,
     headSha,
@@ -119,7 +162,7 @@ function main() {
     notes: args.notes,
     reviewedAt: new Date().toISOString(),
   };
-  writeFileSync(recordPathFor(branch), `${JSON.stringify(record, null, 2)}\n`);
+  writeFileSync(recordPathFor(branch, recordDirFor(root)), `${JSON.stringify(record, null, 2)}\n`);
   console.log(`recorded: ${branch} @ ${headSha.slice(0, 9)} — 0 findings`);
 }
 

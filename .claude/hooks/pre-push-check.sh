@@ -186,41 +186,23 @@ if printf '%s' "$COMMAND_VERBS" |
   exit 0
 fi
 
-HEAD_SHA=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
-RECORD="$PROJECT_DIR/.agents/local-reviews/${CUR_BRANCH//\//__}.json"
-REVIEWED_SHA=""
-REVIEWED_FINDINGS=""
-if [[ -f "$RECORD" ]]; then
-  REVIEWED_SHA=$(grep -o '"headSha"[[:space:]]*:[[:space:]]*"[0-9a-f]*"' "$RECORD" |
-    grep -oE '[0-9a-f]{7,}' | head -1 || true)
-  REVIEWED_FINDINGS=$(grep -o '"findings"[[:space:]]*:[[:space:]]*[0-9]*' "$RECORD" |
-    grep -oE '[0-9]+$' | head -1 || true)
-fi
+# The verdict comes from `record-local-review.mjs --show`, which owns it. The first version of this
+# block re-parsed the record with grep in bash — reproducing, in the read path, the duplicated-logic
+# drift the comment below it complains about. Two implementations agree until one of them changes.
+# Resolved beside the hook, not inside the checkout being judged: the recorder ships with the hook,
+# and the hook is what decides. WHICH checkout is judged is passed as the working directory instead,
+# which is why the recorder resolves its repository from `cwd` rather than from its own location.
+RECORDER="$(dirname "${BASH_SOURCE[0]}")/../../scripts/harness/record-local-review.mjs"
 
-if [[ -z "$HEAD_SHA" ]]; then
-  echo "[pre-push-check] Blocked: could not read HEAD, so the review record cannot be checked." >&2
+if ! command -v node >/dev/null 2>&1 || [[ ! -f "$RECORDER" ]]; then
+  echo "[pre-push-check] Blocked: cannot check the review record (node or the recorder is missing)," >&2
+  echo "[pre-push-check] so whether this diff was reviewed is unknown. Override inline:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
   exit 2
 fi
 
-# The record's contract is "a review ran at this commit AND reported zero gating findings".
-# `record-local-review.mjs` refuses to WRITE a record with open findings, and its `isReviewed()`
-# checks both — but this hook is the enforcement point and was checking only the sha, so a record
-# with a matching sha and open findings satisfied it silently. Duplicated logic drifting from its own
-# spec is the shape this session kept finding; both halves are checked here now, and an absent or
-# non-zero count refuses.
-if [[ "$REVIEWED_SHA" == "$HEAD_SHA" && "$REVIEWED_FINDINGS" != "0" ]]; then
-  echo "[pre-push-check] Blocked: the review recorded for ${CUR_BRANCH} reports" >&2
-  echo "[pre-push-check] ${REVIEWED_FINDINGS:-an unreadable number of} finding(s) still open." >&2
-  echo "[pre-push-check] Resolve them, review again, then record. Deliberate exception:" >&2
-  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
-  exit 2
-fi
-
-if [[ "$REVIEWED_SHA" != "$HEAD_SHA" ]]; then
-  echo "[pre-push-check] Blocked: no local review recorded for ${CUR_BRANCH} at $(printf '%.9s' "$HEAD_SHA")." >&2
-  if [[ -n "$REVIEWED_SHA" ]]; then
-    echo "[pre-push-check]   last reviewed: $(printf '%.9s' "$REVIEWED_SHA") — the diff has changed since." >&2
-  fi
+if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
+  echo "[pre-push-check] Blocked: ${REVIEW_STATE:-no local review recorded}." >&2
   echo "[pre-push-check] Review the local diff first (git diff origin/develop...HEAD), resolve every" >&2
   echo "[pre-push-check] MUST/SHOULD, then: pnpm harness:review:record -- --findings 0" >&2
   echo "[pre-push-check] A round here costs a minute; the same round after a push costs a CI cycle." >&2
