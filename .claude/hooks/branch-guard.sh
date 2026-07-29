@@ -233,17 +233,37 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   # Prefer the remote-tracking integration head; fall back to local `develop` when offline.
   INTEGRATION_REF=origin/develop
   git -C "$PROJECT_DIR" rev-parse --verify --quiet "$INTEGRATION_REF" >/dev/null 2>&1 || INTEGRATION_REF=develop
+  # A branch whose PR was SQUASH-merged keeps commits git cannot find in the integration branch, so
+  # ancestry alone calls it unmerged forever. Measured 2026-07-28: 83 branches reported, 73 of them
+  # with a MERGED PR — an 88% false-positive rate. A guard wrong seven times out of eight is one
+  # that gets overridden as a reflex, and it was: twice in one session, by me. The message under
+  # this loop already told people to delete squash-merged branches; the check never used what the
+  # message knew.
+  MERGED_HEADS=""
+  MERGED_HEADS_READ=false
+  if command -v gh >/dev/null 2>&1; then
+    if MERGED_HEADS=$(gh pr list --state merged --limit 500 --json headRefName \
+      --jq '.[].headRefName' 2>/dev/null); then
+      MERGED_HEADS_READ=true
+    fi
+  fi
+
   UNMERGED_BRANCHES=()
   SKIP_PATTERNS="^(main|master|develop|gh-pages)$"
   while IFS= read -r candidate; do
     candidate="${candidate#  }"   # strip leading spaces
     candidate="${candidate#\* }"  # strip current-branch marker
+    candidate="${candidate#+ }"   # strip the worktree marker, which otherwise yielded a bogus name
     [[ "$candidate" =~ $SKIP_PATTERNS ]] && continue
     [[ -z "$candidate" ]] && continue
     ahead=$(git -C "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
-    if [[ "$ahead" -gt 0 ]]; then
-      UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
+    [[ "$ahead" -gt 0 ]] || continue
+    # A merged PR settles it, whatever the ancestry says.
+    if [[ "$MERGED_HEADS_READ" == "true" ]] &&
+      printf '%s\n' "$MERGED_HEADS" | grep -Fxq -- "$candidate"; then
+      continue
     fi
+    UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
   done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
 
   if [[ "${#UNMERGED_BRANCHES[@]}" -gt 0 ]]; then
@@ -253,6 +273,10 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
       echo "  - $b" >&2
     done
     echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
+    if [[ "$MERGED_HEADS_READ" != "true" ]]; then
+      echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
+      echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
+    fi
     echo "[branch-guard] To override: set BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1" >&2
     exit 2
   fi
