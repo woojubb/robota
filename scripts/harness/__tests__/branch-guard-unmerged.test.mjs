@@ -54,7 +54,7 @@ function scratchRepo(branches) {
  * `--state merged` is the only query the hook makes here; anything else exits non-zero so a change
  * in what the hook asks for shows up as an unread answer rather than a silently different verdict.
  */
-function stubbedPath(mergedRefs, { broken = false } = {}) {
+function stubbedPath(mergedRefs, { broken = false, hangs = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
   scratch.push(dir);
   const gh = path.join(dir, 'gh');
@@ -63,6 +63,7 @@ function stubbedPath(mergedRefs, { broken = false } = {}) {
     [
       '#!/bin/sh',
       broken ? 'exit 1' : '',
+      hangs ? 'sleep 120' : '',
       'case "$*" in',
       '  *"--state merged"*)',
       mergedRefs.map((r) => `    echo ${JSON.stringify(r)}`).join('\n'),
@@ -142,6 +143,24 @@ describe('branch-guard counts only branches that are really still open', () => {
 
     expect(verdict.status, 'new commits on a merged branch name were counted as merged').toBe(2);
     expect(verdict.output).toMatch(/feat\/a/);
+  });
+
+  it('does not hang when the merged-PR query stalls', { timeout: 60_000 }, () => {
+    // This path was entirely local before the check made a network call, and it runs on every branch
+    // creation. A SLOW response is not a failed one: without a bound, a stalled connection hangs the
+    // hook indefinitely rather than taking the fallback written for exactly this case.
+    const cwd = scratchRepo(['feat/a']);
+    const started = Date.now();
+    const verdict = judge(cwd, [], { hangs: true });
+    const elapsed = Date.now() - started;
+
+    expect(elapsed, 'the hook waited on a stalled query instead of falling back').toBeLessThan(
+      40_000,
+    );
+    expect(verdict.status).toBe(2);
+    expect(verdict.output, 'the fallback did not explain why the list is inflated').toMatch(
+      /merged PRs could not be read/,
+    );
   });
 
   it('says so when merged PRs could not be read', () => {

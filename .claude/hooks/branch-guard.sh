@@ -248,9 +248,17 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   MERGED_REFS=""
   MERGED_REFS_READ=false
   MERGED_LIMIT=500
+  #
+  # Bounded, because this runs on every branch creation. Before this check the path was entirely
+  # local; it now makes a network call, and a SLOW response is not a failed one — without a limit a
+  # stalled connection would hang the hook indefinitely instead of taking the fallback below. The
+  # fallback exists for exactly this: over-report, and say why.
+  GH_TIMEOUT=10
+  GH_RUNNER=()
+  command -v timeout >/dev/null 2>&1 && GH_RUNNER=(timeout "$GH_TIMEOUT")
   if command -v gh >/dev/null 2>&1; then
-    if MERGED_REFS=$(gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
-      --jq '.[] | "\(.headRefName) \(.headRefOid)"' 2>/dev/null); then
+    if MERGED_REFS=$("${GH_RUNNER[@]}" gh pr list --state merged --limit "$MERGED_LIMIT" \
+      --json headRefName,headRefOid --jq '.[] | "\(.headRefName) \(.headRefOid)"' 2>/dev/null); then
       MERGED_REFS_READ=true
     fi
   fi
