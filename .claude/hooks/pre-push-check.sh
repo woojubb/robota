@@ -142,4 +142,56 @@ if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
 fi
 
 echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with push." >&2
+# --- the review round belongs BEFORE this push -------------------------------------------------
+#
+# `pr-review-orchestration` used to wait for required checks to go green before its FIRST review
+# round, so the reviewer only ever saw a diff that had already been pushed, opened as a PR and run
+# through CI. Every finding therefore cost a push → CI round trip before anyone could look at it.
+#
+# Measured across one session (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 rounds, 24 of them
+# carrying a blocking finding, at 6–10 minutes of CI each. None of those findings needed CI to be
+# seen; every one was read out of the diff. Several were regressions introduced by the previous
+# round's fix, which a review of the next diff would have caught just as cheaply. The reviewer agent
+# already accepts a local diff — only the precondition forced the trip.
+#
+# What this checks is that a review RAN at this commit and reported zero gating findings. It cannot
+# check that the review was good; a hook judging that would be measuring the wrong thing. Its value
+# is that the round happens here rather than eight minutes from now.
+#
+# Not enforced for the integration branches or a promotion branch: a promotion carries develop's
+# already-reviewed content and no diff of its own.
+case "$CUR_BRANCH" in
+  main | master | develop | gh-pages | release/promote-*) exit 0 ;;
+esac
+
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1'; then
+  echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
+  exit 0
+fi
+
+HEAD_SHA=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
+RECORD="$PROJECT_DIR/.agents/local-reviews/${CUR_BRANCH//\//__}.json"
+REVIEWED_SHA=""
+if [[ -f "$RECORD" ]]; then
+  REVIEWED_SHA=$(grep -o '"headSha"[[:space:]]*:[[:space:]]*"[0-9a-f]*"' "$RECORD" |
+    grep -oE '[0-9a-f]{7,}' | head -1 || true)
+fi
+
+if [[ -z "$HEAD_SHA" ]]; then
+  echo "[pre-push-check] Blocked: could not read HEAD, so the review record cannot be checked." >&2
+  exit 2
+fi
+
+if [[ "$REVIEWED_SHA" != "$HEAD_SHA" ]]; then
+  echo "[pre-push-check] Blocked: no local review recorded for ${CUR_BRANCH} at $(printf '%.9s' "$HEAD_SHA")." >&2
+  if [[ -n "$REVIEWED_SHA" ]]; then
+    echo "[pre-push-check]   last reviewed: $(printf '%.9s' "$REVIEWED_SHA") — the diff has changed since." >&2
+  fi
+  echo "[pre-push-check] Review the local diff first (git diff origin/develop...HEAD), resolve every" >&2
+  echo "[pre-push-check] MUST/SHOULD, then: pnpm harness:review:record -- --findings 0" >&2
+  echo "[pre-push-check] A round here costs a minute; the same round after a push costs a CI cycle." >&2
+  echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
+  exit 2
+fi
+
 exit 0

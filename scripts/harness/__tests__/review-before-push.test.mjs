@@ -1,0 +1,173 @@
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
+
+import { isReviewed, recordPathFor } from '../record-local-review.mjs';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
+const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-review-orchestration/SKILL.md');
+
+/**
+ * The review round happens BEFORE the push, and something makes it happen.
+ *
+ * `pr-review-orchestration` used to wait for required checks to go green before its first review round, so
+ * the reviewer only ever saw a diff that had already been pushed, opened as a PR and run through CI. Every
+ * finding therefore cost a push → CI round trip before anyone could look at it. Measured across one session
+ * (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 rounds, 24 carrying a blocking finding, at 6–10 minutes
+ * of CI each — and not one of those findings needed CI to be seen.
+ *
+ * Writing that into the skill is not enough; a rule with no mechanism is the defect this repository spent the
+ * same session removing from four hooks. So the assertions below cover both halves: the gate refuses an
+ * unreviewed push, and the skill still says where the round belongs.
+ */
+const scratch = [];
+
+afterAll(() => {
+  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
+});
+
+function scratchRepo(branch) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'review-gate-'));
+  scratch.push(dir);
+  const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+  git('init', '--quiet', `--initial-branch=${branch}`);
+  git('config', 'user.email', 'harness@example.test');
+  git('config', 'user.name', 'Harness');
+  writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  git('add', '-A');
+  git('commit', '--quiet', '-m', 'chore: root');
+  return dir;
+}
+
+function headSha(dir) {
+  return spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+}
+
+function record(dir, branch, sha, findings = 0) {
+  const file = recordPathFor(branch, path.join(dir, '.agents/local-reviews'));
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify({ branch, headSha: sha, findings }));
+}
+
+function push(dir, command = 'git push -u origin feat/probe') {
+  const result = spawnSync('bash', [HOOK], {
+    input: JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+    timeout: 120_000,
+  });
+  return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+describe('a feature-branch push carries a reviewed diff', () => {
+  it('refuses a push with no local review recorded', () => {
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir);
+
+    expect(
+      verdict.status,
+      'an unreviewed diff was pushed, which is where the CI trips come from',
+    ).toBe(2);
+    expect(verdict.output).toMatch(/no local review recorded/);
+  });
+
+  it('allows the push once the review at this commit is recorded', () => {
+    const dir = scratchRepo('feat/probe');
+    record(dir, 'feat/probe', headSha(dir));
+
+    expect(push(dir).status).toBe(0);
+  });
+
+  it('refuses again once the diff changes', () => {
+    // Keyed on the HEAD sha deliberately: a new commit is a new diff, and the previous round's review no
+    // longer describes what would be sent. That property is the entire point.
+    const dir = scratchRepo('feat/probe');
+    record(dir, 'feat/probe', headSha(dir));
+    writeFileSync(path.join(dir, 'more'), 'x\n');
+    spawnSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'commit', '--quiet', '-m', 'feat: more'], { encoding: 'utf8' });
+
+    const verdict = push(dir);
+    expect(verdict.status, 'a review of an older commit was accepted for a newer diff').toBe(2);
+    expect(verdict.output).toMatch(/the diff has changed since/);
+  });
+
+  it('honours an inline override and says the diff was unreviewed', () => {
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'PRE_PUSH_ALLOW_UNREVIEWED=1 git push -u origin feat/probe');
+
+    expect(verdict.status).toBe(0);
+    expect(verdict.output, 'an override that does not announce itself is a silent bypass').toMatch(
+      /unreviewed diff/,
+    );
+  });
+
+  it('exempts the integration branches and a promotion branch', () => {
+    // A promotion carries develop's already-reviewed content and no diff of its own; requiring a review of
+    // it would be a gate on nothing, and gates on nothing are what get overridden.
+    for (const branch of ['develop', 'main', 'release/promote-develop-to-main']) {
+      const dir = scratchRepo(branch);
+      expect(push(dir, `git push origin ${branch}`).status, branch).toBe(0);
+    }
+  });
+});
+
+describe('a record only counts when it describes this commit and a clean review', () => {
+  it('rejects a record for another commit, or one with open findings', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'record-'));
+    scratch.push(dir);
+    const store = path.join(dir, 'records');
+    mkdirSync(store, { recursive: true });
+    writeFileSync(
+      recordPathFor('feat/x', store),
+      JSON.stringify({ branch: 'feat/x', headSha: 'aaa', findings: 0 }),
+    );
+
+    expect(isReviewed('feat/x', 'aaa', store)).toBe(true);
+    expect(isReviewed('feat/x', 'bbb', store), 'a stale record passed for a new commit').toBe(
+      false,
+    );
+
+    writeFileSync(
+      recordPathFor('feat/y', store),
+      JSON.stringify({ branch: 'feat/y', headSha: 'aaa', findings: 2 }),
+    );
+    expect(isReviewed('feat/y', 'aaa', store), 'a review with open findings counted as clean').toBe(
+      false,
+    );
+  });
+
+  it('treats an unreadable record as absent', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'record-bad-'));
+    scratch.push(dir);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(recordPathFor('feat/z', dir), 'not json');
+
+    expect(isReviewed('feat/z', 'aaa', dir), 'a corrupt record passed as a review').toBe(false);
+  });
+});
+
+describe('the skill still puts the round before the push', () => {
+  const skill = readFileSync(SKILL, 'utf8');
+
+  it('describes the local-diff round and the command that records it', () => {
+    // The measured reason this changed, kept where the next reader of the skill will meet it.
+    expect(skill).toMatch(/before any push/i);
+    expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('keeps the CI-green precondition out of the first round', () => {
+    // The precondition belongs to the merge round, which must judge what will actually merge. If it
+    // drifts back to the top, every finding costs a CI cycle again — which is the state this replaced.
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(
+      roundA,
+      'the pre-push round waits for CI again, which is the round trip this change removed',
+    ).not.toMatch(/ci-gate-watch|required checks green/i);
+  });
+});
