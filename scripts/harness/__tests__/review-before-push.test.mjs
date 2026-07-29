@@ -247,6 +247,28 @@ describe('a record only counts when it describes this commit and a clean review'
     );
   });
 
+  it('keeps two branches whose names once encoded alike apart', () => {
+    // `feat/foo` and `feat__foo` both mapped to `feat__foo.json`, so one branch's review satisfied
+    // the gate for the other, unreviewed one. The encoding is one-to-one now, and the stored branch
+    // name is checked as well — a record that arrives at this path some other way is still not
+    // this branch's review.
+    const dir = mkdtempSync(path.join(tmpdir(), 'record-collide-'));
+    scratch.push(dir);
+    mkdirSync(dir, { recursive: true });
+
+    expect(recordPathFor('feat/foo', dir)).not.toBe(recordPathFor('feat__foo', dir));
+
+    writeFileSync(
+      recordPathFor('feat/foo', dir),
+      JSON.stringify({ branch: 'feat/foo', headSha: 'aaa', findings: 0 }),
+    );
+    expect(isReviewed('feat/foo', 'aaa', dir)).toBe(true);
+    expect(
+      isReviewed('feat__foo', 'aaa', dir),
+      'a record for another branch satisfied this one',
+    ).toBe(false);
+  });
+
   it('treats an unreadable record as absent', () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'record-bad-'));
     scratch.push(dir);

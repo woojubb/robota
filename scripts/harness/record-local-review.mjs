@@ -63,9 +63,16 @@ function recordDirFor(root) {
   return path.join(root, '.agents/local-reviews');
 }
 
-/** The record path for a branch. Slashes become `__` so the name stays one file. */
+/**
+ * The record path for a branch — a one-to-one encoding, not a lossy one.
+ *
+ * Slashes used to become `__`, which maps `feat/foo` and `feat__foo` onto the same file: one
+ * branch's review would then satisfy the gate for the other, unreviewed one. Percent-encoding the
+ * separator (and the escape character itself) cannot collide.
+ */
 export function recordPathFor(branch, dir = RECORD_DIR) {
-  return path.join(dir, `${branch.replace(/\//g, '__')}.json`);
+  const encoded = branch.replace(/%/g, '%25').replace(/\//g, '%2F');
+  return path.join(dir, `${encoded}.json`);
 }
 
 /**
@@ -96,6 +103,11 @@ export function reviewState(branch, headSha, dir = RECORD_DIR) {
       ok: false,
       reason: `the review record for ${branch} is unreadable, so it is not a review`,
     };
+  }
+  if (stored.branch !== branch) {
+    // Belt and braces beside the encoding above: a record naming a different branch is not this
+    // branch's review, however it came to sit at this path.
+    return { ok: false, reason: `the record at this path is for ${stored.branch ?? 'no branch'}` };
   }
   if (stored.headSha !== headSha) {
     const seen = String(stored.headSha ?? '?').slice(0, 9);
