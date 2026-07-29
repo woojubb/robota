@@ -106,6 +106,17 @@ describe('a feature-branch push carries a reviewed diff', () => {
     );
   });
 
+  it('ignores an override attached to some other statement', () => {
+    // The override is a visible, deliberate choice about THIS push. Matched anywhere in the command,
+    // `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that never
+    // reaches the push. merge-gate already carries this correction; applying it there and not here
+    // is the sibling asymmetry this session kept finding.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push -u origin feat/probe');
+
+    expect(verdict.status, 'an override bound to another statement disarmed the gate').toBe(2);
+  });
+
   it('exempts the integration branches and a promotion branch', () => {
     // A promotion carries develop's already-reviewed content and no diff of its own; requiring a review of
     // it would be a gate on nothing, and gates on nothing are what get overridden.

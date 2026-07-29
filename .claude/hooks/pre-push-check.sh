@@ -164,7 +164,12 @@ case "$CUR_BRANCH" in
   main | master | develop | gh-pages | release/promote-*) exit 0 ;;
 esac
 
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1'; then
+# The override must be an env prefix OF THE PUSH, not a token loose in the command. Matched
+# anywhere, `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that
+# belongs to an unrelated statement and never reaches the push. `merge-gate` already carries this
+# correction; applying it there and not here is the sibling asymmetry this session kept finding.
+if printf '%s' "$COMMAND_VERBS" |
+  grep -qE '(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'; then
   echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
   exit 0
 fi
