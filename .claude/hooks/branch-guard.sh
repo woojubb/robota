@@ -259,21 +259,34 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   # directory has spent the week removing. One path, everywhere.
   GH_TIMEOUT=10
   bounded_merged_refs() {
-    local out pid waited=0
+    local out pid watcher rc
     out=$(mktemp) || return 1
     (gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
       --jq '.[] | "\(.headRefName) \(.headRefOid)"' >"$out" 2>/dev/null) &
     pid=$!
-    while kill -0 "$pid" 2>/dev/null && [[ "$waited" -lt "$GH_TIMEOUT" ]]; do
-      sleep 1
-      waited=$((waited + 1))
-    done
-    if kill -0 "$pid" 2>/dev/null; then
+
+    # A watchdog rather than a `kill -0` polling loop. Polling asks "is the child still alive", and a
+    # child that has exited but not yet been reaped can still answer yes — on a shell where it does,
+    # every successful query would burn the whole deadline and then be thrown away as a timeout, so
+    # the feature would always fall back and every branch creation would cost ten seconds. Measured
+    # here at 1.2s with the polling version, so it did not reproduce on this bash; `wait` removes the
+    # question rather than leaving it to the platform, and returns the instant the query finishes.
+    # stdout detached deliberately. This function runs inside a command substitution, and a command
+    # substitution does not return until EVERY process holding the write end of its pipe is gone —
+    # so a watchdog inheriting that pipe kept it open for the full deadline even after the query had
+    # answered and the watchdog itself was killed, because the `sleep` it spawned still held the fd.
+    # Measured: the success path took 10.2s that way, worse than the polling it replaced.
+    (
+      sleep "$GH_TIMEOUT"
       kill -TERM "$pid" 2>/dev/null || true
-      rm -f "$out"
-      return 1
-    fi
-    if wait "$pid"; then
+    ) >/dev/null 2>&1 &
+    watcher=$!
+
+    if wait "$pid"; then rc=0; else rc=1; fi
+    kill -TERM "$watcher" 2>/dev/null || true
+    wait "$watcher" 2>/dev/null || true
+
+    if [[ "$rc" -eq 0 ]]; then
       cat "$out"
       rm -f "$out"
       return 0

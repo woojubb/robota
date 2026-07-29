@@ -145,6 +145,24 @@ describe('branch-guard counts only branches that are really still open', () => {
     expect(verdict.output).toMatch(/feat\/a/);
   });
 
+  it('returns as soon as the query answers', () => {
+    // The deadline must bound the SLOW case without taxing the fast one. Two ways that was got
+    // wrong here, both found by measuring rather than reading: a `kill -0` polling loop paid a
+    // second of granularity on every success, and the watchdog that replaced it inherited the
+    // command substitution's pipe — which does not close until every process holding it is gone —
+    // so a successful query still waited the full ten seconds, worse than what it replaced.
+    const cwd = scratchRepo(['feat/a']);
+    const started = Date.now();
+    const verdict = judge(cwd, [mergedRef(cwd, 'feat/a')]);
+    const elapsed = Date.now() - started;
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(
+      elapsed,
+      'a successful query paid the deadline anyway, so every branch creation costs it',
+    ).toBeLessThan(5_000);
+  });
+
   it('does not hang when the merged-PR query stalls', { timeout: 60_000 }, () => {
     // This path was entirely local before the check made a network call, and it runs on every branch
     // creation. A SLOW response is not a failed one: without a bound, a stalled connection hangs the
