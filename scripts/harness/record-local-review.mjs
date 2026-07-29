@@ -69,22 +69,48 @@ export function recordPathFor(branch, dir = RECORD_DIR) {
 }
 
 /**
- * Has the given commit been reviewed on this branch?
+ * The verdict, with the reason — the single place the question is answered.
+ *
+ * `--show` used to re-implement these same checks beside `isReviewed()`, which is the duplicated
+ * drift this change spent two rounds removing from the bash side. Two implementations agree until
+ * one of them changes, and the JS pair was no different from the bash pair.
  *
  * Keyed on the HEAD sha, deliberately: amending or adding a commit changes what would be pushed, so
  * the previous round's review no longer describes it. That is the property the whole change is
  * about — a review must have seen what is being sent.
  */
-export function isReviewed(branch, headSha, dir = RECORD_DIR) {
+export function reviewState(branch, headSha, dir = RECORD_DIR) {
   const file = recordPathFor(branch, dir);
-  if (!existsSync(file)) return false;
-  try {
-    const record = JSON.parse(readFileSync(file, 'utf8'));
-    return record.headSha === headSha && record.findings === 0;
-  } catch {
-    // An unreadable record is not a review. Treated as absent, which refuses rather than passes.
-    return false;
+  if (!existsSync(file)) {
+    return {
+      ok: false,
+      reason: `no local review recorded for ${branch} at ${headSha.slice(0, 9)}`,
+    };
   }
+  let stored;
+  try {
+    stored = JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    // An unreadable record is not a review. Refuses rather than passes.
+    return {
+      ok: false,
+      reason: `the review record for ${branch} is unreadable, so it is not a review`,
+    };
+  }
+  if (stored.headSha !== headSha) {
+    const seen = String(stored.headSha ?? '?').slice(0, 9);
+    return { ok: false, reason: `last reviewed ${seen} — the diff has changed since` };
+  }
+  if (stored.findings !== 0) {
+    const n = stored.findings ?? 'an unreadable number of';
+    return { ok: false, reason: `the recorded review reports ${n} finding(s) still open` };
+  }
+  return { ok: true, reason: `reviewed at ${headSha.slice(0, 9)} — 0 findings` };
+}
+
+/** Convenience predicate over {@link reviewState}. */
+export function isReviewed(branch, headSha, dir = RECORD_DIR) {
+  return reviewState(branch, headSha, dir).ok;
 }
 
 function parseArgs(argv) {
@@ -107,33 +133,9 @@ function main() {
     // The single owner of "is this commit reviewed". `pre-push-check` calls this and routes on the
     // exit code rather than re-parsing the record in bash — the duplicated-logic drift this whole
     // change is about, which the first version of that hook reproduced.
-    const dir = recordDirFor(root);
-    const file = recordPathFor(branch, dir);
-    if (!existsSync(file)) {
-      console.log(`no local review recorded for ${branch} at ${headSha.slice(0, 9)}`);
-      process.exit(1);
-    }
-    let stored;
-    try {
-      stored = JSON.parse(readFileSync(file, 'utf8'));
-    } catch {
-      console.log(`the review record for ${branch} is unreadable, so it is not a review`);
-      process.exit(1);
-    }
-    if (stored.headSha !== headSha) {
-      console.log(
-        `last reviewed ${String(stored.headSha ?? '?').slice(0, 9)} — the diff has changed since`,
-      );
-      process.exit(1);
-    }
-    if (stored.findings !== 0) {
-      console.log(
-        `the recorded review reports ${stored.findings ?? 'an unreadable number of'} finding(s) still open`,
-      );
-      process.exit(1);
-    }
-    console.log(`reviewed at ${headSha.slice(0, 9)} — 0 findings`);
-    process.exit(0);
+    const verdict = reviewState(branch, headSha, recordDirFor(root));
+    console.log(verdict.reason);
+    process.exit(verdict.ok ? 0 : 1);
   }
 
   if (!Number.isInteger(args.findings) || args.findings < 0) {

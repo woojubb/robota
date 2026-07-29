@@ -142,6 +142,29 @@ describe('a feature-branch push carries a reviewed diff', () => {
     );
   });
 
+  it('does not let one override excuse a second, unprefixed push', () => {
+    // `PRE_PUSH_ALLOW_UNREVIEWED=1 git push a && git push b` overrides the first push and not the
+    // second in real shell semantics. Letting the whole command through grants an unearned bypass
+    // to the second — the one direction this file never trades in.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(
+      dir,
+      'PRE_PUSH_ALLOW_UNREVIEWED=1 git push origin feat/probe && git push origin other',
+    );
+
+    expect(verdict.status, 'an unprefixed second push rode in on the first override').toBe(2);
+  });
+
+  it('still honours an override that prefixes every push', () => {
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(
+      dir,
+      'PRE_PUSH_ALLOW_UNREVIEWED=1 git push origin a && PRE_PUSH_ALLOW_UNREVIEWED=1 git push origin b',
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('ignores an override attached to some other statement', () => {
     // The override is a visible, deliberate choice about THIS push. Matched anywhere in the command,
     // `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that never

@@ -180,8 +180,18 @@ fi
 # anywhere, `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that
 # belongs to an unrelated statement and never reaches the push. `merge-gate` already carries this
 # correction; applying it there and not here is the sibling asymmetry this session kept finding.
-if printf '%s' "$COMMAND_VERBS" |
-  grep -qE '(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'; then
+#
+# And it excuses only the pushes it actually prefixes. `PRE_PUSH_ALLOW_UNREVIEWED=1 git push a &&
+# git push b` overrides the first push and not the second in real shell semantics, so letting the
+# whole command through would grant an unearned bypass to the second — the one direction this file
+# never trades in. When some pushes are unprefixed the override does not apply and the record check
+# below decides for all of them.
+PUSH_RE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push\b'
+ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'
+PUSH_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$PUSH_RE" | grep -c . || true)
+ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || true)
+
+if [[ "$ACK_COUNT" -gt 0 && "$ACK_COUNT" -ge "$PUSH_COUNT" ]]; then
   echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
   exit 0
 fi
