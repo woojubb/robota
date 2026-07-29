@@ -129,6 +129,18 @@ function main() {
   const branch = git(['branch', '--show-current'], root);
   const headSha = git(['rev-parse', 'HEAD'], root);
 
+  // A record is keyed by branch, so a detached HEAD has no key: every detached invocation would
+  // share `.agents/local-reviews/.json` and satisfy the gate for every other. `pre-push-check` had
+  // this guard and this file did not, which is exactly the split this file's docstring says it
+  // exists to prevent — the owner of the verdict must own the whole of it.
+  if (!branch) {
+    console.error(
+      'record-local-review: HEAD is detached, so a review cannot be keyed to a branch.',
+    );
+    console.error('Check out the branch this commit belongs to and run it again.');
+    process.exit(1);
+  }
+
   if (args.show) {
     // The single owner of "is this commit reviewed". `pre-push-check` calls this and routes on the
     // exit code rather than re-parsing the record in bash — the duplicated-logic drift this whole

@@ -167,8 +167,11 @@ echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with 
 # are the pushes least worth waving through. Only `release/promote-*` is exempt here, because a
 # promotion carries develop's already-reviewed content and no diff of its own.
 #
+# `gh-pages` is exempt for the same reason as the integration branches: it is published output, not
+# a reviewed change set.
+#
 # Review flagged the difference as possible drift and asked whether it was intentional. It is, and
-# the tests below pin both sides so unifying the lists breaks loudly instead of quietly.
+# the tests below pin every entry so unifying the lists breaks loudly instead of quietly.
 case "$CUR_BRANCH" in
   main | master | develop | gh-pages | release/promote-*) exit 0 ;;
 esac
@@ -223,7 +226,14 @@ fi
 
 if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
   echo "[pre-push-check] Blocked: ${REVIEW_STATE:-no local review recorded}." >&2
-  echo "[pre-push-check] Review the local diff first (git diff origin/develop...HEAD), resolve every" >&2
+  # The base depends on the branch. This file's own hygiene section documents `release/*` and
+  # `hotfix/*` as based on main, and those branches are deliberately NOT exempt from this gate — so
+  # naming develop unconditionally pointed a blocked hotfix at the wrong diff.
+  case "$CUR_BRANCH" in
+    release/* | hotfix/*) REVIEW_BASE=origin/main ;;
+    *) REVIEW_BASE=origin/develop ;;
+  esac
+  echo "[pre-push-check] Review the local diff first (git diff ${REVIEW_BASE}...HEAD), resolve every" >&2
   echo "[pre-push-check] MUST/SHOULD, then: pnpm harness:review:record -- --findings 0" >&2
   echo "[pre-push-check] A round here costs a minute; the same round after a push costs a CI cycle." >&2
   echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2

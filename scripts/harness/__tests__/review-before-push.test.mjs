@@ -201,10 +201,21 @@ describe('a feature-branch push carries a reviewed diff', () => {
     }
   });
 
+  it('points a blocked push at the base its branch is built on', () => {
+    // `release/*` and `hotfix/*` are based on main, per this file's own hygiene section, and are
+    // deliberately not exempt from the gate — so naming develop unconditionally sent a blocked
+    // hotfix to diff against the wrong base.
+    const hotfix = scratchRepo('hotfix/urgent');
+    expect(push(hotfix, 'git push origin hotfix/urgent').output).toMatch(/origin\/main\.\.\.HEAD/);
+
+    const feature = scratchRepo('feat/probe');
+    expect(push(feature).output).toMatch(/origin\/develop\.\.\.HEAD/);
+  });
+
   it('exempts the integration branches and a promotion branch', () => {
     // A promotion carries develop's already-reviewed content and no diff of its own; requiring a review of
     // it would be a gate on nothing, and gates on nothing are what get overridden.
-    for (const branch of ['develop', 'main', 'release/promote-develop-to-main']) {
+    for (const branch of ['develop', 'main', 'gh-pages', 'release/promote-develop-to-main']) {
       const dir = scratchRepo(branch);
       expect(push(dir, `git push origin ${branch}`).status, branch).toBe(0);
     }
