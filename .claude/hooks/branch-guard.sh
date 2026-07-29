@@ -251,14 +251,39 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   #
   # Bounded, because this runs on every branch creation. Before this check the path was entirely
   # local; it now makes a network call, and a SLOW response is not a failed one — without a limit a
-  # stalled connection would hang the hook indefinitely instead of taking the fallback below. The
-  # fallback exists for exactly this: over-report, and say why.
+  # stalled connection would hang the hook indefinitely instead of taking the fallback below.
+  #
+  # The bound is hand-rolled rather than delegated to `timeout`, which is absent on a stock macOS.
+  # Branching on whether it exists would leave the promise above true on one platform and silently
+  # false on another, with the untested path being the one nobody runs — the shape of defect this
+  # directory has spent the week removing. One path, everywhere.
   GH_TIMEOUT=10
-  GH_RUNNER=()
-  command -v timeout >/dev/null 2>&1 && GH_RUNNER=(timeout "$GH_TIMEOUT")
+  bounded_merged_refs() {
+    local out pid waited=0
+    out=$(mktemp) || return 1
+    (gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
+      --jq '.[] | "\(.headRefName) \(.headRefOid)"' >"$out" 2>/dev/null) &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null && [[ "$waited" -lt "$GH_TIMEOUT" ]]; do
+      sleep 1
+      waited=$((waited + 1))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -TERM "$pid" 2>/dev/null || true
+      rm -f "$out"
+      return 1
+    fi
+    if wait "$pid"; then
+      cat "$out"
+      rm -f "$out"
+      return 0
+    fi
+    rm -f "$out"
+    return 1
+  }
+
   if command -v gh >/dev/null 2>&1; then
-    if MERGED_REFS=$("${GH_RUNNER[@]}" gh pr list --state merged --limit "$MERGED_LIMIT" \
-      --json headRefName,headRefOid --jq '.[] | "\(.headRefName) \(.headRefOid)"' 2>/dev/null); then
+    if MERGED_REFS=$(bounded_merged_refs); then
       MERGED_REFS_READ=true
     fi
   fi
