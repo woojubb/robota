@@ -59,6 +59,14 @@ fi
 if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_BADNAME=1
 fi
+# The base override belongs in this block for the reason the paragraph above gives: an inline
+# `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
+# `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
+# for it injected the variable through the hook's own environment — hiding the very distinction this
+# file spends nine lines explaining.
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BASE=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_BASE=1
+fi
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
@@ -395,7 +403,14 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # refuse, waved through by one common flag.
     START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
-    case "$START_POINT" in -* | '&'* | '|'* | ';'* | '') START_POINT="" ;; esac
+    # A start point is a git ref. A flag, a shell operator or a REDIRECTION is not one — and the
+    # redirection case is not hypothetical: `git checkout -b feat/x 2>&1 | head` had `2>&1` read as
+    # the base, which resolved to nothing and refused the creation. Measured while creating the very
+    # branch this fix lives on.
+    case "$START_POINT" in
+      -* | '') START_POINT="" ;;
+      *[\<\>\|\&\;]*) START_POINT="" ;;
+    esac
 
     # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
     # anywhere in the command, and in a compound command that `-C` usually belongs to some other

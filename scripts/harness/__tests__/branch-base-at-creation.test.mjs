@@ -229,12 +229,36 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.output, 'the refusal named no base').toMatch(/found:\s+\S/);
   });
 
-  it('honours the override and says it was used', () => {
+  it('honours the override written INLINE, the way it is documented', () => {
+    // The distinction this hook spends nine lines explaining: an inline `VAR=1 git …` is set in the
+    // TOOL's shell and never reaches the hook process, so an override read only as `${VAR:-0}` does
+    // nothing in its documented form. This case passes it inline, as a user would. Injecting it
+    // through the hook's environment — which the first version of this test did — hides exactly that.
     const cwd = repo();
-    const verdict = create(cwd, 'git checkout -b feat/new main', {
-      BRANCH_GUARD_ALLOW_BASE: '1',
-    });
+    const verdict = create(cwd, 'BRANCH_GUARD_ALLOW_BASE=1 git checkout -b feat/new main');
 
     expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('does not read a redirection as a start point', () => {
+    // `git checkout -b feat/x 2>&1 | head` had `2>&1` taken as the base, which resolved to nothing
+    // and refused a perfectly ordinary creation. Measured in practice — it blocked the creation of
+    // the branch this fix was written on.
+    const cwd = repo();
+
+    for (const command of [
+      'git checkout -b feat/new 2>&1 | head -1',
+      'git checkout -b feat/new >/dev/null',
+      'git switch -c feat/new 2>/dev/null',
+    ]) {
+      const verdict = create(cwd, command);
+      expect(verdict.status, `a redirection was read as a base: ${command}`).toBe(0);
+    }
+  });
+
+  it('refuses the same creation without the override', () => {
+    // The other half, so the case above cannot pass because the check stopped working.
+    const cwd = repo();
+    expect(create(cwd, 'git checkout -b feat/new main').status).toBe(2);
   });
 });
