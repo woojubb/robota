@@ -23,6 +23,10 @@ const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * are the contract: whatever a hook intercepts, it must intercept in all of them.
  */
 const COMPOUND_FORMS = [
+  // A payload carrying embedded quotes. The extraction this suite guards used to stop at the first
+  // quote INSIDE the command, so a verb written after any quoted argument was never examined — and
+  // no fixture here contained one, which is how that gap stayed invisible (HARNESS-061).
+  (verb) => `echo "starting" && ${verb}`,
   (verb) => verb,
   (verb) => `cd ${WORKSPACE_ROOT}\n${verb}`,
   (verb) => `cd ${WORKSPACE_ROOT} && ${verb}`,

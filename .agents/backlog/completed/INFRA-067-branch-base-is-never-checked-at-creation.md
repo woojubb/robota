@@ -1,11 +1,12 @@
 ---
 title: "INFRA-067: nothing checks a branch's base at creation — the rule's own prescribed command defeats its guard"
-status: todo
+status: done
 priority: high
 urgency: now
 type: INFRA
 area: .claude/hooks
 created: 2026-07-28
+completed: 2026-07-30
 depends_on: []
 ---
 
@@ -69,3 +70,21 @@ distinguishable from an accident.
   must agree, which is the defect that made this item.
 - The refusal names the base it found and the base it wanted.
 - An override exists, is recorded in the rule, and its use is visible in the hook's output.
+
+## GATE-COMPLETE (2026-07-30)
+
+- Creating a branch from `main`, from a promotion branch, and from another feature branch is refused,
+  proven RED for each of the three bases (`branch-base-at-creation.test.mjs`), against a fixture where
+  every base sits at a different commit so the difference is real rather than an artefact of equal shas.
+- The implicit case is covered too: no start point in the command, base = current HEAD. That is how the
+  promotion-ancestry break actually happened — nobody named `main`, they were standing on a promotion
+  branch.
+- The command `git-branch.md` itself prescribes — `git fetch origin && git checkout -b <slug>
+origin/develop` — PASSES, proven GREEN both in the fixture and against this repository. The rule and
+  its guard agreeing is the defect that made this item.
+- The refusal names the base it found and the base it wanted, with short shas. Measured here:
+  `found: main (6cf10615a)` / `wanted: origin/develop (02f5a84b9)`.
+- Override `BRANCH_GUARD_ALLOW_BASE=1` exists, is recorded in `git-branch.md`, and is covered.
+- `hotfix/*` and `release/*` are exempt, since the rule lets them PR to `main` and prescribes no base
+  for them; pinned so the exemption cannot quietly widen.
+- Red-proved: removing the base check fails two cases.

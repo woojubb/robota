@@ -59,6 +59,14 @@ fi
 if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_BADNAME=1
 fi
+# The base override belongs in this block for the reason the paragraph above gives: an inline
+# `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
+# `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
+# for it injected the variable through the hook's own environment — hiding the very distinction this
+# file spends nine lines explaining.
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BASE=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_BASE=1
+fi
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
@@ -218,7 +226,11 @@ fi
 PROJECT_DIR="$EFFECTIVE_DIR"
 CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 
-if [[ -z "$CURRENT_BRANCH" ]]; then
+# A detached HEAD has no branch name, so the protected-branch checks below have nothing to compare
+# and the guard used to stop here. Branch CREATION is different: creating `feat/x` while detached at
+# `main` is precisely the wrong base this guard refuses, and stopping first made that unreachable —
+# the base check could never run in the one state where nobody notices the base.
+if [[ -z "$CURRENT_BRANCH" && "$IS_BRANCH_CREATE" != "true" ]]; then
   exit 0
 fi
 
@@ -352,7 +364,11 @@ fi
 
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
-if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
+# Branch creation. TWO independent checks live here — the base a branch is cut from, and the name
+# it is given — each with its OWN override. They were one block gated by the NAME override, so
+# `BRANCH_GUARD_ALLOW_BADNAME=1` silently switched the base check off too and reopened the
+# promotion-ancestry hole it exists to close. Two checks, two overrides; neither excuses the other.
+if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
   # Read the branch name out of the checkout/switch invocation itself. The previous expression
   # ran a greedy `.*` over the WHOLE command and captured whatever followed the LAST
   # -b/-B/-c/-C, so `git checkout -b feat/x && git -C /other status` yielded /other and
@@ -363,9 +379,101 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1"
   # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
   NEW_BRANCH=$(hook_match_extract "$COMMAND_EXEC" \
     '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+' || true)
+  # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
+  #
+  # `git-branch.md` is mandatory about this: feature branches are created from a freshly-fetched
+  # `origin/develop`, never from `main` and never from another feature branch. Nothing checked it at
+  # creation time — this guard read the NAME and the unmerged-branch list, and never the base. Two
+  # audits measured `grep -c origin/develop` over this file at 0.
+  #
+  # It cost a promotion: a branch cut from a promotion branch dragged main's merge commits into the
+  # PR range and broke the promotion-ancestry check. Branch creation is also the one guarded action
+  # with no git-native backstop — husky covers commits on protected branches, rulesets cover pushes
+  # to main, nothing covers `checkout -b`.
+  #
+  # `hotfix/*` and `release/*` are exempt: the rule lets them PR to `main` and does not prescribe
+  # develop as their base. Feature branches are what it prescribes, and what this checks.
+  if [[ -n "$NEW_BRANCH" && "${BRANCH_GUARD_ALLOW_BASE:-0}" != "1" ]] &&
+    ! [[ "$NEW_BRANCH" =~ ^(hotfix|release)/ ]]; then
+    # The start point, when the command names one: the token after the branch name. A `&&`, a `;` or
+    # another flag is not a start point — those mean the command simply ended.
+    # Flags may sit between the new branch name and the start point: `git checkout -b feat/x --track
+    # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
+    # instead and passed while the branch came from `origin/main` — the exact creation this exists to
+    # refuse, waved through by one common flag.
+    START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
+      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
+    # A start point is a git ref, and the token holding it may be glued to what follows.
+    #
+    # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:
+    # `git checkout -b feat/x main;` reads as one token `main;`, git cuts from `main`, and blanking
+    # it fell back to HEAD — so a base of `main` passed whenever HEAD happened to be develop. A
+    # fail-OPEN, where the version before it at least failed to resolve and refused.
+    #
+    # So the token is TRUNCATED at the first operator rather than discarded, and a redirection is
+    # recognised by its shape — `2>&1`, `>/dev/null` — instead of by containing an operator at all.
+    # `git checkout -b feat/x 2>&1 | head` is an ordinary creation and must not be refused; that one
+    # was measured, blocking the creation of the branch this check was fixed on.
+    # A redirection, in either direction, with or without a file-descriptor number: `2>&1`,
+    # `>/dev/null`, `3<file`, `<in`. Those are not start points at all.
+    #
+    # The descriptor and the operator must be ADJACENT. Written as the glob `[0-9]*'>'*` this read
+    # "a digit, then anything, then `>`" — so `2fa-base>/tmp/out.log` matched, and a real ref whose
+    # name begins with a digit was blanked and fell back to HEAD. The same fail-open this whole arm
+    # exists to prevent, reintroduced for every start point starting with a number. So the leading
+    # run of digits is stripped and the NEXT character decides.
+    START_POINT_AFTER_FD="${START_POINT#"${START_POINT%%[!0-9]*}"}"
+    case "$START_POINT_AFTER_FD" in '>'* | '<'*) START_POINT="" ;; esac
+
+    case "$START_POINT" in
+      -* | '') START_POINT="" ;;
+      *) START_POINT="${START_POINT%%[\<\>\|\&\;]*}" ;;
+    esac
+
+    # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
+    # anywhere in the command, and in a compound command that `-C` usually belongs to some other
+    # invocation — `git checkout -b feat/x && git -C <other> status` would have this check judge
+    # <other>, which is not where the branch lands. Measured: that shape blocked a legitimate
+    # creation. Stated limit: `git -C <other> checkout -b` is judged against the session repository
+    # rather than <other>; branches are created where the session is, and erring that way
+    # over-permits a rare form instead of refusing a common one.
+    BASE_DIR="${CLAUDE_PROJECT_DIR:-.}"
+    if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      BASE_DIR="$HOOK_CWD"
+    fi
+
+    WANTED=origin/develop
+    git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
+    WANTED_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
+    BASE_REF="${START_POINT:-HEAD}"
+    BASE_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
+    # `branch --show-current` exits 0 with empty output on a detached HEAD, so `|| echo HEAD` never
+    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code.
+    CURRENT_ON_BASE=$(git -C "$BASE_DIR" branch --show-current 2>/dev/null || echo "")
+    BASE_NAME="${START_POINT:-${CURRENT_ON_BASE:-HEAD}}"
+
+    if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
+      echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2
+      echo "[branch-guard]   wanted: $WANTED   found: ${BASE_NAME:-<unresolved>}" >&2
+      echo "[branch-guard] Fetch first (git fetch origin), or override: BRANCH_GUARD_ALLOW_BASE=1" >&2
+      exit 2
+    fi
+
+    if [[ "$BASE_SHA" != "$WANTED_SHA" ]]; then
+      echo "[branch-guard] Blocked: '$NEW_BRANCH' would be cut from the wrong base." >&2
+      echo "[branch-guard]   found:  $BASE_NAME ($(printf '%.9s' "$BASE_SHA"))" >&2
+      echo "[branch-guard]   wanted: $WANTED ($(printf '%.9s' "$WANTED_SHA"))" >&2
+      echo "[branch-guard] git-branch.md: feature branches are cut from a freshly-fetched origin/develop." >&2
+      echo "[branch-guard] Do: git fetch origin && git checkout -b $NEW_BRANCH origin/develop" >&2
+      echo "[branch-guard] Deliberate exception: BRANCH_GUARD_ALLOW_BASE=1" >&2
+      exit 2
+    fi
+  fi
+
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
-  if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
+  if [[ -n "$NEW_BRANCH" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]] &&
+    ! [[ "$NEW_BRANCH" =~ $EXEMPT_RE ]] && ! [[ "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
     echo "[branch-guard] Blocked: branch name '$NEW_BRANCH' does not match <type>/<desc>." >&2
     echo "[branch-guard] Expected e.g. feat/x-y, fix/z, chore/w" >&2
     echo "[branch-guard] (types: feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)." >&2

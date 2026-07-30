@@ -155,9 +155,15 @@ so an `export` in an earlier statement does not reach it.
   branching off a squash-merged local branch re-introduces its pre-squash commits (pushes fine, merges DIRTY);
   a branch cut from `main` after a promotion drags `Merge pull request …` commits into the PR range and fails
   `commitlint`. A clean feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range.
-  **Enforced** by `.claude/hooks/pre-push-check.sh` (blocks a push when `git log --merges origin/develop..HEAD`
-  is non-empty on a non-integration branch) and the `branch-guard` create-check (flags local unmerged branches);
-  recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
+  **Enforced at creation** by `branch-guard` (INFRA-067): a `checkout -b` / `switch -c` whose base is not
+  `origin/develop` is refused, naming the base it found and the base it wanted. The start point is read from the
+  command when one is given, and is the current HEAD when it is not — which is how the promotion-ancestry break
+  happened, with nobody naming `main` and everyone simply standing on a promotion branch. `hotfix/*` and
+  `release/*` are outside this requirement, since the rule lets them PR to `main` and prescribes no base for
+  them. Deliberate exception: `BRANCH_GUARD_ALLOW_BASE=1` inline.
+  **Enforced at push** by `.claude/hooks/pre-push-check.sh` (blocks a push when
+  `git log --merges origin/develop..HEAD` is non-empty on a non-integration branch); `branch-guard` also flags
+  local unmerged branches. Recover with `git reset --hard origin/develop && git cherry-pick <your-commit(s)>`.
 - Merging `develop` into `main` requires explicit user approval and is a release-level action. **Build the
   promotion branch with `node scripts/harness/promote.mjs` — never by hand** (§ Promotion below).
 - When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
