@@ -445,9 +445,15 @@ hook_verb_scan() {
   hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_SCAN_AWK"
 }
 
+# Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,
+# where a name token ran greedily across a line break and read the next line's first word as a base —
+# measured, and fixed there with a test. Here it is CONSISTENCY, not a fix: every multi-line form was
+# tried against these expressions and none extracts anything different, because each requires
+# `[ \t]+` right after a token and a newline never satisfies that. Recorded as unproven rather than
+# dressed in a test that would pass either way.
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+'
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
@@ -471,10 +477,10 @@ hook_deleted_branch() {
   fi
 
   # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
-  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)')
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)')
   [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
 
   # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
   # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t]+[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+'
 }

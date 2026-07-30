@@ -378,7 +378,7 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
   # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
   # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
   NEW_BRANCH=$(hook_match_extract "$COMMAND_EXEC" \
-    '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+' || true)
+    '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' || true)
   # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
   #
   # `git-branch.md` is mandatory about this: feature branches are created from a freshly-fetched
@@ -402,7 +402,7 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # instead and passed while the branch came from `origin/main` — the exact creation this exists to
     # refuse, waved through by one common flag.
     START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
-      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
+      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' || true)
     # A start point is a git ref, and the token holding it may be glued to what follows.
     #
     # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:
