@@ -1,11 +1,12 @@
 ---
 title: 'INFRA-068: the worktree guard is off in every real session, and ten green tests say otherwise'
-status: todo
+status: done
 priority: high
 urgency: now
 type: INFRA
 area: .claude/hooks
 created: 2026-07-28
+completed: 2026-07-30
 depends_on: []
 ---
 
@@ -56,3 +57,22 @@ Two halves, and the second is the one that generalises:
   GREEN on a permitted edit.
 - Each has one case that sets nothing the deployment does not set, so a guard cannot again be green
   in tests and off in life.
+
+## GATE-COMPLETE (2026-07-30)
+
+- The worktree guard is proven active with **no test-supplied environment**: a real
+  `git worktree add` under `.claude/worktrees/`, `CLAUDE_PROJECT_DIR` pointing at it, the worktree's
+  own copy of the hook, and no `ROBOTA_AGENT_WORKTREE` anywhere. A destructive command aimed at the
+  main checkout is refused (exit 2); the same command inside the assigned worktree is allowed; an
+  ordinary main-clone session is untouched. `worktree-guard-alive.test.mjs`.
+- Root cause: the guard gated on a marker the launcher was expected to export, and measurement
+  found the only places setting it were the guard's own tests — so it exited on its first branch in
+  every real session while ten tests stayed green. It now reads a signal the deployment actually
+  supplies: which copy of the hook is running. The cwd cannot answer, because a cwd that has fallen
+  back to main is the condition being guarded.
+- A refusal that printed and then aborted on `set -u` (bare `$ROBOTA_AGENT_WORKTREE` in its own
+  message) turned a considered exit 2 into exit 1; fixed and covered.
+- Red-proved: restoring the marker-only entry condition fails the live case.
+
+`check-forbidden-patterns.sh` inside a worktree was addressed separately in PR #1521 (a path outside
+the project dir is reported repo-relative), with its own regression case.

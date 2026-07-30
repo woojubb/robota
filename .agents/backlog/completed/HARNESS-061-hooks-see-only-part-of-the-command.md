@@ -1,11 +1,12 @@
 ---
 title: 'HARNESS-061: every command hook reads only up to the first escaped quote'
-status: todo
+status: done
 priority: high
 urgency: soon
 type: INFRA
 area: .claude/hooks
 created: 2026-07-28
+completed: 2026-07-30
 depends_on: [INFRA-067]
 ---
 
@@ -56,3 +57,18 @@ Seeing part of it and acting is the failure being removed.
 - A missing `jq` fails closed, proven, rather than silently permitting.
 - The reachability suite gains a case whose payload contains embedded quotes, so this fixture gap
   cannot reopen.
+
+## GATE-COMPLETE (2026-07-30)
+
+Closed by PR #1514 (the shared command parser) plus one fixture added here.
+
+- A command whose text contains an escaped quote followed by a guarded verb is intercepted:
+  `echo "starting release" && git push origin main` on a protected branch measured **exit 0 before,
+  exit 2 after**, pinned by `hook-command-parsing.test.mjs`.
+- Every command hook uses the shared extraction: `lib/command-scan.sh` is the single owner, and the
+  test `every hook ... does not re-implement the command decode` enumerates `.claude/hooks/*.sh`
+  rather than a hand-written list. It caught two surviving copies while being written.
+- A missing decoder fails closed, proven: with neither `jq` nor `python3` on PATH the hooks exit 2
+  naming the reason (`refuses rather than falls silent when it cannot decode`).
+- The reachability suite now carries a compound form with embedded quotes, so the fixture gap that
+  hid this cannot reopen.
