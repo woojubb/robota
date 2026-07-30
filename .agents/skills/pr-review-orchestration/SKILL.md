@@ -35,12 +35,41 @@ rejects). Two modes:
 
 ## The Loop (route-only)
 
+The loop runs in TWO places, and which one comes first is the whole point.
+
+### Round A — on the LOCAL DIFF, before any push (required)
+
+Measured across one session (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 review rounds, 24 of them
+carrying a blocking finding, at 6–10 minutes of CI each. Not one of those findings needed CI to be visible —
+every one was read out of the diff. Several were regressions introduced by the previous round's fix, which a
+review of the NEXT diff would have caught just as cheaply. This loop used to wait for required checks to go
+green before its first review round, so the reviewer only ever saw a diff that had already been pushed,
+opened as a PR and run through CI: every finding cost a round trip before anyone could look at it.
+
+`pr-review-reviewer` already accepts a local diff (`git diff origin/<base>...HEAD`) — only the precondition
+forced the trip. So:
+
+A1. **Review the local diff.** Dispatch `pr-review-reviewer` with `git diff origin/<base>...HEAD`. No PR, no
+CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
+A2. **Not zero?** Fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
+minute. The same round after a push costs a CI cycle.
+A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and push.
+
+`pre-push-check` enforces A3: a feature-branch push whose HEAD has no matching record is refused, naming
+`PRE_PUSH_ALLOW_UNREVIEWED=1` for a deliberate exception. The record says a review RAN at this commit and
+reported zero gating findings; it does not claim the review was good, which is the reviewer's job and not a
+hook's. Integration branches and `release/promote-*` are exempt — a promotion carries develop's
+already-reviewed content and no diff of its own.
+
+### Round B — on the open PR, before merge
+
 Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identities `file:line + severity`).
 
-0. **Wait for the gate precondition** the rule sets (required checks green) before the first review round:
-   dispatch [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or
-   `STALLED` → **leave the loop** and route it as a build/test failure under the verification rules, not
-   as a review finding; re-enter here once the head is green.
+0. **Wait for the gate precondition** the rule sets (required checks green): dispatch
+   [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or `STALLED` →
+   **leave the loop** and route it as a build/test failure under the verification rules, not as a review
+   finding; re-enter here once the head is green. This precondition belongs HERE and only here: the merge
+   round must judge what will actually merge, and `merge-gate` requires a review newer than the head commit.
 1. **Review.** Dispatch `pr-review-reviewer` on the PR at the diff scope the rule's gate preconditions
    define. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its finding set. (Do NOT judge the
    findings yourself — take the count as given.)
@@ -49,7 +78,8 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
    unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
 4. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).
 5. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
-   MUST/SHOULD fixes). Increment `iteration`. Go to step 1 (re-review).
+   MUST/SHOULD fixes). Each fix returns to **Round A** — review the new local diff and record it before pushing
+   again — then increment `iteration` and go to step 1.
 
 ## Merge path (on `ACTIONABLE FINDINGS: 0`)
 

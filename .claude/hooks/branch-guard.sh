@@ -233,17 +233,102 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
   # Prefer the remote-tracking integration head; fall back to local `develop` when offline.
   INTEGRATION_REF=origin/develop
   git -C "$PROJECT_DIR" rev-parse --verify --quiet "$INTEGRATION_REF" >/dev/null 2>&1 || INTEGRATION_REF=develop
+  # A branch whose PR was SQUASH-merged keeps commits git cannot find in the integration branch, so
+  # ancestry alone calls it unmerged forever. Measured 2026-07-28: 83 branches reported, 73 of them
+  # with a MERGED PR — an 88% false-positive rate. A guard wrong seven times out of eight is one
+  # that gets overridden as a reflex, and it was: twice in one session, by me. The message under
+  # this loop already told people to delete squash-merged branches; the check never used what the
+  # message knew.
+  #
+  # Matched on NAME AND COMMIT, never name alone. A branch name gets reused: merge `feat/x`, leave the
+  # local branch, and stack new work on it, and a name-only match would wave those new commits through
+  # — silently disabling the very rule this check enforces. The delete-guard below already carries that
+  # lesson ("a merged PR earlier in this branch's history does not make deletion safe"); this path was
+  # written without it.
+  MERGED_REFS=""
+  MERGED_REFS_READ=false
+  MERGED_LIMIT=500
+  #
+  # Bounded, because this runs on every branch creation. Before this check the path was entirely
+  # local; it now makes a network call, and a SLOW response is not a failed one — without a limit a
+  # stalled connection would hang the hook indefinitely instead of taking the fallback below.
+  #
+  # The bound is hand-rolled rather than delegated to `timeout`, which is absent on a stock macOS.
+  # Branching on whether it exists would leave the promise above true on one platform and silently
+  # false on another, with the untested path being the one nobody runs — the shape of defect this
+  # directory has spent the week removing. One path, everywhere.
+  GH_TIMEOUT=10
+  bounded_merged_refs() {
+    local out pid watcher rc
+    out=$(mktemp) || return 1
+    (gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
+      --jq '.[] | "\(.headRefName) \(.headRefOid)"' >"$out" 2>/dev/null) &
+    pid=$!
+
+    # A watchdog rather than a `kill -0` polling loop. Polling asks "is the child still alive", and a
+    # child that has exited but not yet been reaped can still answer yes — on a shell where it does,
+    # every successful query would burn the whole deadline and then be thrown away as a timeout, so
+    # the feature would always fall back and every branch creation would cost ten seconds. Measured
+    # here at 1.2s with the polling version, so it did not reproduce on this bash; `wait` removes the
+    # question rather than leaving it to the platform, and returns the instant the query finishes.
+    # stdout detached deliberately. This function runs inside a command substitution, and a command
+    # substitution does not return until EVERY process holding the write end of its pipe is gone —
+    # so a watchdog inheriting that pipe kept it open for the full deadline even after the query had
+    # answered and the watchdog itself was killed, because the `sleep` it spawned still held the fd.
+    # Measured: the success path took 10.2s that way, worse than the polling it replaced.
+    (
+      sleep "$GH_TIMEOUT"
+      kill -TERM "$pid" 2>/dev/null || true
+    ) >/dev/null 2>&1 &
+    watcher=$!
+
+    if wait "$pid"; then rc=0; else rc=1; fi
+    kill -TERM "$watcher" 2>/dev/null || true
+    wait "$watcher" 2>/dev/null || true
+
+    if [[ "$rc" -eq 0 ]]; then
+      cat "$out"
+      rm -f "$out"
+      return 0
+    fi
+    rm -f "$out"
+    return 1
+  }
+
+  if command -v gh >/dev/null 2>&1; then
+    if MERGED_REFS=$(bounded_merged_refs); then
+      MERGED_REFS_READ=true
+    fi
+  fi
+
+  # A full page may mean the list was truncated, so older merged branches would be missing and the
+  # check would over-report again — without the notice that explains why. Say it rather than let the
+  # list quietly grow back.
+  MERGED_TRUNCATED=false
+  if [[ "$MERGED_REFS_READ" == "true" ]] &&
+    [[ "$(printf '%s\n' "$MERGED_REFS" | grep -c .)" -ge "$MERGED_LIMIT" ]]; then
+    MERGED_TRUNCATED=true
+  fi
+
   UNMERGED_BRANCHES=()
   SKIP_PATTERNS="^(main|master|develop|gh-pages)$"
   while IFS= read -r candidate; do
     candidate="${candidate#  }"   # strip leading spaces
     candidate="${candidate#\* }"  # strip current-branch marker
+    candidate="${candidate#+ }"   # strip the worktree marker, which otherwise yielded a bogus name
     [[ "$candidate" =~ $SKIP_PATTERNS ]] && continue
     [[ -z "$candidate" ]] && continue
     ahead=$(git -C "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
-    if [[ "$ahead" -gt 0 ]]; then
-      UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
+    [[ "$ahead" -gt 0 ]] || continue
+    # A merged PR settles it — for the COMMIT that was merged, not for the name.
+    if [[ "$MERGED_REFS_READ" == "true" ]]; then
+      candidate_sha=$(git -C "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
+      if [[ -n "$candidate_sha" ]] &&
+        printf '%s\n' "$MERGED_REFS" | grep -Fxq -- "$candidate $candidate_sha"; then
+        continue
+      fi
     fi
+    UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
   done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
 
   if [[ "${#UNMERGED_BRANCHES[@]}" -gt 0 ]]; then
@@ -253,6 +338,13 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
       echo "  - $b" >&2
     done
     echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
+    if [[ "$MERGED_REFS_READ" != "true" ]]; then
+      echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
+      echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
+    elif [[ "$MERGED_TRUNCATED" == "true" ]]; then
+      echo "[branch-guard] NOTE: the merged-PR list came back full ($MERGED_LIMIT), so older merged" >&2
+      echo "[branch-guard] branches may be missing from it and listed here as unmerged." >&2
+    fi
     echo "[branch-guard] To override: set BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1" >&2
     exit 2
   fi
