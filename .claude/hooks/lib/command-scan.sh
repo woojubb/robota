@@ -447,7 +447,7 @@ hook_verb_scan() {
 
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t]+[ \t]+)*-C[ \t]+'
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
@@ -471,10 +471,10 @@ hook_deleted_branch() {
   fi
 
   # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
-  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)')
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t]+[ \t]+(--delete[ \t]+|:)')
   [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
 
   # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
   # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t]+[ \t]+'
 }

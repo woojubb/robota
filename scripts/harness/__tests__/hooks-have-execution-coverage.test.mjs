@@ -38,12 +38,24 @@ const TEST_SOURCES = readdirSync(TESTS_DIR)
 /**
  * Does `source` execute `hook`?
  *
- * Deliberately structural rather than clever: the file must name the hook AND hand a path to a
- * spawned shell. Naming it in a comment, or asserting over its source text, is not running it —
- * which is exactly the distinction this floor exists to draw.
+ * The distinction that matters is between a hook NAMED IN PROSE and one named as a value. Matching
+ * the name anywhere in the text counted a comment as coverage — the described-but-not-reached
+ * failure this floor exists to close, reproduced inside the floor. So comments are stripped first,
+ * and the name must survive that, in a file that spawns a shell.
+ *
+ * Requiring the name inside a `path.join(...)` was tried and was too narrow: a test that passes the
+ * name to a helper which joins it — `run('some-hook.sh', …)` — is running it just as truly.
+ *
+ * Still structural rather than exact: a file that spawns one hook and names another in a string it
+ * never uses would pass. Tying a spawn to its argument needs the call graph, and this is a
+ * grep-level floor by design — stated rather than implied.
  */
+function withoutComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 function executesHook(source, hook) {
-  if (!source.text.includes(hook)) return false;
+  if (!withoutComments(source.text).includes(hook)) return false;
   return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(source.text);
 }
 

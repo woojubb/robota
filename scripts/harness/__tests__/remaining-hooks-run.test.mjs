@@ -80,6 +80,33 @@ describe('post-tool-format', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('does nothing at all when the project directory is unset', () => {
+    // The case neither earlier test reached: the variable unset AND a real file with a formatted
+    // extension. A nonexistent path and a `.txt` both exit before the scoping check, so both stayed
+    // green whether or not the bare `$CLAUDE_PROJECT_DIR` crash existed — and it did, twice: once in
+    // the scoping pattern and again at the `cd` four lines below it.
+    //
+    // Without a project directory the hook cannot tell what is in scope. `\"${CLAUDE_PROJECT_DIR:-}\"/*`
+    // does not fail safe either — unset, it reduces to `/*`, which matches nearly every absolute
+    // path. So it does nothing.
+    const dir = scratchDir('post-format-unset-');
+    const file = path.join(dir, 'thing.ts');
+    writeFileSync(file, 'const a = 1\n');
+
+    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'post-tool-format.sh')], {
+      input: JSON.stringify({ tool_input: { file_path: file } }),
+      encoding: 'utf8',
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([k]) => k !== 'CLAUDE_PROJECT_DIR'),
+      ),
+    });
+
+    expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+    expect(`${result.stderr ?? ''}`, 'it crashed instead of standing down').not.toMatch(
+      /unbound variable|바인딩 해제/,
+    );
+  });
+
   it('does nothing for a file outside the formatted set', () => {
     const dir = scratchDir('post-format-');
     const file = path.join(dir, 'notes.txt');
