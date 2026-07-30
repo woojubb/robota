@@ -20,9 +20,15 @@ if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
   exit 0
 fi
 
-# Only format files within the project directory
+# Only format files within the project directory.
+#
+# `${CLAUDE_PROJECT_DIR:-}`, not a bare reference: under `set -u` an unset variable aborts the hook
+# here, and the tool host does not guarantee it. Found by giving this hook its first execution test
+# (PROC-003's third question) — it had never been run by anything but a live session, where the
+# variable happens to be present. With it unset the comparison simply matches nothing, which is the
+# fail-safe direction for a formatter.
 case "$FILE_PATH" in
-  "$CLAUDE_PROJECT_DIR"/*) ;;
+  "${CLAUDE_PROJECT_DIR:-}"/*) ;;
   *) exit 0 ;;
 esac
 

@@ -83,3 +83,28 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
 4. Reuse the `backlog-pipeline` / `backlog-gate-guard` shape: an orchestrator that only routes, a worker
    that only produces, a guardian that only judges. Add a tier only when a phase owns its own ordering
    (see the nesting note above) — never to make a step more likely to run.
+
+## Three questions a guard must answer (PROC-003)
+
+In this order. The first two were already asked here; the third is what four independent audits added.
+
+1. **Can it fail?** — a check with no failing input is a check that has never been run.
+   (`scan-main-required-checks`, INFRA-055.)
+2. **Does it check the right thing?** — a check that fires on the wrong subject is not a weaker check,
+   it is a different one. (`.agents/memory/check-validity-two-axes.md`.)
+3. **Is it REACHED — by the real invocation, in the real environment?**
+
+A test that supplies the condition itself, an entry point nothing calls, and a matcher no real command
+hits all pass 1 and 2 and fail 3. Each has been measured here:
+
+- `pre-push-check` matched with a `^` anchor while every command begins `cd <repo> && …`, so every push
+  in a long session bypassed it silently (#1510).
+- `worktree-cwd-guard` gated on `ROBOTA_AGENT_WORKTREE`, exported by nothing but its own tests, so it
+  exited on its first line in every real session while ten tests stayed green (INFRA-068).
+- `verify-like-ci` named itself the CI-equivalent entry point and was invoked by nothing (INFRA-069).
+
+So a guard lands with a case that RUNS it as a real invocation would, supplying only what a real
+session supplies. `hooks-have-execution-coverage` is the mechanical floor for question 3 in
+`.claude/hooks/`: a hook no test executes fails it. Whether the environment a case supplies is one a
+real session has remains judgement — state, beside the case, which signal it depends on and who sends
+it.

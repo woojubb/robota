@@ -229,6 +229,17 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.output, 'the refusal named no base').toMatch(/found:\s+\S/);
   });
 
+  it('stops at the end of the line, not at the end of the command', () => {
+    // `[^ \\t]` excludes space and tab but INCLUDES a newline, so the branch-name token ran greedily
+    // across the line break and swallowed the next line's first word — `git checkout -b feat/x` on
+    // one line and `git status --porcelain` on the next had `status` read as the base. Measured in
+    // practice: it refused the creation of the branch this fix lives on, twice in one session.
+    const cwd = repo();
+    const verdict = create(cwd, 'git checkout -b feat/new\ngit status --porcelain');
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('honours the override written INLINE, the way it is documented', () => {
     // The distinction this hook spends nine lines explaining: an inline `VAR=1 git …` is set in the
     // TOOL's shell and never reaches the hook process, so an override read only as `${VAR:-0}` does
