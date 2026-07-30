@@ -240,6 +240,24 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('reads a base glued to the operator that follows it', () => {
+    // `git checkout -b feat/x main;` is one whitespace-separated token, `main;`, and git cuts from
+    // `main`. Blanking the token because it contained an operator fell back to HEAD, so a base of
+    // `main` passed whenever HEAD happened to be develop — a fail-OPEN, worse than the version
+    // before it, which at least failed to resolve and refused.
+    const cwd = repo();
+
+    for (const command of [
+      'git checkout -b feat/new main;',
+      'git checkout -b feat/new main&&true',
+      'git checkout -b feat/new main|cat',
+    ]) {
+      const verdict = create(cwd, command);
+      expect(verdict.status, `a glued base slipped past: ${command}`).toBe(2);
+      expect(verdict.output).toMatch(/found:\s+main\b/);
+    }
+  });
+
   it('does not read a redirection as a start point', () => {
     // `git checkout -b feat/x 2>&1 | head` had `2>&1` taken as the base, which resolved to nothing
     // and refused a perfectly ordinary creation. Measured in practice — it blocked the creation of

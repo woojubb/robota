@@ -403,13 +403,21 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # refuse, waved through by one common flag.
     START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
-    # A start point is a git ref. A flag, a shell operator or a REDIRECTION is not one — and the
-    # redirection case is not hypothetical: `git checkout -b feat/x 2>&1 | head` had `2>&1` read as
-    # the base, which resolved to nothing and refused the creation. Measured while creating the very
-    # branch this fix lives on.
+    # A start point is a git ref, and the token holding it may be glued to what follows.
+    #
+    # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:
+    # `git checkout -b feat/x main;` reads as one token `main;`, git cuts from `main`, and blanking
+    # it fell back to HEAD — so a base of `main` passed whenever HEAD happened to be develop. A
+    # fail-OPEN, where the version before it at least failed to resolve and refused.
+    #
+    # So the token is TRUNCATED at the first operator rather than discarded, and a redirection is
+    # recognised by its shape — `2>&1`, `>/dev/null` — instead of by containing an operator at all.
+    # `git checkout -b feat/x 2>&1 | head` is an ordinary creation and must not be refused; that one
+    # was measured, blocking the creation of the branch this check was fixed on.
     case "$START_POINT" in
       -* | '') START_POINT="" ;;
-      *[\<\>\|\&\;]*) START_POINT="" ;;
+      [0-9]*'>'* | '>'* | '<'*) START_POINT="" ;;
+      *) START_POINT="${START_POINT%%[\<\>\|\&\;]*}" ;;
     esac
 
     # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
