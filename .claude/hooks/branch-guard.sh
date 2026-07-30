@@ -414,12 +414,19 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # recognised by its shape — `2>&1`, `>/dev/null` — instead of by containing an operator at all.
     # `git checkout -b feat/x 2>&1 | head` is an ordinary creation and must not be refused; that one
     # was measured, blocking the creation of the branch this check was fixed on.
+    # A redirection, in either direction, with or without a file-descriptor number: `2>&1`,
+    # `>/dev/null`, `3<file`, `<in`. Those are not start points at all.
+    #
+    # The descriptor and the operator must be ADJACENT. Written as the glob `[0-9]*'>'*` this read
+    # "a digit, then anything, then `>`" — so `2fa-base>/tmp/out.log` matched, and a real ref whose
+    # name begins with a digit was blanked and fell back to HEAD. The same fail-open this whole arm
+    # exists to prevent, reintroduced for every start point starting with a number. So the leading
+    # run of digits is stripped and the NEXT character decides.
+    START_POINT_AFTER_FD="${START_POINT#"${START_POINT%%[!0-9]*}"}"
+    case "$START_POINT_AFTER_FD" in '>'* | '<'*) START_POINT="" ;; esac
+
     case "$START_POINT" in
       -* | '') START_POINT="" ;;
-      # Both directions, and with or without a file-descriptor number: `2>&1`, `>/dev/null`,
-      # `3<file`, `<in`. Covering only the output side left `3<file` falling through to the
-      # truncation below, which kept the bare fd number `3` and refused a legitimate creation.
-      [0-9]*'>'* | [0-9]*'<'* | '>'* | '<'*) START_POINT="" ;;
       *) START_POINT="${START_POINT%%[\<\>\|\&\;]*}" ;;
     esac
 

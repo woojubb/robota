@@ -240,6 +240,19 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('does not mistake a digit-named base for a file descriptor', () => {
+    // As a glob, `[0-9]*'>'*` reads "a digit, then anything, then `>`" — so `2fa-base>/tmp/out.log`
+    // matched and a real ref beginning with a digit was blanked, falling back to HEAD. The same
+    // fail-open the redirection arm exists to prevent, for every start point whose name starts with
+    // a number. The descriptor and the operator have to be adjacent.
+    const cwd = repo();
+    git(cwd, 'branch', '2fa-base', 'main');
+
+    const verdict = create(cwd, 'git checkout -b feat/new 2fa-base>/tmp/out.log');
+    expect(verdict.status, 'a digit-named base was read as a descriptor and skipped').toBe(2);
+    expect(verdict.output).toMatch(/found:\s+2fa-base \([0-9a-f]{9}\)/);
+  });
+
   it('reads a base glued to the operator that follows it', () => {
     // `git checkout -b feat/x main;` is one whitespace-separated token, `main;`, and git cuts from
     // `main`. Blanking the token because it contained an operator fell back to HEAD, so a base of
