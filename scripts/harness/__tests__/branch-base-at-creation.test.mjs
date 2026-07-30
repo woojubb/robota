@@ -202,6 +202,33 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('reads the start point past any flags that precede it', () => {
+    // `git checkout -b feat/x --track origin/main` puts a flag where the start point was being read,
+    // so the check compared HEAD instead and passed while the branch came from `origin/main` — the
+    // exact creation this exists to refuse, waved through by one common flag.
+    const cwd = repo();
+
+    for (const command of [
+      'git checkout -b feat/new --track main',
+      'git switch -c feat/new --no-track main',
+    ]) {
+      const verdict = create(cwd, command);
+      expect(verdict.status, `a flagged start point slipped past: ${command}`).toBe(2);
+      expect(verdict.output).toContain('main');
+    }
+  });
+
+  it('names the base in the refusal even from a detached HEAD', () => {
+    // `branch --show-current` exits 0 with empty output when detached, so the `|| echo HEAD` fallback
+    // never fired and the refusal named nothing at all.
+    const cwd = repo();
+    git(cwd, 'checkout', '-q', '--detach', 'main');
+
+    const verdict = create(cwd, 'git checkout -b feat/new');
+    expect(verdict.status).toBe(2);
+    expect(verdict.output, 'the refusal named no base').toMatch(/found:\s+\S/);
+  });
+
   it('honours the override and says it was used', () => {
     const cwd = repo();
     const verdict = create(cwd, 'git checkout -b feat/new main', {

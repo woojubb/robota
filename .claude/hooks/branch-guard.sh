@@ -218,7 +218,11 @@ fi
 PROJECT_DIR="$EFFECTIVE_DIR"
 CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 
-if [[ -z "$CURRENT_BRANCH" ]]; then
+# A detached HEAD has no branch name, so the protected-branch checks below have nothing to compare
+# and the guard used to stop here. Branch CREATION is different: creating `feat/x` while detached at
+# `main` is precisely the wrong base this guard refuses, and stopping first made that unreachable —
+# the base check could never run in the one state where nobody notices the base.
+if [[ -z "$CURRENT_BRANCH" && "$IS_BRANCH_CREATE" != "true" ]]; then
   exit 0
 fi
 
@@ -385,8 +389,12 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     ! [[ "$NEW_BRANCH" =~ ^(hotfix|release)/ ]]; then
     # The start point, when the command names one: the token after the branch name. A `&&`, a `;` or
     # another flag is not a start point — those mean the command simply ended.
+    # Flags may sit between the new branch name and the start point: `git checkout -b feat/x --track
+    # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
+    # instead and passed while the branch came from `origin/main` — the exact creation this exists to
+    # refuse, waved through by one common flag.
     START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
-      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+' || true)
+      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
     case "$START_POINT" in -* | '&'* | '|'* | ';'* | '') START_POINT="" ;; esac
 
     # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
@@ -406,7 +414,10 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     WANTED_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
     BASE_REF="${START_POINT:-HEAD}"
     BASE_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
-    BASE_NAME="${START_POINT:-$(git -C "$BASE_DIR" branch --show-current 2>/dev/null || echo HEAD)}"
+    # `branch --show-current` exits 0 with empty output on a detached HEAD, so `|| echo HEAD` never
+    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code.
+    CURRENT_ON_BASE=$(git -C "$BASE_DIR" branch --show-current 2>/dev/null || echo "")
+    BASE_NAME="${START_POINT:-${CURRENT_ON_BASE:-HEAD}}"
 
     if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
       echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2
