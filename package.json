@@ -104,7 +104,8 @@
     "harness:scan:orphan-exports": "node scripts/harness/check-orphan-exports.mjs",
     "test:mutation": "stryker run",
     "proof:external": "node scripts/external-proof/run-external-proof.mjs",
-    "typecheck:compare": "node scripts/perf/compare-typecheck.mjs"
+    "typecheck:compare": "node scripts/perf/compare-typecheck.mjs",
+    "harness:review:record": "node scripts/harness/record-local-review.mjs"
   },
   "keywords": [
     "ai",

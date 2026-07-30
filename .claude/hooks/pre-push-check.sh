@@ -142,4 +142,102 @@ if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
 fi
 
 echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with push." >&2
+# --- the review round belongs BEFORE this push -------------------------------------------------
+#
+# `pr-review-orchestration` used to wait for required checks to go green before its FIRST review
+# round, so the reviewer only ever saw a diff that had already been pushed, opened as a PR and run
+# through CI. Every finding therefore cost a push → CI round trip before anyone could look at it.
+#
+# Measured across one session (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 rounds, 24 of them
+# carrying a blocking finding, at 6–10 minutes of CI each. None of those findings needed CI to be
+# seen; every one was read out of the diff. Several were regressions introduced by the previous
+# round's fix, which a review of the next diff would have caught just as cheaply. The reviewer agent
+# already accepts a local diff — only the precondition forced the trip.
+#
+# What this checks is that a review RAN at this commit and reported zero gating findings. It cannot
+# check that the review was good; a hook judging that would be measuring the wrong thing. Its value
+# is that the round happens here rather than eight minutes from now.
+#
+# Not enforced for the integration branches or a promotion branch: a promotion carries develop's
+# already-reviewed content and no diff of its own.
+# Deliberately NOT the same list as the branch-hygiene exemption above, which answers a different
+# question. That one asks "does comparing this branch to develop mean anything", so it exempts every
+# `release/*` and `hotfix/*` because their base is not develop. This one asks "does this push carry
+# a diff someone should have reviewed", and a hotfix or a release branch carries exactly that — they
+# are the pushes least worth waving through. Only `release/promote-*` is exempt here, because a
+# promotion carries develop's already-reviewed content and no diff of its own.
+#
+# `gh-pages` is exempt for the same reason as the integration branches: it is published output, not
+# a reviewed change set.
+#
+# Review flagged the difference as possible drift and asked whether it was intentional. It is, and
+# the tests below pin every entry so unifying the lists breaks loudly instead of quietly.
+case "$CUR_BRANCH" in
+  main | master | develop | gh-pages | release/promote-*) exit 0 ;;
+esac
+
+
+# The override must be an env prefix OF THE PUSH, not a token loose in the command. Matched
+# anywhere, `PRE_PUSH_ALLOW_UNREVIEWED=1 date; git push …` disarms the gate with an assignment that
+# belongs to an unrelated statement and never reaches the push. `merge-gate` already carries this
+# correction; applying it there and not here is the sibling asymmetry this session kept finding.
+#
+# And it excuses only the pushes it actually prefixes. `PRE_PUSH_ALLOW_UNREVIEWED=1 git push a &&
+# git push b` overrides the first push and not the second in real shell semantics, so letting the
+# whole command through would grant an unearned bypass to the second — the one direction this file
+# never trades in. When some pushes are unprefixed the override does not apply and the record check
+# below decides for all of them.
+PUSH_RE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push\b'
+ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'
+PUSH_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$PUSH_RE" | grep -c . || true)
+ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || true)
+
+if [[ "$ACK_COUNT" -gt 0 && "$ACK_COUNT" -ge "$PUSH_COUNT" ]]; then
+  echo "[pre-push-check] Override: PRE_PUSH_ALLOW_UNREVIEWED=1 — this push carries an unreviewed diff." >&2
+  exit 0
+fi
+
+# A detached HEAD has no branch to key a record against, and falling through produced a single
+# shared filename — `.agents/local-reviews/.json` — that every detached push would satisfy for every
+# other. The branch-hygiene check above exempts the empty case because it has nothing to compare;
+# this one has something to protect and no key for it, so it refuses. Review asked whether the
+# difference was intentional: it is now, and stated.
+if [[ -z "$CUR_BRANCH" ]]; then
+  echo "[pre-push-check] Blocked: pushing from a detached HEAD, so a review record cannot be keyed" >&2
+  echo "[pre-push-check] to a branch. Check out the branch you are pushing, or override inline:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
+  exit 2
+fi
+
+# The verdict comes from `record-local-review.mjs --show`, which owns it. The first version of this
+# block re-parsed the record with grep in bash — reproducing, in the read path, the duplicated-logic
+# drift the comment below it complains about. Two implementations agree until one of them changes.
+# Resolved beside the hook, not inside the checkout being judged: the recorder ships with the hook,
+# and the hook is what decides. WHICH checkout is judged is passed as the working directory instead,
+# which is why the recorder resolves its repository from `cwd` rather than from its own location.
+RECORDER="$(dirname "${BASH_SOURCE[0]}")/../../scripts/harness/record-local-review.mjs"
+
+if ! command -v node >/dev/null 2>&1 || [[ ! -f "$RECORDER" ]]; then
+  echo "[pre-push-check] Blocked: cannot check the review record (node or the recorder is missing)," >&2
+  echo "[pre-push-check] so whether this diff was reviewed is unknown. Override inline:" >&2
+  echo "[pre-push-check] PRE_PUSH_ALLOW_UNREVIEWED=1 git push …" >&2
+  exit 2
+fi
+
+if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
+  echo "[pre-push-check] Blocked: ${REVIEW_STATE:-no local review recorded}." >&2
+  # The base depends on the branch. This file's own hygiene section documents `release/*` and
+  # `hotfix/*` as based on main, and those branches are deliberately NOT exempt from this gate — so
+  # naming develop unconditionally pointed a blocked hotfix at the wrong diff.
+  case "$CUR_BRANCH" in
+    release/* | hotfix/*) REVIEW_BASE=origin/main ;;
+    *) REVIEW_BASE=origin/develop ;;
+  esac
+  echo "[pre-push-check] Review the local diff first (git diff ${REVIEW_BASE}...HEAD), resolve every" >&2
+  echo "[pre-push-check] MUST/SHOULD, then: pnpm harness:review:record -- --findings 0" >&2
+  echo "[pre-push-check] A round here costs a minute; the same round after a push costs a CI cycle." >&2
+  echo "[pre-push-check] Deliberate exception: PRE_PUSH_ALLOW_UNREVIEWED=1 inline." >&2
+  exit 2
+fi
+
 exit 0
