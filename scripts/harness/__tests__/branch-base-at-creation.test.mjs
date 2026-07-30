@@ -274,6 +274,10 @@ describe('a feature branch is cut from origin/develop', () => {
       'git checkout -b feat/new 2>&1 | head -1',
       'git checkout -b feat/new >/dev/null',
       'git switch -c feat/new 2>/dev/null',
+      // The input side, with and without a descriptor number. Covering only `>` left `3<file`
+      // falling through to truncation, which kept the bare fd `3` and refused the creation.
+      'git checkout -b feat/new 3<file',
+      'git checkout -b feat/new <in',
     ]) {
       const verdict = create(cwd, command);
       expect(verdict.status, `a redirection was read as a base: ${command}`).toBe(0);

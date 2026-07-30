@@ -416,7 +416,10 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # was measured, blocking the creation of the branch this check was fixed on.
     case "$START_POINT" in
       -* | '') START_POINT="" ;;
-      [0-9]*'>'* | '>'* | '<'*) START_POINT="" ;;
+      # Both directions, and with or without a file-descriptor number: `2>&1`, `>/dev/null`,
+      # `3<file`, `<in`. Covering only the output side left `3<file` falling through to the
+      # truncation below, which kept the bare fd number `3` and refused a legitimate creation.
+      [0-9]*'>'* | [0-9]*'<'* | '>'* | '<'*) START_POINT="" ;;
       *) START_POINT="${START_POINT%%[\<\>\|\&\;]*}" ;;
     esac
 
