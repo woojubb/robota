@@ -161,6 +161,23 @@ describe('a feature branch is cut from origin/develop', () => {
     }
   });
 
+  it('judges the session repository, not a -C belonging to another statement', () => {
+    // `PROJECT_DIR` prefers a `git -C <path>` found anywhere in the command, and in a compound
+    // command that `-C` usually belongs to some other invocation. Judging the base against it made
+    // `git checkout -b feat/x && git -C <other> status` refuse a legitimate creation, because
+    // <other> has no develop. Measured — it broke an existing test the moment it shipped.
+    const cwd = repo();
+    // Deliberately a repository with no `develop` at all, which is what made the original failure
+    // visible: judging <other> found nothing to compare against and refused.
+    const elsewhere = mkdtempSync(path.join(tmpdir(), 'other-repo-'));
+    scratch.push(elsewhere);
+    execFileSync('git', ['init', '-q', '--initial-branch=main', elsewhere]);
+    git(elsewhere, 'commit', '--allow-empty', '-q', '-m', 'init');
+
+    const verdict = create(cwd, `git checkout -b feat/new && git -C ${elsewhere} status`);
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('honours the override and says it was used', () => {
     const cwd = repo();
     const verdict = create(cwd, 'git checkout -b feat/new main', {

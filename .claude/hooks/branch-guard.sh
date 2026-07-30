@@ -385,12 +385,24 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1"
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+' || true)
     case "$START_POINT" in -* | '&'* | '|'* | ';'* | '') START_POINT="" ;; esac
 
+    # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
+    # anywhere in the command, and in a compound command that `-C` usually belongs to some other
+    # invocation — `git checkout -b feat/x && git -C <other> status` would have this check judge
+    # <other>, which is not where the branch lands. Measured: that shape blocked a legitimate
+    # creation. Stated limit: `git -C <other> checkout -b` is judged against the session repository
+    # rather than <other>; branches are created where the session is, and erring that way
+    # over-permits a rare form instead of refusing a common one.
+    BASE_DIR="${CLAUDE_PROJECT_DIR:-.}"
+    if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      BASE_DIR="$HOOK_CWD"
+    fi
+
     WANTED=origin/develop
-    git -C "$PROJECT_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
-    WANTED_SHA=$(git -C "$PROJECT_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
+    git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
+    WANTED_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
     BASE_REF="${START_POINT:-HEAD}"
-    BASE_SHA=$(git -C "$PROJECT_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
-    BASE_NAME="${START_POINT:-$CURRENT_BRANCH}"
+    BASE_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
+    BASE_NAME="${START_POINT:-$(git -C "$BASE_DIR" branch --show-current 2>/dev/null || echo HEAD)}"
 
     if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
       echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2
