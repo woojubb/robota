@@ -229,12 +229,77 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.output, 'the refusal named no base').toMatch(/found:\s+\S/);
   });
 
-  it('honours the override and says it was used', () => {
+  it('honours the override written INLINE, the way it is documented', () => {
+    // The distinction this hook spends nine lines explaining: an inline `VAR=1 git …` is set in the
+    // TOOL's shell and never reaches the hook process, so an override read only as `${VAR:-0}` does
+    // nothing in its documented form. This case passes it inline, as a user would. Injecting it
+    // through the hook's environment — which the first version of this test did — hides exactly that.
     const cwd = repo();
-    const verdict = create(cwd, 'git checkout -b feat/new main', {
-      BRANCH_GUARD_ALLOW_BASE: '1',
-    });
+    const verdict = create(cwd, 'BRANCH_GUARD_ALLOW_BASE=1 git checkout -b feat/new main');
 
     expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('does not mistake a digit-named base for a file descriptor', () => {
+    // As a glob, `[0-9]*'>'*` reads "a digit, then anything, then `>`" — so `2fa-base>/tmp/out.log`
+    // matched and a real ref beginning with a digit was blanked, falling back to HEAD. The same
+    // fail-open the redirection arm exists to prevent, for every start point whose name starts with
+    // a number. The descriptor and the operator have to be adjacent.
+    const cwd = repo();
+    git(cwd, 'branch', '2fa-base', 'main');
+
+    const verdict = create(cwd, 'git checkout -b feat/new 2fa-base>/tmp/out.log');
+    expect(verdict.status, 'a digit-named base was read as a descriptor and skipped').toBe(2);
+    expect(verdict.output).toMatch(/found:\s+2fa-base \([0-9a-f]{9}\)/);
+  });
+
+  it('reads a base glued to the operator that follows it', () => {
+    // `git checkout -b feat/x main;` is one whitespace-separated token, `main;`, and git cuts from
+    // `main`. Blanking the token because it contained an operator fell back to HEAD, so a base of
+    // `main` passed whenever HEAD happened to be develop — a fail-OPEN, worse than the version
+    // before it, which at least failed to resolve and refused.
+    const cwd = repo();
+
+    for (const command of [
+      'git checkout -b feat/new main;',
+      'git checkout -b feat/new main&&true',
+      'git checkout -b feat/new main|cat',
+    ]) {
+      const verdict = create(cwd, command);
+      expect(verdict.status, `a glued base slipped past: ${command}`).toBe(2);
+      // The WRONG-BASE refusal, which prints a resolved sha — not the cannot-resolve one, which
+      // prints the raw token. Both exit 2 and both contain "found: main", so asserting on the
+      // status and the word alone passed whether or not the token was ever truncated. That is the
+      // difference this case exists to measure.
+      expect(verdict.output, `truncation did not happen for: ${command}`).toMatch(
+        /found:\s+main \([0-9a-f]{9}\)/,
+      );
+    }
+  });
+
+  it('does not read a redirection as a start point', () => {
+    // `git checkout -b feat/x 2>&1 | head` had `2>&1` taken as the base, which resolved to nothing
+    // and refused a perfectly ordinary creation. Measured in practice — it blocked the creation of
+    // the branch this fix was written on.
+    const cwd = repo();
+
+    for (const command of [
+      'git checkout -b feat/new 2>&1 | head -1',
+      'git checkout -b feat/new >/dev/null',
+      'git switch -c feat/new 2>/dev/null',
+      // The input side, with and without a descriptor number. Covering only `>` left `3<file`
+      // falling through to truncation, which kept the bare fd `3` and refused the creation.
+      'git checkout -b feat/new 3<file',
+      'git checkout -b feat/new <in',
+    ]) {
+      const verdict = create(cwd, command);
+      expect(verdict.status, `a redirection was read as a base: ${command}`).toBe(0);
+    }
+  });
+
+  it('refuses the same creation without the override', () => {
+    // The other half, so the case above cannot pass because the check stopped working.
+    const cwd = repo();
+    expect(create(cwd, 'git checkout -b feat/new main').status).toBe(2);
   });
 });

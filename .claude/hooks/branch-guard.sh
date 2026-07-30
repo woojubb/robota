@@ -59,6 +59,14 @@ fi
 if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
   BRANCH_GUARD_ALLOW_BADNAME=1
 fi
+# The base override belongs in this block for the reason the paragraph above gives: an inline
+# `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
+# `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
+# for it injected the variable through the hook's own environment — hiding the very distinction this
+# file spends nine lines explaining.
+if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BASE=1([[:space:]]|$)'; then
+  BRANCH_GUARD_ALLOW_BASE=1
+fi
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
@@ -395,7 +403,32 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # refuse, waved through by one common flag.
     START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t]+[ \t]+|-[^ \t]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t]+[ \t]+)*-[bBcC][ \t]+[^ \t]+[ \t]+(-[^ \t]+[ \t]+)*' || true)
-    case "$START_POINT" in -* | '&'* | '|'* | ';'* | '') START_POINT="" ;; esac
+    # A start point is a git ref, and the token holding it may be glued to what follows.
+    #
+    # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:
+    # `git checkout -b feat/x main;` reads as one token `main;`, git cuts from `main`, and blanking
+    # it fell back to HEAD — so a base of `main` passed whenever HEAD happened to be develop. A
+    # fail-OPEN, where the version before it at least failed to resolve and refused.
+    #
+    # So the token is TRUNCATED at the first operator rather than discarded, and a redirection is
+    # recognised by its shape — `2>&1`, `>/dev/null` — instead of by containing an operator at all.
+    # `git checkout -b feat/x 2>&1 | head` is an ordinary creation and must not be refused; that one
+    # was measured, blocking the creation of the branch this check was fixed on.
+    # A redirection, in either direction, with or without a file-descriptor number: `2>&1`,
+    # `>/dev/null`, `3<file`, `<in`. Those are not start points at all.
+    #
+    # The descriptor and the operator must be ADJACENT. Written as the glob `[0-9]*'>'*` this read
+    # "a digit, then anything, then `>`" — so `2fa-base>/tmp/out.log` matched, and a real ref whose
+    # name begins with a digit was blanked and fell back to HEAD. The same fail-open this whole arm
+    # exists to prevent, reintroduced for every start point starting with a number. So the leading
+    # run of digits is stripped and the NEXT character decides.
+    START_POINT_AFTER_FD="${START_POINT#"${START_POINT%%[!0-9]*}"}"
+    case "$START_POINT_AFTER_FD" in '>'* | '<'*) START_POINT="" ;; esac
+
+    case "$START_POINT" in
+      -* | '') START_POINT="" ;;
+      *) START_POINT="${START_POINT%%[\<\>\|\&\;]*}" ;;
+    esac
 
     # The SESSION's repository, not `PROJECT_DIR`. `PROJECT_DIR` prefers a `git -C <path>` found
     # anywhere in the command, and in a compound command that `-C` usually belongs to some other
