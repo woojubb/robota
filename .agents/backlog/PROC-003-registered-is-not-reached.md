@@ -75,3 +75,34 @@ all pass 1 and 2 and fail 3.
 
 `#1510` and `#1514` already close the anchoring class for hooks, and `#1513` makes three scans'
 findings visible. Two audit passes proposed items for those; they are struck rather than duplicated.
+
+## Progress (2026-07-30)
+
+**Criterion 1 — the three questions are in the rule: DONE.** `enforcement-architecture.md` now
+carries them as the contract for adding a guard, with the three measured failures that produced the
+third one (`pre-push-check`'s `^` anchor, `worktree-cwd-guard`'s unexported marker, `verify-like-ci`'s
+absent caller).
+
+**Criterion 2 — a new guard cannot land without a case that runs it: PARTLY DONE, and the part that
+is mechanical is stated.** `hooks-have-execution-coverage` fails when any `.claude/hooks/*.sh` is
+executed by no test. It found four on its first run — `memory-mirror-reminder`, `post-tool-format`,
+`spec-first-gate`, `task-tracking` — described by nothing and run by nothing; all four now have
+execution cases, and giving `post-tool-format` its first one immediately surfaced a `set -u` crash on
+an unset `CLAUDE_PROJECT_DIR`.
+
+What the floor deliberately does not claim is the harder half: that the environment a case supplies
+is one a real session supplies. `worktree-cwd-guard` passed ten tests that ran it — with a marker
+only those tests set. The rule asks each case to state which signal it depends on and who sends it,
+and that remains judgement rather than a check.
+
+**Criterion 3 — child items closed or consciously deferred:**
+
+| Child                                                | State                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| INFRA-067 (branch base at creation)                  | closed 2026-07-30                                       |
+| INFRA-068 (worktree guard dead)                      | closed 2026-07-30                                       |
+| HARNESS-061 (hooks see part of the command)          | closed 2026-07-30                                       |
+| INFRA-066 (required checks runnable locally)         | OPEN — the ruleset-declaration mechanism does not exist |
+| HARNESS-057 (a scan reports the size of its subject) | OPEN                                                    |
+
+This item stays open on INFRA-066 and HARNESS-057, and on the judgement half of criterion 2.

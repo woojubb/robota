@@ -20,7 +20,21 @@ if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
   exit 0
 fi
 
-# Only format files within the project directory
+# Without a project directory this hook cannot tell what is in scope, and it must not guess.
+#
+# It bare-referenced `$CLAUDE_PROJECT_DIR` under `set -u`, so an unset variable aborted the hook —
+# found by giving it its first execution test (PROC-003's third question); it had only ever run in a
+# live session, where the variable happens to be present. The first attempt at a fix wrote
+# `"${CLAUDE_PROJECT_DIR:-}"/*` and claimed that matched nothing. It does the opposite: unset, the
+# pattern reduces to `/*`, and `*` in a case pattern matches `/` too — so it matches nearly every
+# absolute path, widening scope while the comment said it narrowed it. And `cd "$CLAUDE_PROJECT_DIR"`
+# four lines down still aborted anyway, so the crash simply moved.
+#
+# Nothing to scope means nothing to format.
+if [ -z "${CLAUDE_PROJECT_DIR:-}" ]; then
+  exit 0
+fi
+
 case "$FILE_PATH" in
   "$CLAUDE_PROJECT_DIR"/*) ;;
   *) exit 0 ;;
