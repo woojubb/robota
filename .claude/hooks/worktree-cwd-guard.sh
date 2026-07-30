@@ -64,7 +64,26 @@ fi
 # --- (b) worktree-assignment marker -------------------------------------------------------------
 # Present iff this session was spawned as a worktree-assigned subagent. Absent → ordinary main-clone
 # session → FAIL-SAFE, never block.
-if [[ -z "${ROBOTA_AGENT_WORKTREE:-}" ]]; then
+# The marker the original design hoped for — `ROBOTA_AGENT_WORKTREE`, exported by the launcher —
+# is exported by nothing. Measured 2026-07-30: the only places that set it in this repository are
+# this guard's own tests, so in every real session the variable was empty and the guard exited here
+# before checking anything. Ten green tests, and a guard that had never once run (INFRA-068).
+#
+# The session's own cwd cannot answer the question, because a cwd that has fallen back to the main
+# checkout is the very condition being guarded. What can answer it is WHICH COPY OF THIS HOOK IS
+# RUNNING: a worktree session has `CLAUDE_PROJECT_DIR` pointing at its worktree, and
+# `.claude/settings.json` invokes the hook through that variable — so the file executing right now
+# lives under `.claude/worktrees/` exactly when this is a worktree session. That is supplied by the
+# deployment rather than hoped for from it.
+#
+# The env marker is still honoured, for a launcher that does export it.
+IN_WORKTREE_SESSION=false
+SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")
+case "$SELF_DIR" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
+case "${CLAUDE_PROJECT_DIR:-}" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
+[[ -n "${ROBOTA_AGENT_WORKTREE:-}" ]] && IN_WORKTREE_SESSION=true
+
+if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
   exit 0
 fi
 
@@ -150,10 +169,14 @@ fi
 # effective repo is the MAIN checkout. This is the silent-cwd-fallback incident → BLOCK.
 echo "[worktree-cwd-guard] Blocked: a DESTRUCTIVE git command resolved to the MAIN checkout" >&2
 echo "[worktree-cwd-guard]   effective repo: $TOPLEVEL" >&2
-echo "[worktree-cwd-guard]   assigned worktree (ROBOTA_AGENT_WORKTREE): $ROBOTA_AGENT_WORKTREE" >&2
+# Named however this session was identified. The env marker is optional now — the copy of the hook
+# that is running is the signal that actually arrives — and referencing it bare aborted the script
+# under `set -u` AFTER the refusal had printed, turning a considered exit 2 into a bare exit 1.
+ASSIGNED_WORKTREE="${ROBOTA_AGENT_WORKTREE:-${CLAUDE_PROJECT_DIR:-$SELF_DIR}}"
+echo "[worktree-cwd-guard]   assigned worktree: $ASSIGNED_WORKTREE" >&2
 echo "[worktree-cwd-guard] Your worktree session's cwd appears to have fallen back to the main clone" >&2
 echo "[worktree-cwd-guard] (the assigned worktree was likely removed). Running this here would damage MAIN." >&2
-echo "[worktree-cwd-guard] Fix: cd back into your assigned worktree ('$ROBOTA_AGENT_WORKTREE') and re-run;" >&2
+echo "[worktree-cwd-guard] Fix: cd back into your assigned worktree ('$ASSIGNED_WORKTREE') and re-run;" >&2
 echo "[worktree-cwd-guard] if the worktree is gone, re-create it (git worktree add) or restart the task." >&2
 echo "[worktree-cwd-guard] Deliberate main-checkout op? Prefix: WORKTREE_CWD_GUARD_ALLOW_MAIN=1 <cmd>" >&2
 exit 2

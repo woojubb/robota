@@ -1,0 +1,132 @@
+import { execFileSync, spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
+
+/**
+ * The worktree guard, exercised the way a real session would reach it.
+ *
+ * `worktree-cwd-guard.sh` gated everything behind `ROBOTA_AGENT_WORKTREE`, a marker the launcher
+ * was expected to export. Measured 2026-07-30: the only places setting it in this repository were
+ * the guard's own tests. So in every real session the variable was empty, the hook exited on its
+ * first branch, and the ten tests beside it were green about a guard that had never run — the
+ * condition INFRA-068 was filed for, and the exact "green in tests, off in life" shape this
+ * repository keeps finding.
+ *
+ * The cases below supply no marker. What they supply is what the deployment supplies: a real linked
+ * worktree, `CLAUDE_PROJECT_DIR` pointing at it, and the copy of the hook that lives inside it.
+ */
+const scratch = [];
+
+afterAll(() => {
+  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
+});
+
+function git(cwd, ...args) {
+  return execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+}
+
+/**
+ * A main checkout with a REAL linked worktree under `.claude/worktrees/`, carrying its own copy of
+ * the hook — which is what `.claude/settings.json` invokes through `CLAUDE_PROJECT_DIR`.
+ */
+function repoWithWorktree() {
+  const root = mkdtempSync(path.join(tmpdir(), 'wt-alive-'));
+  scratch.push(root);
+  const main = path.join(root, 'mainrepo');
+  mkdirSync(main, { recursive: true });
+  git(main, 'init', '-q', '--initial-branch=develop');
+  git(main, 'commit', '--allow-empty', '-q', '-m', 'init');
+
+  const worktree = path.join(main, '.claude', 'worktrees', 'agent-test');
+  git(main, 'worktree', 'add', '-q', '-b', 'feat/assigned', worktree);
+
+  // The worktree's own copy of the hook and the library it sources.
+  const hooks = path.join(worktree, '.claude', 'hooks');
+  mkdirSync(path.join(hooks, 'lib'), { recursive: true });
+  copyFileSync(
+    path.join(HOOKS_DIR, 'worktree-cwd-guard.sh'),
+    path.join(hooks, 'worktree-cwd-guard.sh'),
+  );
+  copyFileSync(
+    path.join(HOOKS_DIR, 'lib/command-scan.sh'),
+    path.join(hooks, 'lib/command-scan.sh'),
+  );
+
+  return { main, worktree, hook: path.join(hooks, 'worktree-cwd-guard.sh') };
+}
+
+/**
+ * Run a hook with an environment scrubbed of the marker, so a case can only pass on signals the
+ * deployment actually provides.
+ */
+function runHook(hook, { command, cwd, projectDir }) {
+  const result = spawnSync('bash', [hook], {
+    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }),
+    encoding: 'utf8',
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      ...(projectDir ? { CLAUDE_PROJECT_DIR: projectDir } : {}),
+    },
+  });
+  return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+describe('the worktree guard is active without anything exporting a marker', () => {
+  it('blocks a destructive command aimed at the main checkout', () => {
+    // The scenario it exists for: a worktree-assigned session whose cwd has fallen back to the main
+    // checkout. The cwd cannot report that, since falling back is the condition — the copy of the
+    // hook that is running does.
+    const { main, worktree, hook } = repoWithWorktree();
+
+    const verdict = runHook(hook, {
+      command: 'git reset --hard origin/main',
+      cwd: main,
+      projectDir: worktree,
+    });
+
+    expect(
+      verdict.status,
+      'the guard stayed off with no marker exported, which is its state in every real session',
+    ).toBe(2);
+    expect(verdict.output).toMatch(/MAIN checkout/);
+  });
+
+  it('leaves the same command alone inside the assigned worktree', () => {
+    // Destructive work on the worktree it was given is the work; only the main checkout is out of
+    // bounds. A guard that blocked both would be turned off within a day.
+    const { worktree, hook } = repoWithWorktree();
+
+    const verdict = runHook(hook, {
+      command: 'git reset --hard HEAD~1',
+      cwd: worktree,
+      projectDir: worktree,
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('leaves an ordinary main-clone session alone', () => {
+    // The other half of the fail-safe: outside a worktree session the guard must not fire at all,
+    // or ordinary destructive work in the main clone becomes impossible.
+    const { main } = repoWithWorktree();
+
+    const verdict = runHook(path.join(HOOKS_DIR, 'worktree-cwd-guard.sh'), {
+      command: 'git reset --hard origin/main',
+      cwd: main,
+      projectDir: main,
+    });
+
+    expect(verdict.status, 'the guard fired outside a worktree session').toBe(0);
+  });
+});
