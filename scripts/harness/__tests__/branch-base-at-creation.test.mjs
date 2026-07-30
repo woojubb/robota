@@ -254,7 +254,13 @@ describe('a feature branch is cut from origin/develop', () => {
     ]) {
       const verdict = create(cwd, command);
       expect(verdict.status, `a glued base slipped past: ${command}`).toBe(2);
-      expect(verdict.output).toMatch(/found:\s+main\b/);
+      // The WRONG-BASE refusal, which prints a resolved sha — not the cannot-resolve one, which
+      // prints the raw token. Both exit 2 and both contain "found: main", so asserting on the
+      // status and the word alone passed whether or not the token was ever truncated. That is the
+      // difference this case exists to measure.
+      expect(verdict.output, `truncation did not happen for: ${command}`).toMatch(
+        /found:\s+main \([0-9a-f]{9}\)/,
+      );
     }
   });
 
