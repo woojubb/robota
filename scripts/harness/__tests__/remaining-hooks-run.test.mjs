@@ -143,8 +143,31 @@ describe('post-tool-format', () => {
 
 describe('spec-first-gate', () => {
   // Signal: the UserPromptSubmit payload's `prompt`. The gate reads intent from the text, so the
-  // cases are two prompts — one that states implementation intent without a spec reference, and one
-  // that carries no such intent at all.
+  // cases are prompts.
+  it('injects the gate when a prompt states implementation intent without a spec', () => {
+    // The case the earlier pair claimed and did not reach: both of those took the silent path, so
+    // breaking the intent match or deleting the SPEC-GATE block entirely would have left them green.
+    const verdict = run('spec-first-gate.sh', {
+      input: JSON.stringify({ prompt: 'implement the retry queue for the worker' }),
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'the gate said nothing about implementation intent').toMatch(
+      /SPEC-GATE/,
+    );
+  });
+
+  it('stays quiet when the prompt already refers to a spec', () => {
+    // The other half of the same branch: a prompt that names a spec has already done what the gate
+    // asks for, and a gate that fires anyway is one people learn to scroll past.
+    const verdict = run('spec-first-gate.sh', {
+      input: JSON.stringify({ prompt: 'implement the retry queue per its spec-doc' }),
+    });
+
+    expect(verdict.status).toBe(0);
+    expect(verdict.output.trim()).toBe('');
+  });
+
   it('says nothing when the prompt states no implementation intent', () => {
     const verdict = run('spec-first-gate.sh', {
       input: JSON.stringify({ prompt: 'what does this package do?' }),
@@ -165,6 +188,46 @@ describe('spec-first-gate', () => {
 describe('task-tracking', () => {
   // Signals: the `start`/`stop` mode argument, and a tasks directory under CLAUDE_PROJECT_DIR. Both
   // come from the deployment — the mode from `.claude/settings.json`, the directory from the repo.
+  function repoWithTasks(files) {
+    const dir = scratchDir('task-tracking-');
+    const tasks = path.join(dir, '.agents', 'tasks');
+    mkdirSync(tasks, { recursive: true });
+    for (const [name, body] of Object.entries(files)) {
+      writeFileSync(path.join(tasks, name), body);
+    }
+    return dir;
+  }
+
+  function track(dir, mode) {
+    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'task-tracking.sh'), mode], {
+      input: '{}',
+      encoding: 'utf8',
+      cwd: dir,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+    });
+    return {
+      status: result.status ?? 1,
+      output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+    };
+  }
+
+  it('classifies what is in the directory, open from finished', () => {
+    // The hook's actual job, which the guard-clause cases never reached. It lists both, and the
+    // classification is the content: an unchecked box is open work, `status: completed` is work that
+    // needs archiving. Asserting only that a name appears would pass with the classifier deleted.
+    const dir = repoWithTasks({
+      'TASK-1.md': '# One\n\n- [ ] still to do\n',
+      'TASK-2.md': '# Two\n\nstatus: completed\n\n- [ ] leftover\n',
+    });
+    const verdict = track(dir, 'start');
+
+    expect(verdict.output, 'the open task went unmentioned').toMatch(/TASK-1/);
+    expect(verdict.output, 'the open task was called finished').not.toMatch(/TASK-1\.md — DONE/);
+    expect(verdict.output, 'a finished task was not marked for archival').toMatch(
+      /TASK-2\.md — DONE/,
+    );
+  });
+
   it('refuses a mode it does not handle, and says so', () => {
     // Invoked with no mode it is not a no-op — it is a misuse, and the hook names the two it takes.
     const verdict = run('task-tracking.sh', { input: '{}' });
@@ -174,16 +237,9 @@ describe('task-tracking', () => {
   });
 
   it('does nothing when there is no tasks directory', () => {
-    const dir = scratchDir('task-tracking-');
+    const dir = scratchDir('task-tracking-empty-');
     mkdirSync(path.join(dir, '.claude'), { recursive: true });
 
-    const result = spawnSync('bash', [path.join(HOOKS_DIR, 'task-tracking.sh'), 'start'], {
-      input: '{}',
-      encoding: 'utf8',
-      cwd: dir,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
-    });
-
-    expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+    expect(track(dir, 'start').status).toBe(0);
   });
 });
