@@ -279,6 +279,29 @@ describe('a record only counts when it describes this commit and a clean review'
   });
 });
 
+describe('the recorder refuses to guess which checkout it is in', () => {
+  const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.mjs');
+
+  it('fails loudly outside a git work tree instead of using its own repository', () => {
+    // The resolver caught a failed `rev-parse` and fell back to the script's own location — doing
+    // precisely what its own docstring said must not happen: reading and writing one checkout's
+    // records while judging another. A no-fallback violation, and the one place the bash side of
+    // this gate refuses to guess while the JS side did.
+    const outside = mkdtempSync(path.join(tmpdir(), 'not-a-repo-'));
+    scratch.push(outside);
+
+    const result = spawnSync('node', [RECORDER, '--show'], {
+      cwd: outside,
+      encoding: 'utf8',
+    });
+
+    expect(result.status, 'the recorder guessed a repository instead of refusing').not.toBe(0);
+    expect(`${result.stderr}`, 'it refused without saying why').toMatch(
+      /not inside a git work tree/,
+    );
+  });
+});
+
 describe('the skill still puts the round before the push', () => {
   const skill = readFileSync(SKILL, 'utf8');
 

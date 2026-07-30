@@ -40,7 +40,13 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function git(args, cwd) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+  // stderr captured rather than inherited: git's own "not a git repository" would otherwise be the
+  // message a caller sees, ahead of the one that explains what this tool needs.
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
 }
 
 /**
@@ -50,13 +56,23 @@ function git(args, cwd) {
  * judging another one.
  */
 function repoRoot(cwd = process.cwd()) {
+  // No fallback. Returning SCRIPT_ROOT here would do precisely what the paragraph above says must
+  // not happen: read and write one checkout's records while judging another. A guard that cannot
+  // tell which repository it is in must say so, not guess — and the bash side of this gate already
+  // refuses rather than assuming the main clone.
   try {
     return git(['rev-parse', '--show-toplevel'], cwd);
   } catch {
-    return SCRIPT_ROOT;
+    console.error(`record-local-review: ${cwd} is not inside a git work tree.`);
+    console.error('A review record belongs to a specific checkout; this one cannot be identified.');
+    process.exit(1);
   }
 }
 
+/**
+ * The default record directory — THIS checkout's. Exported for the helpers' default argument; any
+ * caller judging another checkout must pass its directory explicitly, which is what `main()` does.
+ */
 export const RECORD_DIR = path.join(SCRIPT_ROOT, '.agents/local-reviews');
 
 function recordDirFor(root) {
