@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -107,16 +107,37 @@ describe('post-tool-format', () => {
     );
   });
 
-  it('does nothing for a file outside the formatted set', () => {
-    const dir = scratchDir('post-format-');
-    const file = path.join(dir, 'notes.txt');
-    writeFileSync(file, 'plain text\n');
+  it('reaches the extension filter, and the filter decides', () => {
+    // This case asserted exit 0 for a `.txt` without setting CLAUDE_PROJECT_DIR — so the new
+    // stand-down guard exited first and the extension filter was never reached. Deleting that filter
+    // entirely would have left the test green: the described-but-not-reached shape, in the file
+    // written to close it.
+    //
+    // `npx` is stubbed to leave a marker, so "the filter let it through" is observable rather than
+    // inferred from an exit code both paths share.
+    const dir = scratchDir('post-format-filter-');
+    const bin = scratchDir('npx-stub-');
+    const marker = path.join(dir, 'npx-ran');
+    writeFileSync(path.join(bin, 'npx'), `#!/bin/sh\necho "$@" >> ${JSON.stringify(marker)}\n`);
+    chmodSync(path.join(bin, 'npx'), 0o755);
 
-    const verdict = run('post-tool-format.sh', {
-      input: JSON.stringify({ tool_input: { file_path: file } }),
-    });
+    const formatted = path.join(dir, 'thing.ts');
+    const ignored = path.join(dir, 'notes.txt');
+    writeFileSync(formatted, 'const a = 1\n');
+    writeFileSync(ignored, 'plain text\n');
 
-    expect(verdict.status, verdict.output).toBe(0);
+    const call = (file) =>
+      spawnSync('bash', [path.join(HOOKS_DIR, 'post-tool-format.sh')], {
+        input: JSON.stringify({ tool_input: { file_path: file } }),
+        encoding: 'utf8',
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CLAUDE_PROJECT_DIR: dir },
+      });
+
+    expect(call(ignored).status ?? 1).toBe(0);
+    expect(existsSync(marker), 'an unsupported extension was handed to the formatter').toBe(false);
+
+    expect(call(formatted).status ?? 1).toBe(0);
+    expect(existsSync(marker), 'a supported extension never reached the formatter').toBe(true);
   });
 });
 
