@@ -178,6 +178,30 @@ describe('a feature branch is cut from origin/develop', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('is not switched off by the branch-NAME override', () => {
+    // The two checks were one block gated by `BRANCH_GUARD_ALLOW_BADNAME`, an override documented for
+    // branch names — so setting it silently disabled the base check and reopened the
+    // promotion-ancestry hole this item exists to close. No case combined the two, which is how the
+    // coupling shipped green: the accidental-green pattern, in the very test written to prevent it.
+    const cwd = repo();
+    const verdict = create(cwd, 'git checkout -b my-branch main', {
+      BRANCH_GUARD_ALLOW_BADNAME: '1',
+    });
+
+    expect(verdict.status, 'the name override also waved through a wrong base').toBe(2);
+    expect(verdict.output).toMatch(/wanted: origin\/develop/);
+  });
+
+  it('lets the branch-NAME override do only its own job', () => {
+    // The other side: the name override must still work for a name, when the base is right.
+    const cwd = repo();
+    const verdict = create(cwd, 'git checkout -b my-branch origin/develop', {
+      BRANCH_GUARD_ALLOW_BADNAME: '1',
+    });
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('honours the override and says it was used', () => {
     const cwd = repo();
     const verdict = create(cwd, 'git checkout -b feat/new main', {

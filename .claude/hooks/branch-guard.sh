@@ -352,7 +352,11 @@ fi
 
 # Enforce feature branch naming convention <type>/<desc> (git-branch.md).
 # Long-lived branches are exempt; override with BRANCH_GUARD_ALLOW_BADNAME=1.
-if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]]; then
+# Branch creation. TWO independent checks live here — the base a branch is cut from, and the name
+# it is given — each with its OWN override. They were one block gated by the NAME override, so
+# `BRANCH_GUARD_ALLOW_BADNAME=1` silently switched the base check off too and reopened the
+# promotion-ancestry hole it exists to close. Two checks, two overrides; neither excuses the other.
+if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
   # Read the branch name out of the checkout/switch invocation itself. The previous expression
   # ran a greedy `.*` over the WHOLE command and captured whatever followed the LAST
   # -b/-B/-c/-C, so `git checkout -b feat/x && git -C /other status` yielded /other and
@@ -424,7 +428,8 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1"
 
   BRANCH_NAME_RE='^(feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)/[a-z0-9][a-z0-9._/-]*$'
   EXEMPT_RE='^(main|master|develop|gh-pages)$'
-  if [[ -n "$NEW_BRANCH" && ! "$NEW_BRANCH" =~ $EXEMPT_RE && ! "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
+  if [[ -n "$NEW_BRANCH" && "${BRANCH_GUARD_ALLOW_BADNAME:-0}" != "1" ]] &&
+    ! [[ "$NEW_BRANCH" =~ $EXEMPT_RE ]] && ! [[ "$NEW_BRANCH" =~ $BRANCH_NAME_RE ]]; then
     echo "[branch-guard] Blocked: branch name '$NEW_BRANCH' does not match <type>/<desc>." >&2
     echo "[branch-guard] Expected e.g. feat/x-y, fix/z, chore/w" >&2
     echo "[branch-guard] (types: feat|fix|chore|docs|refactor|test|perf|build|ci|style|revert|release|hotfix)." >&2
