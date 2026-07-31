@@ -45,6 +45,13 @@ fix cleanly in scope, and that is a judgement about THIS change's size and risk.
 about WHERE the defect is, and it applies even when the fix would be small. A one-line fix on the
 wrong layer is still on the wrong layer.
 
+**Judged locally, not in CI.** The automated reviewer produces findings and severity. It has no depth
+verdict to give and must not be asked for one: it reads a diff without the history, cannot run the
+guardian, and a verdict produced where nothing can act on it is a verdict nobody takes. The session
+holding the checkout does the judging, and posts back the DECISION — verdict, root item, disposition —
+because a finding correctly left unfixed is indistinguishable from one ignored to everyone reading the
+PR afterwards.
+
 ## Where it is enforced
 
 Prose does not enforce (`enforcement-architecture.md`). The floors:

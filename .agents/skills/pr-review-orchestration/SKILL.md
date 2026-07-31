@@ -71,6 +71,18 @@ the judgement is the guardian's, the routing is this skill's, and neither does t
 A loop that fixes every finding where it was reported converges just as cleanly as one that does not, which
 is why the depth question has to be asked before the fix rather than noticed afterwards.
 
+**Depth is judged locally, and only locally.** The CI reviewer produces findings and severity; it has no
+depth verdict to give and must not be asked for one. It reads a diff with no checkout history, cannot run
+the guardian, and — the part that matters — a verdict produced where nothing can act on it is a verdict
+nobody takes. This session holds the checkout, the history and the tools, so the judgement belongs here.
+What travels back to the PR is the DECISION, not the reasoning:
+
+**A2b. Say on the PR how a foundational finding is being handled.** A finding that is correctly not fixed
+looks identical to one that was ignored — to the next reviewer, to the merge gate, and to anyone reading
+the PR later. So post a comment naming the verdict, the root item and its issue, and the disposition
+taken. One comment per round is enough; it is the visible half of the containment label, which otherwise
+lives only in a code comment and a commit body that the PR page never shows.
+
 A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and push.
 
 `pre-push-check` enforces A3: a feature-branch push whose HEAD has no matching record is refused, naming
