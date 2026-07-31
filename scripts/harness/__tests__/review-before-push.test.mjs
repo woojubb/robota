@@ -309,7 +309,10 @@ describe('a foundational finding must name a root item that exists', () => {
     const dir = scratchRepo('feat/probe');
     mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
     for (const id of items) {
-      writeFileSync(path.join(dir, '.agents/backlog', `${id}-something.md`), '---\nstatus: todo\n---\n');
+      writeFileSync(
+        path.join(dir, '.agents/backlog', `${id}-something.md`),
+        '---\nstatus: todo\n---\n',
+      );
     }
     return dir;
   }
@@ -412,13 +415,19 @@ describe('a foundational finding must name a root item that exists', () => {
     // tool can emit — "no backlog item for X" — when the truth is that nothing was examined.
     const dir = scratchRepo('feat/probe');
 
-    const verdict = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
-      cwd: dir,
-      encoding: 'utf8',
-    });
+    const verdict = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+      },
+    );
 
     expect(verdict.status ?? 1).not.toBe(0);
-    expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(/missing|not examined|examined/i);
+    expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(
+      /missing|not examined|examined/i,
+    );
   });
 
   it('refuses a flag it does not understand instead of ignoring it', () => {
@@ -459,7 +468,7 @@ describe('the depth verdict is wired into the pipeline that must act on it', () 
 
   it('the rule and the skill that carries it both exist', () => {
     expect(read('.agents/rules/index.md')).toMatch(/finding-depth\.md/);
-    expect(read('.agents/skills/index.md')).toMatch(/root-cause-triage/);
+    expect(read('.agents/skills/index.md')).toMatch(/finding-depth-triager/);
     expect(read('.agents/rules/finding-depth.md'), 'the rule names no enforcement point').toMatch(
       /record-local-review/,
     );

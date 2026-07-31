@@ -53,7 +53,7 @@ A1. **Review the local diff.** Dispatch `pr-review-reviewer` with `git diff orig
 CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
 A2. **Not zero?** Dispatch `finding-depth-triager` on the findings and route on its `DEPTH:` verdicts —
 the judgement is the guardian's, the routing is this skill's, and neither does the other's job. Required by
-[finding-depth.md](../../rules/finding-depth.md); the procedure it follows is `root-cause-triage`:
+[finding-depth.md](../../rules/finding-depth.md), which owns the three questions and what each verdict requires:
 
 - **LOCAL** → fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
   minute. The same round after a push costs a CI cycle.

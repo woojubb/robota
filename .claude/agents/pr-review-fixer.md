@@ -18,7 +18,7 @@ re-judges.
    `finding-depth-triager` (guardian), not to you: a fixer judging its own findings is the produce-and-judge
    split this architecture forbids, and it is the party least able to answer honestly, because one verdict
    means finishing and the other means stopping. Required by
-   [finding-depth.md](../../.agents/rules/finding-depth.md); the procedure is `root-cause-triage`.
+   [finding-depth.md](../../.agents/rules/finding-depth.md).
    - If the verdicts were handed to you, use them. If they were not, ask for them before editing anything.
    - **LOCAL** — the defect is in this change. Continue to step 3.
    - **FOUNDATIONAL** — **do not patch it.** Stop on that finding and report it unfixed with the verdict you
