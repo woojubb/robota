@@ -302,6 +302,170 @@ describe('the recorder refuses to guess which checkout it is in', () => {
   });
 });
 
+describe('a foundational finding must name a root item that exists', () => {
+  const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.mjs');
+
+  function repoWithBacklog(items = []) {
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    for (const id of items) {
+      writeFileSync(path.join(dir, '.agents/backlog', `${id}-something.md`), '---\nstatus: todo\n---\n');
+    }
+    return dir;
+  }
+
+  function recordIn(dir, args) {
+    const result = spawnSync('node', [RECORDER, ...args], { cwd: dir, encoding: 'utf8' });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses an ID that resolves to no backlog item', () => {
+    // The whole value of the depth verdict is that the root gets filed. An ID naming nothing is the
+    // same as not having filed it — and it is worse than silence, because the record then claims a
+    // root item exists. So the recorder refuses rather than storing an unresolvable promise.
+    const dir = repoWithBacklog(['INFRA-073']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-999']);
+
+    expect(verdict.status, 'an unfiled root item was accepted').not.toBe(0);
+    expect(verdict.output).toMatch(/INFRA-999/);
+  });
+
+  it('records the IDs when they resolve, and stores them', () => {
+    const dir = repoWithBacklog(['INFRA-073', 'PROC-004']);
+
+    const verdict = recordIn(dir, [
+      '--findings',
+      '0',
+      '--foundational',
+      'INFRA-073,PROC-004',
+      '--notes',
+      'aggregation held',
+    ]);
+
+    expect(verdict.status, verdict.output).toBe(0);
+    const stored = JSON.parse(
+      readFileSync(recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews')), 'utf8'),
+    );
+    expect(stored.foundational).toEqual(['INFRA-073', 'PROC-004']);
+    expect(stored.notes, 'the note was silently dropped').toBe('aggregation held');
+  });
+
+  it('resolves an ID whose prefix has more than one segment', () => {
+    // `.agents/backlog/` already holds `ARCH-AUDIT-001` and `HARNESS-DIET-006`. A pattern reading
+    // one letter-group matched neither, so the floor would have refused a root item that exists —
+    // turning a filed foundational finding into an unpushable branch, which is the failure mode
+    // most likely to teach someone to stop using the flag.
+    const dir = repoWithBacklog(['ARCH-AUDIT-001', 'HARNESS-DIET-006']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'HARNESS-DIET-006']);
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('resolves an item filed without a description suffix', () => {
+    // The pattern required a `-` after the number, so `INFRA-073.md` would have read as no item at
+    // all. Nothing in the naming convention forbids that file name, and the failure mode is the one
+    // this floor exists to prevent in reverse: refusing a root item that is right there.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    writeFileSync(path.join(dir, '.agents/backlog', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
+
+    const result = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+  });
+
+  it('keeps a phase suffix, which is part of the ID', () => {
+    // `.agents/backlog/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
+    // Truncating at the first number does two wrong things at once: the real ID is refused, and a
+    // TRUNCATED id that names no file is accepted as though it did. The repository already parses
+    // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    writeFileSync(
+      path.join(dir, '.agents/backlog', 'SELFHOST-008-P5-concrete-semantic-backend.md'),
+      '---\nstatus: todo\n---\n',
+    );
+
+    const ok = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008-P5'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(ok.status ?? 1, `${ok.stdout ?? ''}${ok.stderr ?? ''}`).toBe(0);
+
+    const truncated = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(truncated.status ?? 1, 'an ID naming no file was accepted').not.toBe(0);
+  });
+
+  it('refuses when the backlog tree it must read is not there', () => {
+    // The sibling that owns `idOf` uses `requireGovernedTree` for exactly this: a governed tree that
+    // is absent must not read as "no results". Here it would produce the most misleading message the
+    // tool can emit — "no backlog item for X" — when the truth is that nothing was examined.
+    const dir = scratchRepo('feat/probe');
+
+    const verdict = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    expect(verdict.status ?? 1).not.toBe(0);
+    expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(/missing|not examined|examined/i);
+  });
+
+  it('refuses a flag it does not understand instead of ignoring it', () => {
+    // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
+    // parser skipped anything it did not recognise, so every note passed that way was dropped and
+    // the record said nothing about it. A flag the tool ignores is a flag the caller believes in.
+    const dir = repoWithBacklog([]);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--note', 'this was never stored']);
+
+    expect(verdict.status, 'an unknown flag was silently ignored').not.toBe(0);
+    expect(verdict.output).toMatch(/--note\b/);
+  });
+});
+
+describe('the depth verdict is wired into the pipeline that must act on it', () => {
+  // Anti-rot only, and it says so: these assert that the routing EXISTS, not that it fires. What
+  // makes the rule reached is the recorder above, which refuses an unfiled root item on every push
+  // — a check nothing can satisfy by describing itself. The repository's own measured failure is a
+  // guard that was registered everywhere and reached nowhere, so the distinction is stated rather
+  // than left for a reader to assume from a green suite.
+  const read = (rel) => readFileSync(path.join(WORKSPACE_ROOT, rel), 'utf8');
+
+  it('the fixer is told to stop on a foundational finding, not patch it', () => {
+    const fixer = read('.claude/agents/pr-review-fixer.md');
+
+    expect(fixer, 'the fixer never learns the depth question').toMatch(/FOUNDATIONAL/);
+    expect(fixer, 'nothing tells it not to patch one').toMatch(/[Dd]o not patch/);
+  });
+
+  it('the orchestrator routes a foundational finding out of the fix loop', () => {
+    const skill = read('.agents/skills/pr-review-orchestration/SKILL.md');
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(roundA, 'depth is not asked before the fix').toMatch(/FOUNDATIONAL/);
+    expect(roundA, 'the recorded root item has no way in').toMatch(/--foundational/);
+  });
+
+  it('the rule and the skill that carries it both exist', () => {
+    expect(read('.agents/rules/index.md')).toMatch(/finding-depth\.md/);
+    expect(read('.agents/skills/index.md')).toMatch(/root-cause-triage/);
+    expect(read('.agents/rules/finding-depth.md'), 'the rule names no enforcement point').toMatch(
+      /record-local-review/,
+    );
+  });
+});
+
 describe('the skill still puts the round before the push', () => {
   const skill = readFileSync(SKILL, 'utf8');
 

@@ -51,8 +51,22 @@ forced the trip. So:
 
 A1. **Review the local diff.** Dispatch `pr-review-reviewer` with `git diff origin/<base>...HEAD`. No PR, no
 CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
-A2. **Not zero?** Fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
-minute. The same round after a push costs a CI cycle.
+A2. **Not zero?** Classify each finding's DEPTH first (`root-cause-triage`, required by
+[finding-depth.md](../../rules/finding-depth.md)), then route on it — this is a routing decision, which is
+why it belongs here and the judgement does not:
+
+- **LOCAL** → fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
+  minute. The same round after a push costs a CI cycle.
+- **FOUNDATIONAL** → do NOT send it back into the fix loop. Route to `backlog-writer` for the root item,
+  register its GitHub issue, then take the disposition: **re-plan** (the change is withdrawn or reduced) or
+  **labelled containment** (the smallest hold, naming the item's ID in a code comment and the commit body).
+  Record the IDs with the round: `pnpm harness:review:record -- --findings 0 --foundational <ID>[,<ID>...]`.
+  Then **return to A1**: the containment is a change like any other, and the next round reads it.
+  Push is A3's, and only once a round comes back zero.
+
+A loop that fixes every finding where it was reported converges just as cleanly as one that does not, which
+is why the depth question has to be asked before the fix rather than noticed afterwards.
+
 A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and push.
 
 `pre-push-check` enforces A3: a feature-branch push whose HEAD has no matching record is refused, naming
