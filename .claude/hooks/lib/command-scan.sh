@@ -255,6 +255,13 @@ hook_strip_comments() {
 }
 
 # What a guard should actually examine: the command with heredoc bodies and comments removed.
+#
+# This is the WEAKER of the two readings in this file, and callers that use both should know which
+# is which. It removes heredoc bodies and comments with the two line-oriented passes above and
+# leaves quoting alone; `hook_verb_scan` reads the same command by the grammar. Where they differ
+# the tokenizer is right, so a guard deciding whether a VERB is present must use `hook_verb_scan` —
+# this one is for the surrounding text a guard still needs to look at. Collapsing the two is a
+# caller-side change and is left to the item that owns those hooks.
 hook_executable_part() {
   printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
 }
@@ -299,6 +306,347 @@ hook_executable_part() {
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
 HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
 
+# The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
+# `awk` run a command too, but not a shell one, so reading their argument with shell quoting
+# rules would be an approximation of a DIFFERENT grammar — the exact mistake this file is a
+# record of. They stay on the list above, kept verbatim; only these are descended into.
+HOOK_SHELL_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+
+# A tokenizer for the shell grammar, for the one question the guards ask: which characters of this
+# command will the shell EXECUTE, and which are data it will merely pass along?
+#
+# Why a tokenizer and not one more pass over the string.
+#
+# This file used to answer that with two linear passes: mask quoted regions, then restore
+# command-substitution spans. Both passes are regular, and shell quoting is not: `"$(printf 'x')"`
+# nests a single-quoted payload inside a substitution inside a double-quoted string, and deciding
+# what is data at the innermost level needs a stack. The restore pass had none, so it copied the
+# whole span back from the original, quoted payload included, and
+#
+#     out=$(printf 'x git commit -m y' | bash h.sh); echo done
+#
+# was refused as a commit (INFRA-075). Indexing where each quote OPENED closed that spelling and
+# opened its mirror: with the inner quotes now held masked, a genuine `a=$(echo "$(git commit)")`
+# stopped being seen at all — a real invocation invisible to every guard, which is a bypass, not a
+# nuisance. Measured on the differential corpus at the commit before this tokenizer existed: 177
+# of 197 shapes agreed with bash. Five of the twenty that did not were BYPASSES — bash ran the
+# push and no guard could see it — and the rest were refusals of correct work. With the grammar
+# read properly: 194 of 197, and every remaining disagreement is the one class named below.
+#
+# Four days of that class: `branch-guard.sh` rewritten 26 times, seven distinct instances, every one
+# found by a person hitting a new spelling and twice by a fix refusing the branch it lived on. The
+# repair is not a third pass. A substitution's content is itself a command and must be read by the
+# same rules that read the outer command — that is recursion, and the program below expresses it
+# as an explicit context stack, so the nesting depth is not bounded by the number of passes.
+#
+# What it models: single quotes, double quotes, ANSI-C `$'…'`, locale `$"…"`, backslash escapes and
+# the backslash-newline continuation, `#` comments, heredocs (`<<`, `<<-`, quoted and unquoted
+# delimiters) and herestrings, redirections, subshells, `${…}`, `$((…))`, `$(…)` and backtick
+# substitutions NESTED TO ANY DEPTH, and the string an interpreter is told to run.
+#
+# What it deliberately does NOT model, stated rather than discovered later: COMMAND POSITION. `echo
+# git push` names a verb the shell never runs as a command, and this tokenizer still shows it. To
+# hide it, the mask would have to drop every word that is not the first of a simple command — and
+# then `sudo git push`, `xargs git push`, `env git push`, `timeout 5 git push`, `command git push`
+# and every other exec-style wrapper not on some list would go unseen. That trade runs the wrong
+# way: an unmodelled wrapper is a silent BYPASS, while an argument read as a command is a refusal
+# that announces itself. The shapes this leaves unread are pinned as disagreements in
+# `scripts/harness/__tests__/hook-reading-matches-bash.test.mjs`, not hidden.
+#
+# The output is length-preserving, one character in for one character out, because `hook_match_*`
+# locates a verb in the mask and then reads its argument from the ORIGINAL at the same offset.
+# Executed text comes back as itself; data becomes \001; a quote that delimits a region the shell
+# will run becomes a space, so `git "push"` reads exactly as `git  push `.
+
+# The program defines awk FUNCTIONS only, and is concatenated ahead of the END block below, which
+# calls `tk_mask`. It is a separate variable because a parser and a set of field accessors are
+# different jobs, and because every awk invocation here needs the same one.
+#
+# No literal backtick and no literal apostrophe appears below. Both are load-bearing characters of
+# the grammar being parsed AND terminators of the single-quoted shell string carrying the program;
+# writing one directly is what left this file unparseable once, which blocks every guarded command
+# in the session. They are spelled \140 and \047.
+HOOK_TOKENIZER_AWK='
+  # A `#` opens a comment only where a word can begin.
+  function tk_wordstart(s, i) {
+    return (i == 1 || substr(s, i - 1, 1) ~ /[ \t\n;&|(]/)
+  }
+
+  # Characters that may end a heredoc delimiter word.
+  function tk_delimchar(c) {
+    return (c ~ /[A-Za-z0-9_.\/-]/)
+  }
+
+  # Fill m[1..length(s)] with the reading of s.
+  #
+  # Two interpreter lookbehinds, because the grammar this file knows is the SHELL grammar. SRE names
+  # the interpreters that parse their string argument AS SHELL — the shells themselves, `eval`, and
+  # `ssh` (a remote shell reads it) — and the tokenizer descends into those, which is what tells
+  # `bash -c "echo \047git commit\047"` from `bash -c "git commit"`. IRE names every interpreter,
+  # shell or not; a string run by `python3 -c` or `perl -e` is a command but NOT a shell command, so
+  # applying shell quoting to it would be a second approximation dressed as a parse. Those are kept
+  # verbatim, which over-reads (a mention inside python source still shows) — the direction that
+  # refuses work rather than the one that lets a `python3 -c "os.system(\047git push\047)"` through.
+  function tk_mask(s, m, IRE, SRE,
+                   len, i, j, w, c, c2, c3, nx, k, q, spaced, ch,
+                   sp, kind, fend, fdep, fterm, fdash, fquo,
+                   hn, hterm, hdash, hquo, dash, quoted, term, dc, eol, e, line, cand) {
+    len = length(s)
+
+    # Pre-fill with the original. Anything the loop somehow fails to visit therefore stays VISIBLE:
+    # a guard that over-reads refuses work and is argued with, a guard that under-reads is a hole
+    # nobody notices.
+    for (i = 1; i <= len; i++) { m[i] = substr(s, i, 1) }
+
+    sp = 1
+    kind[1] = "CMD"; fend[1] = ""; fdep[1] = 0
+    hn = 0
+    i = 1
+
+    while (i <= len) {
+      c = substr(s, i, 1)
+      c2 = substr(s, i, 2)
+      c3 = substr(s, i, 3)
+      k = kind[sp]
+
+      # ---- single quotes: no expansion of any kind happens inside ----
+      if (k == "SQ") {
+        if (c == "\047") { m[i] = "\047"; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- $\047…\047 : ANSI-C quoting. Escapes are consumed, nothing expands. ----
+      if (k == "ANSI") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c == "\047") { m[i] = "\047"; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- a quoted region an interpreter runs, and a quoted single word, are read verbatim ----
+      # A single word in quotes is a TOKEN of the command line, not a payload: `git "push"` runs the
+      # same push as `git push`, and quoting every token is ordinary defensive style.
+      if (k == "TOK") {
+        if (c == "\\" && fend[sp] != "\047") {
+          m[i] = c; if (i + 1 <= len) { m[i + 1] = substr(s, i + 1, 1) }; i += 2; continue
+        }
+        if (c == fend[sp]) { m[i] = " "; sp--; i++; continue }
+        m[i] = c; i++; continue
+      }
+
+      # ---- heredoc body ----
+      if (k == "HD") {
+        # The terminator is recognised at the start of a physical line. The check is stateless — it
+        # asks where we ARE rather than carrying a flag — so a substitution that spans a newline
+        # inside the body cannot leave the frame believing it is mid-line forever.
+        if (i == 1 || substr(s, i - 1, 1) == "\n") {
+          e = index(substr(s, i), "\n")
+          eol = (e > 0) ? i + e - 1 : len + 1
+          line = substr(s, i, eol - i)
+          cand = line
+          # Only `<<-` allows an indented terminator, and only TABS are stripped. Stripping spaces
+          # too would end a body early at an indented line that happens to read like the delimiter,
+          # and the rest of that body would then be scanned as commands.
+          if (fdash[sp]) { sub(/^\t+/, "", cand) }
+          if (cand == fterm[sp]) {
+            for (j = i; j < eol; j++) { m[j] = "\001" }
+            if (eol <= len) { m[eol] = "\n" }
+            i = eol + 1
+            sp--
+            continue
+          }
+        }
+        if (c == "\n") { m[i] = "\n"; i++; continue }
+        # An UNQUOTED delimiter leaves the body expanded, so a substitution written in it genuinely
+        # runs. `<<\047EOF\047` and `<<"EOF"` are literal and stay data.
+        if (!fquo[sp]) {
+          if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+            sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+          if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+            sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+          if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+            sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+          if (c == "\140") { m[i] = "\140"
+            sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+          if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- ${…} : data, but a default value may itself be a substitution ----
+      if (k == "PARAM") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "{") { fdep[sp]++; m[i] = "\001"; i++; continue }
+        if (c == "}") {
+          if (fdep[sp] > 0) { fdep[sp]--; m[i] = "\001"; i++; continue }
+          m[i] = "\001"; sp--; i++; continue
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- $((…)) : arithmetic, not a command, but substitutions inside it are ----
+      if (k == "ARITH") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        # Arithmetic nests in arithmetic, and this was the ONE context that did not test for it
+        # before falling through to the two-character substitution test. `$(( $(( … )) ))` was
+        # therefore read as a command substitution whose content is a command, so the inner
+        # expression came back as visible command text. It fails in the refusing direction rather
+        # than the permitting one, but it is the same defect the rest of this file is a record of:
+        # a rule held in every context except one sibling.
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "(") { fdep[sp]++; m[i] = "\001"; i++; continue }
+        if (c == ")") {
+          if (fdep[sp] > 0) { fdep[sp]--; m[i] = "\001"; i++; continue }
+          m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; sp--; i += 2; continue
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- double quotes: data, EXCEPT the expansions the shell performs inside them ----
+      if (k == "DQ") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        # The substitution runs whatever the quoting around it, so its content is read as the
+        # command it is — and read by these same rules, which is what makes the nesting unbounded.
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+          sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "\"") { m[i] = "\""; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- command context ----
+      if (c == "\\") {
+        nx = substr(s, i + 1, 1)
+        # A backslash before a newline is a LINE CONTINUATION: the shell joins the two lines and
+        # both characters vanish. Leaving them in place split `git \<newline>  commit` into two
+        # words no verb pattern could match, and the invocation went unseen.
+        if (nx == "\n") { m[i] = " "; m[i + 1] = " "; i += 2; continue }
+        m[i] = c; if (i + 1 <= len) { m[i + 1] = nx }; i += 2; continue
+      }
+
+      if (c == "#" && tk_wordstart(s, i)) {
+        while (i <= len && substr(s, i, 1) != "\n") { m[i] = "\001"; i++ }
+        continue
+      }
+
+      if (c == "\n") {
+        m[i] = "\n"; i++
+        # The bodies of every heredoc opened on the line that just ended follow, in the order the
+        # openers appeared, so the LAST one goes on the stack first.
+        if (hn > 0) {
+          for (w = hn; w >= 1; w--) {
+            sp++; kind[sp] = "HD"; fend[sp] = ""; fdep[sp] = 0
+            fterm[sp] = hterm[w]; fdash[sp] = hdash[w]; fquo[sp] = hquo[w]
+          }
+          hn = 0
+        }
+        continue
+      }
+
+      # A herestring has no body and no terminator, and its operand is an ordinary word. Consuming
+      # all three characters at once is the point: skipping only the first left the SECOND and third
+      # looking like a heredoc opener, whose delimiter word is command text and is kept — so
+      # `cat <<< \047git commit\047` read its quoted operand as a command. The same defect the
+      # original `%%<<*` truncation had, re-entered through the fix for it.
+      if (c3 == "<<<") { m[i] = "<"; m[i+1] = "<"; m[i+2] = "<"; i += 3; continue }
+
+      if (c2 == "<<") {
+        j = i + 2
+        dash = 0
+        if (substr(s, j, 1) == "-") { dash = 1; j++ }
+        while (j <= len && (substr(s, j, 1) == " " || substr(s, j, 1) == "\t")) { j++ }
+        quoted = 0; term = ""
+        dc = substr(s, j, 1)
+        if (dc == "\047" || dc == "\"") {
+          quoted = 1; j++
+          while (j <= len && substr(s, j, 1) != dc) { term = term substr(s, j, 1); j++ }
+          j++
+        } else if (dc == "\\") {
+          quoted = 1; j++
+          while (j <= len && tk_delimchar(substr(s, j, 1))) { term = term substr(s, j, 1); j++ }
+        } else {
+          while (j <= len && tk_delimchar(substr(s, j, 1))) { term = term substr(s, j, 1); j++ }
+        }
+        if (term != "") {
+          hn++; hterm[hn] = term; hdash[hn] = dash; hquo[hn] = quoted
+          for (w = i; w < j && w <= len; w++) { m[w] = substr(s, w, 1) }
+          i = j
+          continue
+        }
+      }
+
+      if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+        sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+      if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+        sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+        sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "$\047") { m[i] = "$"; m[i+1] = "\047"
+        sp++; kind[sp] = "ANSI"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "$\"") { m[i] = "$"; m[i+1] = "\""
+        sp++; kind[sp] = "DQ"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+
+      if (c == "\140") {
+        if (fend[sp] == "\140") { m[i] = "\140"; sp--; i++; continue }
+        m[i] = "\140"; sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue
+      }
+
+      if (c == "(") { m[i] = c; fdep[sp]++; i++; continue }
+      if (c == ")") {
+        if (fdep[sp] > 0) { fdep[sp]--; m[i] = c; i++; continue }
+        if (fend[sp] == ")") { m[i] = c; sp--; i++; continue }
+        m[i] = c; i++; continue
+      }
+
+      if (c == "\"" || c == "\047") {
+        # Closing the string an interpreter was told to run.
+        if (fend[sp] == c) { m[i] = " "; sp--; i++; continue }
+        q = c
+        # The decision is made at the OPENING quote, by what immediately precedes it, so each string
+        # answers for itself: applying an interpreter exemption to a whole command line masked away
+        # a real `-C` and left an unrelated commit message readable as a push, both at once.
+        if (substr(s, 1, i - 1) ~ SRE) {
+          m[i] = " "; sp++; kind[sp] = "CMD"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        if (substr(s, 1, i - 1) ~ IRE) {
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        spaced = 0
+        j = i + 1
+        while (j <= len) {
+          ch = substr(s, j, 1)
+          if (ch == "\\" && q != "\047") { j += 2; continue }
+          if (ch == q) { break }
+          if (ch == " " || ch == "\t" || ch == "\n") { spaced = 1; break }
+          j++
+        }
+        if (!spaced) {
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        m[i] = q; sp++; kind[sp] = (q == "\047") ? "SQ" : "DQ"; fend[sp] = ""; fdep[sp] = 0
+        i++; continue
+      }
+
+      m[i] = c; i++
+    }
+  }
+'
+
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
   END {
@@ -308,109 +656,24 @@ HOOK_SCAN_AWK='
     for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
     len = length(s)
 
-    q = ""
-    keep = 0
-    esc = 0
-    for (i = 1; i <= len; i++) {
-      c = substr(s, i, 1)
-
-      # A backslash-escaped quote neither opens nor closes a string. Without this the tracker went
-      # out of phase at the first escaped quote and every offset after it was wrong. Inside single
-      # quotes a backslash is an ordinary character, which is why q is checked.
-      if (esc) { esc = 0; m[i] = (q == "" || keep) ? c : "\001"; continue }
-      if (c == "\\" && q != "\047") { esc = 1; m[i] = (q == "" || keep) ? c : "\001"; continue }
-
-      if (q == "") {
-        m[i] = c
-        if (c == "\"" || c == "\047") {
-          q = c
-          openq = i
-          keep = (substr(s, 1, i - 1) ~ IRE)
-
-          # A quoted SINGLE WORD is a token of the command line, not a data payload. Quoting one
-          # changes nothing about what runs, so `git "push" origin main`, `git reset "--hard"` and
-          # `gh pr merge 1 --merge "--delete-branch"` must read exactly as their bare forms — and
-          # quoting every token is ordinary defensive shell style, not an exotic evasion. Only a
-          # quoted string containing whitespace is treated as a payload.
-          if (!keep) {
-            j = i + 1
-            spaced = 0
-            while (j <= len) {
-              ch = substr(s, j, 1)
-              if (ch == "\\" && q != "\047") { j += 2; continue }
-              if (ch == q) { break }
-              if (ch == " " || ch == "\t" || ch == "\n") { spaced = 1; break }
-              j++
-            }
-            if (!spaced) { keep = 1 }
-          }
-
-          # The quote characters themselves become spaces around a KEPT region, so a matcher reads
-          # `git "push"` exactly as `git  push `. Without this the region survived masking and still
-          # matched nothing, because every verb pattern expects whitespace before the verb. Length is
-          # preserved one for one, so the offsets the extractors depend on stay valid.
-          if (keep) { m[openq] = " " }
-        }
-      } else if (c == q) {
-        m[i] = keep ? " " : c
-        q = ""
-        keep = 0
-      } else {
-        m[i] = keep ? c : "\001"
-        if (q == "\047") { sq[i] = 1 }
-        # Where the enclosing quote OPENED. A substitution restores its span, and a quote that
-        # opened INSIDE that span must survive the restore while one opened outside it must not.
-        # Without this index the restore could only take everything back, which un-masked the
-        # quotes the pass above had just masked. See INFRA-075.
-        qopen[i] = openq
-      }
-    }
-
-    # Command substitution runs whatever the quoting around it, so its span is restored from the
-    # original — the SPAN, not the whole enclosing string. Keeping the entire string meant a message
-    # holding both a substitution and an unrelated mention of a guarded verb was read as that verb.
-    for (i = 1; i <= len; i++) {
-      # An escaped substitution does not substitute — it is the literal character. Skipping the
-      # escape here is what stops a commit message written with markdown code spans from being read
-      # as a subshell; the gate blocked its own commit before this line existed.
-      # Single quotes suppress every expansion, so nothing inside them is restored. Without
-      # this the pass reached into a single-quoted argument and read its text as a subshell
-      # — the gate blocked its own commit that way, which is the self-blocking this whole
-      # change exists to remove.
-      if (sq[i]) { continue }
-      if (substr(s, i, 1) == "\\") { i++; continue }
-      if (substr(s, i, 2) == "$(") {
-        depth = 0
-        for (j = i + 1; j <= len; j++) {
-          cj = substr(s, j, 1)
-          if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
-        }
-        stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) {
-          # Restore the span, but NOT a region quoted inside it. A double-quoted substitution runs,
-          # so it must come back; a substitution whose own argument is quoted runs an echo over a
-          # payload, and restoring that raw read the payload as a command. The test is where the
-          # enclosing quote OPENED: before the span, the mask came from context the substitution
-          # overrides; inside it, the quote belongs to the substitution and stands.
-          if (qopen[k] != "" && qopen[k] >= i && qopen[k] <= stop) { continue }
-          m[k] = substr(s, k, 1)
-        }
-        i = stop
-      } else if (substr(s, i, 1) == "`") {
-        for (j = i + 1; j <= len; j++) { if (substr(s, j, 1) == "`") { break } }
-        stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) {
-          if (qopen[k] != "" && qopen[k] >= i && qopen[k] <= stop) { continue }
-          m[k] = substr(s, k, 1)
-        }
-        i = stop
-      }
-    }
+    # The whole reading, delegated to the grammar. What used to sit here was a quote-state pass
+    # followed by a substitution-restore pass, and no arrangement of two linear passes can say
+    # what a quote inside a substitution inside a quote means. See the tokenizer above.
+    tk_mask(s, m, IRE, SRE)
 
     mask = ""
     for (i = 1; i <= len; i++) { mask = mask m[i] }
 
     if (MODE == "mask") { print mask; exit }
+
+    # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
+    # out of a substitution came back wearing the paren that closed it: a nested
+    # `git push origin --delete develop` named the branch `develop)`, which matches no protected
+    # name, so the guard fell past the protected-branch check to the merged-PR one and refused a
+    # branch that does not exist. It still refused — but for the wrong reason and about the wrong
+    # branch, which is one name away from refusing nothing. Only visible once the tokenizer made
+    # substitution contents reachable at all; before that the value was masked and never read.
+    TERM = "[ \t\n\"\047)\140].*$"
 
     # Anchor in the mask, then search the ORIGINAL from that offset. Needed when the value sits
     # INSIDE a quoted argument — a `gh api` refs/heads URL nearly always does — where the mask
@@ -421,7 +684,7 @@ HOOK_SCAN_AWK='
       rest = substr(s, RSTART)
       if (!match(rest, VRE)) { exit }
       v = substr(rest, RSTART + RLENGTH)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
       exit
     }
@@ -438,7 +701,7 @@ HOOK_SCAN_AWK='
       print (endq > 0 ? substr(s, p, endq - 1) : substr(s, p))
     } else {
       v = substr(s, p)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
     }
   }
@@ -447,18 +710,24 @@ HOOK_SCAN_AWK='
 # Print the token that follows a match, located where quotes cannot lie. $2 is an ERE ending where
 # the value begins.
 hook_match_extract() {
-  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Like hook_match_extract, but the value is found by $3 searched in the ORIGINAL starting at the
 # anchor $2's position in the mask. For values that legitimately live inside a quoted argument.
 hook_match_extract_after() {
-  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # What a verb-detection matcher should read.
+#
+# The raw command goes in, not `hook_executable_part`'s output. Heredoc bodies and comments used to
+# be cut out by two line-oriented passes BEFORE masking, which meant the masker was handed a string
+# whose structure had already been altered by a reader that did not know the grammar. The tokenizer
+# knows both, and reading them together is what lets a comment inside a substitution end at its own
+# newline rather than at the substitution's closing paren.
 hook_verb_scan() {
-  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,
