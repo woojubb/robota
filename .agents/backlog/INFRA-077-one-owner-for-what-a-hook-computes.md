@@ -1,8 +1,8 @@
 ---
 title: 'INFRA-077: five facts computed separately in four hooks, and the copies disagree'
-status: todo
+status: in-progress
 priority: high
-urgency: soon
+urgency: now
 type: INFRA
 area: .claude/hooks
 created: 2026-08-01
@@ -57,3 +57,87 @@ the suite as it stands, so the consolidation must land with those cases or it la
 - A case exists for each disagreement above — the escaped path, the absent `jq`, the ambient
   `GIT_DIR`, the detached HEAD, the `git -C <nonexistent>` — and each fails before the fix.
 - The deliberate divergences are named modes with their reason, not silently unified.
+
+## Decision
+
+`lib/hook-facts.sh` — a SIBLING of `lib/command-scan.sh`, not an extension of it.
+`command-scan.sh` owns what a payload SAYS: the command, the tool name, which part of it is a
+command rather than text. The new file owns what the ENVIRONMENT says: which file is being written,
+which repository a command acts on, which branch that repository is on, and how git must be invoked
+for those answers to be about the repository the command actually runs in. Each file stays
+answerable for one question, and `hook-facts.sh` sources `command-scan.sh`, so a hook needs one
+source line rather than two.
+
+**The consolidation is a decision, not a merge.** Two divergences survive as NAMED MODES of
+`hook_effective_repo`, each carrying the measurement behind it:
+
+- `first-nonempty` — `worktree-cwd-guard`'s deliberate fail-safe. That guard blocks only on POSITIVE
+  confirmation that the command lands in the main checkout, so naming an unresolvable `-C` target
+  and then declining to block IS the correct outcome. Validating instead would silently retarget the
+  guard at the session repository and block a destructive command aimed somewhere else. It has no
+  `.` fallback because that fallback once resolved to the hook's OWN checkout and blocked there.
+- `session` — `branch-guard`'s `BASE_DIR` deliberately ignores `git -C`, because a branch lands where
+  the session is and in a compound command the `-C` usually belongs to some other invocation
+  (`git checkout -b feat/x && git -C <other> status`).
+
+The third mode, `validated`, is what `branch-guard` and `pre-push-check` take: they must name SOME
+repository, because their verdict is about the branch it is on.
+
+`hook_current_branch` applies its default to the VALUE, and takes the default from the CALLER —
+callers need different ones. An eval log wants a word a reader can see; `branch-guard` and
+`pre-push-check` KEY ON EMPTINESS to recognise a detached HEAD and must be able to ask for `""`. A
+reader that imposed a word would have silently disabled both of those checks.
+
+`hook_json_object` gives the record WRITERS the same jq → python3 → refuse ladder as the readers.
+Repairing only the read would have left the metrics just as empty on a host without jq, because two
+of the three hooks also wrote their record with `jq -cn`.
+
+`branch-guard` now fails CLOSED when no repository can be read at all. Previously the branch came
+back empty, an empty branch matched no protected name, and the hook exited 0 — "I could not verify"
+wearing the costume of "I verified this is fine", which the hook protocol reads as a pass. A
+detached HEAD is deliberately NOT that case and still falls through.
+
+## Stated limits
+
+- The transcript queries in `correction-detect` and `revert-detect` stay on jq. They are jq PROGRAMS
+  over a JSONL file, not payload field reads, so without jq those hooks are degraded rather than
+  silent — which is the distinction the payload read got wrong.
+- `hook_effective_repo session` judges `git -C <other> checkout -b` against the session repository.
+  That over-permits a rare form instead of refusing a common one, and is the pre-existing choice
+  being preserved rather than a new one.
+
+## Test Plan
+
+`scripts/harness/__tests__/hook-facts.test.mjs` — 23 cases. 19 of the first 21 failed against the
+hooks as they stood; the two that passed are deliberate controls, so a green run cannot mean the
+probe never ran (the formatter shim is wired, and the PATH farm really does hide jq while keeping
+python3). Per fact:
+
+1. **file_path** — a name containing an escaped quote and a name containing a backslash both reach
+   the formatter, with an ordinary path as the control; plus a source-level floor that no hook
+   hand-rolls a `file_path` grep.
+2. **reading a JSON field** — `spec-first-gate` still injects its reminder and `correction-detect`
+   still writes its record on a PATH farm from which jq is genuinely ABSENT (a symlink farm, not a
+   failing shim: a present-but-broken tool exercises a path a tool-less host never takes); plus a
+   floor that no hook carries its own `read_json()`.
+3. **which repository** — the three named modes pinned individually, including that `validated` is
+   not fooled by an ambient `GIT_DIR` and that `first-nonempty` keeps naming an unvalidated `-C`
+   target; `branch-guard` judging the session repository when the `-C` target is not one; the
+   fail-closed refusal, with the detached-HEAD pass-through pinned beside it so the refusal cannot
+   swallow it later; plus a floor that no hook hand-rolls the validation ladder.
+4. **the current branch** — the default applied to the value, the empty default a guard needs, and
+   `eval-log-stop` recording a named branch for a detached session.
+5. **scrubbed git** — `branch-guard` still refusing a commit and a push on `main` with `GIT_DIR`,
+   `GIT_WORK_TREE`, `GIT_INDEX_FILE` and `GIT_PREFIX` exported at another checkout;
+   `worktree-cwd-guard` still seeing the MAIN checkout when `GIT_DIR` names a worktree; plus a floor
+   that no hook calls `git -C` directly.
+
+Full suite: `npx vitest run scripts/harness/__tests__/ --reporter=basic`, `pnpm harness:scan`, and
+`bash -n` over every hook.
+
+## User Execution Test Scenarios
+
+Not applicable — this changes agent-harness hooks only. The hooks are invoked by the tool host
+around the agent's own tool calls and deliver no runnable user-facing behaviour, so there is no
+product surface to execute. Verification lives in `## Test Plan`, where every case runs the real
+hook against a scratch repository rather than inspecting its source.

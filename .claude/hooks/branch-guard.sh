@@ -13,8 +13,10 @@ INPUT=$(cat)
 # One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
 # version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
 # command, so everything after `-m "…"` — including the verb being guarded — was never examined.
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
@@ -157,13 +159,12 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
-EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
-if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  EFFECTIVE_DIR="$HOOK_CWD"
-fi
-if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  EFFECTIVE_DIR="$GIT_C_PATH"
-fi
+# One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
+# `validated`: it must name SOME repository, because its verdict is about the branch that
+# repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
+# it (worktree-cwd-guard's first-nonempty fail-safe, and this hook's own `session` base check) stay
+# decisions with a reason instead of four copies that drift apart.
+EFFECTIVE_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
 # Detect git action type
 IS_COMMIT=false
@@ -286,7 +287,23 @@ fi
 
 # Get current branch of the EFFECTIVE context (worktree-aware, see resolution above)
 PROJECT_DIR="$EFFECTIVE_DIR"
-CURRENT_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
+
+# A guard fails CLOSED. When nothing resolvable is a repository, the branch read below came back
+# empty, an empty branch matched no protected name, and the hook exited 0 — "I could not verify"
+# wearing the costume of "I verified this is fine", which the hook protocol reads as a pass.
+# A detached HEAD is deliberately NOT this case: there the repository IS readable and the branch is
+# genuinely nameless, and the checks below already handle that.
+if ! hook_is_work_tree "$PROJECT_DIR"; then
+  echo "[branch-guard] Blocked: '$PROJECT_DIR' is no git repository, so the branch this command" >&2
+  echo "[branch-guard] would act on cannot be read. Nothing was verified; this is not a pass." >&2
+  echo "[branch-guard] Run the command from the checkout it belongs to." >&2
+  exit 2
+fi
+# One branch reader, with the default on the VALUE. `git branch --show-current` exits 0 and prints
+# NOTHING on a detached HEAD, so an `|| echo …` arm here never runs — three hooks wrote one and all
+# three were dead code. THIS caller wants the empty value: the checks below key on emptiness to
+# recognise a detached HEAD, which is why the default is the caller's to name.
+CURRENT_BRANCH=$(hook_current_branch "$PROJECT_DIR" "")
 
 # A detached HEAD has no branch name, so the protected-branch checks below have nothing to compare
 # and the guard used to stop here. Branch CREATION is different: creating `feat/x` while detached at
@@ -306,7 +323,7 @@ fi
 if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" != "1" ]]; then
   # Prefer the remote-tracking integration head; fall back to local `develop` when offline.
   INTEGRATION_REF=origin/develop
-  git -C "$PROJECT_DIR" rev-parse --verify --quiet "$INTEGRATION_REF" >/dev/null 2>&1 || INTEGRATION_REF=develop
+  hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet "$INTEGRATION_REF" >/dev/null 2>&1 || INTEGRATION_REF=develop
   # A branch whose PR was SQUASH-merged keeps commits git cannot find in the integration branch, so
   # ancestry alone calls it unmerged forever. Measured 2026-07-28: 83 branches reported, 73 of them
   # with a MERGED PR — an 88% false-positive rate. A guard wrong seven times out of eight is one
@@ -392,18 +409,18 @@ if [[ "$IS_BRANCH_CREATE" == "true" && "${BRANCH_GUARD_ALLOW_OPEN_BRANCHES:-0}" 
     candidate="${candidate#+ }"   # strip the worktree marker, which otherwise yielded a bogus name
     [[ "$candidate" =~ $SKIP_PATTERNS ]] && continue
     [[ -z "$candidate" ]] && continue
-    ahead=$(git -C "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
+    ahead=$(hook_git_in "$PROJECT_DIR" rev-list --count "$INTEGRATION_REF..$candidate" 2>/dev/null || echo 0)
     [[ "$ahead" -gt 0 ]] || continue
     # A merged PR settles it — for the COMMIT that was merged, not for the name.
     if [[ "$MERGED_REFS_READ" == "true" ]]; then
-      candidate_sha=$(git -C "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
+      candidate_sha=$(hook_git_in "$PROJECT_DIR" rev-parse "$candidate" 2>/dev/null || echo "")
       if [[ -n "$candidate_sha" ]] &&
         printf '%s\n' "$MERGED_REFS" | grep -Fxq -- "$candidate $candidate_sha"; then
         continue
       fi
     fi
     UNMERGED_BRANCHES+=("$candidate ($ahead commits ahead of $INTEGRATION_REF)")
-  done < <(git -C "$PROJECT_DIR" branch 2>/dev/null)
+  done < <(hook_git_in "$PROJECT_DIR" branch 2>/dev/null)
 
   if [[ "${#UNMERGED_BRANCHES[@]}" -gt 0 ]]; then
     echo "[branch-guard] Blocked: local branches with unmerged commits detected." >&2
@@ -499,20 +516,18 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # creation. Stated limit: `git -C <other> checkout -b` is judged against the session repository
     # rather than <other>; branches are created where the session is, and erring that way
     # over-permits a rare form instead of refusing a common one.
-    BASE_DIR="${CLAUDE_PROJECT_DIR:-.}"
-    if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      BASE_DIR="$HOOK_CWD"
-    fi
+    # The `session` mode is exactly that rule, named: hook `cwd` > project dir, `git -C` ignored.
+    BASE_DIR=$(hook_effective_repo session "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
     WANTED=origin/develop
-    git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
-    WANTED_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
+    hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop
+    WANTED_SHA=$(hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" 2>/dev/null || echo "")
     BASE_REF="${START_POINT:-HEAD}"
-    BASE_SHA=$(git -C "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
+    BASE_SHA=$(hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
     # `branch --show-current` exits 0 with empty output on a detached HEAD, so `|| echo HEAD` never
-    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code.
-    CURRENT_ON_BASE=$(git -C "$BASE_DIR" branch --show-current 2>/dev/null || echo "")
-    BASE_NAME="${START_POINT:-${CURRENT_ON_BASE:-HEAD}}"
+    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code —
+    # which is what hook_current_branch does, for every caller, once.
+    BASE_NAME="${START_POINT:-$(hook_current_branch "$BASE_DIR" HEAD)}"
 
     if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
       echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2

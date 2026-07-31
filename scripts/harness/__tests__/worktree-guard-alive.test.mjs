@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -59,10 +59,14 @@ function repoWithWorktree() {
     path.join(HOOKS_DIR, 'worktree-cwd-guard.sh'),
     path.join(hooks, 'worktree-cwd-guard.sh'),
   );
-  copyFileSync(
-    path.join(HOOKS_DIR, 'lib/command-scan.sh'),
-    path.join(hooks, 'lib/command-scan.sh'),
-  );
+  // EVERY library, enumerated rather than named. Listing `command-scan.sh` by hand meant that the
+  // moment the hook sourced a second library (INFRA-077's `hook-facts.sh`) this fixture built a
+  // worktree whose hook could not start, and the three cases below failed on a missing file rather
+  // than on anything they assert. The fixture's job is "the hook and the library it sources", so it
+  // reads the library directory instead of restating its contents.
+  for (const lib of readdirSync(path.join(HOOKS_DIR, 'lib')).filter((n) => n.endsWith('.sh'))) {
+    copyFileSync(path.join(HOOKS_DIR, 'lib', lib), path.join(hooks, 'lib', lib));
+  }
 
   return { main, worktree, hook: path.join(hooks, 'worktree-cwd-guard.sh') };
 }

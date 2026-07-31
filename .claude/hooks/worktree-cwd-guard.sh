@@ -31,8 +31,10 @@ INPUT=$(cat)
 # One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
 # version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
 # command, so everything after `-m "…"` — including the verb being guarded — was never examined.
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
@@ -176,14 +178,12 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$SCAN" || true)
-EFFECTIVE_DIR=""
-if [[ -n "$GIT_C_PATH" ]]; then
-  EFFECTIVE_DIR="$GIT_C_PATH"
-elif [[ -n "$HOOK_CWD" ]]; then
-  EFFECTIVE_DIR="$HOOK_CWD"
-elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
-  EFFECTIVE_DIR="$CLAUDE_PROJECT_DIR"
-fi
+# The `first-nonempty` mode, named rather than flattened into the validating one its siblings use.
+# It is this guard's FAIL-SAFE and the paragraph above is its reason: this hook blocks only on
+# POSITIVE confirmation, so naming an unresolvable `-C` target and then declining to block is the
+# correct outcome, where validating would silently retarget the guard at the session repository and
+# block a destructive command aimed somewhere else. It has no `.` fallback for the same reason.
+EFFECTIVE_DIR=$(hook_effective_repo first-nonempty "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
 # No nameable effective dir → cannot positively confirm main-checkout → FAIL-SAFE.
 if [[ -z "$EFFECTIVE_DIR" ]]; then
@@ -193,7 +193,7 @@ fi
 # --- (a) is the effective repo the MAIN checkout? -----------------------------------------------
 # Positively resolve the repo toplevel of the EFFECTIVE dir. If the dir is not inside a git work tree
 # (empty/error) → cannot positively confirm main-checkout → FAIL-SAFE, do not block.
-TOPLEVEL=$(git -C "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
+TOPLEVEL=$(hook_git_in "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
 if [[ -z "$TOPLEVEL" ]]; then
   exit 0
 fi

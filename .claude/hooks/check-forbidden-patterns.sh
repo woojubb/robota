@@ -19,8 +19,10 @@ set -uo pipefail
 
 INPUT=$(cat)
 
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the payload's file_path. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
@@ -38,7 +40,7 @@ fi
 # The first field read is the first place a missing decoder could pass silently — and it did:
 # without jq this came back empty and the hook exited 0 before reaching any check. An absent path
 # is normal (many tools carry none) and still exits 0; only an UNREADABLE payload refuses.
-if ! FILE_PATH=$(hook_json_string "$INPUT" 'tool_input.file_path'); then
+if ! FILE_PATH=$(hook_file_path_of "$INPUT"); then
   echo "[check-forbidden-patterns] Blocked: the hook payload could not be decoded, so the edit" >&2
   echo "[check-forbidden-patterns] cannot be checked. Install jq or python3." >&2
   exit 2
@@ -99,7 +101,10 @@ if [[ "$RELATIVE_PATH" == /* ]]; then
     */apps/*) RELATIVE_PATH="apps/${FILE_PATH#*/apps/}" ;;
   esac
 fi
-SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
+# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
+# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
+# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
+SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
 
@@ -108,20 +113,17 @@ append_block() {
   local line_num="$2"
   local line_content="$3"
   mkdir -p "$(dirname "$LOG_FILE")"
-  jq -cn \
-    --arg timestamp "$TIMESTAMP" \
-    --arg session_id "$SESSION_ID" \
-    --arg pattern "$pattern" \
-    --arg file "$RELATIVE_PATH" \
-    --argjson line "$line_num" \
-    '{
-      timestamp: $timestamp,
-      session_id: $session_id,
-      pattern: $pattern,
-      file: $file,
-      line: $line,
-      escape_attempted: false
-    }' >> "$LOG_FILE"
+  # The fourth `jq -cn` writer in this directory, and the one where losing the record is worst: this
+  # hook REFUSES the edit either way, so on a host without jq the refusal happened and the evidence
+  # for it did not. A block nobody can count is a block nobody can review. Same ladder as every other
+  # reader and writer here — jq, then python3, then refuse. See lib/hook-facts.sh.
+  hook_json_object \
+    s timestamp "$TIMESTAMP" \
+    s session_id "$SESSION_ID" \
+    s pattern "$pattern" \
+    s file "$RELATIVE_PATH" \
+    n line "$line_num" \
+    b escape_attempted false >> "$LOG_FILE"
   BLOCK_MESSAGES="$BLOCK_MESSAGES\n  line $line_num: $line_content"
   BLOCKED=true
 }

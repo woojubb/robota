@@ -10,11 +10,22 @@
 
 set -euo pipefail
 
+# One reader for the payload's file_path, not one per hook. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+
 # Read JSON from stdin (Claude Code sends hook input via stdin)
 INPUT=$(cat)
 
-# Extract file_path from tool input JSON
-FILE_PATH=$(echo "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+# The path was read with `grep -o '"file_path"…"[^"]*"'`, which stops at the first ESCAPED quote.
+# A file named `we"ird.ts` arrives in the payload as `we\"ird.ts` and was read as `we\` — a path
+# that does not exist, so the `-f` test below dropped it and the file was silently never formatted.
+# A backslash anywhere in the name did the same. Both are legal filenames and both are escaped by
+# JSON, so the payload has to be decoded as JSON rather than scraped.
+#
+# This hook FORMATS; it does not judge. A payload it cannot decode names no file to format, so
+# exiting 0 here is the whole of the correct behaviour — unlike the guards, which refuse.
+FILE_PATH=$(hook_file_path_of "$INPUT" || printf '')
 
 if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
   exit 0
