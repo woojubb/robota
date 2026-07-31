@@ -10,8 +10,10 @@
  *
  * Rules:
  * - `packages/<name>/(src|scripts|bin)/....ts` tokens must resolve from the repo root.
- * - Lines that deliberately reference an absent/removed path are exempt (these docs —
- *   layering-audit.md, architecture-lessons.md — document removals on purpose).
+ * - A line that ANNOTATES the absence — `(planned)`, `(removed)`, `(deleted)`, `(renamed)`, or the
+ *   phrases "no longer" / "does not exist" — is exempt. Narrating a move ("was relocated") is not.
+ * - The two historical logs that cite pre-refactor paths on purpose (layering-audit.md,
+ *   architecture-lessons.md) are skipped wholesale — see SKIP_FILES.
  *
  * HARNESS-062: the pattern (byte-identical to check-spec-paths') and the exemption vocabulary now
  * come from `cited-paths.mjs`. The local vocabulary was a WIDE negation set that exempted a line on
@@ -48,8 +50,7 @@ const SKIP_FILES = new Set(['layering-audit.md', 'architecture-lessons.md']);
 export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.agents/specs/architecture-map'], {
     scan: 'arch-map-paths',
-    why:
-      'The architecture-map corpus IS this scan\u2019s subject: with no map to read, "every cited path exists" is true of nothing.',
+    why: 'The architecture-map corpus IS this scan\u2019s subject: with no map to read, "every cited path exists" is true of nothing.',
   });
   const findings = [];
   for (const docPath of walkMarkdown(path.join(root, MAP_DIR_RELATIVE))) {

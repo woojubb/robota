@@ -9,7 +9,8 @@
  *
  * Rules:
  * - Applies to packages/<name>/src of packages without `"private": true`.
- * - Test files (__tests__/, *.test.*, *.spec.*) are exempt.
+ * - Test files (__tests__/, *.test.*, *.spec.*) are exempt, as are dependency and build-output
+ *   directories (node_modules/, dist/, coverage/) — the shared `listSourceFiles` exclusion set.
  *
  * Exit code 0 = clean, 1 = findings.
  */
@@ -34,8 +35,7 @@ const STUB_MARKERS = [
 export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'stub-markers',
-    why:
-      'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
+    why: 'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
   });
   const findings = [];
 

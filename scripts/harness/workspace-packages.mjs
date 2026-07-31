@@ -21,21 +21,25 @@ import path from 'node:path';
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
 
 /**
- * ONE exclusion set for the source-file walk (HARNESS-062).
+ * The exclusion set `listSourceFiles` walks with is `SKIP_DIRS` above — deliberately the same one
+ * this module already declares for the package walk (HARNESS-062).
  *
- * Twenty-eight hand-rolled walkers carried six different exclusion sets, so the same file was
- * source to some scans and invisible to others. Measured: a file at `packages/pub/src/dist/legacy.ts`
+ * Twenty-eight hand-rolled walkers carried six different exclusion sets, so the same file was source
+ * to some scans and invisible to others. Measured: a file at `packages/pub/src/dist/legacy.ts`
  * carrying `@deprecated`, `TODO: Implement` and `export class FakeThing` was opened by
  * `stub-markers` and `deprecated-markers` and never opened at all by `no-fake-in-src`, whose walker
  * skipped any directory named `dist`. Whether that file is source is a property of the file, not of
- * which scan is asking.
+ * which scan is asking — and an installed dependency tree or build output is not authored source
+ * under any scan's definition.
  *
- * The set is `SKIP_DIRS` above — the exclusions this module already declares for the package walk:
- * an installed dependency tree and build output are not authored source under any scan's definition.
+ * Dot-directories are NOT excluded, unlike in `childDirs`: that skip exists so a `.git`/`.turbo`
+ * sibling is not mistaken for a package, which is not a question the source walk asks.
  */
+
+/** The extensions a scan means by "source" unless it asks for a narrower set. */
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
 
-/** Directories holding tests rather than shipped source. */
+/** Directories and filenames holding tests rather than shipped source. */
 const TEST_DIRS = new Set(['__tests__']);
 const TEST_FILE_PATTERN = /\.(test|spec)\./;
 

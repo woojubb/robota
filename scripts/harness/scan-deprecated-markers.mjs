@@ -9,7 +9,8 @@
  * violation.
  *
  * - Applies to packages/<name>/src of packages without `"private": true`.
- * - Test files (__tests__/, *.test.*, *.spec.*) are exempt.
+ * - Test files (__tests__/, *.test.*, *.spec.*) are exempt, as are dependency and build-output
+ *   directories (node_modules/, dist/, coverage/) — the shared `listSourceFiles` exclusion set.
  *
  * Exit 0 = clean, 1 = findings.
  */
@@ -28,8 +29,7 @@ const DEPRECATED_MARKER = '@deprecated';
 export function findDeprecatedMarkerFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'deprecated-markers',
-    why:
-      'Deprecated markers are searched in shipped package source; the absence of that source is not their absence.',
+    why: 'Deprecated markers are searched in shipped package source; the absence of that source is not their absence.',
   });
   const findings = [];
 

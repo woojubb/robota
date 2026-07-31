@@ -191,7 +191,7 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
  * the real tree when routed through the shared lister: 1606 shippable files before, 1606 after.
  */
 function walkFiles(srcDir) {
-  return listSourceFiles(srcDir, { excludeTests: false });
+  return listSourceFiles(srcDir, { excludeTests: false, extensions: null });
 }
 
 function main() {

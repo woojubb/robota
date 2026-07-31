@@ -34,6 +34,15 @@ import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+const LOCAL_CITATION = {
+  pattern: LOCAL_SOURCE_PATH_PATTERN,
+  vocabulary: PLANNED_ONLY_VOCABULARY,
+};
+const REPO_CITATION = {
+  pattern: REPO_SOURCE_PATH_PATTERN,
+  vocabulary: PLANNED_ONLY_VOCABULARY,
+};
+
 function listSpecFiles(root) {
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
   return listSpecPackageDirs(root).map((packageDir) => ({
@@ -45,8 +54,7 @@ function listSpecFiles(root) {
 export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'spec-paths',
-    why:
-      'It validates the paths cited by package SPECs; with no packages/ there are no SPECs and the pass means nothing was read.',
+    why: 'It validates the paths cited by package SPECs; with no packages/ there are no SPECs and the pass means nothing was read.',
   });
   const findings = [];
 
@@ -55,11 +63,7 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
     const lines = readFileSync(specPath, 'utf8').split('\n');
 
     for (const line of lines) {
-      const localOptions = {
-        pattern: LOCAL_SOURCE_PATH_PATTERN,
-        vocabulary: PLANNED_ONLY_VOCABULARY,
-      };
-      for (const token of citedRepoPaths(line, localOptions)) {
+      for (const token of citedRepoPaths(line, LOCAL_CITATION)) {
         if (!existsSync(path.join(packageDir, token))) {
           findings.push({
             file: relativeSpec,
@@ -69,11 +73,7 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
         }
       }
 
-      const repoOptions = {
-        pattern: REPO_SOURCE_PATH_PATTERN,
-        vocabulary: PLANNED_ONLY_VOCABULARY,
-      };
-      for (const token of citedRepoPaths(line, repoOptions)) {
+      for (const token of citedRepoPaths(line, REPO_CITATION)) {
         if (!existsSync(path.join(root, token))) {
           findings.push({
             file: relativeSpec,

@@ -38,6 +38,15 @@ const HARNESS_DIR = path.join(WORKSPACE_ROOT, 'scripts', 'harness');
 
 const ALLOW_MISSING_MARKER = 'harness-config-path-allow-missing';
 
+// STRICT on purpose (HARNESS-062): a scan's hardcoded path literal is configuration, not prose —
+// there is no sentence it could be part of that would excuse it pointing nowhere. Its escape hatch
+// is the explicit ALLOW_MISSING_MARKER, so the vocabulary stays at `(planned)`-only rather than
+// adopting the shared absence set.
+const QUOTED_CITATION = {
+  pattern: QUOTED_REPO_FILE_PATH_PATTERN,
+  vocabulary: PLANNED_ONLY_VOCABULARY,
+};
+
 function isCommentLine(line) {
   const t = line.trim();
   return t.startsWith('//') || t.startsWith('*') || t.startsWith('/*') || t.startsWith('#');
@@ -53,8 +62,7 @@ function listHarnessScripts(dir) {
 export function findHarnessConfigPathFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['scripts/harness'], {
     scan: 'harness-config-paths',
-    why:
-      'The harness scripts are the documents whose quoted paths this scan validates.',
+    why: 'The harness scripts are the documents whose quoted paths this scan validates.',
   });
   const findings = [];
 
@@ -70,15 +78,7 @@ export function findHarnessConfigPathFindings(root = WORKSPACE_ROOT) {
         (i > 0 && lines[i - 1].includes(ALLOW_MISSING_MARKER));
       if (allowMissing) continue;
 
-      // STRICT on purpose (HARNESS-062): a scan's hardcoded path literal is configuration, not
-      // prose — there is no sentence it could be part of that would excuse it pointing nowhere. Its
-      // escape hatch is the explicit ALLOW_MISSING_MARKER, so the vocabulary stays at
-      // `(planned)`-only rather than adopting the shared absence set.
-      const options = {
-        pattern: QUOTED_REPO_FILE_PATH_PATTERN,
-        vocabulary: PLANNED_ONLY_VOCABULARY,
-      };
-      for (const token of citedRepoPaths(line, options)) {
+      for (const token of citedRepoPaths(line, QUOTED_CITATION)) {
         if (!existsSync(path.join(root, token))) {
           findings.push({
             file: relativeScript,

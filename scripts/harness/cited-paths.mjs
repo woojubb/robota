@@ -83,6 +83,10 @@ export const ABSENCE_VOCABULARY =
  * that should be deleted rather than exempted — the SPEC should name a path that exists. Widening
  * those two to the shared vocabulary is a decision to be taken with its own measurement, not a side
  * effect of consolidating the rule.
+ *
+ * Case-insensitive, where the two scans it replaces used a case-SENSITIVE `includes('(planned)')`.
+ * Measured: zero `(Planned)` / `(PLANNED)` occurrences exist in any package SPEC or harness script,
+ * so this is a 0-delta alignment with the shared vocabulary rather than a silent widening.
  */
 export const PLANNED_ONLY_VOCABULARY = /\(planned\)/i;
 
@@ -98,6 +102,11 @@ export const NO_VOCABULARY = null;
 export function citedRepoPaths(line, options = {}) {
   const { pattern = REPO_SOURCE_PATH_PATTERN, vocabulary = ABSENCE_VOCABULARY } = options;
   if (vocabulary !== null && vocabulary.test(line)) return [];
+  // These patterns are module-level `/g` objects shared across scans, and `matchAll` starts from the
+  // object's `lastIndex`. `scan-unearned-done-claims` calls `.test()` on one of them, which leaves
+  // `lastIndex` past the match — a stale value here would silently skip the start of a line. It
+  // already resets before its own `.test()`; this is the same defence on the reading side.
+  pattern.lastIndex = 0;
   const paths = [];
   for (const match of line.matchAll(pattern)) {
     const token = match[1] ?? match[0];
