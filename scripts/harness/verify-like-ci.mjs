@@ -595,16 +595,6 @@ function describeBuildReason({ distRequired, codeChanged, missingDist }) {
 }
 
 /**
- * Whether a stage runs, and why not when it does not.
- *
- * A stage skips only where CI's own job would be skipped or would do nothing, so a skip never
- * weakens the PASS line. The `build` gate is deliberately WIDER than ci.yml's `build` job condition:
- * `tui-e2e` and `examples-typecheck` each run `pnpm build:deps` inside their own job and never
- * consume the `build` artifact, and `scan-suite` hard-fails on absent dist — three dist consumers
- * the plan predicate alone does not see. Without the widening, a `scripts/harness` branch would skip
- * the build and then drive whatever stale binary happened to be in the worktree.
- */
-/**
  * The prerequisite gate for this entry point (HARNESS-058).
  *
  * Only `install` is demanded up front. `build-output` deliberately is NOT: the `build` stage
@@ -627,6 +617,16 @@ export function blockedByMissingBuildOutput(stage, { willBuild, missingDist }) {
   return Boolean(stage?.needsBuildOutput) && !willBuild && missingDist.length > 0;
 }
 
+/**
+ * Whether a stage runs, and why not when it does not.
+ *
+ * A stage skips only where CI's own job would be skipped or would do nothing, so a skip never
+ * weakens the PASS line. The `build` gate is deliberately WIDER than ci.yml's `build` job condition:
+ * `tui-e2e` and `examples-typecheck` each run `pnpm build:deps` inside their own job and never
+ * consume the `build` artifact, and `scan-suite` hard-fails on absent dist — three dist consumers
+ * the plan predicate alone does not see. Without the widening, a `scripts/harness` branch would skip
+ * the build and then drive whatever stale binary happened to be in the worktree.
+ */
 export function stageGate(name, context) {
   switch (name) {
     case 'build':
