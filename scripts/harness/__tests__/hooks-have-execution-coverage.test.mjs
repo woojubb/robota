@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { testExecutesHook } from '../check-regression-red-proof.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
 const TESTS_DIR = import.meta.dirname;
@@ -36,27 +38,21 @@ const TEST_SOURCES = readdirSync(TESTS_DIR)
   .map((name) => ({ name, text: readFileSync(path.join(TESTS_DIR, name), 'utf8') }));
 
 /**
- * Does `source` execute `hook`?
+ * Does `source` execute `hook`? The rule is owned by `testExecutesHook`, not restated here.
  *
- * The distinction that matters is between a hook NAMED IN PROSE and one named as a value. Matching
- * the name anywhere in the text counted a comment as coverage — the described-but-not-reached
- * failure this floor exists to close, reproduced inside the floor. So comments are stripped first,
- * and the name must survive that, in a file that spawns a shell.
+ * It lived in this file first, and the red-proof gate needed the same relation once it learned to
+ * see hooks (INFRA-071) — a shell script is never in a module graph, so "the test SPAWNS it" is
+ * what stands in for the import graph there. Two copies of a rule this exact is two things that
+ * drift, and the drift would be silent in both directions: this floor and that gate would disagree
+ * about whether a hook is covered while both stayed green.
  *
- * Requiring the name inside a `path.join(...)` was tried and was too narrow: a test that passes the
- * name to a helper which joins it — `run('some-hook.sh', …)` — is running it just as truly.
- *
- * Still structural rather than exact: a file that spawns one hook and names another in a string it
- * never uses would pass. Tying a spawn to its argument needs the call graph, and this is a
- * grep-level floor by design — stated rather than implied.
+ * What the shared rule claims, and does not: a hook NAMED IN PROSE is described, not run, so
+ * comments are stripped before the name is looked for. It stays structural rather than exact — a
+ * file that spawns one hook and names another in a string it never uses would pass. Tying a spawn
+ * to its argument needs the call graph, and this is a grep-level floor by design.
  */
-function withoutComments(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-}
-
 function executesHook(source, hook) {
-  if (!withoutComments(source.text).includes(hook)) return false;
-  return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(source.text);
+  return testExecutesHook(source.text, hook);
 }
 
 describe('every hook is executed by a test, not merely described by one', () => {
