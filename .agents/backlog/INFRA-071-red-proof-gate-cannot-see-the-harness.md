@@ -61,6 +61,31 @@ Widen the subject to the layers that carry guards, and pair them the way they ar
 The reverse-apply mechanism should carry over unchanged for `.mjs`; a `.sh` hook is not transformed
 by vitest, so reverse-applying its hunks and re-running the executing test is the same operation.
 
+## Design note (2026-07-31) — the obvious widening does not work
+
+Read the gate's mechanism before planning the change, and one thing it says is easy to miss:
+widening `pkgOf` to include `scripts/harness/` would catch **none of the four misses**.
+
+All four have `.claude/hooks/*.sh` as the code under test; only their TESTS live in
+`scripts/harness/__tests__/`. A `scripts/harness`-only widening pairs harness source with harness
+tests, and those four have no harness source at all — for
+`hooks-have-execution-coverage` the logic under test is inside the test file itself.
+
+So the change has two parts, and the second is the one that matters:
+
+1. **Grouping.** `classifyChanges` groups by `pkgOf`, so a `.sh` under `.claude/hooks/` and its test
+   under `scripts/harness/__tests__/` currently land in different groups and never form a pair. They
+   have to map to one subject.
+2. **`importsReversedFile`.** The C3 check walks relative imports from the test and asks whether any
+   reversed source is in that graph. A `.sh` is never in a module graph, so every hook pair would
+   return `INCONCLUSIVE` — a SKIP by another name. The relation that does hold is "this test SPAWNS
+   this hook", which `hooks-have-execution-coverage` already computes and could export.
+
+The reverse-apply half needs no change: bash reads a hook at spawn time, so reversing its hunks and
+re-running the executing test is the same operation vitest already performs for `src`.
+
+This is correctness-critical code in a gate, so it is worth doing deliberately rather than quickly.
+
 ## Done when
 
 - A `fix:` PR touching `scripts/harness/**` with a changed test produces a verdict, not a SKIP —
