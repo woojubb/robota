@@ -10,11 +10,12 @@ all judgement (criteria, scoping, conformance checks, how to fix docs, how to im
 safe/gated boundary, what counts as material) lives in the agents. The skill names them, reads their
 signal, and routes.
 
-The four predefined agents (spawn by `agentType`):
+The five predefined agents (spawn by `agentType`):
 
 - `architecture-auditor` — read-only; returns findings + `ACTIONABLE FINDINGS: <n>`.
 - `architecture-conformance-auditor` — read-only; returns findings, each labelled **doc-side** or
   **code-side**, + `ACTIONABLE FINDINGS: <n>`.
+- `finding-depth-triager` — read-only; returns the `DEPTH:` verdict on each finding.
 - `architecture-fixer` — applier for **doc-side** findings.
 - `architecture-implementer` — applier for **code-side** findings.
 
