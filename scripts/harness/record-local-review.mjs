@@ -156,34 +156,58 @@ function resolvePullRequest(root) {
  */
 function publishDisposition({ root, pr, disposition, foundational, branch, headSha }) {
   const label = DISPOSITION_LABELS[disposition];
-  const meta = DISPOSITION_LABEL_META[disposition];
 
-  try {
-    gh(
-      ['label', 'create', label, '--color', meta.color, '--description', meta.description],
-      root,
-    );
-  } catch {
-    // Nothing is concluded from this. `gh label create` reports an existing label as a failure, and
-    // whether the label already existed is not the question — the read-back below is. Creating it
-    // here rather than requiring a repository-settings change keeps the first use of this gate from
-    // needing an admin.
+  // BOTH labels, not only the one being applied: `--remove-label` below names the sibling, and gh
+  // resolves a label name against the repository before editing — a sibling that has never been
+  // created would fail the whole edit on a clone that has not used the other disposition yet.
+  for (const [name, meta] of Object.entries(DISPOSITION_LABEL_META)) {
+    try {
+      gh(
+        [
+          'label',
+          'create',
+          DISPOSITION_LABELS[name],
+          '--color',
+          meta.color,
+          '--description',
+          meta.description,
+        ],
+        root,
+      );
+    } catch {
+      // Nothing is concluded from this. `gh label create` reports an existing label as a failure,
+      // and whether the label already existed is not the question — the read-back below is.
+      // Creating them here rather than requiring a repository-settings change keeps the first use
+      // of this gate from needing an admin.
+    }
   }
 
+  // A finding has ONE disposition, so the sibling comes off in the same edit. Leaving both on would
+  // publish a contradiction: every gate asks about the withdrawal first, so a PR turned around from
+  // `re-plan` to `containment` would stay refused while this tool printed that containment was
+  // published — the same "the PR does not carry what was recorded" defect, pointing the other way.
+  const sibling = Object.values(DISPOSITION_LABELS).find((name) => name !== label);
   try {
-    gh(['pr', 'edit', String(pr), '--add-label', label], root);
+    gh(['pr', 'edit', String(pr), '--add-label', label, '--remove-label', sibling], root);
   } catch (err) {
     throw new Error(`could not apply '${label}' to PR #${pr}: ${String(err.message).trim()}`);
   }
 
   let applied;
   try {
-    applied = JSON.parse(gh(['pr', 'view', String(pr), '--json', 'labels', '--jq', '[.labels[].name]'], root));
+    applied = JSON.parse(
+      gh(['pr', 'view', String(pr), '--json', 'labels', '--jq', '[.labels[].name]'], root),
+    );
   } catch (err) {
     throw new Error(`could not read back the labels on PR #${pr}: ${String(err.message).trim()}`);
   }
   if (!Array.isArray(applied) || !applied.includes(label)) {
     throw new Error(`'${label}' is not on PR #${pr} after applying it, so it was not published`);
+  }
+  if (applied.includes(sibling)) {
+    throw new Error(
+      `PR #${pr} still carries '${sibling}' beside '${label}', so the disposition it publishes is ambiguous`,
+    );
   }
 
   // The comment is for the reader, not for the gate — the gate reads the label. A label alone tells
@@ -204,7 +228,9 @@ function publishDisposition({ root, pr, disposition, foundational, branch, headS
   try {
     gh(['pr', 'comment', String(pr), '--body', body], root);
   } catch (err) {
-    throw new Error(`could not comment the disposition on PR #${pr}: ${String(err.message).trim()}`);
+    throw new Error(
+      `could not comment the disposition on PR #${pr}: ${String(err.message).trim()}`,
+    );
   }
 }
 

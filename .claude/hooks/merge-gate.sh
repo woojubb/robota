@@ -119,19 +119,24 @@ fi
 # end of that page — the pagination trap SEC-007 hit on the REST `/labels` endpoint (30 per page)
 # is not reachable here.
 #
-# The `|` sentinel keeps two answers apart: a PR carrying no labels answers `||`, an unreadable
-# response answers the empty string. A bare join makes those the same value, and "I could not read
-# the labels" would then silently mean "not withdrawn".
-LABELS=$(gh pr view "$PR" --json labels --jq '"|" + ([.labels[].name] | join("|")) + "|"' 2>/dev/null || echo "")
+# One name per line, matched with `grep -qx` — whole-line equality, the same construction
+# `review-gate.yml` uses for the same question, so the two enforcement points cannot disagree.
+# A delimiter-joined string matched by substring was the first version and is wrong twice over:
+# GitHub permits `|` in a label name, so ONE label called `pre|disposition-re-plan|post` would both
+# forge the withdrawal and refuse a PR nobody withdrew — the false refusal that teaches everyone to
+# pass MERGE_GATE_ACK=1, installed by the gate itself.
+#
+# The `__labels__` sentinel line is what keeps two answers apart: a PR carrying no labels still
+# answers one line, an unreadable response answers the empty string. Without it "I could not read
+# the labels" would silently mean "not withdrawn".
+LABELS=$(gh pr view "$PR" --json labels --jq '"__labels__", (.labels[].name)' 2>/dev/null || echo "")
 if [[ -z "$LABELS" ]]; then
   echo "[merge-gate] Blocked: could not read the labels on #$PR, so a withdrawal cannot be ruled out." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
   exit 2
 fi
 
-# Membership between delimiters, not a substring search: `disposition-re-planned` is a different
-# label and must not be read as this one.
-if [[ "$LABELS" == *"|disposition-re-plan|"* ]]; then
+if printf '%s\n' "$LABELS" | grep -qx 'disposition-re-plan'; then
   echo "[merge-gate] Blocked: #$PR carries 'disposition-re-plan'. A foundational finding withdrew" >&2
   echo "[merge-gate] this change rather than patching it (finding-depth.md), so it is not to be" >&2
   echo "[merge-gate] merged: close it and work the root item instead." >&2
@@ -140,7 +145,7 @@ if [[ "$LABELS" == *"|disposition-re-plan|"* ]]; then
   exit 2
 fi
 
-if [[ "$LABELS" == *"|disposition-containment|"* ]]; then
+if printf '%s\n' "$LABELS" | grep -qx 'disposition-containment'; then
   # Containment IS a resolution, so it does not block. It is printed because the person running the
   # merge is the last one who can see the hold before it lands on the integration branch.
   echo "[merge-gate] Note: #$PR carries 'disposition-containment' — it lands under a labelled hold." >&2

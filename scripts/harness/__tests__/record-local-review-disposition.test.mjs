@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -47,7 +55,10 @@ function repoWithBacklog(branch, items) {
   const dir = scratchRepo(branch);
   mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
   for (const id of items) {
-    writeFileSync(path.join(dir, '.agents/backlog', `${id}-something.md`), '---\nstatus: todo\n---\n');
+    writeFileSync(
+      path.join(dir, '.agents/backlog', `${id}-something.md`),
+      '---\nstatus: todo\n---\n',
+    );
   }
   return dir;
 }
@@ -90,8 +101,10 @@ function stubbedGh({ prNumber = 42, addFails = false, viewFails = false } = {}) 
       'if (argv[0] === "label" && argv[1] === "create") { process.exit(0); }',
       'if (argv[0] === "pr" && argv[1] === "edit") {',
       '  if (s.addFails) { console.error("could not add label"); process.exit(1); }',
+      '  const rm = argv.indexOf("--remove-label");',
+      '  if (rm !== -1) s.labels = s.labels.filter((l) => l !== argv[rm + 1]);',
       '  const i = argv.indexOf("--add-label");',
-      '  if (i !== -1) s.labels.push(argv[i + 1]);',
+      '  if (i !== -1 && !s.labels.includes(argv[i + 1])) s.labels.push(argv[i + 1]);',
       '  save();',
       '  process.exit(0);',
       '}',
@@ -105,7 +118,10 @@ function stubbedGh({ prNumber = 42, addFails = false, viewFails = false } = {}) 
   );
   chmodSync(gh, 0o755);
 
-  return { path: `${dir}:${process.env.PATH}`, read: () => JSON.parse(readFileSync(state, 'utf8')) };
+  return {
+    path: `${dir}:${process.env.PATH}`,
+    read: () => JSON.parse(readFileSync(state, 'utf8')),
+  };
 }
 
 function recordIn(dir, args, ghPath) {
@@ -202,6 +218,30 @@ describe('a disposition is published to the PR as part of recording it', () => {
     expect(storedRecord(dir, 'feat/withdrawn')).toBe(null);
   });
 
+  it('replaces the sibling disposition rather than leaving both on the PR', () => {
+    // A finding has ONE disposition. Adding `containment` over an earlier `re-plan` and leaving
+    // both means every gate — each of which asks about the withdrawal first — keeps refusing the
+    // merge while the recorder prints that containment was published. The tool would then be
+    // reporting a decision the PR does not carry, in the opposite direction from the defect this
+    // change exists to close, and just as wrong.
+    const dir = repoWithBacklog('feat/turned-around', ['PROC-007']);
+    const gh = stubbedGh({ prNumber: 42 });
+
+    recordIn(
+      dir,
+      ['--findings', '1', '--foundational', 'PROC-007', '--disposition', 're-plan'],
+      gh.path,
+    );
+    const verdict = recordIn(
+      dir,
+      ['--findings', '0', '--foundational', 'PROC-007', '--disposition', 'containment'],
+      gh.path,
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(gh.read().labels).toEqual(['disposition-containment']);
+  });
+
   it('refuses a disposition that names no filed root item', () => {
     // The disposition is the second half of the depth verdict; the first half is the filed root
     // item. Publishing a withdrawal with nothing behind it is how "foundational" becomes a defer.
@@ -212,9 +252,10 @@ describe('a disposition is published to the PR as part of recording it', () => {
 
     expect(verdict.status).not.toBe(0);
     expect(verdict.output).toMatch(/--foundational/);
-    expect(verdict.output, 'refused for not knowing the flag, not for the missing root').not.toMatch(
-      /unrecognised/,
-    );
+    expect(
+      verdict.output,
+      'refused for not knowing the flag, not for the missing root',
+    ).not.toMatch(/unrecognised/);
     expect(gh.read().labels, 'a rootless disposition reached the PR').toEqual([]);
   });
 

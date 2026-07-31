@@ -67,10 +67,13 @@ function stubbedPath(prs) {
       '  // this gate exists to keep apart.',
       '  if (pr.labelsUnreadable) process.exit(1);',
       '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
-      '  // The hook wraps the join in a sentinel so an empty label set stays distinguishable from',
-      '  // an unreadable one. Honour whichever shape it asked for rather than inventing one.',
+      '  // The hook prefixes a sentinel line so an empty label set stays distinguishable from an',
+      '  // unreadable one. Honour whichever shape it asked for rather than inventing one — a stub',
+      '  // that answered its own preferred shape would keep passing after the hook changed.',
       '  const names = pr.labels ?? [];',
-      '  console.log(jq.includes("\\"|\\"") ? `|${names.join("|")}|` : names.join(","));',
+      '  if (jq.includes("__labels__")) console.log(["__labels__", ...names].join("\\n"));',
+      '  else if (jq.includes("\\"|\\"")) console.log(`|${names.join("|")}|`);',
+      '  else console.log(names.join(","));',
       '  process.exit(0);',
       '}',
       'if (args.includes("mergeStateStatus")) { console.log(pr.state ?? "CLEAN"); process.exit(0); }',
@@ -197,6 +200,20 @@ describe('the merge gate reads the disposition from the PR, from any checkout', 
 
     expect(verdict.status, verdict.output).toBe(0);
     expect(verdict.output).toMatch(/disposition-containment/);
+  });
+
+  it('matches whole label names, so a name containing the delimiter cannot forge one', () => {
+    // GitHub permits `|` in a label name. Delimiting the joined list with `|` and asking whether
+    // `|disposition-re-plan|` is a substring therefore lets ONE label named
+    // `pre|disposition-re-plan|post` forge the withdrawal — and blocks a PR nobody withdrew, which
+    // is the false refusal that teaches everyone to pass MERGE_GATE_ACK=1. `review-gate.yml` reads
+    // the same question with whole-line equality; the two enforcement points must not disagree.
+    const verdict = judgeFromElsewhere(
+      { 7: { ...CLEARED, labels: ['pre|disposition-re-plan|post'] } },
+      'gh pr merge 7 --merge',
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
   });
 
   it('spells the labels the same way the recorder and the required check do', () => {
