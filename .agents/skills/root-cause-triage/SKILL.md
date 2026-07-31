@@ -66,6 +66,11 @@ regression test that passes on the unfixed code guards nothing (`check-regressio
 Never a third option. A foundational finding that is quietly fixed in place is the failure this
 skill exists to prevent.
 
+The containment comment is also what lets the review loop converge: the finding is not fixed, so a
+reviewer reading the next diff would raise it again and `ACTIONABLE FINDINGS` would never reach zero.
+The comment at the site — naming the root item, why it is held, and what must happen before the gate
+it belongs to becomes binding — is the answer to that finding.
+
 ## Recording
 
 The review record carries the depth verdicts for the round:

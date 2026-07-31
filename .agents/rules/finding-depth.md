@@ -26,6 +26,18 @@ Containment is permitted only when the change must land first, and only under al
 it is the smallest thing that keeps the tree honest, it introduces no new abstraction, and it names
 the root item's ID in both a code comment and the commit body. An unlabelled hold is a patch.
 
+**The label is what lets the loop converge.** A foundational finding is not fixed, so a reviewer
+reading the next diff would raise it again and `ACTIONABLE FINDINGS` would never reach zero. The
+comment at the site — naming the root item, saying why it is held and what must happen before the
+gate it belongs to becomes binding — is the answer to that finding. A hold with no such comment is
+indistinguishable from having ignored the finding, which is why the label is a condition and not a
+courtesy.
+
+**Not the same as "too large to fix safely."** `pr-review-fixer` already defers a SHOULD it cannot
+fix cleanly in scope, and that is a judgement about THIS change's size and risk. Depth is a judgement
+about WHERE the defect is, and it applies even when the fix would be small. A one-line fix on the
+wrong layer is still on the wrong layer.
+
 ## Where it is enforced
 
 Prose does not enforce (`enforcement-architecture.md`). The floors:
