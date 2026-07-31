@@ -119,6 +119,19 @@ describe('an override must be given, not merely mentioned', () => {
     }
   });
 
+  it('refuses when the override prefixes a DIFFERENT command', () => {
+    // The decoy. `WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git status && git reset --hard` puts the token on
+    // a harmless call; a check that asks only "does the token prefix SOME git call" matches, exits
+    // 0, and the destructive command that follows is never judged at all. An override is given to
+    // ONE command — the one it precedes — not to everything after it on the line.
+    for (const command of [
+      'WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git status && git reset --hard',
+      'WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git log -1; git clean -fdx',
+    ]) {
+      expect(worktreeRun(command).status, `a decoy override let this through: ${command}`).toBe(2);
+    }
+  });
+
   it('still honours the override when it is actually given', () => {
     // Including behind another assignment, which is how a real invocation often looks.
     for (const command of [
