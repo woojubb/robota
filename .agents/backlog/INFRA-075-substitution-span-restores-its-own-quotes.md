@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-075: restoring a command-substitution span un-masks the quotes inside it'
-status: todo
+status: in-progress
 priority: high
 urgency: now
 type: INFRA
@@ -75,6 +75,31 @@ person who is blocked by a quoted mention knows in one search that it is known a
 one-line fix.
 
 `BRANCH_GUARD_ALLOW_*` overrides remain the operator's way past it, and they announce themselves.
+
+## Resolved (2026-08-01) — the first half
+
+The restore pass now keeps a quote that OPENED INSIDE the span. The first pass already masked such a
+region correctly; the second pass was taking it back wholesale. Recording the index where each
+enclosing quote opened is enough to tell the two cases apart:
+
+- a quote opened BEFORE the span was context the substitution overrides → restore it;
+- a quote opened INSIDE the span belongs to the substitution → it stands.
+
+Measured, both directions:
+
+```
+out=$(printf 'x git commit -m y' | bash h.sh); echo done   → exit 0   (was BLOCKED)
+git commit -m real            (on develop)                 → exit 2   (unchanged)
+out="$(git commit -m x)"                                    → still seen as a commit
+```
+
+The differential corpus removed its own exemption for this case, because the exemption was pinned as
+a DISAGREEMENT — closing it turned the case red until the exemption was deleted. That is the property
+that keeps an exemption from outliving its reason.
+
+**Still open: the second half.** `echo \"git push\"` — an escaped quote is a literal character, so the
+verb survives as bare words in an ARGUMENT list, and the masker has no notion of command position.
+That needs the tokenizer this item asks for; masking cannot reach it. The corpus still pins it.
 
 ## Done when
 
