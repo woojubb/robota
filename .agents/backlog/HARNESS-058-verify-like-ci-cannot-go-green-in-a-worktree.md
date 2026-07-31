@@ -47,7 +47,10 @@ statement.
 | 1   | `install`      | `pnpm install --frozen-lockfile` | every gate — they all shell out to workspace binaries |
 | 2   | `build-output` | `pnpm build`                     | every stage declaring `needsBuildOutput: true`        |
 
-Both must be run **inside the worktree itself**. Measured cost of step 1 on a warm pnpm store: ~3s.
+Both must be run **inside the worktree itself**. Measured cost of step 1 on a warm pnpm store: 2.9s
+in the freshly-created worktree this contract was proven in. Step 2 does not have to be run by hand
+before `verify-like-ci`: its own `build` stage produces the build output, which is why that entry
+point demands only the install.
 
 ### Why "the parent clone has them" is not an answer
 
