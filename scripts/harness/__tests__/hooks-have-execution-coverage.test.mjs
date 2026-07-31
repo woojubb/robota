@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { testExecutesHook } from '../check-regression-red-proof.mjs';
 
+// LIMITS testExecutesHook: they hold here. This floor's whole output is a message naming a hook
+// no test runs, so an approximate relation costs a false reassurance at worst — which is the
+// consequence class the relation was written against. The gate that reuses it to pick which tests
+// may SET a verdict is a different consumer, and holds the mismatch under INFRA-074.
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
 const TESTS_DIR = import.meta.dirname;
