@@ -101,9 +101,9 @@ The **agent-definition convention** they follow is a document-type contract in
 
 ## Documentation
 
-| Skill                                                   | Description                                                                                              |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [documentation-refresh](documentation-refresh/SKILL.md) | Thin pipeline that re-calls doc-auditor→doc-fixer until an audit round is clean (agents hold all policy) |
+| Skill                                                   | Description                                                                                                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [documentation-refresh](documentation-refresh/SKILL.md) | Thin pipeline that re-calls doc-auditor→finding-depth-triager→doc-fixer until every finding of a round is RESOLVED (agents hold all policy) |
 
 ## Testing
 
