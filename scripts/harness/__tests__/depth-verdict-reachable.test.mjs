@@ -115,6 +115,28 @@ function bodyOf(text) {
   return m ? text.slice(m[0].length) : text;
 }
 
+/**
+ * The map's PIPELINE table rows, found by its header rather than by column arithmetic.
+ *
+ * The map holds several tables and the columns mean different things in each; keying on fixed
+ * indices happened to work only because the agent-roles table carries `—` where this one carries a
+ * worker. A table gaining a worker name in that position would have made this demand a guardian of
+ * a row that has none — a guard failing correct work, which is how a guard gets switched off.
+ */
+export function pipelineRows(mapText) {
+  const lines = mapText.split('\n');
+  const header = lines.findIndex(
+    (l) => l.startsWith('|') && /\bWorker\(s\)/.test(l) && /\bGuardian\(s\)/.test(l),
+  );
+  if (header === -1) return [];
+  const rows = [];
+  for (const line of lines.slice(header + 2)) {
+    if (!line.startsWith('|')) break;
+    rows.push(line);
+  }
+  return rows;
+}
+
 describe('a worker told to take a depth verdict has a pipeline that produces one', () => {
   it('finds the definitions and skills to check', () => {
     // Fail closed: a moved directory would make every case below pass over nothing.
@@ -155,9 +177,13 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
     // does not show anyone producing. Two disagreeing halves of one wiring is the registry-drift
     // class, and the map is what a reader consults instead of reading four skills.
     const workers = depthTakingAgents(DEFINITIONS);
-    const rows = readFileSync(MAP, 'utf8')
-      .split('\n')
-      .filter((line) => line.startsWith('|') && line.split('|').length > 5);
+    const rows = pipelineRows(readFileSync(MAP, 'utf8'));
+
+    // Fail closed: reading the wrong table, or none, must not pass over nothing.
+    expect(
+      rows.length,
+      'no pipeline rows found — the table header moved or was renamed',
+    ).toBeGreaterThan(5);
 
     for (const row of rows) {
       const cells = row.split('|');
@@ -181,7 +207,7 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
  * worse than leaving it visibly open, because the label is what stops the next audit round from
  * raising it again. So the label is only worth what it resolves to.
  *
- * CONTAINED — PROC-007. `resolveRootItems` reads `.agents/backlog` and `.agents/backlog/completed`,
+ * CONTAINED — PROC-009. `resolveRootItems` reads `.agents/backlog` and `.agents/backlog/completed`,
  * while `backlog-writer` — the skill a foundational verdict is routed to — files new items under
  * `.agents/spec-docs/draft/`. An item filed on the designed path therefore fails this check. The fix is
  * NOT to widen the reader here: that would make two floors disagree about what a filed root item is,
@@ -198,7 +224,9 @@ export function containmentNotes(text) {
   // illustration. A sample of a label is not a label, exactly as a code sample is not code.
   let inFence = false;
   for (const line of text.split('\n')) {
-    if (/^\s{0,3}(?:```|~~~)/.test(line)) {
+    // Any indentation: an illustration nested inside a list item is indented past four spaces, and
+    // reading it as a real label would put an unfiled ID in the tree wearing a passing check.
+    if (/^\s*(?:```|~~~)/.test(line)) {
       inFence = !inFence;
       continue;
     }

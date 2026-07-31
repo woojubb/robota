@@ -7,6 +7,7 @@ type: PROC
 area: .agents/skills
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1570
 ---
 
 # PROC-008 — a rule stated for every loop, adopted by one

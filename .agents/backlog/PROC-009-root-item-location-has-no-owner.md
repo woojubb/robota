@@ -1,5 +1,5 @@
 ---
-title: 'PROC-007: nothing owns WHERE a root item lives, so the floors that verify one resolve half the space'
+title: 'PROC-009: nothing owns WHERE a root item lives, so the floors that verify one resolve half the space'
 status: todo
 priority: medium
 urgency: soon
@@ -7,9 +7,10 @@ type: PROC
 area: scripts/harness
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1569
 ---
 
-# PROC-007 — "file the root item" names two places, and the floors know one
+# PROC-009 — "file the root item" names two places, and the floors know one
 
 ## Problem
 
@@ -42,4 +43,4 @@ verbatim, so both floors are wrong in exactly the same way and one change correc
   each.
 - A root item filed by `backlog-writer` on the routed path satisfies `--foundational <ID>` without the
   author having to know which tree the floor happens to read.
-- The containment comment in `depth-verdict-reachable.test.mjs` naming PROC-007 is removed with the fix.
+- The containment comment in `depth-verdict-reachable.test.mjs` naming PROC-009 is removed with the fix.
