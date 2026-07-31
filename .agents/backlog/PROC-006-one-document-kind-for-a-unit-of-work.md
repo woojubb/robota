@@ -45,8 +45,23 @@ methodology term. Candidates weighed against collisions **inside this repository
 | Task                            | plainest                                                                                                           | `.agents/tasks/` exists, with 422 archived files under it                                     |
 | Change Record                   | standard, stage-friendly                                                                                           | none, but abstract                                                                            |
 
-Recommendation: **Work Item**, because it is the vocabulary the rules already use, so nothing new has
-to be learned.
+**Decided (owner, 2026-08-01): `Task`.**
+
+The collision this table raised is resolved by the decision rather than left standing. `.agents/tasks/`
+today holds one README and 422 archived files, and its scan examines ZERO live documents
+([HARNESS-063](HARNESS-063-scans-that-examine-nothing.md)) — the tree was already awaiting a verdict
+of "revive with a stated purpose, or retire with its scan". Naming the unit of work a Task is that
+verdict: the tree is revived, and it becomes the one home.
+
+Two things that follow, and must be decided here rather than discovered during the move:
+
+- The existing archive uses a different shape — a `Status:` line and checkbox plans, alongside a
+  second "Task Breakdown" form that `check-task-archival` was written to understand BOTH of. Merging
+  1,030 documents into a tree that already carries two formats makes three. The archive either
+  migrates to the new shape or sits under a clearly-named subtree that the live scan does not read.
+- `jobs` and `task` both appear in CI vocabulary. `jobs:` is structural in the workflow files and was
+  the reason that candidate was rejected; `task` appears only in prose, which is why this one is
+  affordable. Worth stating so the next reader does not re-litigate it.
 
 ## Why this is filed rather than done inline
 
@@ -62,6 +77,7 @@ in-repo systems and then moving state out of them would be two migrations where 
 - One document kind for a unit of work, one lifecycle, one directory.
 - Every rule, skill, scan, hook and workflow that referenced either path resolves — proven by the
   scans passing, not by grep alone, since a scan reading an absent tree is the failure mode.
-- `.agents/tasks/` is either revived with a stated purpose or retired with its scan.
+- `.agents/tasks/` is revived as the single home, its archive's format question settled, and
+  `check-task-archival` reads a tree that is no longer empty.
 - The chosen name appears in AGENTS.md's document tree, and no document calls the same thing by the
   old name.
