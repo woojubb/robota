@@ -41,7 +41,8 @@
  *   Both are the same missing step. Neither says so. That is what this module fixes.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /** The prerequisite ids, in the order they must be satisfied — install produces what build needs. */
@@ -96,29 +97,36 @@ export function findMissingDist(dirs, exists = existsSync, root) {
   return dirs.filter((dir) => !exists(path.join(root, dir, 'dist')));
 }
 
+/** One `git rev-parse` reading, absolute; empty string when this path is not inside a repository. */
+export function readGitPath(root, name) {
+  const result = spawnSync('git', ['-C', root, 'rev-parse', '--path-format=absolute', name], {
+    encoding: 'utf8',
+  });
+  return result.status === 0 ? (result.stdout ?? '').trim() : '';
+}
+
 /**
  * How this tree relates to the repository, for the message.
  *
- * In a linked worktree `.git` is a FILE containing `gitdir: <parent>/.git/worktrees/<name>`; in the
- * main clone it is a directory. Naming the parent clone matters because the whole misdiagnosis is
- * "but the dependencies are right there" — they are, one directory up, and that is not this tree.
+ * Asked of GIT, not of the filesystem. Inspecting `.git` (a directory in the main clone, a file
+ * containing `gitdir: …` in a linked worktree) means checking a path and then using it — a race
+ * CodeQL flags as js/file-system-race, and a heuristic where git already has the exact answer:
+ * a linked worktree is precisely a tree whose `--git-dir` differs from its `--git-common-dir`.
  *
- * ONE stat, not `exists()` then `stat()`: a check-then-use pair on the filesystem is a race (CodeQL
- * js/file-system-race), and `throwIfNoEntry: false` answers both questions — present? directory? —
- * from a single syscall.
+ * Naming the parent clone matters because the whole misdiagnosis is "but the dependencies are right
+ * there" — they are, one directory up, and that is not this tree.
  */
-export function describeTree(root, { read = readFileSync } = {}) {
-  const dotGit = path.join(root, '.git');
-  const stats = statSync(dotGit, { throwIfNoEntry: false });
-  if (!stats) return { kind: 'unknown', root };
-  if (stats.isDirectory()) return { kind: 'clone', root };
-  const gitdir = /gitdir:\s*(.+)/.exec(read(dotGit, 'utf8'))?.[1]?.trim();
-  const parent = gitdir ? gitdir.replace(/[/\\]\.git[/\\]worktrees[/\\].*$/, '') : undefined;
+export function describeTree(root, readPath = readGitPath) {
+  const gitDir = readPath(root, '--git-dir');
+  const commonDir = readPath(root, '--git-common-dir');
+  if (!gitDir || !commonDir) return { kind: 'unknown', root };
+  if (gitDir === commonDir) return { kind: 'clone', root };
+  const parent = path.dirname(commonDir);
   return {
     kind: 'worktree',
     root,
     parent,
-    nested: Boolean(parent) && root.startsWith(`${parent}${path.sep}`),
+    nested: root.startsWith(`${parent}${path.sep}`),
   };
 }
 

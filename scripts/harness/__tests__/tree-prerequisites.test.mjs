@@ -11,7 +11,8 @@
  * is unbuilt and still prints a module-resolution stack trace has fixed nothing.
  */
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -91,30 +92,54 @@ describe('listBuildablePackageDirs / findMissingDist', () => {
   });
 });
 
+/**
+ * These use REAL git repositories and REAL `git worktree add`. `describeTree` asks git rather than
+ * inspecting `.git` by hand, so a fixture that fakes the `.git` layout would be testing a heuristic
+ * the code no longer uses.
+ */
+function createGitRepo() {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-git-')));
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], { stdio: 'pipe' });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'harness@example.test');
+  git('config', 'user.name', 'harness');
+  writeFileSync(path.join(root, 'seed.txt'), 'seed\n');
+  git('add', 'seed.txt');
+  git('commit', '-qm', 'seed');
+  return { root, git };
+}
+
 describe('describeTree', () => {
   it('calls the main clone a clone', () => {
-    const root = createFixture({ '.git/HEAD': 'ref: refs/heads/develop\n' });
+    const { root } = createGitRepo();
     expect(describeTree(root).kind).toBe('clone');
   });
 
   it('resolves a linked worktree to its parent clone and marks it nested', () => {
-    const parent = createFixture({ '.git/HEAD': 'ref: refs/heads/develop\n' });
-    const nested = path.join(parent, '.claude', 'worktrees', 'agent-x');
-    mkdirSync(nested, { recursive: true });
-    writeFileSync(path.join(nested, '.git'), `gitdir: ${parent}/.git/worktrees/agent-x\n`);
+    const { root, git } = createGitRepo();
+    const nested = path.join(root, 'nested-wt');
+    git('worktree', 'add', '-q', '-b', 'nested-branch', nested);
     const described = describeTree(nested);
     expect(described.kind).toBe('worktree');
-    expect(described.parent).toBe(parent);
+    expect(described.parent).toBe(root);
     expect(described.nested).toBe(true);
   });
 
   it('marks a worktree outside the parent clone as NOT nested', () => {
-    const parent = createFixture({ '.git/HEAD': 'ref: refs/heads/develop\n' });
-    const sibling = createFixture({});
-    writeFileSync(path.join(sibling, '.git'), `gitdir: ${parent}/.git/worktrees/agent-y\n`);
+    const { root, git } = createGitRepo();
+    const sibling = path.join(
+      realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-sibling-'))),
+      'wt',
+    );
+    git('worktree', 'add', '-q', '-b', 'sibling-branch', sibling);
     const described = describeTree(sibling);
+    expect(described.kind).toBe('worktree');
+    expect(described.parent).toBe(root);
     expect(described.nested).toBe(false);
-    expect(described.parent).toBe(parent);
+  });
+
+  it('calls a path outside any repository unknown', () => {
+    expect(describeTree(createFixture({ 'package.json': '{}' })).kind).toBe('unknown');
   });
 });
 
@@ -163,11 +188,12 @@ describe('inspectTree', () => {
 // ---------------------------------------------------------------------------
 
 describe('formatPrerequisiteFailure', () => {
+  /** A real nested worktree, installed by nobody and built by nobody. */
   const unpreparedNested = () => {
-    const parent = createFixture({ '.git/HEAD': 'ref: refs/heads/develop\n' });
-    const nested = path.join(parent, '.claude', 'worktrees', 'agent-x');
+    const { root, git } = createGitRepo();
+    const nested = path.join(root, 'nested-wt');
+    git('worktree', 'add', '-q', '-b', `nested-${Date.now()}`, nested);
     mkdirSync(path.join(nested, 'packages', 'unbuilt'), { recursive: true });
-    writeFileSync(path.join(nested, '.git'), `gitdir: ${parent}/.git/worktrees/agent-x\n`);
     writeFileSync(path.join(nested, 'packages', 'unbuilt', 'package.json'), BUILDABLE_MANIFEST);
     return inspectTree(nested);
   };
@@ -201,9 +227,12 @@ describe('formatPrerequisiteFailure', () => {
   });
 
   it('explains a sibling worktree by the opposite symptom', () => {
-    const parent = createFixture({ '.git/HEAD': 'ref: refs/heads/develop\n' });
-    const sibling = createFixture({});
-    writeFileSync(path.join(sibling, '.git'), `gitdir: ${parent}/.git/worktrees/agent-y\n`);
+    const { git } = createGitRepo();
+    const sibling = path.join(
+      realpathSync(mkdtempSync(path.join(tmpdir(), 'tree-prerequisites-sibling-'))),
+      'wt',
+    );
+    git('worktree', 'add', '-q', '-b', `sibling-${Date.now()}`, sibling);
     const message = formatPrerequisiteFailure('verify-like-ci', inspectTree(sibling));
     expect(message).toContain("Could not resolve 'vitest/config'");
   });
