@@ -302,6 +302,100 @@ describe('the recorder refuses to guess which checkout it is in', () => {
   });
 });
 
+describe('a foundational finding must name a root item that exists', () => {
+  const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.mjs');
+
+  function repoWithBacklog(items = []) {
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    for (const id of items) {
+      writeFileSync(path.join(dir, '.agents/backlog', `${id}-something.md`), '---\nstatus: todo\n---\n');
+    }
+    return dir;
+  }
+
+  function recordIn(dir, args) {
+    const result = spawnSync('node', [RECORDER, ...args], { cwd: dir, encoding: 'utf8' });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses an ID that resolves to no backlog item', () => {
+    // The whole value of the depth verdict is that the root gets filed. An ID naming nothing is the
+    // same as not having filed it — and it is worse than silence, because the record then claims a
+    // root item exists. So the recorder refuses rather than storing an unresolvable promise.
+    const dir = repoWithBacklog(['INFRA-073']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-999']);
+
+    expect(verdict.status, 'an unfiled root item was accepted').not.toBe(0);
+    expect(verdict.output).toMatch(/INFRA-999/);
+  });
+
+  it('records the IDs when they resolve, and stores them', () => {
+    const dir = repoWithBacklog(['INFRA-073', 'PROC-004']);
+
+    const verdict = recordIn(dir, [
+      '--findings',
+      '0',
+      '--foundational',
+      'INFRA-073,PROC-004',
+      '--notes',
+      'aggregation held',
+    ]);
+
+    expect(verdict.status, verdict.output).toBe(0);
+    const stored = JSON.parse(
+      readFileSync(recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews')), 'utf8'),
+    );
+    expect(stored.foundational).toEqual(['INFRA-073', 'PROC-004']);
+    expect(stored.notes, 'the note was silently dropped').toBe('aggregation held');
+  });
+
+  it('refuses a flag it does not understand instead of ignoring it', () => {
+    // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
+    // parser skipped anything it did not recognise, so every note passed that way was dropped and
+    // the record said nothing about it. A flag the tool ignores is a flag the caller believes in.
+    const dir = repoWithBacklog([]);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--note', 'this was never stored']);
+
+    expect(verdict.status, 'an unknown flag was silently ignored').not.toBe(0);
+    expect(verdict.output).toMatch(/--note\b/);
+  });
+});
+
+describe('the depth verdict is wired into the pipeline that must act on it', () => {
+  // Anti-rot only, and it says so: these assert that the routing EXISTS, not that it fires. What
+  // makes the rule reached is the recorder above, which refuses an unfiled root item on every push
+  // — a check nothing can satisfy by describing itself. The repository's own measured failure is a
+  // guard that was registered everywhere and reached nowhere, so the distinction is stated rather
+  // than left for a reader to assume from a green suite.
+  const read = (rel) => readFileSync(path.join(WORKSPACE_ROOT, rel), 'utf8');
+
+  it('the fixer is told to stop on a foundational finding, not patch it', () => {
+    const fixer = read('.claude/agents/pr-review-fixer.md');
+
+    expect(fixer, 'the fixer never learns the depth question').toMatch(/FOUNDATIONAL/);
+    expect(fixer, 'nothing tells it not to patch one').toMatch(/[Dd]o not patch/);
+  });
+
+  it('the orchestrator routes a foundational finding out of the fix loop', () => {
+    const skill = read('.agents/skills/pr-review-orchestration/SKILL.md');
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(roundA, 'depth is not asked before the fix').toMatch(/FOUNDATIONAL/);
+    expect(roundA, 'the recorded root item has no way in').toMatch(/--foundational/);
+  });
+
+  it('the rule and the skill that carries it both exist', () => {
+    expect(read('.agents/rules/index.md')).toMatch(/finding-depth\.md/);
+    expect(read('.agents/skills/index.md')).toMatch(/root-cause-triage/);
+    expect(read('.agents/rules/finding-depth.md'), 'the rule names no enforcement point').toMatch(
+      /record-local-review/,
+    );
+  });
+});
+
 describe('the skill still puts the round before the push', () => {
   const skill = readFileSync(SKILL, 'utf8');
 

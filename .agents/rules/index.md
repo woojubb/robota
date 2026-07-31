@@ -32,4 +32,5 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 | [research.md](research.md)                     | Research-first implementation and recommendation authority                                                 |
 | [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user execution test scenario gates, initiative PRs                           |
 | [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation, API boundary & lifecycle                          |
+| [finding-depth.md](finding-depth.md)         | A review finding is classified LOCAL or FOUNDATIONAL before it is fixed; a foundational one is filed, not patched |
 | [learning-loop.md](learning-loop.md)           | Lesson capture, contract-before-automation, and mechanical enforcement preference                          |

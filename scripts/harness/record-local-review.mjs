@@ -27,13 +27,21 @@
  * measuring the wrong thing. Its value is that the round happens before the push rather than after,
  * which is where the eight minutes are.
  *
+ * ## The depth half
+ *
+ * `finding-depth.md` requires every review finding to be classified LOCAL or FOUNDATIONAL before it
+ * is fixed, and a foundational one to be FILED rather than patched in place. That rule is worth what
+ * it causes, so the record carries the root items the round produced and refuses an ID that names
+ * none — `pre-push-check` already forces a record on every push, which makes this the one place the
+ * requirement is reached by the real invocation rather than when remembered.
+ *
  * Usage:
- *   node scripts/harness/record-local-review.mjs --findings 0 [--notes "..."]
+ *   node scripts/harness/record-local-review.mjs --findings 0 [--notes "..."] [--foundational <ID>[,<ID>...]]
  *   node scripts/harness/record-local-review.mjs --show
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -141,18 +149,55 @@ export function isReviewed(branch, headSha, dir = RECORD_DIR) {
   return reviewState(branch, headSha, dir).ok;
 }
 
-function parseArgs(argv) {
-  const args = { findings: null, notes: '', show: false };
+/**
+ * Which of `ids` name a real backlog item, and which name nothing.
+ *
+ * A FOUNDATIONAL verdict (`finding-depth.md`) is worth only what it causes: the root gets filed
+ * instead of patched over. An ID that resolves to no item is worse than silence, because the record
+ * then asserts a root item exists — so the recorder refuses rather than storing the promise.
+ */
+export function resolveRootItems(ids, backlogDir) {
+  const present = new Set();
+  for (const dir of [backlogDir, path.join(backlogDir, 'completed')]) {
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir)) {
+      const m = name.match(/^([A-Z]+-\d+)-/);
+      if (m) present.add(m[1]);
+    }
+  }
+  return {
+    resolved: ids.filter((id) => present.has(id)),
+    missing: ids.filter((id) => !present.has(id)),
+  };
+}
+
+export function parseArgs(argv) {
+  const args = { findings: null, notes: '', show: false, foundational: [], unknown: [] };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--show') args.show = true;
     else if (argv[i] === '--findings') args.findings = Number(argv[++i]);
     else if (argv[i] === '--notes') args.notes = String(argv[++i] ?? '');
+    else if (argv[i] === '--foundational') {
+      args.foundational = String(argv[++i] ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    // Anything else is reported, not skipped. Skipping is how `--note` (singular) was accepted by
+    // silence for as long as this tool existed: every note passed that way was dropped, and the
+    // caller had no way to find out. A flag the tool ignores is a flag the caller believes in.
+    else args.unknown.push(argv[i]);
   }
   return args;
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.unknown.length > 0) {
+    console.error(`record-local-review: unrecognised argument(s): ${args.unknown.join(' ')}`);
+    console.error('Accepted: --findings <n> | --notes "…" | --foundational <ID>[,<ID>…] | --show');
+    process.exit(1);
+  }
   const root = repoRoot();
   const branch = git(['branch', '--show-current'], root);
   const headSha = git(['rev-parse', 'HEAD'], root);
@@ -196,11 +241,26 @@ function main() {
     process.exit(1);
   }
 
+  // A FOUNDATIONAL verdict is worth what it causes, and what it must cause is a filed root item
+  // (`finding-depth.md`). An ID naming nothing asserts one exists, so it is refused here rather
+  // than stored — this is the floor that keeps the depth verdict from becoming a way to defer.
+  const { missing } = resolveRootItems(args.foundational, path.join(root, '.agents/backlog'));
+  if (missing.length > 0) {
+    console.error(
+      `record-local-review: no backlog item for ${missing.join(', ')} — file the root item first.`,
+    );
+    console.error(
+      'A foundational finding whose root item does not exist is the same as not having filed it.',
+    );
+    process.exit(1);
+  }
+
   mkdirSync(recordDirFor(root), { recursive: true });
   const record = {
     branch,
     headSha,
     findings: 0,
+    foundational: args.foundational,
     notes: args.notes,
     reviewedAt: new Date().toISOString(),
   };
