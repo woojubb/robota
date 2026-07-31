@@ -53,6 +53,30 @@ export function mapRowNames(mapText) {
 }
 
 /**
+ * The agents a single skill's text dispatches. Pure, so the reading is testable without a tree —
+ * this shipped with no regression test and its own review said so.
+ */
+export function dispatchedAgents(text, agentNames) {
+  const dispatched = new Set();
+  for (const sentence of text.replace(/\r?\n/g, ' ').split(/(?<=[.!?][*_`)\]]{0,3})\s+/)) {
+    // An imperative naming the agent — the same reading `agents-cannot-be-told-to-dispatch` uses.
+    // A sentence about what an agent OWNS is a reference, not a dispatch.
+    if (/\bowns\b|\bis the\b|\bbelongs to\b|\bnot this skill/i.test(sentence)) continue;
+    for (const name of agentNames) {
+      // `hand` carries a boundary. Without it `handling`/`handles` anchors the match, so ordinary
+      // prose — "this skill handles retries and reports to `some-agent`" — would demand a map edit
+      // that no dispatch justifies. Demonstrated on the incident file itself.
+      const re = new RegExp(
+        `\\b(?:dispatch(?:es)?|calls?|invokes?|hand(?:s|ed)?\\b[^.\`]{0,30}\\bto)\\b[^.\`]{0,40}\`?${name}\`?`,
+        'i',
+      );
+      if (re.test(sentence)) dispatched.add(name);
+    }
+  }
+  return [...dispatched].sort();
+}
+
+/**
  * Every SKILL that dispatches an agent, and the agents it dispatches.
  *
  * The registry's stated purpose is to be current, and the drift it is most likely to suffer is
@@ -70,24 +94,8 @@ export function skillDispatches(root, agentNames) {
     if (!entry.isDirectory()) continue;
     const file = path.join(skillsDir, entry.name, 'SKILL.md');
     if (!existsSync(file)) continue;
-    const text = readFileSync(file, 'utf8');
-    const dispatched = new Set();
-    for (const sentence of text.replace(/\r?\n/g, ' ').split(/(?<=[.!?][*_`)\]]{0,3})\s+/)) {
-      // An imperative naming the agent — the same reading `agents-cannot-be-told-to-dispatch` uses.
-      // A sentence about what an agent OWNS is a reference, not a dispatch.
-      if (/\bowns\b|\bis the\b|\bbelongs to\b|\bnot this skill/i.test(sentence)) continue;
-      for (const name of agentNames) {
-        if (
-          new RegExp(
-            `\\b(?:dispatch|dispatches|call|calls|invoke|invokes|hand[^.\`]{0,30}to)\\b[^.\`]{0,40}\`?${name}\`?`,
-            'i',
-          ).test(sentence)
-        ) {
-          dispatched.add(name);
-        }
-      }
-    }
-    if (dispatched.size > 0) out.push({ skill: entry.name, agents: [...dispatched].sort() });
+    const dispatched = dispatchedAgents(readFileSync(file, 'utf8'), agentNames);
+    if (dispatched.length > 0) out.push({ skill: entry.name, agents: dispatched });
   }
   return out;
 }

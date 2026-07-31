@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectOrchestrationMapFindings } from '../scan-orchestration-map.mjs';
+import { collectOrchestrationMapFindings, dispatchedAgents } from '../scan-orchestration-map.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-orchestration-map.mjs', import.meta.url));
 // HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
@@ -186,10 +186,7 @@ describe('scan-orchestration-map CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-orchestration-map.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
-    copyFileSync(
-      GOVERNED_TREE_MODULE,
-      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
-    );
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     copyFileSync(FRONTMATTER_MODULE, path.join(path.dirname(scriptCopy), 'frontmatter.mjs'));
     return { root, scriptCopy };
   }
@@ -240,5 +237,42 @@ describe('scan-orchestration-map CLI', () => {
     expect(result.stderr).toContain(
       'orchestration-map scan: .agents/specs/orchestration-map.md is missing.',
     );
+  });
+});
+
+describe('the registry must agree with the wiring it records', () => {
+  // The scan asked only whether each AGENT has a row — never whether the pipeline USING one names
+  // it. So a dispatch could be added and the map left describing the world before it, which is the
+  // drift a registry whose stated purpose is "mechanically kept current" is most likely to suffer.
+  // Measured twice on 2026-08-01 in #1546. This shipped once with no regression case, and its own
+  // review said so; these are that case.
+  const AGENTS = ['finding-depth-triager', 'proposal-reviewer'];
+
+  it('reads an imperative dispatch, in the shapes the skills are written in', () => {
+    expect(dispatchedAgents('Dispatch `finding-depth-triager` on the findings.', AGENTS)).toEqual([
+      'finding-depth-triager',
+    ]);
+    // Bold, and a sentence ending in emphasis — the shape that glued two sentences together and hid
+    // the dispatch behind the NEXT sentence's exclusion.
+    expect(
+      dispatchedAgents(
+        '**Also dispatch `finding-depth-triager` on the problem statement, before the recommendation is formed.** The depth verdict asks whether the problem is the real one.',
+        AGENTS,
+      ),
+    ).toEqual(['finding-depth-triager']);
+    // Wrapped across lines, as these documents are written.
+    expect(
+      dispatchedAgents('hand the finding to\n`proposal-reviewer` for a verdict.', AGENTS),
+    ).toEqual(['proposal-reviewer']);
+  });
+
+  it('does not read a reference, or a word that merely contains a verb', () => {
+    // A guard that demands a map edit for prose nobody dispatched from is one that gets switched off.
+    expect(dispatchedAgents('`proposal-reviewer` owns the verdict.', AGENTS)).toEqual([]);
+    expect(
+      dispatchedAgents('This skill handles retries and reports to `proposal-reviewer`.', AGENTS),
+      '"handles" anchored the hand-to idiom',
+    ).toEqual([]);
+    expect(dispatchedAgents('The reviewer is `proposal-reviewer`.', AGENTS)).toEqual([]);
   });
 });
