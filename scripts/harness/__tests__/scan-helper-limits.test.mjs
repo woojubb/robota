@@ -133,6 +133,12 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     expect(localImports("import { a, b as c } from './x.mjs';")).toEqual([
       { specifier: './x.mjs', names: ['a', 'b'] },
     ]);
+    // A default beside the named ones, and a double-quoted specifier. Neither is common here —
+    // prettier settles the quotes — but a floor that MISSES a consumer fails silently, which is the
+    // "invisible in the code" shape this rule exists to catch, occurring inside its own enforcement.
+    expect(localImports('import owner, { a } from "./x.mjs";')).toEqual([
+      { specifier: './x.mjs', names: ['a'] },
+    ]);
     // Not a local module: a package import has no declaring file here to carry limits.
     expect(localImports("import { z } from 'node:path';")).toEqual([]);
     expect(acknowledgements('// LIMITS foo: because.')).toEqual([{ name: 'foo', reason: 'because.' }]);

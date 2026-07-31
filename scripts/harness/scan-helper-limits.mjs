@@ -79,7 +79,10 @@ export function taggedFunctions(text) {
 /** Local module specifiers imported by `text`, with the names taken from each. */
 export function localImports(text) {
   const out = [];
-  const re = /(?:^|\n)import\s*\{([^}]*)\}\s*from\s*'(\.[^']*)'/g;
+  // A default binding may precede the braces, and the specifier may be quoted either way. Neither
+  // is common here — prettier settles the quotes — but a floor that MISSES a consumer fails
+  // silently, which is the invisible-in-the-code shape this whole rule exists to catch.
+  const re = /(?:^|\n)import\s+(?:[A-Za-z0-9_$]+\s*,\s*)?\{([^}]*)\}\s*from\s*['"](\.[^'"]*)['"]/g;
   for (const m of text.matchAll(re)) {
     const names = m[1]
       .split(',')
