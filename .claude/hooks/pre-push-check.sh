@@ -89,13 +89,12 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
-if [[ -n "$HOOK_CWD" ]] && hook_git_in "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  PROJECT_DIR="$HOOK_CWD"
-fi
-if [[ -n "$GIT_C_PATH" ]] && hook_git_in "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  PROJECT_DIR="$GIT_C_PATH"
-fi
+# One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
+# `validated`: it must name SOME repository, because its verdict is about the branch that
+# repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
+# it (worktree-cwd-guard's first-nonempty fail-safe, and this hook's own `session` base check) stay
+# decisions with a reason instead of four copies that drift apart.
+PROJECT_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
 
 # ── 0. Branch-base hygiene (git-branch.md: feature branches start from origin/develop) ──────────

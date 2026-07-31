@@ -159,13 +159,12 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
-EFFECTIVE_DIR="${CLAUDE_PROJECT_DIR:-.}"
-if [[ -n "$HOOK_CWD" ]] && hook_git_in "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  EFFECTIVE_DIR="$HOOK_CWD"
-fi
-if [[ -n "$GIT_C_PATH" ]] && hook_git_in "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  EFFECTIVE_DIR="$GIT_C_PATH"
-fi
+# One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
+# `validated`: it must name SOME repository, because its verdict is about the branch that
+# repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
+# it (worktree-cwd-guard's first-nonempty fail-safe, and this hook's own `session` base check) stay
+# decisions with a reason instead of four copies that drift apart.
+EFFECTIVE_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
 # Detect git action type
 IS_COMMIT=false
@@ -288,6 +287,18 @@ fi
 
 # Get current branch of the EFFECTIVE context (worktree-aware, see resolution above)
 PROJECT_DIR="$EFFECTIVE_DIR"
+
+# A guard fails CLOSED. When nothing resolvable is a repository, the branch read below came back
+# empty, an empty branch matched no protected name, and the hook exited 0 — "I could not verify"
+# wearing the costume of "I verified this is fine", which the hook protocol reads as a pass.
+# A detached HEAD is deliberately NOT this case: there the repository IS readable and the branch is
+# genuinely nameless, and the checks below already handle that.
+if ! hook_is_work_tree "$PROJECT_DIR"; then
+  echo "[branch-guard] Blocked: '$PROJECT_DIR' is no git repository, so the branch this command" >&2
+  echo "[branch-guard] would act on cannot be read. Nothing was verified; this is not a pass." >&2
+  echo "[branch-guard] Run the command from the checkout it belongs to." >&2
+  exit 2
+fi
 # One branch reader, with the default on the VALUE. `git branch --show-current` exits 0 and prints
 # NOTHING on a detached HEAD, so an `|| echo …` arm here never runs — three hooks wrote one and all
 # three were dead code. THIS caller wants the empty value: the checks below key on emptiness to
@@ -505,10 +516,8 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # creation. Stated limit: `git -C <other> checkout -b` is judged against the session repository
     # rather than <other>; branches are created where the session is, and erring that way
     # over-permits a rare form instead of refusing a common one.
-    BASE_DIR="${CLAUDE_PROJECT_DIR:-.}"
-    if [[ -n "$HOOK_CWD" ]] && hook_git_in "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      BASE_DIR="$HOOK_CWD"
-    fi
+    # The `session` mode is exactly that rule, named: hook `cwd` > project dir, `git -C` ignored.
+    BASE_DIR=$(hook_effective_repo session "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
     WANTED=origin/develop
     hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$WANTED" >/dev/null 2>&1 || WANTED=develop

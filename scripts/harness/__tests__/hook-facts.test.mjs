@@ -327,6 +327,36 @@ describe('fact 3 — which repository the command acts on', () => {
     expect(run.output).toContain('protected branch');
   });
 
+  it('branch-guard refuses a commit when no repository can be read at all', () => {
+    // A guard fails CLOSED. When the fact it judges cannot be read, "I verified this is fine" and
+    // "I could not verify" are the two states it must never conflate — and it did: with nothing
+    // resolvable, the branch came back empty and the hook exited 0, which the hook protocol reads
+    // as a pass. A detached HEAD is the case that looks identical and is NOT this one: there the
+    // repository is readable and the branch is genuinely nameless, so it still falls through.
+    const plain = scratchDir('hook-facts-norepo-');
+    const run = runHook(
+      'branch-guard.sh',
+      { tool_name: 'Bash', cwd: plain, tool_input: { command: 'git commit -m "chore: x"' } },
+      { cwd: plain, env: { CLAUDE_PROJECT_DIR: plain } },
+    );
+    expect(run.status).toBe(2);
+    expect(run.output).toContain('no git repository');
+  });
+
+  it('branch-guard still falls through on a detached HEAD, which is readable and nameless', () => {
+    const dir = initRepo(path.join(scratchDir('hook-facts-detach-'), 'repo'), 'main');
+    writeFileSync(path.join(dir, 'second.txt'), 'x\n');
+    spawnSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'commit', '--quiet', '-m', 'chore: second'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
+    const run = runHook(
+      'branch-guard.sh',
+      { tool_name: 'Bash', cwd: dir, tool_input: { command: 'git commit -m "chore: x"' } },
+      { cwd: dir, env: { CLAUDE_PROJECT_DIR: dir } },
+    );
+    expect(run.status).toBe(0);
+  });
+
   it('leaves no hook hand-rolling the work-tree validation ladder', () => {
     const offenders = hookSourcesWithoutComments()
       .filter(({ text }) => /rev-parse --is-inside-work-tree/.test(text))

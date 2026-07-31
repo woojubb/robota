@@ -178,14 +178,12 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$SCAN" || true)
-EFFECTIVE_DIR=""
-if [[ -n "$GIT_C_PATH" ]]; then
-  EFFECTIVE_DIR="$GIT_C_PATH"
-elif [[ -n "$HOOK_CWD" ]]; then
-  EFFECTIVE_DIR="$HOOK_CWD"
-elif [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
-  EFFECTIVE_DIR="$CLAUDE_PROJECT_DIR"
-fi
+# The `first-nonempty` mode, named rather than flattened into the validating one its siblings use.
+# It is this guard's FAIL-SAFE and the paragraph above is its reason: this hook blocks only on
+# POSITIVE confirmation, so naming an unresolvable `-C` target and then declining to block is the
+# correct outcome, where validating would silently retarget the guard at the session repository and
+# block a destructive command aimed somewhere else. It has no `.` fallback for the same reason.
+EFFECTIVE_DIR=$(hook_effective_repo first-nonempty "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
 # No nameable effective dir → cannot positively confirm main-checkout → FAIL-SAFE.
 if [[ -z "$EFFECTIVE_DIR" ]]; then
