@@ -31,8 +31,10 @@ INPUT=$(cat)
 # One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
 # version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
 # command, so everything after `-m "…"` — including the verb being guarded — was never examined.
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
@@ -193,7 +195,7 @@ fi
 # --- (a) is the effective repo the MAIN checkout? -----------------------------------------------
 # Positively resolve the repo toplevel of the EFFECTIVE dir. If the dir is not inside a git work tree
 # (empty/error) → cannot positively confirm main-checkout → FAIL-SAFE, do not block.
-TOPLEVEL=$(git -C "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
+TOPLEVEL=$(hook_git_in "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
 if [[ -z "$TOPLEVEL" ]]; then
   exit 0
 fi

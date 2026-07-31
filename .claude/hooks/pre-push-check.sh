@@ -14,8 +14,10 @@ INPUT=$(cat)
 # One parser, not four. `command-scan.sh` explains what each hand-rolled copy got wrong; the short
 # version is that the old `grep -o '"command"…"[^"]*"' ` stopped at the first quote inside the
 # command, so everything after `-m "…"` — including the verb being guarded — was never examined.
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
 # under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
@@ -88,10 +90,10 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # redirect this guard at another repository. See lib/command-scan.sh.
 GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
-if [[ -n "$HOOK_CWD" ]] && git -C "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [[ -n "$HOOK_CWD" ]] && hook_git_in "$HOOK_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   PROJECT_DIR="$HOOK_CWD"
 fi
-if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [[ -n "$GIT_C_PATH" ]] && hook_git_in "$GIT_C_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   PROJECT_DIR="$GIT_C_PATH"
 fi
 
@@ -101,7 +103,7 @@ fi
 # merged one in) and PR'd to develop carries the promotion's merge commits in its `origin/develop..HEAD`
 # range, which land in the PR range and fail commitlint. A clean feature/docs branch has ZERO merge
 # commits over origin/develop. Skip integration/detached branches and when origin/develop is absent.
-CUR_BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
+CUR_BRANCH=$(hook_git_in "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
 case "$CUR_BRANCH" in
   # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `git merge --no-ff origin/main`
   # that records main's ancestry into a develop→main promotion (INFRA-051, built by
@@ -109,8 +111,8 @@ case "$CUR_BRANCH" in
   # feature branches accidentally based on `main`.
   main | master | develop | release/* | hotfix/* | "") : ;;
   *)
-    if git -C "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
-      FOREIGN_MERGES=$(git -C "$PROJECT_DIR" log --merges --oneline origin/develop..HEAD 2>/dev/null || true)
+    if hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
+      FOREIGN_MERGES=$(hook_git_in "$PROJECT_DIR" log --merges --oneline origin/develop..HEAD 2>/dev/null || true)
       if [ -n "$FOREIGN_MERGES" ]; then
         echo "[pre-push-check] Blocked: branch '$CUR_BRANCH' carries merge commits in its range over origin/develop:" >&2
         echo "$FOREIGN_MERGES" | sed 's/^/[pre-push-check]   /' >&2
@@ -124,12 +126,12 @@ esac
 
 # ── 1. Lockfile sync check ──────────────────────────────────────────────────
 
-if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
+if ! hook_git_in "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
   echo "[pre-push-check] Blocked: pnpm-lock.yaml has uncommitted changes. Commit the lockfile before pushing." >&2
   exit 2
 fi
 
-if ! git -C "$PROJECT_DIR" diff --cached --quiet pnpm-lock.yaml 2>/dev/null; then
+if ! hook_git_in "$PROJECT_DIR" diff --cached --quiet pnpm-lock.yaml 2>/dev/null; then
   echo "[pre-push-check] Blocked: pnpm-lock.yaml is staged but not committed. Commit it first." >&2
   exit 2
 fi
@@ -138,10 +140,10 @@ cd "$PROJECT_DIR"
 
 pnpm install --prefer-offline --silent 2>/dev/null || pnpm install --silent 2>/dev/null || true
 
-if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
+if ! hook_git_in "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
   echo "[pre-push-check] Blocked: pnpm-lock.yaml is out of sync with package.json files." >&2
   echo "[pre-push-check] Run: pnpm install && git add pnpm-lock.yaml && git commit -m 'chore: update lockfile'" >&2
-  git -C "$PROJECT_DIR" checkout -- pnpm-lock.yaml 2>/dev/null || true
+  hook_git_in "$PROJECT_DIR" checkout -- pnpm-lock.yaml 2>/dev/null || true
   exit 2
 fi
 
