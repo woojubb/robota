@@ -407,57 +407,66 @@ export async function runRegressionRedProof(io = {}) {
     // SPAWNS it — which is the same question asked of the thing it can be asked of. Using the
     // import graph for both would return INCONCLUSIVE for every hook, a SKIP by another name.
     const testAbs = pair.test.map((t) => path.resolve(WORKSPACE_ROOT, t));
-    let importsReversedFile;
-    // Which tests may decide the verdict. For a hook subject this is NOT every changed test:
-    // adoption pulls in the whole changed harness suite as candidates, and if all of them were run
-    // and judged, a sibling failing for its own reasons would supply the red proof while the hook's
-    // own vacuous test passed — this gate's failure mode, reintroduced by the widening meant to
-    // close it. Only the tests that execute the reversed hook are run, and only they are judged.
-    let decidingTests = pair.test;
-    if (pair.pkg === HOOK_SUBJECT) {
-      decidingTests = pair.test.filter((t, i) => {
-        let text;
-        try {
-          text = readText(testAbs[i]);
-        } catch {
-          return false; // unreadable — cannot claim it exercises anything
-        }
-        return pair.source.some((src) => testExecutesHook(text, src));
-      });
-      importsReversedFile = decidingTests.length > 0;
-    } else {
-      const pkgAbsRoot = path.resolve(WORKSPACE_ROOT, pair.pkg);
-      const graph = reachableRelativeGraph(testAbs, pkgAbsRoot, readText, fileExists);
-      const srcAbs = pair.source.map((s) => path.resolve(WORKSPACE_ROOT, s));
-      importsReversedFile = srcAbs.some((s) => graph.has(s));
-    }
 
-    // CONTAINMENT — INFRA-073. Every source in the pair is reversed together and judged by one
-    // outcome, and `assertion-fail` (any deciding test failing) reads as RED_PROOF_OK. So a range
-    // touching two sources reports the proof of one as the proof of both, and an accidental-green
-    // sibling passes unseen. That aggregation predates the INFRA-071 widening — a `packages/x/src`
-    // range with five sources had the same hole — so it is not repaired here: the fix is to reverse
-    // and judge PER SOURCE, which changes what the gate judges and costs one vitest run per source.
+    // ONE SOURCE AT A TIME. Reversing a pair together and judging it by one outcome meant any
+    // deciding test failing read as RED_PROOF_OK for every source in the range — so a genuine proof
+    // of one was reported as the proof of all, and an accidental-green sibling passed unseen. This
+    // gate's own defect class, across files instead of within one, and it predated the widening that
+    // made it easy to hit: a `packages/x/src` range with five sources always had it.
     //
-    // Held rather than patched because the gate is advisory (`REGRESSION_RED_PROOF_ENFORCE` unset),
-    // so an aggregate verdict approves nothing today. INFRA-073 must be resolved BEFORE the gate is
-    // promoted to enforcing (INFRA-046), when it would start deciding merges.
-    let outcome = null;
-    if (importsReversedFile) {
-      reverseApply(pair.source);
-      try {
-        outcome = classifyVitestOutcome(await runVitest(pair.pkg, decidingTests), decidingTests);
-      } finally {
-        restore(pair.source);
-      }
-    }
+    // Measured on `2ac10f251..b1f46acf3` — three hooks reversed together, exactly one test failing,
+    // verdict `red-proof-ok`, silent about the other two.
+    //
+    // The cost is one vitest run per changed source instead of one per pair. That is what makes it a
+    // decision rather than a patch, and it is worth it: a verdict about a set is not a verdict about
+    // any member of it.
+    for (const source of pair.source) {
+      // Only the tests that exercise THIS source may judge it — the same relation as above, asked
+      // one source at a time.
+      const testsForSource =
+        pair.pkg === HOOK_SUBJECT
+          ? pair.test.filter((t, i) => {
+              let text;
+              try {
+                text = readText(testAbs[i]);
+              } catch {
+                return false;
+              }
+              return testExecutesHook(text, source);
+            })
+          : pair.test.filter((t, i) =>
+              // A module is reached through the test's import graph; a shell script never appears in
+              // one, which is why the two relations differ. Asked per test and per source, so a test
+              // that reaches a DIFFERENT source in the same range cannot judge this one.
+              reachableRelativeGraph(
+                [testAbs[i]],
+                path.resolve(WORKSPACE_ROOT, pair.pkg),
+                readText,
+                fileExists,
+              ).has(path.resolve(WORKSPACE_ROOT, source)),
+            );
 
-    const verdict = decidePairVerdict({ importsReversedFile, outcome });
-    decisions.push({ pkg: pair.pkg, verdict, outcome, importsReversedFile });
-    const icon =
-      verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
-    log(`${icon}  ${pair.pkg}: ${verdict}${outcome ? ` (${outcome})` : ''}`);
-    if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
+      const exercised = testsForSource.length > 0;
+      let outcome = null;
+      if (exercised) {
+        reverseApply([source]);
+        try {
+          outcome = classifyVitestOutcome(
+            await runVitest(pair.pkg, testsForSource),
+            testsForSource,
+          );
+        } finally {
+          restore([source]);
+        }
+      }
+
+      const verdict = decidePairVerdict({ importsReversedFile: exercised, outcome });
+      decisions.push({ pkg: pair.pkg, source, verdict, outcome, importsReversedFile: exercised });
+      const icon =
+        verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
+      log(`${icon}  ${source}: ${verdict}${outcome ? ` (${outcome})` : ''}`);
+      if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
+    }
   }
 
   return { verdict: worst, decisions };

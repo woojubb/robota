@@ -490,6 +490,56 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     expect(mutated).toBe(false);
   });
 
+  it('judges EACH source, so a proof of one is not a proof of both (INFRA-073)', () => {
+    // The aggregation this gate carried from its first version. Every source in a pair was reversed
+    // together and judged by ONE outcome, and `assertion-fail` — any deciding test failing — read as
+    // RED_PROOF_OK. So a range touching two sources reported the genuine proof of one as the proof
+    // of both, and an accidental-green sibling passed unseen: this gate's own defect class, across
+    // files instead of within one.
+    //
+    // Measured on `2ac10f251..b1f46acf3`: three hooks reversed together, exactly one test failing,
+    // verdict `red-proof-ok` — silent about the other two.
+    const a = 'packages/x/src/proved.ts';
+    const b = 'packages/x/src/unproved.ts';
+    const testA = 'packages/x/src/proved.test.ts';
+    const testB = 'packages/x/src/unproved.test.ts';
+    const files = {
+      [abs(testA)]: `import { t } from './proved.js';`,
+      [abs(testB)]: `import { u } from './unproved.js';`,
+      [abs(a)]: 'export const t = 1;',
+      [abs(b)]: 'export const u = 1;',
+    };
+    const reversed = [];
+
+    return runRegressionRedProof(
+      baseIo({
+        changedFiles: [a, b, testA, testB],
+        readText: (p) => files[p] ?? '',
+        fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
+        reverseApply: (srcs) => reversed.push([...srcs]),
+        // `proved` has a test that fails when it is reversed; `unproved` does not.
+        runVitest: (_pkg, testFiles) => ({
+          testResults: testFiles.map((f) => ({
+            name: abs(f),
+            assertionResults: [{ status: f === testA ? 'failed' : 'passed' }],
+          })),
+        }),
+      }),
+    ).then(({ verdict, decisions }) => {
+      expect(
+        reversed.map((s) => s.length),
+        'the sources were reversed together, so one proof covered both',
+      ).toEqual([1, 1]);
+      expect(verdict, 'a genuinely red source hid an accidental-green sibling behind it').toBe(
+        VERDICT.ACCIDENTAL_GREEN,
+      );
+      expect(decisions.map((d) => `${d.source}:${d.verdict}`).sort()).toEqual([
+        `${a}:${VERDICT.RED_PROOF_OK}`,
+        `${b}:${VERDICT.ACCIDENTAL_GREEN}`,
+      ]);
+    });
+  });
+
   it('hands git a byte-exact patch, final newline included', () => {
     // The defect that made every verdict impossible. The diff was read through the trimming helper,
     // so the patch reached `git apply -R` without its final newline and git rejected it as corrupt —

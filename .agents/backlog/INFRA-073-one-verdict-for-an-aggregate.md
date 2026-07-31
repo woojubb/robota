@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-073: the red-proof gate reports one verdict for an aggregate, so a pass hides inside a fail'
-status: todo
+status: in-progress
 priority: high
 urgency: soon
 type: INFRA
@@ -53,6 +53,33 @@ exercise it, classify, and let the worst verdict carry — reporting each source
 one for the set. The cost is one vitest run per changed source instead of one per pair, which is why
 it is a design decision and not a patch.
 
+## Resolved (2026-08-01), and one acceptance line retracted on measurement
+
+Each changed source is now reversed alone, judged by the tests that exercise THAT source, and given
+its own verdict; the worst carries. The cost is one vitest run per changed source instead of one per
+pair — the reason this was a decision rather than a patch.
+
+Replaying `2ac10f251..b1f46acf3`, which is the range the problem was measured on:
+
+```
+before   3 sources -> 1 verdict    red-proof-ok
+after    .claude/hooks/branch-guard.sh     -> red-proof-ok   (assertion-fail)
+         .claude/hooks/lib/command-scan.sh -> inconclusive
+         .claude/hooks/post-tool-format.sh -> red-proof-ok   (assertion-fail)
+```
+
+**The Done-when line below asked for `ACCIDENTAL_GREEN` from that replay, and it does not come — the
+premise was wrong.** Both hooks with tests that exercise them are genuinely red-proved; the third
+source is a LIBRARY that no test spawns, so it is correctly INCONCLUSIVE. What the replay does prove
+is the thing the item is about: the aggregation is gone. A source nothing exercises used to be
+covered by its siblings' proof and is now visible as unjudged.
+
+The accidental-green-hidden-behind-a-proof case is covered directly instead, by a fixture that fails
+on the unfixed gate with the message `the sources were reversed together, so one proof covered both`.
+
+Expect more INCONCLUSIVE verdicts as a result. That is the honest reading of a source nothing
+exercises, and it is what the aggregate was hiding.
+
 ## Containment in force
 
 `check-regression-red-proof.mjs` carries a comment at the aggregation point naming this item. The
@@ -64,6 +91,7 @@ because at that point an aggregate verdict starts deciding merges.
 ## Done when
 
 - Each changed source in a range receives its own verdict, and the log shows them separately.
-- A range where one source is red-proved and another is accidental-green reports `ACCIDENTAL_GREEN`,
-  proven by replaying `2ac10f251..b1f46acf3`.
+- ~~A range where one source is red-proved and another is accidental-green reports
+  `ACCIDENTAL_GREEN`, proven by replaying `2ac10f251..b1f46acf3`.~~ **Retracted on measurement — that
+  range has no accidental-green source.** Replaced by a fixture that fails on the unfixed gate.
 - Decided jointly with INFRA-072, or with a written reason for deciding them apart.
