@@ -299,3 +299,25 @@ describe('checkTreePrerequisites', () => {
     expect(result.message).toContain('missing a verification prerequisite');
   });
 });
+
+describe('findMissingDist names the tree it judges', () => {
+  it('refuses to guess which tree, rather than defaulting to one', () => {
+    // Review of #1577. `root` had no default, so a caller that omitted it got
+    // `path.join(undefined, …)` — a TypeError from deep inside `path`, naming nothing.
+    //
+    // The reviewer offered a default OR an assertion. A default is the wrong answer HERE: this
+    // module exists so a verification result is attributed to the right tree, and defaulting to the
+    // workspace root would silently judge a DIFFERENT tree than the caller meant — the exact
+    // misattribution the module was written to end, arriving through its own convenience.
+    expect(
+      () => findMissingDist(['packages/x'], () => false),
+      'an omitted root was guessed at instead of refused',
+    ).toThrow(/root/i);
+  });
+
+  it('still answers when the tree is named', () => {
+    // The other direction, so the refusal above cannot be satisfied by a function that always throws.
+    expect(findMissingDist(['packages/x'], () => false, '/some/tree')).toEqual(['packages/x']);
+    expect(findMissingDist(['packages/x'], () => true, '/some/tree')).toEqual([]);
+  });
+});

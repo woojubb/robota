@@ -92,8 +92,24 @@ export function listBuildablePackageDirs(root) {
   return dirs.sort();
 }
 
-/** Buildable dirs with no `dist/` — CI restores these before the dist-dependent jobs run. */
+/**
+ * Buildable dirs with no `dist/` — CI restores these before the dist-dependent jobs run.
+ *
+ * `root` is required and is NOT defaulted, which is the opposite of the usual convenience and is the
+ * point. Review of #1577 found an omitted `root` producing `path.join(undefined, …)` — a TypeError
+ * raised deep inside `path`, naming nothing a caller could act on. Defaulting it to the workspace
+ * root would have removed the crash and replaced it with something worse: this module exists so a
+ * verification result is attributed to the TREE IT WAS MEASURED IN, and a silent default would judge
+ * a different tree than the caller meant. That misattribution is the whole defect HARNESS-058 is
+ * about, arriving through this module's own convenience.
+ */
 export function findMissingDist(dirs, exists = existsSync, root) {
+  if (typeof root !== 'string' || root === '') {
+    throw new TypeError(
+      'findMissingDist: `root` is required — name the tree being judged. There is no default, ' +
+        'because guessing the tree is the misattribution this module exists to prevent.',
+    );
+  }
   return dirs.filter((dir) => !exists(path.join(root, dir, 'dist')));
 }
 
