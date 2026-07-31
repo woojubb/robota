@@ -110,6 +110,13 @@ scheduled. Measured on a fresh worktree with a real build regression, before thi
 spurious "install @types/node" hint, and `binary-e2e` spent 20s waiting for a serve host that was
 never built — the exact noise this item exists to remove, in the scenario the feature is for.
 
+The tradeoff, stated plainly: after a failed build, `typecheck` no longer prints its own diagnostic
+for the regression. Nothing is lost that the `build` failure did not already report, and the stage
+runs normally once the build is fixed — this is the same ordering CI enforces with `needs: build`.
+What it buys is that the other four consumers stop reporting the unbuilt tree as a defect, and stop
+spending minutes doing it: `binary-e2e` alone burned 20.47s waiting for a serve host that was never
+built.
+
 **Is `scan-suite`'s own dist re-check now redundant?** In this code path, yes: the loop-level gate
 runs first and blocks `scan-suite` before `runScanSuite` reads dist, so its inline check can now only
 fire if dist disappears between the two reads. It is deliberately kept — it guards a _different_
