@@ -46,6 +46,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { idOf } from './check-backlog-placement.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -249,6 +250,22 @@ function main() {
   // A FOUNDATIONAL verdict is worth what it causes, and what it must cause is a filed root item
   // (`finding-depth.md`). An ID naming nothing asserts one exists, so it is refused here rather
   // than stored — this is the floor that keeps the depth verdict from becoming a way to defer.
+  if (args.foundational.length > 0) {
+    // The sibling that owns `idOf` uses this for the same reason (HARNESS-052): a governed tree that
+    // is absent must not read as "no results". Without it, the message here would be the most
+    // misleading one this tool can emit — "no backlog item for X" — when the truth is that nothing
+    // was examined at all.
+    try {
+      requireGovernedTree(root, ['.agents/backlog'], {
+        scan: 'record-local-review',
+        why: 'A foundational finding is verified against the filed items.',
+      });
+    } catch (err) {
+      console.error(`record-local-review: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
   const { missing } = resolveRootItems(args.foundational, path.join(root, '.agents/backlog'));
   if (missing.length > 0) {
     console.error(

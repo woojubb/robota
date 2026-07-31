@@ -406,6 +406,21 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(truncated.status ?? 1, 'an ID naming no file was accepted').not.toBe(0);
   });
 
+  it('refuses when the backlog tree it must read is not there', () => {
+    // The sibling that owns `idOf` uses `requireGovernedTree` for exactly this: a governed tree that
+    // is absent must not read as "no results". Here it would produce the most misleading message the
+    // tool can emit — "no backlog item for X" — when the truth is that nothing was examined.
+    const dir = scratchRepo('feat/probe');
+
+    const verdict = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    expect(verdict.status ?? 1).not.toBe(0);
+    expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(/missing|not examined|examined/i);
+  });
+
   it('refuses a flag it does not understand instead of ignoring it', () => {
     // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
     // parser skipped anything it did not recognise, so every note passed that way was dropped and
