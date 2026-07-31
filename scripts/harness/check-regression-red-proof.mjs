@@ -102,6 +102,15 @@ export function classifyChanges(changedFiles) {
  *
  * Comments are stripped first: a hook named only in prose is described, not run — the
  * described-but-not-reached distinction this gate exists to make.
+ *
+ * CONTAINMENT — INFRA-074. The two halves are independent: the name must appear, and the file must
+ * spawn a shell, but nothing ties the spawn to the name. A test naming hook A in real code while
+ * spawning hook B counts as executing A. That imprecision was a fair trade when this only decided an
+ * advisory coverage message; it now picks `decidingTests`, so a bystander can supply a verdict about
+ * a hook it never ran. Tying them needs the call graph — the binding is a value flowing through a
+ * call, not a lexical adjacency, and the narrower text patterns were already tried and were too
+ * narrow (a helper that joins the basename runs the hook just as truly). Held rather than patched
+ * because the gate is advisory; must be resolved before it is promoted to enforcing (INFRA-046).
  */
 export function testExecutesHook(testText, hookPath) {
   const base = hookPath.split('/').pop();
