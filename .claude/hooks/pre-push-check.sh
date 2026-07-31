@@ -90,7 +90,6 @@ if [[ -n "$GIT_C_PATH" ]] && git -C "$GIT_C_PATH" rev-parse --is-inside-work-tre
   PROJECT_DIR="$GIT_C_PATH"
 fi
 
-echo "[pre-push-check] Running fast pre-push gates (branch hygiene, lockfile sync)..." >&2
 
 # ── 0. Branch-base hygiene (git-branch.md: feature branches start from origin/develop) ──────────
 # After a develop→main promotion, `main` sits AHEAD of `develop`. A branch cut from `main` (or that
@@ -141,7 +140,9 @@ if ! git -C "$PROJECT_DIR" diff --quiet pnpm-lock.yaml 2>/dev/null; then
   exit 2
 fi
 
-echo "[pre-push-check] Branch hygiene + lockfile checks passed. Proceeding with push." >&2
+# Nothing is printed on the clean path. Both lines that used to sit here narrated progress on
+# every successful push and carried nothing the operator could act on; a guard that speaks when
+# it has nothing to say is one people learn to scroll past, and then its refusals scroll past too.
 # --- the review round belongs BEFORE this push -------------------------------------------------
 #
 # `pr-review-orchestration` used to wait for required checks to go green before its FIRST review

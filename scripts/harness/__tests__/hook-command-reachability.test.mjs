@@ -81,6 +81,12 @@ function scratchProject() {
   writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   git(['add', '-A']);
   git(['commit', '--quiet', '-m', 'chore: root']);
+  // On a FEATURE branch, because the probe must provoke a decision rather than a noise. Left on
+  // `develop`, `pre-push-check` takes its integration-branch exemption and neither refuses nor
+  // speaks — and this test was green anyway, because the hook happened to narrate its progress on
+  // the way through. Deleting that narration (a false positive in its own right) made all five
+  // forms read as silent, revealing that the probe had been measuring a print, not a verdict.
+  git(['checkout', '--quiet', '-b', 'feat/probe']);
   return dir;
 }
 
