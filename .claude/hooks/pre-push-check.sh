@@ -37,9 +37,14 @@ if ! COMMAND=$(hook_command_of "$INPUT"); then
   exit 2
 fi
 
-# Heredoc bodies and comments are text; only the rest is a command. Shared with the other Bash
-# hooks so all three answer "what will run" the same way.
-COMMAND_EXEC=$(hook_executable_part "$COMMAND")
+# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `COMMAND_VERBS` from
+# the tokenizer and `COMMAND_EXEC` from two line-oriented passes that did no quote masking, and the
+# `-C` extraction below read the second one. Measured, with the bare form refused correctly:
+#   git -C <a repo with no review record> push                                 -> exit 2
+#   echo "see <<EOF for details" ; git -C <that repo> push                     -> exit 0
+# The quoted `<<EOF` opened a heredoc the old reading never saw close, so everything after it was
+# deleted from the string this guard examined; the `-C` vanished, the gate judged the SESSION
+# repository instead, and an unreviewed push walked through.
 COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
 # Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
@@ -87,8 +92,10 @@ printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
-# redirect this guard at another repository. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
+# redirect this guard at another repository. The RAW command goes in: `hook_git_c_path` masks it
+# itself, by the grammar, and handing it a string a second reader had already mangled was the
+# bypass above. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
 # One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
 # `validated`: it must name SOME repository, because its verdict is about the branch that
 # repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside

@@ -130,141 +130,39 @@ hook_cwd_of() {
   hook_json_string "$1" 'cwd'
 }
 
-# Remove heredoc BODIES from a command, keeping everything else — including whatever follows the
-# terminator, which is the part `%%<<*` discarded.
+# ONE READING OF A COMMAND, NOT TWO (INFRA-075, #1572).
 #
-# The body is data the shell feeds to a program; it is never executed, so a guard reading it is
-# reading text and calling it a command. Everything outside the body IS a command, including the
-# commands after the heredoc closes, so a guard not reading those is blind to them. Both halves
-# matter and each was gotten wrong separately.
+# Three functions stood here: `hook_strip_heredocs`, `hook_strip_comments`, and the
+# `hook_executable_part` that piped one into the other. They were the reading this file had BEFORE
+# #1565 gave it a tokenizer, and they survived that PR because retiring them is a caller-side change
+# and the hooks were owned by other work in flight. So the library offered two answers to "what does
+# this command do", three guards held both at once, and each grep site picked whichever variable was
+# in scope.
 #
-# Known limit, stated rather than hidden: only the first opener on a line is tracked, so
-# `cmd <<A <<B` strips A's body and treats B's opener as ordinary text. Multiple heredocs on one
-# line do not occur in commands this guards, and a wrong guess here would drop real commands.
-hook_strip_heredocs() {
-  awk '
-    BEGIN { inbody = 0 }
-    inbody {
-      line = $0
-      # Only `<<-` lets the terminator be indented. Stripping indentation unconditionally means an
-      # indented body line that happens to equal the terminator ends the body early, and the rest of
-      # the body is then scanned as if it were commands.
-      if (dashed) { sub(/^[ \t]+/, "", line) }
-      if (line == term) { inbody = 0; next }
-
-      # `<<EOF` — an UNQUOTED delimiter — is expanded by the shell, so `$(…)` and backticks in the
-      # body genuinely run. `<<\047EOF\047` and `<<"EOF"` are literal and stay data. Treating every
-      # body as data meant `git commit -F- <<EOF` with `$(git push --force …)` inside executed the
-      # push while no guard saw it — the same principle applied elsewhere in this file to quoted
-      # strings, and not here. Only the substitution spans are emitted; the prose around them is
-      # still data.
-      if (!quoted) {
-        out = ""
-        n = length($0)
-        for (i = 1; i <= n; i++) {
-          if (substr($0, i, 2) == "$(") {
-            depth = 0
-            for (j = i + 1; j <= n; j++) {
-              cj = substr($0, j, 1)
-              if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
-            }
-            stop = (j <= n) ? j : n
-            out = out substr($0, i, stop - i + 1) " "
-            i = stop
-          } else if (substr($0, i, 1) == "`") {
-            for (j = i + 1; j <= n; j++) { if (substr($0, j, 1) == "`") { break } }
-            stop = (j <= n) ? j : n
-            out = out substr($0, i, stop - i + 1) " "
-            i = stop
-          }
-        }
-        if (out != "") { print out }
-      }
-      next
-    }
-    {
-      # A herestring is not a heredoc. `<<< "x"` has no body and no terminator, but the pattern
-      # below matches from the SECOND `<`, so everything after it was swallowed as body and never
-      # came back — every later command in that call went unexamined. Neutralising `<<<` first is
-      # length-preserving, so offsets into $0 stay valid.
-      probe = $0
-      gsub(/<<</, "\002\002\002", probe)
-      if (match(probe, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
-        term = substr(probe, RSTART, RLENGTH)
-        dashed = (substr(term, 3, 1) == "-")
-        quoted = (term ~ /[\047"]/)
-        sub(/^<<-?[ \t]*/, "", term)
-        gsub(/[\047"]/, "", term)
-        inbody = 1
-        $0 = substr($0, 1, RSTART - 1)   # keep the command, drop the opener and its tail
-      }
-      print
-    }
-  '
-}
-
-# Strip shell comments — quote-aware, because a comment is only a comment outside quotes.
+# The gap was not academic. Measured against real bash over the 202-shape differential corpus, with a
+# recording `git` stub on PATH:
 #
-# This was `sed 's/[[:space:]]#[^"]*$//'`. The `[^"]*` was there so a `#` inside a quoted string
-# would not be treated as a comment, and it worked by refusing to match whenever a quote appeared
-# anywhere after the `#` — including inside the comment itself. So `echo ok # a "half-open remark`
-# stripped nothing, the stray quote opened a string the masker never saw closed, and EVERY LINE
-# AFTER IT was masked away: a `git push origin --delete develop` on the next line was invisible to
-# all four guards. A new instance of the class this library exists to close, in the one helper that
-# had no state machine.
+#   hook_verb_scan        agreed with bash on 199 of 202
+#   hook_executable_part  agreed with bash on 111 of 202  (3 bypasses, 88 refusals of correct work)
 #
-# A `#` starts a comment when it is outside quotes and begins a word — which is what the shell
-# does, and what the masker already knows how to determine.
-hook_strip_comments() {
-  awk '
-    { lines[NR] = $0 }
-    END {
-      # Quote state carries ACROSS lines, exactly as the masker does. Resetting it per line meant a
-      # `#` on the continuation line of a multi-line quoted argument was read as a comment start,
-      # and the rest of that line — the real closing quote, and anything chained after it — was
-      # discarded. That removed a real command from what the guards see: the same defect class, via
-      # the opposite mechanism, in the fix for it.
-      q = ""
-      for (n = 1; n <= NR; n++) {
-        s = lines[n]
-        out = ""
-        # `q` carries across lines; `esc` does NOT. A trailing backslash escapes the NEWLINE — the
-        # shell joins the two physical lines and the backslash-newline vanishes — it does not leave
-        # the first character of the next line escaped. Sharing the flag made that character bypass
-        # the quote-open and comment-start decisions entirely.
-        esc = 0
-        len = length(s)
-        for (i = 1; i <= len; i++) {
-          c = substr(s, i, 1)
-          if (esc) { esc = 0; out = out c; continue }
-          if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
-          if (q == "") {
-            if (c == "\"" || c == "\047") { q = c; out = out c; continue }
-            # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
-            if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;&|(]/)) { break }
-            out = out c
-          } else {
-            if (c == q) { q = "" }
-            out = out c
-          }
-        }
-        print out
-      }
-    }
-  '
-}
-
-# What a guard should actually examine: the command with heredoc bodies and comments removed.
+# and it reached VERDICTS, which is the part #1565 did not measure. `hook_strip_heredocs` looks for
+# a heredoc opener with a regex that does not know about quoting, so a `<<EOF` written INSIDE a
+# quoted string opened a body that never closed and every command after it was deleted from the
+# string the guards then examined. Three hooks, each with a bare control that is refused correctly:
 #
-# This is the WEAKER of the two readings in this file, and callers that use both should know which
-# is which. It removes heredoc bodies and comments with the two line-oriented passes above and
-# leaves quoting alone; `hook_verb_scan` reads the same command by the grammar. Where they differ
-# the tokenizer is right, so a guard deciding whether a VERB is present must use `hook_verb_scan` —
-# this one is for the surrounding text a guard still needs to look at. Collapsing the two is a
-# caller-side change and is left to the item that owns those hooks.
-hook_executable_part() {
-  printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
-}
+#   worktree-cwd-guard  git -C <MAIN> reset --hard                                   -> exit 2
+#                       echo "see <<EOF for details" ; git -C <MAIN> reset --hard    -> exit 0
+#   pre-push-check      git -C <unreviewed> push                                     -> exit 2
+#                       echo "see <<EOF for details" ; git -C <unreviewed> push      -> exit 0
+#   branch-guard        git push origin --delete develop                             -> exit 2
+#                       echo "see <<EOF" ; git push origin --delete develop          -> exit 0
+#   branch-guard        git checkout -b BAD_NAME                                     -> exit 2
+#                       echo "see <<EOF" ; git checkout -b BAD_NAME                  -> exit 0
+#
+# The tokenizer below already answers what those two passes were approximating — a heredoc body and
+# a comment both come back as \001 in its mask, and it knows the grammar they were guessing at. So
+# every caller reads the RAW command now and `hook_match_*` masks it properly, and the third
+# quote-state machine in this file is gone with them.
 
 # Quoted contents are masked one character for one — EXCEPT the string an interpreter is told to
 # run, which is a command and is left intact.
@@ -719,13 +617,14 @@ hook_match_extract_after() {
   printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
-# What a verb-detection matcher should read.
+# What a verb-detection matcher should read — and, since #1572, the ONLY reading of a command this
+# file offers.
 #
-# The raw command goes in, not `hook_executable_part`'s output. Heredoc bodies and comments used to
-# be cut out by two line-oriented passes BEFORE masking, which meant the masker was handed a string
-# whose structure had already been altered by a reader that did not know the grammar. The tokenizer
-# knows both, and reading them together is what lets a comment inside a substitution end at its own
-# newline rather than at the substitution's closing paren.
+# The RAW command goes in. Heredoc bodies and comments used to be cut out by two line-oriented passes
+# BEFORE masking, which meant the masker was handed a string whose structure had already been altered
+# by a reader that did not know the grammar. The tokenizer knows both, and reading them together is
+# what lets a comment inside a substitution end at its own newline rather than at the substitution's
+# closing paren. Those passes are gone; see the note where they stood.
 hook_verb_scan() {
   printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }

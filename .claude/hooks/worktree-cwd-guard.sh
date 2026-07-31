@@ -99,9 +99,14 @@ if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
 fi
 
 # --- Detect destructive git commands ------------------------------------------------------------
-# Scan only up to the first heredoc opener (`<<`) and strip trailing comments, so a commit message
-# or echoed text mentioning these commands cannot trip the guard (same defense as branch-guard).
-SCAN=$(hook_executable_part "$COMMAND")
+# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `VERBS` from the
+# tokenizer and `SCAN` from two line-oriented passes that did no quote masking at all, and the `-C`
+# extraction below read `SCAN`. Measured on a worktree session, with the bare form refused correctly:
+#   git -C <MAIN> reset --hard                                 -> exit 2
+#   echo "see <<EOF for details" ; git -C <MAIN> reset --hard  -> exit 0
+# The quoted `<<EOF` opened a heredoc the old reading never saw close, so the `git -C <MAIN>` after it
+# was deleted from the string this guard examined, the effective repo fell back to the worktree, and a
+# `git reset --hard` on the MAIN checkout — the incident this file exists for — was allowed.
 VERBS=$(hook_verb_scan "$COMMAND")
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
@@ -176,8 +181,10 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # `|| true` is load-bearing: grep exits 1 when there is no `-C`, and under `set -euo pipefail` a
 # failed command substitution aborts the hook silently before any check runs.
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
-# redirect this guard at another repository. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$SCAN" || true)
+# redirect this guard at another repository. The RAW command goes in: `hook_git_c_path` masks it
+# itself, by the grammar, and handing it a string a second reader had already mangled was the
+# bypass above. See lib/command-scan.sh.
+GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
 # The `first-nonempty` mode, named rather than flattened into the validating one its siblings use.
 # It is this guard's FAIL-SAFE and the paragraph above is its reason: this hook blocks only on
 # POSITIVE confirmation, so naming an unresolvable `-C` target and then declining to block is the
