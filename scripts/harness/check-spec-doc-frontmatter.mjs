@@ -31,6 +31,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { asList, parseFrontmatterBlock } from './frontmatter.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SPEC_DIR = path.join(WORKSPACE_ROOT, '.agents/spec-docs');
@@ -82,10 +83,27 @@ function frontmatter(text) {
 export function findSpecDocFrontmatterFindings(target) {
   const blocking = [];
   const warnings = [];
-  const files =
-    target && existsSync(target) && statSync(target).isFile()
-      ? [target]
-      : walkMarkdown(target ?? SPEC_DIR);
+  const singleFile = target && existsSync(target) && statSync(target).isFile();
+  if (!singleFile) {
+    // Directory mode only. Measured 2026-08-01: over a root without `.agents/spec-docs` this
+    // returned `{blocking: [], warnings: []}` — what it also returns when every document is correct.
+    // PROC-006 moves this tree. The single-FILE branch above is deliberately exempt, because that is
+    // how the pre-commit path checks one document and its subject is the file, not the tree.
+    const dir = target ?? SPEC_DIR;
+    requireGovernedTree(path.dirname(dir), [path.basename(dir)], {
+      scan: 'spec-doc-frontmatter',
+      why: 'The spec-doc tree is the subject; "no findings" over an absent one means "nothing was examined".',
+    });
+  }
+  const files = singleFile ? [target] : walkMarkdown(target ?? SPEC_DIR);
+  if (!singleFile && files.length === 0) {
+    // An EMPTY tree is the same vacuity as an absent one. `measureFinder` hands a finder a bare temp
+    // DIRECTORY, which exists — so "the directory is there" passed while nothing was read.
+    throw new Error(
+      `spec-doc-frontmatter: no spec documents under ${target ?? SPEC_DIR}. Reporting "no findings" ` +
+        'here would mean "nothing was examined", which is not the claim this scan makes.',
+    );
+  }
   const idMap = new Map();
   for (const file of files) {
     const rel = path.relative(WORKSPACE_ROOT, file);
