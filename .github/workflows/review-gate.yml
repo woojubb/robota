@@ -54,6 +54,59 @@ jobs:
     name: review-gate
     runs-on: ubuntu-latest
     steps:
+      # PROC-007. FIRST, and before anything is checked out.
+      #
+      # A `re-plan` disposition (`.agents/rules/finding-depth.md`) WITHDRAWS a change rather than
+      # patching it. #1557 held that decision in `.agents/local-reviews/<branch>.json` — gitignored,
+      # per-working-tree, keyed by the LOCAL branch and HEAD — while the merge it was meant to stop
+      # is keyed by a PR number. `worktree-parallel-orchestration` §5 has the orchestrator merge and
+      # never the implementer, so the recording checkout is by construction not the merging one:
+      # measured while judging that PR, the merging clone held a record for a DIFFERENT branch and
+      # would have answered one PR's merge with another PR's disposition.
+      #
+      # INFRA-048 and INFRA-057 already paid for the general form of that — a merge decision held
+      # anywhere but the PR does not stop a merge — and their answer is this workflow. So the
+      # withdrawal lives on the PR as a label and is read here, where being RED is a required check
+      # on `protect-develop` and, on `main`, triggers the `disarm-auto-merge` job below. The local
+      # `merge-gate.sh` hook reads the same label, but a hook cannot see an auto-merge that GitHub
+      # fires on its own; only this job can.
+      #
+      # Deliberately NOT gated on `steps.classify.outputs.code`: a withdrawal is a decision about the
+      # change, and a docs-only change can be withdrawn exactly like a code one. Running before the
+      # checkout also means the withdrawal is decided without ever executing code from the PR.
+      - name: Has this change been withdrawn? (finding-depth disposition)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          # `--paginate` with `.[].name` rather than a `join`: `--jq` is applied PER PAGE, so a join
+          # would emit one comma-joined line per page and the labels either side of the newline
+          # would be mangled together (SEC-007, measured on this file's other label read). One name
+          # per line survives pagination unchanged.
+          if ! labels="$(gh api --paginate \
+                "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name')"; then
+            # Fail closed. "I could not read the labels" and "this change was not withdrawn" are the
+            # two answers this gate exists to keep apart.
+            echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}, so a re-plan withdrawal cannot be ruled out."
+            exit 1
+          fi
+          if printf '%s\n' "$labels" | grep -qx 'disposition-re-plan'; then
+            # `grep -qx`: whole-line equality, so `disposition-re-planned` is not read as this label.
+            echo "::error::review-gate: PR #${PR_NUMBER} carries 'disposition-re-plan'. A foundational finding withdrew this change rather than patching it (finding-depth.md), so it is not to be merged — close it and work the root item. Removing the label is what un-withdraws it."
+            {
+              echo '### Review gate — WITHDRAWN'
+              echo
+              echo "This PR carries \`disposition-re-plan\`: a foundational finding withdrew the"
+              echo 'change rather than patching it. Close it and work the root item.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if printf '%s\n' "$labels" | grep -qx 'disposition-containment'; then
+            # Containment IS a resolution — it lands under a labelled hold, so it does not block.
+            echo "PR #${PR_NUMBER} carries 'disposition-containment': it lands under a labelled hold."
+          fi
+
       # INFRA-050: `fetch-depth: 0`. The classify step below reads base-relative history (a merge
       # base against `origin/<base>`), and a depth-limited checkout GRAFTS the ancestry, which would
       # make that read fail — and a classification that cannot be determined answers `code=true`,

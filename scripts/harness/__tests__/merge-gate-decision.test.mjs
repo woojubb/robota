@@ -31,12 +31,12 @@ afterAll(() => {
  * The stub dispatches on the flags the hook actually passes, so a change in what the hook asks for
  * shows up here as an empty answer rather than as a silently different verdict.
  */
-function stubbedPath({ state, comments = [], headAt }) {
+function stubbedPath({ state, comments = [], headAt, labels = [] }) {
   const dir = mkdtempSync(path.join(tmpdir(), 'merge-gate-'));
   scratch.push(dir);
 
   const fixture = path.join(dir, 'fixture.json');
-  writeFileSync(fixture, JSON.stringify({ state, comments, headAt }));
+  writeFileSync(fixture, JSON.stringify({ state, comments, headAt, labels }));
 
   const gh = path.join(dir, 'gh');
   writeFileSync(
@@ -46,6 +46,17 @@ function stubbedPath({ state, comments = [], headAt }) {
       "const fs = require('node:fs');",
       `const f = JSON.parse(fs.readFileSync(${JSON.stringify(fixture)}, 'utf8'));`,
       'const args = process.argv.slice(2).join(" ");',
+      '// PROC-007: the gate now asks the PR for its finding-depth disposition before anything',
+      '// else, and an unreadable label set is a refusal. These cases are about CI and the review,',
+      '// so they answer the sentinel-wrapped empty set — "this PR carries no disposition" — rather',
+      '// than leaving the query unanswered, which would block every one of them for the wrong',
+      '// reason. The disposition itself is judged in merge-gate-disposition.test.mjs.',
+      'if (args.includes("--json labels")) {',
+      '  const jq = process.argv[process.argv.indexOf("--jq") + 1] ?? "";',
+      '  const names = f.labels ?? [];',
+      '  console.log(jq.includes("\\"|\\"") ? `|${names.join("|")}|` : names.join(","));',
+      '  process.exit(0);',
+      '}',
       'if (args.includes("mergeStateStatus")) { console.log(f.state); process.exit(0); }',
       'if (args.includes("--json commits")) { console.log(f.headAt ?? ""); process.exit(0); }',
       'if (args.includes("--json comments")) {',
