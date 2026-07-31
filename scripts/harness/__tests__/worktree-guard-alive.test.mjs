@@ -5,7 +5,6 @@ import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
 
 // See the helper: worktree-cwd-guard reads its own directory to decide the session's identity.
