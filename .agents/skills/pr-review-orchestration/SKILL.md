@@ -118,7 +118,13 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
    the PR later. It is the visible half of the containment label, which otherwise lives only in a code
    comment and a commit body the PR page never shows.
 
-3. **Converged?** If `n == 0` → go to **Merge path**.
+3. **Converged?** If `n == 0` → go to **Merge path**. The count is a **resolved** count, not a fixed one:
+   a finding is out of it when it is corrected, contained under a filed root item, or recorded INVALID.
+   `pr-review-reviewer` does not raise a hold that already carries its `Contained — <ID>.` comment, which
+   is what lets a round holding a foundational verdict reach zero without anyone patching the wrong layer
+   to get there — the whole reason the label is a condition and not a courtesy
+   ([finding-depth.md](../../rules/finding-depth.md)). Re-plan is not a resolution: it withdraws or
+   reduces the change, so it **halts** this loop rather than counting toward zero.
 4. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
    unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
 5. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).

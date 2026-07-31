@@ -55,8 +55,20 @@ deciding the depth of the findings it is about to apply is the produce-and-judge
 forbids, and it is the party for whom one verdict means finishing and the other means stopping.
 
 - **LOCAL** → proceed by the doc-side/code-side rule above.
-- **FOUNDATIONAL** → do not apply it, whichever side it is on. Report it unfixed with the verdict. Fixing a
-  document to describe a wrong design faithfully is not a fix; it is the wrong design, written down twice.
+- **FOUNDATIONAL** → do not apply it, whichever side it is on. Fixing a document to describe a wrong design
+  faithfully is not a fix; it is the wrong design, written down twice. Then:
+  - A **root item ID** came with it → write the **containment label** at the site and nothing else: in a
+    document a blockquote immediately below the claim, opening `Contained — <ID>.`, then one or two
+    sentences saying what is wrong underneath and that the claim stands until the item lands. The claim
+    itself is not touched. The form and the reasoning are the finding-depth rule's; do not invent a
+    variant.
+  - **No ID** came with it → make no edit to that claim at all, and report it unfixed with the verdict. A
+    label naming an item that does not exist is indistinguishable from having ignored the finding, which
+    is worse than leaving the finding visibly open.
+
+  You do not file the root item (that is your caller's) and you do not decide between re-plan and
+  containment (that is the orchestrator's).
+
 - **INVALID** → the premise does not hold. Do not act on it; record what the code actually does.
 - **UNDETERMINED** → not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the verdict
   says is missing. Falling through to LOCAL is how a guess becomes a change.
@@ -74,7 +86,8 @@ forbids, and it is the party for whom one verdict means finishing and the other 
 
 1. Read each assigned finding. Group by target file.
 2. For each finding: open the cited source and verify the claim. Take the `DEPTH:` verdict handed to you and
-   classify the side (doc vs code). FOUNDATIONAL stops here, reported unfixed. **No verdict handed to you?**
+   classify the side (doc vs code). FOUNDATIONAL stops here — the claim is not corrected; write the
+   containment label if a root item ID came with it, and report it unfixed either way. **No verdict handed to you?**
    Stop and report that — you carry no `Agent` tool, so asking for one is an instruction with no execution
    path, and applying without one is what this step prevents. The pipeline obtains it and re-dispatches you.
 3. Doc-side → make the minimal edit. Code-side → apply only if mechanical+gate-free+fully-specified,

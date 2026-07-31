@@ -549,3 +549,152 @@ describe('a root item has one place to live, and one reader of it', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * A rule stated for every loop, adopted by one, is this repository's signature defect wearing a
+ * process hat — so the set of consumers is DERIVED here rather than remembered in prose.
+ *
+ * `finding-depth.md` states two things as general properties: a loop converges on RESOLVED (fixed /
+ * contained / INVALID) rather than on FIXED, and containment in a document is a note at the site,
+ * "one convention rather than one per pipeline". PROC-005 brought `documentation-refresh` onto both
+ * and left `architecture-refresh` and `pr-review-orchestration` on neither, which is worse than an
+ * un-adopted rule: two loops over the same tree then disagree about the same claim, because the one
+ * that does not read the label re-raises what the other has already answered (PROC-008).
+ *
+ * The consumers are the map's pipeline rows that BOTH end on a findings count and carry a depth
+ * verdict — a loop that converges on a count is the one that can be pushed into an edit by a finding
+ * it must not fix. Rows without a depth verdict are deliberately out: `delegated-refactor-green-gate`
+ * converges on a count and has no depth step at all, which is a different gap and not this one.
+ */
+export function signalOf(text) {
+  const m = text.match(/^signal:[ \t]*(.+)$/m);
+  return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : null;
+}
+
+const SIGNALS = new Map(DEFINITIONS.map((d) => [d.name, signalOf(d.text)]));
+
+/**
+ * Is this body's convergence stated as RESOLVED?
+ *
+ * A proximity window rather than a sentence, because the statement does not fit in one: the pipelines
+ * write "it is **resolved**, not **fixed**" and then enumerate the dispositions in the next clause. A
+ * sentence-scoped reading would fail all three correctly-written sites, and a floor that fails correct
+ * work is one somebody switches off. All three markers are required — the word alone is cheap, and the
+ * three dispositions are what the word has to MEAN.
+ */
+export function convergesOnResolved(body) {
+  const text = body.replace(/\s+/g, ' ');
+  const WINDOW = 500;
+  for (const m of text.matchAll(/\bresolved\b/gi)) {
+    const around = text.slice(Math.max(0, m.index - WINDOW), m.index + WINDOW);
+    if (/\bcontained\b/i.test(around) && /\bINVALID\b/.test(around)) return true;
+  }
+  return false;
+}
+
+/** Backticked tokens in a table cell — the map writes every agent and skill name that way. */
+const namesIn = (cell) => [...String(cell).matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]);
+
+/**
+ * The pipeline rows this rule governs: they end on a findings count and carry a depth verdict.
+ *
+ * Column indices come from the header, as everywhere else in this file — a table gaining a column
+ * must move the reader, not empty it.
+ */
+export function findingsCountPipelines(mapText) {
+  const { rows, guardian, orchestrator, loopback } = pipelineTable(mapText);
+  if (guardian < 0 || orchestrator < 0 || loopback < 0) return [];
+  const out = [];
+  for (const row of rows) {
+    const cells = row.split('|');
+    const guardianCell = cells[guardian] ?? '';
+    if (!guardianCell.includes('finding-depth-triager')) continue;
+    if (!guardianCell.includes('ACTIONABLE FINDINGS')) continue;
+    out.push({
+      // The FIRST orchestrator named owns the row; the parenthetical ones are shared
+      // sub-orchestrations that belong to their own rows and converge on their own conditions.
+      orchestrator: namesIn(cells[orchestrator] ?? '')[0] ?? null,
+      guardians: namesIn(guardianCell),
+      loopback: cells[loopback] ?? '',
+    });
+  }
+  return out;
+}
+
+describe('every findings-count loop converges on RESOLVED, and its guardians read the label', () => {
+  const mapText = readFileSync(MAP, 'utf8');
+  const pipelines = findingsCountPipelines(mapText);
+  const skillBody = (name) => {
+    const skill = SKILLS.find((s) => s.name === name);
+    return skill ? bodyOf(skill.text) : null;
+  };
+
+  it('derives the consumers from the map, and finds all of them', () => {
+    // Pinned membership, because the derivation is what the whole case rests on: a renamed column, a
+    // reworded guardian cell or a dropped signal would silently narrow this to the one pipeline that
+    // already complies — which is the defect, passing as its own fix.
+    expect(
+      pipelines.map((p) => p.orchestrator).sort(),
+      'a findings-count pipeline with a depth verdict dropped out of the derivation',
+    ).toEqual(['architecture-refresh', 'documentation-refresh', 'pr-review-orchestration']);
+  });
+
+  it('takes its columns from the header, so an inserted column moves the reader', () => {
+    // The anti-cosmetic property, pinned rather than assumed. The first version of the sibling case
+    // above located the table and then read fixed cell indices; review inserted one column and it went
+    // vacuous while staying green.
+    const table =
+      '| Pipeline | Extra | Orchestrator (skill) | Worker(s) | Guardian(s) → signal | Loop-back | Floor |\n' +
+      '| --- | --- | --- | --- | --- | --- | --- |\n' +
+      '| **X** | z | `x-refresh` | `w` | `a` → ACTIONABLE FINDINGS; `finding-depth-triager` → DEPTH | auto → resolved | f |\n';
+    expect(findingsCountPipelines(table)).toEqual([
+      {
+        orchestrator: 'x-refresh',
+        guardians: ['a', 'finding-depth-triager'],
+        loopback: ' auto → resolved ',
+      },
+    ]);
+  });
+
+  for (const pipeline of pipelines) {
+    it(`${pipeline.orchestrator} states its convergence as RESOLVED`, () => {
+      expect(
+        pipeline.loopback,
+        `the map's Loop-back cell for ${pipeline.orchestrator} still converges on a number. A loop ` +
+          'that stops at "no findings left" can only stop by editing something, which for a ' +
+          'foundational finding is the patch finding-depth.md forbids',
+      ).toMatch(/\bresolved\b/i);
+
+      const body = skillBody(pipeline.orchestrator);
+      expect(
+        body,
+        `${pipeline.orchestrator} has no SKILL.md, so the map names a pipeline nobody runs`,
+      ).not.toBeNull();
+      expect(
+        convergesOnResolved(body),
+        `${pipeline.orchestrator} does not state its stop condition as resolved — fixed, contained ` +
+          'under a filed root item, or recorded INVALID. The map cell agreeing is not the loop ' +
+          'implementing it; the body is what an agent follows',
+      ).toBe(true);
+    });
+
+    it(`${pipeline.orchestrator}'s guardians read a containment label`, () => {
+      const counting = pipeline.guardians.filter((g) => SIGNALS.get(g) === 'ACTIONABLE FINDINGS');
+      expect(
+        counting,
+        `no guardian in the ${pipeline.orchestrator} row declares ACTIONABLE FINDINGS — this case ` +
+          'checked nothing',
+      ).not.toEqual([]);
+
+      const blind = counting.filter(
+        (g) => !/Contained\s*[—-]/.test(DEFINITIONS.find((d) => d.name === g)?.text ?? ''),
+      );
+      expect(
+        blind,
+        'these guardians produce the count this loop converges on and do not know what a containment ' +
+          'label is, so they re-raise a claim the pipeline has already answered — and the loop can ' +
+          'then only converge by editing it. finding-depth.md owns the convention',
+      ).toEqual([]);
+    });
+  }
+});
