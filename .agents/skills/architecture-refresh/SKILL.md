@@ -24,12 +24,19 @@ The four predefined agents (spawn by `agentType`):
    area you leave out). Collect each area's findings and `ACTIONABLE FINDINGS` count.
 2. **Converged?** Stop only when a full audit round reports **no material findings** in any area. Never
    stop on a round count.
-3. **Apply.** Per area with findings, call the applier the auditor named — doc-side → `architecture-fixer`,
-   code-side → `architecture-implementer` — on **disjoint files**. Keep whatever each applier reports back
-   (applied / skipped / escalated).
-4. **Re-audit.** Re-run the auditors on the changed areas.
-5. **Loop** 1–4 until step 2 says converged.
-6. **Land** the applied changes through the repo's normal flow; pass any escalations the appliers return
+3. **Judge the depth.** Dispatch `finding-depth-triager` on the round's findings and keep its `DEPTH:`
+   verdicts. This step is here because the appliers cannot do it: they carry no `Agent` tool, so a verdict
+   can only ever be HANDED to them — and their instruction to take one reads as enforced while being
+   unreachable if this pipeline never produces it.
+4. **Apply.** Per area, call the applier the auditor named — doc-side → `architecture-fixer`, code-side →
+   `architecture-implementer` — on **disjoint files**, passing each finding's verdict with it. Send only
+   LOCAL findings; a FOUNDATIONAL one goes to the root item instead of an applier, an INVALID one is
+   dropped with what the code actually does recorded, and an UNDETERMINED one is re-judged once the thing
+   its verdict names as missing is obtained. Keep whatever each applier reports back (applied / skipped /
+   escalated).
+5. **Re-audit.** Re-run the auditors on the changed areas.
+6. **Loop** 1–5 until step 2 says converged.
+7. **Land** the applied changes through the repo's normal flow; pass any escalations the appliers return
    into the repo's gated backlog.
 
 That is the whole skill. Everything else is the agents'.

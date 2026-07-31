@@ -57,10 +57,18 @@ verified, and conservative: a wrong or half-applied structural change is worse t
 
 1. Read each assigned code-side finding and the intended-architecture target it references.
 2. Verify the violation still exists in the current source; if not, report it as already-resolved.
-3. Decide: is this a **safe minimal edit** (do it) or a **large/risky refactor** (plan-and-escalate)?
-4. For a safe edit: make it, update any paired doc/SPEC statement, then build + test the affected
+3. Take the finding's `DEPTH:` verdict as handed to you by the pipeline, per
+   [finding-depth.md](../../.agents/rules/finding-depth.md). **None handed to you?** Stop and report that —
+   you carry no `Agent` tool, so asking for one is an instruction with no execution path. FOUNDATIONAL is not yours to implement
+   however small it looks — size and depth are different questions, and a one-line change on the wrong layer
+   is still on the wrong layer. Report it unfixed with the verdict. An INVALID verdict means the premise does not hold —
+   do not act on it. An UNDETERMINED one is not a verdict yet: report it unacted, naming what is missing,
+   rather than falling through to LOCAL.
+4. For a LOCAL finding, decide: a **safe minimal edit** (do it) or a **large/risky refactor**
+   (plan-and-escalate)?
+5. For a safe edit: make it, update any paired doc/SPEC statement, then build + test the affected
    packages.
-5. Report per finding with the diff, the verification (build/test output), and any consumer repoints.
+6. Report per finding with the diff, the verification (build/test output), and any consumer repoints.
 
 ## Output contract
 

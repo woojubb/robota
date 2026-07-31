@@ -42,6 +42,16 @@ here. See "The recommendation is not self-judged" below — this is a deliberate
 rule's previous self-assessment wording, made because an orchestrator forming a verdict on its own output
 is exactly what [enforcement-architecture.md](../../rules/enforcement-architecture.md) forbids.
 
+**Also dispatch `finding-depth-triager` on the item's problem statement, before the recommendation is
+formed.** Two different questions, and both have to hold: `proposal-reviewer` asks whether the chosen
+decision is right AMONG THE ALTERNATIVES; the depth verdict asks whether the problem being solved is the
+real one ([finding-depth.md](../../rules/finding-depth.md)). An item scoped to a SYMPTOM produces a plan
+that cannot be right, and every gate after this one will pass it — because each of them judges the plan
+against the item rather than the item against reality.
+
+A `FOUNDATIONAL` verdict here routes to the last row of the table below: re-scoping an item is a decision
+above this pipeline. Asking at this moment is what makes that a cheap answer instead of an expensive one.
+
 | Outcome                                                        | Route                                                                                                                                                                             |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The decision is one the rule reserves for the user             | **Terminate — halt for the user** before dispatching anyone. An independent review is not a substitute for approval the rule says only the user can give.                         |

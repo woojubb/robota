@@ -24,7 +24,6 @@ Consult the relevant skill before starting work in its domain. Each entry links 
 | [delegated-refactor-green-gate](delegated-refactor-green-gate/SKILL.md)     | Route-only: specify → `mechanical-refactor-worker` → re-verify the green claim → `pr-review-reviewer` on the tree diff → commit           |
 | [worktree-parallel-orchestration](worktree-parallel-orchestration/SKILL.md) | Run ≥2 independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts (partition → spawn → serial merge) |
 | [repo-change-loop](repo-change-loop/SKILL.md)                               | Standard change loop: impact → build → verify → summarize                                                                                 |
-| [root-cause-triage](root-cause-triage/SKILL.md)                             | Classify a review finding LOCAL vs FOUNDATIONAL before fixing it; a foundational one is filed as a root item, not patched in place |
 | [pr-review-orchestration](pr-review-orchestration/SKILL.md)                 | Route-only PR-review loop: reviewer→writer→fixer until `ACTIONABLE FINDINGS: 0` (bounded), then gated merge path (HARNESS-018)            |
 | [automated-review-convergence](automated-review-convergence/SKILL.md)       | Iterate on a PR's automated review feedback until it converges: fetch findings → judge → fix/refute → push → re-read the re-run round     |
 | [post-merge-cycle](post-merge-cycle/SKILL.md)                               | Shared post-merge tail: verify the landing → delete the merged branch → reset onto a fresh base, with a defined edge per failure          |
@@ -74,26 +73,27 @@ Each agent's full policy lives in its definition file (`.claude/agents/<name>.md
 that sequence them are registered in [`orchestration-map.md`](../specs/orchestration-map.md) (SSOT
 for orchestrator/worker/guardian wiring). One-line roles:
 
-| Agent                              | Role                                                                             |
-| ---------------------------------- | -------------------------------------------------------------------------------- |
-| `architecture-auditor`             | Read-only design-quality audit by universal principles                           |
-| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)                    |
-| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                      |
-| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                       |
-| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                  |
-| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                            |
-| `capability-scout`                 | Proposes the role decomposition for a described workflow                         |
-| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                 |
-| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                        |
-| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`        |
-| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                 |
-| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                          |
-| `doc-auditor`                      | Read-only documentation staleness/quality audit                                  |
-| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                      |
-| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note         |
-| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE` |
-| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`         |
-| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker  |
+| Agent                              | Role                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `architecture-auditor`             | Read-only design-quality audit by universal principles                              |
+| `architecture-conformance-auditor` | Read-only doc↔code sync audit (doc-side / code-side findings)                       |
+| `architecture-fixer`               | Applies doc-side findings (edits docs only)                                         |
+| `architecture-implementer`         | Applies code-side findings (edits code, build/tests green)                          |
+| `finding-depth-triager`            | Guardian: judges a finding LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED (`DEPTH:`) |
+| `proposal-reviewer`                | Skeptical sign-off on a change proposal (ENDORSE/REVISE/REJECT)                     |
+| `merge-verifier`                   | Confirms a merge/PR truly landed on the remote target                               |
+| `capability-scout`                 | Proposes the role decomposition for a described workflow                            |
+| `prior-art-researcher`             | Research worker: prior-art block + evidence-based recommendation                    |
+| `agent-skill-author`               | Authors agent/skill files from an ENDORSE'd decomposition                           |
+| `pr-review-reviewer`               | PR-review guardian: MUST/SHOULD/CONSIDER/NIT + `ACTIONABLE FINDINGS: <n>`           |
+| `pr-review-writer`                 | Posts the reviewer's findings to the PR via `gh`                                    |
+| `pr-review-fixer`                  | Applies minimal verified fixes for MUST/SHOULD findings                             |
+| `doc-auditor`                      | Read-only documentation staleness/quality audit                                     |
+| `doc-fixer`                        | Applies doc findings (edits docs only, verify-before-write)                         |
+| `ci-failure-triager`               | Read-only CI/gate triage: one failure class + the five-field triage note            |
+| `backlog-gate-guard`               | Gate guardian: one gate, one document → `GATE VERDICT: PASS/FAIL/NON-COMPLIANCE`    |
+| `user-execution-scenario-author`   | Authors user-execution scenarios → `SCENARIO DRAFTED: <mode> \| <count>`            |
+| `mechanical-refactor-worker`       | Executes one specified mechanical change to green, or reports the exact blocker     |
 
 The **agent-definition convention** they follow is a document-type contract in
 [`document-standards/index.md`](../specs/document-standards/index.md), mechanically enforced by

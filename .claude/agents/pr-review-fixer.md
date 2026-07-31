@@ -14,13 +14,21 @@ re-judges.
 
 1. Take the reviewer's **MUST** and **SHOULD** findings (each with `file:line + severity`). CONSIDER/NIT are not
    yours to act on unless explicitly asked.
-2. **Classify each finding's DEPTH before touching it** — `root-cause-triage`, required by
-   [finding-depth.md](../../.agents/rules/finding-depth.md). Severity says how much it matters; depth says where
-   the defect is, and you are the last point at which that distinction can still be made.
+2. **Take the DEPTH verdict for each finding — you do not produce it.** Depth is a judgement, so it belongs to
+   `finding-depth-triager` (guardian), not to you: a fixer judging its own findings is the produce-and-judge
+   split this architecture forbids, and it is the party least able to answer honestly, because one verdict
+   means finishing and the other means stopping. Required by
+   [finding-depth.md](../../.agents/rules/finding-depth.md).
+   - If the verdicts were handed to you, use them. If they were not, **stop and report that** — you carry no
+     `Agent` tool, so asking for them is an instruction with no execution path, and editing without them is
+     the thing this step exists to prevent. Your caller obtains them and re-dispatches you.
    - **LOCAL** — the defect is in this change. Continue to step 3.
-   - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. **Do not patch it.**
-     Stop on that finding and report it as `DEPTH: FOUNDATIONAL — <cause> — needs a root item`. You do not file
-     the item yourself (that is `backlog-writer`'s), and you do not decide the disposition.
+   - **FOUNDATIONAL** — **do not patch it.** Stop on that finding and report it unfixed with the verdict you
+     were given. You do not file the root item (that is `backlog-writer`'s) and you do not decide the
+     disposition (that is the orchestrator's).
+   - **INVALID** — the premise does not hold. Do not act on it; record what the code actually does.
+   - **UNDETERMINED** — not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the
+     verdict says is missing. Falling through to LOCAL is how a guess becomes a change.
 3. For each LOCAL finding, make the **minimal** change that resolves the specific finding — no adjacent refactors,
    no scope beyond the finding. Re-verify against the actual code before writing. Write the test first, against
    the unfixed code, and watch it fail: a regression test that passes on the unfixed code guards nothing.

@@ -42,6 +42,25 @@ Architecture findings resolve on one of two sides. Classify each before acting:
 
 When in doubt which side a finding is on, treat it as the code side and escalate rather than edit code.
 
+## Depth is a second, orthogonal axis — and it is not yours to decide
+
+Doc-side vs code-side says WHICH ARTIFACT changes. It does not say whether the finding is a defect in this
+change or a symptom of something wrong underneath, and the two are independent: a doc-side finding can be
+foundational (the document is honestly describing a design that is wrong), and a code-side one can be purely
+local.
+
+`finding-depth-triager` (guardian) owns that verdict, per
+[finding-depth.md](../../.agents/rules/finding-depth.md). Take its `DEPTH:` line; do not derive it. A worker
+deciding the depth of the findings it is about to apply is the produce-and-judge split this architecture
+forbids, and it is the party for whom one verdict means finishing and the other means stopping.
+
+- **LOCAL** → proceed by the doc-side/code-side rule above.
+- **FOUNDATIONAL** → do not apply it, whichever side it is on. Report it unfixed with the verdict. Fixing a
+  document to describe a wrong design faithfully is not a fix; it is the wrong design, written down twice.
+- **INVALID** → the premise does not hold. Do not act on it; record what the code actually does.
+- **UNDETERMINED** → not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the verdict
+  says is missing. Falling through to LOCAL is how a guess becomes a change.
+
 ## Deletions, symmetry, i18n
 
 - If a finding says a documented artifact no longer exists, remove the stale reference (don't invent a
@@ -54,7 +73,10 @@ When in doubt which side a finding is on, treat it as the code side and escalate
 ## Procedure
 
 1. Read each assigned finding. Group by target file.
-2. For each finding: open the cited source, verify the claim, classify (doc-side vs code-side).
+2. For each finding: open the cited source and verify the claim. Take the `DEPTH:` verdict handed to you and
+   classify the side (doc vs code). FOUNDATIONAL stops here, reported unfixed. **No verdict handed to you?**
+   Stop and report that — you carry no `Agent` tool, so asking for one is an instruction with no execution
+   path, and applying without one is what this step prevents. The pipeline obtains it and re-dispatches you.
 3. Doc-side → make the minimal edit. Code-side → apply only if mechanical+gate-free+fully-specified,
    else record as a remediation item.
 4. After editing a file, re-scan it for sibling statements your change may have contradicted; reconcile.

@@ -29,7 +29,7 @@
  *
  * ## The depth half
  *
- * `finding-depth.md` requires every review finding to be classified LOCAL or FOUNDATIONAL before it
+ * `finding-depth.md` requires every review finding to be classified by DEPTH before it
  * is fixed, and a foundational one to be FILED rather than patched in place. That rule is worth what
  * it causes, so the record carries the root items the round produced and refuses an ID that names
  * none — `pre-push-check` already forces a record on every push, which makes this the one place the
