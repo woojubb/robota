@@ -47,9 +47,19 @@ fi
 # guard off — `git commit -m "note: BRANCH_GUARD_ALLOW_DELETE=1 was tried" && git push origin
 # --delete develop` did exactly that, disarming the check that exists because develop was once
 # deleted by accident.
-COMMAND_EXEC=$(hook_executable_part "$COMMAND")
-# Verb detection reads the same command with quoted ARGUMENTS blanked; extraction below keeps them,
-# because branch names and `-C` paths are routinely quoted.
+# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `COMMAND_VERBS` from
+# the tokenizer and `COMMAND_EXEC` from two line-oriented passes that did no quote masking at all,
+# and every EXTRACTION below read the second one — the branch name, the start point, the deleted
+# branch, the `-C` target. Measured on a scratch repository, each with the bare form refused:
+#   git push origin --delete develop                        -> exit 2
+#   echo "see <<EOF" ; git push origin --delete develop     -> exit 0
+#   git checkout -b BAD_NAME                                -> exit 2
+#   echo "see <<EOF" ; git checkout -b BAD_NAME             -> exit 0
+# The quoted `<<EOF` opened a heredoc the old reading never saw close, so everything after it was
+# deleted from the string the extractions read; they came back empty, and a check with no subject
+# does not refuse. Verb detection reads this command with quoted ARGUMENTS blanked; the extractors
+# mask it themselves and read the value from the ORIGINAL at the same offset, because branch names
+# and `-C` paths are routinely quoted.
 COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
 # One reading for all five, and it is POSITIONAL. Read as a token anywhere, an unquoted mention
@@ -158,7 +168,7 @@ HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 # a single check runs. That is a total bypass wearing the costume of a passing guard.
 # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
 # redirect this guard at another repository. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
+GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
 # One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
 # `validated`: it must name SOME repository, because its verdict is about the branch that
 # repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
@@ -227,10 +237,13 @@ fi
 # a confirmed merged PR. Matches: `gh api -X DELETE .../git/refs/heads/<name>`,
 # `git push <remote> --delete <name>`, `git push <remote> :<name>`.
 DELETE_BRANCH_NAME=""
-# Scan only the command up to the first heredoc opener (`<<`): everything after it is DATA
-# (e.g. a `git commit -F - <<'EOF' …` message that may legitimately mention `git push --delete`
-# or `refs/heads/`), not an executed command. This prevents a commit message from tripping the guard.
-DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND_EXEC" || true)
+# The RAW command. A heredoc BODY is data — a `git commit -F - <<'EOF' …` message may legitimately
+# mention `git push --delete` or `refs/heads/` — and so is a quoted argument, and the tokenizer
+# inside `hook_deleted_branch` knows both. It used to be handed a string that had been pre-cut by a
+# line-oriented pass, which looked for a heredoc opener with a regex that did not know about quoting:
+# a `<<EOF` inside a quoted string opened a body that never closed, and the real delete that followed
+# it was deleted from the string this check reads. (INFRA-075, #1572)
+DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND" || true)
 
 if [[ -n "$DELETE_BRANCH_NAME" && "${BRANCH_GUARD_ALLOW_DELETE:-0}" != "1" ]]; then
   if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
@@ -456,7 +469,7 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
   # Read the name from the ORIGINAL, positioned by a match in the masked text — the same rule the
   # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
   # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
-  NEW_BRANCH=$(hook_match_extract "$COMMAND_EXEC" \
+  NEW_BRANCH=$(hook_match_extract "$COMMAND" \
     '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' || true)
   # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
   #
@@ -480,7 +493,7 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
     # instead and passed while the branch came from `origin/main` — the exact creation this exists to
     # refuse, waved through by one common flag.
-    START_POINT=$(hook_match_extract "$COMMAND_EXEC" \
+    START_POINT=$(hook_match_extract "$COMMAND" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' || true)
     # A start point is a git ref, and the token holding it may be glued to what follows.
     #

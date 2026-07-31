@@ -20,11 +20,12 @@ const HOOKS_SRC = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * The guard's VERDICT, not the reading behind it.
  *
  * `hook-reading-matches-bash.test.mjs` proves `hook_verb_scan` agrees with bash. That is not the
- * same claim as "the guard decides correctly", and the difference is not academic: `branch-guard.sh`
- * takes `COMMAND_VERBS` from `hook_verb_scan` but `COMMAND_EXEC` from `hook_executable_part`, and
- * greps different checks against different strings. A reading can be fixed while every decision that
- * consults the OTHER string stays exactly as wrong — the "registered, never reached" shape this
- * repository keeps meeting, where a mechanism is green about something nothing calls.
+ * same claim as "the guard decides correctly", and the difference was not academic: `branch-guard.sh`
+ * took `COMMAND_VERBS` from `hook_verb_scan` but `COMMAND_EXEC` from a second, quote-blind reading,
+ * and greps different checks against different strings. A reading can be fixed while every decision
+ * that consults the OTHER string stays exactly as wrong — the "registered, never reached" shape this
+ * repository keeps meeting, where a mechanism is green about something nothing calls. That second
+ * reading is gone (INFRA-075, #1572); this file is the reason it was possible to notice.
  *
  * So this file asks the hook itself. Every case runs `branch-guard.sh` end to end on a scratch
  * repository, with every `BRANCH_GUARD_ALLOW_*` override scrubbed out of the environment, and

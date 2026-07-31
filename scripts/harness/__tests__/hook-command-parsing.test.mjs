@@ -950,8 +950,42 @@ describe('the command parse has one owner', () => {
       expect(
         truncatesAtHeredoc,
         `${hook} discards everything from the first heredoc opener onward, so a command written ` +
-          'after the terminator is never examined. Use hook_strip_heredocs.',
+          'after the terminator is never examined. Read the command with hook_verb_scan, which ' +
+          'masks a heredoc BODY without losing what follows the terminator.',
       ).toBe(false);
     }
+  });
+
+  it('offers exactly one reading of a command', () => {
+    // INFRA-075 (#1572). `command-scan.sh` used to offer two: the tokenizer, and two line-oriented
+    // passes that did no quote masking at all. Three hooks held both strings at once and each grep
+    // site read whichever variable was in scope, so a reading could be fixed while every decision
+    // built on the OTHER one stayed exactly as wrong — which is what happened through #1565.
+    //
+    // Named rather than described: a second reading is cheap to reintroduce and expensive to
+    // notice, and the shape it comes back in is a helper that pre-chews the command before the
+    // tokenizer sees it.
+    const RETIRED = ['hook_executable_part', 'hook_strip_heredocs', 'hook_strip_comments'];
+    const offenders = [];
+    const files = [
+      ...bashHooks.map((name) => path.join(HOOKS_DIR, name)),
+      path.join(HOOKS_DIR, 'lib/command-scan.sh'),
+      path.join(HOOKS_DIR, 'lib/hook-facts.sh'),
+    ];
+    for (const file of files) {
+      const code = readFileSync(file, 'utf8')
+        .split('\n')
+        .filter((line) => !line.trimStart().startsWith('#'))
+        .join('\n');
+      for (const name of RETIRED) {
+        if (code.includes(name)) offenders.push(`${path.basename(file)} uses ${name}`);
+      }
+    }
+    expect(
+      offenders,
+      'a second reading of a command is back. Every guard must read hook_verb_scan, and every ' +
+        'extractor masks the RAW command itself — handing it a string another reader already ' +
+        'altered is the bypass #1572 measured.',
+    ).toStrictEqual([]);
   });
 });
