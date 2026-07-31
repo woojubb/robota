@@ -5,7 +5,7 @@ created: 2026-07-25
 priority: high
 urgency: now
 area: .github/workflows/ci.yml, repo rulesets
-depends_on: []
+depends_on: [INFRA-071]
 ---
 
 # INFRA-046: advisory→required gate promotion
