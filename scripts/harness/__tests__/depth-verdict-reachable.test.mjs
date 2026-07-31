@@ -537,6 +537,7 @@ describe('a root item has one place to live, and one reader of it', () => {
       'a routing pipeline stopped naming where it files the root item, so this case no longer reads it',
     ).toEqual(
       expect.arrayContaining([
+        '.agents/skills/architecture-refresh/SKILL.md',
         '.agents/skills/documentation-refresh/SKILL.md',
         '.agents/skills/pr-review-orchestration/SKILL.md',
       ]),
@@ -588,6 +589,24 @@ export function convergesOnResolved(body) {
   for (const m of text.matchAll(/\bresolved\b/gi)) {
     const around = text.slice(Math.max(0, m.index - WINDOW), m.index + WINDOW);
     if (/\bcontained\b/i.test(around) && /\bINVALID\b/.test(around)) return true;
+  }
+  return false;
+}
+
+/**
+ * Does this guardian EXCLUDE a contained site from the count it emits?
+ *
+ * Not "does the file contain the word". The property is that the label changes the count, so the
+ * label's own opening and the signal it feeds have to be stated together — a definition that merely
+ * name-drops the convention still re-raises the claim, and re-raising is the whole failure. The window
+ * is generous because the four sites write two or three sentences between the two tokens.
+ */
+export function excludesContainedFromCount(text) {
+  const flat = text.replace(/\s+/g, ' ');
+  const WINDOW = 800;
+  for (const m of flat.matchAll(/Contained\s*[—-]/g)) {
+    const around = flat.slice(Math.max(0, m.index - WINDOW), m.index + WINDOW);
+    if (/ACTIONABLE FINDINGS/.test(around)) return true;
   }
   return false;
 }
@@ -687,7 +706,7 @@ describe('every findings-count loop converges on RESOLVED, and its guardians rea
       ).not.toEqual([]);
 
       const blind = counting.filter(
-        (g) => !/Contained\s*[—-]/.test(DEFINITIONS.find((d) => d.name === g)?.text ?? ''),
+        (g) => !excludesContainedFromCount(DEFINITIONS.find((d) => d.name === g)?.text ?? ''),
       );
       expect(
         blind,
