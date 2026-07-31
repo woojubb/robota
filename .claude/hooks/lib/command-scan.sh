@@ -32,10 +32,44 @@
 # jq first, python3 second, refuse third. Both parse JSON properly, which is the entire point: the
 # payload is JSON and every hand-rolled decoder in this directory has been wrong about it.
 # `\uXXXX`, `\"`, `\\` and `\n` all come back as the characters they denote.
+#
+# ONE RULE, NOT ONE PER INSTALLED TOOL (INFRA-081, #1574). The two arms used to answer the same
+# question differently, and the difference reached a VERDICT. Measured end-to-end on `branch-guard.sh`
+# against a scratch repository, same payload both times, only `PATH` differing:
+#
+#   {"tool_name":"Bash","cwd":"<scratch>","tool_input":{"command":{"a":"git push origin main"}}}
+#     with jq      exit 0   (jq -r printed the pretty-printed OBJECT, whose `git push` sits inside
+#                            quotes, so the tokenizer masked it as data and no verb was found)
+#     without jq   exit 2   (the python3 arm writes "" for a non-string, and an empty command is a
+#                            refusal)
+#
+# One host permitted and the other refused, and neither answer was reached by a decision. Two more
+# divergences were measured in the same arm and are closed here with it: `jq -r ".a.b"` ERRORS when
+# `a` is not an object (so a jq-only host returned "could not decode" where a python3 host returned
+# ""), and `jq -r` appends a newline the python3 arm does not write.
+#
+# THE ANSWER IS "" — a field that is not a string is not that field — for three reasons, and the
+# alternative (a reader that returns non-zero on a non-string) was rejected for the third:
+#
+#   1. It is the rule `hook_json_text` already states, with its own measurement, for the text fields
+#      #1566 could reach. Two spellings of one rule is what INFRA-077 spent a PR removing.
+#   2. `hook-facts.sh` states the reader/caller split explicitly: a READER collapses absent and empty
+#      into "", and the CALLER names what empty means for it. A refusing reader would break that for
+#      one function out of the set.
+#   3. The VERDICT is fail-closed either way, and that is the property that matters. Every caller
+#      here already converts empty into a refusal or a fallback — `hook_command_of` returns non-zero
+#      on an empty command, `hook_tool_name_of` falls through to its no-tools parse — so both arms
+#      now exit 2 on the payload above. Measured, both directions.
+#
+# The path is passed as `--arg`, not interpolated into the filter: a field name is data, and the
+# reduce below is total, so no shape of path or payload makes this arm error where the other returns.
 hook_json_string() {
   local json="$1" path="$2"
   if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$json" | jq -r ".${path} // \"\"" 2>/dev/null && return 0
+    printf '%s' "$json" | jq -j --arg p "$path" '
+      reduce ($p | split(".")[]) as $k (.; if type == "object" then .[$k] else null end)
+      | if type == "string" then . else "" end
+    ' 2>/dev/null && return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     printf '%s' "$json" | python3 -c '
@@ -95,14 +129,30 @@ hook_tool_name_of() {
 # machine without jq produced empty content and the forbidden-pattern check exited 0 on content it
 # would otherwise have refused: the silent bypass this file exists to remove, surviving in the one
 # hook that guards a different tool. Review caught it.
+#
+# The arms are held to the SAME rule as `hook_json_string` above, and for the same reason
+# (INFRA-081): a field that is not a string is not that field. Fixing the divergence one function up
+# and leaving it here is how this directory keeps producing "corrected in one place, live in the
+# sibling". Four shapes were measured disagreeing before this, each reachable from an ordinary
+# payload: a numeric `content` (jq printed the number, python3 skipped to `new_string`), a
+# `tool_input` that is not an object (jq ERRORED, python3 raised, both then answered differently
+# depending on which tools were present), an `edits` list that is not a list, and an edit whose
+# `new_string` is not a string (python3 raised inside `join` and the whole read became "could not
+# decode"). Both arms now walk the same three steps and stop at the first STRING.
 hook_edit_content_of() {
-  local content
   if command -v jq >/dev/null 2>&1; then
-    content=$(printf '%s' "$1" | jq -r '
-      .tool_input.content
-      // .tool_input.new_string
-      // ([.tool_input.edits[]?.new_string] | join("\n"))
-      // ""' 2>/dev/null) && { printf '%s' "$content"; return 0; }
+    printf '%s' "$1" | jq -j '
+      (if type == "object" then .tool_input else null end) as $ti
+      | if ($ti | type) != "object" then ""
+        elif ($ti.content | type) == "string" then $ti.content
+        elif ($ti.new_string | type) == "string" then $ti.new_string
+        else [ ($ti.edits | if type == "array" then .[] else empty end)
+               | if type == "object"
+                 then (.new_string | if type == "string" then . else "" end)
+                 else empty end ]
+             | join("\n")
+        end
+    ' 2>/dev/null && return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     printf '%s' "$1" | python3 -c '
@@ -111,15 +161,25 @@ try:
     doc = json.load(sys.stdin)
 except Exception:
     sys.exit(1)
-ti = doc.get("tool_input") or {}
+ti = doc.get("tool_input") if isinstance(doc, dict) else None
+if not isinstance(ti, dict):
+    ti = {}
+out = None
 for key in ("content", "new_string"):
     if isinstance(ti.get(key), str):
-        sys.stdout.write(ti[key])
+        out = ti[key]
         break
-else:
-    edits = ti.get("edits") or []
-    parts = [e.get("new_string", "") for e in edits if isinstance(e, dict)]
-    sys.stdout.write("\n".join(parts))
+if out is None:
+    edits = ti.get("edits")
+    if not isinstance(edits, list):
+        edits = []
+    parts = []
+    for edit in edits:
+        if isinstance(edit, dict):
+            value = edit.get("new_string")
+            parts.append(value if isinstance(value, str) else "")
+    out = "\n".join(parts)
+sys.stdout.write(out)
 ' 2>/dev/null && return 0
   fi
   return 1

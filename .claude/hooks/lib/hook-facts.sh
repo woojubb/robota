@@ -156,52 +156,36 @@ hook_current_branch() {
 # is allowed to contain a quote or a backslash, JSON escapes both, and a `[^"]*` grep stops at the
 # escape and hands back a path that does not exist.
 #
-# Through `hook_json_text`, not `hook_json_string`, so this reader and `hook_prompt_of` answer the
-# same question the same way. Measured on `{"tool_input": {"file_path": 123}}`: `hook_json_string`
-# returns `123` where jq is installed and "" where it is not, so the rule would otherwise have been
-# one-per-function instead of one rule. A path is text or it is not a path.
+# Through `hook_json_text`, so this reader and `hook_prompt_of` answer the same question the same
+# way. Measured on `{"tool_input": {"file_path": 123}}` before INFRA-081: `hook_json_string` returned
+# `123` where jq was installed and "" where it was not, so the rule would otherwise have been
+# one-per-function instead of one rule. A path is text or it is not a path. Since #1574 both readers
+# ARE one function, and this line records which rule won rather than which function to call.
 hook_file_path_of() {
   hook_json_text "$1" 'tool_input.file_path'
 }
 
-# A top-level field, but ONLY when it holds a JSON string. Anything else reads as absent.
+# A field, but ONLY when it holds a JSON string. Anything else reads as absent.
 #
-# `hook_json_string` next door does not promise this, and its two arms DISAGREE without it. Measured
-# on `{"message": {"role": "user", "content": "hello"}}`, which is the ordinary transcript shape and
-# not an exotic one: with jq installed, `jq -r '.message // ""'` prints the object's pretty-printed
-# JSON; with jq absent, the python3 arm writes "" because the node is not a `str`. Same payload, same
-# function, two answers depending on which tool the host happens to have — the exact defect class
-# this directory spent INFRA-077 removing, one function to the left.
+# THIS IS NOW `hook_json_string`, AND THE NAME IS ALL THAT REMAINS OF THE DIFFERENCE (INFRA-081,
+# #1574).
 #
-# `hook_json_string` lives in `command-scan.sh`, which INFRA-077 deliberately did not touch, so this
-# is stated rather than fixed there: the disagreement is still reachable through any OTHER caller of
-# that function. Filed in the PR body for whoever owns that file next.
+# It was written here because `hook_json_string` did not promise the type test and its two arms
+# DISAGREED without it. Measured on `{"message": {"role": "user", "content": "hello"}}`, which is the
+# ordinary transcript shape and not an exotic one: with jq installed, `jq -r ".message // \"\""`
+# printed the object's pretty-printed JSON; with jq absent, the python3 arm wrote "" because the node
+# is not a `str`. #1566 could not fix that where it lived, because `command-scan.sh` was owned by
+# concurrent work, so it wrote a second reader with the right rule and stated the limit.
 #
-# The answer chosen here is "": a structured node is not prompt TEXT, and returning the JSON blob
-# would have `correction-detect` grep it for correction keywords and log it as `prompt_excerpt`,
-# and `spec-first-gate` scan it for implementation intent.
+# #1574 fixed the original and adopted THIS rule for it: a field that is not a string is not that
+# field, on both arms, byte for byte. Keeping a second implementation of a rule that now has one
+# owner would be the defect this whole directory has spent a week removing — so the body is gone and
+# the NAME stays, because four hooks call it and their reason for calling it is unchanged: a
+# structured node is not prompt TEXT, and returning the JSON blob would have `correction-detect` grep
+# it for correction keywords and log it as `prompt_excerpt`, and `spec-first-gate` scan it for
+# implementation intent.
 hook_json_text() {
-  local json="$1" path="$2"
-  if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$json" | jq -r "if (.${path} | type) == \"string\" then .${path} else \"\" end" 2>/dev/null && return 0
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    printf '%s' "$json" | python3 -c '
-import json, sys
-try:
-    doc = json.load(sys.stdin)
-except Exception:
-    sys.exit(1)
-node = doc
-for key in sys.argv[1].split("."):
-    if not isinstance(node, dict):
-        node = None
-        break
-    node = node.get(key)
-sys.stdout.write(node if isinstance(node, str) else "")
-' "$path" 2>/dev/null && return 0
-  fi
-  return 1
+  hook_json_string "$1" "$2"
 }
 
 # The user's prompt text, under whichever of the three keys the event carries it.

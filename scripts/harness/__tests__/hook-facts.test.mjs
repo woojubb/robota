@@ -6,13 +6,17 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
+
+// One owner for the farm too. Both this file and `hook-json-reader-agrees.test.mjs` need "a PATH
+// where jq genuinely does not exist", and a second copy of the thing that decides WHICH ARM RUNS,
+// in a directory whose subject is one-rule-not-one-per-tool, is the defect wearing the fix.
+import { pathWithout } from './helpers/path-without.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -78,39 +82,6 @@ function initRepo(dir, branch) {
   writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
   git('add', '-A');
   git('commit', '--quiet', '-m', 'chore: root');
-  return dir;
-}
-
-/**
- * A PATH in which the named tools genuinely do not exist.
- *
- * A shim that merely FAILS is a different scenario — the hooks branch on `command -v`, so a
- * present-but-broken tool exercises a path a tool-less host never takes. The farm therefore
- * symlinks every executable the real PATH offers except the hidden ones, which is the only way to
- * ask "what does this hook do on a host without jq" and get the host's answer.
- */
-function pathWithout(hidden) {
-  const dir = scratchDir('hook-facts-path-');
-  const seen = new Set();
-  for (const entry of (process.env.PATH ?? '').split(':')) {
-    if (!entry) continue;
-    let names;
-    try {
-      names = readdirSync(entry);
-    } catch {
-      continue;
-    }
-    for (const name of names) {
-      if (seen.has(name)) continue;
-      seen.add(name);
-      if (hidden.includes(name)) continue;
-      try {
-        symlinkSync(path.join(entry, name), path.join(dir, name));
-      } catch {
-        // A duplicate or an unreadable entry is not the subject of any case here.
-      }
-    }
-  }
   return dir;
 }
 
