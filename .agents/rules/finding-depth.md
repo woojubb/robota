@@ -63,6 +63,23 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
 - `pr-review-fixer` TAKES the verdict rather than producing it, and stops on a foundational one;
   `pr-review-orchestration` routes that verdict to the root item rather than back into the fix loop.
 
+## It applies to a PLAN, not only to a finding
+
+A finding is the late place to ask. The same three questions answer at two earlier moments, and both
+are cheaper:
+
+- **Before planning** — the observation that produced the item. Is what was noticed the defect, or the
+  symptom of one? An item scoped to a symptom produces a plan that cannot be right, and every later gate
+  will pass it, because each of them judges the plan against the item rather than the item against
+  reality.
+- **After planning, before implementing** — the plan itself. Does it address the cause, or make the
+  symptom stop? A plan can be well-formed, well-reviewed, correctly sequenced and still be a patch on
+  the wrong layer, and no amount of execution quality repairs that.
+
+This is a different question from `proposal-reviewer`'s. That one asks whether the chosen decision is
+the right one AMONG THE ALTERNATIVES; depth asks whether the problem being solved is the real one. Both
+can pass while the other fails, which is why neither substitutes for the other.
+
 ## What this rule does not do
 
 It does not decide severity, does not decide whether the PR merges, and does not make "architectural"

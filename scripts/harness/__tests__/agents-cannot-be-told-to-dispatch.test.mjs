@@ -22,6 +22,16 @@ const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
  * it, hand something to it, ask it — then either that agent carries `Agent` in its `tools`, or the
  * sentence must say what it EMITS instead of who it calls. The second form is usually the right one:
  * a judging agent that reports a signal keeps its read-only scope and lets the orchestrator route.
+ *
+ * WHAT IT CANNOT SEE, stated because it was measured: the verb must be adjacent to the NAME. Three
+ * more dead instructions got past it on the round it landed — all of the form "…take the verdict from
+ * `finding-depth-triager` … (ask for IT if it was not handed to you)", where the name sits in an
+ * earlier sentence and the imperative takes a pronoun. Resolving a pronoun to its antecedent is not
+ * something a regex does, and widening the verbs to fire on any nearby `it` would flag "ask the user"
+ * and every other ordinary imperative — the false-positive half, which is how a floor gets switched
+ * off. So this catches the direct form and says plainly that it does not catch the referential one.
+ * The durable fix is not a better matcher: it is that an agent with no `Agent` tool should say what
+ * it EMITS, and then there is no instruction to detect. All four sites now do.
  */
 const DEFINITIONS = readdirSync(AGENTS_DIR)
   .filter((n) => n.endsWith('.md'))

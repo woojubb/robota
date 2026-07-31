@@ -19,7 +19,9 @@ re-judges.
    split this architecture forbids, and it is the party least able to answer honestly, because one verdict
    means finishing and the other means stopping. Required by
    [finding-depth.md](../../.agents/rules/finding-depth.md).
-   - If the verdicts were handed to you, use them. If they were not, ask for them before editing anything.
+   - If the verdicts were handed to you, use them. If they were not, **stop and report that** — you carry no
+     `Agent` tool, so asking for them is an instruction with no execution path, and editing without them is
+     the thing this step exists to prevent. Your caller obtains them and re-dispatches you.
    - **LOCAL** — the defect is in this change. Continue to step 3.
    - **FOUNDATIONAL** — **do not patch it.** Stop on that finding and report it unfixed with the verdict you
      were given. You do not file the root item (that is `backlog-writer`'s) and you do not decide the

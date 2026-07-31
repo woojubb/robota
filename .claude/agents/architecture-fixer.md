@@ -73,8 +73,10 @@ forbids, and it is the party for whom one verdict means finishing and the other 
 ## Procedure
 
 1. Read each assigned finding. Group by target file.
-2. For each finding: open the cited source and verify the claim. Take the `DEPTH:` verdict (ask for it if it
-   was not handed to you), and classify the side (doc vs code). FOUNDATIONAL stops here, reported unfixed.
+2. For each finding: open the cited source and verify the claim. Take the `DEPTH:` verdict handed to you and
+   classify the side (doc vs code). FOUNDATIONAL stops here, reported unfixed. **No verdict handed to you?**
+   Stop and report that — you carry no `Agent` tool, so asking for one is an instruction with no execution
+   path, and applying without one is what this step prevents. The pipeline obtains it and re-dispatches you.
 3. Doc-side → make the minimal edit. Code-side → apply only if mechanical+gate-free+fully-specified,
    else record as a remediation item.
 4. After editing a file, re-scan it for sibling statements your change may have contradicted; reconcile.
