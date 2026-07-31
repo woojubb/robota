@@ -101,6 +101,31 @@ describe('every branch-guard override is given, not merely mentioned', () => {
     { token: 'BRANCH_GUARD_ALLOW_BADNAME', guarded: 'git checkout -b BAD_NAME', on: 'develop' },
   ];
 
+  it('an override on a harmless command does not excuse the guarded one', () => {
+    // The decoy, ported from the sibling guard where it was already fixed and measured. Anchoring
+    // the token to "some git call" is not enough: it must prefix the statement that carries the
+    // command being overridden, or a `git status` in front becomes a skeleton key for the line.
+    //
+    // Reported as a PoC on this PR: `BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin
+    // main` set the flag globally and the real push went unchecked.
+    const decoys = [
+      { on: 'main', command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin main' },
+      { on: 'main', command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git log -1 && git merge develop' },
+      {
+        on: 'develop',
+        command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git status; git checkout -b BAD_NAME',
+      },
+    ];
+
+    for (const { on, command } of decoys) {
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `an override on a harmless command excused: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
   for (const { token, guarded, on } of OVERRIDES) {
     it(`${token} fires, resists a mention, and yields to the prefix`, () => {
       // Three ways in one case, so the fixture proves itself. Asserting only "the mention was

@@ -59,24 +59,39 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # An override is given TO a command, so it must prefix one. `ALLOW=1 git …`, optionally behind other
 # assignments, and nowhere else. (INFRA-076)
 override_given() {
-  printf '%s' "$COMMAND_VERBS" |
-    grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$1=1[[:space:]]+([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*(git|gh)[[:space:]]"
+  local token="$1" verb_re="$2"
+  # Statement by statement, and the override must prefix THE STATEMENT THAT CARRIES THE COMMAND it
+  # overrides. Anchoring it to "some git call anywhere on the line" is not enough: a decoy in front
+  # turns it into a skeleton key —
+  #   BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin main
+  # set the flag globally and the real push went unchecked. The sibling guard met this exact attack
+  # and split on separators to close it; porting the anchoring without the scoping left the hole
+  # open here. (INFRA-076)
+  # No pipeline: a `while` on the right of a pipe runs in a SUBSHELL, so its exit status says
+  # nothing about what it found. The statements are split into a variable first and read from a
+  # here-string, which keeps the loop in this shell.
+  local statements stmt
+  statements=$(printf '%s\n' "$COMMAND_VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
+  while IFS= read -r stmt; do
+    printf '%s' "$stmt" | grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$token=1[[:space:]]" || continue
+    printf '%s' "$stmt" | grep -qE "$verb_re" || continue
+    return 0
+  done <<< "$statements"
+  return 1
 }
 
-override_given BRANCH_GUARD_ALLOW_DELETE && BRANCH_GUARD_ALLOW_DELETE=1
-override_given BRANCH_GUARD_ALLOW_OPEN_BRANCHES && BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
-override_given BRANCH_GUARD_ALLOW_BADNAME && BRANCH_GUARD_ALLOW_BADNAME=1
+# Each override is bound to the command it excuses, so a decoy statement cannot stand in for it.
+CREATE_RE='(git[[:space:]]+(checkout[[:space:]]+-b|switch[[:space:]]+-c))'
+override_given BRANCH_GUARD_ALLOW_DELETE '(git[[:space:]]+push|gh[[:space:]]+api)' && BRANCH_GUARD_ALLOW_DELETE=1
+override_given BRANCH_GUARD_ALLOW_OPEN_BRANCHES "$CREATE_RE" && BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
+override_given BRANCH_GUARD_ALLOW_BADNAME "$CREATE_RE" && BRANCH_GUARD_ALLOW_BADNAME=1
 # The base override belongs in this block for the reason the paragraph above gives: an inline
 # `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
-# `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
-# for it injected the variable through the hook's own environment — hiding the very distinction this
-# file spends nine lines explaining.
-override_given BRANCH_GUARD_ALLOW_BASE && BRANCH_GUARD_ALLOW_BASE=1
+# `${VAR:-0}` means the documented form does nothing.
+override_given BRANCH_GUARD_ALLOW_BASE "$CREATE_RE" && BRANCH_GUARD_ALLOW_BASE=1
 # MAIN_MERGE was the one still read ONLY from this process's environment, which means the form
-# git-branch.md documents — `BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git push …` — could never work, for the
-# two most dangerous operations the guard covers. An operator following the printed instruction was
-# refused. It reads the command string now, by the same positional rule as the rest.
-override_given BRANCH_GUARD_ALLOW_MAIN_MERGE && BRANCH_GUARD_ALLOW_MAIN_MERGE=1
+# git-branch.md documents could never work, for the two most dangerous operations the guard covers.
+override_given BRANCH_GUARD_ALLOW_MAIN_MERGE '(git[[:space:]]+(push|merge))' && BRANCH_GUARD_ALLOW_MAIN_MERGE=1
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
