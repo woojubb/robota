@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -274,5 +274,77 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
+  });
+});
+
+describe('a re-planned change does not merge', () => {
+  // `finding-depth.md` allows two dispositions for a FOUNDATIONAL verdict, and until now only one
+  // of them did anything. `containment` had a code comment and a commit body carrying the root ID;
+  // `re-plan` — the change is WITHDRAWN or reduced — was a word in a note. A disposition nothing
+  // reads is a decision with no actor, which is the very shape the rule exists against.
+  //
+  // The gate refuses it now. Closing the PR is the tidy expression of a withdrawal; refusing the
+  // merge is the part a machine can hold.
+  /** A checkout whose recorded round took `disposition`, with everything else clean. */
+  function repoWithDisposition(disposition) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'merge-disp-'));
+    scratch.push(dir);
+    const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
+    git('init', '--quiet', '--initial-branch=feat/probe');
+    git('config', 'user.email', 'harness@example.test');
+    git('config', 'user.name', 'Harness');
+    writeFileSync(path.join(dir, 'f'), 'x\n');
+    git('add', '-A');
+    git('commit', '--quiet', '-m', 'chore: root');
+    const sha = spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+    }).stdout.trim();
+    mkdirSync(path.join(dir, '.agents/local-reviews'), { recursive: true });
+    writeFileSync(
+      path.join(dir, '.agents/local-reviews/feat%2Fprobe.json'),
+      JSON.stringify({
+        branch: 'feat/probe',
+        headSha: sha,
+        findings: 0,
+        foundational: ['INFRA-073'],
+        disposition,
+      }),
+    );
+    return dir;
+  }
+
+  function judgeIn(repo) {
+    const result = spawnSync('bash', [HOOK], {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        cwd: repo,
+        tool_input: { command: 'gh pr merge 7 --merge' },
+      }),
+      cwd: repo,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: stubbedPath({
+          state: 'CLEAN',
+          headAt: '2026-01-01T00:00:00Z',
+          comments: [REVIEW('2026-01-02T00:00:00Z')],
+        }),
+        CLAUDE_PROJECT_DIR: repo,
+      },
+    });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses when the local record took the re-plan disposition', () => {
+    const verdict = judgeIn(repoWithDisposition('re-plan'));
+
+    expect(verdict.status, `a withdrawn change was allowed to merge: ${verdict.output}`).toBe(2);
+    expect(verdict.output).toMatch(/re-plan/);
+  });
+
+  it('allows a contained change, which is the other half of the same rule', () => {
+    const verdict = judgeIn(repoWithDisposition('containment'));
+
+    expect(verdict.status, `a labelled containment was refused: ${verdict.output}`).toBe(0);
   });
 });

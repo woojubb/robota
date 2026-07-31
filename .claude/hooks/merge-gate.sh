@@ -191,5 +191,31 @@ if [[ -z "$COUNT" ]]; then
   exit 2
 fi
 
+# The local round's DISPOSITION, for a foundational finding. `finding-depth.md` allows exactly two:
+# `containment` — the change lands with a labelled hold naming the root item — and `re-plan`, which
+# means the change is WITHDRAWN or reduced. Until this line existed, only one of them did anything:
+# containment left a code comment and a commit body, while re-plan was a word in a note that nothing
+# read, so a change recorded as withdrawn merged like any other. A disposition nothing acts on is a
+# decision with no actor.
+#
+# The verdict is the recorder's, not this hook's — same split as the review record itself.
+RECORDER="$(dirname "${BASH_SOURCE[0]}")/../../scripts/harness/record-local-review.mjs"
+# The checkout the merge is about — the hook payload's cwd when it names a work tree, else the
+# project dir. The recorder resolves its repository from the directory it RUNS in, so pointing it
+# at the wrong one would read another checkout's record while judging this one.
+RECORD_DIR_FOR_MERGE="${CLAUDE_PROJECT_DIR:-.}"
+MERGE_CWD=$(hook_cwd_of "$INPUT" || true)
+if [[ -n "$MERGE_CWD" ]] && git -C "$MERGE_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  RECORD_DIR_FOR_MERGE="$MERGE_CWD"
+fi
+if command -v node >/dev/null 2>&1 && [[ -f "$RECORDER" ]] && git -C "$RECORD_DIR_FOR_MERGE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if ! DISPOSITION_STATE=$(cd "$RECORD_DIR_FOR_MERGE" && node "$RECORDER" --merge-blocked 2>&1); then
+    echo "[merge-gate] Blocked: ${DISPOSITION_STATE:-the local round withdrew this change}." >&2
+    echo "[merge-gate] Comment the decision on the PR and close it, or record \`containment\` if the" >&2
+    echo "[merge-gate] change must land with a labelled hold. Deliberate exception: MERGE_GATE_ACK=1" >&2
+    exit 2
+  fi
+fi
+
 echo "[merge-gate] PR #$PR: CI CLEAN, review newer than head, ACTIONABLE FINDINGS: 0. READ IT." >&2
 exit 0

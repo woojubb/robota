@@ -147,6 +147,35 @@ export function reviewState(branch, headSha, dir = RECORD_DIR) {
   return { ok: true, reason: `reviewed at ${headSha.slice(0, 9)} — 0 findings` };
 }
 
+/**
+ * The two dispositions `finding-depth.md` allows for a FOUNDATIONAL verdict, and no third.
+ *
+ * `re-plan` means the change is WITHDRAWN or reduced; `containment` means it lands with a labelled
+ * hold. Until this was recorded, the choice lived in a note — a decision with no actor, which is the
+ * shape the rule itself exists against. Recorded, `re-plan` can be read by the merge gate.
+ */
+export const DISPOSITIONS = new Set(['re-plan', 'containment']);
+
+/** Why this branch must not merge at this commit, or null. */
+export function mergeBlockReason(branch, headSha, dir = RECORD_DIR) {
+  const file = recordPathFor(branch, dir);
+  if (!existsSync(file)) return null; // no record is pre-push's question, not this one
+  let stored;
+  try {
+    stored = JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (stored.headSha !== headSha) return null;
+  if (stored.disposition !== 're-plan') return null;
+  const ids = (stored.foundational ?? []).join(', ') || 'a root item';
+  return (
+    `the review at ${headSha.slice(0, 9)} took the re-plan disposition on ${ids} — the change is ` +
+    'withdrawn or reduced, so it does not merge as it stands. Comment the decision on the PR and ' +
+    'close it, or record `containment` if the change must land with a labelled hold.'
+  );
+}
+
 /** Convenience predicate over {@link reviewState}. */
 export function isReviewed(branch, headSha, dir = RECORD_DIR) {
   return reviewState(branch, headSha, dir).ok;
@@ -178,9 +207,19 @@ export function resolveRootItems(ids, backlogDir) {
 }
 
 export function parseArgs(argv) {
-  const args = { findings: null, notes: '', show: false, foundational: [], unknown: [] };
+  const args = {
+    findings: null,
+    notes: '',
+    show: false,
+    mergeBlocked: false,
+    foundational: [],
+    disposition: '',
+    unknown: [],
+  };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--show') args.show = true;
+    else if (argv[i] === '--merge-blocked') args.mergeBlocked = true;
+    else if (argv[i] === '--disposition') args.disposition = String(argv[++i] ?? '').trim();
     else if (argv[i] === '--findings') args.findings = Number(argv[++i]);
     else if (argv[i] === '--notes') args.notes = String(argv[++i] ?? '');
     else if (argv[i] === '--foundational') {
@@ -220,6 +259,15 @@ function main() {
     process.exit(1);
   }
 
+  if (args.mergeBlocked) {
+    const reason = mergeBlockReason(branch, headSha, recordDirFor(root));
+    if (reason) {
+      console.error(`record-local-review: ${reason}`);
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+
   if (args.show) {
     // The single owner of "is this commit reviewed". `pre-push-check` calls this and routes on the
     // exit code rather than re-parsing the record in bash — the duplicated-logic drift this whole
@@ -244,6 +292,21 @@ function main() {
       `record-local-review: ${args.findings} finding(s) still open — nothing to record yet.`,
     );
     console.error('Resolve them, review again, then record. The round is what saves the CI trip.');
+    process.exit(1);
+  }
+
+  if (args.foundational.length > 0 && !DISPOSITIONS.has(args.disposition)) {
+    console.error(
+      'record-local-review: a foundational finding needs --disposition re-plan|containment.',
+    );
+    console.error(
+      'The rule allows exactly those two and never a third. Recording the root item without saying ' +
+        'which was taken leaves the decision in prose and absent from anything that acts on it.',
+    );
+    process.exit(1);
+  }
+  if (args.disposition && !DISPOSITIONS.has(args.disposition)) {
+    console.error(`record-local-review: unknown disposition "${args.disposition}".`);
     process.exit(1);
   }
 
@@ -283,6 +346,7 @@ function main() {
     headSha,
     findings: 0,
     foundational: args.foundational,
+    disposition: args.disposition,
     notes: args.notes,
     reviewedAt: new Date().toISOString(),
   };

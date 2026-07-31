@@ -62,11 +62,16 @@ the judgement is the guardian's, the routing is this skill's, and neither does t
 - **UNDETERMINED** → not a pass. Obtain the specific thing the verdict names as missing, then re-run
   A1 on that finding. Treating it as LOCAL is how a guess enters the loop wearing a verdict's clothes.
 - **FOUNDATIONAL** → do NOT send it back into the fix loop. Route to `backlog-writer` for the root item,
-  register its GitHub issue, then take the disposition: **re-plan** (the change is withdrawn or reduced) or
-  **labelled containment** (the smallest hold, naming the item's ID in a code comment and the commit body).
-  Record the IDs with the round: `pnpm harness:review:record -- --findings 0 --foundational <ID>[,<ID>...]`.
-  Then **return to A1**: the containment is a change like any other, and the next round reads it.
-  Push is A3's, and only once a round comes back zero.
+  register its GitHub issue, then take the disposition and RECORD it:
+  `pnpm harness:review:record -- --findings 0 --foundational <ID>[,<ID>...] --disposition re-plan|containment`.
+  The recorder refuses a foundational finding with no disposition, because the rule allows exactly two.
+  - **containment** — the smallest hold, naming the item's ID in a code comment and the commit body. The
+    PR stays open.
+  - **re-plan** — the change is withdrawn or reduced. Have `pr-review-writer` comment the decision on the
+    PR, then CLOSE it. `merge-gate` refuses the merge either way, so a withdrawal left open cannot land
+    by being forgotten.
+    Then **return to A1**: the containment is a change like any other, and the next round reads it.
+    Push is A3's, and only once a round comes back zero.
 
 A loop that fixes every finding where it was reported converges just as cleanly as one that does not, which
 is why the depth question has to be asked before the fix rather than noticed afterwards.

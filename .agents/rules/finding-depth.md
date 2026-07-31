@@ -35,6 +35,22 @@ Containment is permitted only when the change must land first, and only under al
 it is the smallest thing that keeps the tree honest, it introduces no new abstraction, and it names
 the root item's ID in both a code comment and the commit body. An unlabelled hold is a patch.
 
+**The disposition decides what happens to the change, and it is recorded, not narrated.**
+
+- **re-plan** — the change is WITHDRAWN or reduced. Comment the decision on the PR and CLOSE it. It
+  does not merge as it stands, and `merge-gate` refuses it: `record-local-review --disposition
+re-plan` is read at the merge, so the withdrawal is a state the machine holds rather than a
+  sentence someone wrote. Until that existed, `re-plan` was the only part of this rule with no
+  consequence — containment left a code comment and a commit body, and re-plan left a note.
+- **containment** — the change lands with the labelled hold above, and the PR stays open.
+
+**Closing on re-plan is not the same as closing on every foundational finding**, and the difference
+is measured. On 2026-08-01, three foundational verdicts were taken on two PRs; in all three the root
+predated the change and the change was independently correct. Closing them would have discarded a
+fix that gave a dead gate its first verdict in its entire life, and left two live guard bypasses
+standing while a tokenizer was written. A foundational finding says where the DEFECT is, not whether
+this change is worth keeping — those are different questions, and only the second decides the PR.
+
 **The label is a condition, not a courtesy.** A hold with no such comment is indistinguishable from
 having ignored the finding. It is also what lets the review loop converge: a foundational finding is
 not fixed, so the next round sees the same code and would raise it again. The comment at the site IS

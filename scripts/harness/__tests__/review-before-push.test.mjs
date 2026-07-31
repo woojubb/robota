@@ -328,7 +328,14 @@ describe('a foundational finding must name a root item that exists', () => {
     // root item exists. So the recorder refuses rather than storing an unresolvable promise.
     const dir = repoWithBacklog(['INFRA-073']);
 
-    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-999']);
+    const verdict = recordIn(dir, [
+      '--findings',
+      '0',
+      '--disposition',
+      'containment',
+      '--foundational',
+      'INFRA-999',
+    ]);
 
     expect(verdict.status, 'an unfiled root item was accepted').not.toBe(0);
     expect(verdict.output).toMatch(/INFRA-999/);
@@ -340,6 +347,8 @@ describe('a foundational finding must name a root item that exists', () => {
     const verdict = recordIn(dir, [
       '--findings',
       '0',
+      '--disposition',
+      'containment',
       '--foundational',
       'INFRA-073,PROC-004',
       '--notes',
@@ -361,7 +370,14 @@ describe('a foundational finding must name a root item that exists', () => {
     // most likely to teach someone to stop using the flag.
     const dir = repoWithBacklog(['ARCH-AUDIT-001', 'HARNESS-DIET-006']);
 
-    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'HARNESS-DIET-006']);
+    const verdict = recordIn(dir, [
+      '--findings',
+      '0',
+      '--disposition',
+      'containment',
+      '--foundational',
+      'HARNESS-DIET-006',
+    ]);
 
     expect(verdict.status, verdict.output).toBe(0);
   });
@@ -374,10 +390,14 @@ describe('a foundational finding must name a root item that exists', () => {
     mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
     writeFileSync(path.join(dir, '.agents/backlog', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
 
-    const result = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
-      cwd: dir,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--disposition', 'containment', '--foundational', 'INFRA-073'],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+      },
+    );
 
     expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
   });
@@ -396,14 +416,30 @@ describe('a foundational finding must name a root item that exists', () => {
 
     const ok = spawnSync(
       'node',
-      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008-P5'],
+      [
+        RECORDER,
+        '--findings',
+        '0',
+        '--disposition',
+        'containment',
+        '--foundational',
+        'SELFHOST-008-P5',
+      ],
       { cwd: dir, encoding: 'utf8' },
     );
     expect(ok.status ?? 1, `${ok.stdout ?? ''}${ok.stderr ?? ''}`).toBe(0);
 
     const truncated = spawnSync(
       'node',
-      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008'],
+      [
+        RECORDER,
+        '--findings',
+        '0',
+        '--disposition',
+        'containment',
+        '--foundational',
+        'SELFHOST-008',
+      ],
       { cwd: dir, encoding: 'utf8' },
     );
     expect(truncated.status ?? 1, 'an ID naming no file was accepted').not.toBe(0);
@@ -417,7 +453,7 @@ describe('a foundational finding must name a root item that exists', () => {
 
     const verdict = spawnSync(
       'node',
-      [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'],
+      [RECORDER, '--findings', '0', '--disposition', 'containment', '--foundational', 'INFRA-073'],
       {
         cwd: dir,
         encoding: 'utf8',
@@ -428,6 +464,71 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(
       /missing|not examined|examined/i,
     );
+  });
+
+  it('refuses a foundational finding with no disposition', () => {
+    // The rule allows exactly two — re-plan or labelled containment — and "never a third option".
+    // Recording the root item without saying which was taken leaves the decision made in prose and
+    // absent from anything that acts, which is the shape this whole rule exists against.
+    const dir = repoWithBacklog(['INFRA-073']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-073']);
+
+    expect(verdict.status, 'a foundational verdict was recorded with no disposition').not.toBe(0);
+    expect(verdict.output).toMatch(/disposition/i);
+  });
+
+  it('stores the disposition, and only the two the rule allows', () => {
+    const dir = repoWithBacklog(['INFRA-073']);
+
+    expect(
+      recordIn(dir, [
+        '--findings',
+        '0',
+        '--foundational',
+        'INFRA-073',
+        '--disposition',
+        'sit-on-it',
+      ]).status,
+      'a third option was accepted',
+    ).not.toBe(0);
+
+    const ok = recordIn(dir, [
+      '--findings',
+      '0',
+      '--foundational',
+      'INFRA-073',
+      '--disposition',
+      're-plan',
+    ]);
+    expect(ok.status, ok.output).toBe(0);
+
+    const stored = JSON.parse(
+      readFileSync(recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews')), 'utf8'),
+    );
+    expect(stored.disposition).toBe('re-plan');
+  });
+
+  it('reports that a re-planned change must not merge', () => {
+    // The half that was missing: `re-plan` means the change is WITHDRAWN, and until now that was a
+    // word in a note. A disposition nothing reads is a decision with no actor.
+    const dir = repoWithBacklog(['INFRA-073']);
+    recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-073', '--disposition', 're-plan']);
+
+    const blocked = recordIn(dir, ['--merge-blocked']);
+    expect(blocked.status, 'a re-planned change reported itself mergeable').not.toBe(0);
+    expect(blocked.output).toMatch(/re-plan/);
+
+    // Containment is the other half, and it must NOT block — the change lands with a labelled hold.
+    recordIn(dir, [
+      '--findings',
+      '0',
+      '--foundational',
+      'INFRA-073',
+      '--disposition',
+      'containment',
+    ]);
+    expect(recordIn(dir, ['--merge-blocked']).status, 'a contained change was refused').toBe(0);
   });
 
   it('refuses a flag it does not understand instead of ignoring it', () => {
