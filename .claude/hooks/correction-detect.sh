@@ -24,10 +24,12 @@ fi
 # LESSON-010: only REAL user turns are correction signals. Subagent/eval prompts (session ids
 # like "agent_1") and events with no session id are agent-authored text — counting them
 # inflated the one genuinely useful metric with false positives.
-# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
-# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
-# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
-SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || printf '')
+# A session id and a transcript path are TEXT, or they are absent — there is no third answer, and
+# `hook_json_string` is the single owner of that rule: a field that is not a JSON string reads as "",
+# on a host with jq and on a host without, byte for byte (INFRA-081, #1574). This used to call
+# `hook_json_text`, which existed only because the rule was true in one file and not in the other;
+# once it was true in both, that name was an alias and is gone. See lib/command-scan.sh.
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
 case "$SESSION_ID" in
   '' | agent*) exit 0 ;;
 esac
@@ -48,7 +50,7 @@ if [ -z "$KEYWORD" ]; then
   exit 0
 fi
 
-TRANSCRIPT_PATH=$(hook_json_text "$INPUT" 'transcript_path' || printf '')
+TRANSCRIPT_PATH=$(hook_json_string "$INPUT" 'transcript_path' || printf '')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 PREVIOUS_ASSISTANT_HASH=""
 

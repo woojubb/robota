@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -9,9 +17,8 @@ import { pathWithout } from './helpers/path-without.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
-// `hook-facts.sh`, not `command-scan.sh`: it sources the other, so one probe reaches all three
-// readers — and whether `hook_json_text` still answers as `hook_json_string` does is exactly the
-// invariant that stops them forking again.
+// `hook-facts.sh`, not `command-scan.sh`: it sources the other, so one probe reaches every reader
+// a hook can call — which is what makes "there is only one of them" a question this file can ask.
 const LIB = path.join(HOOKS_DIR, 'lib/hook-facts.sh');
 
 /**
@@ -63,7 +70,6 @@ writeFileSync(
     'out=$(mktemp)',
     'case "$2" in',
     '  string) hook_json_string "$PAYLOAD" "$3" > "$out" ;;',
-    '  text) hook_json_text "$PAYLOAD" "$3" > "$out" ;;',
     '  *) hook_edit_content_of "$PAYLOAD" > "$out" ;;',
     'esac',
     'rc=$?',
@@ -162,23 +168,38 @@ describe('a JSON field reads the same whether or not jq is installed (INFRA-081)
     );
   });
 
-  it('gives `hook_json_text` and `hook_json_string` the same answer for every shape', () => {
-    // The two readers were two implementations of one rule, in two files, because #1566 could not
-    // reach the one it needed. #1574 gave that rule a single owner and left `hook_json_text` as the
-    // NAME four hooks call. This case is what stops them forking again — it compares the readers
-    // themselves, on both hosts, over the shapes that used to tell them apart.
-    for (const [name, payload, reader, field] of SHAPES) {
-      if (reader !== 'string') continue;
-      expect(read(payload, 'text', field), name).toBe(read(payload, 'string', field));
-      expect(read(payload, 'text', field, { PATH: noJq }), name).toBe(
-        read(payload, 'string', field, { PATH: noJq }),
-      );
-    }
+  it('leaves exactly ONE reader for the rule, by name as well as by body', () => {
+    // `hook_json_text` was a SECOND reader of this one rule, written in `hook-facts.sh` because
+    // #1566 could not reach the function that needed fixing. #1574 fixed that function and adopted
+    // the rule, which left the second reader a one-line delegate — an ALIAS, and an alias is a
+    // second name for one fact: a reader meeting two names has to ask which to use and there is no
+    // answer. So the name went with the body.
+    //
+    // Checked mechanically rather than described, because "there is one owner" is a claim a future
+    // convenience wrapper falsifies in one line. If a reader legitimately needs to come back, it
+    // must come back with a DIFFERENT contract and this case must be rewritten to say what it is.
+    const sources = readdirSync(HOOKS_DIR)
+      .filter((name) => name.endsWith('.sh'))
+      .map((name) => path.join(HOOKS_DIR, name))
+      .concat([
+        path.join(HOOKS_DIR, 'lib/command-scan.sh'),
+        path.join(HOOKS_DIR, 'lib/hook-facts.sh'),
+      ]);
+    const callers = sources.filter((file) =>
+      readFileSync(file, 'utf8')
+        .split('\n')
+        .filter((line) => !line.trimStart().startsWith('#'))
+        .some((line) => line.includes('hook_json_text')),
+    );
+    expect(
+      callers.map((file) => path.relative(HOOKS_DIR, file)),
+      'hook_json_text is back. One rule, one owner, one name — INFRA-081.',
+    ).toStrictEqual([]);
   });
 
   it('answers "" for a field that is not a string, on both hosts', () => {
-    // The DECISION, pinned. A field that is not a string is not that field — the rule
-    // `hook_json_text` already states for the text fields, rather than a second rule for this one.
+    // The DECISION, pinned. A field that is not a string is not that field — the rule `hook-facts.sh`
+    // had already measured for the text fields, adopted here rather than restated as a second rule.
     // The verdict stays fail-closed because the CALLER names what empty means for it, which is the
     // reader/caller split `hook-facts.sh` states: `hook_command_of` refuses an empty command.
     const payload = { tool_input: { command: { a: 'git push origin main' } } };

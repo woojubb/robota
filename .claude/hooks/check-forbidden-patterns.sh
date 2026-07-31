@@ -101,10 +101,12 @@ if [[ "$RELATIVE_PATH" == /* ]]; then
     */apps/*) RELATIVE_PATH="apps/${FILE_PATH#*/apps/}" ;;
   esac
 fi
-# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
-# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
-# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
-SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || true)
+# A session id and a transcript path are TEXT, or they are absent — there is no third answer, and
+# `hook_json_string` is the single owner of that rule: a field that is not a JSON string reads as "",
+# on a host with jq and on a host without, byte for byte (INFRA-081, #1574). This used to call
+# `hook_json_text`, which existed only because the rule was true in one file and not in the other;
+# once it was true in both, that name was an alias and is gone. See lib/command-scan.sh.
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
 

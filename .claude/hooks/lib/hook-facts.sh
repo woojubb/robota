@@ -156,37 +156,33 @@ hook_current_branch() {
 # is allowed to contain a quote or a backslash, JSON escapes both, and a `[^"]*` grep stops at the
 # escape and hands back a path that does not exist.
 #
-# Through `hook_json_text`, so this reader and `hook_prompt_of` answer the same question the same
-# way. Measured on `{"tool_input": {"file_path": 123}}` before INFRA-081: `hook_json_string` returned
-# `123` where jq was installed and "" where it was not, so the rule would otherwise have been
-# one-per-function instead of one rule. A path is text or it is not a path. Since #1574 both readers
-# ARE one function, and this line records which rule won rather than which function to call.
+# A path that is not a JSON string is not a path, so a non-string reads as absent — which
+# `hook_json_string` is now the single owner of. Measured on `{"tool_input": {"file_path": 123}}`
+# before INFRA-081: it returned `123` where jq was installed and "" where it was not.
 hook_file_path_of() {
-  hook_json_text "$1" 'tool_input.file_path'
+  hook_json_string "$1" 'tool_input.file_path'
 }
 
-# A field, but ONLY when it holds a JSON string. Anything else reads as absent.
+# `hook_json_text` STOOD HERE AND IS GONE (INFRA-081, #1574).
 #
-# THIS IS NOW `hook_json_string`, AND THE NAME IS ALL THAT REMAINS OF THE DIFFERENCE (INFRA-081,
-# #1574).
+# It existed because `hook_json_string` did not promise the type test and its two arms DISAGREED
+# without it. Measured on `{"message": {"role": "user", "content": "hello"}}`, the ordinary
+# transcript shape: with jq installed `jq -r ".message // \"\""` printed the object's pretty-printed
+# JSON, and with jq absent the python3 arm wrote "" because the node is not a `str`. #1566 could not
+# fix that where it lived — `command-scan.sh` was owned by concurrent work — so it wrote a second
+# reader with the right rule beside it and stated the limit.
 #
-# It was written here because `hook_json_string` did not promise the type test and its two arms
-# DISAGREED without it. Measured on `{"message": {"role": "user", "content": "hello"}}`, which is the
-# ordinary transcript shape and not an exotic one: with jq installed, `jq -r ".message // \"\""`
-# printed the object's pretty-printed JSON; with jq absent, the python3 arm wrote "" because the node
-# is not a `str`. #1566 could not fix that where it lived, because `command-scan.sh` was owned by
-# concurrent work, so it wrote a second reader with the right rule and stated the limit.
+# #1574 fixed the original and adopted that rule for it: a field that is not a string is not that
+# field, on both arms, byte for byte. What was left here was a one-line delegate with an identical
+# contract — which is an ALIAS, and an alias is a second name for one fact. That is the same defect
+# this directory has spent a week removing, one level up from a second implementation: a reader
+# meeting two names has to ask which one to use, and there is no answer. So the name goes with the
+# body, and its six callers ask `hook_json_string` directly.
 #
-# #1574 fixed the original and adopted THIS rule for it: a field that is not a string is not that
-# field, on both arms, byte for byte. Keeping a second implementation of a rule that now has one
-# owner would be the defect this whole directory has spent a week removing — so the body is gone and
-# the NAME stays, because four hooks call it and their reason for calling it is unchanged: a
-# structured node is not prompt TEXT, and returning the JSON blob would have `correction-detect` grep
-# it for correction keywords and log it as `prompt_excerpt`, and `spec-first-gate` scan it for
+# The reason those callers wanted the type test is unchanged and now lives where the rule does: a
+# structured node is not TEXT, and returning the JSON blob would have `correction-detect` grep it for
+# correction keywords and log it as `prompt_excerpt`, and `spec-first-gate` scan it for
 # implementation intent.
-hook_json_text() {
-  hook_json_string "$1" "$2"
-}
 
 # The user's prompt text, under whichever of the three keys the event carries it.
 #
@@ -216,7 +212,7 @@ hook_json_text() {
 hook_prompt_of() {
   local key value
   for key in prompt user_prompt message; do
-    if ! value=$(hook_json_text "$1" "$key"); then
+    if ! value=$(hook_json_string "$1" "$key"); then
       return 1
     fi
     if [[ -n "$value" ]]; then

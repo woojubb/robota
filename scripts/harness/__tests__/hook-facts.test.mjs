@@ -270,13 +270,15 @@ describe('fact 2 — reading a JSON field has one reader', () => {
 
   it('reads a prompt to the same answer whether or not jq is installed', () => {
     // The reported finding one function to the left, and the same class this file exists for.
-    // `hook_json_string`'s two arms DISAGREE on a field that is not a string: measured, `jq -r` on
-    // `{"message": {...}}` prints the object's pretty-printed JSON, while the python3 arm writes "".
-    // So `hook_prompt_of` returned a JSON blob as "the user's prompt" on a host with jq and nothing
-    // on a host without — and `{"message": {"role": …, "content": …}}` is the ordinary transcript
-    // shape, not an exotic one. correction-detect would then grep a JSON blob for correction
-    // keywords and log it as `prompt_excerpt`; spec-first-gate would scan it for implementation
-    // intent. A structured node is not prompt TEXT, so the answer is "" — on both hosts.
+    // `hook_json_string`'s two arms USED TO DISAGREE on a field that is not a string: measured,
+    // `jq -r` on `{"message": {...}}` printed the object's pretty-printed JSON while the python3 arm
+    // wrote "". So `hook_prompt_of` returned a JSON blob as "the user's prompt" on a host with jq and
+    // nothing on a host without — and `{"message": {"role": …, "content": …}}` is the ordinary
+    // transcript shape, not an exotic one. correction-detect would then grep a JSON blob for
+    // correction keywords and log it as `prompt_excerpt`; spec-first-gate would scan it for
+    // implementation intent. A structured node is not prompt TEXT, so the answer is "" — on both
+    // hosts. INFRA-081 (#1574) closed that in `hook_json_string` itself; this case stays because the
+    // property it pins is the reader's contract, not the history of one defect.
     const payload = { message: { role: 'user', content: 'hello' } };
     const withJq = promptOf(payload);
     const withoutJq = promptOf(payload, { PATH: noJq });

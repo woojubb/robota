@@ -51,8 +51,10 @@
 # THE ANSWER IS "" — a field that is not a string is not that field — for three reasons, and the
 # alternative (a reader that returns non-zero on a non-string) was rejected for the third:
 #
-#   1. It is the rule `hook_json_text` already states, with its own measurement, for the text fields
-#      #1566 could reach. Two spellings of one rule is what INFRA-077 spent a PR removing.
+#   1. It is the rule `hook-facts.sh` had already measured and adopted for the text fields #1566
+#      could reach, in a second reader it wrote beside this one because it could not reach THIS one.
+#      Two spellings of one rule is what INFRA-077 spent a PR removing; that second reader is gone
+#      now, and its six callers ask this function directly.
 #   2. `hook-facts.sh` states the reader/caller split explicitly: a READER collapses absent and empty
 #      into "", and the CALLER names what empty means for it. A refusing reader would break that for
 #      one function out of the set.
