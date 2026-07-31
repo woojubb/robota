@@ -666,6 +666,15 @@ HOOK_SCAN_AWK='
 
     if (MODE == "mask") { print mask; exit }
 
+    # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
+    # out of a substitution came back wearing the paren that closed it: a nested
+    # `git push origin --delete develop` named the branch `develop)`, which matches no protected
+    # name, so the guard fell past the protected-branch check to the merged-PR one and refused a
+    # branch that does not exist. It still refused — but for the wrong reason and about the wrong
+    # branch, which is one name away from refusing nothing. Only visible once the tokenizer made
+    # substitution contents reachable at all; before that the value was masked and never read.
+    TERM = "[ \t\n\"\047)\140].*$"
+
     # Anchor in the mask, then search the ORIGINAL from that offset. Needed when the value sits
     # INSIDE a quoted argument — a `gh api` refs/heads URL nearly always does — where the mask
     # hides it. Reading the original from position zero instead is what let a decoy in a commit
@@ -675,7 +684,7 @@ HOOK_SCAN_AWK='
       rest = substr(s, RSTART)
       if (!match(rest, VRE)) { exit }
       v = substr(rest, RSTART + RLENGTH)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
       exit
     }
@@ -692,7 +701,7 @@ HOOK_SCAN_AWK='
       print (endq > 0 ? substr(s, p, endq - 1) : substr(s, p))
     } else {
       v = substr(s, p)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
     }
   }
