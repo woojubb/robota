@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -121,4 +122,86 @@ describe('no hook crashes instead of deciding', () => {
       }
     });
   }
+
+  it('branch-guard refuses when the statement split itself cannot run', () => {
+    // A NEW way to be unable to look, introduced by INFRA-079 (#1563) and closed with it.
+    //
+    // Since #1563 the guard runs its judgement once per STATEMENT, over ranges `awk` computes. On a
+    // host without awk that list comes back empty — and an empty list is not "a command with nothing
+    // to judge", it is "the split did not run". Left unchecked the loop simply would not execute and
+    // the hook would exit 0.
+    //
+    // Measured against `origin/develop` on the same payload with awk hidden: the guard exited 127,
+    // which the hook protocol treats as NON-blocking, so `git push origin main` ON `main` was
+    // allowed. Same input here must be refused. This is the shape the whole file exists for — "I
+    // could not look" wearing the costume of "I looked and it was fine" — reached through the one
+    // tool the new seam depends on.
+    const bin = mkdtempSync(path.join(tmpdir(), 'guards-noawk-'));
+    const repo = mkdtempSync(path.join(tmpdir(), 'guards-noawk-repo-'));
+    try {
+      for (const tool of [
+        'bash',
+        'sh',
+        'git',
+        'grep',
+        'sed',
+        'python3',
+        'jq',
+        'cat',
+        'mktemp',
+        'rm',
+        'env',
+        'dirname',
+      ]) {
+        const resolved = spawnSync('bash', ['-c', `command -v ${tool} || true`], {
+          encoding: 'utf8',
+        }).stdout.trim();
+        if (resolved) symlinkSync(resolved, path.join(bin, tool));
+      }
+      for (const args of [
+        ['init', '--quiet', '--initial-branch=main'],
+        ['config', 'user.email', 'harness@example.test'],
+        ['config', 'user.name', 'Harness'],
+        ['commit', '--quiet', '--allow-empty', '-m', 'chore: root'],
+      ]) {
+        spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
+      }
+
+      // The control first: with awk present the same payload is refused for the RIGHT reason, so the
+      // case below cannot pass because the fixture was broken in some other way.
+      const payload = JSON.stringify({
+        tool_name: 'Bash',
+        cwd: repo,
+        tool_input: { command: 'git push origin main' },
+      });
+      const withAwk = spawnSync('bash', [path.join(HOOKS_DIR, 'branch-guard.sh')], {
+        input: payload,
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+        timeout: 60_000,
+      });
+      expect(withAwk.status).toBe(2);
+      expect(`${withAwk.stderr ?? ''}`).toMatch(/protected branch/);
+
+      const withoutAwk = spawnSync(
+        path.join(bin, 'bash'),
+        [path.join(HOOKS_DIR, 'branch-guard.sh')],
+        {
+          input: payload,
+          encoding: 'utf8',
+          env: { PATH: bin, HOME: repo, CLAUDE_PROJECT_DIR: repo },
+          timeout: 60_000,
+        },
+      );
+      expect(
+        withoutAwk.status,
+        'branch-guard could not split the command into statements and did not refuse. An empty ' +
+          'statement list means the split did not run, not that there was nothing to judge:\n' +
+          `${withoutAwk.stdout ?? ''}${withoutAwk.stderr ?? ''}`,
+      ).toBe(2);
+    } finally {
+      rmSync(bin, { recursive: true, force: true });
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });

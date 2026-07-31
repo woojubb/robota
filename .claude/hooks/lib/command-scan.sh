@@ -562,6 +562,47 @@ HOOK_SCAN_AWK='
     mask = ""
     for (i = 1; i <= len; i++) { mask = mask m[i] }
 
+    # ---- the STATEMENTS of this command ----
+    #
+    # A Bash tool call is a SEQUENCE of statements and each guarded action belongs to exactly one of
+    # them. `branch-guard.sh` used to answer for all of them at once — booleans over the whole
+    # command, and a single NEW_BRANCH / START_POINT / DELETE_BRANCH_NAME taken from the FIRST match
+    # anywhere, because `match()` returns the first match only. Any action then escaped judgement
+    # behind any well-formed sibling; measured, with no override token involved:
+    #   git checkout -b feat/x develop ; git checkout -b feat/y main  -> exit 0 (wrong base unjudged)
+    #   git checkout -b feat/ok ; git checkout -b BAD_NAME            -> exit 0 (bad name unjudged)
+    #
+    # The boundary is looked for in the MASK, never in the original: a `;` inside a quoted argument
+    # or a heredoc body is \001 there and cannot split a statement that is not one. A NEWLINE is a
+    # separator too — leaving it out is how the next spelling of this defect would arrive, and it is
+    # safe here for the same reason, because every mode below reads the FULL-CONTEXT mask through a
+    # window rather than re-masking a slice.
+    if (MODE == "ranges") {
+      start = 1
+      for (i = 1; i <= len; i++) {
+        c = substr(mask, i, 1)
+        if (c == ";" || c == "&" || c == "|" || c == "\n") {
+          if (i > start) { print start " " (i - start) }
+          start = i + 1
+        }
+      }
+      if (len >= start) { print start " " (len - start + 1) }
+      exit
+    }
+
+    # ---- the WINDOW ----
+    #
+    # Applied to the mask and the original TOGETHER, so the offsets stay aligned. That alignment is
+    # what lets a caller ask about ONE statement without losing the context that decided what is
+    # data: the command was masked whole, and only the READING is narrowed.
+    ws = (WSTART == "" ? 1 : WSTART + 0)
+    if (ws < 1) { ws = 1 }
+    wl = (WLEN == "" ? len - ws + 1 : WLEN + 0)
+    if (wl < 0) { wl = 0 }
+    if (ws + wl - 1 > len) { wl = len - ws + 1 }
+    s = substr(s, ws, wl)
+    mask = substr(mask, ws, wl)
+
     if (MODE == "mask") { print mask; exit }
 
     # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
@@ -605,16 +646,34 @@ HOOK_SCAN_AWK='
   }
 '
 
+# THE WINDOW, shared by every reader below (INFRA-079, #1563).
+#
+# Each of these takes an optional trailing (START, LENGTH) naming ONE statement of the command, as
+# produced by `hook_statement_ranges`. Omitted, the reader answers about the whole command, which is
+# what every pre-#1563 caller asked for. Given, it answers about that statement alone — while still
+# masking the command WHOLE, so the reading of what is data never changes because a caller narrowed
+# its question.
+#
+# The window is not a second parser and not a second reading: it is the same mask, read through a
+# smaller opening. That is deliberate. A per-statement judgement built by re-masking each slice
+# would be a THIRD reading of a command, in the file whose subject is that there must be one.
+
+# The STATEMENTS of a command, one `START LENGTH` line each, in the order they will run.
+hook_statement_ranges() {
+  printf '%s\n' "$1" | awk -v MODE=ranges -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="" -v WLEN="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
 # Print the token that follows a match, located where quotes cannot lie. $2 is an ERE ending where
-# the value begins.
+# the value begins. $3/$4 optionally narrow the reading to one statement.
 hook_match_extract() {
-  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="" -v WSTART="${3:-}" -v WLEN="${4:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Like hook_match_extract, but the value is found by $3 searched in the ORIGINAL starting at the
 # anchor $2's position in the mask. For values that legitimately live inside a quoted argument.
+# $4/$5 optionally narrow the reading to one statement.
 hook_match_extract_after() {
-  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" -v WSTART="${4:-}" -v WLEN="${5:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # What a verb-detection matcher should read — and, since #1572, the ONLY reading of a command this
@@ -626,7 +685,7 @@ hook_match_extract_after() {
 # what lets a comment inside a substitution end at its own newline rather than at the substitution's
 # closing paren. Those passes are gone; see the note where they stood.
 hook_verb_scan() {
-  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,
@@ -637,7 +696,7 @@ hook_verb_scan() {
 # dressed in a test that would pass either way.
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
@@ -649,22 +708,22 @@ hook_git_c_path() {
 # on unmasked text after every other check had moved off it.
 hook_deleted_branch() {
   local verbs name
-  verbs=$(hook_verb_scan "$1")
+  verbs=$(hook_verb_scan "$1" "${2:-}" "${3:-}")
 
   if printf '%s' "$verbs" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*'; then
     # From the `gh api` call's own position, not from the start of the string. Taking the first
     # match anywhere meant `git commit -m "note /git/refs/heads/scratch" && gh api -X DELETE
     # .../heads/develop` reported scratch, so the protected-branch and merged-PR checks never saw
     # the branch actually being deleted.
-    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047`])gh[ \t]+api([ \t]|$)' '/git/refs/heads/')
+    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047`])gh[ \t]+api([ \t]|$)' '/git/refs/heads/' "${2:-}" "${3:-}")
     [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
   fi
 
   # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
-  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)')
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)' "${2:-}" "${3:-}")
   [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
 
   # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
   # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+' "${2:-}" "${3:-}"
 }
