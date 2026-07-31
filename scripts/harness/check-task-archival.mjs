@@ -89,14 +89,27 @@ export function classifyTaskFile(content) {
   return { archivable, gatesOverdue, reason, exemptReason };
 }
 
+/**
+ * Read a directory, treating ONLY its absence as empty.
+ *
+ * A bare `catch { return [] }` here reports a permission or I/O failure in the words of a clean
+ * result — the swallow-error-as-clean-default pattern `requireGovernedTree` was added to this very
+ * file to end on the active side. Adding a count while leaving the count's own read able to fail
+ * silently would have given the reader a number that looks measured and is not.
+ */
+async function readDirOrAbsent(dir) {
+  try {
+    return await fs.readdir(dir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
 /** Count the archived breakdowns under `.agents/tasks/completed/`; an absent archive is 0. */
 async function countArchived(root) {
-  try {
-    const entries = await fs.readdir(path.join(root, COMPLETED_DIR));
-    return entries.filter((name) => name.endsWith('.md') && name !== 'README.md').length;
-  } catch {
-    return 0;
-  }
+  const entries = await readDirOrAbsent(path.join(root, COMPLETED_DIR));
+  return entries.filter((name) => name.endsWith('.md') && name !== 'README.md').length;
 }
 
 /**
@@ -118,12 +131,7 @@ export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
   const archived = await countArchived(root);
   let examined = 0;
 
-  let entries = [];
-  try {
-    entries = await fs.readdir(tasksAbsolute);
-  } catch {
-    return { findings, exemptions, examined, archived };
-  }
+  const entries = await readDirOrAbsent(tasksAbsolute);
 
   for (const entry of entries
     .filter((name) => name.endsWith('.md') && name !== 'README.md')

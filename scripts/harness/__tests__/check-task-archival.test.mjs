@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -160,5 +160,37 @@ describe('the examined count', () => {
     expect(code).toBe(1);
     expect(output).toContain('task-archival scan failed (1 active task file(s) examined');
     expect(output).toContain('.agents/tasks/A-001.md');
+  });
+
+  it('refuses an unreadable archive instead of reporting it as nothing archived', async () => {
+    // Review of #1561, and the same defect the active half already carries a guard for: a bare
+    // `catch { return 0 }` reports a permission or I/O failure in the words of a clean result. The
+    // count exists to tell a reader how much was actually looked at, so a count that silently
+    // becomes 0 when the read fails is worse than no count at all -- it looks measured.
+    // Red-proved 2026-08-01: with the bare catch restored, this case reported 0 archived and passed.
+    const root = await tasksFixture({
+      '.agents/tasks/README.md': '# Tasks\n',
+      '.agents/tasks/completed/OLD-001.md': ARCHIVABLE,
+    });
+    const archive = path.join(root, '.agents/tasks/completed');
+    const fsp = await import('node:fs/promises');
+    chmodSync(archive, 0o000);
+    try {
+      // Running as root defeats the permission bit; skip rather than assert something untrue.
+      let readable = true;
+      try {
+        await fsp.readdir(archive);
+      } catch {
+        readable = false;
+      }
+      if (readable) return;
+
+      await expect(
+        findTaskArchivalFindings(root),
+        'an unreadable archive was reported as 0 archived',
+      ).rejects.toThrow(/EACCES|permission denied/i);
+    } finally {
+      chmodSync(archive, 0o755);
+    }
   });
 });
