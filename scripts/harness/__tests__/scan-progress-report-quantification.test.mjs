@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadHarnessConfig } from '../harness-config.mjs';
+import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 import {
   extractNarrativeText,
   findBareRatioProgressStatements,
@@ -232,7 +233,70 @@ describe('main', () => {
       home: makeTempDir(),
     });
     expect(code).toBe(0);
-    expect(lines.join('\n')).toContain('skipped: no session transcript');
+    expect(lines.join('\n')).toContain('scan skipped');
+    expect(lines.join('\n')).toContain('no session transcript for this workspace');
+  });
+
+  /**
+   * HARNESS-063 — the skip states its zero, through the channel that survives to the suite summary.
+   * A passing scan's stdout is suppressed to a single tick, so on CI (where this channel never
+   * exists) the explicit skip reason was invisible and the tick read as a verified rule.
+   */
+  it('reports 0 transcripts and raises an advisory when the channel is absent', async () => {
+    const lines = [];
+    const code = await main((line) => lines.push(line), {
+      root: '/home/dev/repo',
+      home: makeTempDir(),
+    });
+    const output = lines.join('\n');
+    expect(code).toBe(0);
+    expect(output).toContain('skipped (0 transcript(s), 0 narrative message(s) examined)');
+    expect(output).toContain(
+      `${ADVISORY_MARKER} progress-report quantification examined 0 transcript(s)`,
+    );
+  });
+
+  it('reports the number of transcripts AND narrative messages it judged', async () => {
+    const home = makeTempDir();
+    const dir = path.join(home, '.claude', 'projects', transcriptSlugFor('/home/dev/repo'));
+    mkdirSync(dir, { recursive: true });
+    const recent = POLICY.enforceSinceIso.replace(/^(\d{4})/, (year) => String(Number(year) + 1));
+    writeFileSync(
+      path.join(dir, 'a.jsonl'),
+      [
+        assistantRecord('All good = 100%.', recent),
+        JSON.stringify({ type: 'user', message: { content: 'go' } }),
+        assistantRecord('Second message, nothing countable here.', recent),
+      ].join('\n'),
+    );
+    writeFileSync(path.join(dir, 'b.jsonl'), assistantRecord('Third, still clean.', recent));
+
+    const lines = [];
+    const code = await main((line) => lines.push(line), { root: '/home/dev/repo', home });
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain(
+      'progress-report quantification scan passed (2 transcript(s), 3 narrative message(s) examined)',
+    );
+    expect(lines.join('\n')).not.toContain(ADVISORY_MARKER);
+  });
+
+  it('raises an advisory when transcripts exist but the ratchet leaves 0 messages to judge', async () => {
+    const home = makeTempDir();
+    const dir = path.join(home, '.claude', 'projects', transcriptSlugFor('/home/dev/repo'));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, 'ancient.jsonl'),
+      assistantRecord('Sweep 3/7 done.', '2000-01-01T00:00:00.000Z'),
+    );
+
+    const lines = [];
+    const code = await main((line) => lines.push(line), { root: '/home/dev/repo', home });
+    const output = lines.join('\n');
+    expect(code).toBe(0);
+    expect(output).toContain('scan passed (1 transcript(s), 0 narrative message(s) examined)');
+    expect(output).toContain(
+      `${ADVISORY_MARKER} progress-report quantification examined 0 narrative messages`,
+    );
   });
 
   it('exits 1 and names the rule when a transcript violates it', async () => {

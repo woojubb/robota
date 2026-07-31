@@ -121,7 +121,11 @@ describe('check-design-doc-completeness CLI', () => {
     const result = runScan([path.join(root, 'design')]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`${ADVISORY_MARKER} design-doc completeness examined 0`);
-    expect(result.stdout).toContain('design-doc completeness scan passed (0 design document(s)');
+    // HARNESS-063: the zero is paired with the number of places looked in, so "no corpus" and
+    // "a corpus that authored none" stop reading the same.
+    expect(result.stdout).toContain(
+      'design-doc completeness scan passed (0 design document(s) examined in 1 target path)',
+    );
   });
 
   it('exits 1 and lists missing sections on a violating fixture (RED)', async () => {
@@ -131,7 +135,62 @@ describe('check-design-doc-completeness CLI', () => {
 
     const result = runScan([path.join(root, 'design')]);
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain('design-doc completeness scan failed:');
+    expect(result.stdout).toContain('design-doc completeness scan failed');
     expect(result.stdout).toContain('missing "## Test Approach" section');
+  });
+
+  /**
+   * HARNESS-063 — a zero `examined` means something different depending on how many places were
+   * looked in. Over this repository the numbers are 0 documents in 76 package design directories:
+   * every package was enumerated and none authored a design doc, which is the honest reading the
+   * unqualified `0` could not distinguish from "there was nowhere to look".
+   */
+  it('names how many locations it searched, not only how many documents it read', async () => {
+    const root = await createDesignDir({
+      'design/a.md': GREEN_DESIGN_DOC,
+      'design/b.md': GREEN_DESIGN_DOC,
+    });
+    const result = runScan([path.join(root, 'design')]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(
+      'design-doc completeness scan passed (2 design document(s) examined in 1 target path)',
+    );
+  });
+});
+
+/**
+ * The auto-discovery denominator: how many package design directories were looked in. Over a
+ * fixture workspace with a known package population, `searched` must equal that population — a
+ * zero-document run in 3 packages is a different claim from a zero-document run in none.
+ */
+describe('findDesignDocFindings — the searched count when auto-discovering', () => {
+  async function workspaceFixture(packages, designDocs = {}) {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-design-doc-ws-'));
+    for (const name of packages) {
+      const dir = path.join(root, 'packages', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, 'package.json'), `{"name":"${name}"}`, 'utf8');
+    }
+    for (const [rel, content] of Object.entries(designDocs)) {
+      const abs = path.join(root, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, content, 'utf8');
+    }
+    return root;
+  }
+
+  it('counts every manifest package as a place it looked, and the docs it found', async () => {
+    const root = await workspaceFixture(['alpha', 'beta', 'gamma'], {
+      'packages/beta/docs/design/store.md': GREEN_DESIGN_DOC,
+    });
+    const { examined, searched, blocking } = findDesignDocFindings(undefined, root);
+    expect({ examined, searched }).toEqual({ examined: 1, searched: 3 });
+    expect(blocking).toEqual([]);
+  });
+
+  it('reports 0 examined over 3 packages that authored none', async () => {
+    const root = await workspaceFixture(['alpha', 'beta', 'gamma']);
+    const { examined, searched } = findDesignDocFindings(undefined, root);
+    expect({ examined, searched }).toEqual({ examined: 0, searched: 3 });
   });
 });

@@ -53,6 +53,7 @@ import readline from 'node:readline';
 import { pathToFileURL } from 'node:url';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -165,7 +166,7 @@ function recordTimestampMs(record) {
  * Scan one transcript JSONL. Streamed line-by-line: session transcripts reach hundreds of MB,
  * so nothing is buffered whole and only assistant records are parsed.
  */
-export async function scanTranscriptFile(filePath, policy, sinceMs) {
+export async function scanTranscriptFile(filePath, policy, sinceMs, stats) {
   const findings = [];
   const stream = createReadStream(filePath, { encoding: 'utf8' });
   const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -182,6 +183,10 @@ export async function scanTranscriptFile(filePath, policy, sinceMs) {
     if (sinceMs !== undefined && timestampMs !== undefined && timestampMs < sinceMs) continue;
     const text = extractNarrativeText(record);
     if (text === '') continue;
+    // The examined count is the NARRATIVE MESSAGES actually judged — after the type filter and
+    // after the time ratchet — not the transcripts opened (HARNESS-063). A transcript whose every
+    // record predates `enforceSinceIso` is a file read and nothing judged.
+    if (stats !== undefined) stats.messages += 1;
     for (const finding of findBareRatioProgressStatements(text, policy)) {
       findings.push({ ...finding, file: filePath, timestamp: record?.timestamp });
     }
@@ -224,8 +229,18 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
   const { dir, files } = resolveTranscriptFiles(policy, overrides);
 
   if (files.length === 0) {
+    // HARNESS-063: the skip reason was already explicit, but a passing scan's stdout is suppressed
+    // to a single tick in the suite summary — so on every CI run this line was invisible and the
+    // tick was indistinguishable from a scan that had judged the narrative channel. The advisory
+    // channel is the one that survives to the summary.
     write(
-      `progress-report quantification scan skipped: no session transcript for this workspace at ${dir} ` +
+      `${ADVISORY_MARKER} progress-report quantification examined 0 transcript(s) — no session ` +
+        `transcript for this workspace at ${dir}; the agent-narrative channel does not exist on ` +
+        'this host (e.g. CI or a fresh checkout), so nothing was judged.',
+    );
+    write(
+      `progress-report quantification scan skipped (0 transcript(s), 0 narrative message(s) examined): ` +
+        `no session transcript for this workspace at ${dir} ` +
         '(no agent-narrative channel on this host — e.g. CI or a fresh checkout).',
     );
     return 0;
@@ -233,16 +248,26 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
 
   const sinceMs = Date.parse(policy.enforceSinceIso);
   const findings = [];
+  const stats = { messages: 0 };
   for (const file of files) {
-    findings.push(...(await scanTranscriptFile(file, policy, sinceMs)));
+    findings.push(...(await scanTranscriptFile(file, policy, sinceMs, stats)));
   }
+  const subject = `${files.length} transcript(s), ${stats.messages} narrative message(s) examined`;
 
   if (findings.length === 0) {
-    write(`progress-report quantification scan passed (${files.length} transcript(s)).`);
+    if (stats.messages === 0) {
+      write(
+        `${ADVISORY_MARKER} progress-report quantification examined 0 narrative messages across ` +
+          `${files.length} transcript(s) — every record was filtered out by the ` +
+          `enforceSinceIso ratchet (${policy.enforceSinceIso}) or carried no assistant narrative, ` +
+          'so this pass judged no message.',
+      );
+    }
+    write(`progress-report quantification scan passed (${subject}).`);
     return 0;
   }
 
-  write('progress-report quantification scan failed:');
+  write(`progress-report quantification scan failed (${subject}):`);
   for (const finding of findings) {
     write(`  ${path.basename(finding.file)} [${finding.timestamp ?? 'no timestamp'}]`);
     write(`    ratio ${finding.ratio} reported without a percentage: "${finding.excerpt}"`);

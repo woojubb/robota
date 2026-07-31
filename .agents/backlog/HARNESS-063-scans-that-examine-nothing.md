@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-063: three scans whose subject is empty, and one that cannot fail in CI'
-status: todo
+status: in-progress
 priority: medium
 urgency: soon
 type: HARNESS
