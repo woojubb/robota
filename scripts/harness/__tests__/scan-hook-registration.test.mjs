@@ -254,3 +254,38 @@ describe('scan-hook-registration', () => {
     expect(matchersExamined).toBeGreaterThan(0);
   });
 });
+
+describe('a declaration is verified against an INVOCATION, not a mention', () => {
+  // The class this repository keeps meeting: a name present in a file is not the same as a file
+  // that runs it. `eval-log-stop.sh` really does `bash "$HOOK_DIR/revert-detect.sh"`; a comment
+  // saying "revert-detect.sh is related" would satisfy a substring test just as well, and then a
+  // hook nothing calls would carry a declaration that certified itself through a sibling's prose.
+  it('refuses a caller that only NAMES the declarer', () => {
+    const root = fixture({
+      settings: { hooks: { Stop: [{ hooks: [{ command: '.claude/hooks/caller.sh' }] }] } },
+      hooks: {
+        'caller.sh': '#!/bin/bash\n# related: helper.sh does the parsing\necho hi\n',
+        'helper.sh': '#!/bin/bash\n# invoked-by: caller.sh\necho hi\n',
+      },
+    });
+
+    const { findings } = collectHookRegistrationFindings(root);
+
+    expect(
+      findings.map((f) => String(f)),
+      'a mention in a comment certified a hook nothing runs',
+    ).toHaveLength(1);
+  });
+
+  it('accepts a caller that actually spawns it', () => {
+    const root = fixture({
+      settings: { hooks: { Stop: [{ hooks: [{ command: '.claude/hooks/caller.sh' }] }] } },
+      hooks: {
+        'caller.sh': '#!/bin/bash\nbash "$HOOK_DIR/helper.sh"\n',
+        'helper.sh': '#!/bin/bash\n# invoked-by: caller.sh\necho hi\n',
+      },
+    });
+
+    expect(collectHookRegistrationFindings(root).findings).toEqual([]);
+  });
+});

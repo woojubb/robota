@@ -112,6 +112,24 @@ export function registeredHookFiles(settings) {
 }
 
 /**
+ * Does `text` INVOKE `name`, rather than merely mention it?
+ *
+ * A substring test let a comment certify the declaration: `# related: helper.sh does the parsing` in
+ * the claimed caller was enough, and a hook nothing runs would then be excused by a sibling's prose.
+ * That is the described-but-not-reached shape this scan exists to close, occurring inside its own
+ * exemption path — so the reference has to look like a spawn: the name preceded by an interpreter or
+ * a source, after comments are stripped.
+ */
+function invokes(text, name) {
+  const withoutComments = String(text ?? '')
+    .split('\n')
+    .map((line) => line.replace(/(^|\s)#.*$/, '$1'))
+    .join('\n');
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:bash|sh|zsh|source|\\.)\\s[^\\n]{0,80}${escaped}`).test(withoutComments);
+}
+
+/**
  * Follow a hook's `invoked-by` chain until it reaches a registered hook.
  *
  * Returns `{ ok: true }`, or the reason it does not resolve. Cycle-terminated: `a` declaring `b`
@@ -134,7 +152,7 @@ function resolveDeclaration(name, { hookText, registered }) {
     if (!hookText.has(caller)) {
       return { ok: false, reason: `declares \`# invoked-by: ${caller}\`, which does not exist` };
     }
-    if (!hookText.get(caller).includes(current)) {
+    if (!invokes(hookText.get(caller), current)) {
       return {
         ok: false,
         reason: `declares \`# invoked-by: ${caller}\`, but ${caller} does not reference ${current}`,
