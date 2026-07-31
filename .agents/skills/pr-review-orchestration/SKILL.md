@@ -75,13 +75,8 @@ is why the depth question has to be asked before the fix rather than noticed aft
 depth verdict to give and must not be asked for one. It reads a diff with no checkout history, cannot run
 the guardian, and — the part that matters — a verdict produced where nothing can act on it is a verdict
 nobody takes. This session holds the checkout, the history and the tools, so the judgement belongs here.
-What travels back to the PR is the DECISION, not the reasoning:
-
-**A2b. Say on the PR how a foundational finding is being handled.** A finding that is correctly not fixed
-looks identical to one that was ignored — to the next reviewer, to the merge gate, and to anyone reading
-the PR later. So post a comment naming the verdict, the root item and its issue, and the disposition
-taken. One comment per round is enough; it is the visible half of the containment label, which otherwise
-lives only in a code comment and a commit body that the PR page never shows.
+What travels back to the PR is the DECISION, not the reasoning — Round B step 2 is where that happens,
+because that is where the CI comments exist.
 
 A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and push.
 
@@ -103,11 +98,24 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
 1. **Review.** Dispatch `pr-review-reviewer` on the PR at the diff scope the rule's gate preconditions
    define. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its finding set. (Do NOT judge the
    findings yourself — take the count as given.)
-2. **Converged?** If `n == 0` → go to **Merge path**.
-3. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
+2. **Take each comment one at a time, judging before replying.** CI posts a summary comment and inline
+   comments; each carries a finding and each is judged on its own — `finding-depth-triager` returns one
+   verdict per finding, not one per round, because a PR routinely mixes a LOCAL defect with a FOUNDATIONAL
+   one and a premise that does not hold. For each: obtain the verdict, decide the handling, then reply —
+   inline where the finding was inline. **Judge before replying, never after**: a reply written first
+   becomes a commitment the verdict then has to agree with.
+
+   The reply carries the DECISION, not the reasoning. For a foundational one that is the verdict, the root
+   item and its issue, and the disposition taken. This is not bookkeeping: a finding correctly left unfixed
+   looks identical to one that was ignored — to the next reviewer, to the merge gate, and to anyone reading
+   the PR later. It is the visible half of the containment label, which otherwise lives only in a code
+   comment and a commit body the PR page never shows.
+
+3. **Converged?** If `n == 0` → go to **Merge path**.
+4. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
    unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
-4. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).
-5. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
+5. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).
+6. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
    MUST/SHOULD fixes). Each fix returns to **Round A** — review the new local diff and record it before pushing
    again — then increment `iteration` and go to step 1.
 

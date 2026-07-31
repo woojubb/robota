@@ -45,17 +45,32 @@ function toolsOf(text) {
  * both mention other agents constantly, so the verb is what distinguishes an instruction from a
  * reference — and the verb has to be adjacent to the name, not merely in the same paragraph.
  */
-const DISPATCH_VERBS = 'dispatch|call|invoke|spawn|hand (?:it|this|the [a-z ]+) to|ask';
+const DISPATCH_VERBS =
+  '\\b(?:dispatch|call|invoke|spawn|ask)\\b|\\bhand (?:it|this|the [a-z ]+) to\\b';
 
+/**
+ * Scoped to a SENTENCE, not a line. These documents wrap prose by hand at about 110 characters, so a
+ * dispatch verb and the agent name land on different lines routinely — a line-scoped match misses
+ * exactly the class this guards, which is the false-negative half. Newlines are folded to spaces and
+ * the text is split on sentence ends instead.
+ *
+ * The verbs carry word boundaries for the other half: without them `call` matches inside `recall`
+ * and `ask` inside `task`, and an ordinary sentence near an agent name fails CI for nothing. A floor
+ * that cries wolf is one somebody switches off.
+ */
 export function dispatchInstructions(text, agentNames, selfName) {
   const found = [];
-  for (const line of text.split('\n')) {
-    // A line that merely says what the OTHER agent owns is a reference, not an instruction.
-    if (/\bowns\b|\bis the\b|\bthat is\b|\bbelongs to\b/i.test(line)) continue;
+  const sentences = text
+    .replace(/\r?\n/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .filter(Boolean);
+  for (const sentence of sentences) {
+    // A sentence that merely says what the OTHER agent owns is a reference, not an instruction.
+    if (/\bowns\b|\bis the\b|\bthat is\b|\bbelongs to\b/i.test(sentence)) continue;
     for (const other of agentNames) {
       if (other === selfName) continue;
       const near = new RegExp(`(?:${DISPATCH_VERBS})[^.\`]{0,40}\`?${other}\`?`, 'i');
-      if (near.test(line)) found.push({ other, line: line.trim() });
+      if (near.test(sentence)) found.push({ other, line: sentence.trim() });
     }
   }
   return found;
@@ -83,6 +98,36 @@ describe('an agent is not told to do what it has no tool to do', () => {
       ).toContain('Agent');
     });
   }
+
+  it('is not fooled by a line break, and not tripped by a word that contains a verb', () => {
+    // Both halves of the same reading. These agent docs wrap prose at about 110 characters by hand,
+    // so a dispatch verb and the agent name land on different LINES routinely — a line-scoped match
+    // misses it, which is a false negative of the very class this guards. And `call`/`ask` without a
+    // word boundary match inside `recall`, `called`, `task`, so an ordinary sentence near an agent
+    // name would fail CI for nothing. A floor that cries wolf is one somebody switches off.
+    const names = ['architecture-implementer'];
+
+    expect(
+      dispatchInstructions(
+        'Dispatch\n`architecture-implementer` on the code-side findings.',
+        names,
+        'x',
+      ),
+      'a wrapped instruction was missed',
+    ).toHaveLength(1);
+    expect(
+      dispatchInstructions(
+        'the task assignment for `architecture-implementer` is separate',
+        names,
+        'x',
+      ),
+      '"task" was read as "ask"',
+    ).toHaveLength(0);
+    expect(
+      dispatchInstructions('recall what `architecture-implementer` reported', names, 'x'),
+      '"recall" was read as "call"',
+    ).toHaveLength(0);
+  });
 
   it('reads an instruction as an instruction and a reference as a reference', () => {
     // The distinction this rests on, pinned. Without it the check either fires on every agent that
