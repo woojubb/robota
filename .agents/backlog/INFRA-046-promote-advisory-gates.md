@@ -5,7 +5,7 @@ created: 2026-07-25
 priority: high
 urgency: now
 area: .github/workflows/ci.yml, repo rulesets
-depends_on: []
+depends_on: [INFRA-071]
 ---
 
 # INFRA-046: advisory→required gate promotion
@@ -139,3 +139,44 @@ A four-way recurrence audit measured what these two floors are currently worth:
 So the repository has a built, tested floor for its accidental-green class and **nothing can fail on
 it**. The change is two environment variables and moving two contexts to required — the smallest
 mechanical prevention on the whole audit's list, against a class with confirmed recurrence.
+
+## Promotion Audit 2026-07-31 — NOT PROMOTED (neither flag flipped)
+
+**Evidence window.** The 12 most recent successful `ci.yml` runs (2026-07-30, PRs #1525–#1530 and
+their promotion runs). Every one of them post-dates both gates.
+
+**Result: no verdict was produced at all.** Not one run reached a decision to evaluate for false
+positives.
+
+| Verdict                                       | Runs |
+| --------------------------------------------- | ---- |
+| `RED_PROOF_OK`                                | 0    |
+| `ACCIDENTAL_GREEN`                            | 0    |
+| `INCONCLUSIVE`                                | 0    |
+| `SKIPPED: no same-package (source+test) pair` | 9    |
+| `SKIPPED: range has no fix: commit`           | 1    |
+| no verdict line (promotion runs)              | 2    |
+
+**Why.** `pkgOf` in `check-regression-red-proof.mjs` matches
+`^((?:packages|apps)/[^/]+)/src/` and nothing else. The gate therefore cannot see:
+
+- `.claude/hooks/**` — every guard in the repository
+- `scripts/harness/**` and `scripts/harness/__tests__/**` — every scan, floor and their tests
+
+Confirmed by executing `classifyChanges` over a file list drawn from these PRs: a
+`packages/agent-core/src` pair qualifies; `.claude/hooks/branch-guard.sh` with
+`scripts/harness/__tests__/branch-base-at-creation.test.mjs` yields nothing.
+
+**Why that matters more than the tally.** The gate exists to catch a regression test that passes on
+the unfixed code. During this same window human review caught FOUR such tests, all of them mine, all
+in `scripts/harness/__tests__/` — a coverage floor that counted a comment as coverage, an
+unset-variable case that never reached the crash it named, an extension-filter case that never
+reached the filter, and two hook cases that exercised only guard clauses. The mechanical floor for
+that exact defect was blind to every one of them.
+
+So the promotion criterion — N=10 code-PRs with zero false-positive verdicts — cannot be satisfied by
+work in this area, not because the gate is accurate but because it never runs. Promoting on a tally
+of zero verdicts would make a required check that is required to do nothing.
+
+**Blocked on:** INFRA-071 (widen the gate's subject to the harness and hook layer). Re-run this audit
+once verdicts exist.
