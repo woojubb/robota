@@ -136,8 +136,10 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     // twelve-green-runs-zero-verdicts shape, in the floor written because of it.
     const { findings, examined } = analyze({
       'scripts/harness/drifted.mjs': [
-        '/** @limits written in a shape the parser no longer recognises */',
-        'export const notAFunction = () => {};',
+        '/**',
+        ' * @limits written where nothing the parser recognises follows it.',
+        ' */',
+        'const notExported = 1;',
       ].join('\n'),
     });
 
@@ -162,6 +164,42 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     });
 
     expect(findings, 'an import of a different module was judged against these limits').toEqual([]);
+  });
+
+  it('reads a tag from every shape an export is written in', () => {
+    // One shape was recognised: a multi-line docblock followed by `export function`. A single-line
+    // docblock, an `export async function`, or an arrow assigned to an `export const` all registered
+    // as nothing — and because the drift check counted tags across the WHOLE scan, one parsing
+    // correctly elsewhere kept each specific miss invisible. Invisible in the code, visible only in
+    // behaviour: the class this tool exists to catch, inside the tool.
+    const shapes = [
+      ['/** @limits one-liner. */', 'export function a() {}'].join('\n'),
+      ['/**', ' * @limits async.', ' */', 'export async function b() {}'].join('\n'),
+      ['/**', ' * @limits arrow.', ' */', 'export const c = (x) => x;'].join('\n'),
+    ];
+
+    expect(shapes.map((t) => taggedFunctions(t).map((f) => f.name))).toEqual([['a'], ['b'], ['c']]);
+  });
+
+  it('flags a file whose tag text the parser could not read, even when others parse', () => {
+    // Per FILE, not per run. A global count is satisfied by any one tag anywhere, which is what let
+    // the shapes above go missing without a sound.
+    const { findings } = analyze({
+      'scripts/harness/ok.mjs': [
+        '/**',
+        ' * @limits parsed fine.',
+        ' */',
+        'export function parsed() {}',
+      ].join('\n'),
+      'scripts/harness/unread.mjs': [
+        '/**',
+        ' * @limits declared, but nothing the parser recognises follows it.',
+        ' */',
+        'const notExported = 1;',
+      ].join('\n'),
+    });
+
+    expect(findings.map((f) => f.file)).toContain('scripts/harness/unread.mjs');
   });
 
   it('reads imports and acknowledgements as written', () => {

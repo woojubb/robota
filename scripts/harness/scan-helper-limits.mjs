@@ -26,7 +26,12 @@
  * requirement would be satisfied by boilerplate and would say nothing.
  *
  * What it does demand: **every module that imports a `@limits` function carries an acknowledgement**
- * naming it —
+ * naming it. The acknowledgement is MODULE-scoped, not line-scoped — unlike `allow-fake`, which sits
+ * on the flagged line. That is a deliberate granularity choice and a weaker guarantee, stated rather
+ * than implied: an acknowledgement written for one call site covers a heavier one added later in the
+ * same file. Tying it to a call site needs the call graph, which is the same boundary
+ * `testExecutesHook` runs into.
+ *
  *
  *     // LIMITS testExecutesHook: only an advisory message rides on this, so approximate is enough.
  *
@@ -55,22 +60,41 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 /** Subjects scanned. Shell hooks have no import graph, so this is the JS side of the harness. */
 export const SUBJECT_DIRS = ['scripts/harness'];
 
+/**
+ * A tag in TAG POSITION — opening the docblock, or first on a continuation line. The token written
+ * mid-sentence (as this file's own prose must write it) is a mention, not a declaration; matching it
+ * anywhere made this scanner tag its own parser, and made every fixture string in its test read as a
+ * drifted tag.
+ */
+const TAG_RE = /(?:(?:^|\n)[ \t]*\/\*\*|\n[ \t]*\*)[ \t]*@limits[ \t]*([^\n*]*)/;
+
 /** Every `@limits`-tagged exported function in `text`, as `{ name, statement }`. */
 export function taggedFunctions(text) {
   const found = [];
-  // A docblock immediately preceding an `export function`. Deliberately positional: a `@limits` line
-  // floating anywhere in a file would let the tag drift away from what it describes.
   // Anchored at line start, and that is not cosmetic: a fixture inside a string literal — which is
   // what a test of this very scan is full of — otherwise reads as a real declaration. Real code
   // declares its exports in column zero; quoted text never does.
+  //
   // The block may not run past a `*/`: without that, a lazy match starting at the module docblock
   // swallows everything down to the first documented export and adopts any `@limits` the file
   // merely TALKS about — including this one's own contract prose.
-  const re = /(?:^|\n)\/\*\*\n((?:(?!\*\/)[\s\S])*?)\n \*\/\nexport function ([A-Za-z0-9_$]+)/g;
+  //
+  // Every shape an export is written in, not one. Recognising only `/**\n…\n */\nexport function`
+  // silently missed a single-line docblock, an `export async function`, and an arrow assigned to an
+  // `export const` — invisible in the code, visible only in behaviour, which is the class this tool
+  // exists to catch.
+  const decl = String.raw`export\s+(?:async\s+)?(?:function\s+([A-Za-z0-9_$]+)|const\s+([A-Za-z0-9_$]+)\s*=)`;
+  const re = new RegExp(
+    String.raw`(?:^|\n)\/\*\*((?:(?!\*\/)[\s\S])*?)\*\/[ \t]*\n` + decl,
+    'g',
+  );
   for (const m of text.matchAll(re)) {
-    const [, block, name] = m;
-    const tag = block.match(/@limits[ \t]*(.*)/);
-    if (!tag) continue;
+    const block = m[1];
+    const name = m[2] ?? m[3];
+    // The opener is put back before testing: TAG_RE requires tag POSITION, and for a one-line
+    // docblock the position is immediately after `/**`, which the capture does not include.
+    const tag = `/**${block}`.match(TAG_RE);
+    if (!tag || !name) continue;
     found.push({ name, statement: tag[1].trim() });
   }
   return found;
@@ -93,7 +117,7 @@ export function localImports(text) {
   return out;
 }
 
-/** Acknowledgements present in `text`, as `{ name, reason }` — comment-scoped, like `allow-fake`. */
+/** Acknowledgements present in `text`, as `{ name, reason }` — module-scoped (see the header). */
 export function acknowledgements(text) {
   const out = [];
   for (const m of text.matchAll(
@@ -168,16 +192,19 @@ export function analyze(files) {
   // nobody has tagged anything — but zero matches while the tag string IS present in the subject
   // means the READER broke, and a reader that reads nothing reports a clean sweep. That is the
   // twelve-green-runs-zero-verdicts shape, in the floor written because of it.
-  if (taggedCount === 0) {
-    const withTagText = Object.keys(files).filter((f) => files[f].includes('@limits'));
-    if (withTagText.length > 0) {
-      findings.push({
-        file: withTagText[0],
-        message:
-          `the text contains @limits in ${withTagText.length} file(s) and the parser matched none — ` +
-          'the reader has drifted, and a reader that reads nothing reports a clean sweep',
-      });
-    }
+  // Per FILE, not per run. A global count is satisfied by any one tag anywhere, which is exactly
+  // what let whole export shapes go missing without a sound: one file parsing correctly kept every
+  // other file's miss invisible. Declaring is opt-in, so a file with no tag TEXT is silent; a file
+  // whose text carries the tag and from which nothing parsed means the reader drifted.
+  for (const [file, text] of Object.entries(files)) {
+    if (!TAG_RE.test(text)) continue;
+    if (taggedFunctions(text).length > 0) continue;
+    findings.push({
+      file,
+      message:
+        'the text carries @limits and the parser read none of it — the reader has drifted, and a ' +
+        'reader that reads nothing reports a clean sweep',
+    });
   }
 
   return { findings, examined: taggedCount };
