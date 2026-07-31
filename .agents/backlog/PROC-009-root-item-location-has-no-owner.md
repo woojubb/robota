@@ -43,4 +43,11 @@ verbatim, so both floors are wrong in exactly the same way and one change correc
   each.
 - A root item filed by `backlog-writer` on the routed path satisfies `--foundational <ID>` without the
   author having to know which tree the floor happens to read.
-- The containment comment in `depth-verdict-reachable.test.mjs` naming PROC-009 is removed with the fix.
+- **Both** containment sites naming PROC-009 are removed with the fix. There are two, and neither is
+  mechanically checkable after this item lands — the ID keeps resolving once the item moves to
+  `completed/`, so a stale instruction stays green:
+  - the comment in `scripts/harness/__tests__/depth-verdict-reachable.test.mjs` (why the reader is not
+    widened locally), and
+  - the containment note in `.agents/skills/documentation-refresh/SKILL.md` step 4, which tells an
+    operator to bypass `backlog-writer` and write the item under `.agents/backlog/` "until PROC-009
+    lands". That sentence becomes actively wrong on the day this item is fixed.

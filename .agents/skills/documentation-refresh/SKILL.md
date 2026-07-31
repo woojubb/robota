@@ -22,12 +22,15 @@ Do not restate the agents' policy here.
    - **LOCAL** → the fixer corrects the document.
    - **FOUNDATIONAL** → the document is not corrected. Route to [`backlog-writer`](../backlog-writer/SKILL.md) for the root item and register its GitHub issue, then take the disposition: **labelled containment** (hand the filed ID to `doc-fixer`, which writes the containment note at the claim, and the loop continues) or **re-plan** (the code is what changes next — **halt** this loop and report the finding with its item, per step 2). Search the backlog before filing — the architecture pipeline often already owns an item for the same code-side cause, and its ID is the one to cite. Never hand a containment instruction without an ID: an unresolvable label is worse than no label.
 
-   > **Contained — [PROC-009](../../backlog/PROC-009-root-item-location-has-no-owner.md).** File the
-   > root item under `.agents/backlog/` for now. `backlog-writer` creates `.agents/spec-docs/draft/<ID>.md`,
-   > and the floor that verifies a containment label resolves `.agents/backlog[/completed]` only — so an
-   > item filed on the routed path would turn `harness:test` red saying "file the root item first" about
-   > an item that is filed. Do not take the message's other option and remove the label. The two
-   > locations get one owner in PROC-009; this sentence goes with it.
+     > **Contained — [PROC-009](../../backlog/PROC-009-root-item-location-has-no-owner.md).** Until
+     > that item lands, do NOT take `backlog-writer`'s output as the root item: it creates
+     > `.agents/spec-docs/draft/<ID>.md`, a gated draft spec document in a different schema, while the
+     > floor that verifies a containment label resolves `.agents/backlog[/completed]` only. Write the
+     > item directly under `.agents/backlog/` in the format its README defines, and register the GitHub
+     > issue as usual. An item filed on the routed path turns `harness:test` red saying "file the root
+     > item first" about an item that IS filed — and the message's other option, removing the label, is
+     > the wrong recovery. The two locations get one owner in PROC-009; this paragraph goes with it.
+
    - **INVALID** → the premise does not hold. Record what the code actually does; do not let a wrong finding drive an edit.
    - **UNDETERMINED** → not a pass. Obtain the specific thing the verdict names as missing, then re-judge that finding at step 3.
 
