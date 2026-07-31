@@ -7,6 +7,7 @@ type: HARNESS
 area: scripts/harness
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1553
 ---
 
 # HARNESS-062 — the same rule, five times, disagreeing

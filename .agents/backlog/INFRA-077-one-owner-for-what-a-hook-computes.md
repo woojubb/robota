@@ -7,6 +7,7 @@ type: INFRA
 area: .claude/hooks
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1551
 ---
 
 # INFRA-077 — the hooks recompute each other's facts, and get different answers

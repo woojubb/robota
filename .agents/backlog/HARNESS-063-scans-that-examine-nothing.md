@@ -7,6 +7,7 @@ type: HARNESS
 area: scripts/harness
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1554
 ---
 
 # HARNESS-063 — a pass over an empty corpus reads exactly like a clean sweep

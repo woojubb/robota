@@ -7,6 +7,7 @@ type: INFRA
 area: .claude
 created: 2026-08-01
 depends_on: []
+issue: https://github.com/woojubb/robota/issues/1552
 ---
 
 # INFRA-078 — `.claude/settings.json` is read by nothing
