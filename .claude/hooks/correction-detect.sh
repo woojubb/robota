@@ -3,20 +3,20 @@
 
 set -uo pipefail
 
+# One reader for a payload field and one writer for a record, not one per hook.
+# See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+
 INPUT=$(cat)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/corrections.jsonl"
 
-read_json() {
-  local expression="$1"
-  if [ -z "$INPUT" ]; then
-    echo ""
-    return
-  fi
-  printf '%s' "$INPUT" | jq -r "$expression // \"\"" 2>/dev/null || echo ""
-}
-
-PROMPT=$(read_json '.prompt // .user_prompt // .message')
+# This hook carried its own `read_json()` — jq, and NO python3 fallback — and then WROTE its record
+# with `jq -cn` as well. Measured on a host with jq hidden: it recorded nothing, silently, while
+# branch-guard beside it kept working. Repairing only the read would have left the metric just as
+# empty, so both ends go through the shared ladder.
+PROMPT=$(hook_prompt_of "$INPUT" || printf '')
 if [ -z "$PROMPT" ]; then
   exit 0
 fi
@@ -24,7 +24,7 @@ fi
 # LESSON-010: only REAL user turns are correction signals. Subagent/eval prompts (session ids
 # like "agent_1") and events with no session id are agent-authored text — counting them
 # inflated the one genuinely useful metric with false positives.
-SESSION_ID=$(read_json '.session_id')
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
 case "$SESSION_ID" in
   '' | agent*) exit 0 ;;
 esac
@@ -45,11 +45,15 @@ if [ -z "$KEYWORD" ]; then
   exit 0
 fi
 
-TRANSCRIPT_PATH=$(read_json '.transcript_path')
+TRANSCRIPT_PATH=$(hook_json_string "$INPUT" 'transcript_path' || printf '')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 PREVIOUS_ASSISTANT_HASH=""
 
-if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+# The transcript is a JSONL FILE, not the hook payload, and the query below is a jq program rather
+# than a field read. Stated limit rather than hidden: without jq this correlation hash stays empty,
+# which weakens a field of the record — it no longer silences the record itself, which is what the
+# payload read did.
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ] && command -v jq >/dev/null 2>&1; then
   PREVIOUS_ASSISTANT_TEXT=$(jq -r '
     select((.type // .role // .message.role // "") == "assistant")
     | (.message.content // .content // .text // "")
@@ -70,20 +74,12 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 PROMPT_EXCERPT=$(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c 1-160)
 
 mkdir -p "$(dirname "$LOG_FILE")"
-jq -cn \
-  --arg timestamp "$TIMESTAMP" \
-  --arg session_id "$SESSION_ID" \
-  --arg pattern "user-correction" \
-  --arg keyword "$KEYWORD" \
-  --arg previous_assistant_hash "$PREVIOUS_ASSISTANT_HASH" \
-  --arg prompt_excerpt "$PROMPT_EXCERPT" \
-  '{
-    timestamp: $timestamp,
-    session_id: $session_id,
-    pattern: $pattern,
-    keyword: $keyword,
-    previous_assistant_hash: $previous_assistant_hash,
-    prompt_excerpt: $prompt_excerpt
-  }' >> "$LOG_FILE"
+hook_json_object \
+  s timestamp "$TIMESTAMP" \
+  s session_id "$SESSION_ID" \
+  s pattern "user-correction" \
+  s keyword "$KEYWORD" \
+  s previous_assistant_hash "$PREVIOUS_ASSISTANT_HASH" \
+  s prompt_excerpt "$PROMPT_EXCERPT" >> "$LOG_FILE"
 
 exit 0
