@@ -31,7 +31,10 @@ git_project() {
 BRANCH=$(hook_current_branch "$PROJECT_DIR" "unknown")
 # It carried no `read_json()`, so it looked unlike its three siblings, and it read the payload with
 # a bare `jq -r` and wrote its record with `jq -cn` all the same. Same defect, different spelling.
-SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
+# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
+# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
+# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
+SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || printf '')
 
 if [ -f "$HOOK_DIR/revert-detect.sh" ]; then
   printf '%s' "$INPUT" | bash "$HOOK_DIR/revert-detect.sh" >/dev/null 2>&1 || true

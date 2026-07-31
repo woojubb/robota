@@ -61,8 +61,11 @@ is_workflow_multi_edit_path() {
 }
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
-TRANSCRIPT_PATH=$(hook_json_string "$INPUT" 'transcript_path' || printf '')
+# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
+# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
+# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
+SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || printf '')
+TRANSCRIPT_PATH=$(hook_json_text "$INPUT" 'transcript_path' || printf '')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 
 # `git_project()` was defined here and, byte-identically, in eval-log-stop — two copies of the one

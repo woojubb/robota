@@ -155,15 +155,84 @@ hook_current_branch() {
 # Routed through the JSON decoders rather than grep for the reason at the top of this file: a path
 # is allowed to contain a quote or a backslash, JSON escapes both, and a `[^"]*` grep stops at the
 # escape and hands back a path that does not exist.
+#
+# Through `hook_json_text`, not `hook_json_string`, so this reader and `hook_prompt_of` answer the
+# same question the same way. Measured on `{"tool_input": {"file_path": 123}}`: `hook_json_string`
+# returns `123` where jq is installed and "" where it is not, so the rule would otherwise have been
+# one-per-function instead of one rule. A path is text or it is not a path.
 hook_file_path_of() {
-  hook_json_string "$1" 'tool_input.file_path'
+  hook_json_text "$1" 'tool_input.file_path'
+}
+
+# A top-level field, but ONLY when it holds a JSON string. Anything else reads as absent.
+#
+# `hook_json_string` next door does not promise this, and its two arms DISAGREE without it. Measured
+# on `{"message": {"role": "user", "content": "hello"}}`, which is the ordinary transcript shape and
+# not an exotic one: with jq installed, `jq -r '.message // ""'` prints the object's pretty-printed
+# JSON; with jq absent, the python3 arm writes "" because the node is not a `str`. Same payload, same
+# function, two answers depending on which tool the host happens to have — the exact defect class
+# this directory spent INFRA-077 removing, one function to the left.
+#
+# `hook_json_string` lives in `command-scan.sh`, which INFRA-077 deliberately did not touch, so this
+# is stated rather than fixed there: the disagreement is still reachable through any OTHER caller of
+# that function. Filed in the PR body for whoever owns that file next.
+#
+# The answer chosen here is "": a structured node is not prompt TEXT, and returning the JSON blob
+# would have `correction-detect` grep it for correction keywords and log it as `prompt_excerpt`,
+# and `spec-first-gate` scan it for implementation intent.
+hook_json_text() {
+  local json="$1" path="$2"
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$json" | jq -r "if (.${path} | type) == \"string\" then .${path} else \"\" end" 2>/dev/null && return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$json" | python3 -c '
+import json, sys
+try:
+    doc = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+node = doc
+for key in sys.argv[1].split("."):
+    if not isinstance(node, dict):
+        node = None
+        break
+    node = node.get(key)
+sys.stdout.write(node if isinstance(node, str) else "")
+' "$path" 2>/dev/null && return 0
+  fi
+  return 1
 }
 
 # The user's prompt text, under whichever of the three keys the event carries it.
+#
+# THE FIRST KEY THAT CARRIES TEXT — not the first key that is present. That is a DECISION, and it
+# differs from the `.prompt // .user_prompt // .message` this replaced: jq's `//` yields its left
+# operand whenever that operand is neither `null` nor `false`, and an empty string is truthy in jq.
+# So the one payload that tells the two rules apart is
+#
+#     {"prompt": "", "user_prompt": "hello"}
+#
+# on which the old expression returned "" and this returns "hello".
+#
+# Fall-through is kept, for a reason a reader can check rather than take on trust:
+#
+#   * `hook_json_string` CANNOT express jq's distinction. Measured on BOTH arms, it returns "" with
+#     exit 0 for an absent key and for a present-but-empty one alike. Reproducing `//` exactly would
+#     mean adding a presence-distinguishing reader whose only consumer is a payload shape no host
+#     emits — the three keys are three SPELLINGS of one fact, so a real event carries one of them.
+#   * Of the two rules, "the first key that carries text" is the one that never goes blind on text
+#     that is plainly present in the payload. Going silently blind is the failure this whole change
+#     exists to remove, so where the rules differ, that is the tie-breaker.
+#
+# The rule the readers here share, stated once: a READER collapses absent and empty into "", and the
+# CALLER names what empty means for it. That is the same shape as `hook_current_branch`'s
+# caller-named default, and as `hook_command_of`/`hook_tool_name_of` treating an empty value as a
+# refusal. This caller's answer is "an empty key is not the prompt; keep looking".
 hook_prompt_of() {
   local key value
   for key in prompt user_prompt message; do
-    if ! value=$(hook_json_string "$1" "$key"); then
+    if ! value=$(hook_json_text "$1" "$key"); then
       return 1
     fi
     if [[ -n "$value" ]]; then

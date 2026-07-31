@@ -101,7 +101,10 @@ if [[ "$RELATIVE_PATH" == /* ]]; then
     */apps/*) RELATIVE_PATH="apps/${FILE_PATH#*/apps/}" ;;
   esac
 fi
-SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || true)
+# Through `hook_json_text`, so this reads the same on a host with jq and one without: measured,
+# `hook_json_string` hands back a non-string node's JSON where jq is installed and "" where it is
+# not. A session id and a transcript path are text or they are absent. See lib/hook-facts.sh.
+SESSION_ID=$(hook_json_text "$INPUT" 'session_id' || true)
 BLOCKED=false
 BLOCK_MESSAGES=""
 

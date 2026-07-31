@@ -285,6 +285,65 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     expect(JSON.parse(line)).toMatchObject({ branch: 'feature/work', session_id: 'user-1' });
   });
 
+  /**
+   * The payload is handed to the snippet through the ENVIRONMENT, never interpolated into the
+   * command line: a JSON document is full of quotes and braces, and building one into a shell
+   * string is how a probe ends up measuring its own quoting instead of the function.
+   */
+  function promptOf(payload, env = {}) {
+    return runLib('printf "%s" "$(hook_prompt_of "$PAYLOAD")"', {
+      PAYLOAD: JSON.stringify(payload),
+      ...env,
+    }).stdout;
+  }
+
+  it('reads a prompt to the same answer whether or not jq is installed', () => {
+    // The reported finding one function to the left, and the same class this file exists for.
+    // `hook_json_string`'s two arms DISAGREE on a field that is not a string: measured, `jq -r` on
+    // `{"message": {...}}` prints the object's pretty-printed JSON, while the python3 arm writes "".
+    // So `hook_prompt_of` returned a JSON blob as "the user's prompt" on a host with jq and nothing
+    // on a host without — and `{"message": {"role": …, "content": …}}` is the ordinary transcript
+    // shape, not an exotic one. correction-detect would then grep a JSON blob for correction
+    // keywords and log it as `prompt_excerpt`; spec-first-gate would scan it for implementation
+    // intent. A structured node is not prompt TEXT, so the answer is "" — on both hosts.
+    const payload = { message: { role: 'user', content: 'hello' } };
+    const withJq = promptOf(payload);
+    const withoutJq = promptOf(payload, { PATH: noJq });
+    expect(withJq).toBe(withoutJq);
+    expect(withJq).toBe('');
+  });
+
+  it('reads a file_path to the same answer whether or not jq is installed', () => {
+    // The sibling reader, asked the same question. Every field this directory reads as TEXT is read
+    // the same way on both hosts, so the rule is one rule rather than one-per-function.
+    const payload = { tool_input: { file_path: 123 } };
+    const read = (env) =>
+      runLib('printf "%s" "$(hook_file_path_of "$PAYLOAD")"', {
+        PAYLOAD: JSON.stringify(payload),
+        ...env,
+      }).stdout;
+    expect(read({})).toBe(read({ PATH: noJq }));
+    expect(read({})).toBe('');
+  });
+
+  it('takes the first key that carries TEXT, not the first key that is present', () => {
+    // DECIDED, not inherited. jq's `//` yields the left operand whenever it is neither null nor
+    // false — an empty string is truthy there — so `.prompt // .user_prompt` on
+    // `{"prompt": "", "user_prompt": "hello"}` returned "" and this returns "hello". Measured, and
+    // that payload is the only shape that tells the two rules apart.
+    //
+    // Fall-through is kept, for a reason the reader can check: `hook_json_string` CANNOT express
+    // jq's distinction. Measured on both arms, it returns "" with exit 0 for an absent key and for
+    // a present-but-empty one alike, so reproducing `//` exactly would mean adding a
+    // presence-distinguishing reader whose only consumer is a payload shape no host emits. And of
+    // the two rules, "the first key that carries text" is the one that never goes blind on text
+    // that is plainly there — which is the failure this whole change exists to remove.
+    expect(promptOf({ prompt: '', user_prompt: 'hello' })).toBe('hello');
+    expect(promptOf({ prompt: '', user_prompt: '', message: 'hi' })).toBe('hi');
+    expect(promptOf({ prompt: 'first', user_prompt: 'second' })).toBe('first');
+    expect(promptOf({})).toBe('');
+  });
+
   it('leaves no hook reading a payload field with a bare jq call', () => {
     const offenders = hookSourcesWithoutComments()
       .filter(({ text }) => /read_json\(\)/.test(text))
