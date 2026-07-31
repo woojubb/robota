@@ -54,12 +54,21 @@ if ! COMMAND=$(hook_command_of "$INPUT"); then
   exit 2
 fi
 
-# Honor the inline override token written IN the command string. The `VAR=1` prefix runs in the
-# TOOL's shell, not this hook's process, so a plain env check never sees it (same reasoning as
-# branch-guard's inline overrides).
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])WORKTREE_CWD_GUARD_ALLOW_MAIN=1([[:space:]]|$)'; then
-  exit 0
-fi
+# The inline override is checked further down, AFTER the destructive command is identified — not
+# here. It has to be, and the reason is the whole shape of this class:
+#
+#   - The `VAR=1` prefix runs in the TOOL's shell, not this hook's process, so a plain env check
+#     never sees it (same reasoning as branch-guard's inline overrides).
+#   - Read off the RAW command, a commit message that merely NAMED the token switched the guard off.
+#     So it is read off the masked text.
+#   - Read as a token ANYWHERE, an unquoted mention still disarmed it — `git commit -m TOKEN &&
+#     git reset --hard`. So it must PREFIX a command.
+#   - Read as "prefixes SOME git call", a decoy disarmed it — `TOKEN git status && git reset --hard`
+#     puts the token on something harmless and the destructive command that follows is never judged.
+#
+# Each repair was correct and each left the next hole, because the question was being asked about
+# the wrong subject. An override is given to ONE command: the one it precedes. So the only check
+# that closes it is asked of the destructive statement itself.
 
 # --- (b) worktree-assignment marker -------------------------------------------------------------
 # Present iff this session was spawned as a worktree-assigned subagent. Absent → ordinary main-clone
@@ -119,6 +128,35 @@ printf '%s' "$VERBS" | grep -qE "${GITPFX}checkout\b[^|;&]*[[:space:]]--([[:spac
 printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIVE=true
 
 if [[ "$IS_DESTRUCTIVE" != "true" ]]; then
+  exit 0
+fi
+
+# --- The inline override, asked of the destructive statement itself ------------------------------
+# Split on statement separators and judge each statement alone. A statement that is destructive is
+# excused only if the override prefixes THAT statement; the token sitting on a sibling command
+# excuses nothing. Every destructive statement must carry it, so a decoy plus a real one still
+# refuses. See the note above for the three earlier readings this replaces.
+OVERRIDE_RE='^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*WORKTREE_CWD_GUARD_ALLOW_MAIN=1[[:space:]]'
+DESTRUCTIVE_STATEMENTS=0
+OVERRIDDEN_STATEMENTS=0
+while IFS= read -r STATEMENT; do
+  [[ -z "${STATEMENT//[[:space:]]/}" ]] && continue
+  IS_STMT_DESTRUCTIVE=false
+  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}reset\b.*--hard\b" && IS_STMT_DESTRUCTIVE=true
+  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}clean\b.*(-[[:alnum:]]*f|--force)" && IS_STMT_DESTRUCTIVE=true
+  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}checkout\b.*[[:space:]]--([[:space:]]|$)" && IS_STMT_DESTRUCTIVE=true
+  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}push\b.*--force" && IS_STMT_DESTRUCTIVE=true
+  [[ "$IS_STMT_DESTRUCTIVE" != "true" ]] && continue
+  DESTRUCTIVE_STATEMENTS=$((DESTRUCTIVE_STATEMENTS + 1))
+  if printf '%s' "$STATEMENT" | grep -qE "$OVERRIDE_RE"; then
+    OVERRIDDEN_STATEMENTS=$((OVERRIDDEN_STATEMENTS + 1))
+  fi
+# `%s\n`, not `%s`: without a trailing newline `read` drops the final line, which for a single-
+# statement command is the only line there is — the override would then never be seen and an
+# ordinary, correct invocation would be refused.
+done < <(printf '%s\n' "$VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
+
+if [[ "$DESTRUCTIVE_STATEMENTS" -gt 0 && "$OVERRIDDEN_STATEMENTS" -eq "$DESTRUCTIVE_STATEMENTS" ]]; then
   exit 0
 fi
 
