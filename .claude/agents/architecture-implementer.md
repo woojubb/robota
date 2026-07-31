@@ -60,7 +60,9 @@ verified, and conservative: a wrong or half-applied structural change is worse t
 3. Take the finding's `DEPTH:` verdict from `finding-depth-triager` (ask for it if it was not handed to
    you), per [finding-depth.md](../../.agents/rules/finding-depth.md). FOUNDATIONAL is not yours to implement
    however small it looks — size and depth are different questions, and a one-line change on the wrong layer
-   is still on the wrong layer. Report it unfixed with the verdict.
+   is still on the wrong layer. Report it unfixed with the verdict. An INVALID verdict means the premise does not hold —
+   do not act on it. An UNDETERMINED one is not a verdict yet: report it unacted, naming what is missing,
+   rather than falling through to LOCAL.
 4. For a LOCAL finding, decide: a **safe minimal edit** (do it) or a **large/risky refactor**
    (plan-and-escalate)?
 5. For a safe edit: make it, update any paired doc/SPEC statement, then build + test the affected

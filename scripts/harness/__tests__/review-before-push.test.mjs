@@ -466,7 +466,7 @@ describe('the depth verdict is wired into the pipeline that must act on it', () 
     expect(roundA, 'the recorded root item has no way in').toMatch(/--foundational/);
   });
 
-  it('the rule and the skill that carries it both exist', () => {
+  it('the rule and the guardian that judges for it are both registered', () => {
     expect(read('.agents/rules/index.md')).toMatch(/finding-depth\.md/);
     expect(read('.agents/skills/index.md')).toMatch(/finding-depth-triager/);
     expect(read('.agents/rules/finding-depth.md'), 'the rule names no enforcement point').toMatch(

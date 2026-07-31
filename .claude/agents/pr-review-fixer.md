@@ -24,6 +24,9 @@ re-judges.
    - **FOUNDATIONAL** — **do not patch it.** Stop on that finding and report it unfixed with the verdict you
      were given. You do not file the root item (that is `backlog-writer`'s) and you do not decide the
      disposition (that is the orchestrator's).
+   - **INVALID** — the premise does not hold. Do not act on it; record what the code actually does.
+   - **UNDETERMINED** — not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the
+     verdict says is missing. Falling through to LOCAL is how a guess becomes a change.
 3. For each LOCAL finding, make the **minimal** change that resolves the specific finding — no adjacent refactors,
    no scope beyond the finding. Re-verify against the actual code before writing. Write the test first, against
    the unfixed code, and watch it fail: a regression test that passes on the unfixed code guards nothing.

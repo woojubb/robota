@@ -57,6 +57,9 @@ forbids, and it is the party for whom one verdict means finishing and the other 
 - **LOCAL** → proceed by the doc-side/code-side rule above.
 - **FOUNDATIONAL** → do not apply it, whichever side it is on. Report it unfixed with the verdict. Fixing a
   document to describe a wrong design faithfully is not a fix; it is the wrong design, written down twice.
+- **INVALID** → — the premise does not hold. Do not act on it; record what the code actually does.
+- **UNDETERMINED** → — not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the verdict
+  says is missing. Falling through to LOCAL is how a guess becomes a change.
 
 ## Deletions, symmetry, i18n
 
