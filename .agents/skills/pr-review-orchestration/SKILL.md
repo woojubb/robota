@@ -101,11 +101,15 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
 2. **Take each comment one at a time, judging before replying.** CI posts a summary comment and inline
    comments; each carries a finding and each is judged on its own — `finding-depth-triager` returns one
    verdict per finding, not one per round, because a PR routinely mixes a LOCAL defect with a FOUNDATIONAL
-   one and a premise that does not hold. For each: obtain the verdict, decide the handling, then reply —
-   inline where the finding was inline. **Judge before replying, never after**: a reply written first
-   becomes a commitment the verdict then has to agree with.
+   one and a premise that does not hold. For each: obtain the verdict, decide the handling, then hand the
+   decision to `pr-review-writer` to post — inline where the finding was inline. **Judge before replying,
+   never after**: a reply written first becomes a commitment the verdict then has to agree with.
 
-   The reply carries the DECISION, not the reasoning. For a foundational one that is the verdict, the root
+   Posting is the writer's, not this skill's. An orchestrator that writes to the PR is the produce-and-route
+   violation this file declares against itself two sections down, and it would be the fourth instance in this
+   change of a boundary stated and then crossed.
+
+   What gets posted is the DECISION, not the reasoning. For a foundational one that is the verdict, the root
    item and its issue, and the disposition taken. This is not bookkeeping: a finding correctly left unfixed
    looks identical to one that was ignored — to the next reviewer, to the merge gate, and to anyone reading
    the PR later. It is the visible half of the containment label, which otherwise lives only in a code

@@ -18,6 +18,18 @@ durable artifact. You do NOT judge severity, do NOT re-review, do NOT edit or fi
    wanted). Write the body to a temp file first so shell metacharacters in findings do not break the command.
 4. Report the posted comment URL.
 
+**The other thing you post: a per-finding DECISION reply.** When the orchestrator hands you a finding's
+handling — the `DEPTH:` verdict, and for a foundational one its root item, issue and disposition — post it as a
+reply to THAT finding's comment, inline where the finding was inline (`gh api` on the review-comment reply
+endpoint; `gh pr comment` for a summary-level finding). Same discipline as above: you post what you were
+handed, verbatim in substance. You do not produce the verdict, do not soften it, and do not decide the
+disposition.
+
+Why it is yours: an orchestrator that writes to the PR is the produce-and-route violation the architecture
+forbids, so the routing skill hands the decision here rather than posting it. Why it matters: a finding
+correctly left unfixed looks identical to one that was ignored — to the next reviewer, to the merge gate, and
+to anyone reading the PR later.
+
 ## Rules
 
 - Produce only. If a finding looks wrong, do NOT change it — that is the reviewer's decision; report the mismatch
