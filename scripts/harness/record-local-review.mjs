@@ -35,8 +35,23 @@
  * none — `pre-push-check` already forces a record on every push, which makes this the one place the
  * requirement is reached by the real invocation rather than when remembered.
  *
+ * ## The disposition half, and why it does not stay here
+ *
+ * A foundational finding takes one of two dispositions: `re-plan` WITHDRAWS the change, `containment`
+ * lets it land under a labelled hold. Both are decisions about a PULL REQUEST, and this file's store
+ * is the wrong home for one — `.agents/local-reviews/` is gitignored and per-working-tree, keyed by
+ * the local branch and HEAD, while a merge is keyed by a PR number. `worktree-parallel-orchestration`
+ * §5 has the orchestrator merge and never the implementer, so the checkout that recorded the round is
+ * by construction not the one that merges. Measured on #1557: the merging clone read a DIFFERENT
+ * branch's record and answered one PR's merge with another PR's disposition (PROC-007).
+ *
+ * So this file stays the AUTHORING surface and publishing is part of recording: `--disposition`
+ * labels the PR first and writes the local record only if that succeeded. A local file asserting a
+ * withdrawal the PR does not carry is not a partial success — it is the defect.
+ *
  * Usage:
  *   node scripts/harness/record-local-review.mjs --findings 0 [--notes "..."] [--foundational <ID>[,<ID>...]]
+ *   node scripts/harness/record-local-review.mjs --findings 1 --foundational <ID> --disposition re-plan
  *   node scripts/harness/record-local-review.mjs --show
  */
 
@@ -77,6 +92,145 @@ function repoRoot(cwd = process.cwd()) {
     console.error(`record-local-review: ${cwd} is not inside a git work tree.`);
     console.error('A review record belongs to a specific checkout; this one cannot be identified.');
     process.exit(1);
+  }
+}
+
+function gh(args, cwd) {
+  return execFileSync('gh', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+/**
+ * The two dispositions `finding-depth.md` permits, and the PR label that carries each.
+ *
+ * The label IS the machine-readable home of the decision — atomic, keyed to the PR, readable from
+ * any checkout by number. The same two strings are spelled in `.claude/hooks/merge-gate.sh` and
+ * `.github/workflows/review-gate.yml`, which are bash and YAML and cannot import this object;
+ * `merge-gate-disposition.test.mjs` asserts the three agree so the duplication cannot drift.
+ */
+export const DISPOSITION_LABELS = {
+  're-plan': 'disposition-re-plan',
+  containment: 'disposition-containment',
+};
+
+const DISPOSITION_LABEL_META = {
+  're-plan': {
+    color: 'B60205',
+    description:
+      'finding-depth: a foundational finding WITHDREW this change. Do not merge; work the root item.',
+  },
+  containment: {
+    color: 'FBCA04',
+    description:
+      'finding-depth: this change lands under a labelled containment hold naming a filed root item.',
+  },
+};
+
+/**
+ * The PR this branch is about, or `null` when there is not one.
+ *
+ * `null` is not "no opinion" to any caller here — it is a refusal. A disposition with no pull
+ * request to publish to has nowhere to live except this checkout, which is the state PROC-007 exists
+ * to end, so the recorder stops rather than writing a local-only decision.
+ */
+function resolvePullRequest(root) {
+  try {
+    const number = Number(gh(['pr', 'view', '--json', 'number', '--jq', '.number'], root));
+    return Number.isInteger(number) && number > 0 ? number : null;
+  } catch {
+    // `gh` missing, unauthenticated, or no PR for this branch. They differ in cause and not in
+    // consequence: nothing can be published, so nothing may be recorded.
+    return null;
+  }
+}
+
+/**
+ * Put the disposition ON THE PULL REQUEST, and verify it arrived. Throws if it did not.
+ *
+ * The read-back is INFRA-057's lesson applied: that gate reported a successful disarm from an exit
+ * code while auto-merge was still armed, for two months. What must be true here is that the label is
+ * on the PR afterwards — so that is what is read, rather than inferred from `gh pr edit` exiting 0.
+ */
+function publishDisposition({ root, pr, disposition, foundational, branch, headSha }) {
+  const label = DISPOSITION_LABELS[disposition];
+
+  // BOTH labels, not only the one being applied: `--remove-label` below names the sibling, and gh
+  // resolves a label name against the repository before editing — a sibling that has never been
+  // created would fail the whole edit on a clone that has not used the other disposition yet.
+  for (const [name, meta] of Object.entries(DISPOSITION_LABEL_META)) {
+    try {
+      gh(
+        [
+          'label',
+          'create',
+          DISPOSITION_LABELS[name],
+          '--color',
+          meta.color,
+          '--description',
+          meta.description,
+        ],
+        root,
+      );
+    } catch {
+      // Nothing is concluded from this. `gh label create` reports an existing label as a failure,
+      // and whether the label already existed is not the question — the read-back below is.
+      // Creating them here rather than requiring a repository-settings change keeps the first use
+      // of this gate from needing an admin.
+    }
+  }
+
+  // A finding has ONE disposition, so the sibling comes off in the same edit. Leaving both on would
+  // publish a contradiction: every gate asks about the withdrawal first, so a PR turned around from
+  // `re-plan` to `containment` would stay refused while this tool printed that containment was
+  // published — the same "the PR does not carry what was recorded" defect, pointing the other way.
+  const sibling = Object.values(DISPOSITION_LABELS).find((name) => name !== label);
+  try {
+    gh(['pr', 'edit', String(pr), '--add-label', label, '--remove-label', sibling], root);
+  } catch (err) {
+    throw new Error(`could not apply '${label}' to PR #${pr}: ${String(err.message).trim()}`);
+  }
+
+  let applied;
+  try {
+    applied = JSON.parse(
+      gh(['pr', 'view', String(pr), '--json', 'labels', '--jq', '[.labels[].name]'], root),
+    );
+  } catch (err) {
+    throw new Error(`could not read back the labels on PR #${pr}: ${String(err.message).trim()}`);
+  }
+  if (!Array.isArray(applied) || !applied.includes(label)) {
+    throw new Error(`'${label}' is not on PR #${pr} after applying it, so it was not published`);
+  }
+  if (applied.includes(sibling)) {
+    throw new Error(
+      `PR #${pr} still carries '${sibling}' beside '${label}', so the disposition it publishes is ambiguous`,
+    );
+  }
+
+  // The comment is for the reader, not for the gate — the gate reads the label. A label alone tells
+  // whoever meets this PR later that a decision was taken and nothing about what it was for.
+  const body = [
+    `**Finding depth — disposition: \`${disposition}\`**`,
+    '',
+    disposition === 're-plan'
+      ? 'A foundational finding was judged on this PR. Per `.agents/rules/finding-depth.md` a ' +
+        're-plan disposition WITHDRAWS this change rather than patching it, so it is not to be ' +
+        'merged: close it and work the root item.'
+      : 'A foundational finding was judged on this PR. It lands under a labelled containment hold ' +
+        'naming the root item below; the root item is what resolves it.',
+    '',
+    `Root item(s): ${foundational.join(', ')}`,
+    `Recorded from \`${branch}\` at \`${headSha.slice(0, 9)}\`.`,
+  ].join('\n');
+  try {
+    gh(['pr', 'comment', String(pr), '--body', body], root);
+  } catch (err) {
+    throw new Error(
+      `could not comment the disposition on PR #${pr}: ${String(err.message).trim()}`,
+    );
   }
 }
 
@@ -140,6 +294,15 @@ export function reviewState(branch, headSha, dir = RECORD_DIR) {
     const seen = String(stored.headSha ?? '?').slice(0, 9);
     return { ok: false, reason: `last reviewed ${seen} — the diff has changed since` };
   }
+  if (stored.disposition === 're-plan') {
+    // A record cannot say both "this change was withdrawn" and "this change is cleared to go". The
+    // caller routing on this verdict is `pre-push-check`, so resolving the contradiction the other
+    // way would push the very change the round decided not to land.
+    return {
+      ok: false,
+      reason: 'the round withdrew this change (disposition: re-plan) — it is not cleared to push',
+    };
+  }
   if (stored.findings !== 0) {
     const n = stored.findings ?? 'an unreadable number of';
     return { ok: false, reason: `the recorded review reports ${n} finding(s) still open` };
@@ -178,11 +341,19 @@ export function resolveRootItems(ids, backlogDir) {
 }
 
 export function parseArgs(argv) {
-  const args = { findings: null, notes: '', show: false, foundational: [], unknown: [] };
+  const args = {
+    findings: null,
+    notes: '',
+    show: false,
+    foundational: [],
+    disposition: null,
+    unknown: [],
+  };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--show') args.show = true;
     else if (argv[i] === '--findings') args.findings = Number(argv[++i]);
     else if (argv[i] === '--notes') args.notes = String(argv[++i] ?? '');
+    else if (argv[i] === '--disposition') args.disposition = String(argv[++i] ?? '');
     else if (argv[i] === '--foundational') {
       args.foundational = String(argv[++i] ?? '')
         .split(',')
@@ -201,7 +372,10 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.unknown.length > 0) {
     console.error(`record-local-review: unrecognised argument(s): ${args.unknown.join(' ')}`);
-    console.error('Accepted: --findings <n> | --notes "…" | --foundational <ID>[,<ID>…] | --show');
+    console.error(
+      'Accepted: --findings <n> | --notes "…" | --foundational <ID>[,<ID>…] | ' +
+        '--disposition re-plan|containment | --show',
+    );
     process.exit(1);
   }
   const root = repoRoot();
@@ -229,6 +403,29 @@ function main() {
     process.exit(verdict.ok ? 0 : 1);
   }
 
+  // The disposition is validated BEFORE anything is published or written. A value the rule does not
+  // define, or one with no root item behind it, must not reach the pull request — a label is read by
+  // a merge gate, and one nobody can act on is worse than none.
+  if (args.disposition !== null) {
+    if (!Object.hasOwn(DISPOSITION_LABELS, args.disposition)) {
+      console.error(
+        `record-local-review: '${args.disposition}' is not a disposition. finding-depth.md ` +
+          'defines two: re-plan | containment.',
+      );
+      console.error('A third option is how "foundational" becomes a way to defer work.');
+      process.exit(1);
+    }
+    if (args.foundational.length === 0) {
+      console.error(
+        'record-local-review: --disposition requires --foundational <ID> — the root item it is for.',
+      );
+      console.error(
+        'A disposition with no filed root item behind it asserts a decision nobody can act on.',
+      );
+      process.exit(1);
+    }
+  }
+
   if (!Number.isInteger(args.findings) || args.findings < 0) {
     console.error(
       'record-local-review: --findings <n> is required (n = unresolved MUST + SHOULD).',
@@ -237,7 +434,10 @@ function main() {
     process.exit(1);
   }
 
-  if (args.findings > 0) {
+  // `re-plan` is the one case where open findings are the point rather than the problem: the round
+  // decided the change is withdrawn, so there is no zero to reach and the record exists to say so.
+  // Every other round still has to get there before it is recorded.
+  if (args.findings > 0 && args.disposition !== 're-plan') {
     // Recording an unresolved review would make the gate a formality. The point of the round is to
     // reach zero BEFORE the push, not to log that it was not reached.
     console.error(
@@ -277,17 +477,61 @@ function main() {
     process.exit(1);
   }
 
+  // PROC-007: publishing comes BEFORE the write, and a failure to publish is a failure to record.
+  // The order is the whole point — a local record asserting a disposition the PR does not carry is
+  // the exact state that let a withdrawn change merge from another checkout.
+  let pullRequest = null;
+  if (args.disposition !== null) {
+    pullRequest = resolvePullRequest(root);
+    if (pullRequest === null) {
+      console.error(
+        `record-local-review: no pull request resolves for ${branch}, so the disposition has ` +
+          'nowhere to live but this checkout.',
+      );
+      console.error(
+        'That is PROC-007 exactly. Open the PR (or fix gh auth) and record it again — a merge run ' +
+          'from another checkout cannot read this directory.',
+      );
+      process.exit(1);
+    }
+    try {
+      publishDisposition({
+        root,
+        pr: pullRequest,
+        disposition: args.disposition,
+        foundational: args.foundational,
+        branch,
+        headSha,
+      });
+    } catch (err) {
+      console.error(`record-local-review: ${err.message}`);
+      console.error(
+        'Nothing was recorded. A disposition the pull request does not carry is not a disposition.',
+      );
+      process.exit(1);
+    }
+  }
+
   mkdirSync(recordDirFor(root), { recursive: true });
   const record = {
     branch,
     headSha,
-    findings: 0,
+    findings: args.findings,
     foundational: args.foundational,
+    disposition: args.disposition,
+    pullRequest,
     notes: args.notes,
     reviewedAt: new Date().toISOString(),
   };
   writeFileSync(recordPathFor(branch, recordDirFor(root)), `${JSON.stringify(record, null, 2)}\n`);
-  console.log(`recorded: ${branch} @ ${headSha.slice(0, 9)} — 0 findings`);
+  const suffix =
+    args.disposition === null
+      ? ''
+      : ` — disposition '${args.disposition}' published to PR #${pullRequest} as ` +
+        `'${DISPOSITION_LABELS[args.disposition]}'`;
+  console.log(
+    `recorded: ${branch} @ ${headSha.slice(0, 9)} — ${args.findings} finding(s)${suffix}`,
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

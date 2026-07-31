@@ -1,5 +1,6 @@
 #!/bin/bash
-# Before `gh pr merge`: the two questions git-branch.md already requires, asked mechanically.
+# Before `gh pr merge`: the questions the rules already require, asked mechanically. Two are
+# git-branch.md's; the third, asked first, is finding-depth.md's.
 #
 # `git-branch.md` § Pre-Merge Code-Review Gate says it plainly: "No CONFIRMED/PLAUSIBLE finding may
 # be left silently unaddressed. **Only after all findings are resolved** may the PR be merged."
@@ -10,8 +11,12 @@
 # Written down was not enough, which is the finding of the recurrence audit (PROC-003). This hook is
 # the missing half: the rule asks two questions, so the merge command must answer them before it runs.
 #
+#   0. Was this change WITHDRAWN? A `re-plan` disposition on the PR (`finding-depth.md`, PROC-007).
 #   1. Is CI green?  `mergeStateStatus == CLEAN`.
 #   2. Has the review been read and resolved?
+#
+# (0) is asked first because a withdrawn change is not to be merged whatever CI and the review say —
+# a gate that asked it last would only ever fire where some other check had already blocked.
 #
 # On (2) the hook cannot judge whether a finding was ADDRESSED — that is the reviewer's call, and a
 # hook pretending to make it would be a guard checking the wrong thing. What it CAN establish is that
@@ -54,7 +59,7 @@ printf '%s' "$COMMAND_VERBS" |
 # documented to be. Other assignments may sit between; a `;` or `&&` may not.
 if printf '%s' "$COMMAND_VERBS" |
   grep -qE '(^|[[:space:];&|(])MERGE_GATE_ACK=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+gh[[:space:]]+pr[[:space:]]+merge\b'; then
-  echo "[merge-gate] Override: MERGE_GATE_ACK=1 — CI and review state NOT verified by this hook." >&2
+  echo "[merge-gate] Override: MERGE_GATE_ACK=1 — disposition, CI and review state NOT verified." >&2
   exit 0
 fi
 
@@ -92,6 +97,69 @@ if ! command -v gh >/dev/null 2>&1; then
   echo "[merge-gate] Blocked: 'gh' is unavailable, so CI and review state cannot be read." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
   exit 2
+fi
+
+# --- 0. Disposition ---------------------------------------------------------------------------
+# PROC-007. A foundational finding takes one of two dispositions (`finding-depth.md`): `re-plan`
+# WITHDRAWS the change rather than patching it, and `containment` lets it land under a labelled
+# hold. Either way that is a decision ABOUT THIS PR, so it is read here by $PR like every other
+# check in this file — from GitHub, where the number is the key.
+#
+# #1557 kept it in `.agents/local-reviews/<branch>.json` instead: gitignored, per-working-tree,
+# keyed by the LOCAL checkout's branch and HEAD. `worktree-parallel-orchestration` §5 has the
+# orchestrator merge and never the implementer, so the checkout holding the record is by
+# construction not the one running the merge. Measured while judging that PR: one worktree held
+# the only record for its branch while the merging clone held a record for a DIFFERENT branch — so
+# the gate did not merely fail to block, it answered one PR's merge with another PR's disposition.
+# INFRA-048 and INFRA-057 had already established the general form of that: a merge decision held
+# anywhere but the PR does not stop a merge.
+#
+#
+# One name per line, matched with `grep -qx` — whole-line equality, the same construction
+# `review-gate.yml` uses for the same question, so the two enforcement points cannot disagree.
+# A delimiter-joined string matched by substring was the first version and is wrong twice over:
+# GitHub permits `|` in a label name, so ONE label called `pre|disposition-re-plan|post` would both
+# forge the withdrawal and refuse a PR nobody withdrew — the false refusal that teaches everyone to
+# pass MERGE_GATE_ACK=1, installed by the gate itself.
+#
+# The `__labels__` sentinel line is what keeps two answers apart: a PR carrying no labels still
+# answers one line, an unreadable response answers the empty string. Without it "I could not read
+# the labels" would silently mean "not withdrawn".
+LABELS=$(gh pr view "$PR" --json labels --jq '"__labels__", (.labels[].name)' 2>/dev/null || echo "")
+if [[ -z "$LABELS" ]]; then
+  echo "[merge-gate] Blocked: could not read the labels on #$PR, so a withdrawal cannot be ruled out." >&2
+  echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+# `gh pr view --json labels` reads `labels(first: 100)` on the PULL REQUEST and does not paginate.
+# GitHub caps an issue or PR at 100 labels, so a SHORT page is provably the whole set — but a FULL
+# one is the single state where that reasoning stops, and it is checked rather than argued. Review
+# raised the page size as an assumption living only in a comment; a comment is not enforcement, and
+# "the withdrawal might be on a page I did not read" is not "not withdrawn".
+#
+# Minus one for the `__labels__` sentinel line, which is not a label.
+LABEL_COUNT=$(( $(printf '%s\n' "$LABELS" | wc -l) - 1 ))
+if (( LABEL_COUNT >= 100 )); then
+  echo "[merge-gate] Blocked: #$PR returned a full page of $LABEL_COUNT labels, so this read may be" >&2
+  echo "[merge-gate] truncated and a 'disposition-re-plan' beyond it would be invisible." >&2
+  echo "[merge-gate] Check by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+if printf '%s\n' "$LABELS" | grep -qx 'disposition-re-plan'; then
+  echo "[merge-gate] Blocked: #$PR carries 'disposition-re-plan'. A foundational finding withdrew" >&2
+  echo "[merge-gate] this change rather than patching it (finding-depth.md), so it is not to be" >&2
+  echo "[merge-gate] merged: close it and work the root item instead." >&2
+  echo "[merge-gate] If the disposition was overturned, REMOVE THE LABEL — that is what un-withdraws" >&2
+  echo "[merge-gate] the change. Deliberate exception: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+if printf '%s\n' "$LABELS" | grep -qx 'disposition-containment'; then
+  # Containment IS a resolution, so it does not block. It is printed because the person running the
+  # merge is the last one who can see the hold before it lands on the integration branch.
+  echo "[merge-gate] Note: #$PR carries 'disposition-containment' — it lands under a labelled hold." >&2
 fi
 
 STATE=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus' 2>/dev/null || echo "")
