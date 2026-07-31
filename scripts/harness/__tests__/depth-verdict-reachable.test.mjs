@@ -95,6 +95,12 @@ const SKILLS = readdirSync(SKILLS_DIR, { withFileTypes: true })
  * `Dispatch <name>` rather than `scan-orchestration-map`'s sentence reader, whose skip list drops any
  * sentence containing "is the" and therefore cannot see `pr-review-orchestration`'s own dispatch — a
  * floor that fails a correctly-wired site is one somebody switches off.
+ *
+ * The WORKER side stays a plain mention, deliberately and asymmetrically: `architecture-refresh`
+ * routes to its appliers as "call the applier the auditor named — doc-side → `architecture-fixer`",
+ * which no imperative-adjacent-to-name reading matches. Requiring symmetry would fail that correctly
+ * wired site. The property this half carries is only "the pipeline knows this worker exists"; the
+ * guardian half is where the verdict has to be produced, and that is the half tightened.
  */
 export function producingSkillsFor(agent, skills) {
   const dispatchesGuardian = /[Dd]ispatch(?:es)?\s+`?finding-depth-triager`?/;
@@ -116,25 +122,32 @@ function bodyOf(text) {
 }
 
 /**
- * The map's PIPELINE table rows, found by its header rather than by column arithmetic.
+ * The map's PIPELINE table: its rows AND the position of the two columns this check reads, both
+ * taken from the header.
  *
- * The map holds several tables and the columns mean different things in each; keying on fixed
- * indices happened to work only because the agent-roles table carries `—` where this one carries a
- * worker. A table gaining a worker name in that position would have made this demand a guardian of
- * a row that has none — a guard failing correct work, which is how a guard gets switched off.
+ * The map holds several tables and the columns mean different things in each. A first version found
+ * the header and then still read cells 3 and 4 — review inserted one column into the table and the
+ * whole case went vacuous while staying green, because every row's worker cell had shifted and
+ * nothing matched. Locating the table and then guessing inside it is not better than guessing; the
+ * indices come from the same header line as the rows.
  */
-export function pipelineRows(mapText) {
+export function pipelineTable(mapText) {
   const lines = mapText.split('\n');
   const header = lines.findIndex(
     (l) => l.startsWith('|') && /\bWorker\(s\)/.test(l) && /\bGuardian\(s\)/.test(l),
   );
-  if (header === -1) return [];
+  if (header === -1) return { rows: [], worker: -1, guardian: -1 };
+  const cells = lines[header].split('|');
   const rows = [];
   for (const line of lines.slice(header + 2)) {
     if (!line.startsWith('|')) break;
     rows.push(line);
   }
-  return rows;
+  return {
+    rows,
+    worker: cells.findIndex((c) => /\bWorker\(s\)/.test(c)),
+    guardian: cells.findIndex((c) => /\bGuardian\(s\)/.test(c)),
+  };
 }
 
 describe('a worker told to take a depth verdict has a pipeline that produces one', () => {
@@ -177,25 +190,37 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
     // does not show anyone producing. Two disagreeing halves of one wiring is the registry-drift
     // class, and the map is what a reader consults instead of reading four skills.
     const workers = depthTakingAgents(DEFINITIONS);
-    const rows = pipelineRows(readFileSync(MAP, 'utf8'));
+    const { rows, worker, guardian } = pipelineTable(readFileSync(MAP, 'utf8'));
 
-    // Fail closed: reading the wrong table, or none, must not pass over nothing.
+    // Fail closed on all three: a moved header, a renamed column, or a table this reader located
+    // but cannot address are each a state where the loop below asserts nothing and stays green.
     expect(
       rows.length,
       'no pipeline rows found — the table header moved or was renamed',
     ).toBeGreaterThan(5);
+    expect(worker, 'no Worker(s) column in the pipeline table header').toBeGreaterThan(0);
+    expect(guardian, 'no Guardian(s) column in the pipeline table header').toBeGreaterThan(0);
 
+    // The rows this check actually examined, asserted below. A mutation that shifts every worker
+    // cell out from under the reader leaves this at zero, which is the shape the first version of
+    // this case failed to notice about itself.
+    let examined = 0;
     for (const row of rows) {
       const cells = row.split('|');
-      const workerCell = cells[3] ?? '';
-      const guardianCell = cells[4] ?? '';
+      const workerCell = cells[worker] ?? '';
+      const guardianCell = cells[guardian] ?? '';
       const carried = workers.filter((w) => workerCell.includes(w));
       if (carried.length === 0) continue;
+      examined += 1;
       expect(
         guardianCell,
         `the pipeline row for ${carried.join(', ')} lists no finding-depth-triager among its guardians`,
       ).toContain('finding-depth-triager');
     }
+    expect(
+      examined,
+      'no pipeline row carried a depth-taking worker — this case checked nothing',
+    ).toBeGreaterThan(0);
   });
 });
 
