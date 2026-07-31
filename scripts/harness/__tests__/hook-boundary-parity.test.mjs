@@ -207,3 +207,63 @@ describe('an override must be given, not merely mentioned', () => {
     }
   });
 });
+
+describe('an override names an action, not a string that contains one', () => {
+  // Review of #1559, both halves reproduced on a scratch repo before the fix. `override_given`'s
+  // verb patterns were written fresh instead of reusing the ones the file already uses to DETECT
+  // each action, so they forked in both directions at once: too loose at the end (no trailing
+  // boundary, so `merge-base` read as `merge`) and too strict in the middle (no room for an
+  // intervening flag, so the documented `git checkout -q -b x` stopped registering).
+  //
+  // The fork is the defect. One expression per action now serves both the detector and the
+  // override, which is why these two cases sit together.
+
+  it('a substring of the guarded verb does not excuse the guarded verb', () => {
+    const decoys = [
+      {
+        on: 'main',
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge-base develop main ; git merge develop',
+      },
+      {
+        on: 'main',
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git commit-tree -h ; git push origin main',
+      },
+      {
+        on: 'develop',
+        command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -bogus ; git checkout -b BAD_NAME',
+      },
+    ];
+    for (const { on, command } of decoys) {
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a read-only plumbing command stood in for the guarded one: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('the documented override still registers with the flags git actually accepts', () => {
+    // Fails CLOSED, so nothing was at risk — but a guard that refuses a form its own rule document
+    // tells people to use is a guard people learn to route around.
+    const allowed = [
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -q -b BAD_NAME' },
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -B BAD_NAME' },
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git switch -C BAD_NAME' },
+    ];
+    for (const { on, command } of allowed) {
+      const dir = scratchRepo(on);
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `the documented override was refused: ${output}`).toBe(0);
+    }
+  });
+
+  it('proves the cases above are not vacuous', () => {
+    // Without this, `not.toBe(0)` above passes when the guard blocks for ANY reason, and `toBe(0)`
+    // passes when the guard never fires at all.
+    const dir = scratchRepo('develop');
+    expect(
+      run('branch-guard.sh', 'git checkout -q -b BAD_NAME', dir).status,
+      'the guard does not fire on the bare command, so the override cases prove nothing',
+    ).not.toBe(0);
+  });
+});
