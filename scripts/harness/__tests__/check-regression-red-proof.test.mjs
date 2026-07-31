@@ -385,7 +385,7 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     const hook = '.claude/hooks/some-hook.sh';
     return baseIo({
       changedFiles: [hook, testFile],
-      readText: () => `spawnSync('bash', [path.join(HOOKS_DIR, 'some-hook.sh')]);`,
+      readText: () => "spawnSync('bash', ['/repo/.claude/hooks/some-hook.sh']);",
       fileExists: () => true,
       ...overrides,
     });
@@ -418,7 +418,7 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     const spawner = 'scripts/harness/__tests__/runs-the-hook.test.mjs';
     const bystander = 'scripts/harness/__tests__/unrelated.test.mjs';
     const sources = {
-      [abs(spawner)]: `spawnSync('bash', [path.join(HOOKS_DIR, 'some-hook.sh')]);`,
+      [abs(spawner)]: "spawnSync('bash', ['/repo/.claude/hooks/some-hook.sh']);",
       [abs(bystander)]: `expect(somethingElse).toBe(1);`,
     };
     let ran = null;
