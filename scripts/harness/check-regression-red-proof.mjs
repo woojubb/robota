@@ -376,16 +376,23 @@ export async function runRegressionRedProof(io = {}) {
     // import graph for both would return INCONCLUSIVE for every hook, a SKIP by another name.
     const testAbs = pair.test.map((t) => path.resolve(WORKSPACE_ROOT, t));
     let importsReversedFile;
+    // Which tests may decide the verdict. For a hook subject this is NOT every changed test:
+    // adoption pulls in the whole changed harness suite as candidates, and if all of them were run
+    // and judged, a sibling failing for its own reasons would supply the red proof while the hook's
+    // own vacuous test passed — this gate's failure mode, reintroduced by the widening meant to
+    // close it. Only the tests that execute the reversed hook are run, and only they are judged.
+    let decidingTests = pair.test;
     if (pair.pkg === HOOK_SUBJECT) {
-      importsReversedFile = testAbs.some((t) => {
+      decidingTests = pair.test.filter((t, i) => {
         let text;
         try {
-          text = readText(t);
+          text = readText(testAbs[i]);
         } catch {
           return false; // unreadable — cannot claim it exercises anything
         }
         return pair.source.some((src) => testExecutesHook(text, src));
       });
+      importsReversedFile = decidingTests.length > 0;
     } else {
       const pkgAbsRoot = path.resolve(WORKSPACE_ROOT, pair.pkg);
       const graph = reachableRelativeGraph(testAbs, pkgAbsRoot, readText, fileExists);
@@ -397,7 +404,7 @@ export async function runRegressionRedProof(io = {}) {
     if (importsReversedFile) {
       reverseApply(pair.source);
       try {
-        outcome = classifyVitestOutcome(await runVitest(pair.pkg, pair.test), pair.test);
+        outcome = classifyVitestOutcome(await runVitest(pair.pkg, decidingTests), decidingTests);
       } finally {
         restore(pair.source);
       }

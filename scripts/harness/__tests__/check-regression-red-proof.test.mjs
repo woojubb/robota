@@ -398,6 +398,41 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
   });
 
+  it('hook pair: an unrelated harness test cannot supply the failure', async () => {
+    // Adoption pulls every changed harness test into the hook subject as a CANDIDATE. If all of
+    // them were then run and judged, a sibling test that happens to be failing for its own reasons
+    // would supply the red proof, and a hook whose test is vacuous would be waved through as
+    // `red-proof-ok` — this gate's own failure mode, reintroduced by the widening that was supposed
+    // to close it. Only the tests that actually execute the reversed hook may decide.
+    const spawner = 'scripts/harness/__tests__/runs-the-hook.test.mjs';
+    const bystander = 'scripts/harness/__tests__/unrelated.test.mjs';
+    const sources = {
+      [abs(spawner)]: `spawnSync('bash', [path.join(HOOKS_DIR, 'some-hook.sh')]);`,
+      [abs(bystander)]: `expect(somethingElse).toBe(1);`,
+    };
+    let ran = null;
+
+    const { verdict } = await runRegressionRedProof(
+      baseIo({
+        changedFiles: ['.claude/hooks/some-hook.sh', spawner, bystander],
+        readText: (p) => sources[p] ?? '',
+        fileExists: () => true,
+        runVitest: (_pkg, testFiles) => {
+          ran = testFiles;
+          return {
+            testResults: [
+              { name: abs(spawner), assertionResults: [{ status: 'passed' }] },
+              { name: abs(bystander), assertionResults: [{ status: 'failed' }] },
+            ],
+          };
+        },
+      }),
+    );
+
+    expect(ran, 'a test that does not run the hook was handed the verdict').toEqual([spawner]);
+    expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
+  });
+
   it('hook pair: a test that only NAMES the hook never mutates the tree', async () => {
     // The other half. Reversing a hook a test does not run would blame it for a failure it had no
     // part in, so the guard has to hold — and it has to hold without touching the working tree.
