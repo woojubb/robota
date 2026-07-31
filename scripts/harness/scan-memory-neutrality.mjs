@@ -195,7 +195,15 @@ export function findMemoryNeutralityFindings(root = WORKSPACE_ROOT) {
   return findings;
 }
 
-/** Collect ALL non-test files (any extension) under a src tree, relative to `root`. */
+/**
+ * Collect ALL non-test files (any extension) under a src tree, relative to `root`.
+ *
+ * HARNESS-062 routed six source walkers through `listSourceFiles` and left this one alone, with the
+ * measurement: this walker skips the `__tests__` DIRECTORY but keeps co-located `*.test.ts` files,
+ * and the shared lister's `excludeTests` excludes both. Routing it would have dropped 113 files
+ * (1736 → 1623) from a neutrality guard's corpus — silently narrowing coverage is the failure that
+ * item exists to prevent, so this contract stays until someone decides to change it on purpose.
+ */
 function walkSourceAllFiles(target, root = WORKSPACE_ROOT) {
   const full = path.join(root, target);
   if (!existsSync(full)) return [];

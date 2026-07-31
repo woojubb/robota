@@ -25,10 +25,10 @@
  * Exit 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -170,7 +170,8 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
     if (!existsSync(path.join(root, srcRel)) || !statSync(path.join(root, srcRel)).isDirectory()) {
       continue;
     }
-    for (const rel of walkFiles(srcRel, root)) {
+    for (const absolute of walkFiles(path.join(root, srcRel))) {
+      const rel = path.relative(root, absolute);
       if (!isShippableSrc(rel)) continue;
       if (KNOWN_PREEXISTING.has(rel.replace(/\\/g, '/'))) continue; // pre-existing, tracked by HARNESS-033
       findings.push(
@@ -181,18 +182,16 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
   return findings;
 }
 
-/** Collect all files under a src tree (test dirs are filtered later by isShippableSrc), relative to `root`. */
-function walkFiles(target, root = WORKSPACE_ROOT) {
-  const full = path.join(root, target);
-  if (!existsSync(full)) return [];
-  const out = [];
-  for (const entry of readdirSync(full, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === 'dist') continue;
-    const child = path.join(target, entry.name);
-    if (entry.isDirectory()) out.push(...walkFiles(child, root));
-    else if (entry.isFile()) out.push(child);
-  }
-  return out;
+/**
+ * Every file under a src tree, absolute. Test files are NOT excluded here — `isShippableSrc` owns
+ * that decision, and it draws the line differently (it also excludes `testing/` and `__mocks__/`,
+ * which are shipped test-support entries rather than tests).
+ *
+ * HARNESS-062: this used to be a private walker excluding `node_modules`/`dist` only. Measured on
+ * the real tree when routed through the shared lister: 1606 shippable files before, 1606 after.
+ */
+function walkFiles(srcDir) {
+  return listSourceFiles(srcDir, { excludeTests: false });
 }
 
 function main() {

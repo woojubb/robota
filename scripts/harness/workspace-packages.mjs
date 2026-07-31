@@ -20,6 +20,25 @@ import path from 'node:path';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage']);
 
+/**
+ * ONE exclusion set for the source-file walk (HARNESS-062).
+ *
+ * Twenty-eight hand-rolled walkers carried six different exclusion sets, so the same file was
+ * source to some scans and invisible to others. Measured: a file at `packages/pub/src/dist/legacy.ts`
+ * carrying `@deprecated`, `TODO: Implement` and `export class FakeThing` was opened by
+ * `stub-markers` and `deprecated-markers` and never opened at all by `no-fake-in-src`, whose walker
+ * skipped any directory named `dist`. Whether that file is source is a property of the file, not of
+ * which scan is asking.
+ *
+ * The set is `SKIP_DIRS` above — the exclusions this module already declares for the package walk:
+ * an installed dependency tree and build output are not authored source under any scan's definition.
+ */
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.mjs', '.cjs', '.js', '.jsx'];
+
+/** Directories holding tests rather than shipped source. */
+const TEST_DIRS = new Set(['__tests__']);
+const TEST_FILE_PATTERN = /\.(test|spec)\./;
+
 function childDirs(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
@@ -84,4 +103,38 @@ export function listAppDirs(root) {
  */
 export function listWorkspacePackageDirs(root) {
   return [...listManifestPackageDirs(root), ...listAppDirs(root)];
+}
+
+/**
+ * Every source file under `dir`, recursively, as absolute paths.
+ *
+ * The single owner of "which files a scan opens" (HARNESS-062). `excludeTests` is a NAMED option,
+ * not a private fork: `check-interface-imports` deliberately descends into `__tests__` — an
+ * import-layering violation in a test file is still a violation — while the marker scans it
+ * otherwise mirrors deliberately do not, because a stub marker in a test is a test, not a shipped
+ * stub. That divergence is preserved here as a parameter so it is a decision anyone can read,
+ * rather than a difference between two walkers nobody compared.
+ *
+ * @param {string} dir absolute directory to walk; a missing directory yields `[]`
+ * @param {{ excludeTests?: boolean, extensions?: string[] | null }} [options]
+ *   `extensions: null` keeps every file regardless of extension.
+ */
+export function listSourceFiles(dir, options = {}) {
+  const { excludeTests = true, extensions = SOURCE_EXTENSIONS } = options;
+  if (!existsSync(dir)) return [];
+  const files = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      if (excludeTests && TEST_DIRS.has(entry.name)) continue;
+      files.push(...listSourceFiles(full, options));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (extensions !== null && !extensions.includes(path.extname(entry.name))) continue;
+    if (excludeTests && TEST_FILE_PATTERN.test(entry.name)) continue;
+    files.push(full);
+  }
+  return files;
 }
