@@ -40,8 +40,9 @@ The gate judges an **aggregate** and reports a **scalar**. Any pass hides inside
 granularity complaint against this gate is the same statement at a different level:
 
 - **This item** — subject-level vs source-file-level, for the code under test.
-- **[INFRA-072](INFRA-072-a-test-that-does-not-reach-what-it-names.md)** — file-level vs case-level,
-  for the tests doing the proving.
+- **[INFRA-072](completed/INFRA-072-a-test-that-does-not-reach-what-it-names.md)** — file-level vs
+  case-level, for the tests doing the proving. Decided 2026-08-01: per-case granularity, which
+  closes the masking half only.
 
 They should be decided together, because a fix that splits one and not the other leaves the same
 shape one level down.

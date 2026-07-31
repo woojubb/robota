@@ -3,12 +3,15 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { EXECUTION } from '../lib/spawn-call-graph.mjs';
+
 import { testExecutesHook } from '../check-regression-red-proof.mjs';
 
-// LIMITS testExecutesHook: they hold here. This floor's whole output is a message naming a hook
-// no test runs, so an approximate relation costs a false reassurance at worst — which is the
-// consequence class the relation was written against. The gate that reuses it to pick which tests
-// may SET a verdict is a different consumer, and holds the mismatch under INFRA-074.
+// LIMITS testExecutesHook: they hold here, and the third answer is judged for THIS consumer. The
+// relation now reads the call graph, so it says UNDETERMINED where the spawn target is built at
+// runtime — `guards-fail-closed` sweeps the hooks directory and runs whatever it finds. Counting
+// that as coverage would satisfy this floor for every hook at once and leave it decorative, so only
+// a resolved execution counts here, and the message says which of the two situations it found.
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
@@ -51,12 +54,12 @@ const TEST_SOURCES = readdirSync(TESTS_DIR)
  * drift, and the drift would be silent in both directions: this floor and that gate would disagree
  * about whether a hook is covered while both stayed green.
  *
- * What the shared rule claims, and does not: a hook NAMED IN PROSE is described, not run, so
- * comments are stripped before the name is looked for. It stays structural rather than exact — a
- * file that spawns one hook and names another in a string it never uses would pass. Tying a spawn
- * to its argument needs the call graph, and this is a grep-level floor by design.
+ * What the shared rule claims: it reads the call graph, so the script a spawn RECEIVES is what
+ * counts — a hook named in a comment, in prose, or in a string the file never spawns is described,
+ * not run. What it does not claim: that a path assembled at runtime can be named. That answer is
+ * UNDETERMINED and is reported separately below rather than counted either way.
  */
-function executesHook(source, hook) {
+function executionOf(source, hook) {
   return testExecutesHook(source.text, hook);
 }
 
@@ -69,15 +72,24 @@ describe('every hook is executed by a test, not merely described by one', () => 
 
   for (const hook of SHELL_HOOKS) {
     it(`${hook} is run by at least one test`, () => {
-      const runners = TEST_SOURCES.filter((source) => executesHook(source, hook)).map(
-        (s) => s.name,
-      );
+      const runners = [];
+      const unresolved = [];
+      for (const source of TEST_SOURCES) {
+        const answer = executionOf(source, hook);
+        if (answer === EXECUTION.EXECUTES) runners.push(source.name);
+        if (answer === EXECUTION.UNDETERMINED) unresolved.push(source.name);
+      }
 
       expect(
         runners.length,
         `No test executes ${hook}. A hook nobody runs is a hook nobody has checked — the shape that ` +
           'left `worktree-cwd-guard` off in every real session with ten green tests beside it. Add a ' +
-          'case that spawns it with a payload, and state which signal it depends on and who sends it.',
+          'case that spawns it with a payload, and state which signal it depends on and who sends it.' +
+          (unresolved.length > 0
+            ? `\n\n${unresolved.join(', ')} may run it through a path built at runtime, which cannot ` +
+              'be tied to this hook by reading the code. A sweep over the hooks directory is not a ' +
+              'case about this hook: it states nothing about what this one must do.'
+            : ''),
       ).toBeGreaterThan(0);
     });
   }
