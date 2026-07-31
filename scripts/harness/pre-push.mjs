@@ -17,6 +17,7 @@ import {
   formatLockfileFailureMessage,
   parsePrePushUpdates,
 } from './pre-push-updates.mjs';
+import { checkTreePrerequisites } from './tree-prerequisites.mjs';
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -181,8 +182,24 @@ function resolvePrePushMode(value) {
   return mode;
 }
 
+/**
+ * HARNESS-058: this gate runs `pnpm harness:verify` and then `pnpm cli:dev --version`, and both read
+ * build output it never produces. In a fresh worktree the smoke check died on
+ * `Cannot find module '…/packages/agent-command-workflows/node_modules/@robota-sdk/dag-core/dist/node/index.js'`
+ * — a message that reads like a broken import in the change being pushed. It is not a verdict on the
+ * change; it is an unprepared tree, and it says so now. The push is still blocked: naming the
+ * prerequisite is what changed, not whether the gate holds.
+ */
+function assertTreePrerequisites() {
+  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT);
+  if (result.ok) return;
+  process.stderr.write(result.message);
+  process.exit(1);
+}
+
 pruneAndWarnStaleWorktrees();
 assertCleanWorkingTree();
+assertTreePrerequisites();
 assertLockfileConsistency();
 
 const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);

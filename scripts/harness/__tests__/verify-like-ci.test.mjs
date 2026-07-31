@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { describeCiSource } from '../ci-mirror-map.mjs';
 import {
   annotateNotMirrored,
+  blockedByMissingBuildOutput,
   CI_STAGES,
   collectChangedFiles,
   findMissingDist,
@@ -164,6 +165,59 @@ describe('findMissingDist', () => {
   it('returns nothing when every package is built', () => {
     const root = createFixture({ 'packages/built/dist/index.js': '' });
     expect(findMissingDist(['packages/built'], undefined, root)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// unbuilt tree (HARNESS-058): a stage must not report on ground the tree lacks
+// ---------------------------------------------------------------------------
+
+describe('blockedByMissingBuildOutput', () => {
+  const consumer = { name: 'typecheck', needsBuildOutput: true };
+  const producer = { name: 'build', needsBuildOutput: false };
+
+  it('blocks a build-output stage when nothing will build and no dist exists', () => {
+    expect(
+      blockedByMissingBuildOutput(consumer, { willBuild: false, missingDist: ['packages/a'] }),
+    ).toBe(true);
+  });
+
+  it('does NOT block when this run will build — the gate produces what the stage reads', () => {
+    expect(
+      blockedByMissingBuildOutput(consumer, { willBuild: true, missingDist: ['packages/a'] }),
+    ).toBe(false);
+  });
+
+  it('does NOT block on a built tree', () => {
+    expect(blockedByMissingBuildOutput(consumer, { willBuild: false, missingDist: [] })).toBe(
+      false,
+    );
+  });
+
+  it('never blocks a stage that reads no build output — the fast tier still runs unbuilt', () => {
+    expect(
+      blockedByMissingBuildOutput(producer, { willBuild: false, missingDist: ['packages/a'] }),
+    ).toBe(false);
+    expect(
+      blockedByMissingBuildOutput(
+        { name: 'format-check', needsBuildOutput: false },
+        {
+          willBuild: false,
+          missingDist: ['packages/a'],
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it('blocks every build-output stage the real table declares, so none of them can fake a verdict', () => {
+    const consumers = CI_STAGES.filter((stage) => stage.needsBuildOutput);
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const stage of consumers) {
+      expect(
+        blockedByMissingBuildOutput(stage, { willBuild: false, missingDist: ['packages/a'] }),
+        `\`${stage.name}\` declares it reads build output but would still run on an unbuilt tree`,
+      ).toBe(true);
+    }
   });
 });
 

@@ -57,6 +57,15 @@
  * Every stage below is derived from the real definitions — `.github/workflows/ci.yml` and
  * `.lintstagedrc.json` — not from a hand-copied guess.
  *
+ * WHERE IT IS RUN (HARNESS-058). Increasingly this is a fresh `git worktree`, because that is how
+ * parallel sub-agents work, and a fresh worktree has neither `node_modules` nor `dist/`. Every stage
+ * used to report that absence as a defect in the branch: `sh: 1: tsgo: not found`, a missing-module
+ * stack trace, a doc-example "does not typecheck". Four agents in one day each proved those reds
+ * were not their own and then pushed with `--no-verify`. So this entry point refuses to produce a
+ * verdict it cannot support: `tree-prerequisites.mjs` states which prerequisite is missing and the
+ * command that satisfies it. That is a FAILURE, never a skip — see `preflight` and
+ * `blockedByMissingBuildOutput`. The fresh-worktree contract itself is written down in that module.
+ *
  * Usage:
  *   pnpm harness:verify-like-ci
  *   pnpm harness:verify-like-ci -- --base-ref origin/main
@@ -90,6 +99,13 @@ import {
   detectChangedFiles,
   listWorkspaceScopes,
 } from './shared.mjs';
+import {
+  checkTreePrerequisites,
+  findMissingDist as findMissingDistIn,
+  formatPrerequisiteFailure,
+  inspectTree,
+  listBuildablePackageDirs as listBuildablePackageDirsIn,
+} from './tree-prerequisites.mjs';
 
 export { CI_STAGES, NOT_MIRRORED };
 
@@ -148,29 +164,16 @@ export function parseGitFileList(stdout) {
 // ---------------------------------------------------------------------------
 
 /**
- * Workspace dirs that produce build output — a package whose manifest declares `build:js`
- * (the script the root `pnpm build` fans out to). Mirrors the `packages/*` +
- * `packages/dag-nodes/*` set ci.yml archives as `package-dist.tgz`.
+ * Both helpers now live in `tree-prerequisites.mjs`, which is where the prerequisite question is
+ * answered for every entry point. They are re-exported here with this file's workspace-root default
+ * so the existing call sites and tests keep one import.
  */
 export function listBuildablePackageDirs(root = WORKSPACE_ROOT) {
-  const roots = [path.join(root, 'packages'), path.join(root, 'packages', 'dag-nodes')];
-  const dirs = [];
-  for (const base of roots) {
-    if (!existsSync(base)) continue;
-    for (const entry of readdirSync(base, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name === 'node_modules') continue;
-      const manifest = path.join(base, entry.name, 'package.json');
-      if (!existsSync(manifest)) continue;
-      const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
-      if (pkg?.scripts?.['build:js']) dirs.push(path.relative(root, path.join(base, entry.name)));
-    }
-  }
-  return dirs.sort();
+  return listBuildablePackageDirsIn(root);
 }
 
-/** Buildable dirs with no `dist/` — CI restores these before the dist-dependent scans run. */
 export function findMissingDist(dirs, exists = existsSync, root = WORKSPACE_ROOT) {
-  return dirs.filter((dir) => !exists(path.join(root, dir, 'dist')));
+  return findMissingDistIn(dirs, exists, root);
 }
 
 // ---------------------------------------------------------------------------
@@ -601,6 +604,29 @@ function describeBuildReason({ distRequired, codeChanged, missingDist }) {
  * the plan predicate alone does not see. Without the widening, a `scripts/harness` branch would skip
  * the build and then drive whatever stale binary happened to be in the worktree.
  */
+/**
+ * The prerequisite gate for this entry point (HARNESS-058).
+ *
+ * Only `install` is demanded up front. `build-output` deliberately is NOT: the `build` stage
+ * produces it, and demanding it here would tell an agent to run by hand the very command the gate
+ * is about to run. What must never happen is a stage reporting a verdict on ground the tree could
+ * not provide — `blockedByMissingBuildOutput` covers the runs where `build` will not fill the gap.
+ */
+export function preflight(root = WORKSPACE_ROOT) {
+  return checkTreePrerequisites('verify-like-ci', root, ['install']);
+}
+
+/**
+ * Whether a stage would be reporting on the TREE rather than on the change.
+ *
+ * True only when the stage reads build output, this run will not produce any, and none is present.
+ * It is not a way to pass: the stage still FAILS — it fails saying which prerequisite is missing
+ * instead of emitting a missing-module stack trace that reads like a broken import in the diff.
+ */
+export function blockedByMissingBuildOutput(stage, { willBuild, missingDist }) {
+  return Boolean(stage?.needsBuildOutput) && !willBuild && missingDist.length > 0;
+}
+
 export function stageGate(name, context) {
   switch (name) {
     case 'build':
@@ -657,6 +683,15 @@ export async function main(argv = process.argv.slice(2)) {
     (stage) => stage.name,
   );
 
+  // Before anything is measured: a tree that was never installed cannot produce a verdict on a
+  // change, and every stage's failure would be about the tree instead (HARNESS-058).
+  const prerequisites = preflight();
+  if (!prerequisites.ok) {
+    process.stderr.write(prerequisites.message);
+    process.exitCode = 1;
+    return;
+  }
+
   let context;
   try {
     context = await resolveRunContext(options.baseRef);
@@ -675,8 +710,28 @@ export async function main(argv = process.argv.slice(2)) {
       `${context.codeChanged ? 'CODE' : 'docs-only'}, ${context.distRequired ? 'build output required' : 'no build output required'}\n`,
   );
 
+  // `--only typecheck` on an unbuilt tree deselects the stage that would have produced the dist it
+  // reads, so the guard below needs to know whether THIS run will build.
+  const willBuild =
+    selected.some((stage) => stage.name === 'build') && stageGate('build', context).run;
+
   const results = [];
   for (const stage of selected) {
+    if (blockedByMissingBuildOutput(stage, { willBuild, missingDist: context.missingDist })) {
+      process.stdout.write(`\n===== ${stage.name} =====\n`);
+      process.stderr.write(
+        formatPrerequisiteFailure(
+          `verify-like-ci stage \`${stage.name}\``,
+          inspectTree(WORKSPACE_ROOT, ['build-output']),
+        ),
+      );
+      results.push({
+        name: stage.name,
+        status: 'fail',
+        note: 'unbuilt tree — this stage measured nothing; run `pnpm build`',
+      });
+      continue;
+    }
     const gate = stageGate(stage.name, context);
     if (!gate.run) {
       process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);

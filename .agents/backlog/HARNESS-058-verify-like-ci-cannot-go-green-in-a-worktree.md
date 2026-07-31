@@ -33,6 +33,63 @@ Three separate agents hit the same wall this session and each resolved it differ
 recorded them as real. The verification story for a fresh worktree is undefined, so every agent
 invents one. That is the defect; the stage order is only its most visible instance.
 
+## The fresh-worktree contract
+
+This is the answer that used to live in whoever last worked it out. The **executable** copy is
+`scripts/harness/tree-prerequisites.mjs` — it is what every entry point prints when the contract is
+unmet, so the contract cannot drift away from what the gate enforces. This section is its prose
+statement.
+
+### What a fresh worktree owes, before any verification
+
+| #   | Prerequisite   | Command                          | Who needs it                                          |
+| --- | -------------- | -------------------------------- | ----------------------------------------------------- |
+| 1   | `install`      | `pnpm install --frozen-lockfile` | every gate — they all shell out to workspace binaries |
+| 2   | `build-output` | `pnpm build`                     | every stage declaring `needsBuildOutput: true`        |
+
+Both must be run **inside the worktree itself**. Measured cost of step 1 on a warm pnpm store: ~3s.
+
+### Why "the parent clone has them" is not an answer
+
+A `git worktree` shares the object database, not the install. A pnpm workspace places a
+`node_modules` in **every package**, so there is nothing for a worktree to borrow.
+
+The two worktree layouts fail in **opposite directions**, which is why neither one ever taught
+anybody the contract:
+
+| Layout                                                  | Symptom without an install                          | Why it misleads                                                                                          |
+| ------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Sibling** (outside the repo, e.g. `/tmp/wt`)          | nothing starts: `Could not resolve 'vitest/config'` | looks catastrophic, so it gets diagnosed as a broken worktree rather than a missing step                 |
+| **Nested** (inside the repo, e.g. `.claude/worktrees/`) | gets much further, then `sh: 1: tsgo: not found`    | Node's resolver walks **UP** into the parent clone's `node_modules`, so imports work and binaries do not |
+
+The nested case is the dangerous one: it produces a _partial_ success whose failures land deep in a
+stage and read as defects in the change under test.
+
+### The distinction that must appear in the output
+
+**Failed because the code is wrong** vs **failed because this tree was never prepared.** The second
+is not a verdict on the change. Every entry point now refuses to produce one it cannot support, and
+says which prerequisite is missing and the command that satisfies it. It is a **failure**, never a
+skip — the gate still blocks.
+
+### Where it is enforced
+
+| Entry point                             | Requires                   | Behaviour when unmet                                                      |
+| --------------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
+| `pnpm harness:pre-push`                 | `install` + `build-output` | blocks the push with the naming message, before any check runs            |
+| `pnpm harness:verify-like-ci`           | `install`                  | refuses to run any stage; `build-output` is left to its own `build` stage |
+| any `verify-like-ci` build-output stage | `build-output`             | that stage FAILS naming the prerequisite, instead of a downstream error   |
+
+`verify-change.mjs` (`pnpm harness:verify`) deliberately does **not** assert the contract itself: its
+root is `process.cwd()` and it is legitimately run against synthetic workspace fixtures with no
+install. It is reached as a gate only through the two entry points above, which own a real
+repository root.
+
+`ci-mirror-map.mjs` carries a `needsBuildOutput` declaration per stage, and
+`__tests__/ci-mirror-map.test.mjs` pins the declaration to the order: a stage that reads build
+output may not be listed before `build`, and a stage that declares nothing fails the test rather
+than silently sorting as "needs nothing".
+
 ## Proposed direction
 
 - Order stages so a prerequisite runs before what needs it, or make the dependent stage state its
