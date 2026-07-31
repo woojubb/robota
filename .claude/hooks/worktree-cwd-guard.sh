@@ -60,7 +60,12 @@ fi
 # Read off the MASKED command, not the raw one. Off the raw text, a commit message that merely
 # NAMED this token switched the guard off for a `git reset --hard` on the main checkout — the attack
 # `branch-guard` documents beside its own overrides and fixed there, never ported here.
-if printf '%s' "$(hook_verb_scan "$COMMAND")" | grep -qE '(^|[[:space:];&])WORKTREE_CWD_GUARD_ALLOW_MAIN=1([[:space:]]|$)'; then
+# Positional, not lexical. Masking alone was not enough: an UNQUOTED mention is a real word in the
+# command, so the loose token rule honoured it wherever it sat — `git commit -m TOKEN && git reset
+# --hard` and `echo TOKEN ; git reset --hard` both disarmed the guard. An override is something you
+# GIVE a command, so it must PREFIX one, which is exactly what this hook's own refusal message has
+# always told the operator to do. Same rule `merge-gate` and `pre-push-check`'s ACK already use.
+if printf '%s' "$(hook_verb_scan "$COMMAND")" | grep -qE '(^|[;&|]|&&)[[:space:]]*([^[:space:]]+=[^[:space:]]+[[:space:]]+)*WORKTREE_CWD_GUARD_ALLOW_MAIN=1[[:space:]]+([^[:space:]]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]'; then
   exit 0
 fi
 

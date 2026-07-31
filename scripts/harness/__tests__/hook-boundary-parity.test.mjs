@@ -103,9 +103,30 @@ describe('an override must be given, not merely mentioned', () => {
     ).toBe(2);
   });
 
-  it('still honours the override when it is actually given', () => {
-    const verdict = worktreeRun('WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git reset --hard origin/develop');
+  it('refuses when the token is merely a word in the command', () => {
+    // The shape that actually gets through. A quoted mention is masked and already refused; an
+    // UNQUOTED one is a real word in the command, and the loose token rule honoured it wherever it
+    // appeared. Both of these were allowed:
+    //   git commit -m WORKTREE_CWD_GUARD_ALLOW_MAIN=1 && git reset --hard
+    //   echo WORKTREE_CWD_GUARD_ALLOW_MAIN=1 ; git reset --hard
+    // The fix is positional, not lexical: an override is something you GIVE the command, so it must
+    // prefix it — which is what the hook's own refusal message has always told the operator to do.
+    for (const command of [
+      'git commit -m WORKTREE_CWD_GUARD_ALLOW_MAIN=1 && git reset --hard',
+      'echo WORKTREE_CWD_GUARD_ALLOW_MAIN=1 ; git reset --hard',
+    ]) {
+      expect(worktreeRun(command).status, `a bare mention disarmed the guard: ${command}`).toBe(2);
+    }
+  });
 
-    expect(verdict.status, verdict.output).toBe(0);
+  it('still honours the override when it is actually given', () => {
+    // Including behind another assignment, which is how a real invocation often looks.
+    for (const command of [
+      'WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git reset --hard origin/develop',
+      'FOO=1 WORKTREE_CWD_GUARD_ALLOW_MAIN=1 git reset --hard origin/develop',
+    ]) {
+      const verdict = worktreeRun(command);
+      expect(verdict.status, `${command}: ${verdict.output}`).toBe(0);
+    }
   });
 });
