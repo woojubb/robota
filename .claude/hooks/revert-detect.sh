@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Stop hook helper: collect rework/revert signals from transcript and git history.
+# invoked-by: eval-log-stop.sh
 #
 # LESSON-010: this hook fires on EVERY session Stop and re-scans the whole transcript, so a
 # naive append re-emits the same signal once per Stop (296k duplicate events by 2026-07).

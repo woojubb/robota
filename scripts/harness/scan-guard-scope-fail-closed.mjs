@@ -345,6 +345,16 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing (the missing MAP was already an error — the missing SUBJECT was not)',
   },
   {
+    // INFRA-078. MEASURED on a bare root, not assumed: throws `.claude/hooks, .claude/settings.json
+    // missing`. Both sides are named because either alone is unjudgeable — a hooks directory with
+    // no settings file has no registrations to check, and settings with no hooks directory has no
+    // files to check them against.
+    file: 'scan-hook-registration.mjs',
+    finder: 'collectHookRegistrationFindings',
+    tree: '.claude/hooks and .claude/settings.json',
+    why: 'it compares the hook files against the matchers that call them; over a root with neither, "every hook is registered" is a claim about no hooks — which is the exact green this scan was written to end one level down',
+  },
+  {
     file: 'scan-spec-research.mjs',
     finder: 'collectSpecResearchFindings',
     tree: '.agents/spec-docs',

@@ -101,6 +101,13 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
   },
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
+  {
+    // INFRA-078 — `hooks-have-execution-coverage` proves a hook CAN run; nothing read the file that
+    // decides whether the deployment CALLS it, so a hook registered to no event, and a matcher
+    // naming a deleted file, both stayed green.
+    name: 'hook-registration',
+    command: ['node', 'scripts/harness/scan-hook-registration.mjs'],
+  },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   {
     name: 'review-token-supply',
