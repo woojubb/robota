@@ -50,23 +50,33 @@ COMMAND_EXEC=$(hook_executable_part "$COMMAND")
 # because branch names and `-C` paths are routinely quoted.
 COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_DELETE=1
-fi
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
-fi
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_BADNAME=1
-fi
+# One reading for all five, and it is POSITIONAL. Read as a token anywhere, an unquoted mention
+# disarmed the guard — `git commit -m X BRANCH_GUARD_ALLOW_DELETE=1 && git push origin --delete
+# develop` — the same shape fixed in worktree-cwd-guard and not ported here because these were
+# documented as loose. Measured before narrowing them: every documented usage is already the prefix
+# form, and git-branch.md says "inline in the same command". There was no loose usage to break.
+#
+# An override is given TO a command, so it must prefix one. `ALLOW=1 git …`, optionally behind other
+# assignments, and nowhere else. (INFRA-076)
+override_given() {
+  printf '%s' "$COMMAND_VERBS" |
+    grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$1=1[[:space:]]+([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*(git|gh)[[:space:]]"
+}
+
+override_given BRANCH_GUARD_ALLOW_DELETE && BRANCH_GUARD_ALLOW_DELETE=1
+override_given BRANCH_GUARD_ALLOW_OPEN_BRANCHES && BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
+override_given BRANCH_GUARD_ALLOW_BADNAME && BRANCH_GUARD_ALLOW_BADNAME=1
 # The base override belongs in this block for the reason the paragraph above gives: an inline
 # `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
 # `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
 # for it injected the variable through the hook's own environment — hiding the very distinction this
 # file spends nine lines explaining.
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BASE=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_BASE=1
-fi
+override_given BRANCH_GUARD_ALLOW_BASE && BRANCH_GUARD_ALLOW_BASE=1
+# MAIN_MERGE was the one still read ONLY from this process's environment, which means the form
+# git-branch.md documents — `BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git push …` — could never work, for the
+# two most dangerous operations the guard covers. An operator following the printed instruction was
+# refused. It reads the command string now, by the same positional rule as the rest.
+override_given BRANCH_GUARD_ALLOW_MAIN_MERGE && BRANCH_GUARD_ALLOW_MAIN_MERGE=1
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),

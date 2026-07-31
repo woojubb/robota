@@ -82,6 +82,45 @@ describe('a push is a push to every guard that reads the command', () => {
   });
 });
 
+describe('every branch-guard override is given, not merely mentioned', () => {
+  // INFRA-076. The four `BRANCH_GUARD_ALLOW_*` tokens were read as a token ANYWHERE in the masked
+  // command, so an unquoted mention disarmed them — the shape fixed in the sibling guard and never
+  // ported here, because these were DOCUMENTED as loose.
+  //
+  // Measured before changing them: every documented usage is already the prefix form, and
+  // `git-branch.md` says "inline in the same command". There was no loose usage to break.
+  const OVERRIDES = [
+    // On a feature branch: the protected-branch push rule would otherwise fire first and the case
+    // would prove nothing about the delete override.
+    {
+      token: 'BRANCH_GUARD_ALLOW_DELETE',
+      guarded: 'git push origin --delete feat/gone',
+      on: 'feat/probe',
+    },
+    { token: 'BRANCH_GUARD_ALLOW_MAIN_MERGE', guarded: 'git merge develop', on: 'main' },
+    { token: 'BRANCH_GUARD_ALLOW_BADNAME', guarded: 'git checkout -b BAD_NAME', on: 'develop' },
+  ];
+
+  for (const { token, guarded, on } of OVERRIDES) {
+    it(`${token} fires, resists a mention, and yields to the prefix`, () => {
+      // Three ways in one case, so the fixture proves itself. Asserting only "the mention was
+      // blocked" passes whenever the guard blocks for ANY reason — including a fixture that never
+      // reached the check at all, which is the accidental-green shape this suite exists against.
+      const dir = scratchRepo(on);
+      const bare = run('branch-guard.sh', guarded, dir);
+      const mention = run('branch-guard.sh', `echo ${token}=1 ; ${guarded}`, dir);
+      const prefix = run('branch-guard.sh', `${token}=1 ${guarded}`, dir);
+
+      expect(
+        bare.status,
+        `the guard never fired here, so this case proves nothing: ${bare.output}`,
+      ).not.toBe(0);
+      expect(mention.status, `a bare mention of ${token} disarmed the guard`).not.toBe(0);
+      expect(prefix.status, `the documented prefix form was refused: ${prefix.output}`).toBe(0);
+    });
+  }
+});
+
 describe('an override must be given, not merely mentioned', () => {
   function worktreeRun(command) {
     const dir = scratchRepo('feat/probe');
