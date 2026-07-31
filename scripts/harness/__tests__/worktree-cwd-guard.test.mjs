@@ -7,7 +7,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // The hook under test — a PreToolUse Bash guard that blocks destructive git commands when a
 // worktree-assigned subagent's cwd has silently fallen back to the MAIN checkout (HARNESS-043).
-const HOOK = path.resolve(import.meta.dirname, '../../../.claude/hooks/worktree-cwd-guard.sh');
+import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
+
+// Not the checkout's own copy: this hook reads its OWN directory to decide whether the session is
+// a worktree one, so spawning it from wherever the suite happens to run makes that input
+// uncontrolled and the main-clone fixtures below unreachable. See the helper.
+const HOOK = path.join(hooksOutsideAWorktree(), 'worktree-cwd-guard.sh');
 
 /** git init a repo at `dir` (created if needed) with an initial commit so rev-parse resolves. */
 function initRepo(dir) {
@@ -19,7 +24,13 @@ function initRepo(dir) {
     });
   git('init', '-q');
   execFileSync('git', ['-C', dir, 'commit', '--allow-empty', '-q', '-m', 'init'], {
-    env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' },
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 't',
+      GIT_AUTHOR_EMAIL: 't@t',
+      GIT_COMMITTER_NAME: 't',
+      GIT_COMMITTER_EMAIL: 't@t',
+    },
     stdio: 'pipe',
   });
   return dir;

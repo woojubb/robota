@@ -6,7 +6,24 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
+
 const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
+
+/**
+ * Hooks whose OWN LOCATION is an input to their decision, and which must therefore be spawned
+ * from a copy outside `.claude/worktrees/` for a main-clone fixture to mean anything.
+ *
+ * Only these. Redirecting every hook was tried first and measured: `pre-push-check.sh` resolves
+ * the review recorder relative to itself, so from a copy it refused ordinary work with `cannot
+ * check the review record (node or the recorder is missing)` — a guard turned noisy by the very
+ * change meant to stop guards being noisy. The copy is hermetic for the session-identity input
+ * and NOT for sibling-tool resolution, so it is applied exactly where the first matters.
+ */
+const LOCATION_SENSITIVE = new Set(['worktree-cwd-guard.sh']);
+const MAIN_CLONE_HOOKS = hooksOutsideAWorktree();
+const hookPath = (hook) =>
+  path.join(LOCATION_SENSITIVE.has(hook) ? MAIN_CLONE_HOOKS : HOOKS_DIR, hook);
 
 /**
  * A guard that fires on a correct, desirable state is a defect of the same severity as one that
@@ -67,9 +84,8 @@ function repoWithOrigin(branch) {
 }
 
 function runHook(hook, { command, cwd, env = {}, payload }) {
-  const input =
-    payload ?? JSON.stringify({ tool_name: 'Bash', cwd, tool_input: { command } });
-  const result = spawnSync('bash', [path.join(HOOKS_DIR, hook)], {
+  const input = payload ?? JSON.stringify({ tool_name: 'Bash', cwd, tool_input: { command } });
+  const result = spawnSync('bash', [hookPath(hook)], {
     input,
     cwd,
     encoding: 'utf8',
