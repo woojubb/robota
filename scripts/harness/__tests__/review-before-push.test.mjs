@@ -531,6 +531,24 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(recordIn(dir, ['--merge-blocked']).status, 'a contained change was refused').toBe(0);
   });
 
+  it('a detached HEAD has no record to consult, which is not a withdrawal', () => {
+    // Measured in CI, which local runs could not see: `actions/checkout` leaves a detached HEAD for
+    // a pull request, and the recorder refuses one because a record is keyed to a branch. The merge
+    // gate read that refusal as "this change was withdrawn" and blocked four passing cases.
+    //
+    // The two states a guard must never conflate, in the smallest possible form: "no record to
+    // consult" is not "recorded as withdrawn".
+    const dir = repoWithBacklog([]);
+    spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
+
+    const verdict = recordIn(dir, ['--merge-blocked']);
+
+    expect(
+      verdict.status ?? 1,
+      `a detached HEAD reported itself withdrawn: ${verdict.output}`,
+    ).toBe(0);
+  });
+
   it('refuses a flag it does not understand instead of ignoring it', () => {
     // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
     // parser skipped anything it did not recognise, so every note passed that way was dropped and

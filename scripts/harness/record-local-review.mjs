@@ -247,6 +247,21 @@ function main() {
   const branch = git(['branch', '--show-current'], root);
   const headSha = git(['rev-parse', 'HEAD'], root);
 
+  // Asked BEFORE the detached-HEAD refusal below, deliberately. `actions/checkout` leaves a
+  // detached HEAD for a pull request, and reading that refusal as an answer made the merge gate
+  // treat "no record to consult" as "recorded as withdrawn" — it blocked four passing cases in CI
+  // that every local run passed, because a local run is on a branch. The two states a guard must
+  // never conflate, in the smallest possible form.
+  if (args.mergeBlocked) {
+    if (!branch) process.exit(0);
+    const reason = mergeBlockReason(branch, headSha, recordDirFor(root));
+    if (reason) {
+      console.error(`record-local-review: ${reason}`);
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+
   // A record is keyed by branch, so a detached HEAD has no key: every detached invocation would
   // share `.agents/local-reviews/.json` and satisfy the gate for every other. `pre-push-check` had
   // this guard and this file did not, which is exactly the split this file's docstring says it
@@ -257,15 +272,6 @@ function main() {
     );
     console.error('Check out the branch this commit belongs to and run it again.');
     process.exit(1);
-  }
-
-  if (args.mergeBlocked) {
-    const reason = mergeBlockReason(branch, headSha, recordDirFor(root));
-    if (reason) {
-      console.error(`record-local-review: ${reason}`);
-      process.exit(1);
-    }
-    process.exit(0);
   }
 
   if (args.show) {
