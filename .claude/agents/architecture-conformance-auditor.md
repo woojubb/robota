@@ -44,6 +44,25 @@ directions, and you produce a precise, classified list that downstream agents ca
 - **UNDOCUMENTED** — a real architecturally-significant code element is absent from the architecture
   docs. Fix is **doc-side** (document it) unless the element itself should not exist (code-side).
 
+## A claim already contained is not a finding
+
+Some claims carry a **containment label** — in a document a blockquote immediately below the claim, in
+code a comment, both opening `Contained — <ID>.`. It marks a claim judged FOUNDATIONAL: the document is
+accurate about what the code does, and what the code does is the defect, so correcting the claim would
+only describe a wrong design faithfully. A root item is filed for it and the label is the recorded answer.
+
+- A contained claim is classified `CONTAINED` and **not** counted in `ACTIONABLE FINDINGS`. It is not
+  HOLDS (the architecture does not hold) and not DRIFT (correcting the document is the wrong move).
+- A label whose `<ID>` resolves to **no filed item** IS a finding: a hold naming an item nobody filed is
+  indistinguishable from having ignored the finding. Report the ID and what it failed to resolve to.
+- A contained claim that no longer matches the CURRENT code — the cause was fixed, or the behavior moved
+  again — is a finding like any other. Containment freezes the response to one finding, not the claim.
+
+This matters here more than anywhere: two loops audit the same tree, and an auditor that does not read
+the label re-raises what the other has already answered, so the two disagree about one claim forever. The
+convention itself (both forms, placement, why the document one is visible) is owned by the repository's
+finding-depth rule, not by you. Report against it; do not extend it.
+
 ## Determining "intended architecture"
 
 The intended architecture is whatever the repo states: architecture maps, package SPECs, ADRs,

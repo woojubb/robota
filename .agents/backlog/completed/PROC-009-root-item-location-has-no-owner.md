@@ -1,11 +1,12 @@
 ---
 title: 'PROC-009: nothing owns WHERE a root item lives, so the floors that verify one resolve half the space'
-status: todo
+status: done
 priority: medium
 urgency: soon
 type: PROC
 area: scripts/harness
 created: 2026-08-01
+completed: 2026-08-01
 depends_on: []
 issue: https://github.com/woojubb/robota/issues/1569
 ---
@@ -51,3 +52,30 @@ verbatim, so both floors are wrong in exactly the same way and one change correc
   - the containment note in `.agents/skills/documentation-refresh/SKILL.md` step 4, which tells an
     operator to bypass `backlog-writer` and write the item under `.agents/backlog/` "until PROC-009
     lands". That sentence becomes actively wrong on the day this item is fixed.
+
+## Resolution (2026-08-01)
+
+The owner is [`finding-depth.md`](../rules/finding-depth.md) § "Where a root item lives", and the answer
+it declares is the backlog tree — `.agents/backlog/` and `.agents/backlog/completed/`.
+
+**Done-when #2 is answered the other way, deliberately.** It asked that an item filed by `backlog-writer`
+satisfy `--foundational <ID>`; the location that got the owner is the one `backlog-writer` does NOT write
+to, so the routing moved instead of the reader. Three reasons, none of them the reader's convenience:
+
+- A spec-doc is a _plan_ under a gate pipeline — prior art, alternatives, a decision, TC-numbered
+  criteria, a test plan. At the moment a foundational finding is raised none of that is knowable, so a
+  filing on that path is either a blocked review round or a draft of placeholders that GATE-WRITE fails.
+- Widening the reader would make `.agents/spec-docs/rejected/` a place a root item can live. "A root
+  item exists" would then be true of a plan somebody declined.
+- The two trees already pair by design (111 shared IDs): the backlog item is the problem, the spec-doc
+  is the plan it later gets. Filing the problem where problems live keeps that pairing rather than
+  collapsing it.
+
+Filing is the routing orchestrator's, not a new worker's — the content is the guardian's finding plus a
+location, and `enforcement-architecture.md` says a tier added for reliability buys none.
+
+Both containment sites are gone: the comment in `depth-verdict-reachable.test.mjs` and the note in
+`documentation-refresh` step 4. The floor is two cases in that same file — the reader resolves exactly
+what the rule declares (a probe tree, compared for equality in both directions), and no skill or agent
+routes a filing anywhere else (a named filer resolves through its own declared output, which is the form
+the defect actually took).

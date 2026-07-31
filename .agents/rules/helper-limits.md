@@ -28,7 +28,10 @@ Three outcomes, and only three:
 1. **They hold** — say why, at the call site. One line.
 2. **They do not hold** — narrow the helper, or use a different one.
 3. **They do not hold and the mismatch is being held** — a labelled containment naming a root item,
-   per [finding-depth.md](finding-depth.md). Never an unlabelled hold.
+   per [finding-depth.md](finding-depth.md). Never an unlabelled hold. It opens the way every code
+   containment does — `Contained — <ID>.` — because the floor that resolves those IDs reads the
+   opening, not the surrounding line: a containment spelled differently because it happens to sit
+   inside a `LIMITS` acknowledgement is one the reader never sees.
 
 The point is not the comment. It is that the question is ASKED where the consequences are known,
 which is the only place it can be answered. The author of the helper could not have answered it:
