@@ -102,11 +102,16 @@ export function findMissingDist(dirs, exists = existsSync, root) {
  * In a linked worktree `.git` is a FILE containing `gitdir: <parent>/.git/worktrees/<name>`; in the
  * main clone it is a directory. Naming the parent clone matters because the whole misdiagnosis is
  * "but the dependencies are right there" — they are, one directory up, and that is not this tree.
+ *
+ * ONE stat, not `exists()` then `stat()`: a check-then-use pair on the filesystem is a race (CodeQL
+ * js/file-system-race), and `throwIfNoEntry: false` answers both questions — present? directory? —
+ * from a single syscall.
  */
-export function describeTree(root, { exists = existsSync, read = readFileSync } = {}) {
+export function describeTree(root, { read = readFileSync } = {}) {
   const dotGit = path.join(root, '.git');
-  if (!exists(dotGit)) return { kind: 'unknown', root };
-  if (statSync(dotGit).isDirectory()) return { kind: 'clone', root };
+  const stats = statSync(dotGit, { throwIfNoEntry: false });
+  if (!stats) return { kind: 'unknown', root };
+  if (stats.isDirectory()) return { kind: 'clone', root };
   const gitdir = /gitdir:\s*(.+)/.exec(read(dotGit, 'utf8'))?.[1]?.trim();
   const parent = gitdir ? gitdir.replace(/[/\\]\.git[/\\]worktrees[/\\].*$/, '') : undefined;
   return {
