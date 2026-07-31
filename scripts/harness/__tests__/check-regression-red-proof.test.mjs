@@ -7,6 +7,7 @@ import {
   classifyChanges,
   classifyVitestOutcome,
   decidePairVerdict,
+  defaultReverseApply,
   isDefectFixRange,
   isSourceFile,
   isTestFile,
@@ -17,19 +18,71 @@ import {
   relativeSpecifiers,
   resolveRelativeImport,
   runRegressionRedProof,
+  testExecutesHook,
 } from '../check-regression-red-proof.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
 
 describe('HARNESS-041 file classification', () => {
-  it('pkgOf extracts the package/app root for src files only', () => {
+  it('pkgOf extracts the package/app root for src files', () => {
     expect(pkgOf('packages/agent-transport-tui/src/CjkTextInput.tsx')).toBe(
       'packages/agent-transport-tui',
     );
     expect(pkgOf('apps/agent-app/src/main.ts')).toBe('apps/agent-app');
     expect(pkgOf('packages/foo/docs/SPEC.md')).toBeNull();
-    expect(pkgOf('scripts/harness/x.mjs')).toBeNull();
+  });
+
+  it('pkgOf also covers the harness and the hooks (INFRA-071)', () => {
+    // This assertion used to read `scripts/harness/x.mjs` → null, which pinned the defect as a
+    // contract: the gate could not see the layer holding every scan, every floor and every guard.
+    // Measured over PRs #1525-#1530 — twelve CI runs, zero verdicts — while human review caught
+    // four accidental-green tests in that same window, all under `scripts/harness/__tests__/`.
+    expect(pkgOf('scripts/harness/x.mjs')).toBe('scripts/harness');
+    expect(pkgOf('scripts/harness/__tests__/x.test.mjs')).toBe('scripts/harness');
+    expect(pkgOf('.claude/hooks/branch-guard.sh')).toBe('.claude/hooks');
+    expect(pkgOf('.claude/hooks/lib/command-scan.sh')).toBe('.claude/hooks');
+    // Not every file under `.claude/` is a guard; only the shell hooks are red-provable this way.
+    expect(pkgOf('.claude/settings.json')).toBeNull();
+  });
+
+  it('pairs a changed hook with the harness test that runs it', () => {
+    // A hook's tests live in the harness suite, not beside it, so grouping strictly by path put
+    // them in different subjects and they could never pair. Adoption is what makes the pair exist.
+    const byPkg = classifyChanges([
+      '.claude/hooks/branch-guard.sh',
+      'scripts/harness/__tests__/branch-base-at-creation.test.mjs',
+    ]);
+    const hooks = byPkg.get('.claude/hooks');
+
+    expect(hooks.source).toContain('.claude/hooks/branch-guard.sh');
+    expect(hooks.test, 'the hook found no test to red-prove it against').toContain(
+      'scripts/harness/__tests__/branch-base-at-creation.test.mjs',
+    );
+  });
+
+  it('adopts nothing when no hook changed', () => {
+    // The adoption must not invent a subject: a harness-only change stays a harness change.
+    const byPkg = classifyChanges([
+      'scripts/harness/x.mjs',
+      'scripts/harness/__tests__/x.test.mjs',
+    ]);
+
+    expect(byPkg.has('.claude/hooks')).toBe(false);
+    expect(byPkg.get('scripts/harness').source).toEqual(['scripts/harness/x.mjs']);
+  });
+
+  it('testExecutesHook counts a spawn, not a mention', () => {
+    // The relation that stands in for the import graph when the source is a shell script. A hook
+    // named in a COMMENT is described, not run — the distinction this gate exists to make, and one
+    // an earlier version of this same rule got wrong in the coverage floor beside it.
+    const spawns = "run('branch-guard.sh');\nspawnSync('bash', [hook]);";
+    const mentions = "// branch-guard.sh is discussed here\nspawnSync('bash', [other]);";
+    const noSpawn = "const p = 'branch-guard.sh';";
+
+    expect(testExecutesHook(spawns, '.claude/hooks/branch-guard.sh')).toBe(true);
+    expect(testExecutesHook(mentions, '.claude/hooks/branch-guard.sh')).toBe(false);
+    expect(testExecutesHook(noSpawn, '.claude/hooks/branch-guard.sh')).toBe(false);
   });
 
   it('isTestFile / isSourceFile split correctly', () => {
@@ -305,6 +358,80 @@ describe('HARNESS-041 orchestrator fixtures', () => {
       baseIo({ changedFiles: ['packages/x/src/target.ts'] }), // source only
     );
     expect(verdict).toBe(VERDICT.SKIPPED_NO_PAIR);
+  });
+
+  // ── The hook subject, end to end through the orchestrator (INFRA-071) ────────────────────────
+  //
+  // A hook is never in a module graph, so before this the C3 check answered "not imported" for
+  // every hook pair and the gate returned INCONCLUSIVE — a SKIP wearing another name. These two
+  // fixtures pin both halves of the relation that replaces it.
+  function hookIo(overrides = {}) {
+    const testFile = 'scripts/harness/__tests__/some-hook.test.mjs';
+    const hook = '.claude/hooks/some-hook.sh';
+    return baseIo({
+      changedFiles: [hook, testFile],
+      readText: () => `spawnSync('bash', [path.join(HOOKS_DIR, 'some-hook.sh')]);`,
+      fileExists: () => true,
+      ...overrides,
+    });
+  }
+
+  it('hook pair: the test spawns it and still passes reversed → ACCIDENTAL_GREEN', async () => {
+    const { verdict, decisions } = await runRegressionRedProof(
+      hookIo({
+        runVitest: () => ({
+          testResults: [
+            {
+              name: abs('scripts/harness/__tests__/some-hook.test.mjs'),
+              assertionResults: [{ status: 'passed' }],
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(decisions[0].pkg).toBe('.claude/hooks');
+    expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
+  });
+
+  it('hook pair: a test that only NAMES the hook never mutates the tree', async () => {
+    // The other half. Reversing a hook a test does not run would blame it for a failure it had no
+    // part in, so the guard has to hold — and it has to hold without touching the working tree.
+    let mutated = false;
+    const { verdict, decisions } = await runRegressionRedProof(
+      hookIo({
+        readText: () => `// some-hook.sh is described here, and run nowhere\nexpect(1).toBe(1);`,
+        reverseApply: () => {
+          mutated = true;
+        },
+      }),
+    );
+
+    expect(verdict).toBe(VERDICT.INCONCLUSIVE);
+    expect(decisions[0].importsReversedFile).toBe(false);
+    expect(mutated).toBe(false);
+  });
+
+  it('hands git a byte-exact patch, final newline included', () => {
+    // The defect that made every verdict impossible. The diff was read through the trimming helper,
+    // so the patch reached `git apply -R` without its final newline and git rejected it as corrupt —
+    // "patch broke at line 60". The gate never got past this line, which is why twelve CI runs
+    // produced zero verdicts and nobody could tell a clean examination from no examination at all.
+    const diff = 'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n';
+    let received = null;
+    defaultReverseApply(
+      'BASE',
+      ['x'],
+      () => diff,
+      (_cmd, _args, opts) => {
+        received = opts.input;
+      },
+    );
+
+    expect(received, 'the patch was altered on its way to git').toBe(diff);
+    expect(received.endsWith('\n'), 'the final newline was stripped — git calls that corrupt').toBe(
+      true,
+    );
   });
 
   it('restores the tree even when vitest throws', async () => {

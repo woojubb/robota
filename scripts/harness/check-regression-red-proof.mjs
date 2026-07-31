@@ -35,10 +35,25 @@ export const VERDICT = Object.freeze({
 
 // ── Pure: file classification ─────────────────────────────────────────────────────────────────────
 
-/** Package/app root key for a repo-relative path, or null if not under a package/app `src`. */
+/** The subject whose tests live in the harness suite rather than beside it. */
+export const HOOK_SUBJECT = '.claude/hooks';
+/** The harness itself — scans, floors and their tests. */
+export const HARNESS_SUBJECT = 'scripts/harness';
+
+/**
+ * The subject a repo-relative path belongs to, or null when nothing red-proves it.
+ *
+ * It matched `packages|apps/*​/src/` and nothing else, which made the gate blind to every guard in
+ * the repository. Measured over PRs #1525–#1530: twelve CI runs, zero verdicts, nine of them
+ * `no same-package pair` — while human review caught four accidental-green tests in that same
+ * window, all of them under `scripts/harness/__tests__/` (INFRA-071).
+ */
 export function pkgOf(filePath) {
   const m = filePath.match(/^((?:packages|apps)\/[^/]+)\/src\//);
-  return m ? m[1] : null;
+  if (m) return m[1];
+  if (filePath.startsWith(`${HARNESS_SUBJECT}/`)) return HARNESS_SUBJECT;
+  if (/^\.claude\/hooks\/.*\.sh$/.test(filePath)) return HOOK_SUBJECT;
+  return null;
 }
 
 export function isTestFile(filePath) {
@@ -63,7 +78,34 @@ export function classifyChanges(changedFiles) {
     if (isTestFile(f)) byPkg.get(pkg).test.push(f);
     else byPkg.get(pkg).source.push(f);
   }
+
+  // A hook's tests do not live beside it — they live in the harness suite, because that is where a
+  // test that SPAWNS a shell script belongs. Grouping strictly by path therefore put a changed hook
+  // and the test that runs it in different subjects, and they could never form a pair. The harness
+  // tests are adopted as candidates here; whether any of them actually exercises the changed hook is
+  // the relation check's job, and an unrelated one yields INCONCLUSIVE rather than a false verdict.
+  const hooks = byPkg.get(HOOK_SUBJECT);
+  const harness = byPkg.get(HARNESS_SUBJECT);
+  if (hooks?.source.length && harness?.test.length) {
+    hooks.test = [...new Set([...hooks.test, ...harness.test])];
+  }
   return byPkg;
+}
+
+/**
+ * Does this test EXECUTE this hook? The relation that stands in for the import graph when the
+ * changed source is a shell script, which is never in one.
+ *
+ * Comments are stripped first: a hook named only in prose is described, not run — the
+ * described-but-not-reached distinction this gate exists to make.
+ */
+export function testExecutesHook(testText, hookPath) {
+  const base = hookPath.split('/').pop();
+  const withoutComments = String(testText ?? '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  if (!withoutComments.includes(base)) return false;
+  return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(testText);
 }
 
 /** Packages that changed BOTH source and test — the only ones this v1 can red-prove. */
@@ -224,7 +266,28 @@ export function reachableRelativeGraph(
 // ── Impure orchestrator ─────────────────────────────────────────────────────────────────────────────
 
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts }).trim();
+  return gitRaw(args, opts).trim();
+}
+
+/** Byte-exact git output. Anything fed back to git (a patch) must come through here, not `git`. */
+function gitRaw(args, opts = {}) {
+  return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts });
+}
+
+/**
+ * Reverse the range's changes to `srcPaths` — the mutation the whole gate is built around.
+ *
+ * The patch must be BYTE-EXACT. `git()` trims, and a patch missing its final newline is one
+ * `git apply` rejects as corrupt — so every reverse-apply threw, and the gate reported nothing but
+ * SKIPs and orchestration errors for its entire life (twelve CI runs, zero verdicts). Nothing
+ * caught it because reaching this line requires a qualifying pair, and until INFRA-071 widened
+ * `pkgOf` the subjects that produce pairs were nearly never touched by a `fix:` range.
+ *
+ * The seams are injected so the byte-exactness is assertable without a repository to mutate.
+ */
+export function defaultReverseApply(base, srcPaths, readDiff = gitRaw, exec = execFileSync) {
+  const patch = readDiff(['diff', `${base}..HEAD`, '--', ...srcPaths]);
+  exec('git', ['apply', '-R'], { cwd: WORKSPACE_ROOT, input: patch });
 }
 
 function mergeBase(ref = 'origin/develop') {
@@ -279,12 +342,7 @@ export async function runRegressionRedProof(io = {}) {
   const fileExists = io.fileExists ?? existsSync;
   const isDirty =
     io.isDirty ?? ((paths) => git(['status', '--porcelain', '--', ...paths]).length > 0);
-  const reverseApply =
-    io.reverseApply ??
-    ((srcPaths) => {
-      const patch = git(['diff', `${base}..HEAD`, '--', ...srcPaths]);
-      execFileSync('git', ['apply', '-R'], { cwd: WORKSPACE_ROOT, input: patch });
-    });
+  const reverseApply = io.reverseApply ?? ((srcPaths) => defaultReverseApply(base, srcPaths));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
   const runVitest = io.runVitest ?? defaultRunVitest;
 
@@ -306,12 +364,30 @@ export async function runRegressionRedProof(io = {}) {
       continue;
     }
 
-    // C3 — is any reversed source file in the changed test's relative-import graph?
-    const pkgAbsRoot = path.resolve(WORKSPACE_ROOT, pair.pkg);
+    // C3 — is the reversed source actually what the changed test exercises?
+    //
+    // Two relations, because two kinds of source. A module is reached through the test's import
+    // graph. A shell script never appears in one, so for a hook the relation is that the test
+    // SPAWNS it — which is the same question asked of the thing it can be asked of. Using the
+    // import graph for both would return INCONCLUSIVE for every hook, a SKIP by another name.
     const testAbs = pair.test.map((t) => path.resolve(WORKSPACE_ROOT, t));
-    const graph = reachableRelativeGraph(testAbs, pkgAbsRoot, readText, fileExists);
-    const srcAbs = pair.source.map((s) => path.resolve(WORKSPACE_ROOT, s));
-    const importsReversedFile = srcAbs.some((s) => graph.has(s));
+    let importsReversedFile;
+    if (pair.pkg === HOOK_SUBJECT) {
+      importsReversedFile = testAbs.some((t) => {
+        let text;
+        try {
+          text = readText(t);
+        } catch {
+          return false; // unreadable — cannot claim it exercises anything
+        }
+        return pair.source.some((src) => testExecutesHook(text, src));
+      });
+    } else {
+      const pkgAbsRoot = path.resolve(WORKSPACE_ROOT, pair.pkg);
+      const graph = reachableRelativeGraph(testAbs, pkgAbsRoot, readText, fileExists);
+      const srcAbs = pair.source.map((s) => path.resolve(WORKSPACE_ROOT, s));
+      importsReversedFile = srcAbs.some((s) => graph.has(s));
+    }
 
     let outcome = null;
     if (importsReversedFile) {
@@ -335,13 +411,27 @@ export async function runRegressionRedProof(io = {}) {
 }
 
 function defaultRunVitest(pkg, testFiles) {
-  const rel = testFiles.map((f) => path.relative(path.join(WORKSPACE_ROOT, pkg), f));
+  // `--filter ./<pkg>` only resolves for a workspace package. The harness and the hooks are neither,
+  // and their tests run from the repository root, so the invocation follows the subject rather than
+  // assuming every subject is a package.
+  const isWorkspacePackage = /^(?:packages|apps)\//.test(pkg);
+  const args = isWorkspacePackage
+    ? [
+        '--filter',
+        `./${pkg}`,
+        'exec',
+        'vitest',
+        'run',
+        '--reporter=json',
+        ...testFiles.map((f) => path.relative(path.join(WORKSPACE_ROOT, pkg), f)),
+      ]
+    : ['exec', 'vitest', 'run', '--reporter=json', ...testFiles];
   try {
-    const out = execFileSync(
-      'pnpm',
-      ['--filter', `./${pkg}`, 'exec', 'vitest', 'run', '--reporter=json', ...rel],
-      { cwd: WORKSPACE_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    const out = execFileSync('pnpm', args, {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     return JSON.parse(extractJson(out));
   } catch (err) {
     // vitest exits non-zero on failure; its JSON is still on stdout.
