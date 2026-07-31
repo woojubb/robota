@@ -36,6 +36,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { frontmatterObject } from './frontmatter.mjs';
+import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SPEC_DIR = path.join(WORKSPACE_ROOT, '.agents/spec-docs');
@@ -111,9 +112,29 @@ const RECORDED_EXCEPTIONS = new Map([
 ]);
 
 export function findFolderStatusFindings(specDir = SPEC_DIR, mapping) {
+  // The subject must be there. Measured 2026-08-01: over a root without `.agents/spec-docs` this
+  // returned 0 findings — the same answer it gives when all 242 documents agree with their folder.
+  // PROC-006 is about to MOVE this tree, and a rename that leaves the scan quiet is a rename nothing
+  // reports. `scan-guard-scope-fail-closed` did not catch it, for the reason its own header states:
+  // its finder set is derived from `find…(root`, and this finder's first parameter is the directory.
+  requireGovernedTree(path.dirname(specDir), [path.basename(specDir)], {
+    scan: 'doc-folder-status-agreement',
+    why: 'The spec-doc tree is the subject; "no findings" over an absent one means "nothing was examined".',
+  });
+  // An EMPTY tree is the same vacuity as an absent one, and the weaker check missed it: the repo's
+  // own `measureFinder` hands a finder a bare temp DIRECTORY, which exists, so "the directory is
+  // there" passed while nothing was read. The claim this scan makes is about documents, so the
+  // documents are what must be present.
+  const documents = [...specDocuments(specDir)];
+  if (documents.length === 0) {
+    throw new Error(
+      `doc-folder-status-agreement: no spec documents under ${specDir}. Reporting "no findings" ` +
+        'here would mean "nothing was examined", which is not the claim this scan makes.',
+    );
+  }
   const findings = [];
   const exercised = new Set();
-  for (const relative of specDocuments(specDir)) {
+  for (const relative of documents) {
     const segments = relative.split('/');
     const actualFolder = segments.length > 1 ? segments[0] : null;
     const status = frontmatterObject(readFileSync(path.join(specDir, relative), 'utf8')).status;
