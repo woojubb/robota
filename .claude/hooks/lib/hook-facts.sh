@@ -245,9 +245,9 @@ hook_prompt_of() {
 
 # --- writing a JSON record -----------------------------------------------------------------------
 
-# hook_json_object [s|n KEY VALUE]...
+# hook_json_object [s|n|b KEY VALUE]...
 #
-# Emits one compact JSON object. `s` is a string, `n` a number.
+# Emits one compact JSON object. `s` is a string, `n` a number, `b` a boolean (`true`/`false`).
 #
 # The same ladder the readers use — jq, then python3, then refuse — and for the same reason. Three
 # hooks read their payload with jq and also WROTE their record with `jq -cn`, so on a host without
@@ -268,6 +268,13 @@ hook_json_object() {
     case "$kind" in
       n)
         [[ "$value" =~ ^-?[0-9]+$ ]] || return 1
+        jq_args+=(--argjson "$key" "$value")
+        ;;
+      b)
+        # Refused rather than coerced, for the same reason a number is: a record is worth writing
+        # only if it says something true, and "anything that is not the word false is true" is how a
+        # typo becomes a fact in a log.
+        [[ "$value" == "true" || "$value" == "false" ]] || return 1
         jq_args+=(--argjson "$key" "$value")
         ;;
       s)
@@ -298,7 +305,12 @@ argv = sys.argv[1:]
 out = {}
 for i in range(0, len(argv), 3):
     kind, key, value = argv[i], argv[i + 1], argv[i + 2]
-    out[key] = int(value) if kind == "n" else value
+    if kind == "n":
+        out[key] = int(value)
+    elif kind == "b":
+        out[key] = value == "true"
+    else:
+        out[key] = value
 sys.stdout.write(json.dumps(out, ensure_ascii=False, separators=(",", ":")) + "\n")
 ' "${py_args[@]}" 2>/dev/null && return 0
   fi

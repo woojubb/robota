@@ -344,6 +344,69 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     expect(promptOf({})).toBe('');
   });
 
+  it('memory-mirror-reminder still fires for a memory path with a quote in it, without jq', () => {
+    // Fact 1's SECOND hook, executed rather than inferred from the source-level floor. Its jq arm
+    // was right and the "tolerant grep" beside it was not, so on a host without jq a memory file
+    // named with a quote was read as a truncated path, matched none of its cases, and the reminder
+    // never printed — the only thing this hook does.
+    const run = runHook(
+      'memory-mirror-reminder.sh',
+      {
+        tool_name: 'Write',
+        tool_input: { file_path: '/home/t/.claude/projects/x/memory/we"ird.md' },
+      },
+      { env: { PATH: noJq } },
+    );
+    expect(run.output).toContain('MEMORY MIRRORING');
+  });
+
+  it('revert-detect still records a fix-or-revert commit without jq', () => {
+    // Fact 2's third hook. Its git-history signal needs no transcript, so this reaches the record
+    // writer — which was `jq -cn` and therefore wrote nothing at all on a host without jq.
+    const dir = initRepo(path.join(scratchDir('hook-facts-revert-'), 'repo'), 'feature/work');
+    writeFileSync(path.join(dir, 'patch.txt'), 'x\n');
+    spawnSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'commit', '--quiet', '-m', 'fix: something that regressed'], {
+      encoding: 'utf8',
+    });
+    runHook(
+      'revert-detect.sh',
+      { session_id: 'user-1' },
+      { cwd: dir, env: { PATH: noJq, CLAUDE_PROJECT_DIR: dir } },
+    );
+    const log = path.join(dir, '.agents/evals/local-metrics/reverts.jsonl');
+    const line = readFileSync(log, 'utf8').trim().split('\n').at(-1);
+    expect(JSON.parse(line)).toMatchObject({
+      pattern: 'fix-or-revert-commit',
+      session_id: 'user-1',
+    });
+  });
+
+  it('check-forbidden-patterns still records the block it just made, without jq', () => {
+    // The fourth hook with a `jq -cn` writer, and the one where losing the record is worst: it
+    // REFUSES the edit either way, so without jq the refusal happened and the evidence for it did
+    // not. A block nobody can count is a block nobody can review.
+    const projectDir = scratchDir('hook-facts-forbidden-');
+    const target = path.join(projectDir, 'packages/p/src/a.ts');
+    mkdirSync(path.dirname(target), { recursive: true });
+    const run = runHook(
+      'check-forbidden-patterns.sh',
+      {
+        tool_name: 'Write',
+        session_id: 'user-1',
+        tool_input: {
+          file_path: target,
+          content: 'try {\n  go();\n} catch (e) {\n  return null;\n}\n',
+        },
+      },
+      { cwd: projectDir, env: { PATH: noJq, CLAUDE_PROJECT_DIR: projectDir } },
+    );
+    expect(run.status).toBe(2);
+    const log = path.join(projectDir, '.agents/evals/local-metrics/blocks.jsonl');
+    const line = readFileSync(log, 'utf8').trim().split('\n').at(-1);
+    expect(JSON.parse(line)).toMatchObject({ pattern: 'try-catch-fallback', session_id: 'user-1' });
+  });
+
   it('leaves no hook reading a payload field with a bare jq call', () => {
     const offenders = hookSourcesWithoutComments()
       .filter(({ text }) => /read_json\(\)/.test(text))

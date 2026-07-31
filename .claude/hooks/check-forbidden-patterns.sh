@@ -113,20 +113,17 @@ append_block() {
   local line_num="$2"
   local line_content="$3"
   mkdir -p "$(dirname "$LOG_FILE")"
-  jq -cn \
-    --arg timestamp "$TIMESTAMP" \
-    --arg session_id "$SESSION_ID" \
-    --arg pattern "$pattern" \
-    --arg file "$RELATIVE_PATH" \
-    --argjson line "$line_num" \
-    '{
-      timestamp: $timestamp,
-      session_id: $session_id,
-      pattern: $pattern,
-      file: $file,
-      line: $line,
-      escape_attempted: false
-    }' >> "$LOG_FILE"
+  # The fourth `jq -cn` writer in this directory, and the one where losing the record is worst: this
+  # hook REFUSES the edit either way, so on a host without jq the refusal happened and the evidence
+  # for it did not. A block nobody can count is a block nobody can review. Same ladder as every other
+  # reader and writer here — jq, then python3, then refuse. See lib/hook-facts.sh.
+  hook_json_object \
+    s timestamp "$TIMESTAMP" \
+    s session_id "$SESSION_ID" \
+    s pattern "$pattern" \
+    s file "$RELATIVE_PATH" \
+    n line "$line_num" \
+    b escape_attempted false >> "$LOG_FILE"
   BLOCK_MESSAGES="$BLOCK_MESSAGES\n  line $line_num: $line_content"
   BLOCKED=true
 }
