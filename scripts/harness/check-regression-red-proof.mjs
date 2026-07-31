@@ -111,6 +111,9 @@ export function classifyChanges(changedFiles) {
  * call, not a lexical adjacency, and the narrower text patterns were already tried and were too
  * narrow (a helper that joins the basename runs the hook just as truly). Held rather than patched
  * because the gate is advisory; must be resolved before it is promoted to enforcing (INFRA-046).
+ *
+ * @limits basename-only, and the spawn is not tied to the name (INFRA-074) — approximate enough for
+ * an advisory message, not for anything that decides on its own.
  */
 export function testExecutesHook(testText, hookPath) {
   const base = hookPath.split('/').pop();

@@ -21,6 +21,9 @@ import {
   testExecutesHook,
 } from '../check-regression-red-proof.mjs';
 
+// LIMITS testExecutesHook: they hold here — this file TESTS the relation, so its imprecision is
+// the subject rather than a dependency. Nothing here rides on the answer being exact.
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
 
