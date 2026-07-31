@@ -133,10 +133,14 @@ function runHook(hookFile, payload, { cwd = WORKSPACE_ROOT, env = {} } = {}) {
 
 /** Run a snippet against the shared fact library, the way a hook uses it. */
 function runLib(snippet, env = {}) {
-  const result = spawnSync('/bin/bash', ['-c', `set -euo pipefail\nsource "${FACTS_LIB}"\n${snippet}`], {
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-  });
+  const result = spawnSync(
+    '/bin/bash',
+    ['-c', `set -euo pipefail\nsource "${FACTS_LIB}"\n${snippet}`],
+    {
+      encoding: 'utf8',
+      env: { ...process.env, ...env },
+    },
+  );
   return {
     status: result.status ?? 1,
     stdout: (result.stdout ?? '').trim(),
@@ -172,15 +176,22 @@ describe('fact 1 — the payload file_path has one reader', () => {
     const projectDir = scratchDir('hook-facts-fmt-');
     const shimDir = scratchDir('hook-facts-shim-');
     const log = path.join(shimDir, 'npx.log');
-    writeFileSync(path.join(shimDir, 'npx'), `#!/bin/bash\nprintf '%s\\n' "$@" >> ${JSON.stringify(log)}\n`, {
-      mode: 0o755,
-    });
+    writeFileSync(
+      path.join(shimDir, 'npx'),
+      `#!/bin/bash\nprintf '%s\\n' "$@" >> ${JSON.stringify(log)}\n`,
+      {
+        mode: 0o755,
+      },
+    );
     const target = path.join(projectDir, fileName);
     writeFileSync(target, '# heading\n');
     const run = runHook(
       'post-tool-format.sh',
       { tool_name: 'Write', tool_input: { file_path: target } },
-      { cwd: projectDir, env: { CLAUDE_PROJECT_DIR: projectDir, PATH: `${shimDir}:${process.env.PATH}` } },
+      {
+        cwd: projectDir,
+        env: { CLAUDE_PROJECT_DIR: projectDir, PATH: `${shimDir}:${process.env.PATH}` },
+      },
     );
     let forwarded = '';
     try {
@@ -227,8 +238,12 @@ describe('fact 2 — reading a JSON field has one reader', () => {
 
   it('the farm hides jq and keeps python3', () => {
     // Stated because every case below is vacuous if the farm is wrong.
-    expect(spawnSync('/bin/bash', ['-c', 'command -v jq'], { env: { PATH: noJq } }).status).not.toBe(0);
-    expect(spawnSync('/bin/bash', ['-c', 'command -v python3'], { env: { PATH: noJq } }).status).toBe(0);
+    expect(
+      spawnSync('/bin/bash', ['-c', 'command -v jq'], { env: { PATH: noJq } }).status,
+    ).not.toBe(0);
+    expect(
+      spawnSync('/bin/bash', ['-c', 'command -v python3'], { env: { PATH: noJq } }).status,
+    ).toBe(0);
   });
 
   it('spec-first-gate still injects the SPEC-GATE reminder without jq', () => {
@@ -260,7 +275,10 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     runHook(
       'eval-log-stop.sh',
       { session_id: 'user-1' },
-      { cwd: dir, env: { PATH: noJq, CLAUDE_PROJECT_DIR: dir, ROBOTA_DISABLE_LESSONS_DIGEST: '1' } },
+      {
+        cwd: dir,
+        env: { PATH: noJq, CLAUDE_PROJECT_DIR: dir, ROBOTA_DISABLE_LESSONS_DIGEST: '1' },
+      },
     );
     const log = path.join(dir, '.agents/evals/local-metrics/sessions.jsonl');
     const line = readFileSync(log, 'utf8').trim().split('\n').at(-1);
@@ -312,7 +330,9 @@ describe('fact 3 — which repository the command acts on', () => {
     // name a directory it cannot resolve — and then decline to block — than validate its way onto
     // the session repository and block a destructive command aimed somewhere else entirely.
     const { session } = repos();
-    const got = runLib(`hook_effective_repo first-nonempty "/no/such/dir" "${session}" "${session}"`);
+    const got = runLib(
+      `hook_effective_repo first-nonempty "/no/such/dir" "${session}" "${session}"`,
+    );
     expect(got.stdout).toBe('/no/such/dir');
   });
 
@@ -328,7 +348,11 @@ describe('fact 3 — which repository the command acts on', () => {
     const { session, other, plain } = repos();
     const run = runHook(
       'branch-guard.sh',
-      { tool_name: 'Bash', cwd: session, tool_input: { command: `git -C ${plain} commit -m "chore: x"` } },
+      {
+        tool_name: 'Bash',
+        cwd: session,
+        tool_input: { command: `git -C ${plain} commit -m "chore: x"` },
+      },
       {
         cwd: session,
         env: {
@@ -370,6 +394,43 @@ describe('fact 3 — which repository the command acts on', () => {
       { cwd: dir, env: { CLAUDE_PROJECT_DIR: dir } },
     );
     expect(run.status).toBe(0);
+  });
+
+  it('pre-push-check refuses a push when no repository can be read at all', () => {
+    // The SIBLING of the case above, and the failure this whole change exists to end: a fact fixed
+    // in one hook and not in the one beside it. branch-guard learned to refuse an unreadable
+    // repository; pre-push-check took the same `validated` resolution and the same branch reader and
+    // did not, so `CUR_BRANCH` came back "" for BOTH a detached HEAD and "not a repository at all"
+    // and the `""` arm of its hygiene switch — written for the first — silently skipped the
+    // foreign-merge check for the second. The lockfile check further down then refused anyway and
+    // named pnpm-lock.yaml: a refusal that misstates why, after a check that never ran.
+    const plain = scratchDir('hook-facts-push-norepo-');
+    const run = runHook(
+      'pre-push-check.sh',
+      { tool_name: 'Bash', cwd: plain, tool_input: { command: 'git push -u origin feat/probe' } },
+      { cwd: plain, env: { CLAUDE_PROJECT_DIR: plain } },
+    );
+    expect(run.status).toBe(2);
+    expect(run.output).toContain('no git repository');
+    expect(run.output).not.toContain('pnpm-lock.yaml');
+  });
+
+  it('pre-push-check still falls through on a detached HEAD, which is readable and nameless', () => {
+    // Pinned so the refusal above cannot drift into swallowing this. A detached HEAD has a readable
+    // repository and no branch name, and this hook has its OWN considered answer for it further
+    // down — a refusal keyed to the missing review record. The new refusal must not reach it first.
+    const dir = initRepo(path.join(scratchDir('hook-facts-push-detach-'), 'repo'), 'main');
+    writeFileSync(path.join(dir, 'second.txt'), 'x\n');
+    spawnSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'commit', '--quiet', '-m', 'chore: second'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', dir, 'checkout', '--quiet', '--detach'], { encoding: 'utf8' });
+    const run = runHook(
+      'pre-push-check.sh',
+      { tool_name: 'Bash', cwd: dir, tool_input: { command: 'git push -u origin feat/probe' } },
+      { cwd: dir, env: { CLAUDE_PROJECT_DIR: dir } },
+    );
+    expect(run.output).not.toContain('no git repository');
+    expect(run.output).toContain('detached HEAD');
   });
 
   it('leaves no hook hand-rolling the work-tree validation ladder', () => {

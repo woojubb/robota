@@ -96,6 +96,24 @@ GIT_C_PATH=$(hook_git_c_path "$COMMAND_EXEC" || true)
 # decisions with a reason instead of four copies that drift apart.
 PROJECT_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
+# A guard fails CLOSED, and two guards taking the same resolution must answer this the same way.
+# branch-guard refuses when nothing resolvable is a repository; this hook took the identical
+# `validated` resolution and the identical branch reader and did not — a fact fixed in one hook and
+# not in the one beside it, which is the failure this whole change exists to end.
+#
+# What it cost, measured: `CUR_BRANCH` comes back "" for a detached HEAD AND for "not a repository
+# at all", and the `""` arm of the hygiene switch below — written for the first — silently skipped
+# the foreign-merge check for the second. The lockfile check further down then refused anyway and
+# named `pnpm-lock.yaml`, so the push was stopped for a reason that was not the reason: a wrong
+# refusal after a check that never ran. A detached HEAD is deliberately NOT this case, and this hook
+# has its own considered answer for it further down; the test beside this one pins that so the
+# refusal here cannot grow to swallow it.
+if ! hook_is_work_tree "$PROJECT_DIR"; then
+  echo "[pre-push-check] Blocked: '$PROJECT_DIR' is no git repository, so the branch this push" >&2
+  echo "[pre-push-check] would come from cannot be read. Nothing was verified; this is not a pass." >&2
+  echo "[pre-push-check] Run the push from the checkout it belongs to." >&2
+  exit 2
+fi
 
 # ── 0. Branch-base hygiene (git-branch.md: feature branches start from origin/develop) ──────────
 # After a develop→main promotion, `main` sits AHEAD of `develop`. A branch cut from `main` (or that
@@ -111,6 +129,9 @@ case "$CUR_BRANCH" in
   # that records main's ancestry into a develop→main promotion (INFRA-051, built by
   # scripts/harness/promote.mjs), so exempt them from the "no foreign merge commits" check that targets
   # feature branches accidentally based on `main`.
+  # `""` here now means ONE thing — a detached HEAD, which has nothing to compare against
+  # origin/develop. It used to mean that OR "the repository could not be read", and the two are not
+  # the same answer; the refusal above separates them before this switch is reached.
   main | master | develop | release/* | hotfix/* | "") : ;;
   *)
     if hook_git_in "$PROJECT_DIR" rev-parse --verify --quiet origin/develop >/dev/null 2>&1; then
