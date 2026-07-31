@@ -2,8 +2,11 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { EXECUTION } from '../lib/spawn-call-graph.mjs';
+
 import {
   VERDICT,
+  addedCaseTitleMatchers,
   classifyChanges,
   classifyVitestOutcome,
   decidePairVerdict,
@@ -21,8 +24,8 @@ import {
   testExecutesHook,
 } from '../check-regression-red-proof.mjs';
 
-// LIMITS testExecutesHook: they hold here — this file TESTS the relation, so its imprecision is
-// the subject rather than a dependency. Nothing here rides on the answer being exact.
+// LIMITS testExecutesHook: they hold here — this file TESTS the relation, so what it can and
+// cannot resolve is the subject rather than a dependency. Nothing here rides on the answer.
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
@@ -83,24 +86,148 @@ describe('HARNESS-041 file classification', () => {
     // The relation that stands in for the import graph when the source is a shell script. A hook
     // named in a COMMENT is described, not run — the distinction this gate exists to make, and one
     // an earlier version of this same rule got wrong in the coverage floor beside it.
-    const spawns = "run('branch-guard.sh');\nspawnSync('bash', [hook]);";
-    const mentions = "// branch-guard.sh is discussed here\nspawnSync('bash', [other]);";
+    const spawns = [
+      "import { spawnSync } from 'node:child_process';",
+      "const hook = '.claude/hooks/branch-guard.sh';",
+      "spawnSync('bash', [hook]);",
+    ].join('\n');
+    const mentions = [
+      "import { spawnSync } from 'node:child_process';",
+      '// branch-guard.sh is discussed here',
+      "spawnSync('bash', ['.claude/hooks/merge-gate.sh']);",
+    ].join('\n');
     const noSpawn = "const p = 'branch-guard.sh';";
 
-    expect(testExecutesHook(spawns, '.claude/hooks/branch-guard.sh')).toBe(true);
-    expect(testExecutesHook(mentions, '.claude/hooks/branch-guard.sh')).toBe(false);
-    expect(testExecutesHook(noSpawn, '.claude/hooks/branch-guard.sh')).toBe(false);
+    expect(testExecutesHook(spawns, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.EXECUTES);
+    expect(testExecutesHook(mentions, '.claude/hooks/branch-guard.sh')).toBe(
+      EXECUTION.NOT_EXECUTED,
+    );
+    expect(testExecutesHook(noSpawn, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.NOT_EXECUTED);
 
-    // Both halves must read the same text. Stripping comments for the NAME while matching the
-    // spawn against the raw source lets a documented example — the hook named in real code, the
-    // spawn shown in a comment — count as execution. Since this now picks which tests may set the
-    // verdict, that bystander could decide a hook it never runs.
+    // A documented example — the hook named in real code, the spawn shown in a comment — is not an
+    // execution. The text relation needed both halves read from the same comment-stripped source to
+    // get this right; reading the call graph gets it right because a comment is not a call.
     const documented = [
       "const hook = 'branch-guard.sh';",
       "// e.g. spawnSync('bash', [hook])",
       'expect(hook).toBeTruthy();',
     ].join('\n');
-    expect(testExecutesHook(documented, '.claude/hooks/branch-guard.sh')).toBe(false);
+    expect(testExecutesHook(documented, '.claude/hooks/branch-guard.sh')).toBe(
+      EXECUTION.NOT_EXECUTED,
+    );
+  });
+
+  it('a test that NAMES one hook while spawning another does not execute the first (INFRA-074)', () => {
+    // The misclassification the relation was held for. The two halves were independent — the name
+    // had to appear, and the file had to spawn a shell — with nothing tying the spawn to the name.
+    // This file spawns `worktree-cwd-guard.sh` and only MENTIONS `branch-guard.sh` in a value it
+    // asserts on, so it can say nothing about `branch-guard.sh` at all.
+    //
+    // Recorded against the pre-fix relation, so the case is known to be red rather than assumed:
+    //   AssertionError: a bystander that never ran this hook was counted as executing it:
+    //   expected true to be false
+    const namesOneSpawnsAnother = [
+      "import { spawnSync } from 'node:child_process';",
+      "import path from 'node:path';",
+      "const REGISTERED = ['branch-guard.sh', 'worktree-cwd-guard.sh'];",
+      "const result = spawnSync('bash', [path.join(HOOKS_DIR, 'worktree-cwd-guard.sh')]);",
+      "expect(REGISTERED).toContain('branch-guard.sh');",
+    ].join('\n');
+
+    expect(
+      testExecutesHook(namesOneSpawnsAnother, '.claude/hooks/branch-guard.sh'),
+      'a bystander that never ran this hook was counted as executing it',
+    ).toBe(EXECUTION.NOT_EXECUTED);
+    expect(testExecutesHook(namesOneSpawnsAnother, '.claude/hooks/worktree-cwd-guard.sh')).toBe(
+      EXECUTION.EXECUTES,
+    );
+  });
+
+  it('follows the hook name THROUGH a helper that joins it (INFRA-074)', () => {
+    // Why a narrower text pattern was rejected on evidence rather than on taste: requiring the name
+    // inside a `path.join(...)` missed every test written this way, and these run the hook just as
+    // truly. The binding is the argument flowing into `run`, which only the call graph can follow.
+    const throughAHelper = [
+      "import { spawnSync } from 'node:child_process';",
+      "import path from 'node:path';",
+      'function run(hook, input) {',
+      "  return spawnSync('bash', [path.join(HOOKS_DIR, hook)], { input });",
+      '}',
+      "run('merge-gate.sh', payload);",
+    ].join('\n');
+
+    expect(testExecutesHook(throughAHelper, '.claude/hooks/merge-gate.sh')).toBe(
+      EXECUTION.EXECUTES,
+    );
+    expect(testExecutesHook(throughAHelper, '.claude/hooks/branch-guard.sh')).toBe(
+      EXECUTION.NOT_EXECUTED,
+    );
+  });
+
+  it('a spawn written inside a string literal is not a spawn (INFRA-074)', () => {
+    // This very file is the measured instance: it names `branch-guard.sh` and contains the text
+    // `spawnSync('bash'` in fixture STRINGS, and the old relation therefore counted it as running
+    // the hook. Resolution goes through the import binding and the AST, so quoted code is data.
+    const quotedOnly = [
+      "const spawns = \"run('branch-guard.sh');\\nspawnSync('bash', [hook]);\";",
+      'expect(spawns.length).toBeGreaterThan(0);',
+    ].join('\n');
+
+    expect(testExecutesHook(quotedOnly, '.claude/hooks/branch-guard.sh')).toBe(
+      EXECUTION.NOT_EXECUTED,
+    );
+  });
+
+  it('says UNDETERMINED when the spawn target is built at runtime, and never guesses', () => {
+    // The third answer, and the reason there is one. A sweep over the hooks directory really does
+    // run every hook, so answering "no" would fire this relation's consumers on correct work; but
+    // the file names nothing, so answering "yes" would hand a verdict to a case that states nothing
+    // about the hook. Both consumers get the ambiguity instead of a coin flip.
+    const dynamic = [
+      "import { spawnSync } from 'node:child_process';",
+      "import { readdirSync } from 'node:fs';",
+      "import path from 'node:path';",
+      'for (const name of readdirSync(HOOKS_DIR)) {',
+      "  spawnSync('bash', [path.join(HOOKS_DIR, name)], { input: '' });",
+      '}',
+    ].join('\n');
+
+    expect(testExecutesHook(dynamic, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.UNDETERMINED);
+
+    // And an argument vector that cannot reach a script raises no ambiguity at all: `git` does not
+    // run its arguments. Without that distinction every temp-directory argument in the suite made
+    // its file undetermined for every hook, which is the grep it replaced wearing a costume.
+    const gitOnly = [
+      "import { spawnSync } from 'node:child_process';",
+      "spawnSync('git', ['-C', someTempDir, 'status']);",
+    ].join('\n');
+
+    expect(testExecutesHook(gitOnly, '.claude/hooks/branch-guard.sh')).toBe(EXECUTION.NOT_EXECUTED);
+  });
+
+  it('reads the script out of ARGV POSITION, not out of any argument', () => {
+    // `bash -n <file>` names the file after a flag; `node run.mjs <tmpdir>` names it first and the
+    // rest belong to the script. Treating every element as a possible script made an unresolvable
+    // temp directory read as "might run anything" — measured at 331 undetermined pairs over the
+    // harness suite against 27 resolved ones.
+    const afterAFlag = [
+      "import { spawnSync } from 'node:child_process';",
+      "import path from 'node:path';",
+      "spawnSync('bash', ['-n', path.join(HOOKS_DIR, 'spec-first-gate.sh')]);",
+    ].join('\n');
+    const asAnArgumentToSomethingElse = [
+      "import { spawnSync } from 'node:child_process';",
+      "import path from 'node:path';",
+      "spawnSync('node', [path.join(HARNESS_DIR, 'scan-hook-registration.mjs'), 'spec-first-gate.sh']);",
+    ].join('\n');
+
+    expect(testExecutesHook(afterAFlag, '.claude/hooks/spec-first-gate.sh')).toBe(
+      EXECUTION.EXECUTES,
+    );
+    expect(
+      testExecutesHook(asAnArgumentToSomethingElse, '.claude/hooks/spec-first-gate.sh'),
+      'a name handed to a scanner AS DATA was read as the file that ran',
+    ).toBe(EXECUTION.NOT_EXECUTED);
   });
 
   it('isTestFile / isSourceFile split correctly', () => {
@@ -211,6 +338,155 @@ describe('HARNESS-041 vitest outcome classification (C1 — assertion-fail vs ru
       ],
     };
     expect(classifyVitestOutcome(json, [failing, brokeCollect])).toBe('assertion-fail');
+  });
+});
+
+describe('INFRA-072 per-case granularity — the range judges its OWN new cases', () => {
+  const testFile = 'packages/x/src/a.test.ts';
+  const nameAbs = abs(testFile);
+
+  it('addedCaseTitleMatchers reads titles off the ADDED lines only', () => {
+    const diff = [
+      '--- a/packages/x/src/a.test.ts',
+      '+++ b/packages/x/src/a.test.ts',
+      '@@ -1,3 +1,6 @@',
+      " it('an existing case nobody touched', () => {",
+      "+  it('the new regression case', () => {",
+      '+    expect(fixed()).toBe(1);',
+      "-  it('a case this range deleted', () => {",
+      '+  it.each(rows)(`${name} keeps its shape`, () => {',
+    ].join('\n');
+
+    const matchers = addedCaseTitleMatchers(diff);
+    const titles = ['the new regression case', 'branch-guard keeps its shape'];
+    expect(titles.every((t) => matchers.some((re) => re.test(t)))).toBe(true);
+    // A context line and a REMOVED line are not this range's cases; treating them as such would
+    // hand the verdict back to exactly the pre-existing case the granularity exists to exclude.
+    expect(matchers.some((re) => re.test('an existing case nobody touched'))).toBe(false);
+    expect(matchers.some((re) => re.test('a case this range deleted'))).toBe(false);
+  });
+
+  it('a new case that FAILS on the reversed source is the proof → assertion-fail', () => {
+    const added = new Map([[nameAbs, addedCaseTitleMatchers("+  it('the new case', () => {")]]);
+    const json = {
+      testResults: [
+        {
+          name: nameAbs,
+          assertionResults: [
+            { title: 'the new case', status: 'failed' },
+            { title: 'an old case', status: 'passed' },
+          ],
+        },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile], added)).toBe('assertion-fail');
+  });
+
+  it('an OLD case failing while the new one passes is not a proof → added-cases-pass', () => {
+    // The masking INFRA-072 was filed for, measured on `2ac10f251..b1f46acf3`: the gate judged at
+    // FILE granularity, so any one case failing red-proved the whole file, and a vacuous new
+    // regression test beside a pre-existing failing case was invisible. The range's own case is
+    // what has to depend on the fix — that is the thing being claimed.
+    const added = new Map([[nameAbs, addedCaseTitleMatchers("+  it('the new case', () => {")]]);
+    const json = {
+      testResults: [
+        {
+          name: nameAbs,
+          assertionResults: [
+            { title: 'the new case', status: 'passed' },
+            { title: 'an old case', status: 'failed' },
+          ],
+        },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile], added)).toBe('added-cases-pass');
+    expect(decidePairVerdict({ importsReversedFile: true, outcome: 'added-cases-pass' })).toBe(
+      VERDICT.ACCIDENTAL_GREEN,
+    );
+  });
+
+  it('judges per FILE: a file the range added nothing to still supplies a proof', () => {
+    // The narrowing is within a file, not across the set. A range whose fix is covered by an
+    // existing test in one file and by a new test for a different aspect in another is ordinary
+    // correct work, and demanding that EVERY deciding file carry a failing new case would fail it.
+    // A guard that fires on correct work gets switched off.
+    const untouched = 'packages/x/src/b.test.ts';
+    const added = new Map([[nameAbs, addedCaseTitleMatchers("+  it('the new case', () => {")]]);
+    const json = {
+      testResults: [
+        { name: nameAbs, assertionResults: [{ title: 'the new case', status: 'passed' }] },
+        {
+          name: abs(untouched),
+          assertionResults: [{ title: 'a case nobody touched', status: 'failed' }],
+        },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile, untouched], added)).toBe('assertion-fail');
+  });
+
+  it('a range that added no nameable case keeps FILE granularity, and does not fail on it', () => {
+    // A regression fixed by EDITING an existing case adds no title this can read. Demanding a new
+    // one would fail correct work, and a guard that fires on correct work gets switched off.
+    const json = {
+      testResults: [
+        { name: nameAbs, assertionResults: [{ title: 'an old case', status: 'failed' }] },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile], null)).toBe('assertion-fail');
+    expect(classifyVitestOutcome(json, [testFile], new Map())).toBe('assertion-fail');
+  });
+
+  it('a run-error still outranks a passing new case → INCONCLUSIVE, never accidental-green (C1)', () => {
+    const brokeCollect = 'packages/x/src/b.test.ts';
+    const added = new Map([[nameAbs, addedCaseTitleMatchers("+  it('the new case', () => {")]]);
+    const json = {
+      testResults: [
+        {
+          name: nameAbs,
+          assertionResults: [
+            { title: 'the new case', status: 'passed' },
+            { title: 'an old case', status: 'failed' },
+          ],
+        },
+        { name: abs(brokeCollect), assertionResults: [] },
+      ],
+    };
+    expect(classifyVitestOutcome(json, [testFile, brokeCollect], added)).toBe('run-error');
+  });
+
+  it('through the orchestrator: a vacuous new case beside an old failing one → ACCIDENTAL_GREEN', () => {
+    const source = 'packages/x/src/target.ts';
+    const test = 'packages/x/src/a.test.ts';
+    const files = {
+      [abs(test)]: `import { t } from './target.js';`,
+      [abs(source)]: 'export const t = 1;',
+    };
+
+    return runRegressionRedProof(
+      baseIo({
+        changedFiles: [source, test],
+        readText: (p) => files[p] ?? '',
+        fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
+        addedTestCaseDiff: () => "+    it('the new regression case', () => {",
+        runVitest: () => ({
+          testResults: [
+            {
+              name: abs(test),
+              assertionResults: [
+                { title: 'the new regression case', status: 'passed' },
+                { title: 'a case that was already here', status: 'failed' },
+              ],
+            },
+          ],
+        }),
+      }),
+    ).then(({ verdict, decisions }) => {
+      expect(
+        verdict,
+        'the new case passed with the fix reversed and an older one supplied the red',
+      ).toBe(VERDICT.ACCIDENTAL_GREEN);
+      expect(decisions[0].outcome).toBe('added-cases-pass');
+    });
   });
 });
 
@@ -408,12 +684,21 @@ describe('HARNESS-041 orchestrator fixtures', () => {
   // A hook is never in a module graph, so before this the C3 check answered "not imported" for
   // every hook pair and the gate returned INCONCLUSIVE — a SKIP wearing another name. These two
   // fixtures pin both halves of the relation that replaces it.
+  //
+  // The fixture is a real module, not a line of text that looks like one: the relation resolves the
+  // spawn through the import binding, so a bare `spawnSync(…)` with nothing importing it is a call
+  // to an unknown function and not evidence of anything.
+  const SPAWNS_SOME_HOOK = [
+    "import { spawnSync } from 'node:child_process';",
+    "spawnSync('bash', ['/repo/.claude/hooks/some-hook.sh']);",
+  ].join('\n');
+
   function hookIo(overrides = {}) {
     const testFile = 'scripts/harness/__tests__/some-hook.test.mjs';
     const hook = '.claude/hooks/some-hook.sh';
     return baseIo({
       changedFiles: [hook, testFile],
-      readText: () => "spawnSync('bash', ['/repo/.claude/hooks/some-hook.sh']);",
+      readText: () => SPAWNS_SOME_HOOK,
       fileExists: () => true,
       ...overrides,
     });
@@ -446,7 +731,7 @@ describe('HARNESS-041 orchestrator fixtures', () => {
     const spawner = 'scripts/harness/__tests__/runs-the-hook.test.mjs';
     const bystander = 'scripts/harness/__tests__/unrelated.test.mjs';
     const sources = {
-      [abs(spawner)]: "spawnSync('bash', ['/repo/.claude/hooks/some-hook.sh']);",
+      [abs(spawner)]: SPAWNS_SOME_HOOK,
       [abs(bystander)]: `expect(somethingElse).toBe(1);`,
     };
     let ran = null;

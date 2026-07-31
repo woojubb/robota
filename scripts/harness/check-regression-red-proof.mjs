@@ -21,6 +21,12 @@ import { execFileSync } from 'node:child_process';
 import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import {
+  EXECUTION,
+  analyzeSpawnTargetsCached,
+  classifyExecution,
+} from './lib/spawn-call-graph.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────
@@ -100,31 +106,30 @@ export function classifyChanges(changedFiles) {
  * Does this test EXECUTE this hook? The relation that stands in for the import graph when the
  * changed source is a shell script, which is never in one.
  *
- * Comments are stripped first: a hook named only in prose is described, not run — the
- * described-but-not-reached distinction this gate exists to make.
+ * It used to answer with two INDEPENDENT text checks — the basename appears in the comment-stripped
+ * source, and the file spawns `bash` somewhere — with nothing tying the spawn to the name, so a
+ * test naming hook A in real code while spawning hook B counted as executing A. That was tolerable
+ * while only an advisory coverage message rode on it; INFRA-071 made it pick which tests may SET a
+ * red-proof verdict, and a bystander could then decide a hook it never ran. Measured on this tree:
+ * one such pair, `check-regression-red-proof.test.mjs` → `branch-guard.sh`, where every `spawnSync`
+ * the file contains is inside a STRING LITERAL in a fixture.
  *
- * CONTAINMENT — INFRA-074. The two halves are independent: the name must appear, and the file must
- * spawn a shell, but nothing ties the spawn to the name. A test naming hook A in real code while
- * spawning hook B counts as executing A. That imprecision was a fair trade when this only decided an
- * advisory coverage message; it now picks `decidingTests`, so a bystander can supply a verdict about
- * a hook it never ran. Tying them needs the call graph — the binding is a value flowing through a
- * call, not a lexical adjacency, and the narrower text patterns were already tried and were too
- * narrow (a helper that joins the basename runs the hook just as truly). Held rather than patched
- * because the gate is advisory; must be resolved before it is promoted to enforcing (INFRA-046).
+ * A narrower text pattern is not the fix and that was established by trying it: requiring the name
+ * inside a `path.join(...)` missed every test that hands the basename to a helper which joins it,
+ * and those run the hook just as truly. The binding is a VALUE FLOWING THROUGH A CALL, so the
+ * answer comes from {@link analyzeSpawnTargetsCached}, which reads it out of the call graph.
  *
- * @limits basename-only, and the spawn is not tied to the name (INFRA-074) — approximate enough for
- * an advisory message, not for anything that decides on its own.
+ * THREE ANSWERS, and the caller owns what the third one is worth. Ambiguity is real — a path built
+ * from `readdirSync()` cannot be pinned — and this gate refuses to let an UNDETERMINED test decide,
+ * because a verdict supplied by a test that may not have run the subject is the defect the gate
+ * exists to catch. The coverage floor makes the opposite call for its own consequences.
+ *
+ * @limits basename-only, and it reads ONE module — a test that spawned the hook through a helper
+ * imported from another file would read as not executing it. Never guesses: an unresolvable spawn
+ * target answers UNDETERMINED.
  */
 export function testExecutesHook(testText, hookPath) {
-  const base = hookPath.split('/').pop();
-  const withoutComments = String(testText ?? '')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-  if (!withoutComments.includes(base)) return false;
-  // The SAME text for both halves. Matching the spawn against the raw source let a documented
-  // example — the hook named in real code, the spawn shown in a comment — count as execution, which
-  // is the described-but-not-reached shape this function exists to reject, inside the function.
-  return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(withoutComments);
+  return classifyExecution(analyzeSpawnTargetsCached(String(testText ?? '')), hookPath);
 }
 
 /** Packages that changed BOTH source and test — the only ones this v1 can red-prove. */
@@ -160,19 +165,85 @@ export function parseOptOut(text) {
   return { optedOut: Boolean(reason), reason };
 }
 
+// ── Pure: which cases the range ADDED (INFRA-072) ────────────────────────────────────────────────────
+
+// `it('…')`, `it.only('…')`, and the table form `it.each(rows)('…')` — the intervening call is what
+// makes the last one a separate shape rather than a suffix.
+const CASE_TITLE_RE =
+  /\b(?:it|test|bench)(?:\.[A-Za-z]+)*(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+
+/**
+ * Title matchers for the test cases a diff ADDED.
+ *
+ * The gate judged at FILE granularity: a changed test file was red-proved when ANY one of its cases
+ * failed on the reversed source. So a range could add a vacuous regression test beside a
+ * pre-existing case that fails for its own reasons, and the file reported `red-proof-ok` — the same
+ * "the unit judged is coarser than the unit the defect lives in" shape INFRA-073 fixed across
+ * sources, asked within one file. Measured on `2ac10f251..b1f46acf3`.
+ *
+ * A template title (`it(\`${hook} is run\`)`) cannot be compared exactly, so its static parts become
+ * the matcher and the interpolations become wildcards — a wider match is a weaker check, never a
+ * wrong verdict. A title this cannot read at all yields no matcher, and a file with no matchers
+ * falls back to file granularity rather than failing something it cannot see.
+ */
+export function addedCaseTitleMatchers(diffText) {
+  const matchers = [];
+  for (const line of String(diffText ?? '').split('\n')) {
+    if (!line.startsWith('+') || line.startsWith('+++')) continue;
+    CASE_TITLE_RE.lastIndex = 0;
+    for (const m of line.slice(1).matchAll(CASE_TITLE_RE)) {
+      const [, quote, raw] = m;
+      matchers.push(quote === '`' ? templateTitleMatcher(raw) : exactTitleMatcher(raw));
+    }
+  }
+  return matchers;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function exactTitleMatcher(raw) {
+  // The source spelling is escaped; the runtime title is not. Left un-decoded, a title containing
+  // `\'` or `\n` would never match its own case, and the file would then report its added case as
+  // passing — a false accidental-green from a quoting detail.
+  const decoded = raw.replace(/\\(['"\\nt])/g, (_, ch) =>
+    ch === 'n' ? '\n' : ch === 't' ? '\t' : ch,
+  );
+  return new RegExp(`^${escapeRegExp(decoded)}$`);
+}
+
+function templateTitleMatcher(raw) {
+  const statics = raw.split(/\$\{[^}]*\}/).map(escapeRegExp);
+  return new RegExp(`^${statics.join('.*')}$`);
+}
+
+/** Did any matcher name this case? Both the bare title and the describe-qualified name are tried. */
+function matchesAddedCase(matchers, assertion) {
+  const names = [assertion?.title, assertion?.fullName].filter(Boolean);
+  return matchers.some((re) => names.some((name) => re.test(name)));
+}
+
 // ── Pure: vitest outcome classification (C1 — the correctness-critical distinction) ──────────────────
 
 /**
  * Given vitest `--reporter=json` output (parsed) and the changed test files, classify the outcome.
  * NEVER conflate a genuine assertion failure with a run error.
- *   'assertion-fail' — ≥1 changed test file has a failed assertion (the suite ran and the test failed)
- *   'run-error'      — a changed test file could not be evaluated (transform/collection/missing module)
- *   'all-pass'       — every changed test file ran and passed
+ *   'assertion-fail'    — ≥1 case that the range ADDED failed (the suite ran and the new test failed)
+ *   'added-cases-pass'  — a case failed, but not one this range added: the new test guards nothing
+ *   'run-error'         — a changed test file could not be evaluated (transform/collection/missing module)
+ *   'all-pass'          — every changed test file ran and passed
+ *
+ * @param addedCases Map(absolute test path → title matchers for the cases the range added), or null
+ *   when the range added no case this can name. Without it the judgement stays at FILE granularity,
+ *   which is what let a vacuous new case hide behind a pre-existing failing one (INFRA-072).
  */
-export function classifyVitestOutcome(vitestJson, changedTestFiles) {
+export function classifyVitestOutcome(vitestJson, changedTestFiles, addedCases = null) {
   const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
   const results = Array.isArray(vitestJson?.testResults) ? vitestJson.testResults : [];
-  let sawAssertionFail = false;
+  let addedCaseFailed = false; // a failure in a case the range added
+  let unjudgedFileFailed = false; // a failure in a file the range added no readable case to
+  let judgedFileFailed = false; // a failure ONLY in the older cases of a file the range added to
   const ranWithAssertions = new Set();
 
   for (const fileResult of results) {
@@ -183,16 +254,27 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles) {
       : [];
     if (assertions.length === 0) continue; // present but no assertions → failed to collect/transform
     ranWithAssertions.add(name);
-    if (assertions.some((a) => a.status === 'failed')) sawAssertionFail = true;
+    const matchers = addedCases?.get(name) ?? null;
+    for (const assertion of assertions) {
+      if (assertion.status !== 'failed') continue;
+      // Per FILE, not across the set. A file the range added no case to is judged the way it always
+      // was — its failure is a proof. Demanding a new case there would fail a range whose fix is
+      // covered by an existing test in one file and by a new test for a different aspect in
+      // another, which is ordinary correct work.
+      if (!matchers?.length) unjudgedFileFailed = true;
+      else if (matchesAddedCase(matchers, assertion)) addedCaseFailed = true;
+      else judgedFileFailed = true;
+    }
   }
 
   // C1 — a genuine assertion failure is the ONLY pass. ANY wanted test file that did not run with
   // assertions (missing from results OR present-with-zero-assertions — a transform/collection error) is a
   // run-error and yields INCONCLUSIVE, even if a SIBLING changed test file ran green. Never conflate a
   // non-run with all-pass: that would be a false accidental-green alarm.
-  if (sawAssertionFail) return 'assertion-fail';
+  if (addedCaseFailed || unjudgedFileFailed) return 'assertion-fail';
   const sawRunError = wanted.some((abs) => !ranWithAssertions.has(abs));
-  if (sawRunError) return 'run-error';
+  if (sawRunError) return 'run-error'; // a case that never ran has not been shown to pass
+  if (judgedFileFailed) return 'added-cases-pass';
   return 'all-pass';
 }
 
@@ -209,6 +291,9 @@ export function decidePairVerdict({ importsReversedFile, outcome }) {
   if (outcome === 'assertion-fail') return VERDICT.RED_PROOF_OK;
   if (outcome === 'run-error') return VERDICT.INCONCLUSIVE; // C1: never a pass
   if (outcome === 'all-pass') return VERDICT.ACCIDENTAL_GREEN;
+  // The range's own new case passed on the reversed source; the red came from a case that was
+  // already there. That is an accidental-green regression test wearing a sibling's proof.
+  if (outcome === 'added-cases-pass') return VERDICT.ACCIDENTAL_GREEN;
   return VERDICT.INCONCLUSIVE;
 }
 
@@ -290,6 +375,25 @@ export function reachableRelativeGraph(
   // Remove the test files themselves; callers care about imported sources.
   for (const t of testAbsPaths) visited.delete(t);
   return visited;
+}
+
+/**
+ * Title matchers for the cases the range added, per deciding test file — or null when it added none
+ * this can name, in which case the judgement stays at file granularity rather than failing over a
+ * title it could not read.
+ */
+function addedCaseMatchers(testFiles, readDiffFor) {
+  const byFile = new Map();
+  for (const file of testFiles) {
+    let matchers = [];
+    try {
+      matchers = addedCaseTitleMatchers(readDiffFor(file));
+    } catch {
+      matchers = []; // an unreadable diff means "unknown", which is file granularity
+    }
+    if (matchers.length > 0) byFile.set(path.resolve(WORKSPACE_ROOT, file), matchers);
+  }
+  return byFile.size > 0 ? byFile : null;
 }
 
 // ── Impure orchestrator ─────────────────────────────────────────────────────────────────────────────
@@ -381,6 +485,12 @@ export async function runRegressionRedProof(io = {}) {
   const reverseApply = io.reverseApply ?? ((srcPaths) => defaultReverseApply(base, srcPaths));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
   const runVitest = io.runVitest ?? defaultRunVitest;
+  const addedTestCaseDiff =
+    io.addedTestCaseDiff ??
+    // stderr is discarded: a range this cannot diff falls back to file granularity, and saying so
+    // on the console would make every unit fixture print a git error about its synthetic base.
+    ((testPath) =>
+      gitRaw(['diff', `${base}..HEAD`, '--', testPath], { stdio: ['ignore', 'pipe', 'ignore'] }));
 
   let worst = VERDICT.RED_PROOF_OK;
   const rank = {
@@ -423,6 +533,7 @@ export async function runRegressionRedProof(io = {}) {
     for (const source of pair.source) {
       // Only the tests that exercise THIS source may judge it — the same relation as above, asked
       // one source at a time.
+      let undeterminedRelation = false;
       const testsForSource =
         pair.pkg === HOOK_SUBJECT
           ? pair.test.filter((t, i) => {
@@ -432,7 +543,12 @@ export async function runRegressionRedProof(io = {}) {
               } catch {
                 return false;
               }
-              return testExecutesHook(text, source);
+              const answer = testExecutesHook(text, source);
+              // A test whose spawn target could not be resolved does NOT decide. It is recorded so
+              // the verdict can say it could not be tied, rather than letting a maybe-bystander
+              // supply a verdict about a hook it may never have run (INFRA-074).
+              if (answer === EXECUTION.UNDETERMINED) undeterminedRelation = true;
+              return answer === EXECUTION.EXECUTES;
             })
           : pair.test.filter((t, i) =>
               // A module is reached through the test's import graph; a shell script never appears in
@@ -447,6 +563,8 @@ export async function runRegressionRedProof(io = {}) {
             );
 
       const exercised = testsForSource.length > 0;
+      // INFRA-072 — the range's OWN new cases are what must fail, not any case in the file.
+      const addedCases = exercised ? addedCaseMatchers(testsForSource, addedTestCaseDiff) : null;
       let outcome = null;
       if (exercised) {
         reverseApply([source]);
@@ -454,6 +572,7 @@ export async function runRegressionRedProof(io = {}) {
           outcome = classifyVitestOutcome(
             await runVitest(pair.pkg, testsForSource),
             testsForSource,
+            addedCases,
           );
         } finally {
           restore([source]);
@@ -461,10 +580,23 @@ export async function runRegressionRedProof(io = {}) {
       }
 
       const verdict = decidePairVerdict({ importsReversedFile: exercised, outcome });
-      decisions.push({ pkg: pair.pkg, source, verdict, outcome, importsReversedFile: exercised });
+      decisions.push({
+        pkg: pair.pkg,
+        source,
+        verdict,
+        outcome,
+        importsReversedFile: exercised,
+        relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
+      });
       const icon =
         verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
-      log(`${icon}  ${source}: ${verdict}${outcome ? ` (${outcome})` : ''}`);
+      const note =
+        !exercised && undeterminedRelation
+          ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
+          : outcome
+            ? ` (${outcome})`
+            : '';
+      log(`${icon}  ${source}: ${verdict}${note}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }
   }

@@ -1,11 +1,12 @@
 ---
 title: 'INFRA-074: the spawn relation names a hook and spawns a shell, without tying one to the other'
-status: todo
+status: done
 priority: high
 urgency: soon
 type: INFRA
 area: scripts/harness
 created: 2026-07-31
+completed: 2026-08-01
 depends_on: []
 issue: https://github.com/woojubb/robota/issues/1540
 ---
@@ -57,3 +58,48 @@ verdicts start deciding merges.
   could not and returns INCONCLUSIVE instead of guessing.
 - A test naming one hook while spawning another is not counted as executing the first, proven by a
   case that fails on today's implementation.
+
+## GATE-COMPLETE (2026-08-01)
+
+Resolved by reading the call graph, in `scripts/harness/lib/spawn-call-graph.mjs`.
+
+**Red first.** The misclassification case — a module that names `branch-guard.sh` in real code while
+spawning `worktree-cwd-guard.sh` — was written and run against the pre-fix relation:
+
+```
+FAIL  check-regression-red-proof.test.mjs > a test that NAMES one hook while spawning another
+AssertionError: a bystander that never ran this hook was counted as executing it:
+expected true to be false
+```
+
+**What the relation does now.** It parses the module, finds the spawn calls by their `child_process`
+IMPORT BINDING (so a `spawnSync('bash', …)` inside a string literal is not one), and resolves the
+expression in ARGV SCRIPT POSITION back through the module's own bindings — literals, template and
+`+` concatenation, `path.join`/`path.resolve` under either spelling, `const` initialisers, object and
+array literals, `for…of` element bindings, destructuring, local function return values, and a
+PARAMETER by unioning the arguments at every call site of its function. That last one is the case a
+narrower text pattern could not reach: `run('some-hook.sh', …)` where `run` joins it.
+
+**Three answers, never a guess.** A target that cannot be pinned — a path built from `readdirSync()`
+— answers UNDETERMINED. The red-proof gate refuses to let an UNDETERMINED test decide and says so in
+the verdict; the coverage floor counts only a resolved execution and names the unresolved files in
+its message, because counting a directory sweep as coverage would satisfy that floor for every hook
+at once.
+
+**Measured over the whole tree** (120 harness test files × 12 hooks = 1440 pairs):
+
+| | claimed `executes` | `undetermined` |
+| --- | --- | --- |
+| before | 28 | — (no such answer) |
+| after | 27 | 32 |
+
+The one dropped pair is the defect: `check-regression-red-proof.test.mjs` → `branch-guard.sh`, a file
+that imports no `child_process` at all and whose every `spawnSync('bash'` sits inside a fixture
+STRING. No true pair was lost — the other 27 are unchanged. The 32 new UNDETERMINED pairs are three
+files that genuinely build their spawn target at runtime (`guards-fail-closed` sweeps the hooks
+directory, `hook-command-parsing` runs `bash -n` over every shell file it finds,
+`hook-reading-matches-bash` runs `bash -c` on a script it assembles). Every hook still has at least
+one RESOLVED runner, so the coverage floor stays green while getting strictly stricter.
+
+The containment note naming this item is removed from `testExecutesHook`. The gate remains ADVISORY;
+promoting it is INFRA-046's decision, not this one's.

@@ -62,7 +62,8 @@ change, so nothing in the diff signals anything and review sees a reuse.
   twelve CI runs, zero verdicts, no error anyone saw.
 - `testExecutesHook` was grep-level for an advisory floor; reused to pick which tests may set a
   verdict, the same imprecision can decide a hook it never ran
-  ([INFRA-074](../backlog/INFRA-074-the-spawn-relation-is-not-tied-to-its-argument.md)).
+  ([INFRA-074](../backlog/completed/INFRA-074-the-spawn-relation-is-not-tied-to-its-argument.md),
+  resolved 2026-08-01 by reading the call graph rather than narrowing the text pattern).
 
 Floor: `scan-helper-limits`. `@limits` on the docblock is opt-in; acknowledging it at each importing
 module is not.
