@@ -161,7 +161,11 @@ export function resolveRootItems(ids, backlogDir) {
   for (const dir of [backlogDir, path.join(backlogDir, 'completed')]) {
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir)) {
-      const m = name.match(/^([A-Z]+-\d+)-/);
+      // Multi-segment prefixes are the repository's own convention, not a hypothetical:
+      // `ARCH-AUDIT-001` and `HARNESS-DIET-006` are both filed. Reading one letter-group matched
+      // neither, so the floor would have refused a root item that exists — and an unpushable branch
+      // is the fastest way to teach someone to stop using the flag.
+      const m = name.match(/^([A-Z]+(?:-[A-Z]+)*-\d+)-/);
       if (m) present.add(m[1]);
     }
   }

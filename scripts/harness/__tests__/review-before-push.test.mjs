@@ -351,6 +351,18 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(stored.notes, 'the note was silently dropped').toBe('aggregation held');
   });
 
+  it('resolves an ID whose prefix has more than one segment', () => {
+    // `.agents/backlog/` already holds `ARCH-AUDIT-001` and `HARNESS-DIET-006`. A pattern reading
+    // one letter-group matched neither, so the floor would have refused a root item that exists —
+    // turning a filed foundational finding into an unpushable branch, which is the failure mode
+    // most likely to teach someone to stop using the flag.
+    const dir = repoWithBacklog(['ARCH-AUDIT-001', 'HARNESS-DIET-006']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'HARNESS-DIET-006']);
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('refuses a flag it does not understand instead of ignoring it', () => {
     // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
     // parser skipped anything it did not recognise, so every note passed that way was dropped and
