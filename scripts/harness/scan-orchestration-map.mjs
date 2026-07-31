@@ -52,11 +52,77 @@ export function mapRowNames(mapText) {
   return names;
 }
 
+/** Escape a value being interpolated into a pattern. An agent name is data, not syntax. */
+function reEscape(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The agents a single skill's text dispatches. Pure, so the reading is testable without a tree —
+ * this shipped with no regression test and its own review said so.
+ */
+export function dispatchedAgents(text, agentNames) {
+  const dispatched = new Set();
+  for (const sentence of text.replace(/\r?\n/g, ' ').split(/(?<=[.!?][*_`)\]]{0,3})\s+/)) {
+    // An imperative naming the agent — the same reading `agents-cannot-be-told-to-dispatch` uses.
+    // A sentence about what an agent OWNS is a reference, not a dispatch.
+    if (/\bowns\b|\bis the\b|\bbelongs to\b|\bnot this skill/i.test(sentence)) continue;
+    for (const name of agentNames) {
+      // `hand` carries a boundary. Without it `handling`/`handles` anchors the match, so ordinary
+      // prose — "this skill handles retries and reports to `some-agent`" — would demand a map edit
+      // that no dispatch justifies. Demonstrated on the incident file itself.
+      const re = new RegExp(
+        `\\b(?:dispatch(?:es)?|calls?|invokes?|hand(?:s|ed)?\\b[^.\`]{0,30}\\bto)\\b[^.\`]{0,40}\`?${reEscape(name)}\`?`,
+        'i',
+      );
+      if (re.test(sentence)) dispatched.add(name);
+    }
+  }
+  return [...dispatched].sort();
+}
+
+/**
+ * Every SKILL that dispatches an agent, and the agents it dispatches.
+ *
+ * The registry's stated purpose is to be current, and the drift it is most likely to suffer is
+ * precisely the one nothing checked: a pipeline gains a dispatch and the map's row for that pipeline
+ * is not updated. Measured twice on 2026-08-01 in #1546 — `architecture-refresh` gained a
+ * `finding-depth-triager` step whose diagram node was missing, and `backlog-execution-orchestrator`
+ * gained one with no row change at all. The scan passed both times, because it asked only whether
+ * each AGENT has a row somewhere, never whether the pipeline USING it names it.
+ */
+export function skillDispatches(root, agentNames) {
+  const skillsDir = path.join(root, '.agents/skills');
+  if (!existsSync(skillsDir)) return [];
+  const out = [];
+  for (const entry of readdirSync(skillsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const file = path.join(skillsDir, entry.name, 'SKILL.md');
+    if (!existsSync(file)) continue;
+    const dispatched = dispatchedAgents(readFileSync(file, 'utf8'), agentNames);
+    if (dispatched.length > 0) out.push({ skill: entry.name, agents: dispatched });
+  }
+  return out;
+}
+
+/**
+ * Every pipeline row that mentions `skill`.
+ *
+ * ALL of them, not the first: a shared sub-orchestration appears in several pipelines, and asking
+ * only the first row produced a false positive on `ci-gate-watch` — whose escalation target IS named
+ * in the Release row and is not needed in the PR-review one. A guard that refuses correct work is a
+ * guard that gets switched off.
+ */
+export function rowsForSkill(mapText, skill) {
+  return mapText
+    .split('\n')
+    .filter((line) => line.startsWith('|') && line.includes(`\`${skill}\``));
+}
+
 export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.claude/agents'], {
     scan: 'orchestration-map',
-    why:
-      'The agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing.',
+    why: 'The agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing.',
   });
   const agentsDir = path.join(root, '.claude/agents');
   const mapPath = path.join(root, '.agents/specs/orchestration-map.md');
@@ -68,6 +134,31 @@ export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
   const rowNames = mapRowNames(mapText);
 
   const findings = [];
+
+  // The pipeline half: a skill that DISPATCHES an agent must have that agent in its own row. Asking
+  // only "does every agent have a row" leaves the registry free to disagree with the wiring, which
+  // is the whole thing it exists to record.
+  const agentNames = existsSync(agentsDir)
+    ? readdirSync(agentsDir)
+        .filter((f) => f.endsWith('.md'))
+        .map(
+          (f) =>
+            asScalar(frontmatterObject(readFileSync(path.join(agentsDir, f), 'utf8')).name) ||
+            f.replace(/\.md$/, ''),
+        )
+    : [];
+  for (const { skill, agents } of skillDispatches(root, agentNames)) {
+    const rows = rowsForSkill(mapText, skill);
+    if (rows.length === 0) continue; // the skill itself is unregistered — a different question
+    for (const agent of agents) {
+      if (!rows.some((row) => row.includes(`\`${agent}\``))) {
+        findings.push(
+          `skill "${skill}" dispatches "${agent}" but its Orchestration Map row does not name it — the registry disagrees with the wiring it exists to record.`,
+        );
+      }
+    }
+  }
+
   if (existsSync(agentsDir)) {
     for (const file of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
       const text = readFileSync(path.join(agentsDir, file), 'utf8');
