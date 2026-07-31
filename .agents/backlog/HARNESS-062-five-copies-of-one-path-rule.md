@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-062: five implementations of "a cited repo path must resolve", giving three verdicts on one sentence'
-status: todo
+status: in-progress
 priority: medium
 urgency: soon
 type: HARNESS
@@ -56,3 +56,82 @@ prevent, not to cause.
 - One implementation of the path rule, one of the tree walk, imported rather than copied.
 - The three verdicts above become one, and the chosen exemption vocabulary is stated with its reason.
 - The two deliberate divergences are named options, not casualties.
+
+## Resolution
+
+### The path rule
+
+`scripts/harness/cited-paths.mjs` owns the patterns (`REPO_SOURCE_PATH_PATTERN`,
+`LOCAL_SOURCE_PATH_PATTERN`, `REPO_FILE_PATH_PATTERN`, `QUOTED_REPO_FILE_PATH_PATTERN`), the
+vocabulary, and `citedRepoPaths(line, { pattern, vocabulary })`. All five scans import it;
+`check-done-evidence` re-exports `PATH_PATTERN` from there so `scan-unearned-done-claims` keeps its
+existing import.
+
+The chosen vocabulary is the NARROW one — explicit parenthetical annotations (`(planned)`,
+`(removed)`, `(deleted)`, `(renamed)`) plus `no longer` / `does not exist` — measured before choosing:
+
+| corpus             | measurement                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| architecture-map   | 8 lines carry a cited source path; **0** were exempted by the wide set — it was live only in the two historical logs the scan skips wholesale |
+| ghost-package-refs | **0** lines change verdict either way; every wide-but-not-narrow line sits in a doc tree already excluded as immutable history         |
+
+So the choice costs no false positives and no coverage, and the narrow set is the better rule: it
+exempts on an annotation the author wrote for the guard, never on narrative words like "stale",
+"migrated" or "relocated" appearing anywhere on the line.
+
+Three strictness LEVELS remain, as named options rather than forks:
+
+- `ABSENCE_VOCABULARY` — `arch-map-paths`, `ghost-package-refs`.
+- `PLANNED_ONLY_VOCABULARY` — `spec-paths`, `harness-config-paths`. **Deliberately not flattened**: a
+  package SPEC is the contract for what the package IS, not a changelog; a hardcoded path literal in
+  a scan is configuration, not prose, and already carries an explicit allow-missing marker.
+- `NO_VOCABULARY` — `done-evidence`. Its exemption is the `evidence-superseded` annotation, which
+  names a reason.
+
+The issue's sentence now gets the same verdict from all three path scans. Measured finding delta on
+the real tree, all five scans: **0**.
+
+### The tree walk
+
+`listSourceFiles(dir, { excludeTests, extensions })` in `workspace-packages.mjs` owns the walk, with
+ONE exclusion set — the `SKIP_DIRS` the module already declared (`node_modules`, `dist`, `coverage`).
+Six walkers route through it, replacing four distinct private exclusion sets. Every delta measured by
+running the old walker and the new one over the real tree and diffing the resulting path sets:
+
+| walker                        | old exclusion set                   | files before → after | delta |
+| ----------------------------- | ----------------------------------- | -------------------- | ----- |
+| `check-stub-markers`          | `__tests__`, `node_modules`         | 1620 → 1620          | 0     |
+| `scan-deprecated-markers`     | `__tests__`, `node_modules`         | 1620 → 1620          | 0     |
+| `scan-no-fake-in-src`         | `node_modules`, `dist`              | 1606 → 1606          | 0     |
+| `check-interface-imports`     | (nothing at all)                    | 2142 → 2142          | 0     |
+| `scan-no-fallback`            | `__tests__`, `node_modules`, `dist` | 1620 → 1620          | 0     |
+| `scan-composition-neutrality` | `node_modules`, `dist`              | 2443 → 2443          | 0     |
+
+**Deliberately not flattened:** `check-interface-imports` descends into `__tests__` via the named
+`excludeTests: false` option — an import-layering violation in a test file is still a violation, and
+the import it writes is the one the next author copies. What it gains from the shared lister is the
+exclusion set it never had.
+
+**Deliberately not routed:** `scan-memory-neutrality`'s `walkSourceAllFiles` skips the `__tests__`
+DIRECTORY but keeps co-located `*.test.ts` files, and `excludeTests` excludes both. Measured: routing
+it would drop **113 files (1736 → 1623)** from a neutrality guard's corpus. Silently narrowing
+coverage is the failure this item exists to prevent, so the contract stays and the measurement is
+recorded at the function.
+
+## Test Plan
+
+- `scripts/harness/__tests__/cited-paths.test.mjs` — the issue's sentence, placed in an arch-map doc
+  and a package SPEC, must get ONE verdict; plus the vocabulary levels and the extraction rules.
+  Red-proof: before the fix `arch-map-paths` returned 0 findings while `spec-paths` and
+  `ghost-package-refs` returned 1.
+- `scripts/harness/__tests__/list-source-files.test.mjs` — the three marker scans must agree about a
+  file under `src/dist/`, and `listSourceFiles` must honour `excludeTests` in both directions.
+  Red-proof: before the fix `stub-markers` reported
+  `[stub-marker] packages/pub/src/dist/legacy.ts` while `no-fake-in-src` reported nothing, and
+  `listSourceFiles` did not exist.
+- `npx vitest run scripts/harness/__tests__/` and `pnpm harness:scan`.
+
+## User Execution Test Scenarios
+
+Not applicable — a harness-internal refactor with no runnable user-facing behavior. The verification
+is the scan suite in the Test Plan.
