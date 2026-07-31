@@ -60,7 +60,7 @@ function toolsOf(text) {
  * which is the way a check like this normally dies.
  */
 export function takesDepthVerdict(text) {
-  return /(?:\btakes?\b|\btaking\b|\btaken\b|handed to you|given to you)[^.]{0,90}\bDEPTH\b/i.test(
+  return /(?:\btakes?\b|\btaking\b|\btaken\b|hands? you|handed to you|given to you)[^.]{0,90}\bDEPTH\b/i.test(
     text,
   );
 }
@@ -81,19 +81,26 @@ const SKILLS = readdirSync(SKILLS_DIR, { withFileTypes: true })
   .map((s) => ({ ...s, text: readFileSync(s.file, 'utf8') }));
 
 /**
- * Skills that could hand this agent a verdict: ones naming BOTH the agent and the guardian.
+ * Skills that hand this agent a verdict: the body must name the agent AND carry the imperative that
+ * produces the verdict.
  *
- * Deliberately weaker than `scan-orchestration-map`'s imperative reading, and the reason is measured
- * rather than convenient: that reader skips any sentence containing "is the", so it does not see
- * `pr-review-orchestration`'s own `finding-depth-triager` dispatch. Requiring it here would fail a
- * site that is correctly wired — the false-positive half, which is how a floor gets switched off.
- * Co-occurrence is enough for the property being checked, which is that SOME pipeline knows about
- * both ends. The narrower reading still applies, from that scan, to the map row.
+ * Co-occurrence was the first version, and review measured it too weak to make its own claim true:
+ * deleting the dispatch STEP from `documentation-refresh` left the check green, because the skill's
+ * agent-roster bullet still named the guardian a few lines up. That is precisely the drift the floor
+ * is for — the step goes, the roster line survives, nothing fails.
+ *
+ * The imperative is required instead, and it costs nothing in false positives because all four wired
+ * pipelines already write it verbatim: `documentation-refresh`, `architecture-refresh`,
+ * `pr-review-orchestration` and `backlog-execution-orchestrator`. It stays a plain
+ * `Dispatch <name>` rather than `scan-orchestration-map`'s sentence reader, whose skip list drops any
+ * sentence containing "is the" and therefore cannot see `pr-review-orchestration`'s own dispatch — a
+ * floor that fails a correctly-wired site is one somebody switches off.
  */
 export function producingSkillsFor(agent, skills) {
+  const dispatchesGuardian = /[Dd]ispatch(?:es)?\s+`?finding-depth-triager`?/;
   return skills
     .map((s) => ({ ...s, body: bodyOf(s.text) }))
-    .filter((s) => s.body.includes(agent) && s.body.includes('finding-depth-triager'))
+    .filter((s) => s.body.includes(agent) && dispatchesGuardian.test(s.body))
     .map((s) => s.name);
 }
 
@@ -124,6 +131,10 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
         'architecture-implementer',
         'doc-fixer',
         'pr-review-fixer',
+        // Handed the verdict to POST it rather than to act on it, and equally unable to obtain one.
+        // Found by review, not by the predicate: its sentence says "hands you … the `DEPTH:` verdict",
+        // outside the original verb set — the reword-blindness this pin exists to bound.
+        'pr-review-writer',
       ]),
     );
   });
@@ -169,10 +180,19 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
  * A hold labelled with an item nobody filed is indistinguishable from having ignored the finding —
  * worse than leaving it visibly open, because the label is what stops the next audit round from
  * raising it again. So the label is only worth what it resolves to.
+ *
+ * CONTAINED — PROC-007. `resolveRootItems` reads `.agents/backlog` and `.agents/backlog/completed`,
+ * while `backlog-writer` — the skill a foundational verdict is routed to — files new items under
+ * `.agents/spec-docs/draft/`. An item filed on the designed path therefore fails this check. The fix is
+ * NOT to widen the reader here: that would make two floors disagree about what a filed root item is,
+ * a third answer where the problem is already that there is no owner for the first. This file reuses
+ * `record-local-review`'s reader verbatim so both are wrong identically and one change corrects both.
  */
 export function containmentNotes(text) {
   const found = [];
-  const pattern = /^>\s*\*\*Contained\s*[—-]\s*(?:\[)?([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)/;
+  // Leading whitespace is allowed: a claim inside a list item carries its note indented under it, and
+  // anchoring hard at `^>` would let exactly those IDs go unchecked while looking covered.
+  const pattern = /^\s*>\s*\*\*Contained\s*[—-]\s*(?:\[)?([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)/;
   // Fenced blocks are excluded, and this was not a refinement: the rule document that DEFINES the
   // convention shows it in a ```markdown fence, and the first run of this check failed on its own
   // illustration. A sample of a label is not a label, exactly as a code sample is not code.

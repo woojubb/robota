@@ -95,14 +95,29 @@ link. Three properties, each of which is why it is this and not something else:
   `record-local-review` refuses one: a hold labelled with an item that does not exist is
   indistinguishable from having ignored the finding.
 
+"Immediately below" is literal for a paragraph, a heading's section, or a list item (indented with it).
+When the contained claim is a TABLE ROW, the note goes directly below the table and names the row, because
+a blockquote cannot live inside one — the property that must hold is that a reader meets the label in the
+same breath as the claim, not that the two lines are adjacent.
+
 ## A loop converges on RESOLVED, not on FIXED
 
 A review loop that stops at "no findings left" can only stop by editing something. A finding correctly
 left unfixed keeps it running, and the pressure that produces is to fix it anyway — which for a
 foundational finding is the patch this rule forbids. So the stop condition is that every finding is
 RESOLVED: fixed, contained under a filed root item, or recorded INVALID with what the code actually
-does. `documentation-refresh` converges on that (PROC-005), and it terminates for the same reason the
-code label works: a contained finding does not recur, because the label at the site is the answer to it.
+does. It terminates for the same reason the code label works: a contained finding does not recur,
+because the label at the site is the answer to it.
+
+Of the two dispositions a foundational finding may take, only **containment** is a resolution. **Re-plan**
+is a decision to change something the loop cannot reach, so it HALTS the loop and is reported with its
+root item — counting it as resolved would let a round claim convergence over work nobody has done. That
+distinction is the reason containment is worth a convention at all.
+
+`documentation-refresh` converges on this (PROC-005). `architecture-refresh` does not yet, and neither of
+its auditors reads a containment note — so a note in an architecture document is still re-raised there.
+That gap is filed as PROC-008; until it lands, read this section as stating where the loops are GOING,
+with one of them arrived.
 
 ## Where it is enforced
 

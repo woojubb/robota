@@ -41,9 +41,10 @@ Some claims carry a **containment note** — a blockquote immediately below them
 what the code does, and what the code does is the defect, so correcting the section would only describe a
 wrong design faithfully. The note is the answer to that finding, recorded at the site.
 
-- A contained claim gets the per-file verdict `CONTAINED` and is **not** counted in `ACTIONABLE FINDINGS`.
-  Re-raising it would make the loop unable to converge on anything but an edit, which is the pressure that
-  produces the patch in the first place.
+- A contained claim is **not** counted in `ACTIONABLE FINDINGS`. Re-raising it would make the loop unable to
+  converge on anything but an edit, which is the pressure that produces the patch in the first place.
+  Containment is per CLAIM, so the file's verdict is `CONTAINED` only when every finding in it is contained;
+  a file with one contained claim and three stale ones is `STALE`, with the contained claim named separately.
 - A note whose `<ID>` resolves to **no filed item** IS a finding, at `blocker` severity: a hold labelled
   with an item that does not exist is indistinguishable from having ignored the finding. Report the ID and
   what it failed to resolve to.
