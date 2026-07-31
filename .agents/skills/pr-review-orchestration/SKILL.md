@@ -59,6 +59,8 @@ the judgement is the guardian's, the routing is this skill's, and neither does t
   minute. The same round after a push costs a CI cycle.
 - **INVALID** → the premise does not hold. Nothing to fix; record what the code actually does, and do not
   let a wrong finding drive a change.
+- **UNDETERMINED** → not a pass. Obtain the specific thing the verdict names as missing, then re-run
+  A1 on that finding. Treating it as LOCAL is how a guess enters the loop wearing a verdict's clothes.
 - **FOUNDATIONAL** → do NOT send it back into the fix loop. Route to `backlog-writer` for the root item,
   register its GitHub issue, then take the disposition: **re-plan** (the change is withdrawn or reduced) or
   **labelled containment** (the smallest hold, naming the item's ID in a code comment and the commit body).

@@ -1,7 +1,7 @@
 # Finding Depth — a finding is fixed where the defect is
 
-Mandatory. Parent: [index.md](index.md) § Process Sub-Rules. Procedure:
-[root-cause-triage](../skills/root-cause-triage/SKILL.md).
+Mandatory. Parent: [index.md](index.md) § Process Sub-Rules. Judged by
+[finding-depth-triager](../../.claude/agents/finding-depth-triager.md), a read-only guardian.
 
 A review finding carries two independent facts. The pipeline read one of them.
 
@@ -18,22 +18,27 @@ revisited. The cost compounds silently, because a converged review loop looks id
 
 ## The rule
 
-**Every finding is classified LOCAL or FOUNDATIONAL before it is fixed.**
+**Every finding is classified before it is fixed.** Four verdicts, because a rule offering only the
+first two forces a guess whenever neither is true.
 
 - **LOCAL** — the defect is in this change. Fix it here, test-first: write the case against the
   unfixed code and watch it fail (`tdd-and-planning`, `check-regression-red-proof`).
 - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. It MUST NOT
   be patched in place. File the root item, register its GitHub issue, and choose **re-plan** or
   **labelled containment** — never a third option.
+- **INVALID** — the premise does not hold. Nothing to fix; record what the code actually does. A
+  wrong finding must not drive a change.
+- **UNDETERMINED** — the verdict could not be reached, naming the specific thing that would settle
+  it. It is not a pass: the finding stays open until that thing is obtained and the verdict retaken.
 
 Containment is permitted only when the change must land first, and only under all three conditions:
 it is the smallest thing that keeps the tree honest, it introduces no new abstraction, and it names
 the root item's ID in both a code comment and the commit body. An unlabelled hold is a patch.
 
 **The label is a condition, not a courtesy.** A hold with no such comment is indistinguishable from
-having ignored the finding. Why it is also what lets the review loop converge is
-[root-cause-triage](../skills/root-cause-triage/SKILL.md)'s to explain — this file states what is
-required, not the reasoning behind the procedure.
+having ignored the finding. It is also what lets the review loop converge: a foundational finding is
+not fixed, so the next round sees the same code and would raise it again. The comment at the site IS
+the answer to that finding.
 
 **Not the same as "too large to fix safely."** `pr-review-fixer` already defers a SHOULD it cannot
 fix cleanly in scope, and that is a judgement about THIS change's size and risk. Depth is a judgement
