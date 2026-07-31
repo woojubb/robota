@@ -7,6 +7,10 @@ A review finding carries two independent facts. The pipeline read one of them.
 
 - **Severity** — how much it matters. Owned by `pr-review-reviewer`: MUST / SHOULD / CONSIDER / NIT.
 - **Depth** — where the defect is. Owned by nobody, so every finding was fixed where it was reported.
+  It has an owner now: `finding-depth-triager`, a read-only guardian. The verdict is deliberately NOT
+  the fixer's: a worker judging the findings it is about to apply is the produce-and-judge split
+  [enforcement-architecture.md](enforcement-architecture.md) forbids, and it is the party for whom one
+  verdict means finishing and the other means stopping.
 
 Fixing a foundational finding at the place it surfaced is how a wrong design accumulates patches:
 each round is locally reasonable, the special cases multiply, and the shape underneath is never
@@ -44,7 +48,7 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
   no backlog item — a foundational finding whose root item does not exist is the same as not having
   filed it. `pre-push-check` already refuses a push with no record, so the field is reached by the
   real invocation on every push rather than when remembered.
-- `pr-review-fixer` stops and reports on a finding it judges foundational instead of applying it;
+- `pr-review-fixer` TAKES the verdict rather than producing it, and stops on a foundational one;
   `pr-review-orchestration` routes that verdict to the root item rather than back into the fix loop.
 
 ## What this rule does not do

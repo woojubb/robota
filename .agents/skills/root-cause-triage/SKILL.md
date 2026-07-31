@@ -22,11 +22,19 @@ than re-deriving the questions.
 On every finding that is about to be fixed — from `pr-review-reviewer`, from CI, from a human, or from
 your own reading. Before the edit, not after.
 
-## The Two Verdicts
+## The Verdicts
+
+Four, and the last two matter as much as the first two — a procedure offering only LOCAL and
+FOUNDATIONAL forces a guess whenever neither is true.
 
 - **LOCAL** — the defect is in this change. The fix belongs here. Most findings are local.
 - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. Fixing it
   here would make the symptom disappear and leave the cause.
+- **INVALID** — the premise does not hold. Read the actual file at the actual line before judging
+  depth; a finding can be wrong, and classifying a defect that is not there drives a pointless change.
+- **UNDETERMINED** — you could not reach a verdict. Name the specific thing that would settle it.
+  Guessing FOUNDATIONAL to defer work and guessing LOCAL to keep a change moving are the two ways
+  this fails.
 
 ## Three Questions
 
@@ -85,12 +93,13 @@ already refuses a push with no record, so this is reached on every push rather t
 
 ## Terminal Signal
 
-Report one line per finding, so an orchestrator can route on it without re-reading the prose:
+One line per finding, then the count. The format is the guardian's output contract — this file does
+not restate it, it is the same contract; see
+[finding-depth-triager](../../../.claude/agents/finding-depth-triager.md).
 
-```
-DEPTH: LOCAL — <finding>
-DEPTH: FOUNDATIONAL <BACKLOG-ID> — <finding> — disposition: re-plan | containment
-```
+Note what the verdict does NOT carry: the **disposition** (re-plan vs labelled containment). That is
+the orchestrator's routing decision, taken ON the verdict, and a judge that also chose it would be
+judging and routing — the split `enforcement-architecture.md` forbids.
 
 ## Boundaries
 
