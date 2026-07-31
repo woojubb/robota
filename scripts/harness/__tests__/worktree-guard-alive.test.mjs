@@ -5,8 +5,10 @@ import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
-const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
+import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
+
+// See the helper: worktree-cwd-guard reads its own directory to decide the session's identity.
+const HOOKS_DIR = hooksOutsideAWorktree();
 
 /**
  * The worktree guard, exercised the way a real session would reach it.
