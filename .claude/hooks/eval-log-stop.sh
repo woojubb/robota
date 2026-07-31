@@ -25,7 +25,10 @@ git_project() {
   hook_git_in "$PROJECT_DIR" "$@"
 }
 
-BRANCH=$(git_project branch --show-current 2>/dev/null || echo "unknown")
+# `|| echo "unknown"` was dead code: `branch --show-current` exits 0 with EMPTY output on a
+# detached HEAD, so the arm never fired and every detached session logged `"branch": ""`. The
+# default goes on the VALUE, and this caller wants a word a reader of the log can see.
+BRANCH=$(hook_current_branch "$PROJECT_DIR" "unknown")
 SESSION_ID=""
 if [ -n "$INPUT" ]; then
   SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")

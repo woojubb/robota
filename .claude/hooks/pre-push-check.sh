@@ -103,7 +103,10 @@ fi
 # merged one in) and PR'd to develop carries the promotion's merge commits in its `origin/develop..HEAD`
 # range, which land in the PR range and fail commitlint. A clean feature/docs branch has ZERO merge
 # commits over origin/develop. Skip integration/detached branches and when origin/develop is absent.
-CUR_BRANCH=$(hook_git_in "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
+# One branch reader, with the default on the VALUE (see lib/hook-facts.sh). This caller asks for
+# the EMPTY default deliberately: the detached-HEAD refusal further down is keyed on emptiness, and
+# a reader that substituted a word there would have silently disabled it.
+CUR_BRANCH=$(hook_current_branch "$PROJECT_DIR" "")
 case "$CUR_BRANCH" in
   # release/* and hotfix/* are promotion branches — they LEGITIMATELY carry the `git merge --no-ff origin/main`
   # that records main's ancestry into a develop→main promotion (INFRA-051, built by

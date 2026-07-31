@@ -288,7 +288,11 @@ fi
 
 # Get current branch of the EFFECTIVE context (worktree-aware, see resolution above)
 PROJECT_DIR="$EFFECTIVE_DIR"
-CURRENT_BRANCH=$(hook_git_in "$PROJECT_DIR" branch --show-current 2>/dev/null || echo "")
+# One branch reader, with the default on the VALUE. `git branch --show-current` exits 0 and prints
+# NOTHING on a detached HEAD, so an `|| echo …` arm here never runs — three hooks wrote one and all
+# three were dead code. THIS caller wants the empty value: the checks below key on emptiness to
+# recognise a detached HEAD, which is why the default is the caller's to name.
+CURRENT_BRANCH=$(hook_current_branch "$PROJECT_DIR" "")
 
 # A detached HEAD has no branch name, so the protected-branch checks below have nothing to compare
 # and the guard used to stop here. Branch CREATION is different: creating `feat/x` while detached at
@@ -512,9 +516,9 @@ if [[ "$IS_BRANCH_CREATE" == "true" ]]; then
     BASE_REF="${START_POINT:-HEAD}"
     BASE_SHA=$(hook_git_in "$BASE_DIR" rev-parse --verify --quiet "$BASE_REF" 2>/dev/null || echo "")
     # `branch --show-current` exits 0 with empty output on a detached HEAD, so `|| echo HEAD` never
-    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code.
-    CURRENT_ON_BASE=$(hook_git_in "$BASE_DIR" branch --show-current 2>/dev/null || echo "")
-    BASE_NAME="${START_POINT:-${CURRENT_ON_BASE:-HEAD}}"
+    # fired and the refusal named nothing. The default belongs on the VALUE, not on the exit code —
+    # which is what hook_current_branch does, for every caller, once.
+    BASE_NAME="${START_POINT:-$(hook_current_branch "$BASE_DIR" HEAD)}"
 
     if [[ -z "$WANTED_SHA" || -z "$BASE_SHA" ]]; then
       echo "[branch-guard] Blocked: cannot resolve the base for '$NEW_BRANCH'." >&2
