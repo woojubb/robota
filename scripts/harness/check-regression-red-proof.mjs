@@ -51,7 +51,11 @@ export const HARNESS_SUBJECT = 'scripts/harness';
 export function pkgOf(filePath) {
   const m = filePath.match(/^((?:packages|apps)\/[^/]+)\/src\//);
   if (m) return m[1];
-  if (filePath.startsWith(`${HARNESS_SUBJECT}/`)) return HARNESS_SUBJECT;
+  // Documentation is not source: reversing a `.md` and re-running a test proves nothing, and a
+  // docs-and-test range would otherwise manufacture a pair whose only possible verdict is noise.
+  // Under a `packages/*/src` scope this could not arise; under a whole directory it can.
+  if (filePath.startsWith(`${HARNESS_SUBJECT}/`))
+    return /\.mdx?$/.test(filePath) ? null : HARNESS_SUBJECT;
   if (/^\.claude\/hooks\/.*\.sh$/.test(filePath)) return HOOK_SUBJECT;
   return null;
 }

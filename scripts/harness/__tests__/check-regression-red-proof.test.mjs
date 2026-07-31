@@ -42,6 +42,10 @@ describe('HARNESS-041 file classification', () => {
     expect(pkgOf('scripts/harness/__tests__/x.test.mjs')).toBe('scripts/harness');
     expect(pkgOf('.claude/hooks/branch-guard.sh')).toBe('.claude/hooks');
     expect(pkgOf('.claude/hooks/lib/command-scan.sh')).toBe('.claude/hooks');
+    // Documentation is not source. Under the old `packages/*/src` scope this could not arise;
+    // scoping a whole directory means a docs-and-test range would otherwise manufacture a pair
+    // whose only possible verdict is noise — reversing prose proves nothing.
+    expect(pkgOf('scripts/harness/README.md')).toBeNull();
     // Not every file under `.claude/` is a guard; only the shell hooks are red-provable this way.
     expect(pkgOf('.claude/settings.json')).toBeNull();
   });
