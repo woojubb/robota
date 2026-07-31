@@ -67,17 +67,43 @@ override_given() {
   # set the flag globally and the real push went unchecked. The sibling guard met this exact attack
   # and split on separators to close it; porting the anchoring without the scoping left the hole
   # open here. (INFRA-076)
+  #
+  # And "one statement carries it" is still not the question. The action detection below is a set of
+  # booleans over the WHOLE command, so a single global flag answered for every guarded statement:
+  #   BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; git push origin main
+  # is a correctly-overridden merge followed by a push to main that nobody overrode, and it passed.
+  # Making a previously-dead override live over whole-command detection is what opened that one.
+  #
+  # The question is whether EVERY statement carrying this action carries the override — the
+  # invariant the sibling guard already states as DESTRUCTIVE_STATEMENTS == OVERRIDDEN_STATEMENTS.
+  # Requiring "no sibling exists" instead would refuse correctly-overridden work, which is how a
+  # guard earns being switched off.
+  #
+  # CONTAINED, INFRA-079 (#1563). This closes the coarseness in the OVERRIDE reading. It does not
+  # close the coarseness in the ACTION reading, which is a second face of the same defect: the
+  # detection booleans below are still computed over the whole command, and NEW_BRANCH / START_POINT
+  # / DELETE_BRANCH_NAME are still single values taken from the FIRST match anywhere, because
+  # `hook_match_extract` uses awk `match()`. So a command with two branch creations has its second
+  # judged by nothing — measured, with no override token involved and reproducing on develop:
+  #   git checkout -b feat/x develop ; git checkout -b feat/y main    -> exit 0 (wrong base unjudged)
+  #   git checkout -b feat/ok ; git checkout -b BAD_NAME              -> exit 0 (bad name unjudged)
+  # Closing those needs an aligned per-statement split in lib/command-scan.sh, which is a library
+  # change and not this function's subject. Do not add a third override reading here; the remaining
+  # hole is not in the override.
+  #
   # No pipeline: a `while` on the right of a pipe runs in a SUBSHELL, so its exit status says
   # nothing about what it found. The statements are split into a variable first and read from a
   # here-string, which keeps the loop in this shell.
-  local statements stmt
+  local statements stmt guarded=0 overridden=0
   statements=$(printf '%s\n' "$COMMAND_VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
   while IFS= read -r stmt; do
-    printf '%s' "$stmt" | grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$token=1[[:space:]]" || continue
     printf '%s' "$stmt" | grep -qE "$verb_re" || continue
-    return 0
+    guarded=$((guarded + 1))
+    if printf '%s' "$stmt" | grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$token=1[[:space:]]"; then
+      overridden=$((overridden + 1))
+    fi
   done <<< "$statements"
-  return 1
+  [[ "$guarded" -gt 0 && "$overridden" -eq "$guarded" ]]
 }
 
 # A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick

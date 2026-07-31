@@ -267,3 +267,59 @@ describe('an override names an action, not a string that contains one', () => {
     ).not.toBe(0);
   });
 });
+
+describe('an override covers the statements it was given to, and no others', () => {
+  // Depth verdict on #1559. The override became statement-scoped; the ACTION detection did not.
+  // `IS_PUSH`/`IS_MERGE`/`IS_BRANCH_CREATE` are booleans over the WHOLE command, and the decision
+  // at the bottom reads one global override flag — so one overridden statement answered for every
+  // sibling statement of any guarded kind.
+  //
+  // The sibling guard reached the correct shape first and this file did not take it: count the
+  // guarded statements, count the overridden ones, and honour the override only when every guarded
+  // statement carries it (worktree-cwd-guard.sh, "DESTRUCTIVE_STATEMENTS == OVERRIDDEN_STATEMENTS").
+
+  it('an overridden statement does not excuse an un-overridden sibling', () => {
+    const cases = [
+      {
+        on: 'main',
+        // Measured as newly reachable ON THIS BRANCH: develop refuses it only because the inline
+        // form of this token was dead there. Making a dead override live over whole-command
+        // detection is what opened it.
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; git push origin main',
+        control: 'git push origin main',
+      },
+      {
+        on: 'develop',
+        // The delete path, whose own comment records that it once closed an unmerged PR.
+        command:
+          'BRANCH_GUARD_ALLOW_DELETE=1 git push origin --delete scratch-1 ; git push origin --delete develop',
+        control: 'git push origin --delete develop',
+      },
+    ];
+    for (const { on, command, control } of cases) {
+      const bare = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', control, bare).status,
+        `the control is not blocked, so the case proves nothing: ${control}`,
+      ).not.toBe(0);
+
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `one overridden statement excused an un-overridden sibling: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('an override still covers a command whose guarded statements all carry it', () => {
+    // The other direction, and the reason the rule is "every guarded statement carries it" rather
+    // than "no sibling exists": a guard that refuses correctly-overridden work gets switched off.
+    const dir = scratchRepo('main');
+    const { status, output } = run(
+      'branch-guard.sh',
+      'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git push origin main',
+      dir,
+    );
+    expect(status, `a fully-overridden command was refused: ${output}`).toBe(0);
+  });
+});
