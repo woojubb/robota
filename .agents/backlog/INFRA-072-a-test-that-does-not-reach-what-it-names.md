@@ -7,6 +7,7 @@ type: INFRA
 area: scripts/harness
 created: 2026-07-31
 depends_on: [INFRA-071]
+issue: https://github.com/woojubb/robota/issues/1537
 ---
 
 # INFRA-072 — the defect class reverse-apply cannot reach
@@ -36,7 +37,7 @@ third question — "is it reached?" — asked one level down, of a test case rat
   case that fails for an unrelated crash is indistinguishable from one that fails on its assertion.
 - `hooks-have-execution-coverage` (PROC-003) asks whether a hook is executed by ANY test. It says
   nothing about whether a given case reaches a given branch — and it was itself one of the four.
-- File-granularity masking: a changed test FILE is red-proved by any one of its cases failing, so a
+- File-granularity masking (the test-side face of [INFRA-073](INFRA-073-one-verdict-for-an-aggregate.md)): a changed test FILE is red-proved by any one of its cases failing, so a
   vacuous case beside a genuine one is invisible. Measured on `2ac10f251..b1f46acf3`.
 
 ## Directions, none chosen yet

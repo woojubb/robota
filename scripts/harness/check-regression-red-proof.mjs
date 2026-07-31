@@ -403,6 +403,16 @@ export async function runRegressionRedProof(io = {}) {
       importsReversedFile = srcAbs.some((s) => graph.has(s));
     }
 
+    // CONTAINMENT — INFRA-073. Every source in the pair is reversed together and judged by one
+    // outcome, and `assertion-fail` (any deciding test failing) reads as RED_PROOF_OK. So a range
+    // touching two sources reports the proof of one as the proof of both, and an accidental-green
+    // sibling passes unseen. That aggregation predates the INFRA-071 widening — a `packages/x/src`
+    // range with five sources had the same hole — so it is not repaired here: the fix is to reverse
+    // and judge PER SOURCE, which changes what the gate judges and costs one vitest run per source.
+    //
+    // Held rather than patched because the gate is advisory (`REGRESSION_RED_PROOF_ENFORCE` unset),
+    // so an aggregate verdict approves nothing today. INFRA-073 must be resolved BEFORE the gate is
+    // promoted to enforcing (INFRA-046), when it would start deciding merges.
     let outcome = null;
     if (importsReversedFile) {
       reverseApply(pair.source);
