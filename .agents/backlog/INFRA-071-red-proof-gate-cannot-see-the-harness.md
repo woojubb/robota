@@ -86,14 +86,51 @@ re-running the executing test is the same operation vitest already performs for 
 
 This is correctness-critical code in a gate, so it is worth doing deliberately rather than quickly.
 
+## What the implementation found (2026-07-31)
+
+**The gate had never once reverse-applied anything.** `reverseApply` read the diff through a helper
+that `.trim()`s its output, so the patch reached `git apply -R` without its final newline and git
+rejected it as corrupt — "patch broke at line 60". Twelve CI runs, zero verdicts: the widening is
+what made the line reachable, and reaching it is what exposed this. It was never a `packages/*/src`
+problem versus a hooks problem — the mutation step was broken for every subject alike.
+
+**The third acceptance bullet below was written on a false premise, and the replay disproves it.**
+Both candidate ranges were replayed through the widened gate in a detached worktree:
+
+| Range                  | Verdict        | Case that fails when the fix is reversed          |
+| ---------------------- | -------------- | ------------------------------------------------- |
+| `2ac10f251..b1f46acf3` | `red-proof-ok` | `post-tool-format > … outside the formatted set`  |
+| `b1f46acf3..c08e0dbd6` | `red-proof-ok` | `post-tool-format > … project directory is unset` |
+
+Those verdicts are CORRECT. Each range's changed test file does contain a case that fails on the
+reversed hook, so the range is red-proved whatever else is true of its other cases.
+
+The four misses are a **different defect class**, and reverse-apply cannot reach them by
+construction:
+
+- `hooks-have-execution-coverage` — the logic under test lives inside the test file. There is no
+  source to reverse.
+- the two guard-clause cases — the hooks they name (`spec-first-gate`, `task-tracking`) were not
+  changed in the range, so there is no pair.
+- the extension-filter case — the hook did change, and the case does fail reversed, but for the
+  wrong reason (the reversed hook crashes before the filter). The gate reads pass/fail; it cannot
+  read WHY.
+
+Reverse-apply answers "does this test depend on the fix?". All four failed a different question:
+"does this test REACH the behavior it names?" — the third of PROC-003's three questions, at
+case granularity. That needs a mutation/coverage floor, not this one. Filed as INFRA-072 rather than
+stretched into this item, because widening this gate to cover it would mean judging a test by its
+reason for failing, which pass/fail output does not carry.
+
 ## Done when
 
 - A `fix:` PR touching `scripts/harness/**` with a changed test produces a verdict, not a SKIP —
   proven on a real pair from this window.
 - A `fix:` PR touching `.claude/hooks/**` with a test that executes the hook produces a verdict,
   proven the same way.
-- At least one of the four accidental-greens listed above is replayed through the widened gate and
-  comes back `ACCIDENTAL_GREEN` — the floor must be shown catching what review caught, not merely
-  running.
+- ~~At least one of the four accidental-greens listed above is replayed through the widened gate and
+  comes back `ACCIDENTAL_GREEN`.~~ **Retracted on measurement — see above.** Replaced by: the hook
+  subject reaches `ACCIDENTAL_GREEN` through the orchestrator, pinned by a fixture, and the four
+  misses are re-filed under the floor that can actually catch them.
 - The SKIP reasons remain distinguishable from a clean verdict in the log, so the next promotion
   audit can tell "examined and clean" from "examined nothing".
