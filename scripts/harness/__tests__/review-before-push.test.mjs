@@ -363,6 +363,22 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('resolves an item filed without a description suffix', () => {
+    // The pattern required a `-` after the number, so `INFRA-073.md` would have read as no item at
+    // all. Nothing in the naming convention forbids that file name, and the failure mode is the one
+    // this floor exists to prevent in reverse: refusing a root item that is right there.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    writeFileSync(path.join(dir, '.agents/backlog', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
+
+    const result = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+  });
+
   it('refuses a flag it does not understand instead of ignoring it', () => {
     // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
     // parser skipped anything it did not recognise, so every note passed that way was dropped and

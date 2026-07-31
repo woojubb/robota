@@ -165,7 +165,10 @@ export function resolveRootItems(ids, backlogDir) {
       // `ARCH-AUDIT-001` and `HARNESS-DIET-006` are both filed. Reading one letter-group matched
       // neither, so the floor would have refused a root item that exists — and an unpushable branch
       // is the fastest way to teach someone to stop using the flag.
-      const m = name.match(/^([A-Z]+(?:-[A-Z]+)*-\d+)-/);
+      // The description suffix is a convention, not a requirement: `INFRA-073.md` is a legal
+      // name and demanding the trailing `-` would make this floor refuse a root item that is
+      // right there — the failure it exists to prevent, running backwards.
+      const m = name.match(/^([A-Z]+(?:-[A-Z]+)*-\d+)(?:-|\.md$)/);
       if (m) present.add(m[1]);
     }
   }
