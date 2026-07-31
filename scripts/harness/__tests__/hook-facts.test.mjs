@@ -252,6 +252,21 @@ describe('fact 2 — reading a JSON field has one reader', () => {
     expect(JSON.parse(line)).toMatchObject({ pattern: 'user-correction', session_id: 'user-1' });
   });
 
+  it('eval-log-stop still records a session without jq', () => {
+    // It carried no `read_json()`, so the floor below does not see it — and it read `.session_id`
+    // with a bare `jq -r` and wrote its record with `jq -cn` all the same. Same defect, different
+    // spelling, which is why this case is executed rather than inferred from the floor.
+    const dir = initRepo(path.join(scratchDir('hook-facts-eval-'), 'repo'), 'feature/work');
+    runHook(
+      'eval-log-stop.sh',
+      { session_id: 'user-1' },
+      { cwd: dir, env: { PATH: noJq, CLAUDE_PROJECT_DIR: dir, ROBOTA_DISABLE_LESSONS_DIGEST: '1' } },
+    );
+    const log = path.join(dir, '.agents/evals/local-metrics/sessions.jsonl');
+    const line = readFileSync(log, 'utf8').trim().split('\n').at(-1);
+    expect(JSON.parse(line)).toMatchObject({ branch: 'feature/work', session_id: 'user-1' });
+  });
+
   it('leaves no hook reading a payload field with a bare jq call', () => {
     const offenders = hookSourcesWithoutComments()
       .filter(({ text }) => /read_json\(\)/.test(text))

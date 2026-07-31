@@ -29,10 +29,9 @@ git_project() {
 # detached HEAD, so the arm never fired and every detached session logged `"branch": ""`. The
 # default goes on the VALUE, and this caller wants a word a reader of the log can see.
 BRANCH=$(hook_current_branch "$PROJECT_DIR" "unknown")
-SESSION_ID=""
-if [ -n "$INPUT" ]; then
-  SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
-fi
+# It carried no `read_json()`, so it looked unlike its three siblings, and it read the payload with
+# a bare `jq -r` and wrote its record with `jq -cn` all the same. Same defect, different spelling.
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
 
 if [ -f "$HOOK_DIR/revert-detect.sh" ]; then
   printf '%s' "$INPUT" | bash "$HOOK_DIR/revert-detect.sh" >/dev/null 2>&1 || true
@@ -56,7 +55,10 @@ count_records() {
     echo 0
     return
   fi
-  if [ -n "$SESSION_ID" ]; then
+  # A jq PROGRAM over a JSONL file, not a payload field read, so it stays on jq. Stated limit: with
+  # jq absent the per-session filter cannot run and the pipeline yields 0, so these three totals
+  # under-report rather than break the record — which is the trade the record write could not make.
+  if [ -n "$SESSION_ID" ] && command -v jq >/dev/null 2>&1; then
     jq -c --arg session_id "$SESSION_ID" 'select(.session_id == $session_id)' "$file_path" 2>/dev/null | wc -l | tr -d ' '
     return
   fi
@@ -67,25 +69,15 @@ BLOCKS_TOTAL=$(count_records "$LOG_DIR/blocks.jsonl")
 CORRECTIONS_TOTAL=$(count_records "$LOG_DIR/corrections.jsonl")
 REVERTS_TOTAL=$(count_records "$LOG_DIR/reverts.jsonl")
 
-jq -cn \
-  --arg timestamp "$TIMESTAMP" \
-  --arg branch "$BRANCH" \
-  --arg session_id "$SESSION_ID" \
-  --argjson commits "$COMMIT_COUNT" \
-  --argjson test_files_changed "$TEST_FILES_CHANGED" \
-  --argjson blocks_total "$BLOCKS_TOTAL" \
-  --argjson corrections_total "$CORRECTIONS_TOTAL" \
-  --argjson reverts_total "$REVERTS_TOTAL" \
-  '{
-    timestamp: $timestamp,
-    branch: $branch,
-    session_id: $session_id,
-    commits: $commits,
-    testFilesChanged: $test_files_changed,
-    blocks_total: $blocks_total,
-    corrections_total: $corrections_total,
-    reverts_total: $reverts_total
-  }' >> "$LOG_FILE"
+hook_json_object \
+  s timestamp "$TIMESTAMP" \
+  s branch "$BRANCH" \
+  s session_id "$SESSION_ID" \
+  n commits "$COMMIT_COUNT" \
+  n testFilesChanged "$TEST_FILES_CHANGED" \
+  n blocks_total "$BLOCKS_TOTAL" \
+  n corrections_total "$CORRECTIONS_TOTAL" \
+  n reverts_total "$REVERTS_TOTAL" >> "$LOG_FILE"
 
 if [ "${ROBOTA_DISABLE_LESSONS_DIGEST:-}" != "1" ] && [ -f "$PROJECT_DIR/scripts/harness/lessons-digest.mjs" ]; then
   node "$PROJECT_DIR/scripts/harness/lessons-digest.mjs" >/dev/null 2>&1 || true
