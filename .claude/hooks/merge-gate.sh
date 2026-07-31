@@ -1,5 +1,6 @@
 #!/bin/bash
-# Before `gh pr merge`: the two questions git-branch.md already requires, asked mechanically.
+# Before `gh pr merge`: the questions the rules already require, asked mechanically. Two are
+# git-branch.md's; the third, asked first, is finding-depth.md's.
 #
 # `git-branch.md` § Pre-Merge Code-Review Gate says it plainly: "No CONFIRMED/PLAUSIBLE finding may
 # be left silently unaddressed. **Only after all findings are resolved** may the PR be merged."
