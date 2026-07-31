@@ -1,5 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -136,7 +145,7 @@ export function pipelineTable(mapText) {
   const header = lines.findIndex(
     (l) => l.startsWith('|') && /\bWorker\(s\)/.test(l) && /\bGuardian\(s\)/.test(l),
   );
-  if (header === -1) return { rows: [], worker: -1, guardian: -1 };
+  if (header === -1) return { rows: [], worker: -1, guardian: -1, orchestrator: -1, loopback: -1 };
   const cells = lines[header].split('|');
   const rows = [];
   for (const line of lines.slice(header + 2)) {
@@ -147,6 +156,8 @@ export function pipelineTable(mapText) {
     rows,
     worker: cells.findIndex((c) => /\bWorker\(s\)/.test(c)),
     guardian: cells.findIndex((c) => /\bGuardian\(s\)/.test(c)),
+    orchestrator: cells.findIndex((c) => /\bOrchestrator\b/.test(c)),
+    loopback: cells.findIndex((c) => /\bLoop-back\b/.test(c)),
   };
 }
 
@@ -232,12 +243,12 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
  * worse than leaving it visibly open, because the label is what stops the next audit round from
  * raising it again. So the label is only worth what it resolves to.
  *
- * CONTAINED — PROC-009. `resolveRootItems` reads `.agents/backlog` and `.agents/backlog/completed`,
- * while `backlog-writer` — the skill a foundational verdict is routed to — files new items under
- * `.agents/spec-docs/draft/`. An item filed on the designed path therefore fails this check. The fix is
- * NOT to widen the reader here: that would make two floors disagree about what a filed root item is,
- * a third answer where the problem is already that there is no owner for the first. This file reuses
- * `record-local-review`'s reader verbatim so both are wrong identically and one change corrects both.
+ * PROC-009 removed this file's own containment: the reader read `.agents/backlog[/completed]` while
+ * the pipelines routed the filing to a skill that writes `.agents/spec-docs/draft/`, so an item filed
+ * on the designed path failed the check that verifies it was filed. The fix was never to widen the
+ * reader here — that makes a third answer where the problem is that there is no owner for the first.
+ * `finding-depth.md` § "Where a root item lives" is the owner now, and the case below asserts the
+ * reader resolves exactly what that section declares.
  */
 export function containmentNotes(text) {
   const found = [];
@@ -262,18 +273,50 @@ export function containmentNotes(text) {
   return found;
 }
 
-describe('a containment note in a document names a root item that exists', () => {
-  const trackedMarkdown = execFileSync('git', ['ls-files', '*.md'], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  })
-    .split('\n')
-    .filter(Boolean);
+/**
+ * The CODE form of the same label: `Contained — <ID>.` inside a comment.
+ *
+ * One opening for both forms is `finding-depth.md`'s decision and it is what lets one reader serve
+ * them — a convention spelled differently per artifact needs a second reader, and the second reader
+ * is the thing PROC-009 measured going wrong. What differs is only where the label may sit: a
+ * document's is a blockquote a reader sees, code's is a comment the compiler does not.
+ *
+ * Restricted to comment LINES on purpose. Without it the check fires on this very file, whose parser
+ * cases pass the label as a string literal — a floor whose first false positive is itself.
+ */
+export function containmentComments(text) {
+  const found = [];
+  const comment = /^\s*(?:\/\/|\/\*|\*|#|--)/;
+  const pattern = /Contained\s*[—-]\s*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)/;
+  for (const line of text.split('\n')) {
+    if (!comment.test(line)) continue;
+    const m = line.match(pattern);
+    if (m) found.push(m[1]);
+  }
+  return found;
+}
 
-  it('reads the tracked markdown tree', () => {
+describe('a containment label names a root item that exists', () => {
+  const tracked = (...globs) =>
+    execFileSync('git', ['ls-files', ...globs], {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 32 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter(Boolean);
+
+  const trackedMarkdown = tracked('*.md');
+  // The code half's corpus. It carries no label today, and saying so is more useful than pretending
+  // otherwise: the markdown half had none either until PROC-005 wrote the first one. What the case
+  // asserts is over the whole tracked tree, so the first code label to appear is read on the run it
+  // appears — which is the property, not the current count.
+  const trackedCode = tracked('*.mjs', '*.js', '*.cjs', '*.ts', '*.tsx', '*.sh');
+
+  it('reads the tracked tree', () => {
     // Fail closed (HARNESS-052): an empty listing must not read as "no unresolved labels".
     expect(trackedMarkdown.length).toBeGreaterThan(100);
+    expect(trackedCode.length).toBeGreaterThan(100);
     expect(existsSync(BACKLOG_DIR)).toBe(true);
   });
 
@@ -295,12 +338,35 @@ describe('a containment note in a document names a root item that exists', () =>
     ).toEqual([]);
   });
 
+  it('parses the code form, and is not fooled by a label in a string', () => {
+    expect(containmentComments('// Contained — PROC-005. the loader owns two resolvers\n')).toEqual(
+      ['PROC-005'],
+    );
+    expect(containmentComments(' * Contained — SELFHOST-008-P5-3. why\n')).toEqual([
+      'SELFHOST-008-P5-3',
+    ]);
+    expect(containmentComments('# Contained — PROC-005. shell scripts carry it too\n')).toEqual([
+      'PROC-005',
+    ]);
+    // Code, not a comment: this file's own parser cases pass the label as data, and reading those as
+    // labels would make the check fail on itself.
+    expect(
+      containmentComments('const label = "Contained — NOSUCH-999.";\n'),
+      'a label inside a string literal was read as a label',
+    ).toEqual([]);
+    expect(containmentComments('// this hold is contained under PROC-005')).toEqual([]);
+  });
+
   it('resolves every label in the tree to a filed backlog item', () => {
     const unresolved = [];
-    for (const rel of trackedMarkdown) {
+    const sources = [
+      ...trackedMarkdown.map((rel) => ({ rel, read: containmentNotes })),
+      ...trackedCode.map((rel) => ({ rel, read: containmentComments })),
+    ];
+    for (const { rel, read } of sources) {
       const file = path.join(WORKSPACE_ROOT, rel);
       if (!existsSync(file)) continue;
-      const ids = containmentNotes(readFileSync(file, 'utf8'));
+      const ids = read(readFileSync(file, 'utf8'));
       if (ids.length === 0) continue;
       const { missing } = resolveRootItems(ids, BACKLOG_DIR);
       for (const id of missing) unresolved.push(`${rel}: ${id}`);
@@ -308,7 +374,178 @@ describe('a containment note in a document names a root item that exists', () =>
 
     expect(
       unresolved,
-      'a containment note names a backlog item that does not exist — file the root item, or remove the label and leave the finding open',
+      'a containment label names a backlog item that does not exist — file the root item, or remove the label and leave the finding open',
+    ).toEqual([]);
+  });
+});
+
+/**
+ * "File the root item" names a PLACE, and until PROC-009 nothing owned which one.
+ *
+ * Two consumers picked their own and there were two answers: the review loops routed the filing to
+ * `backlog-writer`, which creates `.agents/spec-docs/draft/<ID>.md`, while the floor that verifies the
+ * filing resolved `.agents/backlog[/completed]` only — so an item filed on the designed happy path
+ * failed the check that exists to confirm it was filed, with the message "file the root item first"
+ * about an item that IS filed. Measured 2026-08-01: 125 IDs existed only under `.agents/spec-docs/`.
+ *
+ * The owner is now `finding-depth.md` § "Where a root item lives". These cases are what makes it an
+ * owner rather than a paragraph: one asserts the READER resolves exactly what that section declares,
+ * the other asserts no pipeline routes a filing anywhere else.
+ */
+const RULE = path.join(WORKSPACE_ROOT, '.agents/rules/finding-depth.md');
+
+/** Escape a value interpolated into a pattern. A skill name is data, not syntax. */
+function reEscape(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The root-item locations the rule DECLARES — bullet lines under the section that owns them.
+ *
+ * Read from a heading and a list rather than from prose, because the reader below has to compare
+ * against it mechanically. Renaming the heading empties this, and the first case fails rather than
+ * passing over nothing.
+ */
+export function declaredRootItemLocations(ruleText) {
+  const start = ruleText.indexOf('## Where a root item lives');
+  if (start === -1) return [];
+  const end = ruleText.indexOf('\n## ', start + 1);
+  const section = ruleText.slice(start, end === -1 ? undefined : end);
+  const found = [];
+  for (const line of section.split('\n')) {
+    const m = line.match(/^- `(\.agents\/[^`]+)`/);
+    if (m) found.push(m[1].replace(/\/+$/, ''));
+  }
+  return found;
+}
+
+/** Path literals a skill declares as its own OUTPUT — how a named filer resolves to a location. */
+export function declaredOutputPaths(text) {
+  const out = new Set();
+  for (const sentence of text.replace(/\r?\n/g, ' ').split(/(?<=[.!?][*_`)\]]{0,3})\s+/)) {
+    if (!/\b(?:creates?|writes?|produces?|output)\b/i.test(sentence)) continue;
+    for (const m of sentence.matchAll(/`(\.agents\/[^`]*)`/g)) out.add(m[1]);
+  }
+  return [...out];
+}
+
+/**
+ * Where a document says a root item gets filed — as a path it names, or as the ACTOR it routes to.
+ *
+ * The actor form is the one that was measured going wrong, and it is the one a path-only reading
+ * cannot see: "Route to `backlog-writer` for the root item" names no location at all, which is
+ * exactly why nobody noticed that it named a different one. So a named filer resolves through its
+ * own declared output, and the destination compared is that.
+ */
+export function rootItemDestinations(text, actorOutputs) {
+  const found = [];
+  for (const sentence of text.replace(/\r?\n/g, ' ').split(/(?<=[.!?][*_`)\]]{0,3})\s+/)) {
+    if (!/root items?\b/i.test(sentence)) continue;
+    // A destination is only claimed by a sentence that FILES. "pass any root items filed at step 4
+    // into the repo's gated backlog" names no place and decides none; reading it as a routing
+    // instruction would make the check fire on correct prose, which is how a floor gets switched off.
+    if (!/\b(?:files?|filed|filing|creates?|writes?|routes?)\b/i.test(sentence)) continue;
+    for (const m of sentence.matchAll(/`(\.agents\/[^`]*)`/g)) {
+      found.push({ place: m[1], sentence: sentence.trim() });
+    }
+    for (const [actor, places] of actorOutputs) {
+      if (!new RegExp('`' + reEscape(actor) + '`').test(sentence)) continue;
+      for (const place of places) found.push({ place, via: actor, sentence: sentence.trim() });
+    }
+  }
+  return found;
+}
+
+const declares = (place, locations) =>
+  locations.some((dir) => place === dir || place.startsWith(`${dir}/`));
+
+describe('a root item has one place to live, and one reader of it', () => {
+  const declared = declaredRootItemLocations(readFileSync(RULE, 'utf8'));
+
+  it('finds the declaration', () => {
+    // Fail closed: a renamed heading or a reworded list must not read as "nothing to disagree with".
+    expect(
+      declared,
+      'no root-item location is declared in finding-depth.md § "Where a root item lives"',
+    ).not.toEqual([]);
+    expect(declared).toContain('.agents/backlog');
+  });
+
+  it('the reader resolves exactly the locations the rule declares', () => {
+    // A probe per candidate directory, in a throwaway tree: the declared ones, plus the rival tree
+    // PROC-009 measured as the second answer. Asserting EQUALITY catches both directions — a rule
+    // that declares a place the reader cannot see, and a reader that resolves one the rule dropped.
+    const rivals = [
+      '.agents/spec-docs/draft',
+      '.agents/spec-docs/done',
+      '.agents/spec-docs/rejected',
+    ];
+    // Fail closed HERE too, not only in the case above: with an empty declaration this comparison is
+    // `[] === []` and passes while asserting nothing, which is the vacuity a renamed heading buys.
+    expect(declared, 'nothing declared — the probe below would compare two empty sets').not.toEqual(
+      [],
+    );
+    const candidates = [...declared, ...rivals.filter((r) => !declared.includes(r))];
+    const ids = candidates.map((_, i) => `PROBE-${String(i + 1).padStart(3, '0')}`);
+    const tmp = mkdtempSync(path.join(tmpdir(), 'root-item-location-'));
+    try {
+      candidates.forEach((dir, i) => {
+        mkdirSync(path.join(tmp, dir), { recursive: true });
+        writeFileSync(path.join(tmp, dir, `${ids[i]}-probe.md`), 'probe\n');
+      });
+      const { resolved } = resolveRootItems(ids, path.join(tmp, '.agents/backlog'));
+      const resolvedDirs = resolved.map((id) => candidates[ids.indexOf(id)]).sort();
+
+      expect(
+        resolvedDirs,
+        'the reader (record-local-review’s resolveRootItems) and finding-depth.md § "Where a ' +
+          'root item lives" disagree about where a root item lives — which is PROC-009 itself: two ' +
+          'answers, so an item filed on one fails the floor that reads the other',
+      ).toEqual([...declared].sort());
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('no pipeline routes a filing anywhere else', () => {
+    const actorOutputs = new Map(
+      SKILLS.map((s) => [s.name, declaredOutputPaths(s.text)]).filter(([, p]) => p.length > 0),
+    );
+    // Skills and agents only: routing is what they do. A rule STATES the location, and the statement's
+    // own consistency is the case above — while the rule that owns the answer must also be able to
+    // name the rejected one without that reading as a route to it.
+    const documents = [
+      ...SKILLS.map((s) => ({ rel: `.agents/skills/${s.name}/SKILL.md`, text: s.text })),
+      ...DEFINITIONS.map((d) => ({ rel: `.claude/agents/${d.name}.md`, text: d.text })),
+    ];
+
+    const examined = new Set();
+    const wrong = [];
+    for (const { rel, text } of documents) {
+      for (const d of rootItemDestinations(text, actorOutputs)) {
+        examined.add(rel);
+        if (declares(d.place, declared)) continue;
+        wrong.push(`${rel}: ${d.via ? `${d.via} files to ` : ''}${d.place} — "${d.sentence}"`);
+      }
+    }
+
+    // Pinned membership, not a count. A predicate that matched nothing would pass this case forever
+    // while asserting nothing — the shape PROC-005's own floor was caught in during its review — and
+    // a count alone would not notice which of the two routing pipelines had dropped out of it.
+    expect(
+      [...examined].sort(),
+      'a routing pipeline stopped naming where it files the root item, so this case no longer reads it',
+    ).toEqual(
+      expect.arrayContaining([
+        '.agents/skills/documentation-refresh/SKILL.md',
+        '.agents/skills/pr-review-orchestration/SKILL.md',
+      ]),
+    );
+    expect(
+      wrong,
+      'a pipeline files the root item somewhere finding-depth.md § "Where a root item lives" does ' +
+        'not declare. The floor that verifies the filing reads only what that section declares, so ' +
+        'the item would be filed and the check would still say "file the root item first"',
     ).toEqual([]);
   });
 });

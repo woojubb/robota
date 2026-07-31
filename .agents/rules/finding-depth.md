@@ -35,6 +35,10 @@ Containment is permitted only when the change must land first, and only under al
 it is the smallest thing that keeps the tree honest, it introduces no new abstraction, and it names
 the root item's ID in both a code comment and the commit body. An unlabelled hold is a patch.
 
+The code comment opens `Contained — <ID>.`, the same opening the document form uses below. One opening
+for both, because both are read by the same reader: the ID has to resolve to a filed item, and a
+convention spelled differently per artifact would need a second reader that then drifts from the first.
+
 **The label is a condition, not a courtesy.** A hold with no such comment is indistinguishable from
 having ignored the finding. It is also what lets the review loop converge: a foundational finding is
 not fixed, so the next round sees the same code and would raise it again. The comment at the site IS
@@ -51,6 +55,39 @@ guardian, and a verdict produced where nothing can act on it is a verdict nobody
 holding the checkout does the judging, and posts back the DECISION — verdict, root item, disposition —
 because a finding correctly left unfixed is indistinguishable from one ignored to everyone reading the
 PR afterwards.
+
+## Where a root item lives
+
+"File the root item" names a place, and nothing owned WHICH one — so every consumer picked its own and
+there were two answers. The review loops routed the filing to `backlog-writer`, which creates
+`.agents/spec-docs/draft/<ID>.md`; the floor that verifies the filing resolved `.agents/backlog/` only.
+An item filed on the designed path therefore failed the check that exists to confirm it was filed, with
+the message "file the root item first" about an item that is filed (PROC-009; measured 2026-08-01 —
+125 IDs then existed only under `.agents/spec-docs/`). Owned here, once, so both floors read one list:
+
+- `.agents/backlog/` — an open root item.
+- `.agents/backlog/completed/` — an archived one. A finding contained under an item that has since
+  landed must keep resolving, or archiving the fix would turn every note that cited it into a failure.
+
+`resolveRootItems` in `scripts/harness/record-local-review.mjs` is the single READER of that list —
+`--foundational <ID>` and the containment-label floor both go through it, and
+`depth-verdict-reachable.test.mjs` asserts the reader resolves exactly what this section declares.
+
+**Not the spec-doc tree, and not because of the reader.** A spec-doc is a _plan_ under a gate pipeline:
+its schema demands prior art, alternatives, a decision, TC-numbered completion criteria and a test plan.
+At the moment a foundational finding is raised, none of that is knowable — the point of the verdict is
+that the cause has not been designed away yet — so a filing on that path is either a blocked review round
+or a draft of placeholders. The backlog item is the problem statement, which is precisely what has been
+established. An ID whose only home is `.agents/spec-docs/rejected/` would also satisfy a widened reader,
+and "a root item exists" would then be true of a plan somebody declined.
+
+Filing is not a separate worker's. The content is the guardian's finding, already produced, plus a
+location — no production judgement is left to make, and `enforcement-architecture.md` says a tier bought
+for reliability buys none. The orchestrator that routes the verdict files the item under
+[`.agents/backlog/README.md`](../backlog/README.md)'s format and registers its GitHub issue, exactly as
+it already registers the issue. `backlog-writer` remains the author of gate-pipeline spec documents;
+when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
+which is the pairing the two trees already have.
 
 ## The cause's location does not decide the depth — the corrected claim does
 
@@ -114,10 +151,19 @@ is a decision to change something the loop cannot reach, so it HALTS the loop an
 root item — counting it as resolved would let a round claim convergence over work nobody has done. That
 distinction is the reason containment is worth a convention at all.
 
-`documentation-refresh` converges on this (PROC-005). `architecture-refresh` does not yet, and neither of
-its auditors reads a containment note — so a note in an architecture document is still re-raised there.
-That gap is filed as PROC-008; until it lands, read this section as stating where the loops are GOING,
-with one of them arrived.
+This holds for **every** loop that converges on a findings count, not for the one that adopted it first.
+A convergence condition only one consumer implements reads as governing while the others keep stopping at
+"nothing left to edit" — and two loops over the same tree then disagree about the same claim, because the
+one that does not read the label re-raises what the other has already answered (PROC-008). Which loops
+those are is not enumerated here: the prose would go stale the first time a pipeline is added.
+`depth-verdict-reachable.test.mjs` enumerates them from the orchestration map and fails the ones that
+have not adopted it, so the set is derived rather than remembered.
+
+The label is read by whoever produces the count. An auditor that does not know the convention counts a
+contained claim as a finding, which makes the loop unable to converge on anything but an edit — the exact
+pressure this section removes. So each guardian feeding such a loop excludes a contained claim from its
+count, treats a label whose ID resolves to nothing as a finding in its own right, and re-raises a claim
+whose containment has gone stale.
 
 ## Where it is enforced
 
@@ -132,8 +178,13 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
 - `depth-verdict-reachable.test.mjs` refuses a worker that is told to take a `DEPTH:` verdict when no
   pipeline produces one for it. That is this repository's dominant defect stated at this rule's layer:
   the instruction reads as enforced, the worker carries no `Agent` tool so it cannot obtain the verdict
-  itself, and nothing fails. The same file refuses a containment note whose ID resolves to no backlog
-  item, which is `record-local-review`'s refusal applied to the document form of the label.
+  itself, and nothing fails. The same file refuses a containment label — in a document or in code —
+  whose ID resolves to no backlog item, which is `record-local-review`'s refusal applied to both forms.
+- The same file holds the two clauses above to every consumer rather than to the first one: it refuses a
+  root-item location this rule does not declare or the reader does not resolve, a pipeline that routes a
+  filing somewhere else, a findings-count loop whose convergence is still stated as FIXED, and a guardian
+  feeding such a loop that does not read the containment label. Each is a rule stated repo-wide with one
+  implementer until something enumerates the rest.
 
 ## It applies to a PLAN, not only to a finding
 

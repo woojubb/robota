@@ -24,7 +24,7 @@ re-judges.
      the thing this step exists to prevent. Your caller obtains them and re-dispatches you.
    - **LOCAL** — the defect is in this change. Continue to step 3.
    - **FOUNDATIONAL** — **do not patch it.** Stop on that finding and report it unfixed with the verdict you
-     were given. You do not file the root item (that is `backlog-writer`'s) and you do not decide the
+     were given. You do not file the root item (that is your caller's) and you do not decide the
      disposition (that is the orchestrator's).
    - **INVALID** — the premise does not hold. Do not act on it; record what the code actually does.
    - **UNDETERMINED** — not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the

@@ -40,8 +40,8 @@ forbids, and it is the party for whom one verdict means finishing and the other 
     A note naming an item that does not exist is indistinguishable from having ignored the finding, which
     is worse than leaving the finding visibly open.
 
-  You do not file the root item (that is `backlog-writer`'s, routed by your caller) and you do not decide
-  between re-plan and containment (that is the orchestrator's).
+  You do not file the root item (that is your caller's) and you do not decide between re-plan and
+  containment (that is the orchestrator's).
 
 - **INVALID** — the premise does not hold. Do not act on it; record what the code actually does.
 - **UNDETERMINED** — not a verdict yet. Do not treat it as LOCAL; report it unacted, naming what the
