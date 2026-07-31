@@ -91,6 +91,97 @@ So direction 1 closes the masking half and nothing else, which is what the item 
 remaining half — a case that fails for the wrong reason, or passes beside a genuine sibling — needs
 the branch-level or coverage-delta work, and stays open as a separate decision.
 
+## Decision (2026-08-01, second pass) — direction 3, and direction 2 rejected with the measurement
+
+Directions 2 and 3 were the remaining halves. **Direction 3 (coverage delta per case) is
+implemented. Direction 2 (branch-level mutation) is rejected**, and the reason is measurable rather
+than a matter of taste.
+
+### Acceptance criterion, set before any code was written
+
+1. Of the four motivating cases, the witness was predicted to catch **0 additional** — direction 1
+   already catches #4 partly — with a per-case reason stated in advance and then replayed.
+2. It must catch the class direction 1 cannot see: a case that FAILS on the reversed source and
+   executed none of the lines the fix wrote.
+3. **Zero** false alarms over recent real ranges. A guard that fires on correct work gets switched
+   off, and #1568 already established that "every added case must fail" is that kind of guard.
+
+### What was built
+
+Two instruments, one question — did the case that supplied the red actually execute the code this
+fix wrote?
+
+- `bash`: `BASH_ENV` names a prelude every non-interactive bash sources before the script it was
+  asked to run, so a hook spawned from inside a vitest worker is instrumented without touching the
+  test or the hook. `BASH_XTRACEFD` sends the trace to its own descriptor, so a test asserting on the
+  hook's stderr is unaffected by being measured.
+- `.mjs`/`.ts`: vitest v8 coverage, whose istanbul-shaped output names the executed statements and
+  which lines are statements at all.
+
+Per-case attribution comes from re-running the single deciding case with `-t`, because vitest
+attributes outcomes to cases but coverage to a run.
+
+Three answers, and only UNREACHED is a finding. UNKNOWN — a comment-only hunk, a pure deletion, a
+report that never names the file — leaves the verdict exactly as it was.
+
+### Two formulations were tried, and the first was measured WRONG
+
+The first asked the question of the REVERSED tree against the fix's OLD-side lines. Replayed on
+`c08e0dbd6`, it called a **genuine** red proof `unreached`: that fix is an ADDITION, so its old side
+held nothing but a comment and one `case` pattern arm. It also turned out that `set -x` never names a
+bare `case` arm at all — probed on bash 5.2, `*.ts) echo is-ts ;;` traces at its own line because it
+carries a command, while `*.md)` alone never does and only its body traces.
+
+Asked of the FIXED tree against the fix's NEW-side lines, with bare `case` arms excluded from the
+executable set, the same replay gives `reached`. That is the formulation that shipped.
+
+### The four motivating cases, judged against what landed
+
+| Case                              | Caught?     | Why                                                                                                                                                                                                                    |
+| --------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hooks-have-execution-coverage`   | **no**      | the logic under test is IN the test file — no source to reverse, no pair, so the gate emits no verdict for the witness to qualify. Out of reach of any diff-scoped pair gate.                                           |
+| `remaining-hooks-run` (two hooks) | **no**      | the hooks named were not changed, so again no pair.                                                                                                                                                                    |
+| `remaining-hooks-run` (extension) | **no**      | REPLAYED on `b1f46acf3`: the fix wrote only comments and one bare `case` arm, so no changed line is traceable and the witness answers UNKNOWN. And the behaviour the case names — the extension filter — is not in the range's diff at all, so no diff-scoped instrument can target it. |
+| `remaining-hooks-run` (unset var) | **partly**  | unchanged from direction 1. The witness holds for it either way; catching it in the "a genuine added case fails beside it" configuration needs a demand on EVERY added case, which #1568 measured as failing correct work. |
+
+**0 of 4 additional, as predicted.** The three the item still names are not reachable from inside
+this gate: two produce no verdict at all, and the third names a behaviour the diff does not contain.
+Closing that would take a per-case reachability check over the WHOLE suite rather than over a fix
+range — a different gate, and the honest next item.
+
+### Why direction 2 was rejected
+
+Branch-level mutation was traced through the same four cases and the same false-positive test:
+
+- Per-hunk reversal (the tractable reading of "negate the branch a case names") catches none of the
+  four. #3's fix is entirely within the crash region, so every hunk kills the case; #4's vacuous case
+  hides behind a genuine sibling that kills every hunk.
+- The reading that WOULD catch #4 — every added case must be killed by some mutant — is the same
+  shape as "every added case must fail on reversal", which #1568 measured as failing correct work: a
+  range routinely adds cases that do not depend on the fix.
+- Cost: one vitest run per hunk. Over the 31 recent ranges this gate judges, source files carry up to
+  617 changed lines across many hunks.
+
+Strictly more expensive, and it catches nothing direction 3 does not.
+
+### Measured, on real ranges
+
+Eight recent merged ranges replayed through the real gate (worktree detached at each merge, this
+branch's gate copied in), 15 sources judged, **12 produced a red proof**:
+
+| Witness   | Count      | Effect                    |
+| --------- | ---------- | ------------------------- |
+| REACHED   | 11 of 12   | verdict unchanged         |
+| UNKNOWN   | 1 of 12    | verdict unchanged         |
+| UNREACHED | **0 of 12** | **zero false alarms**    |
+
+Ranges: `63fa0c0cf`, `2ac10f251`, `631aa9e27`, `02f5a84b9`, `a668df9e3`, `2b0c454e0`, `4719efe5a`,
+`8589d58fa`. Both instruments are exercised there — nine `.sh` sources through the tracer, two `.mjs`
+sources through coverage.
+
+The gate stays ADVISORY and `red-proof-unreached` is report-only even under
+`REGRESSION_RED_PROOF_ENFORCE`; promotion is INFRA-046's decision, not this one.
+
 ## GATE-COMPLETE (2026-08-01)
 
 - `addedCaseTitleMatchers` reads titles off ADDED diff lines only; a context line and a REMOVED line

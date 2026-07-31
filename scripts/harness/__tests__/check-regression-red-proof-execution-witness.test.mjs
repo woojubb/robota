@@ -1,0 +1,409 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
+
+import {
+  WITNESS,
+  changedNewLines,
+  coverageLines,
+  escapeTestNamePattern,
+  judgeWitness,
+  parseXtrace,
+  untraceableShellLines,
+  witnessOneCase,
+  XTRACE_PRELUDE,
+} from '../lib/execution-witness.mjs';
+
+import { VERDICT, decidingFailures, runRegressionRedProof } from '../check-regression-red-proof.mjs';
+
+/**
+ * INFRA-072 direction 3 — the execution witness.
+ *
+ * The class this file exists for is the one per-case granularity (#1568) cannot see: a case that
+ * FAILS on the reversed source and is accepted as a proof, while the red came from somewhere the fix
+ * never touched. Pass/fail cannot tell the two apart; an execution record can.
+ */
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
+
+const scratch = [];
+afterAll(() => {
+  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
+});
+function scratchDir(prefix) {
+  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  scratch.push(dir);
+  return dir;
+}
+
+// ── The gate-level class: a red that never reached the fix ────────────────────────────────────────
+
+function witnessIo(overrides = {}) {
+  const testFile = 'packages/x/src/a.test.ts';
+  const srcFile = 'packages/x/src/target.ts';
+  const files = {
+    [abs(testFile)]: `import { t } from './target.js';`,
+    [abs(srcFile)]: `export const t = 1;`,
+  };
+  return {
+    mergeBase: 'BASE',
+    changedFiles: [srcFile, testFile],
+    commitSubjects: ['fix: something real'],
+    addedFiles: [],
+    optOutText: '',
+    readText: (p) => files[p] ?? '',
+    fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
+    isDirty: () => false,
+    reverseApply: () => {},
+    restore: () => {},
+    addedTestCaseDiff: () => "+    it('the new regression case', () => {",
+    runVitest: () => ({
+      testResults: [
+        {
+          name: abs(testFile),
+          assertionResults: [{ title: 'the new regression case', status: 'failed' }],
+        },
+      ],
+    }),
+    ...overrides,
+  };
+}
+
+describe('INFRA-072 — a red proof that never reached the fix', () => {
+  it('reports red-proof-unreached when the deciding case executed none of the changed lines', async () => {
+    // The exact shape the four motivating cases share and pass/fail cannot express: the added case
+    // is genuinely RED with the fix reversed, so #1568's rule is satisfied — every added case that
+    // must fail did — yet the case never executed a line the fix changed. Its red proves the
+    // reversed tree is broken, not that the case depends on the behaviour it names.
+    const { verdict, decisions } = await runRegressionRedProof(
+      witnessIo({ executionWitness: () => WITNESS.UNREACHED }),
+    );
+
+    expect(verdict, 'a red from outside the changed lines was accepted as a proof').toBe(
+      VERDICT.PROOF_UNREACHED,
+    );
+    expect(decisions[0].witness).toBe(WITNESS.UNREACHED);
+  });
+
+  it('keeps red-proof-ok when the deciding case did execute a changed line', async () => {
+    const { verdict, decisions } = await runRegressionRedProof(
+      witnessIo({ executionWitness: () => WITNESS.REACHED }),
+    );
+
+    expect(verdict).toBe(VERDICT.RED_PROOF_OK);
+    expect(decisions[0].witness).toBe(WITNESS.REACHED);
+  });
+
+  it('fails OPEN: an unmeasurable witness leaves the verdict exactly as it was', async () => {
+    // A comment-only hunk, a hook run through `sh`, a coverage report that never names the file.
+    // None of those is evidence of anything, and a guard that fires on them fires on correct work.
+    const { verdict, decisions } = await runRegressionRedProof(
+      witnessIo({ executionWitness: () => WITNESS.UNKNOWN }),
+    );
+
+    expect(verdict).toBe(VERDICT.RED_PROOF_OK);
+    expect(decisions[0].witness).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('does not witness an outcome that was never a proof', async () => {
+    // `all-pass` is already accidental-green. Running an instrument over it would cost a vitest run
+    // to re-confirm a verdict that is settled, and could only make it milder.
+    let called = 0;
+    const { verdict } = await runRegressionRedProof(
+      witnessIo({
+        runVitest: () => ({
+          testResults: [
+            {
+              name: abs('packages/x/src/a.test.ts'),
+              assertionResults: [{ title: 'the new regression case', status: 'passed' }],
+            },
+          ],
+        }),
+        executionWitness: () => {
+          called += 1;
+          return WITNESS.UNREACHED;
+        },
+      }),
+    );
+
+    expect(verdict).toBe(VERDICT.ACCIDENTAL_GREEN);
+    expect(called, 'the instrument ran over a verdict that was already settled').toBe(0);
+  });
+
+  it('names the deciding failures, so the instrument runs on the case that supplied the red', () => {
+    const testAbs = abs('packages/x/src/a.test.ts');
+    const failures = decidingFailures(
+      {
+        testResults: [
+          {
+            name: testAbs,
+            assertionResults: [
+              { title: 'unrelated older case', fullName: 'x > unrelated older case', status: 'failed' },
+              { title: 'the new regression case', fullName: 'x > the new regression case', status: 'failed' },
+            ],
+          },
+        ],
+      },
+      ['packages/x/src/a.test.ts'],
+      new Map([[testAbs, [/^the new regression case$/]]]),
+    );
+
+    // ONLY the added case. An older case's red is not what #1568 accepted as the proof, so it is not
+    // what the witness must account for either.
+    expect(failures).toEqual([{ file: testAbs, name: 'x > the new regression case' }]);
+  });
+});
+
+// ── The instruments ───────────────────────────────────────────────────────────────────────────────
+
+describe('bash execution witness (BASH_XTRACEFD)', () => {
+  it('records the branch that ran and NOT the branch that did not', () => {
+    // The whole claim in one assertion: a trace that reported both branches would witness a line the
+    // case never reached, and the gate built on it would accept every red.
+    const dir = scratchDir('xtrace-');
+    const prelude = path.join(dir, 'prelude.sh');
+    const traceFile = path.join(dir, 'trace.log');
+    const script = path.join(dir, 'victim.sh');
+    writeFileSync(prelude, XTRACE_PRELUDE);
+    writeFileSync(
+      script,
+      [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'file="$1"',
+        'if [[ "$file" == *.ts ]]; then',
+        '  echo formatted',
+        'else',
+        '  echo skipped',
+        'fi',
+        '',
+      ].join('\n'),
+    );
+
+    const result = spawnSync('bash', [script, 'notes.txt'], {
+      encoding: 'utf8',
+      env: { ...process.env, BASH_ENV: prelude, HARNESS_XTRACE_FILE: traceFile },
+    });
+
+    expect(result.status, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+    const executed = parseXtrace(readFileSync(traceFile, 'utf8')).get(script);
+    expect(executed, 'the trace never mentioned the script').toBeTruthy();
+    expect([...executed].sort((a, b) => a - b)).toEqual([2, 3, 4, 7]);
+    expect(executed.has(5), 'the branch that did not run was reported as executed').toBe(false);
+  });
+
+  it('keeps the trace off stderr, which is what these tests assert on', () => {
+    const dir = scratchDir('xtrace-stderr-');
+    const prelude = path.join(dir, 'prelude.sh');
+    const traceFile = path.join(dir, 'trace.log');
+    const script = path.join(dir, 'quiet.sh');
+    writeFileSync(prelude, XTRACE_PRELUDE);
+    writeFileSync(script, '#!/usr/bin/env bash\nset -euo pipefail\necho "on stdout"\n');
+
+    const result = spawnSync('bash', [script], {
+      encoding: 'utf8',
+      env: { ...process.env, BASH_ENV: prelude, HARNESS_XTRACE_FILE: traceFile },
+    });
+
+    expect(result.stderr).toBe('');
+    expect(result.stdout.trim()).toBe('on stdout');
+  });
+
+  it('stays inert when the trace file is not requested', () => {
+    const dir = scratchDir('xtrace-inert-');
+    const prelude = path.join(dir, 'prelude.sh');
+    const script = path.join(dir, 'quiet.sh');
+    writeFileSync(prelude, XTRACE_PRELUDE);
+    writeFileSync(script, '#!/usr/bin/env bash\nset -euo pipefail\necho "on stdout"\n');
+
+    const result = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, BASH_ENV: prelude } });
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+});
+
+describe('witnessOneCase wiring', () => {
+  function shellWitness({ targetLines, argv }) {
+    const dir = scratchDir('witness-one-');
+    const script = path.join(dir, 'hook.sh');
+    writeFileSync(
+      script,
+      ['#!/usr/bin/env bash', 'set -eu', 'if [ "${1:-}" = go ]; then', '  echo reached', 'fi', ''].join('\n'),
+    );
+    let seenArgs = null;
+    const answer = witnessOneCase({
+      workspaceRoot: dir,
+      sourceRel: 'hook.sh',
+      testFileAbs: '/repo/t.test.mjs',
+      caseName: 'a case (with parens)',
+      targetLines,
+      isShell: true,
+      runVitestRaw: (args, env) => {
+        seenArgs = args;
+        // Stands in for the spawn several processes down that the real prelude instruments.
+        spawnSync('bash', [script, ...argv], { env: { ...process.env, ...env } });
+      },
+    });
+    return { answer, seenArgs };
+  }
+
+  it('asks vitest for exactly one case, escaping the title it filters on', () => {
+    const { seenArgs } = shellWitness({ targetLines: new Set([4]), argv: ['go'] });
+
+    expect(seenArgs).toContain('-t');
+    expect(seenArgs[seenArgs.indexOf('-t') + 1]).toBe('a case \\(with parens\\)');
+  });
+
+  it('REACHED when the case runs the changed line, UNREACHED when it does not', () => {
+    expect(shellWitness({ targetLines: new Set([4]), argv: ['go'] }).answer).toBe(WITNESS.REACHED);
+    expect(shellWitness({ targetLines: new Set([4]), argv: ['stop'] }).answer).toBe(
+      WITNESS.UNREACHED,
+    );
+  });
+});
+
+// ── Pure helpers ──────────────────────────────────────────────────────────────────────────────────
+
+describe('changedNewLines', () => {
+  it('numbers the lines the fix WROTE, which are the ones the restored tree has', () => {
+    const patch = [
+      'diff --git a/x.sh b/x.sh',
+      '--- a/x.sh',
+      '+++ b/x.sh',
+      '@@ -20,4 +20,5 @@',
+      ' context',
+      '-old one',
+      '-old two',
+      '+new one',
+      '+new two',
+      '+new three',
+      ' tail',
+      '',
+    ].join('\n');
+
+    expect([...changedNewLines(patch).get('x.sh')]).toEqual([21, 22, 23]);
+  });
+
+  it('gives a pure deletion no target at all — the fix wrote no such line', () => {
+    const patch = [
+      '--- a/x.sh',
+      '+++ b/x.sh',
+      '@@ -10,3 +10,2 @@',
+      ' context',
+      '-removed',
+      ' tail',
+      '',
+    ].join('\n');
+
+    expect([...changedNewLines(patch).get('x.sh')]).toEqual([]);
+  });
+});
+
+
+describe('untraceableShellLines', () => {
+  it('excludes comments, blanks and the words that close a construct', () => {
+    const text = ['#!/usr/bin/env bash', '', 'if true; then', '  echo hi', 'else', '  echo bye', 'fi', ''].join(
+      '\n',
+    );
+    const untraceable = untraceableShellLines(text);
+
+    expect(untraceable.has(1)).toBe(true); // shebang is a comment
+    expect(untraceable.has(2)).toBe(true); // blank
+    expect(untraceable.has(5)).toBe(true); // else
+    expect(untraceable.has(7)).toBe(true); // fi
+    expect(untraceable.has(4)).toBe(false); // a command
+  });
+
+  it('excludes a heredoc body, which is data and never a traced command', () => {
+    const text = ['cat <<EOF', 'echo not-a-command', 'EOF', 'echo real', ''].join('\n');
+    const untraceable = untraceableShellLines(text);
+
+    expect(untraceable.has(2)).toBe(true);
+    expect(untraceable.has(4)).toBe(false);
+  });
+
+  it('excludes a BARE case arm but not one that carries a command', () => {
+    // Probed on bash 5.2, and the distinction is what decides a real range: `"$DIR"/*) ;;` never
+    // traces, so counting it executable called a genuine red proof unreached.
+    const text = [
+      'case "$F" in',
+      '  "$DIR"/*) ;;',
+      '  *.ts) echo is-ts ;;',
+      '  *.md)',
+      '    echo is-md',
+      '    ;;',
+      'esac',
+      '',
+    ].join('\n');
+    const untraceable = untraceableShellLines(text);
+
+    expect(untraceable.has(2), 'a bare arm is grammar, and no trace names it').toBe(true);
+    expect(untraceable.has(4), 'a pattern with its body below it is grammar too').toBe(true);
+    expect(untraceable.has(3), 'an arm carrying a command traces at its own line').toBe(false);
+    expect(untraceable.has(5)).toBe(false);
+  });
+
+  it('reads a bare arm only inside a case block', () => {
+    // `foo()` outside one is a function header, not an arm, and excluding it would silently drop a
+    // real target.
+    const text = ['foo()', '{', '  echo hi', '}', ''].join('\n');
+
+    expect(untraceableShellLines(text).has(1)).toBe(false);
+  });
+});
+
+describe('judgeWitness', () => {
+  it('UNKNOWN when nothing was measured', () => {
+    expect(judgeWitness({ targetLines: new Set([1]), executedLines: null })).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('UNKNOWN when no changed line could ever have been reported', () => {
+    // A comment-only hunk. Calling this "unreached" would fail correct work.
+    expect(
+      judgeWitness({
+        targetLines: new Set([4]),
+        executedLines: new Set([9]),
+        executable: new Set([9]),
+      }),
+    ).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('REACHED on any overlap, UNREACHED on none', () => {
+    expect(judgeWitness({ targetLines: new Set([4, 5]), executedLines: new Set([5]) })).toBe(
+      WITNESS.REACHED,
+    );
+    expect(judgeWitness({ targetLines: new Set([4, 5]), executedLines: new Set([9]) })).toBe(
+      WITNESS.UNREACHED,
+    );
+  });
+});
+
+describe('coverageLines', () => {
+  it('separates executed statements from lines that are statements at all', () => {
+    const report = {
+      '/repo/a.mjs': {
+        statementMap: { 0: { start: { line: 3 }, end: { line: 3 } }, 1: { start: { line: 7 }, end: { line: 7 } } },
+        s: { 0: 2, 1: 0 },
+      },
+    };
+    const lines = coverageLines(report, '/repo/a.mjs');
+
+    expect([...lines.executed]).toEqual([3]);
+    expect([...lines.executable].sort((a, b) => a - b)).toEqual([3, 7]);
+  });
+
+  it('returns null for a file the report never mentions', () => {
+    expect(coverageLines({}, '/repo/a.mjs')).toBeNull();
+  });
+});
+
+describe('escapeTestNamePattern', () => {
+  it('escapes what vitest would read as a pattern', () => {
+    expect(escapeTestNamePattern('it (a|b) [c]')).toBe('it \\(a\\|b\\) \\[c\\]');
+  });
+});
