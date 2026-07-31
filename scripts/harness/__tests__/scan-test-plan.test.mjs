@@ -5,7 +5,8 @@ import path from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
-import { collectTestPlanFindings, hasTestPlanSection } from '../scan-test-plan.mjs';
+import { ADVISORY_MARKER } from '../run-all-scans.mjs';
+import { collectTestPlanFindings, hasTestPlanSection, main } from '../scan-test-plan.mjs';
 
 describe('hasTestPlanSection', () => {
   it('returns true for ## Test Plan with enough content', () => {
@@ -110,5 +111,96 @@ describe('collectTestPlanFindings — the gated tree', () => {
   it('throws rather than passing when the spec-doc pipeline is absent', async () => {
     const bare = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-bare-'));
     await expect(collectTestPlanFindings(bare)).rejects.toThrow(/spec-docs/);
+  });
+});
+
+/**
+ * HARNESS-063 — the count, split by half.
+ *
+ * Measured on this repository 2026-08-01: `26 document(s) checked`, of which 26 came from
+ * `docs/superpowers/` (history) and 0 from the live pipeline. A single number let a frozen archive
+ * stand in for the tree a reader assumes was scanned.
+ */
+describe('main — the examined count is reported per half', () => {
+  const WITH_PLAN = [
+    '# X',
+    '',
+    '## Test Plan',
+    '',
+    'Unit tests cover the parser edge cases and the error paths; run them with pnpm test.',
+    '',
+  ].join('\n');
+
+  async function fixture(files) {
+    const root = await mkdtemp(path.join(tmpdir(), 'robota-test-plan-halves-'));
+    for (const state of ['draft', 'backlog', 'todo', 'active', 'done', 'rejected']) {
+      mkdirSync(path.join(root, '.agents/spec-docs', state), { recursive: true });
+    }
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(root, rel);
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, content, 'utf8');
+    }
+    return root;
+  }
+
+  async function run(root) {
+    const lines = [];
+    const code = await main(root, (line) => lines.push(line));
+    return { code, output: lines.join('') };
+  }
+
+  it('counts a known population into the live and archived halves', async () => {
+    const root = await fixture({
+      '.agents/spec-docs/todo/CLI-001.md': WITH_PLAN,
+      '.agents/spec-docs/active/CLI-002.md': WITH_PLAN,
+      'docs/superpowers/plans/old-plan.md': WITH_PLAN,
+    });
+
+    const { examined, examinedLive, examinedArchive } = await collectTestPlanFindings(root);
+    expect({ examined, examinedLive, examinedArchive }).toEqual({
+      examined: 3,
+      examinedLive: 2,
+      examinedArchive: 1,
+    });
+
+    const { code, output } = await run(root);
+    expect(code).toBe(0);
+    expect(output).toContain('harness test-plan scan passed (3 document(s) checked: 2 live');
+    expect(output).toContain('1 archived (docs/superpowers/plans, docs/superpowers/specs)');
+    expect(output).not.toContain(ADVISORY_MARKER);
+  });
+
+  it('raises an advisory when the live half is empty and only the archive supplies the count', async () => {
+    // This is the shipped state of the repository, in a fixture: a green line reading "26 checked"
+    // where the live pipeline contributed nothing.
+    const root = await fixture({
+      'docs/superpowers/plans/old-plan.md': WITH_PLAN,
+      'docs/superpowers/specs/old-spec.md': WITH_PLAN,
+    });
+
+    const { code, output } = await run(root);
+    expect(code).toBe(0);
+    expect(output).toContain('(2 document(s) checked: 0 live');
+    expect(output).toContain(`${ADVISORY_MARKER} test-plan examined 0 live planning documents`);
+  });
+
+  it('reports 0 for an empty corpus instead of an unqualified pass', async () => {
+    const root = await fixture({});
+    const { code, output } = await run(root);
+    expect(code).toBe(0);
+    expect(output).toContain('(0 document(s) checked: 0 live');
+    expect(output).toContain('0 archived');
+    expect(output).toContain(ADVISORY_MARKER);
+  });
+
+  it('still fails on a live document with no test plan, and names the counts', async () => {
+    const root = await fixture({
+      '.agents/spec-docs/todo/CLI-003.md': '# X\n\n## Problem\n\nBroken.\n',
+    });
+    const { code, output } = await run(root);
+    expect(code).toBe(1);
+    expect(output).toContain('harness test-plan scan failed (1 document(s) checked: 1 live');
+    expect(output).toContain('CLI-003.md');
   });
 });
