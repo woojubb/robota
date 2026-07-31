@@ -19,8 +19,10 @@ set -uo pipefail
 
 INPUT=$(cat)
 
-# shellcheck source=lib/command-scan.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# hook-facts.sh sources command-scan.sh, so one line brings in both the payload parser and the
+# single owner of the payload's file_path. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
@@ -38,7 +40,7 @@ fi
 # The first field read is the first place a missing decoder could pass silently — and it did:
 # without jq this came back empty and the hook exited 0 before reaching any check. An absent path
 # is normal (many tools carry none) and still exits 0; only an UNREADABLE payload refuses.
-if ! FILE_PATH=$(hook_json_string "$INPUT" 'tool_input.file_path'); then
+if ! FILE_PATH=$(hook_file_path_of "$INPUT"); then
   echo "[check-forbidden-patterns] Blocked: the hook payload could not be decoded, so the edit" >&2
   echo "[check-forbidden-patterns] cannot be checked. Install jq or python3." >&2
   exit 2
