@@ -129,6 +129,41 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     expect(taggedFunctions(text)).toEqual([]);
   });
 
+  it('refuses when tags exist in the text but the parser matched none', () => {
+    // Fail-closed against parser drift. Declaring is opt-in, so `examined: 0` is legitimate while
+    // nobody has tagged anything — but zero matches while the tag string IS present in the subject
+    // means the reader broke, and a reader that reads nothing reports a clean sweep. That is the
+    // twelve-green-runs-zero-verdicts shape, in the floor written because of it.
+    const { findings, examined } = analyze({
+      'scripts/harness/drifted.mjs': [
+        '/** @limits written in a shape the parser no longer recognises */',
+        'export const notAFunction = () => {};',
+      ].join('\n'),
+    });
+
+    expect(examined).toBe(0);
+    expect(findings.map((f) => f.message).join(' ')).toMatch(/matched none|parser/i);
+  });
+
+  it('does not credit an acknowledgement to a same-named export from elsewhere', () => {
+    // `analyze`, `main`, `walk` are ordinary names in this directory. Resolving an owner by NAME
+    // alone means an unrelated import can demand the wrong file's limits, or an acknowledgement of
+    // an unrelated function can silently excuse the real one — the invisible-in-the-code failure
+    // this rule exists to catch, reproduced by its own enforcement.
+    const { findings } = analyze({
+      'scripts/harness/owner.mjs': [
+        '/**',
+        ' * @limits approximate.',
+        ' */',
+        'export function shared(x) { return x; }',
+      ].join('\n'),
+      'scripts/harness/other.mjs': 'export function shared(x) { return x; }',
+      'scripts/harness/consumer.mjs': "import { shared } from './other.mjs';",
+    });
+
+    expect(findings, 'an import of a different module was judged against these limits').toEqual([]);
+  });
+
   it('reads imports and acknowledgements as written', () => {
     expect(localImports("import { a, b as c } from './x.mjs';")).toEqual([
       { specifier: './x.mjs', names: ['a', 'b'] },
@@ -156,7 +191,13 @@ describe('the scan runs, and says what it examined', () => {
       { cwd: WORKSPACE_ROOT, encoding: 'utf8' },
     );
 
-    expect(`${result.stdout}${result.stderr}`).toMatch(/@limits-tagged function\(s\)/);
-    expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+    const out = `${result.stdout}${result.stderr}`;
+    const examined = Number(out.match(/helper-limits: (\d+) @limits-tagged/)?.[1] ?? -1);
+
+    // `toMatch(/@limits-tagged function\(s\)/)` alone matched "0 @limits-tagged function(s)" too, so
+    // the parser could stop matching anything and this case would stay green — an accidental-green
+    // regression test guarding the scan whose whole subject is defects that leave no signal.
+    expect(examined, 'the scan examined nothing and still reported success').toBeGreaterThan(0);
+    expect(result.status, out).toBe(0);
   });
 });

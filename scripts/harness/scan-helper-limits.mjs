@@ -125,8 +125,13 @@ export function analyze(files) {
     }
   }
 
-  const nameToOwner = new Map();
-  for (const [file, fns] of tagged) for (const fn of fns) nameToOwner.set(fn.name, file);
+  // Keyed by MODULE and name, not by name alone. `analyze`, `main` and `walk` are ordinary names in
+  // this directory; resolving an owner by name would let an unrelated import demand the wrong file's
+  // limits, or let an acknowledgement of an unrelated function silently excuse the real one — the
+  // invisible-in-the-code failure this rule exists to catch, reproduced by its own enforcement.
+  const ownerHas = new Set();
+  for (const [file, fns] of tagged) for (const fn of fns) ownerHas.add(`${file}\u0000${fn.name}`);
+  const taggedCount = ownerHas.size;
 
   for (const [file, text] of Object.entries(files)) {
     const acked = acknowledgements(text);
@@ -141,11 +146,11 @@ export function analyze(files) {
     const ackedNames = new Set(acked.map((a) => a.name));
 
     for (const imp of localImports(text)) {
+      const owner = resolveSpecifier(file, imp.specifier);
       for (const name of imp.names) {
-        const owner = nameToOwner.get(name);
         // Only the declaring module's own name counts: a same-named export elsewhere is a different
         // function, and the file that DECLARES it needs no acknowledgement of itself.
-        if (!owner || owner === file) continue;
+        if (!owner || owner === file || !ownerHas.has(`${owner}\u0000${name}`)) continue;
         if (!ackedNames.has(name)) {
           findings.push({
             file,
@@ -159,7 +164,29 @@ export function analyze(files) {
     }
   }
 
-  return { findings, examined: nameToOwner.size };
+  // Fail-closed against parser drift. Declaring is opt-in, so examining nothing is legitimate while
+  // nobody has tagged anything — but zero matches while the tag string IS present in the subject
+  // means the READER broke, and a reader that reads nothing reports a clean sweep. That is the
+  // twelve-green-runs-zero-verdicts shape, in the floor written because of it.
+  if (taggedCount === 0) {
+    const withTagText = Object.keys(files).filter((f) => files[f].includes('@limits'));
+    if (withTagText.length > 0) {
+      findings.push({
+        file: withTagText[0],
+        message:
+          `the text contains @limits in ${withTagText.length} file(s) and the parser matched none — ` +
+          'the reader has drifted, and a reader that reads nothing reports a clean sweep',
+      });
+    }
+  }
+
+  return { findings, examined: taggedCount };
+}
+
+/** A relative specifier resolved to a repo-relative module path, or null when it is not local. */
+export function resolveSpecifier(fromFile, specifier) {
+  if (!specifier.startsWith('.')) return null;
+  return path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier));
 }
 
 function walk(dir, out = []) {
