@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-078: a hook can be wired to no event, or a matcher can name a deleted file, and everything stays green'
-status: todo
+status: in-progress
 priority: high
 urgency: now
 type: INFRA
@@ -48,3 +48,18 @@ form, not an exemption list, or the exemption becomes the hole.
 - Red-proved both ways against the current tree.
 - `revert-detect`'s indirect invocation is declared, so "unregistered" and "invoked by a sibling"
   are told apart mechanically rather than by memory.
+
+## Implemented (branch `feat/infra-078-hook-registration`)
+
+`scripts/harness/scan-hook-registration.mjs`, registered as `hook-registration`. Measured on this
+tree: **12 hook files, 6 matchers, 12 registrations**.
+
+Red-proved both ways before it was believed:
+
+- The undeclared unregistered hook — run against the real tree it named
+  `.claude/hooks/revert-detect.sh … carries no \`# invoked-by: <hook>.sh\` header`, exit 1. Adding
+  the verified declaration to `revert-detect.sh` turned it green.
+- The missing file — a matcher pointing at `deleted.sh` in a temp fixture reports
+  `registers \`deleted.sh\` for PreToolUse, but .claude/hooks/deleted.sh does not exist`.
+- Neither is accidentally green: reverse-applying rule A fails 4 tests, rule B fails its own test,
+  and the correctly-registered fixture plus the real tree pass with an empty findings list.
