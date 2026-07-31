@@ -63,8 +63,9 @@
  * stack trace, a doc-example "does not typecheck". Four agents in one day each proved those reds
  * were not their own and then pushed with `--no-verify`. So this entry point refuses to produce a
  * verdict it cannot support: `tree-prerequisites.mjs` states which prerequisite is missing and the
- * command that satisfies it. That is a FAILURE, never a skip — see `preflight` and
- * `blockedByMissingBuildOutput`. The fresh-worktree contract itself is written down in that module.
+ * command that satisfies it. That is a FAILURE, never a skip — see `preflight`, `stageBlockCause`
+ * and the build state (`initialBuildState` / `advanceBuildState`) the stage loop carries. The
+ * fresh-worktree contract itself is written down in that module.
  *
  * Usage:
  *   pnpm harness:verify-like-ci
@@ -606,15 +607,48 @@ export function preflight(root = WORKSPACE_ROOT) {
   return checkTreePrerequisites('verify-like-ci', root, ['install']);
 }
 
+/** Build output present on disk RIGHT NOW, re-read rather than remembered. */
+function readMissingDistNow() {
+  return findMissingDist(listBuildablePackageDirs());
+}
+
 /**
- * Whether a stage would be reporting on the TREE rather than on the change.
+ * The build-output state a run carries THROUGH its stage loop — state, not a flag computed once.
  *
- * True only when the stage reads build output, this run will not produce any, and none is present.
- * It is not a way to pass: the stage still FAILS — it fails saying which prerequisite is missing
- * instead of emitting a missing-module stack trace that reads like a broken import in the diff.
+ * The first version of this precomputed `willBuild` from whether the `build` stage would be
+ * ATTEMPTED and never updated it, which is a different claim from "build output exists". Measured on
+ * a fresh worktree with a real build regression: `pnpm build` failed, every consuming stage still
+ * ran, and they reported the unbuilt tree as a defect in the change —
+ * `TS2307: Cannot find module '@robota-sdk/agent-framework'` plus a spurious "install @types/node"
+ * hint from `examples-typecheck`, and 20s of `serve host did not come up` from `binary-e2e`. That is
+ * the exact noise this entry point exists to remove, arriving in the one scenario the feature is for.
  */
-export function blockedByMissingBuildOutput(stage, { willBuild, missingDist }) {
-  return Boolean(stage?.needsBuildOutput) && !willBuild && missingDist.length > 0;
+export function initialBuildState(selected, context) {
+  const buildRuns =
+    selected.some((stage) => stage.name === 'build') && stageGate('build', context).run;
+  return { buildPending: buildRuns, buildFailed: false, missingDist: context.missingDist };
+}
+
+/**
+ * The state after a stage ran. Only `build` moves it, and it moves by RE-READING dist from disk: a
+ * build that failed leaves the tree exactly as unbuilt as it found it.
+ */
+export function advanceBuildState(state, stage, code, readMissingDist = readMissingDistNow) {
+  if (stage.name !== 'build') return state;
+  return { buildPending: false, buildFailed: code !== 0, missingDist: readMissingDist() };
+}
+
+/**
+ * Why a stage cannot be trusted to report on the CHANGE, or null when it can.
+ *
+ * Never a way to pass: a blocked stage still FAILS. What it changes is the message — which
+ * prerequisite is missing, or which earlier failure caused it — instead of a module-resolution
+ * error that reads like a broken import in the diff.
+ */
+export function stageBlockCause(stage, state) {
+  if (!stage?.needsBuildOutput) return null;
+  if (state.buildPending || state.missingDist.length === 0) return null;
+  return state.buildFailed ? 'build-failed' : 'unprepared';
 }
 
 /**
@@ -710,32 +744,36 @@ export async function main(argv = process.argv.slice(2)) {
       `${context.codeChanged ? 'CODE' : 'docs-only'}, ${context.distRequired ? 'build output required' : 'no build output required'}\n`,
   );
 
-  // `--only typecheck` on an unbuilt tree deselects the stage that would have produced the dist it
-  // reads, so the guard below needs to know whether THIS run will build.
-  const willBuild =
-    selected.some((stage) => stage.name === 'build') && stageGate('build', context).run;
+  let buildState = initialBuildState(selected, context);
 
   const results = [];
   for (const stage of selected) {
-    if (blockedByMissingBuildOutput(stage, { willBuild, missingDist: context.missingDist })) {
+    // The gate is asked FIRST: a stage CI would not run at all needs no prerequisite, and reporting
+    // one for it would invent a failure where a skip is the honest answer.
+    const gate = stageGate(stage.name, context);
+    if (!gate.run) {
+      process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);
+      results.push({ name: stage.name, status: 'skip', note: gate.note });
+      continue;
+    }
+    const blocked = stageBlockCause(stage, buildState);
+    if (blocked) {
       process.stdout.write(`\n===== ${stage.name} =====\n`);
       process.stderr.write(
         formatPrerequisiteFailure(
           `verify-like-ci stage \`${stage.name}\``,
           inspectTree(WORKSPACE_ROOT, ['build-output']),
+          blocked,
         ),
       );
       results.push({
         name: stage.name,
         status: 'fail',
-        note: 'unbuilt tree — this stage measured nothing; run `pnpm build`',
+        note:
+          blocked === 'build-failed'
+            ? '`build` failed in this run — this stage measured nothing'
+            : 'unbuilt tree — this stage measured nothing; run `pnpm build`',
       });
-      continue;
-    }
-    const gate = stageGate(stage.name, context);
-    if (!gate.run) {
-      process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);
-      results.push({ name: stage.name, status: 'skip', note: gate.note });
       continue;
     }
     process.stdout.write(`\n===== ${stage.name} =====\nmirrors: ${describeCiSource(stage)}\n`);
@@ -745,6 +783,7 @@ export async function main(argv = process.argv.slice(2)) {
       status: outcome.code === 0 ? 'pass' : 'fail',
       note: outcome.note,
     });
+    buildState = advanceBuildState(buildState, stage, outcome.code);
   }
   const { lines, exitCode } = summarize(results, {
     skippedStages,

@@ -191,23 +191,61 @@ export function remedyCommands(missing) {
   return commands;
 }
 
+/** The causes a prerequisite can be unmet. Anything else is a caller bug, not a default. */
+export const PREREQUISITE_CAUSES = ['unprepared', 'build-failed'];
+
+/**
+ * Why the prerequisite is unmet, and what the reader should do about it.
+ *
+ * `build-failed` exists because "run `pnpm build`" is the wrong instruction to hand someone who has
+ * just watched `pnpm build` fail on their own regression. The missing output is a CONSEQUENCE of a
+ * failure already reported above, and the message has to say so or it reads as a second, competing
+ * verdict.
+ */
+function describeCause(entryPoint, cause) {
+  if (cause === 'build-failed')
+    return {
+      headline: `${entryPoint} did NOT run: the \`build\` stage FAILED earlier in this run.`,
+      subtitle: [
+        'This is NOT a second verdict — the `build` failure reported above IS the verdict. The build',
+        'output this stage reads was never produced, so anything it reported would describe the',
+        'missing output rather than your change.',
+      ],
+      remedy: ['  Fix the `build` failure reported above, then re-run the gate.'],
+    };
+  return {
+    headline: `${entryPoint} did NOT run: this tree is missing a verification prerequisite.`,
+    subtitle: [
+      'This is NOT a verdict on your change — nothing about the diff has been measured yet.',
+    ],
+    remedy: null,
+  };
+}
+
 /**
  * The message. It leads with "not a verdict on your change" on purpose: the failure mode this closes
  * is an agent spending real effort proving a red was not its own, four times over in one day.
  */
-export function formatPrerequisiteFailure(entryPoint, state) {
+export function formatPrerequisiteFailure(entryPoint, state, cause = 'unprepared') {
+  if (!PREREQUISITE_CAUSES.includes(cause))
+    throw new Error(
+      `unknown prerequisite cause \`${cause}\` — the message must state a cause it can explain, not fall back to a generic one.`,
+    );
+  const copy = describeCause(entryPoint, cause);
   return [
     '',
     RULE,
-    `${entryPoint} did NOT run: this tree is missing a verification prerequisite.`,
-    'This is NOT a verdict on your change — nothing about the diff has been measured yet.',
+    copy.headline,
+    ...copy.subtitle,
     '',
     describeLocation(state.tree),
     '',
     ...describeMissing(state),
     '',
-    '  Run this IN THIS TREE, then re-run the gate:',
-    ...remedyCommands(state.missing).map((command) => `    ${command}`),
+    ...(copy.remedy ?? [
+      '  Run this IN THIS TREE, then re-run the gate:',
+      ...remedyCommands(state.missing).map((command) => `    ${command}`),
+    ]),
     '',
     `  The fresh-worktree contract: ${CONTRACT_DOC} § The fresh-worktree contract`,
     RULE,

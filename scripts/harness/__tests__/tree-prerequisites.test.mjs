@@ -240,6 +240,44 @@ describe('formatPrerequisiteFailure', () => {
   it('routes to the written contract rather than to whoever last worked it out', () => {
     expect(formatPrerequisiteFailure('pre-push', unpreparedNested())).toContain(CONTRACT_DOC);
   });
+
+  /**
+   * When `build` ran and FAILED, "run `pnpm build`" is the wrong instruction to hand someone who
+   * just watched it fail, and "nothing has been measured" is untrue — the build measured the change
+   * and rejected it. The message has to point AT that failure or it reads as a competing verdict.
+   */
+  describe('cause `build-failed`', () => {
+    const message = () =>
+      formatPrerequisiteFailure(
+        'verify-like-ci stage `typecheck`',
+        unpreparedNested(),
+        'build-failed',
+      );
+
+    it('names the build failure as the cause, not an unprepared tree', () => {
+      expect(message()).toContain('the `build` stage FAILED earlier in this run');
+    });
+
+    it('sends the reader to the failure already reported, and does NOT tell them to run the build', () => {
+      expect(message()).toContain('Fix the `build` failure reported above');
+      expect(message()).not.toContain('Run this IN THIS TREE');
+    });
+
+    it('does not claim nothing was measured — the build measured it and failed', () => {
+      expect(message()).not.toContain('nothing about the diff has been measured yet');
+      expect(message()).toContain('NOT a second verdict');
+    });
+
+    it('still names the missing build output, so the reader sees the consequence', () => {
+      expect(message()).toContain('MISSING  build-output');
+    });
+  });
+
+  it('refuses a cause it cannot explain rather than printing a generic one', () => {
+    expect(() =>
+      formatPrerequisiteFailure('verify-like-ci', unpreparedNested(), 'mystery'),
+    ).toThrow(/unknown prerequisite cause/);
+  });
 });
 
 describe('checkTreePrerequisites', () => {

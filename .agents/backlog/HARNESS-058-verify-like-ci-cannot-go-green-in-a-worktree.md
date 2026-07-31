@@ -93,6 +93,30 @@ repository root.
 output may not be listed before `build`, and a stage that declares nothing fails the test rather
 than silently sorting as "needs nothing".
 
+### When the build itself fails
+
+Build output being absent has two different causes, and they need two different messages:
+
+| Cause          | When                                                         | What the message says                                                                       |
+| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `unprepared`   | no `build` stage will run in this run, and nothing is built  | name the prerequisite, and the command: `pnpm build`                                        |
+| `build-failed` | `build` ran in this run and FAILED, so dist is still missing | point at the build failure already reported; **do not** tell the reader to run `pnpm build` |
+
+The distinction exists because "a build was ATTEMPTED" is not "build output exists". The state is
+carried through the stage loop (`initialBuildState` / `advanceBuildState` in `verify-like-ci.mjs`)
+and dist is **re-read from disk** after `build` runs, never assumed from the fact that it was
+scheduled. Measured on a fresh worktree with a real build regression, before this was fixed:
+`examples-typecheck` emitted `TS2307: Cannot find module '@robota-sdk/agent-framework'` and a
+spurious "install @types/node" hint, and `binary-e2e` spent 20s waiting for a serve host that was
+never built — the exact noise this item exists to remove, in the scenario the feature is for.
+
+**Is `scan-suite`'s own dist re-check now redundant?** In this code path, yes: the loop-level gate
+runs first and blocks `scan-suite` before `runScanSuite` reads dist, so its inline check can now only
+fire if dist disappears between the two reads. It is deliberately kept — it guards a _different_
+hazard (the dist-dependent scans silently no-op and LOOK like a pass, which is a fail-open, not a
+misattribution) and it is the only check protecting `runScanSuite` if that function is ever called
+from somewhere other than this loop. Removing it is a separate change, not this one.
+
 ## Proposed direction
 
 - Order stages so a prerequisite runs before what needs it, or make the dependent stage state its
