@@ -83,6 +83,44 @@ function repoWithOrigin(branch) {
   return dir;
 }
 
+/**
+ * Ambient variables a hook READS AS A DECISION INPUT, removed before spawning one.
+ *
+ * Review of #1567. This file's whole claim is that a guard stayed silent because the work was
+ * correct. Every one of these can make it silent for a different reason, and each is inherited from
+ * whatever session happens to run the suite:
+ *
+ * - `ROBOTA_AGENT_WORKTREE` — the worktree-session marker. The `worktree-cwd-guard` row asserts an
+ *   ordinary main-clone `git reset --hard` passes silently, which requires `IN_WORKTREE_SESSION` to
+ *   be false. This PR controlled the `SELF_DIR` input to that decision and left this one inherited,
+ *   which is the same defect one variable to the left.
+ * - `*_ALLOW_*` overrides — an exported one DISARMS the guard, so the row would pass because nothing
+ *   was checked. That is an accidental green in the exact shape this directory exists to prevent.
+ * - `GIT_DIR` / `GIT_WORK_TREE` / `GIT_INDEX_FILE` / `GIT_PREFIX` — INFRA-077 measured that with
+ *   `GIT_DIR` exported, `git -C <scratch>` reports the OUTER repository, so a guard judges a
+ *   different checkout than the fixture built.
+ *
+ * A blanket scrub to `{ PATH, HOME }` (what the two sibling files do) is not usable here: the rows
+ * in this file run git, node and pnpm across every hook, and several need the ambient environment to
+ * work at all. Naming the decision inputs is the part that matters.
+ */
+const DECISION_INPUTS = [
+  'ROBOTA_AGENT_WORKTREE',
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_PREFIX',
+];
+
+function ambientWithoutDecisionInputs() {
+  const clean = { ...process.env };
+  for (const name of DECISION_INPUTS) delete clean[name];
+  for (const name of Object.keys(clean)) {
+    if (/_ALLOW_/.test(name)) delete clean[name];
+  }
+  return clean;
+}
+
 function runHook(hook, { command, cwd, env = {}, payload }) {
   const input = payload ?? JSON.stringify({ tool_name: 'Bash', cwd, tool_input: { command } });
   const result = spawnSync('bash', [hookPath(hook)], {
@@ -91,7 +129,7 @@ function runHook(hook, { command, cwd, env = {}, payload }) {
     encoding: 'utf8',
     // stdout AND stderr: a hook that spoke on stdout only would read as silence otherwise, and
     // every refusal in this directory writes to stderr.
-    env: { ...process.env, CLAUDE_PROJECT_DIR: cwd, ...env },
+    env: { ...ambientWithoutDecisionInputs(), CLAUDE_PROJECT_DIR: cwd, ...env },
     timeout: 120_000,
   });
   return {
