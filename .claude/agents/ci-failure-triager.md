@@ -63,6 +63,19 @@ The note's required contents are a contract owned by the project's release rules
 5. **Validation command or gate** — the exact command or named CI check that, when it passes, proves this
    fix. It must be able to fail: a validation that cannot distinguish fixed from unfixed is not one.
 
+## Depth, before the fix recommendation
+
+Your class says what KIND of failure it is. It does not say whether the failure is a defect in the change
+under test or a symptom of something wrong underneath — and your note carries a **minimal fix
+recommendation**, which is precisely where that distinction stops being academic. A minimal fix recommended
+for a foundational failure is a patch on a wrong foundation, delivered with authority.
+
+So: a check that has gone red the same way before is the signal. Look for the repeat — the same signature in
+earlier runs, an existing backlog item, a `git log -S` on the failing symbol — and when you find one, say so
+and hand the finding to `finding-depth-triager` rather than recommending a minimal fix for it. The guardian
+owns the verdict; you own the class and the reproduction. Governed by
+[finding-depth.md](../../.agents/rules/finding-depth.md).
+
 ## What is NOT your job
 
 Do not edit files, commit, push, re-run CI, merge, or apply your own recommendation. Do not decide what
