@@ -51,6 +51,7 @@ export const CLOSED_SIGNAL_VOCAB = new Set([
   'CI TRIAGE',
   'GATE VERDICT',
   'SCENARIO DRAFTED',
+  'DEPTH',
 ]);
 
 const EDIT_TOOLS = ['Edit', 'Write'];

@@ -8,6 +8,15 @@ description: Classify a review finding by DEPTH before fixing it — a local def
 The procedure for [finding-depth.md](../../rules/finding-depth.md), which owns what depth is and why
 it is asked. This skill decides it: it does not decide severity, and does not perform the fix.
 
+## Who decides
+
+`finding-depth-triager` — a read-only guardian that judges and emits `DEPTH:`. The verdict is not the fixer's
+to make: a worker judging its own findings is the produce-and-judge split
+[enforcement-architecture.md](../../rules/enforcement-architecture.md) forbids, and it is the party least
+able to answer honestly, because one verdict means finishing and the other means stopping. This file is the
+procedure that guardian follows; anything else that needs a depth verdict dispatches the same agent rather
+than re-deriving the questions.
+
 ## When to Use
 
 On every finding that is about to be fixed — from `pr-review-reviewer`, from CI, from a human, or from

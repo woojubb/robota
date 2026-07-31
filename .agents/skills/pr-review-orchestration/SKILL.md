@@ -51,12 +51,14 @@ forced the trip. So:
 
 A1. **Review the local diff.** Dispatch `pr-review-reviewer` with `git diff origin/<base>...HEAD`. No PR, no
 CI, no push. Read its terminal `ACTIONABLE FINDINGS: <n>`.
-A2. **Not zero?** Classify each finding's DEPTH first (`root-cause-triage`, required by
-[finding-depth.md](../../rules/finding-depth.md)), then route on it — this is a routing decision, which is
-why it belongs here and the judgement does not:
+A2. **Not zero?** Dispatch `finding-depth-triager` on the findings and route on its `DEPTH:` verdicts —
+the judgement is the guardian's, the routing is this skill's, and neither does the other's job. Required by
+[finding-depth.md](../../rules/finding-depth.md); the procedure it follows is `root-cause-triage`:
 
 - **LOCAL** → fix (`pr-review-fixer` or directly), commit, and repeat A1. A round here costs about a
   minute. The same round after a push costs a CI cycle.
+- **INVALID** → the premise does not hold. Nothing to fix; record what the code actually does, and do not
+  let a wrong finding drive a change.
 - **FOUNDATIONAL** → do NOT send it back into the fix loop. Route to `backlog-writer` for the root item,
   register its GitHub issue, then take the disposition: **re-plan** (the change is withdrawn or reduced) or
   **labelled containment** (the smallest hold, naming the item's ID in a code comment and the commit body).
