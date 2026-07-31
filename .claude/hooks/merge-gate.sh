@@ -208,7 +208,17 @@ MERGE_CWD=$(hook_cwd_of "$INPUT" || true)
 if [[ -n "$MERGE_CWD" ]] && git -C "$MERGE_CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   RECORD_DIR_FOR_MERGE="$MERGE_CWD"
 fi
-if command -v node >/dev/null 2>&1 && [[ -f "$RECORDER" ]] && git -C "$RECORD_DIR_FOR_MERGE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+# Fail closed when the recorder cannot be consulted at all, like every other unreadable state in
+# this file — a missing `jq`, a missing `gh`, an unreadable head date all refuse. Skipping silently
+# would make "I could not read the disposition" indistinguishable from "there is none", which is the
+# pair this hook is built not to conflate.
+if ! command -v node >/dev/null 2>&1 || [[ ! -f "$RECORDER" ]]; then
+  echo "[merge-gate] Blocked: cannot read the local round's disposition (node or the recorder is" >&2
+  echo "[merge-gate] missing), so whether this change was withdrawn is unknown. Override inline:" >&2
+  echo "[merge-gate] MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+if git -C "$RECORD_DIR_FOR_MERGE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   if ! DISPOSITION_STATE=$(cd "$RECORD_DIR_FOR_MERGE" && node "$RECORDER" --merge-blocked 2>&1); then
     echo "[merge-gate] Blocked: ${DISPOSITION_STATE:-the local round withdrew this change}." >&2
     echo "[merge-gate] Comment the decision on the PR and close it, or record \`containment\` if the" >&2

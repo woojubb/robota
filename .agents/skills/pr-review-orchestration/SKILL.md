@@ -66,12 +66,11 @@ the judgement is the guardian's, the routing is this skill's, and neither does t
   `pnpm harness:review:record -- --findings 0 --foundational <ID>[,<ID>...] --disposition re-plan|containment`.
   The recorder refuses a foundational finding with no disposition, because the rule allows exactly two.
   - **containment** — the smallest hold, naming the item's ID in a code comment and the commit body. The
-    PR stays open.
+    PR stays open, and this is the branch that **returns to A1**: a containment is a change like any
+    other and the next round reads it. Push is A3's, and only once a round comes back zero.
   - **re-plan** — the change is withdrawn or reduced. Have `pr-review-writer` comment the decision on the
-    PR, then CLOSE it. `merge-gate` refuses the merge either way, so a withdrawal left open cannot land
-    by being forgotten.
-    Then **return to A1**: the containment is a change like any other, and the next round reads it.
-    Push is A3's, and only once a round comes back zero.
+    PR, then CLOSE it. There is nothing to return to A1 for. `merge-gate` refuses the merge regardless,
+    so a withdrawal left open cannot land by being forgotten.
 
 A loop that fixes every finding where it was reported converges just as cleanly as one that does not, which
 is why the depth question has to be asked before the fix rather than noticed afterwards.

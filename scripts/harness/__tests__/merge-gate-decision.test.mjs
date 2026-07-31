@@ -73,10 +73,18 @@ function stubbedPath({ state, comments = [], headAt }) {
 }
 
 function judge(world, command = 'cd /repo && gh pr merge 7 --merge') {
+  // An EMPTY scratch directory, not the real checkout. `CLAUDE_PROJECT_DIR` had no effect on this
+  // hook until it began reading the local review record; pointed at the workspace it would read the
+  // DEVELOPER'S own branch, HEAD and record — so a session that had recorded `--disposition
+  // re-plan`, which is the very workflow this suite covers, would see unrelated cases fail with
+  // exit 2. A test that depends on the machine it runs on is a test that will be believed wrongly.
+  const isolated = mkdtempSync(path.join(tmpdir(), 'merge-gate-cwd-'));
+  scratch.push(isolated);
   const result = spawnSync('bash', [HOOK], {
-    input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
+    input: JSON.stringify({ tool_name: 'Bash', cwd: isolated, tool_input: { command } }),
+    cwd: isolated,
     encoding: 'utf8',
-    env: { ...process.env, PATH: stubbedPath(world), CLAUDE_PROJECT_DIR: WORKSPACE_ROOT },
+    env: { ...process.env, PATH: stubbedPath(world), CLAUDE_PROJECT_DIR: isolated },
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }

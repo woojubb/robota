@@ -164,7 +164,11 @@ export function mergeBlockReason(branch, headSha, dir = RECORD_DIR) {
   try {
     stored = JSON.parse(readFileSync(file, 'utf8'));
   } catch {
-    return null;
+    // Fail CLOSED, like `reviewState` twenty lines above: "an unreadable record is not a review".
+    // Returning null here would read a corrupted record that held `re-plan` as "no opinion" and let
+    // the merge through — the decision-with-no-actor this whole change exists to close, reappearing
+    // in the function that closes it.
+    return `the review record for ${branch} is unreadable, so whether this change was withdrawn cannot be told`;
   }
   if (stored.headSha !== headSha) return null;
   if (stored.disposition !== 're-plan') return null;
