@@ -216,6 +216,34 @@ describe('the merge gate reads the disposition from the PR, from any checkout', 
     expect(verdict.status, verdict.output).toBe(0);
   });
 
+  it('refuses a label page that could have been truncated, instead of assuming it was not', () => {
+    // `gh pr view --json labels` reads `labels(first: 100)` and does not paginate. GitHub caps an
+    // issue or PR at 100 labels, so a SHORT page is provably complete — but a FULL one is the single
+    // state where that reasoning stops, and "the withdrawal might be on a page I did not read" is
+    // not "not withdrawn". Review raised this as an assumption stated only in a comment; a comment
+    // is not enforcement, so the full page is a refusal.
+    const many = Array.from({ length: 100 }, (_, i) => `filler-${i}`);
+    const verdict = judgeFromElsewhere(
+      { 7: { ...CLEARED, labels: many } },
+      'gh pr merge 7 --merge',
+    );
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/label/i);
+  });
+
+  it('does not refuse a page that is merely large', () => {
+    // The refusal must be the truncation boundary, not "a lot of labels" — a gate that blocked at
+    // 99 would be friction with no defect behind it.
+    const many = Array.from({ length: 99 }, (_, i) => `filler-${i}`);
+    const verdict = judgeFromElsewhere(
+      { 7: { ...CLEARED, labels: many } },
+      'gh pr merge 7 --merge',
+    );
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
   it('spells the labels the same way the recorder and the required check do', () => {
     // Three surfaces hold these two strings: the recorder that PUBLISHES them, this hook, and
     // `review-gate.yml`. Two of the three are bash and YAML and cannot import the object, so the

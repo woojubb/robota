@@ -114,10 +114,6 @@ fi
 # INFRA-048 and INFRA-057 had already established the general form of that: a merge decision held
 # anywhere but the PR does not stop a merge.
 #
-# The labels come from `gh pr view --json labels`, whose labels connection is read at gh's default
-# page size of 100. This repository has ten labels in total, so a withdrawal cannot sit past the
-# end of that page — the pagination trap SEC-007 hit on the REST `/labels` endpoint (30 per page)
-# is not reachable here.
 #
 # One name per line, matched with `grep -qx` — whole-line equality, the same construction
 # `review-gate.yml` uses for the same question, so the two enforcement points cannot disagree.
@@ -133,6 +129,21 @@ LABELS=$(gh pr view "$PR" --json labels --jq '"__labels__", (.labels[].name)' 2>
 if [[ -z "$LABELS" ]]; then
   echo "[merge-gate] Blocked: could not read the labels on #$PR, so a withdrawal cannot be ruled out." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+# `gh pr view --json labels` reads `labels(first: 100)` on the PULL REQUEST and does not paginate.
+# GitHub caps an issue or PR at 100 labels, so a SHORT page is provably the whole set — but a FULL
+# one is the single state where that reasoning stops, and it is checked rather than argued. Review
+# raised the page size as an assumption living only in a comment; a comment is not enforcement, and
+# "the withdrawal might be on a page I did not read" is not "not withdrawn".
+#
+# Minus one for the `__labels__` sentinel line, which is not a label.
+LABEL_COUNT=$(( $(printf '%s\n' "$LABELS" | wc -l) - 1 ))
+if (( LABEL_COUNT >= 100 )); then
+  echo "[merge-gate] Blocked: #$PR returned a full page of $LABEL_COUNT labels, so this read may be" >&2
+  echo "[merge-gate] truncated and a 'disposition-re-plan' beyond it would be invisible." >&2
+  echo "[merge-gate] Check by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
   exit 2
 fi
 
