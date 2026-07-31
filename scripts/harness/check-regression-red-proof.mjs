@@ -25,6 +25,7 @@ import {
   WITNESS,
   changedNewLines,
   defaultRunVitestRaw,
+  witnessDecidingCases,
   witnessOneCase,
 } from './lib/execution-witness.mjs';
 import {
@@ -662,8 +663,25 @@ export async function runRegressionRedProof(io = {}) {
   return { verdict: worst, decisions };
 }
 
-/** One extra vitest run per deciding case; a red file with many of them is not worth a linear cost. */
-const MAX_WITNESS_RUNS = 3;
+/**
+ * One vitest run per deciding case, and exhausting this answers UNKNOWN rather than UNREACHED
+ * (see `witnessDecidingCases`).
+ *
+ * It was 3, paired with a comment claiming "the answer is settled by the first REACHED" — true only
+ * if every deciding failure is checked, which slicing to 3 does not do.
+ *
+ * The size is measured, not guessed, and the measurement was worth taking: across the eight replayed
+ * ranges the deciding-failure counts were 1, 1, 4, 5, 1, 10, 1, 2, 19, 3, 3, 9 — so the old cap of 3
+ * truncated the walk for **5 of 12** sources. It changed no verdict there only because an early case
+ * reached the fix in each; a range whose reaching case sat 4th would have been reported as a finding
+ * against correct work.
+ *
+ * 25 covers the observed maximum of 19 with headroom. Raising it is nearly free on the healthy path:
+ * a REACHED short-circuits, so a range with a sound proof pays for ONE run whatever the number is.
+ * Only a range heading for a finding walks the whole list, and paying ~20 vitest runs to report a
+ * correct finding instead of an UNKNOWN is the right side of that trade for an advisory gate.
+ */
+const WITNESS_RUN_BUDGET = 25;
 
 /**
  * The real instrument (INFRA-072 direction 3): re-run each deciding case ALONE, on the RESTORED
@@ -674,9 +692,9 @@ const MAX_WITNESS_RUNS = 3;
  * formulation called a genuine red proof `unreached`, since that fix is an ADDITION and its old side
  * held only a comment and one `case` pattern arm.
  *
- * One vitest run per deciding case, capped — the answer is settled by the first REACHED, and this
- * gate is not worth a cost linear in the size of a red file. Every failure path returns UNKNOWN: an
- * instrument that cannot measure must not manufacture a finding.
+ * Every deciding case is asked, in order, until one answers REACHED or the run budget stops the
+ * walk — and a stopped walk answers UNKNOWN, never UNREACHED. Every failure path returns UNKNOWN
+ * too: an instrument that cannot measure must not manufacture a finding.
  */
 function defaultExecutionWitness(base) {
   return async ({ pkg, source, failures }) => {
@@ -692,11 +710,11 @@ function defaultExecutionWitness(base) {
     if (!targetLines?.size) return WITNESS.UNKNOWN; // a pure deletion wrote no line to reach
 
     const runVitestRaw = defaultRunVitestRaw(WORKSPACE_ROOT, pkg);
-    let sawUnknown = false;
-    for (const failure of failures.slice(0, MAX_WITNESS_RUNS)) {
-      let answer = WITNESS.UNKNOWN;
-      try {
-        answer = witnessOneCase({
+    return witnessDecidingCases({
+      failures,
+      budget: WITNESS_RUN_BUDGET,
+      witnessOne: (failure) =>
+        witnessOneCase({
           workspaceRoot: WORKSPACE_ROOT,
           sourceRel: source,
           testFileAbs: failure.file,
@@ -704,14 +722,8 @@ function defaultExecutionWitness(base) {
           targetLines,
           isShell: source.endsWith('.sh'),
           runVitestRaw,
-        });
-      } catch {
-        answer = WITNESS.UNKNOWN;
-      }
-      if (answer === WITNESS.REACHED) return WITNESS.REACHED;
-      if (answer === WITNESS.UNKNOWN) sawUnknown = true;
-    }
-    return sawUnknown ? WITNESS.UNKNOWN : WITNESS.UNREACHED;
+        }),
+    });
   };
 }
 

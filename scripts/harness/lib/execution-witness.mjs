@@ -78,7 +78,6 @@ export function changedNewLines(patchText) {
   return byFile;
 }
 
-
 /**
  * Lines a shell trace can never report, so that their absence is not read as "not reached".
  *
@@ -90,15 +89,26 @@ export function changedNewLines(patchText) {
  * command, while `*.md)` alone never traces and only its body does. It matters because it is exactly
  * the shape `post-tool-format.sh` changed — `"${CLAUDE_PROJECT_DIR:-}"/*) ;;` — and counting it as
  * executable called a genuine red proof `unreached` on the only real range there was to measure.
- * Only arms inside a `case … in` block are read this way, so a `foo()` line elsewhere is untouched.
+ *
+ * An arm is recognised by POSITION, not by shape alone, and the shape test is not enough on its own:
+ * `(cd "$dir" && cmd)` is a full-line subshell that satisfies the same pattern, `set -x` DOES trace
+ * it, and excluding it made a fix whose only written line was that subshell read as unreached — a
+ * finding against correct work. Arm position is where the grammar allows a new arm: straight after
+ * `case … in`, and after each `;;` / `;&` / `;;&`. Everything between those is a BODY, where a
+ * parenthesised line is a command. The state is a stack, so a `case` nested inside an arm body does
+ * not reset the block that encloses it.
  */
 export function untraceableShellLines(sourceText) {
   const lines = String(sourceText ?? '').split('\n');
   const untraceable = new Set();
   const GRAMMAR = new Set(['fi', 'esac', 'else', 'done', 'then', 'do', '{', '}', '(', ')', ';;']);
   const BARE_CASE_ARM = /^\(?[^()]*\)\s*(?:;;&?|;&)?$/;
+  const OPENS_ARM = /^\(?[^()]*\)/;
+  const ARM_TERMINATOR = /(?:;;&?|;&)$/;
   let heredocTerminator = null;
-  let caseDepth = 0;
+  /** One entry per open `case … in`; the value is "the next line may be an arm". */
+  const caseStack = [];
+  const expectingArm = () => caseStack.length > 0 && caseStack[caseStack.length - 1];
   for (let i = 0; i < lines.length; i += 1) {
     const lineNo = i + 1;
     const raw = lines[i];
@@ -110,10 +120,19 @@ export function untraceableShellLines(sourceText) {
     }
     const heredoc = raw.match(/<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?\s*$/);
     if (heredoc) heredocTerminator = heredoc[1];
+
+    const atArmPosition = expectingArm();
     if (trimmed === '' || trimmed.startsWith('#') || GRAMMAR.has(trimmed)) untraceable.add(lineNo);
-    else if (caseDepth > 0 && BARE_CASE_ARM.test(trimmed)) untraceable.add(lineNo);
-    if (/^case\s.*\sin$/.test(trimmed)) caseDepth += 1;
-    else if (trimmed === 'esac' && caseDepth > 0) caseDepth -= 1;
+    else if (atArmPosition && BARE_CASE_ARM.test(trimmed)) untraceable.add(lineNo);
+
+    if (/^case\s.*\sin$/.test(trimmed)) caseStack.push(true);
+    else if (trimmed === 'esac' && caseStack.length > 0) caseStack.pop();
+    else if (caseStack.length > 0) {
+      // A terminator hands the next line back to arm position; an arm that did not terminate on its
+      // own line has opened a body, and every line until the next terminator is a command.
+      if (ARM_TERMINATOR.test(trimmed)) caseStack[caseStack.length - 1] = true;
+      else if (atArmPosition && OPENS_ARM.test(trimmed)) caseStack[caseStack.length - 1] = false;
+    }
   }
   return untraceable;
 }
@@ -187,6 +206,41 @@ fi
 /** vitest's `-t` is a regular expression; a title is a literal. */
 export function escapeTestNamePattern(title) {
   return String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Ask the question of every deciding case, and never let "we stopped looking" pass for "nothing
+ * reached it".
+ *
+ * The budget is a COST STOP, not a sample. It exists because each answer costs a vitest run, and the
+ * expensive path is the one where no case reaches the fix — a REACHED short-circuits on the first
+ * hit, so a healthy range pays for one run whatever the budget is. Exhausting it therefore only ever
+ * happens on the way to a finding, which is the moment the gate most needs to be right.
+ *
+ * So an exhausted budget answers UNKNOWN. UNREACHED is reserved for the case where every deciding
+ * failure was actually checked and not one of them ran a line the fix wrote — the only situation in
+ * which the gate has grounds to say the red came from outside the fix.
+ *
+ * @param witnessOne (failure) => WITNESS — injected so the budget rule is tested without vitest.
+ */
+export function witnessDecidingCases({ failures, budget, witnessOne }) {
+  if (!failures?.length) return WITNESS.UNKNOWN;
+  let sawUnknown = false;
+  let checked = 0;
+  for (const failure of failures) {
+    // Stopped looking. Reporting UNREACHED here would be a finding built on the cases nobody ran.
+    if (checked >= budget) return WITNESS.UNKNOWN;
+    checked += 1;
+    let answer;
+    try {
+      answer = witnessOne(failure);
+    } catch {
+      answer = WITNESS.UNKNOWN;
+    }
+    if (answer === WITNESS.REACHED) return WITNESS.REACHED;
+    if (answer === WITNESS.UNKNOWN) sawUnknown = true;
+  }
+  return sawUnknown ? WITNESS.UNKNOWN : WITNESS.UNREACHED;
 }
 
 /**

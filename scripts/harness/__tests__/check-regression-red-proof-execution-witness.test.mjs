@@ -13,11 +13,16 @@ import {
   judgeWitness,
   parseXtrace,
   untraceableShellLines,
+  witnessDecidingCases,
   witnessOneCase,
   XTRACE_PRELUDE,
 } from '../lib/execution-witness.mjs';
 
-import { VERDICT, decidingFailures, runRegressionRedProof } from '../check-regression-red-proof.mjs';
+import {
+  VERDICT,
+  decidingFailures,
+  runRegressionRedProof,
+} from '../check-regression-red-proof.mjs';
 
 /**
  * INFRA-072 direction 3 — the execution witness.
@@ -142,8 +147,16 @@ describe('INFRA-072 — a red proof that never reached the fix', () => {
           {
             name: testAbs,
             assertionResults: [
-              { title: 'unrelated older case', fullName: 'x > unrelated older case', status: 'failed' },
-              { title: 'the new regression case', fullName: 'x > the new regression case', status: 'failed' },
+              {
+                title: 'unrelated older case',
+                fullName: 'x > unrelated older case',
+                status: 'failed',
+              },
+              {
+                title: 'the new regression case',
+                fullName: 'x > the new regression case',
+                status: 'failed',
+              },
             ],
           },
         ],
@@ -220,7 +233,10 @@ describe('bash execution witness (BASH_XTRACEFD)', () => {
     writeFileSync(prelude, XTRACE_PRELUDE);
     writeFileSync(script, '#!/usr/bin/env bash\nset -euo pipefail\necho "on stdout"\n');
 
-    const result = spawnSync('bash', [script], { encoding: 'utf8', env: { ...process.env, BASH_ENV: prelude } });
+    const result = spawnSync('bash', [script], {
+      encoding: 'utf8',
+      env: { ...process.env, BASH_ENV: prelude },
+    });
 
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
@@ -233,7 +249,14 @@ describe('witnessOneCase wiring', () => {
     const script = path.join(dir, 'hook.sh');
     writeFileSync(
       script,
-      ['#!/usr/bin/env bash', 'set -eu', 'if [ "${1:-}" = go ]; then', '  echo reached', 'fi', ''].join('\n'),
+      [
+        '#!/usr/bin/env bash',
+        'set -eu',
+        'if [ "${1:-}" = go ]; then',
+        '  echo reached',
+        'fi',
+        '',
+      ].join('\n'),
     );
     let seenArgs = null;
     const answer = witnessOneCase({
@@ -257,6 +280,83 @@ describe('witnessOneCase wiring', () => {
 
     expect(seenArgs).toContain('-t');
     expect(seenArgs[seenArgs.indexOf('-t') + 1]).toBe('a case \\(with parens\\)');
+  });
+
+  it('REACHED when the only fix-written line is a subshell inside a case arm body', () => {
+    // End to end for the review finding, against a real bash run rather than the line classifier:
+    // a fix whose single written line is `(cd "$dir" && cmd)` in an arm BODY. `set -x` traces that
+    // line, so the honest answer is REACHED — excluding it made the gate report a finding against
+    // correct work.
+    const dir = scratchDir('witness-subshell-');
+    const script = path.join(dir, 'hook.sh');
+    writeFileSync(
+      script,
+      [
+        '#!/usr/bin/env bash',
+        'set -eu',
+        'case "${1:-}" in',
+        '  go)',
+        '    (cd "$PWD" && echo ran)',
+        '    ;;',
+        '  *) ;;',
+        'esac',
+        '',
+      ].join('\n'),
+    );
+
+    const answer = witnessOneCase({
+      workspaceRoot: dir,
+      sourceRel: 'hook.sh',
+      testFileAbs: '/repo/t.test.mjs',
+      caseName: 'the deciding case',
+      targetLines: new Set([5]),
+      isShell: true,
+      runVitestRaw: (_args, env) => {
+        spawnSync('bash', [script, 'go'], { env: { ...process.env, ...env } });
+      },
+    });
+
+    expect(answer).toBe(WITNESS.REACHED);
+  });
+
+  it('does not report a FINDING when the subshell it reached sits beside an unreached line', () => {
+    // The variant that shows the actual harm. With the subshell excluded, the only surviving target
+    // is a line the case never runs, so the answer is UNREACHED — a finding against correct work,
+    // rather than the UNKNOWN the single-line fixture above degrades to.
+    const dir = scratchDir('witness-subshell-alarm-');
+    const script = path.join(dir, 'hook.sh');
+    writeFileSync(
+      script,
+      [
+        '#!/usr/bin/env bash',
+        'set -eu',
+        'case "${1:-}" in',
+        '  go)',
+        '    (cd "$PWD" && echo ran)',
+        '    ;;',
+        '  other)',
+        '    echo never-run',
+        '    ;;',
+        'esac',
+        '',
+      ].join('\n'),
+    );
+
+    const answer = witnessOneCase({
+      workspaceRoot: dir,
+      sourceRel: 'hook.sh',
+      testFileAbs: '/repo/t.test.mjs',
+      caseName: 'the deciding case',
+      targetLines: new Set([5, 8]),
+      isShell: true,
+      runVitestRaw: (_args, env) => {
+        spawnSync('bash', [script, 'go'], { env: { ...process.env, ...env } });
+      },
+    });
+
+    expect(answer, 'a line the case DID run was excluded, so the fix read as unreached').toBe(
+      WITNESS.REACHED,
+    );
   });
 
   it('REACHED when the case runs the changed line, UNREACHED when it does not', () => {
@@ -304,12 +404,18 @@ describe('changedNewLines', () => {
   });
 });
 
-
 describe('untraceableShellLines', () => {
   it('excludes comments, blanks and the words that close a construct', () => {
-    const text = ['#!/usr/bin/env bash', '', 'if true; then', '  echo hi', 'else', '  echo bye', 'fi', ''].join(
-      '\n',
-    );
+    const text = [
+      '#!/usr/bin/env bash',
+      '',
+      'if true; then',
+      '  echo hi',
+      'else',
+      '  echo bye',
+      'fi',
+      '',
+    ].join('\n');
     const untraceable = untraceableShellLines(text);
 
     expect(untraceable.has(1)).toBe(true); // shebang is a comment
@@ -348,12 +454,120 @@ describe('untraceableShellLines', () => {
     expect(untraceable.has(5)).toBe(false);
   });
 
+  it('does NOT exclude a subshell in an arm BODY — `set -x` traces that line', () => {
+    // Review finding: the arm pattern matches any `(...)` line with no inner parens, so a full-line
+    // subshell in a BODY was excluded from the executable set. If it is the only line a fix wrote
+    // inside a case block, the witness reports UNREACHED on a fix the case genuinely reached — a
+    // false alarm, and the acceptance criterion for this work promised zero of them.
+    const text = ['case "$F" in', '  *.ts)', '    (cd "$dir" && cmd)', '    ;;', 'esac', ''].join(
+      '\n',
+    );
+
+    expect(untraceableShellLines(text).has(3)).toBe(false);
+  });
+
   it('reads a bare arm only inside a case block', () => {
     // `foo()` outside one is a function header, not an arm, and excluding it would silently drop a
     // real target.
     const text = ['foo()', '{', '  echo hi', '}', ''].join('\n');
 
     expect(untraceableShellLines(text).has(1)).toBe(false);
+  });
+});
+
+describe('witnessDecidingCases — the run budget', () => {
+  const failures = ['a', 'b', 'c', 'd'].map((name) => ({ file: '/repo/t.test.mjs', name }));
+
+  it('finds a REACHED case that sits past the OLD cap of 3', () => {
+    // Review finding: the loop replayed only the first three failures and then fell through to
+    // UNREACHED, so a range whose only fix-reaching case is the 4th reported a finding against
+    // correct work. Measured across the eight replayed ranges, the deciding-failure counts were
+    // 1, 1, 4, 5, 1, 10, 1, 2, 19, 3, 3, 9 — the old cap truncated 5 of 12 sources, so this was live
+    // in the real corpus rather than hypothetical. The shipped budget covers the observed maximum.
+    const seen = [];
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 25,
+      witnessOne: (failure) => {
+        seen.push(failure.name);
+        return failure.name === 'd' ? WITNESS.REACHED : WITNESS.UNREACHED;
+      },
+    });
+
+    expect(answer).toBe(WITNESS.REACHED);
+    expect(seen).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('the budget is a hard stop, so a late REACHED beyond it is UNKNOWN and not a finding', () => {
+    // The honest reading of a stop: with the walk cut short, the gate does not know whether a later
+    // case reached the fix. It must not answer either REACHED (it never saw one) or UNREACHED (it
+    // never finished looking).
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 3,
+      witnessOne: (failure) => (failure.name === 'd' ? WITNESS.REACHED : WITNESS.UNREACHED),
+    });
+
+    expect(answer).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('stops at the budget and says UNKNOWN, never UNREACHED', () => {
+    // "We stopped looking" and "nothing reached it" are different answers, and only the second is
+    // grounds for a finding.
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 2,
+      witnessOne: () => WITNESS.UNREACHED,
+    });
+
+    expect(answer).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('short-circuits on the first REACHED, so a healthy range pays for one run', () => {
+    let runs = 0;
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 99,
+      witnessOne: () => {
+        runs += 1;
+        return WITNESS.REACHED;
+      },
+    });
+
+    expect(answer).toBe(WITNESS.REACHED);
+    expect(runs).toBe(1);
+  });
+
+  it('UNREACHED only when every deciding failure was actually checked', () => {
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 99,
+      witnessOne: () => WITNESS.UNREACHED,
+    });
+
+    expect(answer).toBe(WITNESS.UNREACHED);
+  });
+
+  it('one unmeasurable case is enough to withhold the finding', () => {
+    const answer = witnessDecidingCases({
+      failures,
+      budget: 99,
+      witnessOne: (failure) => (failure.name === 'b' ? WITNESS.UNKNOWN : WITNESS.UNREACHED),
+    });
+
+    expect(answer).toBe(WITNESS.UNKNOWN);
+  });
+
+  it('a throwing instrument is UNKNOWN, not a finding', () => {
+    const answer = witnessDecidingCases({
+      failures: [failures[0]],
+      budget: 99,
+      witnessOne: () => {
+        throw new Error('vitest exploded');
+      },
+    });
+
+    expect(answer).toBe(WITNESS.UNKNOWN);
   });
 });
 
@@ -387,7 +601,10 @@ describe('coverageLines', () => {
   it('separates executed statements from lines that are statements at all', () => {
     const report = {
       '/repo/a.mjs': {
-        statementMap: { 0: { start: { line: 3 }, end: { line: 3 } }, 1: { start: { line: 7 }, end: { line: 7 } } },
+        statementMap: {
+          0: { start: { line: 3 }, end: { line: 3 } },
+          1: { start: { line: 7 }, end: { line: 7 } },
+        },
         s: { 0: 2, 1: 0 },
       },
     };

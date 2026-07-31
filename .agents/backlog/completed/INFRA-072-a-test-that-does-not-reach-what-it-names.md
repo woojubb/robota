@@ -80,11 +80,11 @@ first, because they are what a stronger check would have to reach.
 
 ### The four motivating cases, judged against what landed
 
-| Case | Caught? | Why |
-| --- | --- | --- |
-| `hooks-have-execution-coverage` | **no** | the logic under test is IN the test file, so there is no source to reverse and no pair to judge. Per-case granularity operates inside a verdict this case never reaches. |
-| `remaining-hooks-run` (two hooks) | **no** | the hooks it names were not changed in the range, so no pair exists. INFRA-074's relation now says so precisely instead of approximately, but "no pair" is still no verdict. |
-| `remaining-hooks-run` (extension) | **no** | it fails reversed for the wrong reason — it crashes before reaching the filter. The gate reads pass/fail and cannot read WHY. This is direction 2/3 territory. |
+| Case                              | Caught?    | Why                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hooks-have-execution-coverage`   | **no**     | the logic under test is IN the test file, so there is no source to reverse and no pair to judge. Per-case granularity operates inside a verdict this case never reaches.                                                                                                                                                                                                                                                                |
+| `remaining-hooks-run` (two hooks) | **no**     | the hooks it names were not changed in the range, so no pair exists. INFRA-074's relation now says so precisely instead of approximately, but "no pair" is still no verdict.                                                                                                                                                                                                                                                            |
+| `remaining-hooks-run` (extension) | **no**     | it fails reversed for the wrong reason — it crashes before reaching the filter. The gate reads pass/fail and cannot read WHY. This is direction 2/3 territory.                                                                                                                                                                                                                                                                          |
 | `remaining-hooks-run` (unset var) | **partly** | it asserts an exit code both paths share, so it passes reversed. It is caught when it is the range's own added case and the file's red comes from a pre-existing case — the masking measured on `2ac10f251..b1f46acf3`. It is NOT caught when a genuine added case fails beside it, because requiring EVERY added case to fail would fail correct work: a range that adds three cases for one fix does not make all three depend on it. |
 
 So direction 1 closes the masking half and nothing else, which is what the item said it would. The
@@ -137,12 +137,12 @@ executable set, the same replay gives `reached`. That is the formulation that sh
 
 ### The four motivating cases, judged against what landed
 
-| Case                              | Caught?     | Why                                                                                                                                                                                                                    |
-| --------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hooks-have-execution-coverage`   | **no**      | the logic under test is IN the test file — no source to reverse, no pair, so the gate emits no verdict for the witness to qualify. Out of reach of any diff-scoped pair gate.                                           |
-| `remaining-hooks-run` (two hooks) | **no**      | the hooks named were not changed, so again no pair.                                                                                                                                                                    |
-| `remaining-hooks-run` (extension) | **no**      | REPLAYED on `b1f46acf3`: the fix wrote only comments and one bare `case` arm, so no changed line is traceable and the witness answers UNKNOWN. And the behaviour the case names — the extension filter — is not in the range's diff at all, so no diff-scoped instrument can target it. |
-| `remaining-hooks-run` (unset var) | **partly**  | unchanged from direction 1. The witness holds for it either way; catching it in the "a genuine added case fails beside it" configuration needs a demand on EVERY added case, which #1568 measured as failing correct work. |
+| Case                              | Caught?    | Why                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hooks-have-execution-coverage`   | **no**     | the logic under test is IN the test file — no source to reverse, no pair, so the gate emits no verdict for the witness to qualify. Out of reach of any diff-scoped pair gate.                                                                                                           |
+| `remaining-hooks-run` (two hooks) | **no**     | the hooks named were not changed, so again no pair.                                                                                                                                                                                                                                     |
+| `remaining-hooks-run` (extension) | **no**     | REPLAYED on `b1f46acf3`: the fix wrote only comments and one bare `case` arm, so no changed line is traceable and the witness answers UNKNOWN. And the behaviour the case names — the extension filter — is not in the range's diff at all, so no diff-scoped instrument can target it. |
+| `remaining-hooks-run` (unset var) | **partly** | unchanged from direction 1. The witness holds for it either way; catching it in the "a genuine added case fails beside it" configuration needs a demand on EVERY added case, which #1568 measured as failing correct work.                                                              |
 
 **0 of 4 additional, as predicted.** The three the item still names are not reachable from inside
 this gate: two produce no verdict at all, and the third names a behaviour the diff does not contain.
@@ -167,20 +167,74 @@ Strictly more expensive, and it catches nothing direction 3 does not.
 ### Measured, on real ranges
 
 Eight recent merged ranges replayed through the real gate (worktree detached at each merge, this
-branch's gate copied in), 15 sources judged, **12 produced a red proof**:
+branch's gate copied in). **17 sources judged, 13 of them offering a red proof:**
 
-| Witness   | Count      | Effect                    |
-| --------- | ---------- | ------------------------- |
-| REACHED   | 11 of 12   | verdict unchanged         |
-| UNKNOWN   | 1 of 12    | verdict unchanged         |
-| UNREACHED | **0 of 12** | **zero false alarms**    |
+| Witness   | Of the 13 red proofs | Effect                |
+| --------- | -------------------- | --------------------- |
+| REACHED   | 12                   | verdict unchanged     |
+| UNKNOWN   | 1                    | verdict unchanged     |
+| UNREACHED | **0**                | **zero false alarms** |
+
+The other 4 rows never offered a proof (3 `outcome=null`, 1 `run-error`) and are UNKNOWN by
+construction.
 
 Ranges: `63fa0c0cf`, `2ac10f251`, `631aa9e27`, `02f5a84b9`, `a668df9e3`, `2b0c454e0`, `4719efe5a`,
-`8589d58fa`. Both instruments are exercised there — nine `.sh` sources through the tracer, two `.mjs`
+`8589d58fa`. Both instruments are exercised there — `.sh` sources through the tracer, two `.mjs`
 sources through coverage.
+
+An earlier draft of this section reported "15 sources, 12 red proofs, 11 REACHED" — a miscount of the
+same run, corrected here against `outcome=… witness=…` pairs counted mechanically rather than by eye.
+The conclusion is unchanged and the corrected numbers are stronger.
 
 The gate stays ADVISORY and `red-proof-unreached` is report-only even under
 `REGRESSION_RED_PROOF_ENFORCE`; promotion is INFRA-046's decision, not this one.
+
+### Two review findings, both of them false-alarm sources, both fixed
+
+Neither could turn CI red today — `red-proof-unreached` never sets a non-zero exit — which is the
+reason to fix them now: they are cheap while the verdict is advisory and expensive the moment
+INFRA-046 promotes it.
+
+**1. The `case`-arm exclusion over-matched, and excluded a line bash DOES trace.** `BARE_CASE_ARM`
+matched any `(...)` line with no inner parens, so a full-line subshell in an arm BODY —
+`(cd "$dir" && cmd)` — was dropped from the executable set. Reproduced red before fixing: with that
+subshell as the only fix-written line the witness answered UNKNOWN, and with an unreached sibling
+line beside it, **UNREACHED — a finding against correct work**, which the acceptance criterion
+promised zero of.
+
+Fixed by recognising an arm by POSITION rather than by shape alone: arm position is straight after
+`case … in` and after each `;;` / `;&` / `;;&`; everything between is a body, where a parenthesised
+line is a command. The state is a stack, so a `case` nested in an arm body does not reset its
+enclosing block.
+
+**2. The run budget's comment promised what the loop did not do.** It replayed only the first
+`MAX_WITNESS_RUNS` (3) deciding failures while the comment claimed "the answer is settled by the
+first REACHED" — true only if every deciding failure is checked. A range whose only fix-reaching case
+sat 4th fell through to UNREACHED.
+
+This was not hypothetical. Measured across the same eight ranges, the deciding-failure counts per
+source were **1, 1, 4, 5, 1, 10, 1, 2, 19, 3, 3, 9** — the cap of 3 truncated the walk for **5 of 12**
+sources. It changed no verdict there only because an early case reached the fix in each.
+
+Kept as a budget, and made honest, rather than removed: every deciding case is now asked until one
+answers REACHED or the budget stops the walk, and **a stopped walk answers UNKNOWN, never
+UNREACHED** — "we stopped looking" and "nothing reached it" are different answers and only the second
+is grounds for a finding. The size is raised to 25, covering the observed maximum of 19 with headroom.
+Raising it is nearly free on the healthy path, because a REACHED short-circuits and a sound range pays
+for ONE run whatever the number is; only a range heading for a finding walks the list.
+
+Re-measured after both fixes: the corpus result is **unchanged** — 12 REACHED, 1 UNKNOWN, 0 UNREACHED
+across the 13 red proofs.
+
+### Re-measured against the current hooks
+
+`#1582` rewrote `.claude/hooks/lib/command-scan.sh`, which the traced hooks source, so the
+instrumentation was re-run against the current tree: `branch-guard.sh`, `pre-push-check.sh`,
+`check-forbidden-patterns.sh`, `worktree-cwd-guard.sh` and `post-tool-format.sh` — **5 of 5**
+instrumented cleanly, each tracing its own lines plus its two sourced lib files, with exit status and
+stderr byte-identical to an untraced run, and no line classified untraceable that the trace actually
+named. That last check is an independent cross-check of the tightened arm rule against real hooks
+rather than fixtures.
 
 ## GATE-COMPLETE (2026-08-01)
 
