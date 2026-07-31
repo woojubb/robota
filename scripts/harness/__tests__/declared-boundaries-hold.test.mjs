@@ -61,10 +61,12 @@ const ACTION_FAMILIES = [
   },
   { key: 'push', verbs: ['push', 'pushes', 'pushing'] },
   { key: 'merge', verbs: ['merge', 'merges', 'merging'] },
-  {
-    key: 'author',
-    verbs: ['author', 'authors', 'authoring', 'write', 'writes', 'writing', 'draft', 'drafts'],
-  },
+  // `write`/`author` is deliberately ABSENT, and the reason is measured: `backlog-writer` disowns
+  // "Write Evidence Log entries" while its body legitimately says "write the reason in Notes" and
+  // "Create or rewrite the file" — four false positives from one verb. Requiring the action's NOUN
+  // as well would fix those and break the real catch, whose sentence ("then reply") contains neither
+  // "review" nor "PR". So the families stay limited to verbs specific enough to be evidence on their
+  // own, and a boundary phrased with a generic verb is OUT OF SCOPE rather than guessed at.
 ];
 
 function familyFor(action) {
@@ -90,7 +92,13 @@ export function disownedActions(text) {
   const section = text.slice(start, rest === -1 ? undefined : rest);
   const rows = [];
   for (const line of section.split('\n')) {
-    const m = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$/);
+    // Two formats, because the repository uses two. Nine of the fourteen skills write a markdown
+    // table; five write a bullet list (`- Action → that is \`owner\``). Reading only the table
+    // excluded those five ENTIRELY and silently — the declared-boundary-unchecked-body failure this
+    // file exists to catch, reproduced inside it.
+    const table = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$/);
+    const bullet = line.match(/^[-*]\s+(.+?)\s*(?:→|->)\s*(.+)$/);
+    const m = table ?? bullet;
     if (!m) continue;
     const [, action, owner] = m;
     if (/^-+$/.test(action) || /^not this/i.test(action)) continue;
@@ -113,8 +121,15 @@ export function selfInstructions(text, action, owner) {
   const family = familyFor(action);
   if (!family) return [];
   const alt = family.verbs.join('|');
+  // The WHOLE file minus the declaration section itself. Reading only what precedes the table missed
+  // everything after it — closing admonitions, an Anti-Patterns section — which is exactly where a
+  // late-added imperative would land.
   const cut = text.indexOf('## What This Skill Does NOT Do');
-  const body = cut === -1 ? text : text.slice(0, cut);
+  let body = text;
+  if (cut !== -1) {
+    const after = text.indexOf('\n## ', cut + 1);
+    body = text.slice(0, cut) + (after === -1 ? '' : text.slice(after));
+  }
   const found = [];
   for (const sentence of body
     .replace(/\r?\n/g, ' ')
