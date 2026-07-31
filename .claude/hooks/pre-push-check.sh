@@ -74,7 +74,12 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # payloads are masked before this runs now, so the exclusion protected nothing and cost the forms
 # above. A quote and a backtick are boundaries because a kept region — `bash -c "git push"`,
 # `` `git push` `` — puts one immediately before the verb.
-printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([[:space:]]|$)' || exit 0
+# The trailing boundary is any NON-WORD character, matching `branch-guard`'s. It required
+# whitespace-or-end here, so `git push;` was a push to that guard and not a push to this one — and
+# because this line is the whole file's entry point, the branch-hygiene check, the lockfile-sync
+# check and the local-review record were all skipped for that shape. Two guards reading one command
+# must reach one reading of it.
+printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)' || exit 0
 
 # Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
 # in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.

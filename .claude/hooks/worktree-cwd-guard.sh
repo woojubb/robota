@@ -57,7 +57,10 @@ fi
 # Honor the inline override token written IN the command string. The `VAR=1` prefix runs in the
 # TOOL's shell, not this hook's process, so a plain env check never sees it (same reasoning as
 # branch-guard's inline overrides).
-if printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&])WORKTREE_CWD_GUARD_ALLOW_MAIN=1([[:space:]]|$)'; then
+# Read off the MASKED command, not the raw one. Off the raw text, a commit message that merely
+# NAMED this token switched the guard off for a `git reset --hard` on the main checkout — the attack
+# `branch-guard` documents beside its own overrides and fixed there, never ported here.
+if printf '%s' "$(hook_verb_scan "$COMMAND")" | grep -qE '(^|[[:space:];&])WORKTREE_CWD_GUARD_ALLOW_MAIN=1([[:space:]]|$)'; then
   exit 0
 fi
 
