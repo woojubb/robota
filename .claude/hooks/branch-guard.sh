@@ -50,23 +50,99 @@ COMMAND_EXEC=$(hook_executable_part "$COMMAND")
 # because branch names and `-C` paths are routinely quoted.
 COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_DELETE=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_DELETE=1
-fi
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
-fi
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BADNAME=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_BADNAME=1
-fi
+# One reading for all five, and it is POSITIONAL. Read as a token anywhere, an unquoted mention
+# disarmed the guard — `git commit -m X BRANCH_GUARD_ALLOW_DELETE=1 && git push origin --delete
+# develop` — the same shape fixed in worktree-cwd-guard and not ported here because these were
+# documented as loose. Measured before narrowing them: every documented usage is already the prefix
+# form, and git-branch.md says "inline in the same command". There was no loose usage to break.
+#
+# An override is given TO a command, so it must prefix one. `ALLOW=1 git …`, optionally behind other
+# assignments, and nowhere else. (INFRA-076)
+override_given() {
+  local token="$1" verb_re="$2"
+  # Statement by statement, and the override must prefix THE STATEMENT THAT CARRIES THE COMMAND it
+  # overrides. Anchoring it to "some git call anywhere on the line" is not enough: a decoy in front
+  # turns it into a skeleton key —
+  #   BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin main
+  # set the flag globally and the real push went unchecked. The sibling guard met this exact attack
+  # and split on separators to close it; porting the anchoring without the scoping left the hole
+  # open here. (INFRA-076)
+  #
+  # And "one statement carries it" is still not the question. The action detection below is a set of
+  # booleans over the WHOLE command, so a single global flag answered for every guarded statement:
+  #   BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; git push origin main
+  # is a correctly-overridden merge followed by a push to main that nobody overrode, and it passed.
+  # Making a previously-dead override live over whole-command detection is what opened that one.
+  #
+  # The question is whether EVERY statement carrying this action carries the override — the
+  # invariant the sibling guard already states as DESTRUCTIVE_STATEMENTS == OVERRIDDEN_STATEMENTS.
+  # Requiring "no sibling exists" instead would refuse correctly-overridden work, which is how a
+  # guard earns being switched off.
+  #
+  # CONTAINED, INFRA-079 (#1563). This closes the coarseness in the OVERRIDE reading. It does not
+  # close the coarseness in the ACTION reading, which is a second face of the same defect: the
+  # detection booleans below are still computed over the whole command, and NEW_BRANCH / START_POINT
+  # / DELETE_BRANCH_NAME are still single values taken from the FIRST match anywhere, because
+  # `hook_match_extract` uses awk `match()`. So a command with two branch creations has its second
+  # judged by nothing — measured, with no override token involved and reproducing on develop:
+  #   git checkout -b feat/x develop ; git checkout -b feat/y main    -> exit 0 (wrong base unjudged)
+  #   git checkout -b feat/ok ; git checkout -b BAD_NAME              -> exit 0 (bad name unjudged)
+  # Closing those needs an aligned per-statement split in lib/command-scan.sh, which is a library
+  # change and not this function's subject. Do not add a third override reading here; the remaining
+  # hole is not in the override.
+  #
+  # No pipeline: a `while` on the right of a pipe runs in a SUBSHELL, so its exit status says
+  # nothing about what it found. The statements are split into a variable first and read from a
+  # here-string, which keeps the loop in this shell.
+  local statements stmt guarded=0 overridden=0
+  statements=$(printf '%s\n' "$COMMAND_VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
+  while IFS= read -r stmt; do
+    printf '%s' "$stmt" | grep -qE "$verb_re" || continue
+    guarded=$((guarded + 1))
+    if printf '%s' "$stmt" | grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*$token=1[[:space:]]"; then
+      overridden=$((overridden + 1))
+    fi
+  done <<< "$statements"
+  [[ "$guarded" -gt 0 && "$overridden" -eq "$guarded" ]]
+}
+
+# A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick
+# subshell — puts one immediately before the verb, and without them the region survived masking and
+# still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
+# false positive it sits beside.
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+# Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
+# read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
+# match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
+# ending a line (`git commit\ngit push`), which a bare `(\s|$)` misses.
+GITEND='([^-[:alnum:]_]|$)'
+# Tolerate flags between the subcommand and the create flag (e.g. `git checkout -q -b x`, which
+# previously slipped past the create-guard entirely). `-B`/`-C` are the force-create spellings and
+# create a branch just as much as `-b`/`-c` do.
+#
+# ONE expression per action, read by BOTH the detector below and the override check above it.
+# Review of #1559 found the override carrying its own hand-written copies, forked in both
+# directions at once: no trailing boundary, so `git merge-base` excused a real `git merge`; and no
+# room for an intervening flag, so the documented `git checkout -q -b x` stopped registering. A
+# second spelling of "what counts as this action" is a second answer waiting to disagree, and here
+# it disagreed the moment it was written.
+RE_COMMIT="${GITPFX}commit${GITEND}"
+RE_PUSH="${GITPFX}push${GITEND}"
+RE_MERGE="${GITPFX}merge${GITEND}"
+RE_CREATE="${GITPFX}(checkout\s+(-\S+\s+)*-[bB]|switch\s+(-\S+\s+)*-[cC])${GITEND}"
+RE_GH_API="(^|[;&|({\"'\`]|[[:space:]])[[:space:]]*gh[[:space:]]+api${GITEND}"
+
+# Each override is bound to the command it excuses, so a decoy statement cannot stand in for it.
+override_given BRANCH_GUARD_ALLOW_DELETE "($RE_PUSH|$RE_GH_API)" && BRANCH_GUARD_ALLOW_DELETE=1
+override_given BRANCH_GUARD_ALLOW_OPEN_BRANCHES "$RE_CREATE" && BRANCH_GUARD_ALLOW_OPEN_BRANCHES=1
+override_given BRANCH_GUARD_ALLOW_BADNAME "$RE_CREATE" && BRANCH_GUARD_ALLOW_BADNAME=1
 # The base override belongs in this block for the reason the paragraph above gives: an inline
 # `VAR=1 git …` is set in the TOOL's shell and never reaches this process, so reading it only as
-# `${VAR:-0}` means the documented form does nothing. It was added as a plain env read, and the test
-# for it injected the variable through the hook's own environment — hiding the very distinction this
-# file spends nine lines explaining.
-if printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[[:space:];&])BRANCH_GUARD_ALLOW_BASE=1([[:space:]]|$)'; then
-  BRANCH_GUARD_ALLOW_BASE=1
-fi
+# `${VAR:-0}` means the documented form does nothing.
+override_given BRANCH_GUARD_ALLOW_BASE "$RE_CREATE" && BRANCH_GUARD_ALLOW_BASE=1
+# MAIN_MERGE was the one still read ONLY from this process's environment, which means the form
+# git-branch.md documents could never work, for the two most dangerous operations the guard covers.
+override_given BRANCH_GUARD_ALLOW_MAIN_MERGE "($RE_PUSH|$RE_MERGE)" && BRANCH_GUARD_ALLOW_MAIN_MERGE=1
 
 # Resolve the git context the COMMAND will actually run in (worktree-aware — parallel-wave lesson):
 # a worktree agent's commit/push was judged against the MAIN clone's branch (CLAUDE_PROJECT_DIR),
@@ -120,24 +196,10 @@ IS_GH_DELETE_BRANCH=false
 # inside an ordinary quoted argument (`-m 'run git checkout -b x'`) still matches, because telling
 # quoting apart needs the shell-aware extraction filed as HARNESS-061, not a longer regex here.
 
-# A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick
-# subshell — puts one immediately before the verb, and without them the region survived masking and
-# still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
-# false positive it sits beside.
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
-# Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
-# read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
-# match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
-# ending a line (`git commit\ngit push`), which a bare `(\s|$)` misses.
-GITEND='([^-[:alnum:]_]|$)'
-echo "$COMMAND_VERBS" | grep -qE "${GITPFX}commit${GITEND}" && IS_COMMIT=true
-echo "$COMMAND_VERBS" | grep -qE "${GITPFX}push${GITEND}" && IS_PUSH=true
-echo "$COMMAND_VERBS" | grep -qE "${GITPFX}merge${GITEND}" && IS_MERGE=true
-# Tolerate flags between the subcommand and the create flag (e.g. `git checkout -q -b x`, which
-# previously slipped past the create-guard entirely). `-B`/`-C` are the force-create spellings and
-# create a branch just as much as `-b`/`-c` do.
-echo "$COMMAND_VERBS" | grep -qE "${GITPFX}checkout\s+(-\S+\s+)*-[bB]${GITEND}" && IS_BRANCH_CREATE=true
-echo "$COMMAND_VERBS" | grep -qE "${GITPFX}switch\s+(-\S+\s+)*-[cC]${GITEND}" && IS_BRANCH_CREATE=true
+echo "$COMMAND_VERBS" | grep -qE "$RE_COMMIT" && IS_COMMIT=true
+echo "$COMMAND_VERBS" | grep -qE "$RE_PUSH" && IS_PUSH=true
+echo "$COMMAND_VERBS" | grep -qE "$RE_MERGE" && IS_MERGE=true
+echo "$COMMAND_VERBS" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
 # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
 # develop integration branch. Match ONLY when --delete-branch is an actual argument
 # of a `gh pr merge` invocation — strip shell comments first, then require the flag

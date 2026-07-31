@@ -82,6 +82,70 @@ describe('a push is a push to every guard that reads the command', () => {
   });
 });
 
+describe('every branch-guard override is given, not merely mentioned', () => {
+  // INFRA-076. The four `BRANCH_GUARD_ALLOW_*` tokens were read as a token ANYWHERE in the masked
+  // command, so an unquoted mention disarmed them — the shape fixed in the sibling guard and never
+  // ported here, because these were DOCUMENTED as loose.
+  //
+  // Measured before changing them: every documented usage is already the prefix form, and
+  // `git-branch.md` says "inline in the same command". There was no loose usage to break.
+  const OVERRIDES = [
+    // On a feature branch: the protected-branch push rule would otherwise fire first and the case
+    // would prove nothing about the delete override.
+    {
+      token: 'BRANCH_GUARD_ALLOW_DELETE',
+      guarded: 'git push origin --delete feat/gone',
+      on: 'feat/probe',
+    },
+    { token: 'BRANCH_GUARD_ALLOW_MAIN_MERGE', guarded: 'git merge develop', on: 'main' },
+    { token: 'BRANCH_GUARD_ALLOW_BADNAME', guarded: 'git checkout -b BAD_NAME', on: 'develop' },
+  ];
+
+  it('an override on a harmless command does not excuse the guarded one', () => {
+    // The decoy, ported from the sibling guard where it was already fixed and measured. Anchoring
+    // the token to "some git call" is not enough: it must prefix the statement that carries the
+    // command being overridden, or a `git status` in front becomes a skeleton key for the line.
+    //
+    // Reported as a PoC on this PR: `BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin
+    // main` set the flag globally and the real push went unchecked.
+    const decoys = [
+      { on: 'main', command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git status; git push origin main' },
+      { on: 'main', command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git log -1 && git merge develop' },
+      {
+        on: 'develop',
+        command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git status; git checkout -b BAD_NAME',
+      },
+    ];
+
+    for (const { on, command } of decoys) {
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `an override on a harmless command excused: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  for (const { token, guarded, on } of OVERRIDES) {
+    it(`${token} fires, resists a mention, and yields to the prefix`, () => {
+      // Three ways in one case, so the fixture proves itself. Asserting only "the mention was
+      // blocked" passes whenever the guard blocks for ANY reason — including a fixture that never
+      // reached the check at all, which is the accidental-green shape this suite exists against.
+      const dir = scratchRepo(on);
+      const bare = run('branch-guard.sh', guarded, dir);
+      const mention = run('branch-guard.sh', `echo ${token}=1 ; ${guarded}`, dir);
+      const prefix = run('branch-guard.sh', `${token}=1 ${guarded}`, dir);
+
+      expect(
+        bare.status,
+        `the guard never fired here, so this case proves nothing: ${bare.output}`,
+      ).not.toBe(0);
+      expect(mention.status, `a bare mention of ${token} disarmed the guard`).not.toBe(0);
+      expect(prefix.status, `the documented prefix form was refused: ${prefix.output}`).toBe(0);
+    });
+  }
+});
+
 describe('an override must be given, not merely mentioned', () => {
   function worktreeRun(command) {
     const dir = scratchRepo('feat/probe');
@@ -141,5 +205,121 @@ describe('an override must be given, not merely mentioned', () => {
       const verdict = worktreeRun(command);
       expect(verdict.status, `${command}: ${verdict.output}`).toBe(0);
     }
+  });
+});
+
+describe('an override names an action, not a string that contains one', () => {
+  // Review of #1559, both halves reproduced on a scratch repo before the fix. `override_given`'s
+  // verb patterns were written fresh instead of reusing the ones the file already uses to DETECT
+  // each action, so they forked in both directions at once: too loose at the end (no trailing
+  // boundary, so `merge-base` read as `merge`) and too strict in the middle (no room for an
+  // intervening flag, so the documented `git checkout -q -b x` stopped registering).
+  //
+  // The fork is the defect. One expression per action now serves both the detector and the
+  // override, which is why these two cases sit together.
+
+  it('a substring of the guarded verb does not excuse the guarded verb', () => {
+    const decoys = [
+      {
+        on: 'main',
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge-base develop main ; git merge develop',
+      },
+      {
+        on: 'main',
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git commit-tree -h ; git push origin main',
+      },
+      {
+        on: 'develop',
+        command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -bogus ; git checkout -b BAD_NAME',
+      },
+    ];
+    for (const { on, command } of decoys) {
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a read-only plumbing command stood in for the guarded one: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('the documented override still registers with the flags git actually accepts', () => {
+    // Fails CLOSED, so nothing was at risk — but a guard that refuses a form its own rule document
+    // tells people to use is a guard people learn to route around.
+    const allowed = [
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -q -b BAD_NAME' },
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git checkout -B BAD_NAME' },
+      { on: 'develop', command: 'BRANCH_GUARD_ALLOW_BADNAME=1 git switch -C BAD_NAME' },
+    ];
+    for (const { on, command } of allowed) {
+      const dir = scratchRepo(on);
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `the documented override was refused: ${output}`).toBe(0);
+    }
+  });
+
+  it('proves the cases above are not vacuous', () => {
+    // Without this, `not.toBe(0)` above passes when the guard blocks for ANY reason, and `toBe(0)`
+    // passes when the guard never fires at all.
+    const dir = scratchRepo('develop');
+    expect(
+      run('branch-guard.sh', 'git checkout -q -b BAD_NAME', dir).status,
+      'the guard does not fire on the bare command, so the override cases prove nothing',
+    ).not.toBe(0);
+  });
+});
+
+describe('an override covers the statements it was given to, and no others', () => {
+  // Depth verdict on #1559. The override became statement-scoped; the ACTION detection did not.
+  // `IS_PUSH`/`IS_MERGE`/`IS_BRANCH_CREATE` are booleans over the WHOLE command, and the decision
+  // at the bottom reads one global override flag — so one overridden statement answered for every
+  // sibling statement of any guarded kind.
+  //
+  // The sibling guard reached the correct shape first and this file did not take it: count the
+  // guarded statements, count the overridden ones, and honour the override only when every guarded
+  // statement carries it (worktree-cwd-guard.sh, "DESTRUCTIVE_STATEMENTS == OVERRIDDEN_STATEMENTS").
+
+  it('an overridden statement does not excuse an un-overridden sibling', () => {
+    const cases = [
+      {
+        on: 'main',
+        // Measured as newly reachable ON THIS BRANCH: develop refuses it only because the inline
+        // form of this token was dead there. Making a dead override live over whole-command
+        // detection is what opened it.
+        command: 'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; git push origin main',
+        control: 'git push origin main',
+      },
+      {
+        on: 'develop',
+        // The delete path, whose own comment records that it once closed an unmerged PR.
+        command:
+          'BRANCH_GUARD_ALLOW_DELETE=1 git push origin --delete scratch-1 ; git push origin --delete develop',
+        control: 'git push origin --delete develop',
+      },
+    ];
+    for (const { on, command, control } of cases) {
+      const bare = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', control, bare).status,
+        `the control is not blocked, so the case proves nothing: ${control}`,
+      ).not.toBe(0);
+
+      const dir = scratchRepo(on);
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `one overridden statement excused an un-overridden sibling: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('an override still covers a command whose guarded statements all carry it', () => {
+    // The other direction, and the reason the rule is "every guarded statement carries it" rather
+    // than "no sibling exists": a guard that refuses correctly-overridden work gets switched off.
+    const dir = scratchRepo('main');
+    const { status, output } = run(
+      'branch-guard.sh',
+      'BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git merge develop ; BRANCH_GUARD_ALLOW_MAIN_MERGE=1 git push origin main',
+      dir,
+    );
+    expect(status, `a fully-overridden command was refused: ${output}`).toBe(0);
   });
 });
