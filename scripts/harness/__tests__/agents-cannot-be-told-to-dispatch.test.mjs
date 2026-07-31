@@ -68,6 +68,10 @@ const DISPATCH_VERBS =
  * and `ask` inside `task`, and an ordinary sentence near an agent name fails CI for nothing. A floor
  * that cries wolf is one somebody switches off.
  */
+function reEscape(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function dispatchInstructions(text, agentNames, selfName) {
   const found = [];
   const sentences = text
@@ -79,7 +83,9 @@ export function dispatchInstructions(text, agentNames, selfName) {
     if (/\bowns\b|\bis the\b|\bthat is\b|\bbelongs to\b/i.test(sentence)) continue;
     for (const other of agentNames) {
       if (other === selfName) continue;
-      const near = new RegExp(`(?:${DISPATCH_VERBS})[^.\`]{0,40}\`?${other}\`?`, 'i');
+      // The agent name is DATA in this pattern, not syntax: a `(` in a frontmatter name would throw
+      // and take the whole check down for every agent, not just that one.
+      const near = new RegExp(`(?:${DISPATCH_VERBS})[^.\`]{0,40}\`?${reEscape(other)}\`?`, 'i');
       if (near.test(sentence)) found.push({ other, line: sentence.trim() });
     }
   }

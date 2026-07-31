@@ -52,6 +52,11 @@ export function mapRowNames(mapText) {
   return names;
 }
 
+/** Escape a value being interpolated into a pattern. An agent name is data, not syntax. */
+function reEscape(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * The agents a single skill's text dispatches. Pure, so the reading is testable without a tree —
  * this shipped with no regression test and its own review said so.
@@ -67,7 +72,7 @@ export function dispatchedAgents(text, agentNames) {
       // prose — "this skill handles retries and reports to `some-agent`" — would demand a map edit
       // that no dispatch justifies. Demonstrated on the incident file itself.
       const re = new RegExp(
-        `\\b(?:dispatch(?:es)?|calls?|invokes?|hand(?:s|ed)?\\b[^.\`]{0,30}\\bto)\\b[^.\`]{0,40}\`?${name}\`?`,
+        `\\b(?:dispatch(?:es)?|calls?|invokes?|hand(?:s|ed)?\\b[^.\`]{0,30}\\bto)\\b[^.\`]{0,40}\`?${reEscape(name)}\`?`,
         'i',
       );
       if (re.test(sentence)) dispatched.add(name);

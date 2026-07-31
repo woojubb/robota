@@ -266,6 +266,17 @@ describe('the registry must agree with the wiring it records', () => {
     ).toEqual(['proposal-reviewer']);
   });
 
+  it('survives an agent name carrying regex metacharacters', () => {
+    // The name is interpolated into a pattern. Unescaped, a stray `(` throws — and it would take
+    // down the scan for EVERY skill, not just that agent, because one throw ends the run. The
+    // convention guard checks only that `name` is present, never that it is a safe charset, so this
+    // is reachable from an ordinary typo in frontmatter.
+    expect(() => dispatchedAgents('Dispatch `a(b` now.', ['a(b'])).not.toThrow();
+    expect(dispatchedAgents('Dispatch `a(b` now.', ['a(b'])).toEqual(['a(b']);
+    // And a metacharacter must not silently widen the match either.
+    expect(dispatchedAgents('Dispatch `axb` now.', ['a.b'])).toEqual([]);
+  });
+
   it('does not read a reference, or a word that merely contains a verb', () => {
     // A guard that demands a map edit for prose nobody dispatched from is one that gets switched off.
     expect(dispatchedAgents('`proposal-reviewer` owns the verdict.', AGENTS)).toEqual([]);
