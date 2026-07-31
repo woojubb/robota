@@ -128,8 +128,9 @@ const CORPUS = [
   'git commit -m "about to git push later"',
   '# git push',
   'echo hi # git push',
-  // A mention nested inside a substitution — the shape that is still open (INFRA-075).
-  // Deliberately NOT asserted below; see the exemption list.
+  // A mention nested inside a substitution. Open until 2026-08-01, when the restore pass learned to
+  // keep a quote that opens INSIDE the span; the exemption was removed because this case went green,
+  // which is what pinning a disagreement AS a disagreement buys.
   "out=$(echo 'git push'); echo $out",
   // Interpreter strings — the verb really does run, inside another shell.
   'bash -c "git push"',
@@ -146,10 +147,6 @@ const CORPUS = [
  * ID — an unexplained one is how a corpus becomes decorative.
  */
 const KNOWN_OPEN = new Map([
-  [
-    "out=$(echo 'git push'); echo $out",
-    'INFRA-075 — a substitution span is restored whole, un-masking the quotes inside it',
-  ],
   [
     'echo \\"git push\\"',
     'INFRA-075 (same root) — an escaped quote is a literal character, so the verb survives as bare ' +

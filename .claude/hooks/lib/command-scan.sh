@@ -358,6 +358,11 @@ HOOK_SCAN_AWK='
       } else {
         m[i] = keep ? c : "\001"
         if (q == "\047") { sq[i] = 1 }
+        # Where the enclosing quote OPENED. A substitution restores its span, and a quote that
+        # opened INSIDE that span must survive the restore while one opened outside it must not.
+        # Without this index the restore could only take everything back, which un-masked the
+        # quotes the pass above had just masked. See INFRA-075.
+        qopen[i] = openq
       }
     }
 
@@ -381,12 +386,23 @@ HOOK_SCAN_AWK='
           if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
         }
         stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
+        for (k = i; k <= stop; k++) {
+          # Restore the span, but NOT a region quoted inside it. A double-quoted substitution runs,
+          # so it must come back; a substitution whose own argument is quoted runs an echo over a
+          # payload, and restoring that raw read the payload as a command. The test is where the
+          # enclosing quote OPENED: before the span, the mask came from context the substitution
+          # overrides; inside it, the quote belongs to the substitution and stands.
+          if (qopen[k] != "" && qopen[k] >= i && qopen[k] <= stop) { continue }
+          m[k] = substr(s, k, 1)
+        }
         i = stop
       } else if (substr(s, i, 1) == "`") {
         for (j = i + 1; j <= len; j++) { if (substr(s, j, 1) == "`") { break } }
         stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
+        for (k = i; k <= stop; k++) {
+          if (qopen[k] != "" && qopen[k] >= i && qopen[k] <= stop) { continue }
+          m[k] = substr(s, k, 1)
+        }
         i = stop
       }
     }
