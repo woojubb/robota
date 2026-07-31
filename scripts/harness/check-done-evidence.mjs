@@ -20,6 +20,7 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { NO_VOCABULARY, REPO_FILE_PATH_PATTERN, citedRepoPaths } from './cited-paths.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
@@ -28,24 +29,24 @@ const COMPLETED_DIR = '.agents/backlog/completed';
 
 /**
  * Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs.
- * Exported so HARNESS-050's `scan-unearned-done-claims.mjs` reuses this ONE definition of a
- * repo-path citation rather than carrying a second, drifting copy (AGENTS.md: one owner per fact).
+ *
+ * HARNESS-062 moved the definition to `cited-paths.mjs`, which owns every "a path cited in prose
+ * must exist" pattern. It is re-exported under the original name because `scan-unearned-done-claims`
+ * already imports it from here — one owner, unchanged consumers.
  */
-export const PATH_PATTERN =
-  /(?:^|[\s`("'[])((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)/g;
+export const PATH_PATTERN = REPO_FILE_PATH_PATTERN;
 const SUPERSEDED_PATTERN = /<!--\s*evidence-superseded:\s*(.+?)\s*-->/;
 /** A heading or list/bold lead-in that opens an evidence region. */
 const EVIDENCE_START_PATTERN = /^(#{1,6}\s.*evidence|[-*]\s+\**evidence|\*\*evidence)/i;
 const HEADING_PATTERN = /^#{1,6}\s/;
 
+/**
+ * This scan exempts NOTHING on prose (`NO_VOCABULARY`): its exemption is the explicit
+ * `evidence-superseded` annotation, which names a reason. A done item claiming an artifact must
+ * point at one, and "the file no longer exists" is the claim being audited, not a defence of it.
+ */
 function extractCandidates(line) {
-  const candidates = [];
-  for (const match of line.matchAll(PATH_PATTERN)) {
-    const candidate = match[1];
-    if (candidate.includes('*') || candidate.includes('..')) continue;
-    candidates.push(candidate);
-  }
-  return candidates;
+  return citedRepoPaths(line, { pattern: PATH_PATTERN, vocabulary: NO_VOCABULARY });
 }
 
 /**

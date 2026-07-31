@@ -31,6 +31,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { TOKEN_PATTERN, listWorkspacePackageNames } from './check-workspace-refs.mjs';
+import { ABSENCE_VOCABULARY } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -40,10 +41,10 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 // path/word separator, not a real reference boundary).
 const PACKAGE_DIR_PATTERN = /(?<![\w/-])packages\/([a-z0-9]+(?:-[a-z0-9]+)*)(?![\w-])/g;
 
-// Vocabulary marking a deliberately-absent reference. Mirrors the NEGATION set in
-// check-architecture-map-paths.mjs — that module exposes a regex (not a shared Set), so
-// this keeps a local, intentionally-narrow copy scoped to the tokens this guard needs.
-const ABSENCE_VOCAB = /\(planned\)|\(removed\)|\(deleted\)|\(renamed\)|no longer|does not exist/i;
+// HARNESS-062: this was a local copy whose own comment admitted the fork ("keeps a local,
+// intentionally-narrow copy"). The narrow set it defined is now the SHARED vocabulary in
+// cited-paths.mjs — same tokens, one owner — so this guard and the architecture-map guard can no
+// longer disagree about whether a sentence exempts itself.
 
 /**
  * Documented intentional references that are NOT live drift. Frozen-baseline precedent:
@@ -149,7 +150,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
         continue;
       }
       if (inFence) continue;
-      if (ABSENCE_VOCAB.test(rawLine)) continue;
+      if (ABSENCE_VOCABULARY.test(rawLine)) continue;
       const line = rawLine.replace(/`[^`]*`/g, ' '); // strip inline code spans
 
       for (const match of line.matchAll(TOKEN_PATTERN)) {

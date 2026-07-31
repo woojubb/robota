@@ -11,20 +11,28 @@
  * - `packages/<name>/...` tokens must resolve from the repository root.
  * - Lines containing `(planned)` are exempt.
  *
+ * The patterns and the exemption vocabulary come from `cited-paths.mjs` (HARNESS-062) — this scan
+ * used to carry its own copy of both. It stays on the STRICT `PLANNED_ONLY_VOCABULARY` on purpose:
+ * a package SPEC is the contract for what the package IS, not a changelog, so a SPEC line saying a
+ * module "was removed" should be deleted rather than exempted. That strictness is now a named
+ * option instead of a fork.
+ *
  * Exit code 0 = clean, 1 = findings.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import {
+  LOCAL_SOURCE_PATH_PATTERN,
+  PLANNED_ONLY_VOCABULARY,
+  REPO_SOURCE_PATH_PATTERN,
+  citedRepoPaths,
+} from './cited-paths.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-
-const LOCAL_PATH_PATTERN = /(?<![\w/])src\/[\w\-./]+\.(?:tsx|ts|mjs|cjs)(?!\w)/g;
-const REPO_PATH_PATTERN =
-  /packages\/[\w-]+\/(?:src|scripts|bin)\/[\w\-./]+\.(?:tsx|ts|mjs|cjs)(?!\w)/g;
 
 function listSpecFiles(root) {
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
@@ -47,10 +55,11 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
     const lines = readFileSync(specPath, 'utf8').split('\n');
 
     for (const line of lines) {
-      if (line.includes('(planned)')) continue;
-
-      for (const match of line.matchAll(LOCAL_PATH_PATTERN)) {
-        const token = match[0];
+      const localOptions = {
+        pattern: LOCAL_SOURCE_PATH_PATTERN,
+        vocabulary: PLANNED_ONLY_VOCABULARY,
+      };
+      for (const token of citedRepoPaths(line, localOptions)) {
         if (!existsSync(path.join(packageDir, token))) {
           findings.push({
             file: relativeSpec,
@@ -60,8 +69,11 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
         }
       }
 
-      for (const match of line.matchAll(REPO_PATH_PATTERN)) {
-        const token = match[0];
+      const repoOptions = {
+        pattern: REPO_SOURCE_PATH_PATTERN,
+        vocabulary: PLANNED_ONLY_VOCABULARY,
+      };
+      for (const token of citedRepoPaths(line, repoOptions)) {
         if (!existsSync(path.join(root, token))) {
           findings.push({
             file: relativeSpec,
