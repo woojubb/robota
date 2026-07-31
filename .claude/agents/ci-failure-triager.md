@@ -71,9 +71,17 @@ recommendation**, which is precisely where that distinction stops being academic
 for a foundational failure is a patch on a wrong foundation, delivered with authority.
 
 So: a check that has gone red the same way before is the signal. Look for the repeat — the same signature in
-earlier runs, an existing backlog item, a `git log -S` on the failing symbol — and when you find one, say so
-and hand the finding to `finding-depth-triager` rather than recommending a minimal fix for it. The guardian
-owns the verdict; you own the class and the reproduction. Governed by
+earlier runs, an existing backlog item, a `git log -S` on the failing symbol — and when you find one, **say so
+in the note and WITHHOLD the minimal fix recommendation**, naming what you found instead:
+
+```
+REPEAT: <signature> — seen in <where> — recommend a DEPTH verdict before any fix
+```
+
+You do not dispatch anything. You carry no `Agent` tool, so an instruction to hand this off would have no
+execution path — the dead-instruction shape this repository keeps producing, which is why the line says what
+you EMIT rather than who you call. Your caller routes on it: `finding-depth-triager` owns the verdict, you own
+the class, the reproduction and the repeat evidence. Governed by
 [finding-depth.md](../../.agents/rules/finding-depth.md).
 
 ## What is NOT your job

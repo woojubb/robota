@@ -20,18 +20,18 @@ All rules are mandatory and non-negotiable. Domain-specific rules live in
 
 ## Process Sub-Rules
 
-| Document                                       | Scope                                                                                                      |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [spec-workflow.md](spec-workflow.md)           | Spec-first development, document authority, structural docs                                                |
-| [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements                                                              |
-| [verification.md](verification.md)             | Build, browser, harness, and pre-push verification gates                                                   |
-| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour = framework functional test                           |
-| [publish.md](publish.md)                       | Release invariants: publish safety gate, scope approval, OTP prohibitions, stop conditions, triage mandate |
-| [release-operations.md](release-operations.md) | Pointer stub — merged into [publish.md](publish.md)                                                        |
-| [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates                                           |
-| [research.md](research.md)                     | Research-first implementation and recommendation authority                                                 |
-| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user execution test scenario gates, initiative PRs                           |
-| [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation, API boundary & lifecycle                          |
-| [finding-depth.md](finding-depth.md)         | A review finding is classified LOCAL or FOUNDATIONAL before it is fixed; a foundational one is filed, not patched |
-| [helper-limits.md](helper-limits.md)           | A helper's stated limits are re-judged at every consumer whose consequences differ           |
-| [learning-loop.md](learning-loop.md)           | Lesson capture, contract-before-automation, and mechanical enforcement preference                          |
+| Document                                       | Scope                                                                                                                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [spec-workflow.md](spec-workflow.md)           | Spec-first development, document authority, structural docs                                                                                          |
+| [tdd-and-planning.md](tdd-and-planning.md)     | TDD red-green-refactor, planning requirements                                                                                                        |
+| [verification.md](verification.md)             | Build, browser, harness, and pre-push verification gates                                                                                             |
+| [testing-layering.md](testing-layering.md)     | CLI = thin-wrapper/TUI tests only; feature behaviour = framework functional test                                                                     |
+| [publish.md](publish.md)                       | Release invariants: publish safety gate, scope approval, OTP prohibitions, stop conditions, triage mandate                                           |
+| [release-operations.md](release-operations.md) | Pointer stub — merged into [publish.md](publish.md)                                                                                                  |
+| [documentation-sync.md](documentation-sync.md) | Document role, package README, and robota.io documentation gates                                                                                     |
+| [research.md](research.md)                     | Research-first implementation and recommendation authority                                                                                           |
+| [backlog-execution.md](backlog-execution.md)   | Backlog recommendation gates, user execution test scenario gates, initiative PRs                                                                     |
+| [operational.md](operational.md)               | No fallback policy, idea capture, feature documentation, API boundary & lifecycle                                                                    |
+| [finding-depth.md](finding-depth.md)           | A review finding is classified by DEPTH before it is fixed (LOCAL / FOUNDATIONAL / INVALID / UNDETERMINED); a foundational one is filed, not patched |
+| [helper-limits.md](helper-limits.md)           | A helper's stated limits are re-judged at every consumer whose consequences differ                                                                   |
+| [learning-loop.md](learning-loop.md)           | Lesson capture, contract-before-automation, and mechanical enforcement preference                                                                    |
