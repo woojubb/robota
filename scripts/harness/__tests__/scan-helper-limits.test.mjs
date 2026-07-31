@@ -202,6 +202,24 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     expect(findings.map((f) => f.file)).toContain('scripts/harness/unread.mjs');
   });
 
+  it('is loud, not silent, when a tag drifts away from its export', () => {
+    // Adjacency is required on purpose: tolerating a gap would let a MODULE docblock tag whatever
+    // export happens to follow it, which is a drifted tag naming limits that belong to something
+    // else. What matters is that breaking adjacency FAILS rather than passing quietly — the
+    // per-file reader check is what makes that true, and this pins it so it stays a guarantee
+    // rather than a coincidence.
+    const spaced = [
+      '/**',
+      ' * @limits separated from its export by a blank line.',
+      ' */',
+      '',
+      'export function spaced() {}',
+    ].join('\n');
+
+    expect(taggedFunctions(spaced)).toEqual([]);
+    expect(analyze({ 'scripts/harness/x.mjs': spaced }).findings).toHaveLength(1);
+  });
+
   it('reads imports and acknowledgements as written', () => {
     expect(localImports("import { a, b as c } from './x.mjs';")).toEqual([
       { specifier: './x.mjs', names: ['a', 'b'] },

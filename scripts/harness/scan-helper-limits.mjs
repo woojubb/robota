@@ -43,6 +43,14 @@
  * The point is not the comment. It is that the question was ASKED at the site where the consequences
  * are known, which is the only place it can be answered.
  *
+ * ## Known gaps, stated rather than implied
+ *
+ * A namespace import (`import * as owner from './owner.mjs'; owner.tagged()`) is not detected:
+ * the binding that matters is a property access, not an imported name. Nothing in this tree uses
+ * one for a tagged function today. Adjacency between the docblock and its export is required, and
+ * a gap is caught by the per-file reader check below rather than passing quietly — tolerating the
+ * gap would let a module docblock tag whatever export followed it.
+ *
  * ## Anti-rot
  *
  * A `@limits` tag with no statement, and a `LIMITS <name>:` with no reason, both FAIL — the same
