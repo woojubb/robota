@@ -139,8 +139,18 @@ export function qualifyingPairs(byPkg) {
 // ── Pure: range + opt-out scoping (C2, opt-out) ─────────────────────────────────────────────────────
 
 /** A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally excluded. */
-export function isDefectFixRange(commitSubjects) {
-  return commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()));
+export function isDefectFixRange(commitSubjects, addedFiles = []) {
+  if (commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()))) return true;
+
+  // A range that ADDS A FLOOR is judged too, whatever its subject says. Measured 2026-08-01: five
+  // mechanical floors were written in one session and not one was judged by this gate, because a
+  // floor lands as `feat:` — it adds a capability — while being a fix for a defect CLASS. Three of
+  // the five turned out to pass over the very incident they were built for, and all three were found
+  // by a person running them by hand.
+  //
+  // A floor is the artifact whose red proof matters most: it is what will be trusted to catch the
+  // next occurrence, and a floor that cannot fail is worse than none, because it is believed.
+  return addedFiles.some((f) => /^scripts\/harness\/__tests__\/.*\.test\.mjs$/.test(f));
 }
 
 /** Parse `allow-green-at-base: <reason>` (opt-out) from any text (PR body / commit trailers). */
@@ -346,8 +356,15 @@ export async function runRegressionRedProof(io = {}) {
     log(`↩︎  SKIPPED (opt-out): allow-green-at-base: ${reason}`);
     return { verdict: VERDICT.SKIPPED_OPT_OUT, decisions };
   }
-  if (!isDefectFixRange(commitSubjects)) {
-    log('↩︎  SKIPPED: range has no `fix:` commit (not a defect fix).');
+  // Files ADDED in the range, so a new floor is judged even when the range is spelled `feat:`.
+  const addedFiles =
+    io.addedFiles ??
+    git(['diff', '--name-only', '--diff-filter=A', `${base}..HEAD`])
+      .split('\n')
+      .filter(Boolean);
+
+  if (!isDefectFixRange(commitSubjects, addedFiles)) {
+    log('↩︎  SKIPPED: range has no `fix:` commit and adds no floor (not a defect fix).');
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 

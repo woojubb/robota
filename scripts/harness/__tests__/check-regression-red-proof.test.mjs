@@ -125,6 +125,30 @@ describe('HARNESS-041 file classification', () => {
 });
 
 describe('HARNESS-041 scoping (C2) + opt-out', () => {
+  it('a range that ADDS A FLOOR is a defect fix, whatever its subject says', () => {
+    // Measured 2026-08-01: five mechanical floors were written in one session and not one of them
+    // was judged by this gate, because a floor lands as `feat:` — it adds a capability — while being
+    // a fix for a defect CLASS. Three of the five turned out to pass over the very incident they
+    // were built for, and all three were found by a person running them by hand.
+    //
+    // A floor is exactly the artifact whose red proof matters most: it is the thing that will be
+    // trusted to catch the next occurrence. So a range that adds one is judged, and its subject line
+    // does not get to opt it out.
+    expect(isDefectFixRange(['feat: a new mechanical floor'], ['scripts/harness/scan-x.mjs'])).toBe(
+      false,
+    );
+    expect(
+      isDefectFixRange(
+        ['feat: a new mechanical floor'],
+        ['scripts/harness/__tests__/guards-something.test.mjs'],
+      ),
+      'a new floor escaped the gate because it was not spelled `fix:`',
+    ).toBe(true);
+    // Not every touched test is a new floor — an EDIT to one is ordinary work, and an edited file is
+    // not in the ADDED list. Passing it here as added would have asserted the opposite of the point.
+    expect(isDefectFixRange(['docs: wording'], [])).toBe(false);
+  });
+
   it('isDefectFixRange requires a fix: commit and excludes perf:', () => {
     expect(isDefectFixRange(['fix: drop bug', 'chore: x'])).toBe(true);
     expect(isDefectFixRange(['fix(tui): drop bug'])).toBe(true);
@@ -286,6 +310,7 @@ function baseIo(overrides = {}) {
     mergeBase: 'BASE',
     changedFiles: [srcFile, testFile],
     commitSubjects: ['fix: something real'],
+    addedFiles: [],
     optOutText: '',
     readText: (p) => files[p] ?? '',
     fileExists: (p) => Object.prototype.hasOwnProperty.call(files, p),
