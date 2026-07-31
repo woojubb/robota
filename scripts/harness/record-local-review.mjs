@@ -45,6 +45,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { idOf } from './check-backlog-placement.mjs';
+
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function git(args, cwd) {
@@ -161,15 +163,11 @@ export function resolveRootItems(ids, backlogDir) {
   for (const dir of [backlogDir, path.join(backlogDir, 'completed')]) {
     if (!existsSync(dir)) continue;
     for (const name of readdirSync(dir)) {
-      // Multi-segment prefixes are the repository's own convention, not a hypothetical:
-      // `ARCH-AUDIT-001` and `HARNESS-DIET-006` are both filed. Reading one letter-group matched
-      // neither, so the floor would have refused a root item that exists — and an unpushable branch
-      // is the fastest way to teach someone to stop using the flag.
-      // The description suffix is a convention, not a requirement: `INFRA-073.md` is a legal
-      // name and demanding the trailing `-` would make this floor refuse a root item that is
-      // right there — the failure it exists to prevent, running backwards.
-      const m = name.match(/^([A-Z]+(?:-[A-Z]+)*-\d+)(?:-|\.md$)/);
-      if (m) present.add(m[1]);
+      // One owner for what a backlog ID looks like. Writing the pattern again here got the phase
+      // suffix wrong — `SELFHOST-008-P5-…` captured as `SELFHOST-008`, so the real ID was refused
+      // and a truncated one that names no file was accepted. Three items are filed that way.
+      const id = idOf(name);
+      if (id !== null) present.add(id);
     }
   }
   return {

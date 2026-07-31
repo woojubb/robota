@@ -27,7 +27,7 @@ const COMPLETED_DIR = '.agents/backlog/completed';
 const SPEC_DOCS_DIR = '.agents/spec-docs';
 
 /** The leading ID token of a backlog/spec filename, phase suffix included (`SELFHOST-008-P5`). */
-const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
+export const idOf = (name) => /^([A-Z]+(?:-[A-Z]+)*-\d+(?:-P\d+)*)/.exec(name)?.[1] ?? null;
 
 const TERMINAL_STATUSES = new Set(['done', 'wontfix', 'skipped', 'superseded']);
 const OPEN_STATUSES = new Set(['todo', 'in-progress']);

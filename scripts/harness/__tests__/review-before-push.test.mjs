@@ -379,6 +379,33 @@ describe('a foundational finding must name a root item that exists', () => {
     expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
   });
 
+  it('keeps a phase suffix, which is part of the ID', () => {
+    // `.agents/backlog/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
+    // Truncating at the first number does two wrong things at once: the real ID is refused, and a
+    // TRUNCATED id that names no file is accepted as though it did. The repository already parses
+    // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    writeFileSync(
+      path.join(dir, '.agents/backlog', 'SELFHOST-008-P5-concrete-semantic-backend.md'),
+      '---\nstatus: todo\n---\n',
+    );
+
+    const ok = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008-P5'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(ok.status ?? 1, `${ok.stdout ?? ''}${ok.stderr ?? ''}`).toBe(0);
+
+    const truncated = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(truncated.status ?? 1, 'an ID naming no file was accepted').not.toBe(0);
+  });
+
   it('refuses a flag it does not understand instead of ignoring it', () => {
     // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
     // parser skipped anything it did not recognise, so every note passed that way was dropped and

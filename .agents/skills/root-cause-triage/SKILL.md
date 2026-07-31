@@ -5,15 +5,8 @@ description: Classify a review finding by DEPTH before fixing it — a local def
 
 # Root-Cause Triage
 
-A review finding carries two independent facts, and the pipeline only ever read one of them.
-
-- **Severity** — how much it matters. `pr-review-reviewer` owns this: MUST / SHOULD / CONSIDER / NIT.
-- **Depth** — where the defect actually is. Nobody owned this, so every finding was fixed where it
-  was reported.
-
-Fixing a foundational finding where it surfaced is how a wrong design accumulates patches: each round
-is locally reasonable, the code gets more special cases, and the shape underneath is never revisited.
-This skill decides depth. It does not decide severity and does not perform the fix.
+The procedure for [finding-depth.md](../../rules/finding-depth.md), which owns what depth is and why
+it is asked. This skill decides it: it does not decide severity, and does not perform the fix.
 
 ## When to Use
 
@@ -58,10 +51,8 @@ regression test that passes on the unfixed code guards nothing (`check-regressio
 3. **Choose the disposition, and say which:**
    - **Re-plan** — the current change is withdrawn or reduced until the root is fixed. Correct when
      the change cannot be made honest without the root fix.
-   - **Containment** — a minimal, explicitly labelled hold. Permitted only when the change must land
-     first, and only under all three: it is the smallest thing that keeps the tree honest, it
-     introduces no new abstraction, and it names the root item's ID in both a code comment and the
-     commit body.
+   - **Containment** — a minimal, explicitly labelled hold, under the three conditions the rule
+     states. Correct when the change must land first.
 
 Never a third option. A foundational finding that is quietly fixed in place is the failure this
 skill exists to prevent.
