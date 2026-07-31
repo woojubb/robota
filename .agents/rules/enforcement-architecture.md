@@ -104,7 +104,42 @@ hits all pass 1 and 2 and fail 3. Each has been measured here:
 - `verify-like-ci` named itself the CI-equivalent entry point and was invoked by nothing (INFRA-069).
 
 So a guard lands with a case that RUNS it as a real invocation would, supplying only what a real
-session supplies. `hooks-have-execution-coverage` is the mechanical floor for question 3 in
+session supplies.
+
+## Two more properties, measured (2026-08-01)
+
+Both are about what a guard does when it is NOT blocking, which is almost all of the time, and
+neither is visible in a suite of negative cases.
+
+**4. Does it leave correct work alone, silently?** A guard that fires on a correct, desirable state
+is a defect of the same severity as one that misses a violation. Measured over four days: an 88%
+false-positive rate on the one-branch-at-a-time check (83 reported, 73 already merged), reflex-
+overridden twice in one session by its own author; a promotion gate that read the debt being PAID as
+a violation and blocked every promotion; a scan that blocked the release gate twice, once on a
+message discussing its own false positive; two parser defects that refused the creation of the
+branch their own fix lived on.
+
+Silence is part of it, not a nicety. A guard that narrates on the happy path is one everyone learns
+to scroll past, after which its refusals scroll past too — and a probe that measures the narration
+is measuring a print rather than a verdict, which is how one reachability test stayed green over a
+hook that decided nothing.
+
+Floor: `guards-pass-silently.test.mjs`. Every hook that carries an operator-facing `Blocked:` line
+must have at least one row stating an ordinary, correct invocation that passes with exit 0 and no
+output. A hook that speaks by design declares it with a reason.
+
+**5. Does it refuse what it cannot read?** "I could not verify" is not "I verified this is OK". An
+empty count, an unset variable, an absent decoder, a non-matching `grep` under `set -e` — each has
+produced a pass here, and the `.mjs` scans had a floor for it while the shell layer, where every
+instance was, did not.
+
+Floor: `guards-fail-closed.test.mjs`. A hook that judges refuses an unreadable payload; a hook that
+only reminds or formats may stand down, because demanding a refusal from it would be property 4
+violated. Which kind a hook is, is read from the hook itself.
+
+The two pull against each other on purpose. Property 5 alone produces a guard that refuses
+everything; property 4 alone produces one that permits everything. A guard is correct only when both
+hold, and each needs its own case. `hooks-have-execution-coverage` is the mechanical floor for question 3 in
 `.claude/hooks/`: a hook no test executes fails it. Whether the environment a case supplies is one a
 real session has remains judgement — state, beside the case, which signal it depends on and who sends
 it.

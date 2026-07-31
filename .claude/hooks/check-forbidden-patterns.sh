@@ -24,6 +24,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl"
 
+# An EMPTY payload is not "a tool that carries no file path" — it is no payload at all, and the two
+# were indistinguishable below: the field read returns empty for both, so a broken host meant every
+# edit went through unchecked. A judging hook must tell "I verified this is OK" from "I could not
+# verify", and this was the one input where it could not.
+if [ -z "${INPUT//[[:space:]]/}" ]; then
+  echo "[check-forbidden-patterns] Blocked: the hook payload was empty, so the edit cannot be" >&2
+  echo "[check-forbidden-patterns] checked. Nothing was verified; this is not a pass." >&2
+  exit 2
+fi
+
 # ── scope filter ──────────────────────────────────────────────────────────────
 # The first field read is the first place a missing decoder could pass silently — and it did:
 # without jq this came back empty and the hook exited 0 before reaching any check. An absent path
