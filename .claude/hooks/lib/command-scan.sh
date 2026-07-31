@@ -492,6 +492,14 @@ HOOK_TOKENIZER_AWK='
       # ---- $((…)) : arithmetic, not a command, but substitutions inside it are ----
       if (k == "ARITH") {
         if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        # Arithmetic nests in arithmetic, and this was the ONE context that did not test for it
+        # before falling through to the two-character substitution test. `$(( $(( … )) ))` was
+        # therefore read as a command substitution whose content is a command, so the inner
+        # expression came back as visible command text. It fails in the refusing direction rather
+        # than the permitting one, but it is the same defect the rest of this file is a record of:
+        # a rule held in every context except one sibling.
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
         if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
           sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
         if (c == "\140") { m[i] = "\140"

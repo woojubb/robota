@@ -234,6 +234,13 @@ const HANDWRITTEN = [
   `echo $(( 1 + 1 )) ; echo ${SQ}git push${SQ}`,
   'echo $(( 1 + 1 )) ; git push',
   'echo $(( 2 << 1 )) ; git push',
+  // -- arithmetic NESTED IN arithmetic, which the corpus had no shape for. Reached three ways,
+  // because a context that reads its own nesting wrong reads it wrong however it was entered.
+  'echo $(( $((1+2)) + 1 ))',
+  'echo $(( $(( git push )) ))',
+  'echo "$(( $(( git push )) ))"',
+  `cat <<EOF${NL}$(( $(( git push )) ))${NL}EOF`,
+  'echo $(( $(( 1 + 2 )) )) ; git push',
   // -- a quoted argument spanning lines --
   `git commit -m "line one${NL}git push${NL}line three" 2>/dev/null || true`,
   // -- quoted single-word tokens are tokens, not payloads --
@@ -318,7 +325,7 @@ const KNOWN_OPEN = new Map([
   ],
 ]);
 
-describe("the reading of a command matches what bash does with it", () => {
+describe('the reading of a command matches what bash does with it', () => {
   it('has a corpus and an oracle', () => {
     // Fail closed: an emptied corpus or a stub that never records would make every case below pass
     // over nothing.
@@ -348,7 +355,9 @@ describe("the reading of a command matches what bash does with it", () => {
       if (known) {
         // Pinned as a disagreement, so closing it turns this case red and the exemption gets removed
         // rather than outliving its reason.
-        expect(wasSeen, `${known} — if this now agrees, delete the exemption`).not.toBe(actuallyRan);
+        expect(wasSeen, `${known} — if this now agrees, delete the exemption`).not.toBe(
+          actuallyRan,
+        );
         return;
       }
 
