@@ -26,16 +26,26 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import {
+  PLANNED_ONLY_VOCABULARY,
+  QUOTED_REPO_FILE_PATH_PATTERN,
+  citedRepoPaths,
+} from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const HARNESS_DIR = path.join(WORKSPACE_ROOT, 'scripts', 'harness');
 
-// Quoted ('...', "...", `...`) workspace file path with an extension and no globs.
-const QUOTED_PATH_PATTERN =
-  /['"`]((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)['"`]/g;
-
 const ALLOW_MISSING_MARKER = 'harness-config-path-allow-missing';
+
+// STRICT on purpose (HARNESS-062): a scan's hardcoded path literal is configuration, not prose —
+// there is no sentence it could be part of that would excuse it pointing nowhere. Its escape hatch
+// is the explicit ALLOW_MISSING_MARKER, so the vocabulary stays at `(planned)`-only rather than
+// adopting the shared absence set.
+const QUOTED_CITATION = {
+  pattern: QUOTED_REPO_FILE_PATH_PATTERN,
+  vocabulary: PLANNED_ONLY_VOCABULARY,
+};
 
 function isCommentLine(line) {
   const t = line.trim();
@@ -52,8 +62,7 @@ function listHarnessScripts(dir) {
 export function findHarnessConfigPathFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['scripts/harness'], {
     scan: 'harness-config-paths',
-    why:
-      'The harness scripts are the documents whose quoted paths this scan validates.',
+    why: 'The harness scripts are the documents whose quoted paths this scan validates.',
   });
   const findings = [];
 
@@ -63,15 +72,13 @@ export function findHarnessConfigPathFindings(root = WORKSPACE_ROOT) {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (isCommentLine(line) || line.includes('(planned)')) continue;
+      if (isCommentLine(line)) continue;
       const allowMissing =
         line.includes(ALLOW_MISSING_MARKER) ||
         (i > 0 && lines[i - 1].includes(ALLOW_MISSING_MARKER));
       if (allowMissing) continue;
 
-      for (const match of line.matchAll(QUOTED_PATH_PATTERN)) {
-        const token = match[1];
-        if (token.includes('*') || token.includes('..')) continue;
+      for (const token of citedRepoPaths(line, QUOTED_CITATION)) {
         if (!existsSync(path.join(root, token))) {
           findings.push({
             file: relativeScript,

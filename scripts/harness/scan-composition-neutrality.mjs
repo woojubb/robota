@@ -39,26 +39,27 @@
  * violation. Exit 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import * as ts from './lib/ts-ast.mjs';
+import { listSourceFiles } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** Collect all `.ts`/`.tsx` files under a src tree (tests included — the guard is total), relative to root. */
+/**
+ * Collect all `.ts`/`.tsx` files under a src tree (tests included — the guard is total), relative to root.
+ *
+ * HARNESS-062: the walk is the shared lister; `excludeTests: false` states the "the guard is total"
+ * intent as an option rather than as an omission from a private exclusion set. Measured on the real
+ * tree when routed: 2443 files before, 2443 after.
+ */
 function walkTsFiles(target, root = WORKSPACE_ROOT) {
   const full = path.join(root, target);
-  if (!existsSync(full)) return [];
-  const out = [];
-  for (const entry of readdirSync(full, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === 'dist') continue;
-    const child = path.join(target, entry.name);
-    if (entry.isDirectory()) out.push(...walkTsFiles(child, root));
-    else if (entry.isFile() && /\.tsx?$/.test(entry.name)) out.push(child);
-  }
-  return out;
+  return listSourceFiles(full, { excludeTests: false, extensions: ['.ts', '.tsx'] }).map((file) =>
+    path.relative(root, file),
+  );
 }
 
 /** (a) Forbidden dependencies declared in a manifest (exact names + prefix matches). Pure. */

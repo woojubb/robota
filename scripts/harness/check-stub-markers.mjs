@@ -9,15 +9,16 @@
  *
  * Rules:
  * - Applies to packages/<name>/src of packages without `"private": true`.
- * - Test files (__tests__/, *.test.*, *.spec.*) are exempt.
+ * - Test files (__tests__/, *.test.*, *.spec.*) are exempt, as are dependency and build-output
+ *   directories (node_modules/, dist/, coverage/) — the shared `listSourceFiles` exclusion set.
  *
  * Exit code 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { listManifestPackageDirs } from './workspace-packages.mjs';
+import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -31,28 +32,10 @@ const STUB_MARKERS = [
   'placeholder for actual',
 ];
 
-function walkSources(dir) {
-  const files = [];
-  if (!existsSync(dir)) return files;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
-      files.push(...walkSources(full));
-    } else if (entry.isFile()) {
-      if (!/\.(ts|tsx|mjs|cjs|js)$/.test(entry.name)) continue;
-      if (/\.(test|spec)\./.test(entry.name)) continue;
-      files.push(full);
-    }
-  }
-  return files;
-}
-
 export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'stub-markers',
-    why:
-      'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
+    why: 'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
   });
   const findings = [];
 
@@ -62,7 +45,10 @@ export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     if (pkg.private === true) continue;
 
-    for (const sourcePath of walkSources(path.join(packageDir, 'src'))) {
+    // HARNESS-062: the private copy of this walk excluded `__tests__`/`node_modules` but NOT `dist`,
+    // so a file under `src/dist/` was source here and invisible to `no-fake-in-src`. One lister,
+    // one exclusion set. Measured on the real tree when routed: 1620 files before, 1620 after.
+    for (const sourcePath of listSourceFiles(path.join(packageDir, 'src'))) {
       const content = readFileSync(sourcePath, 'utf8');
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {

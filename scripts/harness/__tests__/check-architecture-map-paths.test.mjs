@@ -13,6 +13,8 @@ const SCAN_SCRIPT = fileURLToPath(new URL('../check-architecture-map-paths.mjs',
 // HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
 // the shared `requireGovernedTree` helper alongside it.
 const GOVERNED_TREE_MODULE = fileURLToPath(new URL('../governed-tree.mjs', import.meta.url));
+// HARNESS-062: the cited-path rule and its exemption vocabulary are now imported, not copied.
+const CITED_PATHS_MODULE = fileURLToPath(new URL('../cited-paths.mjs', import.meta.url));
 
 const MAP_DOC = '.agents/specs/architecture-map/pkg-map.md';
 const REAL_SOURCE = 'packages/pkg-a/src/index.ts';
@@ -52,12 +54,27 @@ describe('findArchitectureMapPathFindings', () => {
     ]);
   });
 
-  it('exempts lines that document a removal on purpose', async () => {
+  it('exempts a line that annotates the absence explicitly', async () => {
     const root = await createFixture({
-      [MAP_DOC]: '# Map\n\n`packages/pkg-a/src/old.ts` was removed in the transport split.\n',
+      [MAP_DOC]: '# Map\n\n`packages/pkg-a/src/old.ts` (removed) in the transport split.\n',
     });
 
     expect(await findArchitectureMapPathFindings(root)).toEqual([]);
+  });
+
+  /**
+   * HARNESS-062. The old local vocabulary exempted a line on narrative words — "relocated",
+   * "stale", "was removed" — which is how one sentence got a different verdict here than from
+   * check-spec-paths and check-ghost-package-refs. Describing what happened to the code is not a
+   * licence to cite a path that is gone.
+   */
+  it('does NOT exempt a line that merely narrates the move', async () => {
+    const root = await createFixture({
+      [MAP_DOC]:
+        '# Map\n\nThe loader was relocated; `packages/pkg-a/src/old.ts` is gone.\n',
+    });
+
+    expect(await findArchitectureMapPathFindings(root)).toHaveLength(1);
   });
 
   it('skips the historical audit/lesson logs entirely', async () => {
@@ -84,6 +101,7 @@ describe('check-architecture-map-paths CLI', () => {
       GOVERNED_TREE_MODULE,
       path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
     );
+    copyFileSync(CITED_PATHS_MODULE, path.join(path.dirname(scriptCopy), 'cited-paths.mjs'));
     return { root, scriptCopy };
   }
 
