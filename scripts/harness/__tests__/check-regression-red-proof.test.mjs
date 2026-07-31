@@ -87,6 +87,17 @@ describe('HARNESS-041 file classification', () => {
     expect(testExecutesHook(spawns, '.claude/hooks/branch-guard.sh')).toBe(true);
     expect(testExecutesHook(mentions, '.claude/hooks/branch-guard.sh')).toBe(false);
     expect(testExecutesHook(noSpawn, '.claude/hooks/branch-guard.sh')).toBe(false);
+
+    // Both halves must read the same text. Stripping comments for the NAME while matching the
+    // spawn against the raw source lets a documented example — the hook named in real code, the
+    // spawn shown in a comment — count as execution. Since this now picks which tests may set the
+    // verdict, that bystander could decide a hook it never runs.
+    const documented = [
+      "const hook = 'branch-guard.sh';",
+      "// e.g. spawnSync('bash', [hook])",
+      'expect(hook).toBeTruthy();',
+    ].join('\n');
+    expect(testExecutesHook(documented, '.claude/hooks/branch-guard.sh')).toBe(false);
   });
 
   it('isTestFile / isSourceFile split correctly', () => {

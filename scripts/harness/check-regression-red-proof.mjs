@@ -109,7 +109,10 @@ export function testExecutesHook(testText, hookPath) {
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
   if (!withoutComments.includes(base)) return false;
-  return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(testText);
+  // The SAME text for both halves. Matching the spawn against the raw source let a documented
+  // example — the hook named in real code, the spawn shown in a comment — count as execution, which
+  // is the described-but-not-reached shape this function exists to reject, inside the function.
+  return /spawnSync\(\s*'bash'|execFileSync\(\s*'bash'|spawn\(\s*'bash'/.test(withoutComments);
 }
 
 /** Packages that changed BOTH source and test — the only ones this v1 can red-prove. */
