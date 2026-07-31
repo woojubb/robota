@@ -52,6 +52,58 @@ holding the checkout does the judging, and posts back the DECISION — verdict, 
 because a finding correctly left unfixed is indistinguishable from one ignored to everyone reading the
 PR afterwards.
 
+## The cause's location does not decide the depth — the corrected claim does
+
+A finding whose cause lies somewhere other than where it surfaced is not foundational for that reason
+alone. The sharpest case is a DOCUMENTATION finding, where the cause is almost always in the code and
+the document is the symptom, so "the cause is elsewhere" would classify every one of them foundational
+and empty the word. The question is the third one, read on the artifact in hand: is the finding about
+this document, or about what this document had to describe? Ask what the CORRECTED sentence would say.
+
+- The code changed legitimately and the document lagged — a rename, a new flag, a moved path. The
+  corrected sentence is one the design is glad to make. **LOCAL.** Correct the document.
+- The document can be made accurate only by writing down something the design should not be doing — an
+  internal presented as public API, a workaround presented as the supported path, one fact with two
+  owners, a layer boundary documented as the way through. **FOUNDATIONAL.** The corrected sentence would
+  be true, and that is the problem: it is the wrong design written down twice, the second time with an
+  accurate-looking document standing in front of it.
+
+## In a document, the containment label is a note the reader can see
+
+Containment in code is a comment naming the root item. A document needs its own form of the same label,
+and copying the code one is wrong for a reason worth stating: a code comment is invisible to the running
+program and visible to the maintainer, which is correct there, because what the program's consumer
+consumes is behavior. A reader IS the document's consumer. A containment hidden from them would leave
+every reader trusting a claim the pipeline has already judged to describe a wrong design.
+
+The convention, written here once so a second one is not invented per pipeline: a **containment note** —
+a blockquote placed immediately below the claim it contains, opening with the root item's ID.
+
+```markdown
+> **Contained — ARCH-042.** The command resolves the path twice because the loader owns two
+> resolvers. Correcting this section would describe that faithfully; it stands until the root item lands.
+```
+
+The first line is the machine-readable part — `> **Contained — <ID>.**`, the ID optionally a markdown
+link. Three properties, each of which is why it is this and not something else:
+
+- **At the site**, like the code comment. The answer to the finding lives where the finding was raised,
+  or the next audit round raises it again and the loop stops converging.
+- **Visible in the rendered document**, unlike the code comment. An HTML comment would be containment
+  that the people the document is written for never learn about.
+- **Naming a filed root item.** A note whose ID resolves to no backlog item is refused, exactly as
+  `record-local-review` refuses one: a hold labelled with an item that does not exist is
+  indistinguishable from having ignored the finding.
+
+## A loop converges on RESOLVED, not on FIXED
+
+A review loop that stops at "no findings left" can only stop by editing something. A finding correctly
+left unfixed keeps it running, and the pressure that produces is to fix it anyway — which for a
+foundational finding is the patch this rule forbids. So the stop condition is that every finding is
+RESOLVED: fixed, contained under a filed root item, or recorded INVALID with what the code actually
+does. `documentation-refresh` converges on that (PROC-005), and it terminates for the same reason the
+code label works: a contained finding does not recur, because the label at the site is the answer to it.
+
 ## Where it is enforced
 
 Prose does not enforce (`enforcement-architecture.md`). The floors:
@@ -62,6 +114,11 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
   real invocation on every push rather than when remembered.
 - `pr-review-fixer` TAKES the verdict rather than producing it, and stops on a foundational one;
   `pr-review-orchestration` routes that verdict to the root item rather than back into the fix loop.
+- `depth-verdict-reachable.test.mjs` refuses a worker that is told to take a `DEPTH:` verdict when no
+  pipeline produces one for it. That is this repository's dominant defect stated at this rule's layer:
+  the instruction reads as enforced, the worker carries no `Agent` tool so it cannot obtain the verdict
+  itself, and nothing fails. The same file refuses a containment note whose ID resolves to no backlog
+  item, which is `record-local-review`'s refusal applied to the document form of the label.
 
 ## It applies to a PLAN, not only to a finding
 
