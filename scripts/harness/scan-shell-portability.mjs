@@ -103,7 +103,9 @@ const DIVERGENT = [
     command: 'stat',
     short: 'c',
     long: ['--format', '--printf'],
-    valueTaking: 'f',
+    // GNU `stat -f` is `--file-system`, a BOOLEAN — listing it as value-taking made the walk stop at
+    // the `f` in a fused `-fc` and miss the real `-c` behind it. (#1590 review)
+    valueTaking: '',
     portable: 'node -e with fs.statSync',
   },
   {
@@ -149,8 +151,51 @@ const DIVERGENT = [
   },
 ];
 
-/** Where one command ends and the next begins, as far as a whitespace split can tell. */
-const SEPARATOR = /^(;|&|&&|\||\|\||\)|\(|\{|\}|then|do|else|fi|done|esac)$/;
+/**
+ * Where one command ends and the next begins.
+ *
+ * PUNCTUATION ONLY. The first spelling also listed the shell keywords `do`, `done`, `then`, `else`,
+ * `fi`, `esac` — but those are only keywords in command position, and as an ARGUMENT (a file named
+ * `done`, say) they are ordinary words. Ending the walk on one is a silent miss of any flag after
+ * it, which is the failure this scan exists to remove. Real keyword boundaries carry punctuation
+ * (`…; done`) and are caught by the punctuation rule. (#1590 review)
+ */
+const SEPARATOR = /^(;|&|&&|\||\|\||\)|\(|\{|\})$/;
+
+/**
+ * The EXECUTABLE part of a logical line: quoted spans neutralised, then any trailing comment cut.
+ *
+ * Both problems are the same problem — text that is not code being read as code — and both were
+ * found in the same review round:
+ *
+ *   cmd args # avoid sed -i here      the comment was scanned and reported as a real invocation
+ *   sed -i 's/a;b/c/' f              the `;` inside the quotes is not a command separator
+ *
+ * A quoted span is replaced character-for-character with `Q`, so every offset and word boundary is
+ * preserved while nothing inside it can be mistaken for a separator, a comment marker, or a flag. A
+ * `#` only starts a comment when it is unquoted AND begins a word — `foo#bar` is one word, and
+ * `sed -i` is not documentation just because a `#` appears later in an argument. (#1590 review)
+ */
+function executablePart(line) {
+  let out = '';
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quote) {
+      out += ch === quote ? ch : 'Q';
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === '#' && (i === 0 || /\s/.test(line[i - 1]))) break;
+    out += ch;
+  }
+  return out;
+}
 
 /**
  * Whether `command` is invoked with the divergent option somewhere in this logical line.
@@ -173,7 +218,9 @@ function invokesWith(line, { command, short, long, valueTaking }) {
   //   raw      — is this word a SEPARATOR (a leading `;`/`&`/`|`/`)` ends the command it follows)
   //   argWord  — leading punctuation removed only; `--wrap=0` must keep its `=`
   //   cmdWord  — the last segment after any opener, so `x=$(sed` and `` x=`stat `` name the command
-  const raw = line.trim().split(/\s+/);
+  const code = executablePart(line).trim();
+  if (code === '') return false;
+  const raw = code.split(/\s+/);
   const argWords = raw.map((w) => w.replace(/^[$({`;|&]+/, ''));
   const cmdWords = raw.map((w) => w.split(/[$(`{;|&=]/).pop() ?? w);
   const words = argWords;
@@ -182,7 +229,10 @@ function invokesWith(line, { command, short, long, valueTaking }) {
     if (w !== command && !w.endsWith(`/${command}`)) continue;
     for (let j = i + 1; j < words.length; j++) {
       const arg = words[j];
-      if (SEPARATOR.test(raw[j]) || /^[;|&)]/.test(raw[j])) break;
+      // A separator GLUED to the previous argument ends the command just as a spaced one does:
+      // `file;othercmd -i` walked on and blamed `sed` for the next command's flag. Safe to test the
+      // whole token now that a quoted `;` has been neutralised above. (#1590 review)
+      if (SEPARATOR.test(raw[j]) || /[;|]/.test(raw[j]) || /^[&)]/.test(raw[j])) break;
       // A long option, with or without an attached `=value`.
       if (long.some((l) => arg === l || arg.startsWith(`${l}=`))) return true;
       if (short === null) continue;

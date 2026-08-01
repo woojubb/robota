@@ -212,6 +212,52 @@ describe('scan-shell-portability', () => {
     ]);
   });
 
+  // A TRAILING comment is not code. `isComment` only saw a line that STARTS with `#`, so
+  // `cmd args # avoid sed -i here` was scanned in full and reported as a real invocation — a false
+  // positive on exactly the documentation this rule asks people to write. (#1590 review)
+  it('cuts a trailing comment, and only where a comment actually starts', () => {
+    const root = fixture({
+      'scripts/a.sh': 'echo hi # avoid sed -i here\n',
+      'scripts/b.sh': 'sed -i "s/a/b/" f # in place\n',
+      'scripts/c.sh': 'grep -P "#tag" f\n',
+      'scripts/d.sh': 'echo a#b\n',
+    });
+    expect(
+      findPortabilityFindings(root)
+        .findings.map((f) => `${f.file}:${f.flag}`)
+        .sort(),
+    ).toEqual([
+      `${path.join('scripts', 'b.sh')}:sed -i`,
+      `${path.join('scripts', 'c.sh')}:grep -P`,
+    ]);
+  });
+
+  // A separator GLUED to the previous argument ends the command just as a spaced one does, and a
+  // separator INSIDE quotes does not end it at all. Both are the same question — what is code —
+  // which is why the quoted spans are neutralised before the split. (#1590 review)
+  it('ends the command at a glued separator, but not at a quoted one', () => {
+    const root = fixture({
+      'scripts/a.sh': 'sed x f;curl -i url\n',
+      'scripts/b.sh': 'sed x f|curl -i url\n',
+      'scripts/c.sh': "sed 's/a;b/c/' -i f\n",
+    });
+    expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual(['sed -i']);
+  });
+
+  // Shell keywords are keywords in COMMAND position only; as an argument they are ordinary words.
+  // Ending the walk on one is a silent miss of every flag after it. (#1590 review)
+  it('does not end the command at a file named like a shell keyword', () => {
+    const root = fixture({ 'scripts/a.sh': 'grep x done -P y\n' });
+    expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual(['grep -P']);
+  });
+
+  // GNU `stat -f` is `--file-system`, a boolean. Listing it as value-taking stopped the cluster walk
+  // at the `f` and missed the real `-c` behind it. (#1590 review)
+  it('reads the -c in a fused stat cluster whose other letter takes no value', () => {
+    const root = fixture({ 'scripts/a.sh': 'stat -fc %Y f\n' });
+    expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual(['stat -c']);
+  });
+
   it('does not flag a COMMENT — prose that discusses a flag does not run it', () => {
     const root = fixture({
       // `#` only — the whole of shell comment syntax, indented or not.
