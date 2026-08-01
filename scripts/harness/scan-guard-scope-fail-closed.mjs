@@ -165,6 +165,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
   },
   {
+    file: 'scan-shell-portability.mjs',
+    finder: 'findPortabilityFindings',
+    tree: 'scripts, .husky and .claude/hooks',
+    why: 'MEASURED on a bare root before registration, not assumed: it throws `governed tree(s) absent`. The flags it looks for fail on the other platform WITHOUT naming their cause — `sed -i` on macOS eats the next argument and reports success — so a pass this scan did not compute reads exactly like a portable script tree',
+  },
+  {
     file: 'scan-release-sweep-coverage.mjs',
     finder: 'findReleaseSweepCoverageFindings',
     tree: 'pnpm-workspace.yaml and the workspace manifests it names',
