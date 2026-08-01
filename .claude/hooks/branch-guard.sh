@@ -326,8 +326,13 @@ while read -r STMT_START STMT_LEN; do
   # Asked of the STATEMENT, not of the extracted arguments: `git -c core.hooksPath=/dev/null push`
   # has no arguments after the verb, so a non-empty ARGS test read it as "not a push" and skipped the
   # check entirely. An empty argument list is not an absent command. (#1588 review)
+  # Asked of the SPLICED reading, like the checks it gates. Reading the verb from the un-spliced mask
+  # while the flags were read from the spliced one left the door open on the other side: a spliced
+  # VERB kept the gate false and the kill-switch bans were skipped entirely, even though bash runs
+  # the command exactly as written. Defending against an evasion in one half of a decision and not
+  # the other is the same defect as not defending at all. (#1588 review)
   IS_GATED_STMT=false
-  printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(commit|push)${GITEND}" && IS_GATED_STMT=true
+  printf '%s' "$STMT_EVASIVE" | grep -qE "${GITPFX}(commit|push)${GITEND}" && IS_GATED_STMT=true
   if [[ "$IS_GATED_STMT" == "true" ]]; then
     # As an ENVIRONMENT PREFIX, which is the only position that disables anything. The tokenizer
     # leaves a single-token quoted argument visible, so `git commit -m "HUSKY=0"` — a commit whose
@@ -339,7 +344,7 @@ while read -r STMT_START STMT_LEN; do
     printf '%s' "$STMT_EVASIVE" | grep -qE 'core\.hooksPath' &&
       { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
   fi
-  printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}config${GITEND}[^;&|]*core\.hooksPath" &&
+  printf '%s' "$STMT_EVASIVE" | grep -qE "${GITPFX}config${GITEND}[^;&|]*core\.hooksPath" &&
     { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
   # And simply destroying the hooks — asked as a WHITELIST, because the destructive side is
   # open-ended and the readable side is not.
@@ -419,6 +424,11 @@ while read -r STMT_START STMT_LEN; do
           *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
         esac
       done
+      # `--reference=<file>` copies another file's mode, which can strip execute without ever naming
+      # a mode this parser can read. It is refused rather than reasoned about: there is no mode token
+      # to judge, and "I cannot tell" is a refusal here. (#1588 review)
+      printf '%s' "$STMT_EVASIVE" | grep -qE 'chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+--reference' &&
+        { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
       case "$CHMOD_MODE" in
         *+x*|*+X*) ;;                                   # handled by the clause walk above
         [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7])
@@ -432,6 +442,11 @@ while read -r STMT_START STMT_LEN; do
       esac
     fi
     # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
+    # `-exec` is refused even when the command it runs only reads (`find .husky -exec cat {} \;`).
+    # Judging that would mean evaluating the exec'd command, which is the evaluator this file
+    # declines to write elsewhere for the same reason — `ls`/`grep`/`cat` on the path are the
+    # untouched read path, and they do not need `find -exec`. Stated so the narrower framing above
+    # is not read as covering this. (#1588 review)
     printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])find([[:space:]]|$)' &&
       printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-(delete|exec)([[:space:]]|$)' &&
       { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }

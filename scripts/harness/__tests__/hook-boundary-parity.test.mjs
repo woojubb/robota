@@ -360,6 +360,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       "git commit -m 'x' --no-''verify",
       "H''USKY=0 git commit -m 'x'",
       "git commit -''n -m x",
+      // The VERB spliced, not just the flag. The verb gate read the un-spliced mask while the checks
+      // it gates read the spliced one, so a spliced verb kept the gate false and the kill-switch
+      // bans were skipped entirely. Defending one half of a decision is not defending it. (#1588)
+      "H''USKY=0 git comm''it -m 'x'",
+      "git conf''ig core.hooksPath /dev/null",
+      "HUSKY=0 git comm''it -m 'x'",
       'git commit -m x --no-\\verify',
       'echo ok && git commit --no-verify -m "x"',
     ]) {
@@ -409,6 +415,9 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // to the mode token. Both disarm the hook. (#1588 review)
       'chmod 644 .husky/pre-push',
       'chmod 000 .husky/pre-push',
+      // `--reference` copies another file's mode and can strip execute without naming one. There is
+      // no mode token to judge, and "I cannot tell" is a refusal here. (#1588 review)
+      'chmod --reference=/etc/hosts .husky/pre-push',
       // Comma-joined symbolic modes. `+x` appearing ANYWHERE read as "restoring", so a clause that
       // removes the bit was excused by a later one that does not put it back — `+X` is conditional
       // and does nothing when no execute bit remains. Order of clauses, not presence of a `+`.
