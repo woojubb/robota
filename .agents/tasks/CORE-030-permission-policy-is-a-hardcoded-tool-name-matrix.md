@@ -32,8 +32,16 @@ and they already have.
   schema in a `switch` with `default: return undefined`.
 - The two owners can drift silently: tool names are declared in `agent-tools` as plain string
   literals with no type link (`builtins/read-tool.ts:176`, `builtins/shell-tool.ts:247`,
-  `computer-use/computer-tool.ts:189`). **Drift already exists** — `'Bash'` is in the L0 matrix and no
-  such tool is produced anywhere in `packages/`.
+  `computer-use/computer-tool.ts:189`) — nothing couples the classified set to the produced set.
+
+  **Correction, from review of the audit record (#1591).** The audit claimed drift already exists
+  because `'Bash'` names no produced tool. That is FALSE and is corrected here rather than carried:
+  `packages/agent-tools/src/builtins/shell-tool.ts:253-255` defines `createBashTool()` →
+  `createHostShellTool('Bash', options)`, exported at `src/index.ts:104` with a `bashTool` singleton
+  at `shell-tool.ts:261`, and `src/__tests__/shell-tool.test.ts:11` asserts the name. `'Bash'` is a
+  deliberate model-familiar alias. The coupling gap is real; the instance of drift offered as
+  evidence for it was not, and no unverified example replaces it.
+
 - The same package already contains the correct pattern, which makes this an inconsistency rather
   than an unknown: `packages/agent-core/src/interfaces/role-model.ts:1-13` deliberately uses an opaque
   `string` key with the reasoning for rejecting a fixed union written down.
@@ -50,9 +58,9 @@ can register a tool's risk classification. The `default: return undefined` in `p
 plus `UNKNOWN_TOOL_FALLBACK = 'approve'` makes the failure mode fail-open.
 
 Severity HIGH, security-relevant and silent. The synthesis also cross-lists it under theme T3 (a
-trust boundary that is documentation rather than code), theme T9 (`TKnownToolName`/`MODE_POLICY`
-naming product tools in the zero-dep foundation), and theme T2 (`MODE_POLICY` names `'Bash'`, a tool
-no package produces).
+trust boundary that is documentation rather than code) and theme T9 (`TKnownToolName`/`MODE_POLICY`
+naming product tools in the zero-dep foundation). Its theme-T2 cross-listing rested on the `'Bash'`
+claim corrected above and does not stand.
 
 ## Direction
 
@@ -70,9 +78,9 @@ The shape the cause sentence implies: each tool **declares** its own risk classi
 schema, rather than the foundation hardcoding both
 (`permission-mode.ts:16-107`, `permission-gate.ts:76-91`'s `switch` with `default: return undefined`).
 
-Two consequences the synthesis flags as part of the same work: the fail-open default
-(`UNKNOWN_TOOL_FALLBACK = 'approve'` in `default` and `acceptEdits`), and the existing drift
-(`'Bash'` in the matrix with no such tool produced anywhere in `packages/`).
+One consequence the synthesis flags as part of the same work: the fail-open default
+(`UNKNOWN_TOOL_FALLBACK = 'approve'` in `default` and `acceptEdits`). Its second — drift that has
+already happened — was withdrawn; see the correction under Evidence.
 
 Risk named by the evidence: tool names are currently plain string literals in `agent-tools`
 (`read-tool.ts:176`, `shell-tool.ts:247`, `computer-tool.ts:189`) **with no type link** to the
@@ -89,10 +97,11 @@ currently couples them at all.
 - Repeat the same assertion in `acceptEdits` mode.
 - Red-first: assert an unknown tool's argument schema is obtainable from the tool itself rather than
   from `permission-gate.ts:76-91`'s `switch`, whose `default` returns `undefined`.
-- Assert the matrix no longer names a tool that no package produces (`'Bash'`), and add a mechanical
-  check that the set of classified names and the set of produced tool names cannot drift — today they
-  are coupled by nothing (`read-tool.ts:176`, `shell-tool.ts:247`, `computer-tool.ts:189` are plain
-  literals).
+- Add a mechanical check that the set of classified names and the set of produced tool names cannot
+  drift — today they are coupled by nothing (`read-tool.ts:176`, `shell-tool.ts:247`,
+  `computer-tool.ts:189` are plain literals). Note what this check must NOT assume: every name in the
+  matrix is currently produced, so the check has to be proved against a fixture that introduces a
+  divergence, not against today's tree, which would pass it vacuously.
 - Assert no product tool names remain in the zero-dependency foundation
   (`permission-mode.ts:16-107`).
 - `pnpm harness:verify-like-ci` green.

@@ -708,8 +708,16 @@ matches, and evaluation falls through to `UNKNOWN_TOOL_FALLBACK` = `'approve'` i
   schema in a `switch` with `default: return undefined`.
 - The two owners can drift silently: tool names are declared in `agent-tools` as plain string
   literals with no type link (`builtins/read-tool.ts:176`, `builtins/shell-tool.ts:247`,
-  `computer-use/computer-tool.ts:189`). **Drift already exists** — `'Bash'` is in the L0 matrix and no
-  such tool is produced anywhere in `packages/`.
+  `computer-use/computer-tool.ts:189`) — nothing couples the classified set to the produced set.
+
+  **WITHDRAWN, on review of this record (#1591):** this entry claimed _"drift already exists — `'Bash'`
+  is in the L0 matrix and no such tool is produced anywhere in `packages/`"_. That is false.
+  `packages/agent-tools/src/builtins/shell-tool.ts:253-255` defines `createBashTool()` →
+  `createHostShellTool('Bash', options)`, exported at `src/index.ts:104` with a `bashTool` singleton
+  at `:261`, and `src/__tests__/shell-tool.test.ts:11` asserts the name — a deliberate model-familiar
+  alias. The missing coupling is real; the instance offered as proof that it has already bitten was
+  not, and is struck rather than replaced with another unverified one.
+
 - The same package already contains the correct pattern, which makes this an inconsistency rather
   than an unknown: `packages/agent-core/src/interfaces/role-model.ts:1-13` deliberately uses an opaque
   `string` key with the reasoning for rejecting a fixed union written down.
@@ -1582,21 +1590,21 @@ failure must survive the boundary with its class, cause and category intact.**
 **Invariant: a declared seam must be reachable from the construction path the product actually uses,
 and a capability that cannot fire must not be recorded as delivered.**
 
-| Instance                                                                                          | Layers | Rank     |
-| ------------------------------------------------------------------------------------------------- | ------ | -------- |
-| 11 `ICreateSessionOptions` seams unreachable, incl. `guardrails`/`retrievalAdapter`/`effort`      | L2     | #9, #20  |
-| 9 resolved preset fields computed and dropped; 4 CLI flags parsed and ignored                     | L4     | #9       |
-| `get-usage-report`/`usage_report` declared, unhandled, unproduced, "proved" by a type-only test   | L3     | #20, #33 |
-| Transport registry options: schema, validator, setter — none reach a transport                    | L3     | #20      |
-| The whole prompt/foreign-API vertical inside `dag-core`; `PromptApiController` never instantiated | L5     | #20      |
-| `dag-scheduler`: a published package no product composes                                          | L5     | #20      |
-| 7 of 30 `IDagOrchestrationPort` methods answered 501, with 7 matching published MCP tools         | L5     | #25, #20 |
-| `IMCPToolConfig` describes an MCP tool nobody builds; `disconnect()` has no caller                | L1     | #20      |
-| `MODE_POLICY` names `'Bash'`, a tool no package produces                                          | L0     | #16      |
-| `ILeasePort.renew` — zero callers; `leaseOwner`/`leaseUntil` — ghost columns                      | L5     | #6, #35  |
-| `IWorkspaceLayout` exists in `dag-core` and is never threaded into the execution context          | L5     | #1       |
-| `IProviderModelCatalogEntry` — documented as the correct SSOT for cost, unused                    | L0     | #14      |
-| `open@^11` declared and never imported                                                            | L4     | #20      |
+| Instance                                                                                                                             | Layers | Rank     |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------ | -------- |
+| 11 `ICreateSessionOptions` seams unreachable, incl. `guardrails`/`retrievalAdapter`/`effort`                                         | L2     | #9, #20  |
+| 9 resolved preset fields computed and dropped; 4 CLI flags parsed and ignored                                                        | L4     | #9       |
+| `get-usage-report`/`usage_report` declared, unhandled, unproduced, "proved" by a type-only test                                      | L3     | #20, #33 |
+| Transport registry options: schema, validator, setter — none reach a transport                                                       | L3     | #20      |
+| The whole prompt/foreign-API vertical inside `dag-core`; `PromptApiController` never instantiated                                    | L5     | #20      |
+| `dag-scheduler`: a published package no product composes                                                                             | L5     | #20      |
+| 7 of 30 `IDagOrchestrationPort` methods answered 501, with 7 matching published MCP tools                                            | L5     | #25, #20 |
+| `IMCPToolConfig` describes an MCP tool nobody builds; `disconnect()` has no caller                                                   | L1     | #20      |
+| ~~`MODE_POLICY` names `'Bash'`, a tool no package produces~~ — WITHDRAWN (#1591): `createBashTool()` exists and is exported; see #16 | L0     | #16      |
+| `ILeasePort.renew` — zero callers; `leaseOwner`/`leaseUntil` — ghost columns                                                         | L5     | #6, #35  |
+| `IWorkspaceLayout` exists in `dag-core` and is never threaded into the execution context                                             | L5     | #1       |
+| `IProviderModelCatalogEntry` — documented as the correct SSOT for cost, unused                                                       | L0     | #14      |
+| `open@^11` declared and never imported                                                                                               | L4     | #20      |
 
 ### T3 — A trust boundary that is documentation rather than code
 
