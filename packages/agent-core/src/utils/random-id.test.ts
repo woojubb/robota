@@ -29,9 +29,8 @@ describe('randomId (CORE-028)', () => {
    */
   it('falls back to getRandomValues when randomUUID is unavailable', () => {
     const real = globalThis.crypto;
-    vi.stubGlobal('crypto', {
-      getRandomValues: (a: Uint8Array) => real.getRandomValues(a),
-    });
+    // Real randomness, minus `randomUUID` — the shape a browser has outside a secure context.
+    vi.stubGlobal('crypto', { getRandomValues: real.getRandomValues.bind(real) });
     try {
       expect(randomId()).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
