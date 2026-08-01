@@ -55,7 +55,7 @@ append_event_once() {
 # status/move; lessons churn) — never a rework signal.
 is_workflow_multi_edit_path() {
   case "$1" in
-    *".agents/backlog/"* | *".agents/tasks/"* | *".agents/evals/"*) return 0 ;;
+    *".agents/tasks/"* | *".agents/spec-docs/"* | *".agents/evals/"*) return 0 ;;
     *) return 1 ;;
   esac
 }

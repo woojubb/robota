@@ -119,8 +119,24 @@ export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
       if (!inEvidence) continue;
       const candidates = extractCandidates(lines[i]);
       if (candidates.length === 0) continue;
-      const supersededHere =
-        SUPERSEDED_PATTERN.exec(lines[i]) ?? (i > 0 ? SUPERSEDED_PATTERN.exec(lines[i - 1]) : null);
+      // Same line, or the nearest line above it that is not blank.
+      //
+      // Adjacency alone was too strict, and the thing that broke it was this repository's OWN
+      // formatter: prettier surrounds an HTML comment with blank lines, so a `<!-- evidence-superseded
+      // -->` written directly above its reference is silently detached the next time the file is
+      // formatted. Measured during PROC-006, when a bulk reformat detached one of the twelve
+      // annotations and the scan reported a stale reference that had been correctly suppressed for
+      // months. The other eleven survived only because nothing had reformatted their files yet.
+      //
+      // A suppression the formatter can quietly remove is not a suppression. Blank lines are skipped;
+      // any other content still ends the association, so an annotation cannot drift up a list and
+      // start excusing a reference it was never written for.
+      let supersededHere = SUPERSEDED_PATTERN.exec(lines[i]);
+      for (let j = i - 1; !supersededHere && j >= 0; j -= 1) {
+        if (lines[j].trim() === '') continue;
+        supersededHere = SUPERSEDED_PATTERN.exec(lines[j]);
+        break;
+      }
 
       for (const candidate of candidates) {
         if (pathExists(root, candidate)) continue;
