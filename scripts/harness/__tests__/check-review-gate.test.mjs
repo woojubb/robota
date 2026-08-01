@@ -135,6 +135,32 @@ describe('decideReviewGate', () => {
     });
     expect(decision.blocked).toBe(true);
   });
+
+  // The label read is the ONE failure the acknowledge label cannot excuse — the label is the thing
+  // that could not be read. The workflow used to `exit 1` out of the collecting step for this, which
+  // turned the job red but skipped the Decide step: no gate report on the PR, the reason visible
+  // only in an Actions annotation. It now writes the same UNAVAILABLE sentinel its siblings do.
+  // (#1588 review)
+  it('FAIL-CLOSED: blocks when the LABELS could not be read, with its own reason', () => {
+    const decision = decideReviewGate({ prAlerts: [], baseAlerts: [], labelsUnavailable: true });
+    expect(decision.blocked).toBe(true);
+    expect(decision.reason).toBe('labels-unavailable');
+    // Not the alerts reason: stopping for a cause that is not the cause costs the next person the
+    // whole debugging trail.
+    expect(decision.reason).not.toBe('verdict-unavailable');
+    expect(renderDecision(decision)).toContain('could not be read');
+  });
+
+  it('an unreadable label list cannot acknowledge anything', () => {
+    const decision = decideReviewGate({
+      prAlerts: [alert({ number: 42, severity: 'error' })],
+      baseAlerts: [],
+      labels: [ACKNOWLEDGE_LABEL],
+      labelsUnavailable: true,
+    });
+    expect(decision.blocked).toBe(true);
+    expect(decision.acknowledged).toBe(false);
+  });
 });
 
 // #1436: a docs-only PR (one backlog markdown file, zero code) was BLOCKED as
@@ -227,6 +253,20 @@ describe('CLI (the shape the workflow calls)', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('review-gate: PASS (advisory-only)');
     expect(result.stdout).toContain('js/unused-local-variable');
+  });
+
+  it('FAIL-CLOSED: exits 1 on the same sentinel in --labels, which the workflow now writes', async () => {
+    const root = await fixture({ 'pr.json': '[]', 'base.json': '[]' });
+    const result = run(root, [
+      '--alerts-file',
+      'pr.json',
+      '--base-alerts-file',
+      'base.json',
+      '--labels',
+      UNAVAILABLE,
+    ]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('labels-unavailable');
   });
 
   it('FAIL-CLOSED: exits 1 on the UNAVAILABLE sentinel the workflow writes', async () => {

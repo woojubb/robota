@@ -234,7 +234,11 @@ jobs:
             --jq '[.[].name] | join(",")' \
             > pr-labels.txt; then
             echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}. The acknowledge override cannot be ruled in or out, so this is not a pass."
-            exit 1
+            # The SENTINEL, not `exit 1`. Exiting here still turned the job red — the goal was met —
+            # but it skipped the Decide step, so the PR got no gate report and the reason lived only
+            # in an Actions annotation. Every sibling "could not read X" path writes UNAVAILABLE and
+            # lets the decision module block with the reason ON THE PR. (#1588 review)
+            echo "UNAVAILABLE" > pr-labels.txt
           fi
 
       - name: Decide
