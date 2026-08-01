@@ -46,7 +46,7 @@ connected" (SPEC.md:937) while `modes/print-mode.ts:53` already passes it (spec 
   injection
 - `packages/agent-cli/docs/SPEC.md` — remove preflight/diagnose stale module rows, document
   cli.ts dispatch list, correct the `--system-prompt` note
-- `.agents/backlog/` — 14 new audit backlog files + README index (documentation payload of this PR)
+- `.agents/tasks/` — 14 new audit backlog files + README index (documentation payload of this PR)
 
 ### Alternatives Considered
 
@@ -116,7 +116,7 @@ a thin delegation, matching the existing help/version/reset branches. Startup mo
 - `packages/agent-cli/src/startup/__tests__/first-run.test.ts` (new)
 - `packages/agent-cli/src/startup/__tests__/terminal-check.test.ts` (new)
 - `packages/agent-cli/docs/SPEC.md`
-- `.agents/backlog/CLI-049…CLI-062 files + README.md`
+- `.agents/tasks/CLI-049…CLI-062 files + README.md`
 
 ## Completion Criteria
 
@@ -171,7 +171,7 @@ a thin delegation, matching the existing help/version/reset branches. Startup mo
 - Explicit approval present: after being presented the 14 audit backlog items (CLI-049~CLI-062) covering exactly this spec's scope, the user stated verbatim on 2026-06-10: "cjk 관련된 것 빼고 나머지 모두 진행해줘. pr을 올리면서 머지하며 작업해줘. feature 브랜치 -> develop -> main" — a direct "진행해줘" authorization, not a clarifying-question answer or silence.
 - Approval directed at this spec: the spec covers backlog CLI-049/050/051/052/056. The CJK exclusion maps to CLI-061 (Korean IME last-character drop) and CLI-062 (CJK cursor positioning) — both CJK input-behavior items in `packages/agent-transport`. CLI-052 is a startup call-site restoration in `packages/agent-cli` (same dead-dispatch cluster as 049/050/051); its warning text mentions CJK but the work is wiring restoration, so all five items fall inside "나머지 모두" (everything else).
 - No Architecture Review or frontmatter type/tags modified after approval: last Evidence Log entry before this gate is GATE-WRITE (same date); spec document content unchanged since approval per caller confirmation; frontmatter remains `type: BEHAVIOR`, `tags: [cli, typescript]`.
-- NON-COMPLIANCE trigger checked — not fired: `git status` shows no `packages/agent-cli` source modifications, no implementation commits, and `.agents/tasks/CLI-049.md` does not exist yet (correctly deferred to GATE-IMPLEMENT). Working tree changes are documentation only (.agents/backlog files, this spec, evals lessons).
+- NON-COMPLIANCE trigger checked — not fired: `git status` shows no `packages/agent-cli` source modifications, no implementation commits, and `.agents/tasks/CLI-049.md` does not exist yet (correctly deferred to GATE-IMPLEMENT). Working tree changes are documentation only (.agents/tasks files, this spec, evals lessons).
 
 ### [GATE-IMPLEMENT] — ✅ PASS | 2026-06-10
 

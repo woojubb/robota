@@ -350,7 +350,7 @@ Completion is a single atomic act, not a sequence that usually finishes:
 1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
    file's frontmatter. For items that will not be implemented, use `status: wontfix` or
    `status: skipped` instead.
-2. **Move the file** — `git mv .agents/backlog/<file>.md .agents/backlog/completed/<file>.md`.
+2. **Move the file** — `git mv .agents/tasks/<file>.md .agents/tasks/completed/<file>.md`.
    Always `git mv`, never `cp` — the root must be left with no duplicate.
 3. **Single commit** — the frontmatter update and the move land in the SAME commit. Do not commit or
    push before both are staged together.

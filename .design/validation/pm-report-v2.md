@@ -2,7 +2,7 @@
 
 생성일: 2026-05-24  
 대상 버전: `@robota-sdk/agent-cli` v3.0.0-beta.67  
-분석 범위: `packages/agent-cli` 전체, `packages/agent-command/src/session/`, `.agents/backlog/`
+분석 범위: `packages/agent-cli` 전체, `packages/agent-command/src/session/`, `.agents/tasks/`
 
 ---
 

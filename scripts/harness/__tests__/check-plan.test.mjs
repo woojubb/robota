@@ -265,7 +265,7 @@ describe('workspace-wide build tooling (INFRA-060 D4)', () => {
   it('leaves a docs-only change at zero scopes — over-correction is the other failure', () => {
     const plan = createVerificationPlan({
       scopes,
-      changedFiles: ['README.md', 'docs/plans/example.md', '.agents/backlog/EXAMPLE-1.md'],
+      changedFiles: ['README.md', 'docs/plans/example.md', '.agents/tasks/EXAMPLE-1.md'],
       scopeTokens: [],
     });
 

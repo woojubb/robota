@@ -1244,7 +1244,7 @@ take their tools from `createDefaultTools()`. Filed as
 **[ARCH-006](../../backlog/ARCH-006-framework-tool-axis-neutrality.md)**. Nothing stronger is claimed.
 
 **A dangling reference S3 had to fix.** The S2 entry above says the B1/B2 disclosures are "tracked by the
-follow-up backlog items filed from the review". They were never filed — neither in `.agents/backlog/` nor as
+follow-up backlog items filed from the review". They were never filed — neither in `.agents/tasks/` nor as
 issues. S3 filed them as
 **[ARCH-007](../../backlog/ARCH-007-robota-consumes-kernel-runtime-seam.md)**.
 
@@ -1357,7 +1357,7 @@ anti-split test registers an external preset and asserts it resolves IDENTICALLY
    tools this is behaviourally inert today, so the surfaces do not diverge.
 
 Both are carried by **[ARCH-006](../../backlog/completed/ARCH-006-framework-tool-axis-neutrality.md)**.
-**ARCH-007 is closed and archived** to `.agents/backlog/completed/`.
+**ARCH-007 is closed and archived** to `.agents/tasks/completed/`.
 
 **DISPOSITION AFTER ARCH-006/007 — the spec stayed `active`.** TC-4 and TC-7 both carried real evidence,
 but ARCH-006's own Test Plan asked for one thing more than the framework seam — "`robota` sourcing tools

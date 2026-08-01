@@ -176,7 +176,7 @@ dead code or allowlist with reasons) is part of this work.
 
 - Completion Criteria: TC-01–TC-04 all `[x]`, and each has a matching `[GATE-COMPLETE: TC-N]` Evidence entry with command/result (TC-01 fixture tests; TC-02 git-show historical detection codified as the 8th unit case; TC-03 153-finding triage frozen as ratchet baseline; TC-04 pnpm script run).
 - Artifacts verified on disk: `scripts/harness/check-orphan-exports.mjs`, `scripts/harness/__tests__/check-orphan-exports.test.mjs`, `scripts/harness/orphan-export-baseline.json` (`entries` array length = 153, with written `reason` field).
-- Burn-down backlog exists: `.agents/backlog/HARNESS-015-orphan-baseline-burndown.md` ("Orphan-export baseline burn-down — triage 153 frozen findings").
+- Burn-down backlog exists: `.agents/tasks/HARNESS-015-orphan-baseline-burndown.md` ("Orphan-export baseline burn-down — triage 153 frozen findings").
 - Registration verified: `harness:scan:orphan-exports` script in `package.json` and present in the `harness:scan` chain (after stub-markers); standalone run green (exit 0).
 - Test Plan: all 4 TC-N rows now carry either a test reference (TC-01, TC-02 → `check-orphan-exports.test.mjs`) or an explicit skip reason (TC-03 live triage frozen as baseline; TC-04 verified by command run + harness:scan chain). No row silently unaddressed.
 - Tasks file archived to `.agents/tasks/completed/HARNESS-001.md` (original `.agents/tasks/HARNESS-001.md` no longer present); `## Tasks` section updated to the archived path.

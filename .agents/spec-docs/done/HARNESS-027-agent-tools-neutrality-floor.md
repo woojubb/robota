@@ -82,7 +82,7 @@ port from the surface) if non-empty. Registered in run-all-scans. Unit test with
 | `scripts/harness/scan-agent-tools-neutrality.mjs` (new)                | dependency-allowlist floor + pure `findDisallowedDeps` |
 | `scripts/harness/run-all-scans.mjs`                                    | register `agent-tools-neutrality`                      |
 | `scripts/harness/__tests__/scan-agent-tools-neutrality.test.mjs` (new) | red/green fixtures + live-package-clean assertion      |
-| `.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`          | → `done` on completion                                 |
+| `.agents/tasks/HARNESS-027-agent-tools-neutrality-floor.md`            | → `done` on completion                                 |
 
 ## Completion Criteria
 

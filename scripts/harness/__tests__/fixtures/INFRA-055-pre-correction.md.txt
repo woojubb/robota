@@ -228,7 +228,7 @@ See _Proof_ below (filled in from the live runs).
   `security_severity_level: high`**, 15 medium, and 1 at `rule.severity: error`. `review-gate.yml`'s
   header still claims "this repo's ~100 open alerts are all severity `note`", which is stale. #1427
   merged past a red `CodeQL` reporting 15 high-severity items. This needs its own item; it was not
-  filed here because `.agents/backlog/**` beyond this file was outside the authorised paths for this
+  filed here because `.agents/tasks/**` beyond this file was outside the authorised paths for this
   change.
 - **`hotfix/*` → `main` is a documented path that cannot pass the required gate.** `git-branch.md`
   and `main-pr-source-guard` both admit it, but INFRA-051's A3 requires the head's tree to equal

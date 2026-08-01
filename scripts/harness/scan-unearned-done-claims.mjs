@@ -25,7 +25,7 @@
  * a citation. Same move `scan-main-required-checks.mjs` R3 made when its blacklist was proven green
  * on the very defect it existed to prevent.
  *
- * Rules (each measured at ZERO false positives over `.agents/backlog/completed/`, see the tests):
+ * Rules (each measured at ZERO false positives over `.agents/tasks/completed/`, see the tests):
  *   U1  A labelled evidence field (`Evidence:` / `Proof:` / `Verification:` / `검증:` …) in a
  *       `status: done` item whose entire value is empty or a deferral placeholder.
  *   U2  A heading naming proof/evidence/verification whose body cites NOTHING — no repo path, no
@@ -66,7 +66,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * file — but the incident document sat in the ROOT with `status: done` while it was defective, so
  * scanning it costs nothing and is the earliest possible detection point.
  */
-const BACKLOG_DIRS = ['.agents/backlog', '.agents/backlog/completed'];
+const BACKLOG_DIRS = ['.agents/tasks', '.agents/tasks/completed'];
 
 /**
  * Historical debt, enumerated rather than hidden — opened at 58 items / 71 findings, audited one by
@@ -79,7 +79,7 @@ const BACKLOG_DIRS = ['.agents/backlog', '.agents/backlog/completed'];
  * implementation)", "(구현 후 기록)") and 9 are an evidence section whose body says it will be
  * recorded later — inside items already marked `status: done`. They predate this floor and are NOT
  * this scan's false positives; they are the backlog of unearned done claims the floor exists to stop
- * growing. `.agents/backlog/completed/**` was outside the authorised paths of the change that
+ * growing. `.agents/tasks/completed/**` was outside the authorised paths of the change that
  * introduced this scan, so they could not be back-filled in the same commit.
  *
  * This list is ANTI-ROT, not an allowlist: an entry that stops producing a finding is itself a hard
@@ -88,57 +88,57 @@ const BACKLOG_DIRS = ['.agents/backlog', '.agents/backlog/completed'];
  * driven to empty.
  */
 const LEGACY_EVIDENCE_DEBT = new Set([
-  '.agents/backlog/completed/ARCH-002-p6-provider-infra-to-framework.md',
-  '.agents/backlog/completed/ARCH-002-p7-slim-agent-cli-public-api.md',
-  '.agents/backlog/completed/ARCH-002-p8-extract-command-module-factory.md',
-  '.agents/backlog/completed/ARCH-FIX-001-transport-sdk-reverse-dependency.md',
-  '.agents/backlog/completed/ARCH-FIX-002-agent-event-service-compat-shim-removal.md',
-  '.agents/backlog/completed/ARCH-FIX-005-terminal-output-type-ssot.md',
-  '.agents/backlog/completed/ARCH-FIX-010-bundle-plugin-loader-product-name-fallback.md',
-  '.agents/backlog/completed/ARCH-FIX-011-streaming-callback-fallback.md',
-  '.agents/backlog/completed/ARCH-FIX-012-sub-agent-naming-violation.md',
-  '.agents/backlog/completed/ARCH-FIX-014-spec-product-name-claude-code.md',
-  '.agents/backlog/completed/ARCH-FIX-024-move-child-process-runner-to-agent-cli.md',
-  '.agents/backlog/completed/ARCH-FIX-025-wire-auth-credits-or-document-debt.md',
-  '.agents/backlog/completed/ARCH-FIX-026-fix-terminal-output-import-chain.md',
-  '.agents/backlog/completed/ARCH-FIX-027-fix-transport-http-mcp-interface-source.md',
-  '.agents/backlog/completed/ARCH-FIX-028-agent-runtime-io-boundary-croner-docs.md',
-  '.agents/backlog/completed/ARCH-FIX-029-document-playground-execution-path.md',
-  '.agents/backlog/completed/ARCH-FIX-030-read-package-version-to-framework.md',
-  '.agents/backlog/completed/ARCH-FIX-031-reset-user-config-to-framework.md',
-  '.agents/backlog/completed/ARCH-FIX-033-user-local-direct-command-double-report.md',
-  '.agents/backlog/completed/CLI-003-web-flag-auto-open-browser.md',
-  '.agents/backlog/completed/CLI-004-web-monitor-user-message-missing.md',
-  '.agents/backlog/completed/CLI2-006-output-format-no-validation.md',
-  '.agents/backlog/completed/CLI2-008-agent-command-mode-orphan-package.md',
-  '.agents/backlog/completed/CLI2-009-resolve-git-branch-sync-ui-blocking.md',
-  '.agents/backlog/completed/DEP-001-unused-dependencies-agent-server.md',
-  '.agents/backlog/completed/DEP-002-google-api-key-env-name-mismatch.md',
-  '.agents/backlog/completed/DEV-001-as-unknown-as-isideeffects-dead-code.md',
-  '.agents/backlog/completed/DEV-002-non-null-assertion-websocket-sessionid.md',
-  '.agents/backlog/completed/DEV-003-require-main-esm-misuse.md',
-  '.agents/backlog/completed/DEV-004-websocket-error-type-always-auth.md',
-  '.agents/backlog/completed/DEV-005-parseint-missing-radix.md',
-  '.agents/backlog/completed/DEV-006-tool-concurrent-duplicate-matching-bug.md',
-  '.agents/backlog/completed/DEV-008-server-shutdown-order-wrong.md',
-  '.agents/backlog/completed/DEV-009-useinteractivesession-react-init-anti-pattern.md',
-  '.agents/backlog/completed/DOCS-013-update-command-inventory-settings-user-local.md',
-  '.agents/backlog/completed/DQ-AUDIT-004-responsibility-relocation.md',
-  '.agents/backlog/completed/MKT-001-community-and-blog-content.md',
-  '.agents/backlog/completed/MKT-002-v1-launch-seo.md',
-  '.agents/backlog/completed/PLG-002-playground-agent-sdk-refactor.md',
-  '.agents/backlog/completed/PLG-004-web-monitor-architecture-ws-http-separation.md',
-  '.agents/backlog/completed/PROD-001-public-playground.md',
-  '.agents/backlog/completed/SDK-001-interactive-session-interface-refactor.md',
-  '.agents/backlog/completed/SDK-002-command-host-context-capability-interfaces.md',
-  '.agents/backlog/completed/SDK-003-wire-plugin-packages-or-document.md',
-  '.agents/backlog/completed/SDK-004-replace-bare-object-command-result.md',
-  '.agents/backlog/completed/SDK-005-remove-chalk-from-agent-sdk.md',
-  '.agents/backlog/completed/SDK-006-separate-agent-sdk-internal-exports.md',
-  '.agents/backlog/completed/WEB-001-landing-positioning-quick-wins.md',
-  '.agents/backlog/completed/WEB-002-onboarding-decision-tree.md',
-  '.agents/backlog/completed/WEB-003-brand-design-system.md',
-  '.agents/backlog/completed/WEB-004-playground-interactive-ux.md',
+  '.agents/tasks/completed/ARCH-002-p6-provider-infra-to-framework.md',
+  '.agents/tasks/completed/ARCH-002-p7-slim-agent-cli-public-api.md',
+  '.agents/tasks/completed/ARCH-002-p8-extract-command-module-factory.md',
+  '.agents/tasks/completed/ARCH-FIX-001-transport-sdk-reverse-dependency.md',
+  '.agents/tasks/completed/ARCH-FIX-002-agent-event-service-compat-shim-removal.md',
+  '.agents/tasks/completed/ARCH-FIX-005-terminal-output-type-ssot.md',
+  '.agents/tasks/completed/ARCH-FIX-010-bundle-plugin-loader-product-name-fallback.md',
+  '.agents/tasks/completed/ARCH-FIX-011-streaming-callback-fallback.md',
+  '.agents/tasks/completed/ARCH-FIX-012-sub-agent-naming-violation.md',
+  '.agents/tasks/completed/ARCH-FIX-014-spec-product-name-claude-code.md',
+  '.agents/tasks/completed/ARCH-FIX-024-move-child-process-runner-to-agent-cli.md',
+  '.agents/tasks/completed/ARCH-FIX-025-wire-auth-credits-or-document-debt.md',
+  '.agents/tasks/completed/ARCH-FIX-026-fix-terminal-output-import-chain.md',
+  '.agents/tasks/completed/ARCH-FIX-027-fix-transport-http-mcp-interface-source.md',
+  '.agents/tasks/completed/ARCH-FIX-028-agent-runtime-io-boundary-croner-docs.md',
+  '.agents/tasks/completed/ARCH-FIX-029-document-playground-execution-path.md',
+  '.agents/tasks/completed/ARCH-FIX-030-read-package-version-to-framework.md',
+  '.agents/tasks/completed/ARCH-FIX-031-reset-user-config-to-framework.md',
+  '.agents/tasks/completed/ARCH-FIX-033-user-local-direct-command-double-report.md',
+  '.agents/tasks/completed/CLI-003-web-flag-auto-open-browser.md',
+  '.agents/tasks/completed/CLI-004-web-monitor-user-message-missing.md',
+  '.agents/tasks/completed/CLI2-006-output-format-no-validation.md',
+  '.agents/tasks/completed/CLI2-008-agent-command-mode-orphan-package.md',
+  '.agents/tasks/completed/CLI2-009-resolve-git-branch-sync-ui-blocking.md',
+  '.agents/tasks/completed/DEP-001-unused-dependencies-agent-server.md',
+  '.agents/tasks/completed/DEP-002-google-api-key-env-name-mismatch.md',
+  '.agents/tasks/completed/DEV-001-as-unknown-as-isideeffects-dead-code.md',
+  '.agents/tasks/completed/DEV-002-non-null-assertion-websocket-sessionid.md',
+  '.agents/tasks/completed/DEV-003-require-main-esm-misuse.md',
+  '.agents/tasks/completed/DEV-004-websocket-error-type-always-auth.md',
+  '.agents/tasks/completed/DEV-005-parseint-missing-radix.md',
+  '.agents/tasks/completed/DEV-006-tool-concurrent-duplicate-matching-bug.md',
+  '.agents/tasks/completed/DEV-008-server-shutdown-order-wrong.md',
+  '.agents/tasks/completed/DEV-009-useinteractivesession-react-init-anti-pattern.md',
+  '.agents/tasks/completed/DOCS-013-update-command-inventory-settings-user-local.md',
+  '.agents/tasks/completed/DQ-AUDIT-004-responsibility-relocation.md',
+  '.agents/tasks/completed/MKT-001-community-and-blog-content.md',
+  '.agents/tasks/completed/MKT-002-v1-launch-seo.md',
+  '.agents/tasks/completed/PLG-002-playground-agent-sdk-refactor.md',
+  '.agents/tasks/completed/PLG-004-web-monitor-architecture-ws-http-separation.md',
+  '.agents/tasks/completed/PROD-001-public-playground.md',
+  '.agents/tasks/completed/SDK-001-interactive-session-interface-refactor.md',
+  '.agents/tasks/completed/SDK-002-command-host-context-capability-interfaces.md',
+  '.agents/tasks/completed/SDK-003-wire-plugin-packages-or-document.md',
+  '.agents/tasks/completed/SDK-004-replace-bare-object-command-result.md',
+  '.agents/tasks/completed/SDK-005-remove-chalk-from-agent-sdk.md',
+  '.agents/tasks/completed/SDK-006-separate-agent-sdk-internal-exports.md',
+  '.agents/tasks/completed/WEB-001-landing-positioning-quick-wins.md',
+  '.agents/tasks/completed/WEB-002-onboarding-decision-tree.md',
+  '.agents/tasks/completed/WEB-003-brand-design-system.md',
+  '.agents/tasks/completed/WEB-004-playground-interactive-ux.md',
 ]);
 
 // ---------------------------------------------------------------------------------------------

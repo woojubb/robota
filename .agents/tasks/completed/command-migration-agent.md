@@ -1,47 +1,44 @@
+---
+title: 'Command Migration: `/agent`'
+status: done
+---
+
 # Command Migration: `/agent`
 
-- **Status**: completed
-- **Created**: 2026-05-03
-- **Branch**: feat/command-agent-composition
-- **Scope**: packages/agent-cli, packages/agent-command-agent, .agents
+## What
 
-## Objective
+Finish migration hardening for `/agent`, which already lives in `@robota-sdk/agent-command-agent`, and ensure it is the model for future built-in command packages.
 
-Finish `/agent` migration hardening by ensuring the Robota CLI product composition injects
-`@robota-sdk/agent-command-agent` as the command owner while SDK and reusable TUI layers stay
-generic.
+## Current Owner
 
-## Checklist
+- Implementation: `packages/agent-command-agent/src/agent-command-module.ts`
+- Runtime APIs: `@robota-sdk/agent-framework` and `@robota-sdk/agent-executor`
 
-- [x] Confirm `/agent` implementation already lives in `@robota-sdk/agent-command-agent`.
-- [x] Confirm SDK does not import the command implementation package.
-- [x] Compose `createAgentCommandModule()` in the CLI default command module list.
-- [x] Add regression coverage proving default CLI commands expose `/agent`.
-- [x] Update docs/backlog state.
-- [x] Run targeted verification and command layering scan.
-- [x] Create PR and merge into `develop`.
+## Target Owner
 
-## Progress
+Keep `@robota-sdk/agent-command-agent`.
 
-### 2026-05-03
+## Migration Notes
 
-- Created task record and branch.
-- Audited current ownership: `agent-command-agent` owns metadata/execution and SDK has no implementation import.
-- Found the missing product wiring: `agent-cli` depends on `agent-command-agent` but does not compose `createAgentCommandModule()` by default.
-- Composed `createAgentCommandModule()` in `agent-cli` default command modules.
-- Added headless `/help` regression coverage proving `/agent` appears in the default product command list.
+- `/agent` is already a command module and should remain outside SDK/CLI implementation internals.
+- Use this package as the reference structure for other built-in command migrations.
+- Ensure SDK does not special-case `/agent` beyond generic command module session requirements.
 
-## Decision
+## Acceptance Criteria
 
-Use product composition only. The CLI entrypoint may import the command module to assemble the
-default Robota product, while SDK and reusable TUI code continue to consume generic command module
-contracts and remain free of `/agent` special-casing.
+- [x] `/agent` remains fully supplied by `@robota-sdk/agent-command-agent`.
+- [x] SDK imports no `agent-command-agent` implementation.
+- [x] CLI composition root is the only default product wiring point.
+- [x] Command-layering scan covers the invariant.
 
 ## Test Plan
 
-Run `@robota-sdk/agent-command-agent` tests, targeted CLI headless command exposure tests, CLI
-typecheck/build, and `pnpm harness:scan:commands`.
+- [x] Run `pnpm --filter @robota-sdk/agent-command-agent test`.
+- [x] Run `pnpm harness:scan:commands`.
+- [x] Add any missing contract tests for session requirements and model-invocable descriptor metadata.
 
 ## Result
 
-Completed. `/agent` remains owned by `@robota-sdk/agent-command-agent`, and the Robota CLI product composition now includes it by default without SDK or reusable TUI special-casing.
+Completed in `feat/command-agent-composition`. The Robota CLI product composition now injects
+`createAgentCommandModule()` by default, while SDK and reusable TUI layers remain generic. Headless
+`/help` coverage verifies the default command list includes `/agent`.

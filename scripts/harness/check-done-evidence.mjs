@@ -7,7 +7,7 @@
  * CLI-042's parallelization was reverted, CLI-046's flag was never threaded,
  * REL-003 sat done while its stub survived. The done gate validates once at
  * completion time; this scan re-validates the durable-artifact layer forever:
- * every repo-file path referenced in `.agents/backlog/completed/*.md` must
+ * every repo-file path referenced in `.agents/tasks/completed/*.md` must
  * still exist, or carry an explicit `<!-- evidence-superseded: <reason> -->`
  * annotation (same line or the line directly above the reference).
  *
@@ -25,7 +25,7 @@ import { envWithoutGitVars } from './shared.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const COMPLETED_DIR = '.agents/backlog/completed';
+const COMPLETED_DIR = '.agents/tasks/completed';
 
 /**
  * Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs.
@@ -86,8 +86,7 @@ function pathExists(root, relativePath) {
 export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [COMPLETED_DIR], {
     scan: 'done-evidence',
-    why:
-      'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
+    why: 'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
   });
   const findings = [];
   const exemptions = [];
@@ -120,8 +119,24 @@ export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
       if (!inEvidence) continue;
       const candidates = extractCandidates(lines[i]);
       if (candidates.length === 0) continue;
-      const supersededHere =
-        SUPERSEDED_PATTERN.exec(lines[i]) ?? (i > 0 ? SUPERSEDED_PATTERN.exec(lines[i - 1]) : null);
+      // Same line, or the nearest line above it that is not blank.
+      //
+      // Adjacency alone was too strict, and the thing that broke it was this repository's OWN
+      // formatter: prettier surrounds an HTML comment with blank lines, so a `<!-- evidence-superseded
+      // -->` written directly above its reference is silently detached the next time the file is
+      // formatted. Measured during PROC-006, when a bulk reformat detached one of the twelve
+      // annotations and the scan reported a stale reference that had been correctly suppressed for
+      // months. The other eleven survived only because nothing had reformatted their files yet.
+      //
+      // A suppression the formatter can quietly remove is not a suppression. Blank lines are skipped;
+      // any other content still ends the association, so an annotation cannot drift up a list and
+      // start excusing a reference it was never written for.
+      let supersededHere = SUPERSEDED_PATTERN.exec(lines[i]);
+      for (let j = i - 1; !supersededHere && j >= 0; j -= 1) {
+        if (lines[j].trim() === '') continue;
+        supersededHere = SUPERSEDED_PATTERN.exec(lines[j]);
+        break;
+      }
 
       for (const candidate of candidates) {
         if (pathExists(root, candidate)) continue;

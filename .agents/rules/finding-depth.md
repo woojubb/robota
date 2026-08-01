@@ -60,13 +60,13 @@ PR afterwards.
 
 "File the root item" names a place, and nothing owned WHICH one — so every consumer picked its own and
 there were two answers. The review loops routed the filing to `backlog-writer`, which creates
-`.agents/spec-docs/draft/<ID>.md`; the floor that verifies the filing resolved `.agents/backlog/` only.
+`.agents/spec-docs/draft/<ID>.md`; the floor that verifies the filing resolved the Task tree only (then named `.agents/backlog/`; renamed by PROC-006).
 An item filed on the designed path therefore failed the check that exists to confirm it was filed, with
 the message "file the root item first" about an item that is filed (PROC-009; measured 2026-08-01 —
 125 IDs then existed only under `.agents/spec-docs/`). Owned here, once, so both floors read one list:
 
-- `.agents/backlog/` — an open root item.
-- `.agents/backlog/completed/` — an archived one. A finding contained under an item that has since
+- `.agents/tasks/` — an open root item.
+- `.agents/tasks/completed/` — an archived one. A finding contained under an item that has since
   landed must keep resolving, or archiving the fix would turn every note that cited it into a failure.
 
 `resolveRootItems` in `scripts/harness/record-local-review.mjs` is the single READER of that list —
@@ -84,7 +84,7 @@ and "a root item exists" would then be true of a plan somebody declined.
 Filing is not a separate worker's. The content is the guardian's finding, already produced, plus a
 location — no production judgement is left to make, and `enforcement-architecture.md` says a tier bought
 for reliability buys none. The orchestrator that routes the verdict files the item under
-[`.agents/backlog/README.md`](../backlog/README.md)'s format and registers its GitHub issue, exactly as
+[`.agents/tasks/README.md`](../tasks/README.md)'s format and registers its GitHub issue, exactly as
 it already registers the issue. `backlog-writer` remains the author of gate-pipeline spec documents;
 when the root item is later picked up it enters that pipeline and gains a spec-doc under the same ID,
 which is the pairing the two trees already have.

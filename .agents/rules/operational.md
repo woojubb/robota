@@ -16,10 +16,10 @@ Parent: [rules index](index.md)
 ### Idea Capture Policy
 
 - When the user mentions an idea, suggestion, or future task (e.g., "~하면 좋겠다", "나중에 ~하자", "~해야한다"), do NOT start implementation immediately.
-- Instead, record it where future work actually lives: a backlog item in `.agents/backlog/` (per its README) or, for spec-shaped ideas, a spec-doc draft in `.agents/spec-docs/draft/`. Acknowledge briefly ("기록했습니다").
+- Instead, record it where future work actually lives: a backlog item in `.agents/tasks/` (per its README) or, for spec-shaped ideas, a spec-doc draft in `.agents/spec-docs/draft/`. Acknowledge briefly ("기록했습니다").
 - Continue the current work without interruption.
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
-- When the user asks to see the backlog ("할일 목록 보여줘"), list the recorded items from `.agents/backlog/`.
+- When the user asks to see the backlog ("할일 목록 보여줘"), list the recorded items from `.agents/tasks/`.
 
 ### Option Proposal Rule
 
@@ -48,7 +48,7 @@ All backlog, spec-doc, and task files use an uppercase prefix ID in both the fil
 area (package, app, or cross-cutting concern); new domains may be introduced when a new area
 appears. There is no separate `BL`/`TK` type segment.
 
-**File naming:** `{ID}-{slug}.md`, e.g. `.agents/backlog/CLI-061-ime-last-character-drop.md`.
+**File naming:** `{ID}-{slug}.md`, e.g. `.agents/tasks/CLI-061-ime-last-character-drop.md`.
 
 ### Document Size Rule
 

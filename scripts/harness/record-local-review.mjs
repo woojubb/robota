@@ -456,7 +456,7 @@ function main() {
     // misleading one this tool can emit — "no backlog item for X" — when the truth is that nothing
     // was examined at all.
     try {
-      requireGovernedTree(root, ['.agents/backlog'], {
+      requireGovernedTree(root, ['.agents/tasks'], {
         scan: 'record-local-review',
         why: 'A foundational finding is verified against the filed items.',
       });
@@ -466,7 +466,7 @@ function main() {
     }
   }
 
-  const { missing } = resolveRootItems(args.foundational, path.join(root, '.agents/backlog'));
+  const { missing } = resolveRootItems(args.foundational, path.join(root, '.agents/tasks'));
   if (missing.length > 0) {
     console.error(
       `record-local-review: no backlog item for ${missing.join(', ')} — file the root item first.`,

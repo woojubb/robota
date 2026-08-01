@@ -63,7 +63,7 @@ the judgement is the guardian's, the routing is this skill's, and neither does t
   A1 on that finding. Treating it as LOCAL is how a guess enters the loop wearing a verdict's clothes.
 - **FOUNDATIONAL** → do NOT send it back into the fix loop. File the root item where
   [finding-depth.md](../../rules/finding-depth.md) § "Where a root item lives" says it goes — under
-  `.agents/backlog/`, in the format [its README](../../backlog/README.md) defines — register its GitHub
+  `.agents/tasks/`, in the format [its README](../../tasks/README.md) defines — register its GitHub
   issue, then take the disposition: **re-plan** (the change is withdrawn or reduced) or
   **labelled containment** (the smallest hold, opening `Contained — <ID>.` in a code comment, and naming
   the item's ID in the commit body).

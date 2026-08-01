@@ -160,7 +160,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   with an explicit `allow-missing` marker for negative assertions/fixtures — catches relocation rot.
 - **Project-specific:** scopes to `scripts/harness/*.mjs` and the `packages|apps|scripts` roots.
 - **Porting:** change the scanned glob + path roots; keep the quoted-literal + comment-exempt +
-  marker model. Origin: [`LESSON-006`](../../.agents/backlog/completed/LESSON-006-post-relocation-reference-sweep.md).
+  marker model. Origin: [`LESSON-006`](../../.agents/tasks/completed/LESSON-006-post-relocation-reference-sweep.md).
 
 ### 2. Live-seam cold-state testing (skill: `vitest-testing-strategy`)
 
@@ -169,7 +169,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   init guard hides the bug.
 - **Project-specific:** the `/preset` → `Robota.setModel` seam.
 - **Porting:** applies to any lazy-init + post-construction mutation. Origin:
-  [`LESSON-001`](../../.agents/backlog/completed/LESSON-001-live-seam-cold-state-testing.md).
+  [`LESSON-001`](../../.agents/tasks/completed/LESSON-001-live-seam-cold-state-testing.md).
 
 ### 3. Protected-branch commit guard (`.husky/pre-commit`)
 
@@ -178,7 +178,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   fires for every commit regardless of how it is invoked.
 - **Project-specific:** protected set `main|master|develop`; `ALLOW_PROTECTED_COMMIT` override.
 - **Porting:** change the protected set. Origin:
-  [`LESSON-003`](../../.agents/backlog/completed/LESSON-003-protected-branch-commit-guard.md).
+  [`LESSON-003`](../../.agents/tasks/completed/LESSON-003-protected-branch-commit-guard.md).
 
 ### 4. Destructive-flag block in the agent hook (`.claude/hooks/branch-guard.sh`)
 
@@ -187,4 +187,4 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   left as prose the agent can forget.
 - **Project-specific:** the `gh pr merge` + `--delete-branch` combo.
 - **Porting:** swap the command/flag pair. Origin:
-  [`LESSON-007`](../../.agents/backlog/completed/LESSON-007-gh-delete-branch-guard.md).
+  [`LESSON-007`](../../.agents/tasks/completed/LESSON-007-gh-delete-branch-guard.md).

@@ -45,5 +45,5 @@ declarations missing in agent-core/agent-tools.
 
 ## Remediation backlog
 
-NEUT-001..006 in `.agents/backlog/` map 1:1 to the table above. Recommended order: 006 (floor first, so
+NEUT-001..006 in `.agents/tasks/` map 1:1 to the table above. Recommended order: 006 (floor first, so
 cleanups ratchet), then 001/002/003, then 004/005.

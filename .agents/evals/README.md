@@ -55,7 +55,7 @@ Run `pnpm harness:lessons:digest` to regenerate `lessons/weekly-digest.md` and u
 
 Signal hygiene (LESSON-010): detector hooks emit each signal at most once per
 (pattern, file, session) and exclude workflow-required multi-edit paths
-(`.agents/backlog/`, `.agents/tasks/`, `.agents/evals/`); correction events require a real
+(`.agents/tasks/`, `.agents/spec-docs/`, `.agents/evals/`); correction events require a real
 user session (agent/subagent prompts are skipped). The digest run also compacts
 `local-metrics/*.jsonl` in place — per-Stop duplicates collapse to the latest record,
 records older than 30 days and legacy false positives are purged — and drops auto-lessons

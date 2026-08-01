@@ -116,7 +116,7 @@ Alt A 채택. `asciinema rec` + `agg` 도구로 TUI 세션 녹화. 2분 이내 �
 
 The 2026-05-25 GATE-COMPLETE closed on a **41-byte 1×1 placeholder**: TC-02 was recorded as passing
 on the placeholder's file size and TC-03 was skipped, so the README shipped a broken image for two
-months. Reopened via `.agents/backlog/PM-031-readme-demo-gif.md` and closed on a real asset:
+months. Reopened via `.agents/tasks/PM-031-readme-demo-gif.md` and closed on a real asset:
 
 - TC-02 [x]: `packages/agent-cli/docs/demo.gif` = 74,786 B (73 KiB), 791×622, 17 frames —
   `file(1)`: `GIF image data, version 89a, 791 x 622`. The recorder itself fails above 5 MB.

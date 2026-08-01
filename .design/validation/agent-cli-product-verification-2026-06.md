@@ -25,9 +25,9 @@
 
 ## Addendum (2026-06-12): critical/major 4건 해소 — 자동화 합격선 도달
 
-CLI-063~066이 spec-gate 파이프라인을 거쳐 수정·머지되었고(develop PR #697~#700), 각
+CLI-063~~066이 spec-gate 파이프라인을 거쳐 수정·머지되었고(develop PR #697~~#700), 각
 백로그의 User Execution Test Scenario를 실 바이너리 + 실 Anthropic API로 재실측해
-evidence를 기록했다 (`.agents/backlog/completed/CLI-063~066`):
+evidence를 기록했다 (`.agents/tasks/completed/CLI-063~066`):
 
 | 결함                   | 해소 PR | 재검증 결과                                                                                                                           |
 | ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |

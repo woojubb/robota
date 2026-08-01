@@ -151,7 +151,7 @@ suite (PTY TCs in a dedicated vitest project).
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-074.md` — archived at GATE-COMPLETE (T1~T10 all complete, TC-01~TC-09 매핑)
+- [x] `.agents/tasks/completed/CLI-074.md` — archived at GATE-COMPLETE (T1~~T10 all complete, TC-01~~TC-09 매핑)
 
 ## Evidence Log
 
@@ -222,7 +222,7 @@ Evidence for the remaining criteria (all met — recorded so the re-run only nee
 **Status upgrade:** in-progress → verifying
 
 - All tasks in `.agents/tasks/CLI-074.md` marked complete: T1–T10 all `[x]` (verified firsthand; the prior FAIL's sole failing criterion — T10 unchecked — is resolved)
-- No tasks blocked or pending: none — T10's substance confirmed firsthand: (a) PR #703 `feat/cli-074-e2e-harness` → `develop` is OPEN (`gh pr view 703`); (b) L2 evidence recorded — `.design/validation/agent-cli-product-verification-2026-06.md` line 42 carries the "L2 추가 (2026-06-12, CLI-074 / PR #703)" addendum documenting the harness closing the L2 gap and PTY TC-08 refuting the CLI-071 hang; (c) CLI-071 closed — `.agents/backlog/completed/CLI-071-tui-exit-shutdown-hang.md` exists with a dated User Execution evidence block (TC-08 `/exit` exit 0 in ~1.25s; original hang shown to be an expect(1) paste-bundling artifact), committed in 87c22bd79; (d) all committed and pushed — wrap-up commit 2d10d855f (docs-only: spec doc, tasks file, validation report), branch in sync with `origin/feat/cli-074-e2e-harness`
+- No tasks blocked or pending: none — T10's substance confirmed firsthand: (a) PR #703 `feat/cli-074-e2e-harness` → `develop` is OPEN (`gh pr view 703`); (b) L2 evidence recorded — `.design/validation/agent-cli-product-verification-2026-06.md` line 42 carries the "L2 추가 (2026-06-12, CLI-074 / PR #703)" addendum documenting the harness closing the L2 gap and PTY TC-08 refuting the CLI-071 hang; (c) CLI-071 closed — `.agents/tasks/completed/CLI-071-tui-exit-shutdown-hang.md` exists with a dated User Execution evidence block (TC-08 `/exit` exit 0 in ~1.25s; original hang shown to be an expect(1) paste-bundling artifact), committed in 87c22bd79; (d) all committed and pushed — wrap-up commit 2d10d855f (docs-only: spec doc, tasks file, validation report), branch in sync with `origin/feat/cli-074-e2e-harness`
 - Build passes (`pnpm build` for affected packages): relies on the prior GATE-VERIFY run's firsthand evidence (entry above: `pnpm --filter "@robota-sdk/agent-cli..." build` → "Build complete", exit 0) — still valid because the only commit since (2d10d855f) touches docs/spec/tasks files only, no package sources
 - Tests pass (`pnpm test` for affected packages): same basis — agent-transport 59 files / 467 tests passed, agent-cli 16 files / 134 tests passed, PTY project 2/2 passed (TC-07, TC-08), scripted-provider unit 4/4 passed; no source changes since
 - Note: PR #703 CI checks re-triggered by the docs-only push were IN_PROGRESS at check time (build, security audit); not a gate criterion — gate build/test criteria are satisfied by the local runs above
@@ -272,7 +272,7 @@ Evidence for the remaining criteria (all met — recorded so the re-run only nee
 ### [GATE-COMPLETE: TC-08] — ✅ | 2026-06-12
 
 - Command: same run as TC-07 (`pnpm --filter @robota-sdk/agent-transport test:pty`, 2/2 passed, exit 0)
-- Output: `TC-08: /exit reaches process exit within 10s` passed (1244ms) — outcome is the criterion's first branch: CLI-071 refuted/confirmed fixed (`/exit` exits cleanly in ~1.25s; the original "hang" was an expect(1) paste-bundling artifact). Recorded: `.agents/backlog/completed/CLI-071-tui-exit-shutdown-hang.md` exists with the dated User Execution evidence block (verified on disk).
+- Output: `TC-08: /exit reaches process exit within 10s` passed (1244ms) — outcome is the criterion's first branch: CLI-071 refuted/confirmed fixed (`/exit` exits cleanly in ~1.25s; the original "hang" was an expect(1) paste-bundling artifact). Recorded: `.agents/tasks/completed/CLI-071-tui-exit-shutdown-hang.md` exists with the dated User Execution evidence block (verified on disk).
 - Test reference: same file > `TC-08: ...`
 
 ### [GATE-COMPLETE: TC-09] — ✅ | 2026-06-12

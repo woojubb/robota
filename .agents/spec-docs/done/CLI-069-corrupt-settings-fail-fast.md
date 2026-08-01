@@ -130,7 +130,7 @@ run robota diagnose.` → exit 1.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-069.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-069.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -169,7 +169,7 @@ run robota diagnose.` → exit 1.
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-069.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063/064/065/066/067 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-067 done-spec GATE-VERIFY entry): PR #709 OPEN (`gh pr view 709 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-069-corrupt-settings-failfast` → base `develop`) with CI green on `gh pr checks 709` — build pass (1m31s), quality pass (1m6s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/backlog/completed/CLI-069-corrupt-user-settings-silent-fallback.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i`, `{ broken` in `~/.robota/settings.json` → `Settings file <home>/.robota/settings.json contains invalid JSON: Expected property name or '}' in JSON at position 2 ... Fix or delete the file, or run robota diagnose.`, exit=1 — not "No provider configuration found") — met
+- All tasks complete: `.agents/tasks/CLI-069.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063/064/065/066/067 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-067 done-spec GATE-VERIFY entry): PR #709 OPEN (`gh pr view 709 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-069-corrupt-settings-failfast` → base `develop`) with CI green on `gh pr checks 709` — build pass (1m31s), quality pass (1m6s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/tasks/completed/CLI-069-corrupt-user-settings-silent-fallback.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i`, `{ broken` in `~/.robota/settings.json` → `Settings file <home>/.robota/settings.json contains invalid JSON: Expected property name or '}' in JSON at position 2 ... Fix or delete the file, or run robota diagnose.`, exit=1 — not "No provider configuration found") — met
 - No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above — met
 - Build passes for affected packages: `pnpm --filter @robota-sdk/agent-framework build` → "Build complete in 856ms" (ESM bundles, no errors); `pnpm --filter @robota-sdk/agent-cli build` → "Build complete in 680ms" — met
 - Tests pass for affected packages: `pnpm --filter @robota-sdk/agent-framework test` → 91 files / 907 tests passed, including the new `src/command-api/provider/__tests__/corrupt-settings-fail-fast.test.ts` re-run individually → 6/6 passed; `pnpm --filter @robota-sdk/agent-cli test` → 17 files / 140 tests passed — met
@@ -182,7 +182,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Checkbox: TC-01 is `[x]` in `## Completion Criteria`.
 - Command: `npx vitest run src/command-api/provider/__tests__/corrupt-settings-fail-fast.test.ts` (cwd `packages/agent-framework`).
 - Output: `✓ corrupt settings fail fast (CLI-069) > TC-01: corrupt user-level settings throws SettingsParseError naming the file — not ProviderConfigError` — 6 tests passed (6). Exit code 0.
-- End-to-end corroboration (real binary, `.agents/backlog/completed/CLI-069-corrupt-user-settings-silent-fallback.md` Evidence, 2026-06-13): `bin/robota.cjs` with isolated HOME (`env -i`) and `{ broken` in `~/.robota/settings.json` → stderr `Settings file <home>/.robota/settings.json contains invalid JSON: Expected property name or '}' in JSON at position 2 (line 1 column 3). Fix or delete the file, or run robota diagnose.` — exit=1, NOT `No provider configuration found`.
+- End-to-end corroboration (real binary, `.agents/tasks/completed/CLI-069-corrupt-user-settings-silent-fallback.md` Evidence, 2026-06-13): `bin/robota.cjs` with isolated HOME (`env -i`) and `{ broken` in `~/.robota/settings.json` → stderr `Settings file <home>/.robota/settings.json contains invalid JSON: Expected property name or '}' in JSON at position 2 (line 1 column 3). Fix or delete the file, or run robota diagnose.` — exit=1, NOT `No provider configuration found`.
 - Test Plan row updated with the test reference.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13

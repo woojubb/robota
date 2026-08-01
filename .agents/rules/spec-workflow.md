@@ -178,7 +178,7 @@ Evidence Log entry (PASS / FAIL / NON-COMPLIANCE) in the format the
 [gate catalogue](../specs/gate-catalogue.md) defines.
 
 This vocabulary governs **spec documents** under `.agents/spec-docs/`. Backlog items under
-`.agents/backlog/` use a different one — see
+`.agents/tasks/` use a different one — see
 [backlog-execution.md](backlog-execution.md) > Status Invariants. The two share tokens
 (`in-progress`, `done`) but not meaning, and neither overrides the other.
 

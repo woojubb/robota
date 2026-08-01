@@ -25,13 +25,13 @@ describe('findDuplicateIdFindings', () => {
   /** Build a throwaway backlog tree: { root: [names], completed: [names] }. */
   async function fixture(root, completed) {
     const dir = await mkdtemp(path.join(tmpdir(), 'backlog-dup-'));
-    await mkdir(path.join(dir, '.agents/backlog/completed'), { recursive: true });
+    await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of root) {
-      await writeFile(path.join(dir, '.agents/backlog', name), '---\nstatus: todo\n---\n');
+      await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
     }
     for (const name of completed) {
       await writeFile(
-        path.join(dir, '.agents/backlog/completed', name),
+        path.join(dir, '.agents/tasks/completed', name),
         '---\nstatus: done\ncompleted: 2026-07-25\n---\n',
       );
     }
@@ -68,9 +68,9 @@ describe('findDuplicateIdFindings', () => {
 describe('findDuplicateIdFindings — same-ID collisions within the root', () => {
   async function rootOnly(names) {
     const dir = await mkdtemp(path.join(tmpdir(), 'backlog-root-dup-'));
-    await mkdir(path.join(dir, '.agents/backlog/completed'), { recursive: true });
+    await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of names) {
-      await writeFile(path.join(dir, '.agents/backlog', name), '---\nstatus: todo\n---\n');
+      await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
     }
     return dir;
   }

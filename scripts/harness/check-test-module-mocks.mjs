@@ -66,7 +66,7 @@ const ORIGINAL_BINDING_PATTERN =
 
 /**
  * Remaining pre-existing violations — burn-down tracked by
- * `.agents/backlog/MOCK-001-hardcoded-workspace-mock-burndown.md`. Do not add entries for new code.
+ * `.agents/tasks/MOCK-001-hardcoded-workspace-mock-burndown.md`. Do not add entries for new code.
  *
  * HARNESS-025 burn-down (2026-07-25): 32 entries → 3. Two thirds of the original list were never
  * hardcoded at all — they were correct `vi.importActual` partial mocks that the old detector could

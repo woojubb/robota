@@ -1,56 +1,77 @@
+---
+title: 'CLI Command Compatibility Shims Retirement'
+status: done
+---
+
 # CLI Command Compatibility Shims Retirement
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: refactor/cli-command-shims-retirement
-- **Scope**: packages/agent-cli, packages/agent-framework, scripts/harness
+## Priority
 
-## Objective
+P1 - removes a misleading CLI command ownership surface before the beta API shape hardens.
 
-Remove public-looking CLI command compatibility shims so command infrastructure is imported from its owning SDK package. Keep only CLI-private host glue in `agent-cli` and update documentation and harness guards so the boundary does not regress.
+## Problem
 
-## Plan
+Before this work, `packages/agent-cli/src/commands/` contained compatibility shims that re-exported
+SDK-owned command infrastructure:
 
-- [x] Audit current CLI command shim files, imports, tests, and docs.
-- [x] Replace CLI shim imports with SDK-owned imports.
-- [x] Decide and document `skill-executor.ts` ownership.
-- [x] Remove re-export-only shim files and tests.
-- [x] Add or update harness guards for forbidden CLI command shim surfaces.
-- [x] Update `ARCHITECTURE-MAP.md`, package specs, and backlog records.
-- [x] Run targeted verification and commit the completed work.
+- `packages/agent-cli/src/commands/command-registry.ts`
+- `packages/agent-cli/src/commands/builtin-source.ts`
+- `packages/agent-cli/src/commands/skill-source.ts`
+- `packages/agent-cli/src/commands/types.ts`
 
-## Progress
+The CLI does not own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, or command
+contracts. Keeping these public-looking files makes it easy for new code to import command
+infrastructure from the wrong package and weakens the built-in command layer boundary.
 
-### 2026-05-05
+`packages/agent-cli/src/commands/skill-executor.ts` was different: it contained real skill
+execution logic for legacy CLI skill paths. The owner decision was to use the SDK-owned
+`executeSkill()` implementation and move the behavior tests to `agent-sdk`.
 
-- Started from `develop` on `refactor/cli-command-shims-retirement`.
-- Removed CLI command re-export shims and switched UI imports to SDK-owned command APIs.
-- Moved command behavior tests from `agent-cli` to `agent-sdk`.
-- Updated harness guard and CLI architecture/spec documentation for the removed compatibility surface.
-- Verified targeted tests, affected package tests, typechecks, docs build, command scans, and root
-  monorepo build.
+## Recommended Direction
 
-## Decisions
+Remove the compatibility re-export shims and update imports to use the owning package directly.
 
-- `skill-executor.ts` ownership is SDK-owned. The CLI should invoke skill execution through
-  `InteractiveSession` and import common command APIs from `@robota-sdk/agent-framework`.
+Recommended sequence:
 
-## Test Plan
+1. Search for imports from `packages/agent-cli/src/commands/*` and
+   `@robota-sdk/agent-cli/dist/commands/*`.
+2. Update CLI internals and tests to import SDK-owned command infrastructure from
+   `@robota-sdk/agent-framework`.
+3. Decide `skill-executor.ts` ownership:
+   - keep only terminal-host-specific glue in `agent-cli`; or
+   - move reusable skill prompt execution into the SDK command/skill API.
+4. Remove unused shim tests that only prove re-export behavior.
+5. Add a harness check if there is a stable import pattern to forbid.
 
-- Run moved SDK command tests for registry, built-in source, skill source, and skill execution.
-- Run CLI input-area flow tests to verify slash autocomplete and command selection still consume
-  SDK-owned command types correctly.
-- Run command-layering harness tests and `pnpm harness:scan:commands` to prove the removed
-  `agent-cli/src/commands` shim surface cannot return unnoticed.
-- Run full affected package tests, typechecks, docs build, root monorepo build, and diff hygiene.
+The beta is not required to preserve the CLI command shim surface.
 
-## Blockers
+## Acceptance Criteria
 
-- (none)
+- [x] No production code imports command infrastructure through `packages/agent-cli/src/commands/*`
+      or `@robota-sdk/agent-cli`.
+- [x] `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and command contract types
+      are imported from `@robota-sdk/agent-framework` or the owning package.
+- [x] `skill-executor.ts` is either moved to an owning SDK command/skill API or explicitly kept as a
+      CLI-private host adapter with no public-looking compatibility barrel.
+- [x] Re-export-only tests are deleted or replaced with owner-package tests.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final command ownership state.
+- [x] A mechanical harness guard exists when the forbidden import pattern can be detected reliably.
 
 ## Result
 
-Removed the `agent-cli/src/commands` compatibility surface and moved command behavior coverage to
-the SDK owner package. CLI UI command palette code now consumes SDK-owned command contracts
-directly, and command-layering harness coverage prevents new CLI command shim files from being
-introduced unnoticed.
+Completed in `refactor/cli-command-shims-retirement`.
+
+- Removed the `agent-cli/src/commands/` compatibility surface.
+- Updated CLI UI code to import SDK-owned `CommandRegistry` and `ICommand` directly from
+  `@robota-sdk/agent-framework`.
+- Moved command registry, built-in source, skill source, and skill execution behavior tests to
+  `agent-sdk`.
+- Added a command-layering harness guard that fails if new CLI command shim files are introduced.
+
+## Verification Plan
+
+- `rg -n "from ['\\\"](\\./commands|\\.\\./commands|@robota-sdk/agent-cli)" packages -g '!**/dist/**'`
+- `pnpm harness:scan:commands`
+- `pnpm --filter @robota-sdk/agent-cli test`
+- `pnpm --filter @robota-sdk/agent-cli typecheck`
+- `pnpm --filter @robota-sdk/agent-cli build`

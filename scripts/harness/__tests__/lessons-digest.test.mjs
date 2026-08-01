@@ -229,7 +229,7 @@ describe('lessons metrics detector quality (LESSON-010)', () => {
   it('workflow-required multi-edit paths (backlog/tasks/lessons) are not rework signals', () => {
     const root = createTempRoot();
     const transcriptPath = path.join(root, 'transcript.jsonl');
-    const backlogPath = path.join(root, '.agents/backlog/CORE-999-item.md');
+    const backlogPath = path.join(root, '.agents/tasks/CORE-999-item.md');
     writeFileSync(
       transcriptPath,
       Array.from({ length: 4 }, () =>
@@ -410,7 +410,7 @@ describe('legacy false-positive purge (LESSON-010)', () => {
         timestamp: '2026-05-03T00:00:00.000Z',
         session_id: 's1',
         pattern: 'same-file-edited-3-times',
-        file: '.agents/backlog/CORE-999-item.md',
+        file: '.agents/tasks/CORE-999-item.md',
         count: 8,
         detail: 'same file edited repeatedly',
       },

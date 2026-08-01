@@ -24,4 +24,4 @@ Prior-art-anchored (RFC 6455 close→terminate, `ws` close/terminate, Hono `stre
 drain-then-force). proposal-reviewer REVISE resolved; pr-review-reviewer 0 real code defects (the SHOULD was an
 accidental-green RUNTIME-14 test → replaced with a real `reader.cancel()` disconnect-path test). Follow-up:
 **STRUCT-08** — the same-class load-bearing `agent-transport/src/testing` pass-through
-(`.agents/backlog/STRUCT-008-agent-transport-testing-passthrough.md`).
+(`.agents/tasks/STRUCT-008-agent-transport-testing-passthrough.md`).

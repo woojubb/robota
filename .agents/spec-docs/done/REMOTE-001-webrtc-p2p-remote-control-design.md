@@ -6,7 +6,7 @@ tags: [remote-control, webrtc, transport, agent-cli, signaling]
 
 # REMOTE-001: WebRTC P2P remote control for agent-cli — design + staging
 
-Backlog: [.agents/backlog/REMOTE-001-webrtc-p2p-remote-control.md](../../backlog/REMOTE-001-webrtc-p2p-remote-control.md).
+Backlog: [.agents/tasks/REMOTE-001-webrtc-p2p-remote-control.md](../../backlog/REMOTE-001-webrtc-p2p-remote-control.md).
 This is the **design spec** (research complete). It fixes the architecture + security model + build stages;
 each stage lands under its own gated implementation spec (like the ARCH-PROVIDER arc).
 

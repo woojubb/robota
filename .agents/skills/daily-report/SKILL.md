@@ -7,7 +7,7 @@ description: Generate the committed daily work report (OBSERVABILITY-001) — on
 
 ## Rule Anchor
 
-- Backlog: [OBSERVABILITY-001](../../backlog/completed/OBSERVABILITY-001-daily-work-report-harness.md)
+- Backlog: [OBSERVABILITY-001](../../tasks/completed/OBSERVABILITY-001-daily-work-report-harness.md)
 
 ## Use This Skill When
 
