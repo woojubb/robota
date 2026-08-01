@@ -224,10 +224,18 @@ jobs:
           # `--jq` PER PAGE: two pages would emit two `a,b,c` lines, and the decision module splits on
           # `,` only — so the labels either side of the newline would both be mangled into one token
           # and lost. This reader merges the pages first and projects once.
-          node scripts/harness/github-api.mjs \
+          # Fail closed, with the ACCURATE reason. `|| echo ""` turned "I could not read the labels"
+          # into "there are no labels", and the gate then blocked for the wrong cause — it would tell
+          # an author their findings were unacknowledged when the acknowledge label was there and
+          # unreadable. Stopping for a reason that is not the reason is the shape INFRA-077 measured
+          # on the push gate, and it costs the next person the whole debugging trail.
+          if ! node scripts/harness/github-api.mjs \
             "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
             --jq '[.[].name] | join(",")' \
-            > pr-labels.txt || echo "" > pr-labels.txt
+            > pr-labels.txt; then
+            echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}. The acknowledge override cannot be ruled in or out, so this is not a pass."
+            exit 1
+          fi
 
       - name: Decide
         id: decide

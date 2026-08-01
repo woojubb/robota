@@ -84,19 +84,19 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 
-| Group                | Document                                                                 |
-| -------------------- | ------------------------------------------------------------------------ |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                         |
-| Process              | [process.md](.agents/rules/process.md)                                   |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                         |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                         |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                             |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)           |
-| Frontend             | [frontend.md](.agents/rules/frontend.md)                                 |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                   |
-| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                       |
-| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                 |
-| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) |
+| Group                | Document                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                                                                                                                                 |
+| Process              | [process.md](.agents/rules/process.md)                                                                                                                                           |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                                                                                                                                 |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                                                                                                                                 |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                                                                                                                                     |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)                                                                                                                   |
+| Frontend             | [frontend.md](.agents/rules/frontend.md)                                                                                                                                         |
+| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                                                                                                                           |
+| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                                                                                                                               |
+| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                                                                                                                         |
+| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) — includes **"Silence is not success"**: no skill, hook or Action step may complete quietly on an error |
 
 ## Common Pitfalls
 
