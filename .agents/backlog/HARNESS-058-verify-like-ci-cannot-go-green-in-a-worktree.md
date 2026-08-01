@@ -77,11 +77,20 @@ skip — the gate still blocks.
 
 ### Where it is enforced
 
-| Entry point                             | Requires                   | Behaviour when unmet                                                      |
-| --------------------------------------- | -------------------------- | ------------------------------------------------------------------------- |
-| `pnpm harness:pre-push`                 | `install` + `build-output` | blocks the push with the naming message, before any check runs            |
-| `pnpm harness:verify-like-ci`           | `install`                  | refuses to run any stage; `build-output` is left to its own `build` stage |
-| any `verify-like-ci` build-output stage | `build-output`             | that stage FAILS naming the prerequisite, instead of a downstream error   |
+| Entry point                                      | Requires                   | Behaviour when unmet                                                      |
+| ------------------------------------------------ | -------------------------- | ------------------------------------------------------------------------- |
+| `pnpm harness:pre-push`, **when it will verify** | `install` + `build-output` | blocks the push with the naming message, before any check runs            |
+| `pnpm harness:verify-like-ci`                    | `install`                  | refuses to run any stage; `build-output` is left to its own `build` stage |
+| any `verify-like-ci` build-output stage          | `build-output`             | that stage FAILS naming the prerequisite, instead of a downstream error   |
+
+**A prerequisite is owed only by work that is going to happen.** The pre-push gate skips verification
+entirely for a **delete-only push** and for a **re-push with no content delta from its base** — neither
+reads `node_modules` or `dist` — so the tree assertion sits behind that decision, not in front of it.
+Demanding `pnpm install && pnpm build` to delete a remote branch from a fresh worktree is the same
+class of defect as the one this item opened with: a gate refusing work it has no reason to judge.
+`runPrePushGate` in `pre-push.mjs` states the step order once, and
+`__tests__/pre-push-sequence.test.mjs` pins the SEQUENCE — asserting only "a delete-only push is
+allowed" would pass again if the assertion moved back, because a prepared tree passes either way.
 
 `verify-change.mjs` (`pnpm harness:verify`) deliberately does **not** assert the contract itself: its
 root is `process.cwd()` and it is legitimately run against synthetic workspace fixtures with no
