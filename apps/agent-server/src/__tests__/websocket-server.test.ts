@@ -127,4 +127,102 @@ describe('PlaygroundWebSocketServer', () => {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     });
   });
+
+  /**
+   * SEC-008. Two defects, one root: the token was not the thing that decided who the caller is.
+   *
+   * The dev fallback accepted ANY three-dot-separated string, so `"a.b.c"` authenticated as any
+   * `userId`/`sessionId` — and it was selected by an environment variable being ABSENT, which is
+   * exactly the state a misconfigured deployment is in. Separately, the verified path discarded
+   * `jwt.verify`'s return and read the identity from the message body, so a holder of any valid
+   * token could claim another user's session and reach `broadcastToSession` for it.
+   *
+   * Both assertions fail against the code they were written for.
+   */
+  describe('SEC-008 regression: the token decides the identity, or nobody is authenticated', () => {
+    async function attempt(
+      payload: Record<string, unknown>,
+      env: Record<string, string | undefined>,
+    ) {
+      const previous = process.env.JWT_SECRET;
+      if (env.JWT_SECRET === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = env.JWT_SECRET;
+
+      const httpServer = createServer();
+      const server = new PlaygroundWebSocketServer(httpServer);
+      await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+      const port = (httpServer.address() as { port: number }).port;
+      const { WebSocket } = await import('ws');
+
+      const messages: string[] = [];
+      let closed = false;
+      await new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${port}/ws/playground`);
+        ws.on('open', () =>
+          ws.send(
+            JSON.stringify({ type: 'auth', timestamp: new Date().toISOString(), data: payload }),
+          ),
+        );
+        ws.on('message', (data: Buffer) => messages.push(data.toString()));
+        ws.on('close', () => {
+          closed = true;
+          resolve();
+        });
+        ws.on('error', reject);
+        setTimeout(() => {
+          ws.terminate();
+          resolve();
+        }, 2000);
+      });
+
+      const stats = server.getStats();
+      server.close();
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+      if (previous === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = previous;
+
+      const parsed = messages.map(
+        (m) => JSON.parse(m) as { data?: { success?: boolean; error?: string } },
+      );
+      return {
+        closed,
+        authenticated: stats.authenticatedConnections,
+        error: parsed.find((m) => m.data?.success === false || m.data?.error)?.data?.error,
+      };
+    }
+
+    it('refuses every attempt when there is no secret to verify against', async () => {
+      const result = await attempt(
+        { userId: 'user-123', sessionId: 'session-456', token: 'a.b.c' },
+        { JWT_SECRET: undefined },
+      );
+      expect(result.authenticated).toBe(0);
+      expect(result.closed).toBe(true);
+      expect(result.error).toBe('Server is not configured for authentication');
+    });
+
+    it('refuses a valid token that names a different user than the message claims', async () => {
+      const jwtModule = await import('jsonwebtoken');
+      const sign = (jwtModule.default ?? jwtModule).sign;
+      const token = sign({ sub: 'user-AAA' }, 'test-secret');
+      const result = await attempt(
+        { userId: 'user-BBB', sessionId: 'session-456', token },
+        { JWT_SECRET: 'test-secret' },
+      );
+      expect(result.authenticated).toBe(0);
+      expect(result.closed).toBe(true);
+      expect(result.error).toBe('Authentication token does not match the claimed user');
+    });
+
+    it('accepts a valid token for the user it names', async () => {
+      const jwtModule = await import('jsonwebtoken');
+      const sign = (jwtModule.default ?? jwtModule).sign;
+      const token = sign({ sub: 'user-123' }, 'test-secret');
+      const result = await attempt(
+        { userId: 'user-123', sessionId: 'session-456', token },
+        { JWT_SECRET: 'test-secret' },
+      );
+      expect(result.authenticated).toBe(1);
+    });
+  });
 });

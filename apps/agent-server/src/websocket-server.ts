@@ -1,6 +1,7 @@
 import { createLogger } from '@robota-sdk/agent-core';
-import * as jwt from 'jsonwebtoken';
 import { WebSocket, WebSocketServer } from 'ws';
+
+import { authenticatePlaygroundClient } from './authenticate-playground-client.js';
 
 import type { ILogger, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
@@ -10,7 +11,6 @@ import type {
 import type { Server } from 'http';
 import type { IncomingMessage } from 'http';
 
-const JWT_PART_COUNT = 3;
 const CLEANUP_INTERVAL_MS = 30000;
 
 function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
@@ -67,10 +67,10 @@ export class PlaygroundWebSocketServer {
     );
 
     if (!process.env.JWT_SECRET) {
-      this.logger.warn(
-        'JWT_SECRET environment variable is not set. ' +
-          'JWT validation will use format-only checking (development mode). ' +
-          'Set JWT_SECRET for production use.',
+      this.logger.error(
+        'JWT_SECRET is not set. Every authentication attempt will be REFUSED — ' +
+          'there is no format-only development mode, because accepting an unverifiable token is ' +
+          'not a weaker check, it is no check. Set JWT_SECRET to serve this endpoint.',
       );
     }
 
@@ -178,28 +178,24 @@ export class PlaygroundWebSocketServer {
       return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (jwtSecret) {
-      try {
-        jwt.verify(token, jwtSecret);
-      } catch {
-        this.sendError(clientId, 'Invalid or expired authentication token');
-        client.ws.close();
-        return;
-      }
-    } else {
-      // Development fallback: verify JWT format (3 dot-separated parts)
-      const parts = token.split('.');
-      if (parts.length !== JWT_PART_COUNT) {
-        this.sendError(clientId, 'Invalid or expired authentication token');
-        client.ws.close();
-        return;
-      }
+    // The decision lives in `authenticate-playground-client.ts` — a pure function, so it can be
+    // tested without a socket and so this transport cannot reach past it. (SEC-008)
+    const decision = authenticatePlaygroundClient({
+      userId,
+      sessionId,
+      token,
+      secret: process.env.JWT_SECRET,
+    });
+    if (!decision.authenticated) {
+      if (decision.configurationError) this.logger.error(decision.configurationError);
+      this.sendError(clientId, decision.reason);
+      client.ws.close();
+      return;
     }
 
-    // Update client info
-    client.userId = userId;
-    client.sessionId = sessionId;
+    // From the verified claim, never from the message body.
+    client.userId = decision.userId;
+    client.sessionId = decision.sessionId;
     client.isAuthenticated = true;
 
     // Track user sessions
