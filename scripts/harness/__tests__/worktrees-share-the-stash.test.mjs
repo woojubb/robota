@@ -252,4 +252,24 @@ describe('a bare stash command is refused while the stack is shared', () => {
     });
     expect(status, `an unreadable worktree count waved the command through: ${output}`).not.toBe(0);
   });
+
+  it('is not escaped by a backtick or by a flag-only push', () => {
+    // Review of #1585, both real bypasses of the gate this PR exists to close.
+    //
+    // 1. The entry boundary class omitted the BACKTICK that this same file's GITPFX includes a few
+    //    lines below, for exactly this reason. `OUT=`git stash pop`` never reached the gate at all.
+    // 2. `git stash -u` / `--all` / `-k` are implicit pushes — they add an entry another agent's
+    //    bare pop can take — and matched none of the branches, which looked only for the literal
+    //    words `push`/`save`.
+    const dir = repoWithWorktrees(2);
+    for (const command of [
+      'OUT=`git stash pop`',
+      'OUT=$(git stash pop)',
+      'git stash -u',
+      'git stash --all',
+      'git stash -k',
+    ]) {
+      expect(run(command, dir).status, `a stash command escaped the gate: ${command}`).not.toBe(0);
+    }
+  });
 });

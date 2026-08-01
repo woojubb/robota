@@ -99,21 +99,41 @@ if ! STASH_VERBS=$(hook_verb_scan "$STASH_CMD"); then
   echo "[worktree-cwd-guard] Blocked: the command could not be scanned, so a stash cannot be ruled out." >&2
   exit 2
 fi
-if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:space:]]+stash([[:space:]]|$)'; then
+# ONE boundary pair, used by every match below.
+#
+# Review of #1585 found the entry gate missing the backtick, so `OUT=`git stash pop`` skipped the
+# whole guard. Fixing that in place then left the SAME defect one line down — `pop` followed by a
+# closing backtick failed the trailing `([[:space:]]|$)`. Five hand-written copies of "what ends a
+# word" is five chances to disagree, and two of them already had. So they are written once.
+#
+# The leading class matches this file's GITPFX; the trailing one is GITEND's rule — anything that is
+# not a word character or `-`, which covers the closing backtick, `)`, `;` and end of line.
+STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=)?[[:space:]]*'
+STASH_END='([^-[:alnum:]_]|$)'
+if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}git[[:space:]]+stash${STASH_END}"; then
   BARE_STASH=false
-  # A bare `git stash` / `git stash push` (creates an entry others may pop), or a `pop`/`apply`/
-  # `drop` with no explicit `stash@{N}` (takes whatever is on top, which may be someone else's).
-  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]*(;|&|\||$)' && BARE_STASH=true
-  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(push|save)([[:space:]]|$)' && BARE_STASH=true
+  # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
+  # with no subcommand keyword, and they add an entry another agent's bare pop can take. Matching
+  # only the literal words `push`/`save` let every one of them through. (#1585)
+  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]*(;|&|\||\)|\`|$)" && BARE_STASH=true
+  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+(push|save)${STASH_END}" && BARE_STASH=true
+  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+-' && BARE_STASH=true
   # `clear` takes no argument and deletes EVERY entry, including ones another agent has not popped
   # yet — the worst of the set, and the one the first version of this list forgot.
-  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+clear([[:space:]]|$)' && BARE_STASH=true
+  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+clear${STASH_END}" && BARE_STASH=true
   # `branch` and `pop`/`apply`/`drop` all take the TOP of the stack when no ref is named.
-  if printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(pop|apply|drop|branch)([[:space:]]|$)'; then
+  if printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+(pop|apply|drop|branch)${STASH_END}"; then
     printf '%s' "$STASH_VERBS" | grep -qE 'stash@\{' || BARE_STASH=true
   fi
   if [[ "$BARE_STASH" == "true" ]]; then
-    STASH_REPO="${CLAUDE_PROJECT_DIR:-$(hook_cwd_of "$INPUT" 2>/dev/null || echo .)}"
+    # `hook_cwd_of` returns exit 0 with an EMPTY string when the field is absent — that is its stated
+    # contract — so `|| echo .` never fires there and `git -C ""` would mean "no change" rather than
+    # the intended fallback. The default is applied to the VALUE, not to the exit code. (#1585)
+    STASH_REPO="${CLAUDE_PROJECT_DIR:-}"
+    if [[ -z "$STASH_REPO" ]]; then
+      STASH_REPO=$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')
+    fi
+    [[ -n "$STASH_REPO" ]] || STASH_REPO=.
     # `git worktree list` counts the main checkout as one, so >1 means a sibling exists.
     # `hook_git_in`, not a bare `git -C`: with `GIT_DIR` exported, `git -C <dir>` reports the OUTER
     # repository, so the count would be another clone's. INFRA-077 measured that and this file's own
@@ -128,7 +148,20 @@ if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:
       exit 2
     fi
     WORKTREE_COUNT=$(printf '%s\n' "$WORKTREE_LIST" | grep -c . || true)
-    [[ "$WORKTREE_COUNT" =~ ^[0-9]+$ ]] || WORKTREE_COUNT=0
+    # A count that is not a number means the count was not read, and this file's stated policy —
+    # and with-repo-lock.sh's, in the same change — is that an unreadable subject is a refusal.
+    # Defaulting to 0 would read it as "one worktree" and wave the command through, which is the
+    # opposite policy written one line from the comment claiming the first. (#1585)
+    #
+    # No test covers this branch, and saying so is the honest form: `grep -c` always emits a number,
+    # so it is unreachable by construction. A test that appeared to exercise it would be passing for
+    # some other reason — the first attempt at one did exactly that, blocking because the fixture had
+    # two worktrees rather than because the count was unparseable.
+    if [[ ! "$WORKTREE_COUNT" =~ ^[0-9]+$ ]]; then
+      echo "[worktree-cwd-guard] Blocked: the worktree count could not be read, so a shared stash" >&2
+      echo "[worktree-cwd-guard] cannot be ruled out. Name an explicit ref: git stash pop stash@{N}" >&2
+      exit 2
+    fi
     if [[ "$WORKTREE_COUNT" -gt 1 ]]; then
       echo "[worktree-cwd-guard] Blocked: a bare stash command while this clone has $WORKTREE_COUNT worktrees." >&2
       echo "[worktree-cwd-guard] refs/stash is SHARED across every worktree — a bare push or pop can" >&2
