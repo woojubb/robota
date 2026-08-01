@@ -1,10 +1,11 @@
 /**
  * Permission gate — evaluates whether a tool call is auto-approved, needs user approval, or denied.
  *
- * Three-step deterministic policy (in order of precedence):
+ * Deterministic policy, in order of precedence:
  * 1. Deny list match → deny
- * 2. Allow list match → auto
- * 3. Mode policy lookup
+ * 2. Deny list UNEVALUABLE (CORE-030) → approve (prompt), or deny in plan mode
+ * 3. Allow list match → auto
+ * 4. Mode policy lookup
  *
  * Pattern syntax (same as Claude Code):
  * - `Bash(pnpm *)` — Bash tool whose command starts with "pnpm "
@@ -63,28 +64,18 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
   return { toolName, argPattern };
 }
 
-/**
- * Return the "primary" argument value for a tool to match against argument patterns.
- * The matching argument depends on the tool:
- *   Shell/Bash → args.command
- *   Read → args.filePath
- *   Write → args.filePath
- *   Edit → args.filePath
- *   Glob → args.pattern
- *   Grep → args.pattern
- */
+/** Argument keys contributed by the packages that own the tools. See `BUILT_IN_ARGUMENT_KEYS`. */
 const registeredArgumentKeys = new Map<string, string>();
 
 /**
  * Declare which argument a tool's permission patterns are scoped to. CORE-030.
  *
- * The switch below is a hardcoded list of PRODUCT tool names in the vendor-neutral foundation, and
- * a tool it has never heard of had no way onto it. That is not merely a layering complaint: an
- * argument-scoped deny for such a tool could never match, and evaluation fell through to
- * `UNKNOWN_TOOL_FALLBACK`, which is `'approve'` in `default` and `acceptEdits`. A deny that silently
- * becomes an approve is the worst direction for this particular failure.
+ * `BUILT_IN_ARGUMENT_KEYS` below is a hardcoded list of PRODUCT tool names in the vendor-neutral
+ * foundation, and a tool it has never heard of had no way onto it. That is not merely a layering
+ * complaint: an argument-scoped deny for such a tool could never match, so the deny lost to any
+ * broader allow beside it and the invocation was auto-approved.
  *
- * A tool's owner registers its key; the built-in switch remains until those tools do the same.
+ * A tool's owner registers its key; the built-in table remains until those tools do the same.
  */
 export function registerToolArgumentKey(toolName: string, argumentKey: string): void {
   registeredArgumentKeys.set(toolName, argumentKey);
@@ -95,32 +86,33 @@ export function clearRegisteredToolArgumentKeys(): void {
   registeredArgumentKeys.clear();
 }
 
-/** Whether the argument a pattern would be matched against is knowable for this tool at all. */
-function hasKnownArgumentKey(toolName: string): boolean {
-  if (registeredArgumentKeys.has(toolName)) return true;
-  return ['Shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'].includes(toolName);
+/**
+ * The built-in argument keys, as DATA rather than as a switch.
+ *
+ * It was a `switch` plus a second hardcoded list of the same names in `hasKnownArgumentKey` — a
+ * third copy of a tool-name table, in the change whose own Task calls that pattern out. One table,
+ * and both questions ("which key" and "is it knowable") are derived from it. (#1596 review)
+ */
+const BUILT_IN_ARGUMENT_KEYS: Readonly<Record<string, string>> = {
+  Shell: 'command',
+  Bash: 'command',
+  Read: 'filePath',
+  Write: 'filePath',
+  Edit: 'filePath',
+  Glob: 'pattern',
+  Grep: 'pattern',
+};
+
+/** Which argument a pattern is matched against, or `undefined` when nobody has said. */
+function argumentKeyFor(toolName: string): string | undefined {
+  return registeredArgumentKeys.get(toolName) ?? BUILT_IN_ARGUMENT_KEYS[toolName];
 }
 
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
-  const registeredKey = registeredArgumentKeys.get(toolName);
-  if (registeredKey !== undefined) {
-    const value = args[registeredKey];
-    return typeof value === 'string' ? value : undefined;
-  }
-  switch (toolName) {
-    case 'Shell':
-    case 'Bash':
-      return typeof args['command'] === 'string' ? args['command'] : undefined;
-    case 'Read':
-    case 'Write':
-    case 'Edit':
-      return typeof args['filePath'] === 'string' ? args['filePath'] : undefined;
-    case 'Glob':
-    case 'Grep':
-      return typeof args['pattern'] === 'string' ? args['pattern'] : undefined;
-    default:
-      return undefined;
-  }
+  const key = argumentKeyFor(toolName);
+  if (key === undefined) return undefined;
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -139,20 +131,24 @@ export function matchesAnyPattern(
  * Whether an argument-scoped pattern for this tool cannot be evaluated at all. CORE-030.
  *
  * `matchesPattern` answers `false` when the argument is unknowable, and `false` from a DENY list
- * means "not denied" — so `MyTool(secrets/**)` silently permitted every invocation of a tool the
- * foundation had never heard of. "I cannot tell" is not "no".
+ * means "not denied" — so `MyTool(secrets/**)` lost to a broader `allow: ['MyTool']` and the
+ * invocation was auto-approved. "I cannot tell" is not "no".
  */
 function hasUnevaluableArgumentPattern(
   toolName: string,
-  args: TToolArgs,
+  _args: TToolArgs,
   patterns: readonly string[],
 ): boolean {
   return patterns.some((pattern) => {
     const parsed = parsePattern(pattern);
     if (parsed.toolName !== toolName || parsed.argPattern === undefined) return false;
-    // Knowable in principle but absent from THIS invocation is a real non-match; unknowable at all
-    // is the case that must not read as one.
-    return !hasKnownArgumentKey(toolName) || primaryArg(toolName, args) === undefined;
+    // ONLY "nobody knows which argument this pattern is about". A tool whose key IS known but which
+    // was invoked without that argument is a real NON-match — the pattern is about `path`, there is
+    // no path, so there is nothing to deny — and it goes back to the allow list.
+    //
+    // The first version also treated that case as unevaluable, which contradicted its own comment
+    // and the test beside it. Review of #1596 caught the two conditions collapsing into one.
+    return argumentKeyFor(toolName) === undefined;
   });
 }
 

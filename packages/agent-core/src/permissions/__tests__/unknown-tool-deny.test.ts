@@ -80,6 +80,22 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
     ).toBe('auto');
   });
 
+  /**
+   * The distinction review of #1596 caught: the first version folded these two into one condition,
+   * so a REGISTERED tool invoked without its declared argument was treated as unevaluable — which
+   * contradicted the comment beside it and the test below it.
+   *
+   * A key nobody declared is unevaluable. A declared key that this invocation simply does not carry
+   * is a real NON-match: the pattern is about `path`, there is no path, so there is nothing to deny.
+   */
+  it('a DECLARED key absent from the invocation is a real non-match, not an unevaluable one', () => {
+    registerToolArgumentKey('MyTool', 'path');
+    // No `path` in the args at all. The deny cannot apply, so the allow list decides.
+    expect(evaluatePermission('MyTool', { other: 'x' }, 'default', narrowDenyBroadAllow)).toBe(
+      'auto',
+    );
+  });
+
   it('leaves an unknown tool with no argument-scoped deny alone', () => {
     expect(
       evaluatePermission('MyTool', { path: 'x' }, 'default', {

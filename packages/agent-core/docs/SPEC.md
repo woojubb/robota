@@ -259,6 +259,23 @@ sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the stud
 | `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
 | `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
 
+### Permission Argument Registry Public API (CORE-030)
+
+Which argument a tool's permission patterns are scoped to. The gate resolved this from a hardcoded
+table of PRODUCT tool names in the vendor-neutral foundation, so an argument-scoped deny for a tool
+it had never heard of could never match — and a `false` from a DENY list reads as "not denied", so
+the deny lost to any broader allow beside it and the invocation was auto-approved.
+
+A tool's owner declares its key. A deny that cannot be evaluated now prompts (or denies in `plan`
+mode) instead of continuing to the allow list.
+
+| Export                    | Kind     | Description                                                          |
+| ------------------------- | -------- | -------------------------------------------------------------------- |
+| `registerToolArgumentKey` | function | Declare which argument this tool's permission patterns are scoped to |
+
+`clearRegisteredToolArgumentKeys` stays in-package: it exists for tests and for a host rebuilding a
+registry, not as part of the contract.
+
 ### Model Metadata Registry Public API (NEUT-010)
 
 Who owns the answer to "how big is this model's context window". This package used to carry a CLAUDE
@@ -363,7 +380,7 @@ renderer is attached; a tool treats absence as "no human available" (never a sil
 
 | Export                      | Kind     | Description                                                                                                                                               |
 | --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `evaluatePermission`        | function | 3-step deterministic policy: deny list, allow list, mode                                                                                                  |
+| `evaluatePermission`        | function | 4-step deterministic policy: deny list, UNEVALUABLE deny, allow list, mode                                                                                |
 | `resolvePermissionByPolicy` | function | CORE-025: resolve a background/subagent `TBackgroundPermissionPolicy` (+ task/parent allow-deny) to `allow`/`deny`/`prompt`, pre-empting the session mode |
 | `MODE_POLICY`               | const    | Permission mode to tool decision matrix                                                                                                                   |
 | `TRUST_TO_MODE`             | const    | Maps TTrustLevel to TPermissionMode                                                                                                                       |
@@ -680,13 +697,14 @@ Events are bound to their owner via `bindWithOwnerPath()`.
 
 ## Permission System
 
-The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by the session layer to gate tool execution before delegating to the actual tool.
+The permission module (`src/permissions/`) provides a deterministic, four-step policy evaluation for tool calls. It is consumed by the session layer to gate tool execution before delegating to the actual tool.
 
 ### Evaluation Algorithm (`evaluatePermission`)
 
 1. **Deny list match** -- If any deny pattern matches the tool invocation, return `'deny'`.
-2. **Allow list match** -- If any allow pattern matches, return `'auto'` (proceed without prompting).
-3. **Mode policy lookup** -- Look up the tool in `MODE_POLICY[mode]`. If found, return the mapped decision. Otherwise, return `UNKNOWN_TOOL_FALLBACK[mode]`.
+2. **Deny list unevaluable** (CORE-030) -- If a deny pattern is scoped to an ARGUMENT and no owner has declared which argument this tool's patterns are about, the deny cannot be evaluated. Return `'approve'` (prompt), or `'deny'` in `plan` mode. Previously this read as "not denied" and the evaluation continued to step 3, where a broader allow could silently auto-approve it. A tool's owner declares its key with `registerToolArgumentKey(toolName, argumentKey)`; the built-in tools are pre-declared.
+3. **Allow list match** -- If any allow pattern matches, return `'auto'` (proceed without prompting).
+4. **Mode policy lookup** -- Look up the tool in `MODE_POLICY[mode]`. If found, return the mapped decision. Otherwise, return `UNKNOWN_TOOL_FALLBACK[mode]`.
 
 ### Permission Modes
 
