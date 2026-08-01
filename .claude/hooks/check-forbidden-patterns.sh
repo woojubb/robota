@@ -50,6 +50,36 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
+# --- Changing a verification hook is deliberate (INFRA-083) --------------------------------------
+#
+# The Bash guard covers COMMANDS. Write/Edit/MultiEdit change file content without running one, so
+# `.husky/pre-commit` could be replaced outright. Claiming "zero exceptions" for hook destruction
+# while that door stood open would be a claim, not a gate.
+#
+# PATH-based, not content-based, and the first attempt taught why. It asked whether the new content
+# was empty, and review measured it wrong in BOTH directions: an ordinary partial deletion
+# (`old_string: "# stale note\n"`, `new_string: ""`) was refused although the rest of the hook was
+# intact, and `content: "exit 0"` passed while disabling the hook exactly as emptying it would.
+# `hook_edit_content_of` returns the changed FRAGMENT, never the resulting file, so no emptiness test
+# on it could have been right — and "the body still has a line in it" was never the property that
+# matters anyway.
+#
+# So the property is deliberateness. A hook may be changed; it may not be changed by accident or in
+# passing. `HOOK_EDIT_ACK=1` in the environment is the acknowledgement, in the same spirit as the
+# other documented overrides — this one is not an escape from a check, it IS the check.
+case "$FILE_PATH" in
+  */.husky/*|.husky/*)
+    if [ "${HOOK_EDIT_ACK:-0}" != "1" ]; then
+      echo "[check-forbidden-patterns] Blocked: '$FILE_PATH' is a verification hook." >&2
+      echo "[check-forbidden-patterns] Changing one is deliberate work, not a passing edit — a hook" >&2
+      echo "[check-forbidden-patterns] that quietly becomes 'exit 0' is the gate gone with nothing said." >&2
+      echo "[check-forbidden-patterns] If the change is intended: HOOK_EDIT_ACK=1 (git-branch.md)" >&2
+      exit 2
+    fi
+    exit 0
+    ;;
+esac
+
 # Only check production TypeScript under packages/*/src.
 #
 # Matched on the path's SHAPE, not on a `"$CLAUDE_PROJECT_DIR"` prefix. A worktree lives at

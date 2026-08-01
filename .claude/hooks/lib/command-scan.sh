@@ -643,6 +643,23 @@ HOOK_SCAN_AWK='
       start = 1
       for (i = 1; i <= len; i++) {
         c = substr(mask, i, 1)
+        # `&` in a REDIRECTION is not a separator. `2>&1`, `1>&2` and `>&2` are among the most
+        # common things anyone writes, and splitting on that `&` cut the statement in two — every
+        # caller then judged a truncated fragment, in one measured case one carrying an unclosed
+        # `$(`. A redirecting `&` is preceded by `>` or `<`, optionally with a digit between.
+        # (INFRA-085, found while chasing a #1588 review finding whose stated cause was elsewhere.)
+        if (c == "&") {
+          # `2>&1` and `>&2` put the ampersand AFTER the arrow; `&>` and `&>>` put it BEFORE. Reading
+          # only the character in front caught the first pair and missed the second, and bash accepts
+          # a redirection BETWEEN arguments — so `git commit -m "x" &> /dev/null --no-verify` split
+          # into a fragment holding the verb and one holding the flag, and the gate saw neither.
+          # (INFRA-085, second half, from a #1588 review.)
+          if (i > 1) {
+            p = substr(mask, i - 1, 1)
+            if (p == ">" || p == "<") continue
+          }
+          if (i < len && substr(mask, i + 1, 1) == ">") continue
+        }
         if (c == ";" || c == "&" || c == "|" || c == "\n") {
           if (i > start) { print start " " (i - start) }
           start = i + 1
@@ -666,6 +683,108 @@ HOOK_SCAN_AWK='
     mask = substr(mask, ws, wl)
 
     if (MODE == "mask") { print mask; exit }
+
+    # ---- the WORDS the shell builds, one per line ----
+    #
+    # Added because four guards had grown their own sed/awk passes to answer "is this flag an
+    # argument of this command", and every one of them was wrong in a different way: `-v` unescaped
+    # a backslash into a vertical tab, a blind splice-removal desynchronised the quoting and hid a
+    # live flag behind an unterminated string, a greedy match anchored on a nested verb, an option
+    # skipper swallowed `-x` as a flag. Each was a SECOND reading of a command written beside the one
+    # this file exists to be.
+    #
+    # The splice is collapsed HERE, where the quoting is already known, rather than by a text pass
+    # that has to guess: `--no-''verify` and `--no-\verify` are one word to the shell and are one
+    # word here. A character the mask hides stays hidden, so a quoted argument does not become an
+    # option — which is what keeps a commit message that merely NAMES a flag from reading as one.
+    # `allwords` is the same split with the substitutions INCLUDED, each opening and closing
+    # delimiter acting as a word break. It answers a different question, and the difference is not a
+    # preference:
+    #
+    #   words     — "what flags did THIS command receive?"  A substitution is a different command,
+    #               and reading its `-n` as this one is a false positive.
+    #   allwords  — "does anything anywhere in this statement do X?"  A substitution RUNS, so a
+    #               destructive verb inside one is as real as a leading one. Measured:
+    #               `echo "$(chmod -x .husky/pre-push)"` disarmed a hook and was permitted, because
+    #               the only reading that could have seen it excluded substitutions by design.
+    #
+    # A statement range does NOT split at a substitution, so asking the range question does not
+    # answer this one — checked, `echo "$(chmod …)"` is a single statement. (#1588 review)
+    if (MODE == "words" || MODE == "allwords") {
+      word = ""
+      started = 0
+      sub_depth = 0
+      bt_open = 0
+      incsubs = (MODE == "allwords")
+      for (i = 1; i <= length(s); i++) {
+        mc = substr(mask, i, 1)
+        rc = substr(s, i, 1)
+        if (incsubs) {
+          if (mc == "$" || mc == "(" || mc == ")" || mc == "\140" || mc == "{" || mc == "}") {
+            if (started) { print word; word = ""; started = 0 }
+            continue
+          }
+        }
+        # A substitution RUNS, so its content is a command in its own right and NOT part of this
+        # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
+        # dropping them let the words inside a substitution leak out as words of the outer command:
+        # `git commit -m "$(git log -n 1)"` handed a bare `-n` to a matcher looking for the flag that
+        # skips hooks, and refused an ordinary commit. A guard that wants to judge what runs inside
+        # asks about THAT statement — which is what the statement ranges are for. Dropping the
+        # characters also swallowed a bare `}` closing a function, leaving a real statement with no
+        # words at all. (#1588)
+        #
+        # The depth test comes FIRST, before anything else looks at this character. A space inside a
+        # substitution belongs to the inner command and is not a separator of the outer one — testing
+        # it after the whitespace break split `echo "$(git log -n 1)"` into four words, which is the
+        # very leak this tracking exists to stop.
+        #
+        # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment here
+        # CLOSES it, and the file then fails to source at all — which is how this comment lost its
+        # possessives. Write around them.
+        if (sub_depth > 0) {
+          started = 1
+          if (mc == "(") { sub_depth++ }
+          else if (mc == ")") { sub_depth-- }
+          continue
+        }
+        if (bt_open) { started = 1; if (mc == "\140") { bt_open = 0 } ; continue }
+        # A separator ends the word only where the shell sees one. The mask shows a space at a
+        # QUOTE DELIMITER too, and that is not a separator — `--no-''verify` is one word to bash.
+        # So a space is a break only when the raw character is really whitespace.
+        if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) {
+          if (started) { print word; word = ""; started = 0 }
+          continue
+        }
+        started = 1
+        # A quote delimiter itself contributes nothing but does not break the word.
+        if (mc == " ") { continue }
+        # Masked content is data. It keeps the word STARTED, so `-m "some message"` stays one word.
+        if (mc == "\001") { continue }
+        # Where a COMMAND substitution opens. See the depth test above for why its content is skipped.
+        #
+        # `${...}` and `$((...))` are deliberately NOT opened here, and the reason is that the masker
+        # has already dealt with them: an unquoted `${HOME}` comes back as `${` plus five mask bytes,
+        # the CLOSING BRACE AMONG THEM. Counting braces therefore opened a region that could never
+        # close, and every remaining word of the statement was swallowed — measured on
+        # `git commit ${EXTRA} --no-verify -m x`, which this guard then permitted in silence. The
+        # exact bypass this change exists to close, reopened by the change itself. (#1588 review)
+        #
+        # `$((` is arithmetic, not a command, so it is excluded by lookahead rather than by hoping
+        # the parens balance: its closing pair is masked in the same way.
+        if (mc == "\140") { bt_open = 1; continue }
+        if (mc == "$" && substr(mask, i + 1, 1) == "(" && substr(mask, i + 2, 1) != "(") {
+          sub_depth = 1
+          i++
+          continue
+        }
+        # An unquoted backslash splices the next character: the shell drops it and joins.
+        if (mc == "\\" && rc == "\\") { continue }
+        word = word rc
+      }
+      if (started) { print word }
+      exit
+    }
 
     # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
     # out of a substitution came back wearing the paren that closed it: a nested
@@ -748,6 +867,23 @@ hook_match_extract_after() {
 # closing paren. Those passes are gone; see the note where they stood.
 hook_verb_scan() {
   printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The WORDS a statement is built from, one per line, with splices collapsed and quoted content
+# hidden. $2/$3 narrow the reading to one statement, as everywhere else.
+#
+# This is what a guard should ask when it wants to know whether a flag was PASSED, rather than
+# whether its letters appear somewhere. See the `words` branch for why it lives here.
+hook_statement_words() {
+  printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The same split with SUBSTITUTION CONTENTS included, each delimiter a word break. Ask this when the
+# question is "does anything in this statement do X" rather than "what did THIS command receive" —
+# a substitution runs, so a destructive verb inside one is as real as a leading one. See the
+# `allwords` branch for the measurement that made the distinction necessary.
+hook_statement_all_words() {
+  printf '%s\n' "$1" | awk -v MODE=allwords -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,

@@ -286,3 +286,56 @@ describe('the guards VERDICT on the same corpus matches what bash does with it',
     // instead of asking a function what it would have said.
   }, 300_000);
 });
+
+describe('a redirection is not a statement separator', () => {
+  // `2>&1` is one of the most common things in any command line, and its `&` was splitting the
+  // statement in two. Every guard that reads per statement then judged a truncated fragment with an
+  // unclosed `$(` in it — measured on branch-guard, where `git commit --no-verify -m "$(…2>&1)"` had
+  // its real flag thrown away with the discarded prefix. Found while chasing a review finding on
+  // #1588 whose stated cause was elsewhere. (INFRA-085)
+  const cases = [
+    { command: 'git commit -m x 2>&1', statements: 1 },
+    { command: 'echo a 2>&1; echo b', statements: 2 },
+    { command: 'git push origin main 2>&1', statements: 1 },
+    { command: 'cmd 1>&2', statements: 1 },
+    { command: 'cmd >&2', statements: 1 },
+    // `&>` and `&>>` put the ampersand BEFORE the arrow. Looking only at what precedes it caught
+    // `2>&1` and missed these — and bash accepts a redirection between arguments, so
+    // `git commit -m "x" &> /dev/null --no-verify` really runs with the flag. (#1588 review)
+    { command: 'cmd &> /dev/null', statements: 1 },
+    { command: 'cmd &>> log', statements: 1 },
+    { command: 'git commit -m "x" &> /dev/null --no-verify', statements: 1 },
+    // A real background `&` and a real `&&` still split.
+    { command: 'sleep 1 & echo done', statements: 2 },
+    { command: 'a && b', statements: 2 },
+    { command: 'a & b & c', statements: 3 },
+    // A separator INSIDE a substitution is a separator, and the guards depend on it: the `.husky`
+    // whitelist checks the LEADING verb of each command position, so `$(echo x; rm .husky/pre-push)`
+    // is only refused because the `rm` starts a statement of its own. Reported as a bypass in review
+    // of #1588 on the assumption that it does not split; it does. Pinned so the assumption cannot
+    // quietly become true.
+    { command: 'echo "$(echo x; rm .husky/pre-push)"', statements: 2 },
+    { command: 'echo "$(echo x && rm -rf .husky)"', statements: 2 },
+    { command: 'echo "$(echo x | rm .husky/pre-push)"', statements: 2 },
+    // And with NO separator inside, it is one statement — which is why the chmod reading has to ask
+    // for the substitution-INCLUDING word list rather than relying on the split.
+    { command: 'echo "$(chmod -x .husky/pre-push)"', statements: 1 },
+  ];
+
+  for (const { command, statements } of cases) {
+    it(`splits ${JSON.stringify(command)} into ${statements}`, () => {
+      const result = spawnSync(
+        'bash',
+        [
+          '-c',
+          `source .claude/hooks/lib/command-scan.sh && hook_statement_ranges "$1"`,
+          '_',
+          command,
+        ],
+        { cwd: WORKSPACE_ROOT, encoding: 'utf8' },
+      );
+      const lines = (result.stdout ?? '').split('\n').filter((l) => l.trim() !== '');
+      expect(lines.length, `ranges: ${JSON.stringify(lines)}`).toBe(statements);
+    });
+  }
+});

@@ -91,6 +91,63 @@ reads as stalling. Avoid the opposite failure too: do not fragment into many tri
 context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
 implementing and keep committing. (Owner feedback, 2026-07-17, validated on SELFHOST-003 P1.)
 
+### Disabling the Gate is Prohibited
+
+**Never disable a hook instead of satisfying it. Zero exceptions.** Enforced by `branch-guard.sh`
+(INFRA-083). The banned set is every documented kill switch, not one flag:
+
+| Route                                                                       | Published by |
+| --------------------------------------------------------------------------- | ------------ |
+| `--no-verify`, `git commit -n`                                              | git          |
+| `HUSKY=0`                                                                   | husky        |
+| `git -c core.hooksPath=…`, `git config core.hooksPath …`                    | git          |
+| removing, emptying, or dropping the execute bit on anything under `.husky/` | —            |
+| opening a hook in an editor, or writing one from `node`/`python3`           | —            |
+
+The first version of this rule banned `--no-verify` alone. Measuring it immediately found **six other
+routes walking straight through** — closing the instance and leaving the class, which is the mistake
+this rule exists to stop repeating.
+
+Reading, listing and editing a hook are untouched; only destroying one is refused. Emptying a hook
+through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
+left with nothing to run is a removal wearing an edit's clothes.
+
+Changing a hook through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`. That is not an escape
+from a check — it IS the check: a hook may be changed, it may not be changed in passing. The first
+version asked whether the new content was empty and was wrong in both directions, refusing an
+ordinary partial deletion while passing `exit 0`.
+
+**One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
+that apart from an ordinary substitution means evaluating the editor's program, and being wrong
+either way costs more than the gap — too strict refuses everyday edits, too loose buys the next
+spelling. The path an agent actually takes is the tool layer, and that one is closed.
+
+It has to be enforced at the PreToolUse layer: `--no-verify` disables the git-level hook, so the
+pre-push hook cannot catch its own bypass — by the time it would run it has already been skipped.
+The PreToolUse layer runs on the tool call, which the flag cannot reach.
+
+```bash
+# WRONG — steps around the gate:
+git push --no-verify
+git commit -n -m "..."
+
+# CORRECT — if the gate is wrong or unrunnable, change the gate:
+pnpm install --frozen-lockfile && pnpm build   # a fresh worktree owes this once
+```
+
+**Measured 2026-08-01: four parallel agents bypassed this way in a single day.** The cause was real —
+the gate could not go green in a worktree (HARNESS-058) — and fixing it was necessary. It was not
+sufficient. The agents were then _told_ not to bypass, which worked, and being told is not a
+mechanism: the identical shape had already been written down about a bare `git stash pop` since
+LESSON-005 and an agent did it anyway ten weeks later.
+
+There is deliberately no override token. An override for an override is the next bypass. **If a check
+is wrong, unrunnable, or fires on correct work, the check is what changes** — that is the whole of
+HARNESS-058, and a gate that trains people to route around it has already failed.
+
+`git push -n` is **not** covered, because for `push` that flag is `--dry-run`, not `--no-verify`. The
+same short flag means different things in the two subcommands; a rehearsal is not a bypass.
+
 ### `--delete-branch` is Prohibited in `gh pr merge`
 
 **Never pass `--delete-branch` to `gh pr merge`. Zero exceptions.**

@@ -137,6 +137,46 @@ Floor: `guards-fail-closed.test.mjs`. A hook that judges refuses an unreadable p
 only reminds or formats may stand down, because demanding a refusal from it would be property 4
 violated. Which kind a hook is, is read from the hook itself.
 
+### Silence is not success — the rule, for every layer
+
+**Owner directive, 2026-08-02. This binds every skill, every hook, and every GitHub Action step, not
+only the shell guards above.**
+
+> When something goes wrong, do not complete quietly. Say what went wrong, and stop the flow.
+
+Three states must stay distinguishable, and collapsing the third into the first is the defect:
+
+1. **I checked, and it is fine.** → pass, silently (property 4).
+2. **I checked, and it is not.** → refuse, naming what failed.
+3. **I could not check.** → **refuse, naming what could not be read.** Never a pass, and never a
+   refusal wearing the wrong reason.
+
+**The price of getting this wrong is on the record.** INFRA-048 measured
+`claude-code-review` at **100 of 100 green runs, 13–21 s each, reviewing nothing**: the action could
+not mint a token, printed a skip line, and exited 0. A hundred pull requests merged past a check that
+reported success without asking anything. Nothing announced either edge of the window.
+
+Concretely, in each layer:
+
+- **A hook** that cannot decode its payload, cannot resolve the repository, or cannot reach `gh`
+  refuses with `Blocked:` and the reason. `branch-guard` and `merge-gate` do this in two independent
+  places each — neutralising one leaves the other refusing, which is what defence in depth looks like
+  when it is real.
+- **An Action step** that cannot read what it judges must `::error::` and exit non-zero.
+  `|| echo ""`, `|| echo 0` and `|| echo '[]'` turn "unreadable" into "empty", which reads exactly
+  like a legitimate answer. Where a sentinel is used instead, it must be a DISTINCT one the consumer
+  refuses on — `UNAVAILABLE`, not `[]`.
+- **A skill** that cannot complete a step reports the step it could not complete and halts, rather
+  than converging on a count it never earned.
+
+**The reason must be the real one.** "The push was stopped for a reason that was not the reason"
+(INFRA-077) costs the next reader the whole debugging trail: they fix what the message named, re-run,
+and get the same refusal. A guard that cannot read its input says so, in those words.
+
+Floors: `guards-fail-closed.test.mjs` covers the hook layer, including a `gh` that cannot
+authenticate — the token condition INFRA-048 was about. An Action step is not mechanically covered
+yet; when one is added, its `|| echo` fallbacks are the first thing to read.
+
 The two pull against each other on purpose. Property 5 alone produces a guard that refuses
 everything; property 4 alone produces one that permits everything. A guard is correct only when both
 hold, and each needs its own case. `hooks-have-execution-coverage` is the mechanical floor for question 3 in

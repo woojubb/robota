@@ -232,6 +232,343 @@ while read -r STMT_START STMT_LEN; do
     IS_GH_DELETE_BRANCH=true
   fi
 
+  # --- A gate is not skipped by asking git to skip it (INFRA-083) -------------------------------
+  #
+  # `--no-verify` disables the git-level hook, which means the pre-push hook cannot catch its own
+  # bypass — by the time it would run, it has already been skipped. This layer runs on the TOOL CALL
+  # and is the one place the flag cannot reach.
+  #
+  # Measured 2026-08-01: four parallel agents pushed with `--no-verify` in a single day. The cause
+  # was real and was fixed (HARNESS-058 — the gate could not go green in a worktree), and the agents
+  # were then TOLD not to bypass, which worked and is not a mechanism. A rule stated and never
+  # mechanically reached is this repository's signature defect; `git-branch.md` had said the same
+  # about a bare `git stash pop` since LESSON-005 and an agent did it anyway ten weeks later.
+  #
+  # ZERO EXCEPTIONS, matching the `--delete-branch` ban below. An override for an override is simply
+  # the next bypass. If a gate is wrong, the gate is what changes — that is the whole of HARNESS-058.
+  #
+  # WHAT BASH WOULD SEE — asked of the tokenizer, not reconstructed here.
+  #
+  # This block previously did its own parsing with sed and grep, and every round of review found a
+  # different way that was wrong: `awk -v` unescaped a backslash into a vertical tab; a blind
+  # splice-removal desynchronised the quoting and hid a live flag behind an unterminated string; a
+  # greedy match anchored on a nested verb and discarded the flags in front of it; an option skipper
+  # swallowed `-x` as a flag. Each was a SECOND reading of a command, written beside the one that
+  # models the shell grammar and is checked against real bash on a 200-shape corpus.
+  #
+  # So the question goes to that reading. `hook_statement_words` returns the WORDS the shell builds
+  # for this statement: splices collapsed (`--no-''verify` and `--no-\verify` are one word, as bash
+  # sees them), quoted content hidden (a commit message that NAMES a flag is not passing one),
+  # substitution contents excluded (they are their own statement, judged as one).
+  # FAIL-CLOSED ON THE TOKENIZER FAILING, not on it answering "no words". The first spelling of this
+  # check treated an empty list as a failure, and that is wrong: a statement can legitimately build no
+  # words a matcher should see — a bare `}` closing a function, a statement that is only a quoted
+  # string. Measured immediately, it refused nearly every command typed in this repo. The error signal
+  # is awk's exit status; emptiness is an ANSWER. (#1588)
+  #
+  # The SENTINEL is what keeps a trailing empty word: command substitution strips trailing newlines,
+  # so a final fully-quoted argument — which builds a real but empty word — simply vanished, and
+  # `git config core.hooksPath ""` read as a key with no value and was permitted. `&& printf` also
+  # carries the failure: if the tokenizer exits non-zero the sentinel is never written and the `if`
+  # below fires. Exactly one newline plus the sentinel is removed, so the here-string re-adds exactly
+  # the one that was there. (#1588 review)
+  if ! STMT_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN" && printf '\001'); then
+    echo "[branch-guard] Blocked: the statement could not be split into words, so its options were" >&2
+    echo "[branch-guard] never read. Nothing was verified; this is not a pass." >&2
+    exit 2
+  fi
+  STMT_WORDS=${STMT_WORDS%$'\n\001'}
+
+  # The verb, and the options that belong to THIS invocation. A value-taking option consumes the
+  # next word, which is what keeps `git commit -mn "x"` — a message of "n" — from reading as the
+  # short skip-hooks flag, and `-m "--no-verify"` from reading as the long one.
+  IS_GATED_STMT=false
+  GIT_VERB=""
+  SKIP_HOOKS=false
+  SKIP_WHAT=""
+  EXPECT_VALUE=false
+  SEEN_GIT=false
+  HAS_HUSKY0=false
+  SAW_HOOKSPATH_KEY=false
+  while IFS= read -r W; do
+    # An `assignment=` is judged BEFORE the value-skip, because the one that matters travels AS a
+    # value: `git -c core.hooksPath=/dev/null commit` hands it to `-c`, and skipping the consumed
+    # word walked the whole config route straight through the check written to close it. (#1588)
+    case "$W" in
+      *core.hooksPath*=*) SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath" ;;
+    esac
+    # An EMPTY word is still a word — a fully-quoted argument builds one. It has to consume a pending
+    # value, or the option is left hungry and eats the NEXT real word instead: `-m "$(date)" -n` fed
+    # `-n` to `-m` and the skip-hooks flag behind it was never read. (#1588)
+    if [[ "$EXPECT_VALUE" == "true" ]]; then EXPECT_VALUE=false; continue; fi
+    # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
+    # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling refused the mere
+    # appearance of the key — so `git config --get core.hooksPath` and `git grep core.hooksPath` were
+    # refused as bypasses, and `git config --unset core.hooksPath`, which RESTORES the default hooks,
+    # was refused as a way of removing them. A guard that fires on correct work is one people learn to
+    # route around; that is the argument this whole change is built on, and it was being lost a few
+    # lines below where it is made. (#1588 review)
+    #
+    # The key is remembered, and only a following POSITIONAL — the value — disables anything. An
+    # option cannot be one, and `--get`/`--unset` sit ahead of the key rather than after it. Judged
+    # BEFORE the empty-word skip, because `git config core.hooksPath ""` sets it to an empty string
+    # and a fully-quoted argument builds an empty word.
+    if [[ "$GIT_VERB" == "config" ]]; then
+      if [[ -n "$W" && "$W" == *core.hooksPath* ]]; then
+        SAW_HOOKSPATH_KEY=true
+      elif [[ "$SAW_HOOKSPATH_KEY" == "true" && "$W" != -* ]]; then
+        SKIP_HOOKS=true
+        SKIP_WHAT="core.hooksPath"
+      fi
+    fi
+    [[ -n "$W" ]] || continue
+    # Recorded, not acted on yet: `HUSKY=0 pnpm install` is ordinary work in a fresh clone. The
+    # variable only disables a GATE when the statement it prefixes is the gated one, which is not
+    # known until the verb is read. (#1588 review)
+    case "$W" in
+      HUSKY=0) [[ "$SEEN_GIT" == "false" ]] && HAS_HUSKY0=true ;;
+    esac
+    if [[ "$SEEN_GIT" == "false" ]]; then
+      [[ "$W" == "git" ]] && SEEN_GIT=true
+      continue
+    fi
+    if [[ -z "$GIT_VERB" ]]; then
+      # A GLOBAL option that takes its value as the NEXT word must consume it, or that value is read
+      # as the subcommand. Measured: `git --work-tree /x commit -n -m y` set the verb to `/x`, which
+      # silenced both the `-n` check and the HUSKY=0 check — they ask whether the verb is `commit`.
+      # Only `-c`/`-C` were consumed before. (#1588 review)
+      case "$W" in
+        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
+          EXPECT_VALUE=true; continue ;;
+      esac
+      case "$W" in
+        -*) continue ;;
+      esac
+      # A verb is a git subcommand, and the option list above cannot be complete — git gains flags.
+      # A word carrying a path separator or a dot is the VALUE of some option this list has not heard
+      # of yet, not a subcommand, so it is skipped rather than latched as the verb. Getting this wrong
+      # in the permissive direction is what the finding above measured.
+      case "$W" in
+        */*|.*|*.*) continue ;;
+      esac
+      GIT_VERB="$W"
+      case "$W" in commit|push) IS_GATED_STMT=true ;; esac
+      continue
+    fi
+    # Past the verb: these are this invocation's own options.
+    case "$W" in
+      --message|--file|--reuse-message|--reedit-message) EXPECT_VALUE=true; continue ;;
+    esac
+    [[ "$W" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify"
+    # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
+    # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling here refused
+    # the mere appearance of the key — so `git config --get core.hooksPath` and `git grep
+    # core.hooksPath` were refused as bypasses, and `git config --unset core.hooksPath`, which
+    # RESTORES the default hooks, was refused as a way of removing them. A guard that fires on
+    # correct work is one people learn to route around; that is the argument this whole change is
+    # built on, and it was being lost one line below where it is made. (#1588 review)
+    #
+    # The key is remembered, and only a following POSITIONAL — the value — disables anything. An
+    # option cannot be one, and `--get`/`--unset` sit ahead of the key rather than after it.
+    # (the reading itself is above, before the empty-word skip: `--local core.hooksPath ""` sets it
+    # to an empty string, and a fully-quoted argument builds an EMPTY word)
+    # A SHORT CLUSTER is walked letter by letter, and the walk STOPS at the first letter that takes a
+    # value — everything after it is that value, not more flags. `git commit -mn "x"` is a commit
+    # whose message is "n"; reading the cluster as a set refused it. The asymmetry below is measured
+    # rather than assumed:
+    #   git commit -h  ->  -n, --no-verify
+    #   git push   -h  ->  -n, --[no-]dry-run
+    # so `-n` is a kill switch on a commit and a harmless rehearsal on a push.
+    if [[ "$W" == -[!-]* ]]; then
+      CLUSTER="${W#-}"
+      while [[ -n "$CLUSTER" ]]; do
+        case "${CLUSTER:0:1}" in
+          n) [[ "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"; break ;;
+          m|F|C|c) break ;;
+        esac
+        CLUSTER="${CLUSTER:1}"
+      done
+      # A value-taking letter LAST in the cluster has no value attached, so it takes the next word.
+      case "$W" in *[mFCc]) EXPECT_VALUE=true ;; esac
+    fi
+  done <<< "$STMT_WORDS"
+  # Now that the verb is known: the husky kill switch counts only in front of a gated command.
+  [[ "$HAS_HUSKY0" == "true" && "$IS_GATED_STMT" == "true" ]] && SKIP_HOOKS=true && SKIP_WHAT="HUSKY=0"
+
+  # The CLASS is "disable the gate instead of satisfying it", not one flag. The first version of this
+  # ban closed `--no-verify` alone, and measuring it immediately found SIX other routes walking
+  # through — the instance-not-class mistake this file's history is full of. Each member below is a
+  # documented kill switch published by the tool it belongs to, and none has a legitimate agent use.
+  # And simply destroying the hooks — asked as a WHITELIST, because the destructive side is
+  # open-ended and the readable side is not.
+  #
+  # Three rounds of review each named another verb the enumeration had missed: first the directory
+  # forms (`rm -rf .husky`), then `cp /dev/null`, `truncate -s0`, `find -delete`. Each addition was
+  # correct and each left the next spelling, which is the shape this whole change exists to stop.
+  # So the question is inverted: a statement that names a `.husky` path must be one of the few
+  # commands that can only READ it. Everything else is refused, including verbs nobody has thought
+  # of yet.
+  #
+  # `find` and `git` are readable but not only-readable, so their destructive forms are named.
+  # `HUSKY_TOKEN`'s trailing boundary is GITEND's rule — anything that is not a word character or
+  # `-`. The first spelling listed `/` and whitespace, so `echo \`rm -rf .husky\`` did not even enter
+  # this block: `.husky` was followed by a closing BACKTICK. That is the third time in this file a
+  # hand-written boundary class omitted the backtick, which is why it is written once here. (#1588)
+  HUSKY_TOKEN='[^[:space:]]*\.husky([^-[:alnum:]_]|$)'
+  if printf '%s' "$STMT_MASK" | grep -qE "$HUSKY_TOKEN"; then
+    # The whitelist names commands that may not DESTROY, which is a wider set than "may only read".
+    # `git-branch.md` says "reading, listing and EDITING a hook are untouched; only destroying one is
+    # refused", and the first version contradicted its own statement: `chmod +x` restoring an
+    # executable bit and `sed -i` editing a hook were refused as bypasses. Neither removes a gate.
+    # Destruction is named separately below, so an editor here is not a hole. (#1588 review)
+    #
+    # STATED LIMIT, not a silent one: an in-place editor can EMPTY a hook — `sed -i 's/.*//'` is an
+    # edit by shape and a removal by effect. Deciding which requires evaluating the editor's program,
+    # and getting that wrong is worse in both directions: too strict refuses an ordinary
+    # `sed -i 's/foo/bar/'` (which is exactly what the review before this one found), too loose buys
+    # the next program spelling. The path an agent actually takes — Write/Edit/MultiEdit — IS closed,
+    # in check-forbidden-patterns.sh, which refuses a hook body left with nothing to run.
+    # `vim`, `nano`, `node` and `python3` were in this list under the heading "read-only", which they
+    # are not: an editor writes, and an interpreter runs whatever it is handed. Measured — with them
+    # present, `node -e "require('fs').writeFileSync('.husky/pre-push','exit 0')"` walked straight
+    # through. The Write/Edit path already demands `HOOK_EDIT_ACK=1`; letting the same change in via
+    # Bash because the verb was `node` was an asymmetry, not a policy. (#1588 review)
+    #
+    # `sed`/`awk` stay, and the stated limit below says why: they are the everyday edit path, and
+    # deciding whether a given program empties a file needs an evaluator that is wrong in both
+    # directions. An editor that OPENS a hook is refused; a stream edit is not.
+    HUSKY_SAFE='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf|sed|awk|chmod)'
+    # EVERY command position, including the ones inside a substitution. The tokenizer deliberately
+    # leaves substitution content executable — it runs — so `echo "$(rm .husky/pre-push)"` led with a
+    # whitelisted verb while really deleting the hook. Checking only the statement's first token is
+    # the same mistake the flag check made one screen up, and it was still here. (#1588 review)
+    #
+    # Each `$(`/backtick opens a new command position, so the text after one is checked as its own
+    # leading verb, exactly as the statement's start is.
+    HUSKY_POSITIONS=$(printf '%s' "$STMT_MASK" | sed -E 's/(\$\(|`)/\n/g')
+    while IFS= read -r POS; do
+      [[ -n "${POS//[[:space:]]/}" ]] || continue
+      printf '%s' "$POS" | grep -qE "$HUSKY_TOKEN" || continue
+      printf '%s' "$POS" |
+        grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_SAFE}([[:space:]]|$)" ||
+        { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
+    done <<< "$HUSKY_POSITIONS"
+    # `chmod` may restore a bit; it may not remove the executable one. Three spellings do that, and
+    # the first version caught only the separated `-x`: `chmod a-x` attaches the minus to the mode
+    # token, and an OCTAL mode drops the bit with no `-` anywhere. A mode is refused unless it is
+    # visibly ADDING execute. (#1588 review)
+    # Only REAL options are skipped over. `-[Rvfch]`-style flags are chmod's; `-x` is a MODE that
+    # happens to start with a minus, and treating it as an option made the mode come back as the file
+    # path — so `chmod -x` stopped being caught by the very change meant to widen the check.
+    #
+    # THE MODE IS TAKEN FROM THE WORDS, not from a sed pass over the mask. That pass was the last
+    # second reading in this file and it was wrong in two ways at once, both measured:
+    #
+    #   chmod --recursive -x .husky/pre-push    the option class was SHORT-only (`[RLHPvfc]`), so the
+    #                                           long option was captured AS the mode and the real
+    #                                           `-x` behind it was never judged
+    #   echo "$(chmod -x .husky/pre-push)"      the pattern demanded whitespace before `chmod`, and
+    #                                           inside a substitution the character before it is `(`
+    #
+    # Both disarmed a hook and were permitted. The second is why this asks `hook_statement_all_words`
+    # rather than `hook_statement_words`.
+    #
+    # The property precisely, because the loose version of this sentence misled a reviewer into
+    # reporting a bypass that does not exist. Statement ranges split at a SEPARATOR, and a separator
+    # inside a substitution is a separator — measured:
+    #
+    #   echo "$(echo x; rm .husky/pre-push)"   ->  two statements, and the second leads with `rm`
+    #   echo "$(chmod -x .husky/pre-push)"     ->  ONE statement
+    #
+    # So what the substitution-excluding reading cannot see is a command that shares a statement with
+    # the one it is nested in — which is exactly the chmod above, and is not a general blindness to
+    # substitutions. The whitelist below still checks each substitution as its own command position,
+    # for the same reason.
+    #
+    # EVERY chmod in the statement is judged, not the first: `chmod +x a && chmod -x .husky/pre-push`
+    # has a restoring one in front of a disarming one.
+    if ! STMT_ALL_WORDS=$(hook_statement_all_words "$COMMAND" "$STMT_START" "$STMT_LEN" && printf '\001'); then
+      echo "[branch-guard] Blocked: a statement naming a hook path could not be split into words," >&2
+      echo "[branch-guard] so what it does to that hook was never read. This is not a pass." >&2
+      exit 2
+    fi
+    STMT_ALL_WORDS=${STMT_ALL_WORDS%$'\n\001'}
+    CHMOD_MODES=()
+    CHMOD_SEEK=false
+    while IFS= read -r W; do
+      if [[ "$CHMOD_SEEK" == "true" ]]; then
+        case "$W" in
+          # `--reference=<file>` copies another file's mode and can strip execute without ever naming
+          # one. Refused rather than reasoned about: there is no mode token to judge, and "I cannot
+          # tell" is a refusal here. (#1588 review)
+          --reference*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; CHMOD_SEEK=false; continue ;;
+          # A long option is never a mode. This is the class the sed pattern did not have.
+          --*) continue ;;
+          # A short cluster is an option only if EVERY letter is one of chmod's. `-x` is a MODE that
+          # happens to start with a minus, and skipping it as an option made the file path come back
+          # as the mode — so `chmod -x` stopped being caught by the change meant to widen the check.
+          -*) [[ "${W#-}" =~ ^[RLHPvfc]+$ ]] && continue
+              CHMOD_MODES+=("$W"); CHMOD_SEEK=false; continue ;;
+          '') continue ;;
+          *) CHMOD_MODES+=("$W"); CHMOD_SEEK=false; continue ;;
+        esac
+      fi
+      case "$W" in
+        chmod|*/chmod) CHMOD_SEEK=true ;;
+      esac
+    done <<< "$STMT_ALL_WORDS"
+    for CHMOD_MODE in ${CHMOD_MODES+"${CHMOD_MODES[@]}"}; do
+      # Each comma-separated CLAUSE is judged, and the LAST word about execute wins — `+x` appearing
+      # anywhere is not "restoring". `chmod a-x,+X` removes the bit and then conditionally does
+      # nothing (`+X` only acts when some execute bit survives), so a presence test read a pure
+      # disarming as a restore. (#1588 review)
+      # ANY clause that removes execute disarms the hook, whatever a later clause grants to someone
+      # else. `chmod u-x,g+x` takes it from the OWNER — the identity git runs the hook as — and gives
+      # it to the group, which does not put it back. A last-clause-wins reading called that a
+      # restore. `+X` is conditional (it grants only where execute already survives) and so can never
+      # undo a `-x` in the same command. (#1588 review)
+      IFS=',' read -ra CHMOD_CLAUSES <<< "$CHMOD_MODE"
+      for CLAUSE in "${CHMOD_CLAUSES[@]}"; do
+        case "$CLAUSE" in
+          *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+        esac
+      done
+      case "$CHMOD_MODE" in
+        *+x*|*+X*) ;;                                   # handled by the clause walk above
+        [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7])
+          # Octal: the owner digit carries execute as 1, so 7/5/3/1 keep it and the rest drop it.
+          case "${CHMOD_MODE: -3:1}" in
+            1|3|5|7) ;;
+            *) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+          esac
+          ;;
+        *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+      esac
+    done
+    # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
+    # `-exec` is refused even when the command it runs only reads (`find .husky -exec cat {} \;`).
+    # Judging that would mean evaluating the exec'd command, which is the evaluator this file
+    # declines to write elsewhere for the same reason — `ls`/`grep`/`cat` on the path are the
+    # untouched read path, and they do not need `find -exec`. Stated so the narrower framing above
+    # is not read as covering this. (#1588 review)
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])find([[:space:]]|$)' &&
+      printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-(delete|exec)([[:space:]]|$)' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(rm|mv)${GITEND}" &&
+      { SKIP_HOOKS=true; SKIP_WHAT="removing a hook from git"; }
+    # A redirection writes wherever it points, whatever the command in front of it is.
+    printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*[^[:space:]]*\.husky" &&
+      { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
+    # `echo`/`printf` are readers ONLY without a redirection, which the line above catches.
+  fi
+  if [[ "$SKIP_HOOKS" == "true" ]]; then
+    echo "[branch-guard] Blocked: '$SKIP_WHAT' disables the gate rather than satisfying it. Zero exceptions." >&2
+    echo "[branch-guard] Four agents bypassed in one day; the gate was broken (HARNESS-058) and was fixed." >&2
+    echo "[branch-guard] If a check is wrong, unrunnable, or fires on correct work, change the CHECK." >&2
+    echo "[branch-guard] A fresh worktree needs 'pnpm install --frozen-lockfile' and 'pnpm build' once." >&2
+    exit 2
+  fi
+
   if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
     echo "[branch-guard] It once deleted the develop integration branch. Merge without it, then delete" >&2

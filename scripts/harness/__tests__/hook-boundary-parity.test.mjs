@@ -323,3 +323,324 @@ describe('an override covers the statements it was given to, and no others', () 
     expect(status, `a fully-overridden command was refused: ${output}`).toBe(0);
   });
 });
+
+describe('a gate cannot be skipped by asking git to skip it', () => {
+  // INFRA-083. Four parallel agents pushed with `--no-verify` in one day. The cause was fixed
+  // (HARNESS-058: the gate could not go green in a worktree) and the agents were TOLD not to bypass —
+  // and being told is not a mechanism. `--no-verify` skips the git-level hook, so the pre-push hook
+  // cannot catch its own bypass; the PreToolUse layer runs on the TOOL CALL and is the one place the
+  // flag cannot reach.
+  //
+  // Zero exceptions, matching the `gh pr merge --delete-branch` ban already in this file: an
+  // override for an override is the next bypass. If a gate is wrong, the gate is what changes.
+
+  it('refuses to skip the commit hooks', () => {
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git commit --no-verify -m "x"',
+      'git commit -n -m "x"',
+      'git commit -nm "x"',
+      'git commit -am "x" --no-verify',
+      // AFTER a substitution, on the same invocation. Truncating the argument list at the first
+      // `$(` — to keep an inner command's flags out — threw away this invocation's own later flags
+      // with them, and opened the bypass the whole change exists to close. (#1588 review)
+      'git commit -m "$(git log -n 1)" --no-verify',
+      'git push origin "$(git branch --show-current)" --no-verify',
+      'git commit -m "$(date)" -n',
+      // The flag BEFORE a nested use of the same verb. A greedy `.*` anchored on the nested
+      // occurrence and discarded everything in front of it, including the real flag. (#1588 review)
+      'git commit --no-verify -m "$(git commit --dry-run 2>&1)"',
+      'git push --no-verify origin "$(git push --dry-run 2>&1)"',
+      // A combined redirection between the verb and the flag. (#1588 review)
+      'git commit -m "x" &> /dev/null --no-verify',
+      'git push origin feat/probe &>> log --no-verify',
+      // Quote and backslash SPLICING. bash joins `--no-``''``verify` into one word; the mask turns
+      // each quote into a SPACE, so a literal match saw `--no-  verify` and found nothing. All three
+      // new checks shared the hole. (#1588 review)
+      "git commit -m 'x' --no-''verify",
+      "H''USKY=0 git commit -m 'x'",
+      "git commit -''n -m x",
+      // The VERB spliced, not just the flag. The verb gate read the un-spliced mask while the checks
+      // it gates read the spliced one, so a spliced verb kept the gate false and the kill-switch
+      // bans were skipped entirely. Defending one half of a decision is not defending it. (#1588)
+      "H''USKY=0 git comm''it -m 'x'",
+      "git conf''ig core.hooksPath /dev/null",
+      "HUSKY=0 git comm''it -m 'x'",
+      'git commit -m x --no-\\verify',
+      'echo ok && git commit --no-verify -m "x"',
+    ]) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a commit skipped its hooks: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('refuses every OTHER way to disable the hooks, not just the flag', () => {
+    // The first version of this ban closed ONE spelling. Measured immediately after: six other
+    // routes walked straight through — which is the instance-not-class mistake this file's own
+    // history is full of.
+    //
+    // The set is small and each member is documented by the tool it belongs to: git publishes
+    // `core.hooksPath`, husky publishes its `HUSKY=0` kill switch. None has a legitimate agent use.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'HUSKY=0 git push origin feat/probe',
+      'HUSKY=0 git commit -m "x"',
+      'git -c core.hooksPath=/dev/null push origin feat/probe',
+      'git -c core.hooksPath=/dev/null commit -m "x"',
+      'git config core.hooksPath /dev/null',
+      'rm .husky/pre-push',
+      'echo "" > .husky/pre-commit',
+      'chmod -x .husky/pre-push',
+      // The DIRECTORY forms — the most natural way anyone would actually do it, and the ones the
+      // first version missed because its pattern demanded a trailing `/`. The test missed them for
+      // the same reason, so the gap shipped green: a defect-fix test that passes on the defect.
+      'rm -rf .husky',
+      'mv .husky /tmp',
+      'chmod -R -x .husky',
+      'rm -r ./.husky',
+      // Emptying a hook without `rm`, `>` or `chmod`. The rule doc says "zero exceptions"; these
+      // were as common as the covered ones, so the claim overstated the coverage until now.
+      'cp /dev/null .husky/pre-push',
+      'truncate -s0 .husky/pre-push',
+      'find .husky -delete',
+      'find .husky -type f -exec rm {} +',
+      // Inside a substitution. The tokenizer leaves that content executable because it RUNS, so a
+      // destructive verb hid behind a whitelisted leading one. (#1588 review)
+      'echo "$(rm .husky/pre-push)"',
+      'echo `rm -rf .husky`',
+      'git config core.hooksPath /dev/null',
+      // An octal mode drops the executable bit with no `-` in sight, and a symbolic one attaches it
+      // to the mode token. Both disarm the hook. (#1588 review)
+      'chmod 644 .husky/pre-push',
+      'chmod 000 .husky/pre-push',
+      // `--reference` copies another file's mode and can strip execute without naming one. There is
+      // no mode token to judge, and "I cannot tell" is a refusal here. (#1588 review)
+      'chmod --reference=/etc/hosts .husky/pre-push',
+      // A LONG option in front of the mode. The mode was extracted by a sed pass whose option class
+      // was short-only (`[RLHPvfc]`), so the long option was captured AS the mode and the real `-x`
+      // behind it was never judged. (#1588 review)
+      'chmod --recursive -x .husky/pre-push',
+      'chmod --verbose -x .husky/pre-push',
+      'chmod --changes 644 .husky/pre-push',
+      // Inside a SUBSTITUTION. `chmod` is on the readers whitelist, so the outer position passed it
+      // through, and the mode pattern demanded whitespace before `chmod` — inside a substitution the
+      // character before it is `(`. A statement range does not split at a substitution either, so
+      // the substitution-excluding word reading could not see it. (#1588 review)
+      'echo "$(chmod -x .husky/pre-push)"',
+      'echo `chmod 000 .husky/pre-push`',
+      // EVERY chmod in the statement, not the first — and a RESTORING one in front does not excuse
+      // the disarming one behind it. `&&` would split these into two statements judged separately,
+      // so the case that actually needs this is a second chmod inside a substitution, which stays in
+      // the same statement. (Measured: the previous reading permitted both of these.)
+      'chmod +x a $(chmod -x .husky/pre-push)',
+      'chmod +x "$(chmod -x .husky/pre-push)"',
+      // Comma-joined symbolic modes. `+x` appearing ANYWHERE read as "restoring", so a clause that
+      // removes the bit was excused by a later one that does not put it back — `+X` is conditional
+      // and does nothing when no execute bit remains. Order of clauses, not presence of a `+`.
+      'chmod a-x,+X .husky/pre-push',
+      'chmod u-x,g+x .husky/pre-push',
+      // The whitelist called these "read-only". An editor writes and an interpreter runs anything.
+      "node -e \"require('fs').writeFileSync('.husky/pre-push','exit 0')\"",
+      "python3 -c \"open('.husky/pre-push','w').write('exit 0')\"",
+      'vim .husky/pre-push',
+      // A PARAMETER EXPANSION or an ARITHMETIC one earlier in the statement. The word splitter tracked
+      // command substitutions by counting their delimiters, and `${…}`/`$((…))` are masked WITH their
+      // closing character — so the region it opened could never close, and every remaining word was
+      // swallowed. The flag behind one was never read and the commit passed in silence. Exactly the
+      // bypass this change exists to close, reopened by the change itself. (#1588 review)
+      'git commit ${EXTRA} --no-verify -m x',
+      'git commit $((1)) --no-verify -m x',
+      'git commit ${E} -n -m x',
+      'git push ${ARGS} --no-verify',
+      // A git GLOBAL option whose value is the next word. Only `-c`/`-C` were consumed, so the value
+      // of any other was latched as the subcommand — and the `-n` and `HUSKY=0` checks both ask
+      // whether the subcommand is `commit`. (#1588 review)
+      'git --work-tree /x commit -n -m y',
+      'git --git-dir /x/.git commit -n -m y',
+      'HUSKY=0 git --work-tree /x commit -m y',
+      // Setting the hooks path to an EMPTY string. The value is a fully-quoted argument, which builds
+      // a real but empty word — and command substitution strips a TRAILING newline, so that word
+      // vanished before any check saw it and the assignment read as a key with no value. (#1588)
+      'git config core.hooksPath ""',
+      'git config --local core.hooksPath ""',
+    ]) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a hook kill switch was allowed: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('leaves ordinary work with those words in it alone', () => {
+    // A guard that fires on correct work gets switched off, and these are the shapes that would.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git config user.email a@b.c',
+      'cat .husky/pre-push',
+      'ls .husky',
+      'echo "HUSKY=0 is banned"',
+      'git -c core.editor=true commit -m "x"',
+      // Review of #1588: a substitution's content is deliberately NOT masked — it runs — so an
+      // inner `-n` belonging to a DIFFERENT command was read as the outer commit's skip-hooks flag.
+      // These are ordinary commits that never name the flag at all.
+      'git commit -m "$(git log -n 1 --format=%s)"',
+      'git commit -m "$(grep -n TODO file.txt)"',
+      'git commit -F - <<EOF\nsee git log -n 1\nEOF',
+      // The rule says "reading, listing and EDITING a hook are untouched; only destroying one is
+      // refused" — and the readers-only whitelist contradicted its own statement for these two.
+      // Restoring an executable bit and editing a hook in place are not bypasses. (#1588 review)
+      'chmod +x .husky/pre-push',
+      // The counterparts of the long-option and multiple-chmod cases above: reading the mode from
+      // the WORDS must not start refusing a restore.
+      'chmod -R +x .husky',
+      'chmod --recursive +x .husky',
+      'chmod u+x .husky/pre-push',
+      'chmod 755 .husky/pre-push',
+      'sed -i "s/foo/bar/" .husky/pre-push',
+      // husky's env var also skips its INSTALL step, which gates nothing. Refusing this blocked
+      // ordinary setup — and the fresh-worktree guidance in this same change would want to run it.
+      'HUSKY=0 pnpm install',
+      // A statement can legitimately build NO words a flag matcher should see — a brace closing a
+      // function, a statement that is only a quoted string. The first spelling of the tokenizer
+      // fail-closed read an empty list as "the reading failed" and refused nearly every command
+      // typed in this repo. The error signal is the tokenizer exiting non-zero; emptiness is an
+      // ANSWER. (#1588 review)
+      '"$(date)"',
+      '""',
+      'f() { echo hi; }',
+      // The counterparts of the expansion bypass above: an expansion in an ORDINARY command must not
+      // start refusing work now that it no longer opens a skip region.
+      'git commit -m "${MSG}"',
+      'git --work-tree /x commit -m y',
+      'echo ${HOME} && git log',
+      'git commit -m "$((1 + 1)) files changed"',
+      // READING the setting, and RESTORING the default. What disables the gate is the assignment;
+      // the first spelling refused the mere appearance of the key, so a `--get` was refused as a
+      // bypass and `--unset` — which puts the default hooks BACK — was refused as a way of removing
+      // them. A guard that fires on correct work is one people learn to route around, which is the
+      // argument this whole change is built on. (#1588 review)
+      'git config --get core.hooksPath',
+      'git config --get-all core.hooksPath',
+      'git config --unset core.hooksPath',
+      'git grep core.hooksPath',
+    ]) {
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
+    }
+  });
+
+  it('refuses to skip the push hooks', () => {
+    const dir = scratchRepo('feat/probe');
+    for (const command of ['git push --no-verify', 'git push origin feat/probe --no-verify']) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a push skipped its hooks: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('leaves the ordinary forms alone, and `git push -n` is a DRY RUN', () => {
+    // Measured, not assumed: `git push -h` documents `-n` as `--dry-run`, while `git commit -h`
+    // documents `-n` as `--no-verify`. Refusing `git push -n` would refuse a harmless rehearsal —
+    // the same short flag meaning two different things in two subcommands.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git push -n',
+      'git push --dry-run',
+      'git commit -am "x"',
+      'git commit -m "x"',
+      'git push origin feat/probe',
+      // `-mn "x"` is `-m` taking the value `n` — an ordinary commit whose message is "n". The
+      // cluster rule matched any `-…n…` regardless of order and refused it. (#1588 review)
+      'git commit -mn "x"',
+      // A commit whose MESSAGE is the env var. A single-token quoted argument stays visible in the
+      // mask, so a bare presence test refused an ordinary commit. An assignment that disables husky
+      // sits at the head of its statement. (#1588 review)
+      'git commit -m "HUSKY=0"',
+    ]) {
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
+    }
+  });
+
+  it('is not disarmed by the flag sitting inside a quoted message', () => {
+    // The masker's whole job. A commit whose MESSAGE discusses the flag is prose, not a bypass.
+    const dir = scratchRepo('feat/probe');
+    const { status, output } = run(
+      'branch-guard.sh',
+      'git commit -m "note: --no-verify is banned"',
+      dir,
+    );
+    expect(status, `a quoted mention was read as the flag: ${output}`).toBe(0);
+  });
+});
+
+describe('changing a verification hook is deliberate', () => {
+  // The Bash guard covers COMMANDS. Write/Edit/MultiEdit change content without running one, so a
+  // hook could be replaced outright. PATH-based, not content-based: the first attempt asked whether
+  // the new content was empty and was measured wrong in BOTH directions — it refused an ordinary
+  // partial deletion, and it passed `content: "exit 0"`, which disables a hook exactly as emptying
+  // it would. `hook_edit_content_of` returns the changed FRAGMENT, never the resulting file, so no
+  // emptiness test on it could have been right. (#1588 review)
+  const FORBIDDEN = path.join(HOOKS_DIR, 'check-forbidden-patterns.sh');
+
+  function runTool(payload, env = {}) {
+    const result = spawnSync('bash', [FORBIDDEN], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
+      timeout: 120_000,
+    });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses an unacknowledged change to a hook, however it is spelled', () => {
+    const cases = [
+      { tool_name: 'Write', tool_input: { file_path: '/r/.husky/pre-commit', content: '' } },
+      // The evasion the content check could not see.
+      {
+        tool_name: 'Write',
+        tool_input: { file_path: '/r/.husky/pre-commit', content: 'exit 0\n' },
+      },
+      {
+        tool_name: 'Edit',
+        tool_input: { file_path: '/r/.husky/pre-push', old_string: 'x', new_string: 'true' },
+      },
+      {
+        tool_name: 'MultiEdit',
+        tool_input: {
+          file_path: '/r/.husky/pre-push',
+          edits: [{ new_string: '', old_string: 'x' }],
+        },
+      },
+    ];
+    for (const payload of cases) {
+      expect(
+        runTool(payload).status,
+        `a hook changed unacknowledged via ${payload.tool_name}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('allows an acknowledged change, and every other file', () => {
+    const ack = {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: '/r/.husky/pre-commit',
+        old_string: 'pnpm exec lint-staged',
+        new_string: 'with-repo-lock.sh pnpm exec lint-staged',
+      },
+    };
+    expect(
+      runTool(ack, { HOOK_EDIT_ACK: '1' }).status,
+      'an acknowledged hook edit was refused',
+    ).toBe(0);
+    expect(
+      runTool({ tool_name: 'Write', tool_input: { file_path: '/r/src/index.ts', content: '' } })
+        .status,
+      'an unrelated file was refused',
+    ).toBe(0);
+  });
+});

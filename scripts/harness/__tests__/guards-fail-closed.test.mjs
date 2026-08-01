@@ -1,5 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -204,4 +211,67 @@ describe('no hook crashes instead of deciding', () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+});
+
+describe('a guard that must ask GitHub refuses when it cannot', () => {
+  // Owner directive, 2026-08-02: no skill, hook or action may complete quietly on an error — it must
+  // say what went wrong and stop the flow.
+  //
+  // The trigger was a real incident this repository already paid for: INFRA-048 measured
+  // `claude-code-review` at 100 of 100 green runs, 13-21s each, reviewing nothing — the action could
+  // not mint a token, printed a skip line, and exited 0. A hundred PRs merged past a check that had
+  // said "success" without asking anything.
+  //
+  // An unauthenticated `gh` exits non-zero. This asserts each guard whose verdict genuinely DEPENDS
+  // on a GitHub answer refuses in that state, rather than reporting the pass it cannot justify.
+
+  function ghThatCannotAuthenticate() {
+    const dir = mkdtempSync(path.join(tmpdir(), 'no-gh-'));
+    writeFileSync(
+      path.join(dir, 'gh'),
+      '#!/bin/sh\necho "gh: To get started with GitHub CLI, please run: gh auth login" >&2\nexit 4\n',
+      { mode: 0o755 },
+    );
+    return `${dir}:${process.env.PATH}`;
+  }
+
+  function scratchRepo(branch) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'no-token-'));
+    const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
+    git('init', '--quiet', `--initial-branch=${branch}`);
+    git('config', 'user.email', 'harness@example.test');
+    git('config', 'user.name', 'Harness');
+    writeFileSync(path.join(dir, 'f'), 'x');
+    git('add', '-A');
+    git('commit', '--quiet', '-m', 'root');
+    return dir;
+  }
+
+  // Each row names the QUESTION the guard cannot answer without GitHub. A guard that does not need
+  // to ask belongs in `guards-pass-silently`, not here.
+  const NEEDS_GITHUB = [
+    {
+      hook: 'branch-guard.sh',
+      command: 'git push origin --delete some-feature',
+      question: "has this branch's PR actually merged",
+    },
+    {
+      hook: 'merge-gate.sh',
+      command: 'gh pr merge 1234 --squash',
+      question: 'is CI green and the review resolved',
+    },
+  ];
+
+  for (const { hook, command, question } of NEEDS_GITHUB) {
+    it(`${hook} refuses when it cannot ask: ${question}`, () => {
+      const dir = scratchRepo('feat/probe');
+      const payload = JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } });
+      const { status, output } = run(hook, payload, {
+        PATH: ghThatCannotAuthenticate(),
+        CLAUDE_PROJECT_DIR: dir,
+      });
+      expect(status, `it answered without asking: ${output}`).toBe(2);
+      expect(output.trim(), 'it refused without saying it could not read').not.toBe('');
+    });
+  }
 });
