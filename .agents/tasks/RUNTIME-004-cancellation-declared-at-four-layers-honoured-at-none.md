@@ -1,0 +1,139 @@
+---
+title: 'RUNTIME-004: cancellation is declared at four layers and honoured at none'
+status: todo
+created: 2026-08-02
+priority: high
+urgency: soon
+area: packages/agent-core, packages/agent-session, packages/dag-core, packages/dag-framework, packages/dag-runtime, packages/dag-worker, packages/dag-orchestration-client
+depends_on: []
+---
+
+# RUNTIME-004: the signal is accepted at every layer and acted on by none
+
+## Problem
+
+Cancelling does not cancel. In one instance it is silent **and destructive**: aborting a turn during
+auto-compaction still clears and rewrites the conversation history. In the DAG stack, a cancelled run
+reports cancelled and its queued tasks run to completion anyway.
+
+Cancellation is modelled as an optional parameter on the outermost contract rather than as a value
+threaded to the leaf that does the work, so each layer can accept the signal and none can act on it.
+
+## Evidence
+
+Observed independently by **L0 (untyped abort)**, **L1 (compaction)** and **L5 (the whole DAG
+stack)**.
+
+- L0 F1 — the abort has no type: `createAbortError()`
+  (`execution-round-provider.ts:202-206`) is an unexported bare `Error` with a mutated `name`, so no
+  consumer can `instanceof` it and three sites plus the framework copy
+  (`interactive-session-execution.ts:46-52`) substring-match instead.
+- L1 #7 — `packages/agent-session/src/compaction-orchestrator.ts:91-137`: `compact()` takes no
+  `AbortSignal` and the provider call at `:118-129` passes only `{ model }`. After it returns,
+  `session-history-ops.ts:49-75` does `clearHistory()` → `injectMessage(system)` →
+  `injectMessage(assistant, '[Context Summary]…')`. `session-run.ts:113-130` invokes auto-compaction at
+  the head of a turn with the turn's `abortSignal` in scope at `:106` and not passed. The rest of the
+  package gets cancellation right (`session-run.ts:195-232`), which makes this an asymmetry rather
+  than an omission.
+- L5 F4 — declared at four levels, delivered at none:
+  `dag-core/src/types/runtime-provider.ts:63` (`signal?: AbortSignal`) and `:132` (`cancelRun`);
+  `dag-orchestration-client/src/orchestration-http-contracts.ts:213-265` — `IDagOrchestrationPort`
+  has **no cancel method at all**, so the capability is dropped at that boundary;
+  `dag-framework/src/http-dag-runtime-provider.ts:215-223` rejects honestly;
+  `local-dag-runtime-provider.ts:110-114,281-283` sets a boolean and still runs `processOnce()` in the
+  same iteration; `dag-runtime/src/services/run-cancel-service.ts:32-61` writes `dagRun.status` and
+  nothing else; `dag-worker/src/services/worker-loop-service.ts:101-155` **never reads
+  `dagRun.status`**, so a cancelled run's queued tasks run to completion;
+  `dag-core/src/types/node-lifecycle.ts:13-23` — `INodeExecutionContext` carries no signal, so
+  `INodeLifecycle.execute` is uncancellable by construction, which
+  `dag-worker/src/services/task-timeout-executor.ts:32-34` states plainly as its own limitation.
+
+The cause in one sentence, from the synthesis: _cancellation is modelled as an optional parameter on
+the outermost contract rather than as a value threaded to the leaf that does the work, so each layer
+can accept the signal and none can act on it._
+
+Cross-reference: L0 F1 is shared with CORE-027 (the failure contract) — the untyped abort is both the
+reason cancellation cannot be identified and the reason a provider error containing "abort" is
+misclassified as a successful interrupted run. The two Tasks touch the same code at
+`execution-round-provider.ts:202-206`.
+
+## Why this is foundational (or not)
+
+**FOUNDATIONAL in all three reports** — L0, L1 and L5 each reached that verdict independently, with
+no disagreement recorded.
+
+The synthesis emphasises L1's framing: the rest of `agent-session` gets cancellation right
+(`session-run.ts:195-232`), which makes the compaction path _an asymmetry rather than an omission_ —
+the signal is in scope at `session-run.ts:106` and simply not passed.
+
+Severity HIGH; the destructive instance (history cleared and rewritten after an abort) is what lifts
+it above the other declared-but-unreachable findings.
+
+## Direction
+
+The invariant, from the synthesis's own one-sentence cause: the signal must be **threaded to the leaf
+that does the work**, not accepted as an optional parameter at the outermost contract.
+
+Named concrete gaps, in the order the layers fail:
+
+- `INodeExecutionContext` (`dag-core/src/types/node-lifecycle.ts:13-23`) **carries no signal**, so
+  `INodeLifecycle.execute` is uncancellable _by construction_ — this is the leaf, and nothing above it
+  can be fixed while it stands. `task-timeout-executor.ts:32-34` already states this as its own
+  limitation. (This is the same context object ARCH-010 must extend for the execution root.)
+- `IDagOrchestrationPort` (`orchestration-http-contracts.ts:213-265`) has **no cancel method at all**,
+  so the capability is dropped at that boundary regardless of what either side supports.
+- `worker-loop-service.ts:101-155` never reads `dagRun.status`, so
+  `run-cancel-service.ts:32-61`'s write has no reader.
+- `compaction-orchestrator.ts:91-137` takes no `AbortSignal`; the signal exists at
+  `session-run.ts:106` and is not passed to `:118-129`.
+- The abort needs a **type** (`execution-round-provider.ts:202-206`), shared with CORE-027.
+
+The synthesis names `http-dag-runtime-provider.ts:215-223` as the one implementation that **rejects
+honestly** — that is the behaviour to preserve, not to "fix".
+
+Risk named by the synthesis: `local-dag-runtime-provider.ts:110-114,281-283` sets a boolean and still
+runs `processOnce()` in the same iteration, so a fix that only checks the flag at loop entry still
+executes one more node after cancellation.
+
+## Test Plan
+
+- **Required red-first regression:** trigger auto-compaction at the head of a turn
+  (`session-run.ts:113-130`), abort the turn while `compact()` is in flight, and assert the
+  conversation history is **unchanged**. Against current code this must FAIL — `compact()` takes no
+  signal and `session-history-ops.ts:49-75` then does `clearHistory()` → two `injectMessage` calls
+  regardless.
+- Red-first: cancel a DAG run with queued tasks and assert none of them executes
+  (`run-cancel-service.ts:32-61` writes; `worker-loop-service.ts:101-155` must read).
+- Red-first: cancel during a node's execution and assert the node observes the signal
+  (`INodeExecutionContext`, `node-lifecycle.ts:13-23`).
+- Red-first: assert `local-dag-runtime-provider.ts:281-283` does **not** run one further
+  `processOnce()` after cancellation.
+- Assert `IDagOrchestrationPort` exposes cancel, and that
+  `http-dag-runtime-provider.ts:215-223`'s honest rejection is preserved where the capability is
+  genuinely absent.
+- `pnpm harness:verify-like-ci` green.
+
+## User Execution Test Scenarios
+
+**Applies.** Cancelling a turn and cancelling a run are user actions with user-visible consequences,
+one of them destructive.
+
+- **Prerequisites:** built `robota` CLI; a provider key. The compaction scenario needs a conversation
+  long enough to trigger auto-compaction — achievable by lowering the context threshold in config or
+  by a scripted long conversation; the config surface already exists, so no new fixture is needed. The
+  DAG scenario needs a multi-node workflow, authored as part of this work.
+- **Steps:**
+  1. Drive a session until auto-compaction triggers at the head of a turn; press the cancel key
+     (Esc/Ctrl-C) while the compaction request is in flight.
+  2. Inspect the conversation history in the session (scroll back / `/context`), and reopen the
+     persisted session.
+  3. Start a multi-node workflow run, cancel it while an early node is executing, then query the run.
+- **Expected observable result (after the fix):** in step 2 the prior conversation is intact — it has
+  not been cleared and replaced with a `[Context Summary]` message. In step 3 no further node starts
+  after the cancel, and the run's terminal status matches what actually ran.
+- **Expected observable result (before the fix, for contrast):** in step 2 the history has been
+  cleared and rewritten despite the abort; in step 3 the run reports cancelled while its queued tasks
+  run to completion.
+- **Cleanup:** delete the scratch session and workflow run state.
+- **Evidence (fill in after implementation):** before/after history listings for steps 1–2, and the
+  run's node-execution record for step 3.
