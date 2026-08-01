@@ -253,18 +253,43 @@ while read -r STMT_START STMT_LEN; do
   # Refusing `git push -n` would refuse a harmless rehearsal. The short cluster is matched because
   # `git commit -nm "x"` bundles, and it reads the MASKED statement, so a message DISCUSSING the flag
   # is prose and passes.
+  # The CLASS is "disable the gate instead of satisfying it", not one flag. The first version of this
+  # ban closed `--no-verify` alone, and measuring it immediately found SIX other routes walking
+  # through — the instance-not-class mistake this file's history is full of. Each member below is a
+  # documented kill switch published by the tool it belongs to, and none has a legitimate agent use.
   SKIP_HOOKS=false
+  SKIP_WHAT=""
+  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(commit|push)${GITEND}"; then
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="--no-verify"; }
+  fi
+  # The short form is COMMIT-only, and the asymmetry is measured rather than assumed:
+  #   git commit -h  ->  -n, --no-verify
+  #   git push   -h  ->  -n, --[no-]dry-run
+  # Refusing it on a push would refuse a harmless rehearsal. The cluster is matched because
+  # `git commit -nm "x"` bundles.
   if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}commit${GITEND}"; then
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' && SKIP_HOOKS=true
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' && SKIP_HOOKS=true
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="git commit -n"; }
   fi
-  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}push${GITEND}"; then
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' && SKIP_HOOKS=true
-  fi
+  # husky's own kill switch, as an environment assignment on the command.
+  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])HUSKY=0([[:space:]]|$)' &&
+    { SKIP_HOOKS=true; SKIP_WHAT="HUSKY=0"; }
+  # git's own: `git -c core.hooksPath=…` for one call, `git config core.hooksPath …` forever.
+  printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
+    { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
+  # And simply destroying the hook. Reading, listing and editing it are untouched — only removing,
+  # emptying or disarming it. `cat`/`ls` on the same path stay silent, which is asserted.
+  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])(rm|unlink|mv)([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^[:space:]]*\.husky/' &&
+    { SKIP_HOOKS=true; SKIP_WHAT="removing a hook"; }
+  printf '%s' "$STMT_MASK" | grep -qE '>[[:space:]]*[^[:space:]]*\.husky/' &&
+    { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
+  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+[^[:space:]]*\.husky/' &&
+    { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
   if [[ "$SKIP_HOOKS" == "true" ]]; then
-    echo "[branch-guard] Blocked: '--no-verify' skips the gate. Zero exceptions." >&2
-    echo "[branch-guard] Four agents bypassed this way in one day; the gate was broken and was fixed." >&2
-    echo "[branch-guard] If a check is wrong or unrunnable, change the check — do not step around it." >&2
+    echo "[branch-guard] Blocked: '$SKIP_WHAT' disables the gate rather than satisfying it. Zero exceptions." >&2
+    echo "[branch-guard] Four agents bypassed in one day; the gate was broken (HARNESS-058) and was fixed." >&2
+    echo "[branch-guard] If a check is wrong, unrunnable, or fires on correct work, change the CHECK." >&2
     echo "[branch-guard] A fresh worktree needs 'pnpm install --frozen-lockfile' and 'pnpm build' once." >&2
     exit 2
   fi

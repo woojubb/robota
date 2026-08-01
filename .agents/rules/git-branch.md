@@ -91,10 +91,25 @@ reads as stalling. Avoid the opposite failure too: do not fragment into many tri
 context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
 implementing and keep committing. (Owner feedback, 2026-07-17, validated on SELFHOST-003 P1.)
 
-### `--no-verify` is Prohibited on `commit` and `push`
+### Disabling the Gate is Prohibited
 
-**Never pass `--no-verify` (or `git commit -n`). Zero exceptions.** Enforced by `branch-guard.sh`
-(INFRA-083), and it has to be enforced THERE: `--no-verify` disables the git-level hook, so the
+**Never disable a hook instead of satisfying it. Zero exceptions.** Enforced by `branch-guard.sh`
+(INFRA-083). The banned set is every documented kill switch, not one flag:
+
+| Route                                                       | Published by |
+| ----------------------------------------------------------- | ------------ |
+| `--no-verify`, `git commit -n`                              | git          |
+| `HUSKY=0`                                                   | husky        |
+| `git -c core.hooksPath=…`, `git config core.hooksPath …`    | git          |
+| removing, emptying or `chmod -x`-ing a file under `.husky/` | —            |
+
+The first version of this rule banned `--no-verify` alone. Measuring it immediately found **six other
+routes walking straight through** — closing the instance and leaving the class, which is the mistake
+this rule exists to stop repeating.
+
+Reading, listing and editing a hook are untouched; only destroying one is refused.
+
+It has to be enforced at the PreToolUse layer: `--no-verify` disables the git-level hook, so the
 pre-push hook cannot catch its own bypass — by the time it would run it has already been skipped.
 The PreToolUse layer runs on the tool call, which the flag cannot reach.
 

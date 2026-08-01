@@ -350,6 +350,46 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
     }
   });
 
+  it('refuses every OTHER way to disable the hooks, not just the flag', () => {
+    // The first version of this ban closed ONE spelling. Measured immediately after: six other
+    // routes walked straight through — which is the instance-not-class mistake this file's own
+    // history is full of.
+    //
+    // The set is small and each member is documented by the tool it belongs to: git publishes
+    // `core.hooksPath`, husky publishes its `HUSKY=0` kill switch. None has a legitimate agent use.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'HUSKY=0 git push origin feat/probe',
+      'HUSKY=0 git commit -m "x"',
+      'git -c core.hooksPath=/dev/null push origin feat/probe',
+      'git -c core.hooksPath=/dev/null commit -m "x"',
+      'git config core.hooksPath /dev/null',
+      'rm .husky/pre-push',
+      'echo "" > .husky/pre-commit',
+      'chmod -x .husky/pre-push',
+    ]) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a hook kill switch was allowed: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('leaves ordinary work with those words in it alone', () => {
+    // A guard that fires on correct work gets switched off, and these are the shapes that would.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git config user.email a@b.c',
+      'cat .husky/pre-push',
+      'ls .husky',
+      'echo "HUSKY=0 is banned"',
+      'git -c core.editor=true commit -m "x"',
+    ]) {
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
+    }
+  });
+
   it('refuses to skip the push hooks', () => {
     const dir = scratchRepo('feat/probe');
     for (const command of ['git push --no-verify', 'git push origin feat/probe --no-verify']) {
