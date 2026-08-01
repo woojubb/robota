@@ -112,19 +112,35 @@ STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=)?[[:space:]]*'
 STASH_END='([^-[:alnum:]_]|$)'
 if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}git[[:space:]]+stash${STASH_END}"; then
   BARE_STASH=false
-  # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
-  # with no subcommand keyword, and they add an entry another agent's bare pop can take. Matching
-  # only the literal words `push`/`save` let every one of them through. (#1585)
-  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]*(;|&|\||\)|\`|$)" && BARE_STASH=true
-  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+(push|save)${STASH_END}" && BARE_STASH=true
-  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+-' && BARE_STASH=true
-  # `clear` takes no argument and deletes EVERY entry, including ones another agent has not popped
-  # yet — the worst of the set, and the one the first version of this list forgot.
-  printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+clear${STASH_END}" && BARE_STASH=true
-  # `branch` and `pop`/`apply`/`drop` all take the TOP of the stack when no ref is named.
-  if printf '%s' "$STASH_VERBS" | grep -qE "git[[:space:]]+stash[[:space:]]+(pop|apply|drop|branch)${STASH_END}"; then
-    printf '%s' "$STASH_VERBS" | grep -qE 'stash@\{' || BARE_STASH=true
-  fi
+  # PER STATEMENT, and a comment is not a statement.
+  #
+  # The ref check asked whether `stash@{` occurred ANYWHERE in the command. So a bare pop travelled
+  # free beside a well-formed sibling — `git stash pop; git stash pop stash@{0}` — and a trailing
+  # `# stash@{0}` was enough on its own. This file had already met that class further down, for the
+  # destructive-command override, and says so there: "the token sitting on a sibling command excuses
+  # nothing". The new block did not reuse the split and reintroduced it. (#1585)
+  #
+  # Same separators the override loop uses. Comments are stripped first, because a suppression a
+  # reader can write in prose is not a suppression.
+  STASH_STATEMENTS=$(printf '%s\n' "$STASH_VERBS" | sed -E 's/#.*$//' | sed -E 's/(\|\||&&|[;&|])/\n/g')
+  while IFS= read -r STMT; do
+    printf '%s' "$STMT" | grep -qE "${STASH_PRE}git[[:space:]]+stash${STASH_END}" || continue
+    # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
+    # with no subcommand keyword, and they add an entry another agent's bare pop can take. Matching
+    # only the literal words `push`/`save` let every one of them through. (#1585)
+    printf '%s' "$STMT" | grep -qE "git[[:space:]]+stash[[:space:]]*$" && BARE_STASH=true
+    printf '%s' "$STMT" | grep -qE "git[[:space:]]+stash[[:space:]]*(\)|\`)" && BARE_STASH=true
+    printf '%s' "$STMT" | grep -qE "git[[:space:]]+stash[[:space:]]+(push|save)${STASH_END}" && BARE_STASH=true
+    printf '%s' "$STMT" | grep -qE 'git[[:space:]]+stash[[:space:]]+-' && BARE_STASH=true
+    # `clear` takes no argument and deletes EVERY entry, including ones another agent has not popped
+    # yet — the worst of the set, and the one the first version of this list forgot.
+    printf '%s' "$STMT" | grep -qE "git[[:space:]]+stash[[:space:]]+clear${STASH_END}" && BARE_STASH=true
+    # `branch` and `pop`/`apply`/`drop` all take the TOP of the stack when no ref is named — and the
+    # ref must be in THIS statement.
+    if printf '%s' "$STMT" | grep -qE "git[[:space:]]+stash[[:space:]]+(pop|apply|drop|branch)${STASH_END}"; then
+      printf '%s' "$STMT" | grep -qE 'stash@\{' || BARE_STASH=true
+    fi
+  done <<< "$STASH_STATEMENTS"
   if [[ "$BARE_STASH" == "true" ]]; then
     # `hook_cwd_of` returns exit 0 with an EMPTY string when the field is absent — that is its stated
     # contract — so `|| echo .` never fires there and `git -C ""` would mean "no change" rather than

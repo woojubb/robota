@@ -272,4 +272,32 @@ describe('a bare stash command is refused while the stack is shared', () => {
       expect(run(command, dir).status, `a stash command escaped the gate: ${command}`).not.toBe(0);
     }
   });
+
+  it('a ref on a sibling statement does not excuse a bare one', () => {
+    // Review of #1585, MUST. The ref check asked whether `stash@{` occurs ANYWHERE in the command,
+    // not whether the matched subcommand is the one carrying it. So a bare pop travelled free
+    // alongside a well-formed sibling — and a comment was enough.
+    //
+    // This file had already met and closed this class further down, for the destructive-command
+    // override: "excused only if the override prefixes THAT statement; the token sitting on a
+    // sibling command excuses nothing". The new block did not reuse that split and reintroduced it.
+    const dir = repoWithWorktrees(2);
+    for (const command of [
+      'git stash pop; git stash pop stash@{0}',
+      'git stash pop  # stash@{0}',
+      'git stash pop stash@{0} && git stash drop',
+    ]) {
+      expect(
+        run(command, dir).status,
+        `a ref on a sibling statement excused a bare one: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('still allows a command whose every stash statement names its ref', () => {
+    // The other direction, so the case above cannot be satisfied by refusing all compounds.
+    const dir = repoWithWorktrees(2);
+    const { status, output } = run('git stash pop stash@{0}; git stash drop stash@{1}', dir);
+    expect(status, `a fully-explicit compound was refused: ${output}`).toBe(0);
+  });
 });
