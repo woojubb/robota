@@ -259,6 +259,23 @@ sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the stud
 | `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
 | `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
 
+### Abort Classification Public API (CORE-027)
+
+The SSOT for "was this failure an ABORT?" whenever the answer changes what the caller reports.
+Three call sites decided it by looking at the error's PROSE
+(`message.includes('aborted') || message.includes('abort')`), and the execution service returned
+`success: true, interrupted: true` when it said yes — so a real provider failure whose text happened
+to contain those letters was reported as a successfully interrupted run, with nothing downstream,
+including the print-mode exit code, able to tell. The authoritative signals are the `AbortSignal` the
+caller already holds and the error's own `name`, neither of which is a guess about wording.
+
+Exported because `agent-framework`'s interactive path needs the same decision: a fourth private copy
+is how the third one survived a fix to the first two.
+
+| Export           | Kind     | Description                                                                                     |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `isAbortFailure` | function | Whether a failure is an abort, decided from the caller's `AbortSignal` and the error's own name |
+
 ### Schema (CORE-015)
 
 | Export                                                                                                    | Kind     | Description                                                                                                               |
