@@ -1,5 +1,6 @@
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
+import { isAbortFailure } from '../utils/abort-classification';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
@@ -118,12 +119,11 @@ export async function callRoundProviderWithEvents(
     return response;
   } catch (providerError) {
     // allow-fallback: provider errors terminate the round, not the process
-    const isAbortError =
-      providerError instanceof Error &&
-      (providerError.name === 'AbortError' ||
-        providerError.message.includes('aborted') ||
-        providerError.message.includes('abort'));
-    if (isAbortError) {
+    //
+    // CORE-027: classified from the SIGNAL this round was given and from the error's own name, never
+    // from its prose. The substring test that stood here committed the round as `interrupted` for
+    // any provider failure whose message happened to contain "abort".
+    if (isAbortFailure(providerError, fullContext.signal)) {
       conversationStore.commitAssistant('interrupted', { round: currentRound });
       throw providerError;
     }

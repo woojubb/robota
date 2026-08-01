@@ -1,4 +1,5 @@
 // Utility exports
+export * from './abort-classification';
 export * from './message-converter';
 export * from './logger';
 export * from './validation';

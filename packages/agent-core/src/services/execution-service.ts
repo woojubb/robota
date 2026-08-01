@@ -18,6 +18,7 @@ import {
 } from './execution-types';
 import { callPluginHook, type TPluginWithHooks } from './plugin-hook-dispatcher';
 import { ToolExecutionService } from './tool-execution-service';
+import { isAbortFailure } from '../utils/abort-classification';
 import { createLogger, type ILogger } from '../utils/logger';
 
 import type {
@@ -231,12 +232,10 @@ export class ExecutionService {
         this.eventEmitter,
       );
     } catch (error) {
-      const isAbortError =
-        error instanceof Error &&
-        (error.name === 'AbortError' ||
-          error.message.includes('aborted') ||
-          error.message.includes('abort'));
-      if (isAbortError) {
+      // CORE-027: classified from the SIGNAL and the error's own name, never from its prose. The
+      // substring test that stood here returned `success: true, interrupted: true` for any provider
+      // failure whose message happened to contain "abort".
+      if (isAbortFailure(error, context?.signal)) {
         return {
           response: '',
           messages: conversationStore.getMessages(),
