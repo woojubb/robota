@@ -391,6 +391,14 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'echo "$(rm .husky/pre-push)"',
       'echo `rm -rf .husky`',
       'git config core.hooksPath /dev/null',
+      // An octal mode drops the executable bit with no `-` in sight, and a symbolic one attaches it
+      // to the mode token. Both disarm the hook. (#1588 review)
+      'chmod 644 .husky/pre-push',
+      'chmod 000 .husky/pre-push',
+      // The whitelist called these "read-only". An editor writes and an interpreter runs anything.
+      "node -e \"require('fs').writeFileSync('.husky/pre-push','exit 0')\"",
+      "python3 -c \"open('.husky/pre-push','w').write('exit 0')\"",
+      'vim .husky/pre-push',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,

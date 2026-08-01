@@ -340,7 +340,16 @@ while read -r STMT_START STMT_LEN; do
     # `sed -i 's/foo/bar/'` (which is exactly what the review before this one found), too loose buys
     # the next program spelling. The path an agent actually takes — Write/Edit/MultiEdit — IS closed,
     # in check-forbidden-patterns.sh, which refuses a hook body left with nothing to run.
-    HUSKY_SAFE='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf|sed|awk|chmod|vim|nano|node|python3)'
+    # `vim`, `nano`, `node` and `python3` were in this list under the heading "read-only", which they
+    # are not: an editor writes, and an interpreter runs whatever it is handed. Measured — with them
+    # present, `node -e "require('fs').writeFileSync('.husky/pre-push','exit 0')"` walked straight
+    # through. The Write/Edit path already demands `HOOK_EDIT_ACK=1`; letting the same change in via
+    # Bash because the verb was `node` was an asymmetry, not a policy. (#1588 review)
+    #
+    # `sed`/`awk` stay, and the stated limit below says why: they are the everyday edit path, and
+    # deciding whether a given program empties a file needs an evaluator that is wrong in both
+    # directions. An editor that OPENS a hook is refused; a stream edit is not.
+    HUSKY_SAFE='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf|sed|awk|chmod)'
     # EVERY command position, including the ones inside a substitution. The tokenizer deliberately
     # leaves substitution content executable — it runs — so `echo "$(rm .husky/pre-push)"` led with a
     # whitelisted verb while really deleting the hook. Checking only the statement's first token is
@@ -356,9 +365,27 @@ while read -r STMT_START STMT_LEN; do
         grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_SAFE}([[:space:]]|$)" ||
         { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
     done <<< "$HUSKY_POSITIONS"
-    # `chmod` may restore a bit; it may not remove the executable one.
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]*-[^[:space:]]*x' &&
-      { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
+    # `chmod` may restore a bit; it may not remove the executable one. Three spellings do that, and
+    # the first version caught only the separated `-x`: `chmod a-x` attaches the minus to the mode
+    # token, and an OCTAL mode drops the bit with no `-` anywhere. A mode is refused unless it is
+    # visibly ADDING execute. (#1588 review)
+    # Only REAL options are skipped over. `-[Rvfch]`-style flags are chmod's; `-x` is a MODE that
+    # happens to start with a minus, and treating it as an option made the mode come back as the file
+    # path — so `chmod -x` stopped being caught by the very change meant to widen the check.
+    CHMOD_MODE=$(printf '%s' "$STMT_MASK" | sed -nE 's/.*(^|[[:space:]])chmod[[:space:]]+(--?[RLHPvfc]+[[:space:]]+)*([^[:space:]]+).*/\3/p')
+    if [[ -n "$CHMOD_MODE" ]]; then
+      case "$CHMOD_MODE" in
+        *+x*|*+X*) ;;                                   # restoring the bit
+        [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7])
+          # Octal: the owner digit carries execute as 1, so 7/5/3/1 keep it and the rest drop it.
+          case "${CHMOD_MODE: -3:1}" in
+            1|3|5|7) ;;
+            *) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+          esac
+          ;;
+        *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+      esac
+    fi
     # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
     printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])find([[:space:]]|$)' &&
       printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-(delete|exec)([[:space:]]|$)' &&
