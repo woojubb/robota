@@ -79,6 +79,40 @@ Adopted from the RCP conduct authority ([agent-conduct.md](agent-conduct.md) hol
   third-party source code is not prior-art evidence — read the public doc it points to.
 - Be appropriately skeptical of SEO-prone or contested results; re-search on conflict.
 
+### Host Platform Is Read, Never Assumed
+
+The host OS is a PROPERTY OF THE CURRENT SESSION, not of this repository. The same person runs this
+repo on Linux and on macOS, and the platform can change between one session and the next — including
+mid-conversation, when work moves to another machine.
+
+- **Read the platform before recommending or writing a shell command.** The session environment
+  states it; `uname -s` confirms it. Never carry a platform assumption over from an earlier session,
+  an earlier message, or from what a checked-in script happens to contain.
+- **A command handed to the user must run on THEIR current platform.** These differ, and each has
+  produced a real failure:
+
+  | Task            | GNU / Linux           | BSD / macOS                                 |
+  | --------------- | --------------------- | ------------------------------------------- |
+  | in-place edit   | `sed -i 's/a/b/' f`   | `sed -i '' 's/a/b/' f`                      |
+  | absolute path   | `readlink -f p`       | `readlink` lacks `-f`; use `perl`/`python3` |
+  | file mtime/size | `stat -c %Y f`        | `stat -f %m f`                              |
+  | relative date   | `date -d '1 day ago'` | `date -v-1d`                                |
+  | PCRE grep       | `grep -P`             | unsupported; use `rg` or `grep -E`          |
+  | base64 no-wrap  | `base64 -w0`          | `base64` (no wrapping by default)           |
+
+- **Checked-in scripts must be portable or explicitly platform-gated.** A script in `scripts/`,
+  `.husky/`, or `.claude/hooks/` runs on whatever machine clones the repo. Prefer `node`/`python3`
+  for anything with a platform-divergent flag; where a shell builtin is genuinely required, branch on
+  `uname -s` and fail loudly on an unhandled platform rather than silently producing a wrong result
+  (see "Silence is not success" in [enforcement-architecture.md](enforcement-architecture.md)).
+- **When the platform cannot be determined, ask or detect — do not guess.** A command that silently
+  does the wrong thing on the other OS is worse than a command that was never offered.
+
+**Why this is a rule and not a preference:** a platform-wrong command does not error in a way that
+names its cause. `sed -i` on macOS consumes the next argument as the backup suffix and reports
+success, `stat -c` fails with an opaque usage line, `date -d` silently parses a different date. Each
+looks like the command worked.
+
 ### File Handling Discipline
 
 - Create files only when necessary; prefer editing an existing file over creating a new one; no
