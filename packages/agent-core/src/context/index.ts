@@ -12,13 +12,15 @@ export { readTokenUsageFromMessage, readTokenUsageFromMetadata } from './token-u
 // Model definitions (SSOT)
 export type { IModelDefinition } from './models.js';
 export {
-  CLAUDE_MODELS,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_OUTPUT,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,
   formatTokenCount,
+  registerModelMetadata,
+  clearRegisteredModelMetadata,
+  findModelDefinition,
 } from './models.js';
 
 // Model pricing (SSOT)

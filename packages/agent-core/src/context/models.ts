@@ -3,6 +3,27 @@
  * Source: https://platform.claude.com/docs/en/about-claude/models/overview
  */
 
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('agent-core:models');
+
+/**
+ * One line per unknown model, not one per call. `getModelContextWindow` runs on every round, and a
+ * warning repeated a thousand times is a warning nobody reads.
+ */
+const warnedModels = new Set<string>();
+
+function warnUnknownModel(modelId: string, what: string, fallback: number): void {
+  const key = `${modelId}:${what}`;
+  if (warnedModels.has(key)) return;
+  warnedModels.add(key);
+  logger.warn(
+    `No metadata registered for model "${modelId}"; using the default ${what} of ${fallback}. ` +
+      "This number belongs to a different vendor's models — register the model through " +
+      'registerModelMetadata() from the package that owns it. (NEUT-010)',
+  );
+}
+
 export interface IModelDefinition {
   /** Human-readable model name */
   name: string;
@@ -18,74 +39,73 @@ export interface IModelDefinition {
  * Known Claude models (4.5+).
  * Keyed by API model ID for fast lookup.
  */
-export const CLAUDE_MODELS: Record<string, IModelDefinition> = {
-  'claude-opus-4-6': {
-    name: 'Claude Opus 4.6',
-    id: 'claude-opus-4-6',
-    contextWindow: 1_000_000,
-    maxOutput: 128_000,
-  },
-  'claude-sonnet-4-6': {
-    name: 'Claude Sonnet 4.6',
-    id: 'claude-sonnet-4-6',
-    contextWindow: 1_000_000,
-    maxOutput: 64_000,
-  },
-  'claude-haiku-4-5': {
-    name: 'Claude Haiku 4.5',
-    id: 'claude-haiku-4-5',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-  'claude-haiku-4-5-20251001': {
-    name: 'Claude Haiku 4.5',
-    id: 'claude-haiku-4-5-20251001',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-  'claude-sonnet-4-5': {
-    name: 'Claude Sonnet 4.5',
-    id: 'claude-sonnet-4-5',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-  'claude-sonnet-4-5-20250929': {
-    name: 'Claude Sonnet 4.5',
-    id: 'claude-sonnet-4-5-20250929',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-  'claude-opus-4-5': {
-    name: 'Claude Opus 4.5',
-    id: 'claude-opus-4-5',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-  'claude-opus-4-5-20251101': {
-    name: 'Claude Opus 4.5',
-    id: 'claude-opus-4-5-20251101',
-    contextWindow: 200_000,
-    maxOutput: 64_000,
-  },
-};
-
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 
-/** Get context window size for a model ID. Falls back to DEFAULT_CONTEXT_WINDOW. */
+/**
+ * Model metadata contributed by a provider package. NEUT-010.
+ *
+ * This package used to carry a CLAUDE table, against its own SPEC ("must not branch on concrete
+ * provider or model names") — and `agent-provider-anthropic` imported it back out. The table now
+ * lives with the package that owns those models, and every provider contributes the same way.
+ *
+ * The registry is the ONLY source. A model nobody registered is a model nobody owns, which is a
+ * different answer from "here is a number", and the callers below say so.
+ */
+const registeredModels = new Map<string, IModelDefinition>();
+
+/** Contribute model metadata from the package that owns the model. */
+export function registerModelMetadata(...definitions: IModelDefinition[]): void {
+  for (const definition of definitions) registeredModels.set(definition.id, definition);
+}
+
+/** Forget contributed metadata. Exposed for tests and for hosts that rebuild a registry. */
+export function clearRegisteredModelMetadata(): void {
+  registeredModels.clear();
+}
+
+/** The metadata known for a model ID, or `undefined` when nothing owns it. */
+export function findModelDefinition(modelId: string): IModelDefinition | undefined {
+  return registeredModels.get(modelId);
+}
+
+/**
+ * Get context window size for a model ID.
+ *
+ * NEUT-010: an unknown model used to receive `DEFAULT_CONTEXT_WINDOW` — 200 000, which is CLAUDE's
+ * window — with no signal at all. Every non-Claude session was therefore sized against a number
+ * belonging to a different vendor's models, and the two consumers that act on it
+ * (`execution-round-context.ts`, `execution-round-tools.ts`, and `agent-session`'s context-window
+ * tracker) had no way to know they were working from a guess.
+ *
+ * The fallback remains, because these call sites need a number to plan a round with. What changes is
+ * that it is no longer SILENT: falling back now says which model it could not identify. A guess that
+ * announces itself can be found; one that does not is indistinguishable from knowledge.
+ */
 export function getModelContextWindow(modelId: string): number {
-  return CLAUDE_MODELS[modelId]?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+  const known = findModelDefinition(modelId)?.contextWindow;
+  if (known !== undefined) return known;
+  warnUnknownModel(modelId, 'context window', DEFAULT_CONTEXT_WINDOW);
+  return DEFAULT_CONTEXT_WINDOW;
 }
 
 export const DEFAULT_MAX_OUTPUT = 16_384;
 
-/** Get max output tokens for a model ID. Falls back to DEFAULT_MAX_OUTPUT. */
+/** Get max output tokens for a model ID. Falls back to DEFAULT_MAX_OUTPUT, and says so. */
 export function getModelMaxOutput(modelId: string): number {
-  return CLAUDE_MODELS[modelId]?.maxOutput ?? DEFAULT_MAX_OUTPUT;
+  const known = findModelDefinition(modelId)?.maxOutput;
+  if (known !== undefined) return known;
+  warnUnknownModel(modelId, 'max output', DEFAULT_MAX_OUTPUT);
+  return DEFAULT_MAX_OUTPUT;
 }
 
-/** Get human-readable model name for a model ID. Falls back to the ID itself. */
+/**
+ * Get human-readable model name for a model ID. Falls back to the ID itself.
+ *
+ * No warning here: the ID is a CORRECT answer to "what should I call this model", not a guess about
+ * the model's capabilities. Warning on it would train the reader to ignore the ones that matter.
+ */
 export function getModelName(modelId: string): string {
-  return CLAUDE_MODELS[modelId]?.name ?? modelId;
+  return findModelDefinition(modelId)?.name ?? modelId;
 }
 
 /** Format token count as human-readable (e.g., 200K, 1M, 1.2M). Minimum unit is K. */

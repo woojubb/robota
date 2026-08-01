@@ -259,6 +259,29 @@ sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the stud
 | `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
 | `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
 
+### Model Metadata Registry Public API (NEUT-010)
+
+Who owns the answer to "how big is this model's context window". This package used to carry a CLAUDE
+table — against its own rule that it must not branch on concrete provider or model names — and
+`agent-provider-anthropic` imported it back out. Worse, `getModelContextWindow` handed every model
+NOT in that table `DEFAULT_CONTEXT_WINDOW`, which is 200 000, which is Claude's window: every
+non-Claude session was planned against another vendor's number with no signal at all.
+
+The table now lives with the package that owns those models, and every provider contributes the same
+way. The registry is the ONLY source, so a model nobody registered is a model nobody owns — and the
+lookup helpers say so once per model rather than passing silently.
+
+`CLAUDE_MODELS` is **no longer exported from this package**. Import it from
+`@robota-sdk/agent-provider-anthropic`, which owns it.
+
+| Export                  | Kind     | Description                                                    |
+| ----------------------- | -------- | -------------------------------------------------------------- |
+| `registerModelMetadata` | function | Contribute model metadata from the package that owns the model |
+
+`findModelDefinition` and `clearRegisteredModelMetadata` are deliberately NOT on the package entry:
+the contribution point is the whole public contract, and lookups go through the existing
+`getModelContextWindow` / `getModelMaxOutput` / `getModelName` helpers.
+
 ### Diagnostic Sink Public API (CORE-029)
 
 Where this package's diagnostics go. `createLogger(name, sink?)` fell back to `SilentLogger` when no
