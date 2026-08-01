@@ -330,12 +330,26 @@ function logicalLines(text) {
   return out;
 }
 
-/** Whether an extensionless file declares itself a shell script. Unreadable counts as "no". */
+/**
+ * Whether an extensionless file declares itself a shell script.
+ *
+ * ONLY a file that is not there answers "no". The first spelling caught every read error and
+ * returned `false`, so a permission-denied or transiently-unreadable governed script dropped out of
+ * the scan AND out of `filesExamined` with no signal at all — the "size of what it examined"
+ * self-report would have under-counted silently. That is the exact shape the rule this same change
+ * adds argues against: fail loudly rather than silently produce a wrong result. Anything other than
+ * a missing file is rethrown and stops the scan with its cause. (#1590 review)
+ */
 function isShellShebang(absolute) {
   try {
     return SHEBANG.test(readFileSync(absolute, 'utf8').split('\n', 1)[0] ?? '');
-  } catch {
-    return false;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw new Error(
+      `could not read ${absolute} to decide whether it is a shell script: ${error?.message ?? error}. ` +
+        'This scan will not report a pass over a file it could not read.',
+      { cause: error },
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -295,6 +295,28 @@ describe('scan-shell-portability', () => {
   it('reports the SIZE of what it examined, so a pass over nothing is visible', () => {
     const root = fixture({ 'scripts/a.sh': 'echo hi\n', 'scripts/b.sh': 'echo ho\n' });
     expect(findPortabilityFindings(root).filesExamined).toBeGreaterThanOrEqual(2);
+  });
+
+  // A file that cannot be READ is not a file that is absent. Catching every error and answering
+  // "not a shell script" dropped the file out of the scan AND out of `filesExamined`, so the
+  // examined-size self-report would have under-counted with no signal. (#1590 review)
+  it('REFUSES to decide about a file it could not read', () => {
+    const root = fixture({ 'scripts/hook': '#!/bin/sh\nstat -c %Y f\n' });
+    const target = path.join(root, 'scripts', 'hook');
+    chmodSync(target, 0o000);
+    try {
+      // Running as root defeats the permission bit; skip rather than assert a false thing.
+      let readable = true;
+      try {
+        readFileSync(target, 'utf8');
+      } catch {
+        readable = false;
+      }
+      if (readable) return;
+      expect(() => findPortabilityFindings(root)).toThrow(/could not read/);
+    } finally {
+      chmodSync(target, 0o644);
+    }
   });
 
   it('REFUSES to pass over a tree it cannot read', () => {
