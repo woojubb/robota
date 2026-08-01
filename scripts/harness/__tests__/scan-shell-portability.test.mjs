@@ -36,12 +36,22 @@ describe('scan-shell-portability', () => {
       'scripts/c.sh': 'stat -c %Y f\n',
       'scripts/d.sh': "date -d '1 day ago'\n",
       'scripts/e.sh': 'grep -P "\\d" f\n',
+      // The LONG spellings of the same flags. Raised in review of #1590 as an acknowledged gap;
+      // closed, because each is the same command with the same platform behaviour.
+      'scripts/l1.sh': "sed --in-place 's/a/b/' f\n",
+      'scripts/l2.sh': 'stat --format %Y f\n',
+      'scripts/l3.sh': 'base64 --wrap=0 f\n',
+      'scripts/l4.sh': 'readlink --canonicalize p\n',
+      'scripts/l5.sh': 'echo x | xargs --no-run-if-empty rm\n',
       'scripts/f.sh': 'base64 -w0 f\n',
       'scripts/g.sh': 'find . -name x -printf "%p"\n',
       'scripts/h.sh': 'echo x | xargs -r rm\n',
     });
     const { findings } = findPortabilityFindings(root);
-    expect(findings.map((f) => f.flag).sort()).toEqual([
+    // Every fixture is a finding — the count, so a spelling that stops matching cannot hide behind
+    // its sibling in a de-duplicated set.
+    expect(findings).toHaveLength(13);
+    expect([...new Set(findings.map((f) => f.flag))].sort()).toEqual([
       'base64 -w',
       'date -d',
       'find -printf',
@@ -78,12 +88,26 @@ describe('scan-shell-portability', () => {
   // An EXTENSIONLESS husky hook is scanned. The "leaves portable spellings alone" case includes one
   // too, but that passes just as well if the file is never opened — a vacuous green. This one fails
   // if the extensionless branch stops working.
-  it('scans an extensionless husky hook', () => {
-    const root = fixture({ '.husky/pre-push': 'stat -c %Y f\n' });
+  it('scans an extensionless file that DECLARES itself a shell script', () => {
+    const root = fixture({ '.husky/pre-push': '#!/usr/bin/env sh\nstat -c %Y f\n' });
     const { findings } = findPortabilityFindings(root);
     expect(findings.map((f) => `${f.file}:${f.flag}`)).toEqual([
       `${path.join('.husky', 'pre-push')}:stat -c`,
     ]);
+  });
+
+  // The property is the FILE's, not its directory's. A directory allowlist left `.claude/hooks` —
+  // a governed root — unable to hold an extensionless hook, and compared against the first path
+  // segment so a multi-segment root could never have matched even after being added. (#1590 review)
+  it('scans an extensionless hook under a MULTI-SEGMENT root, which an allowlist could not', () => {
+    const root = fixture({ '.claude/hooks/guard': '#!/bin/bash\nreadlink -f "$0"\n' });
+    const { findings } = findPortabilityFindings(root);
+    expect(findings.map((f) => f.file)).toEqual([path.join('.claude', 'hooks', 'guard')]);
+  });
+
+  it('does not treat an extensionless NON-script as a shell script', () => {
+    const root = fixture({ '.husky/NOTES': 'stat -c is GNU-only, do not use it\n' });
+    expect(findPortabilityFindings(root).findings).toEqual([]);
   });
 
   // A trailing backslash continues the command, and the shell reads the result as one line. A

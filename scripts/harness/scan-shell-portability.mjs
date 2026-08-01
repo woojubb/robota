@@ -42,23 +42,33 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SCAN_ROOTS = ['scripts', '.husky', '.claude/hooks'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage', '__tests__', 'fixtures']);
 const EXTENSIONS = /\.(sh|bash|zsh)$/;
-/** husky hooks and shell entry points are commonly extensionless. */
-const EXTENSIONLESS_ROOTS = new Set(['.husky']);
+/**
+ * An extensionless file is a shell script if it SAYS SO. Husky hooks carry no extension, and so may
+ * any hook added later.
+ *
+ * This replaces a set of directories that were allowed to hold extensionless scripts. That set had
+ * two problems, both raised in review of #1590: `.claude/hooks` was not in it even though it is a
+ * governed root, and the membership test compared against the FIRST path segment, so a
+ * multi-segment root could never have matched even after being added. A property of the file beats
+ * a list of places the property is assumed to hold — the list is what goes stale.
+ */
+const SHEBANG = /^#!.*\b(sh|bash|zsh|dash|ksh|ash)\b/;
+const HAS_EXTENSION = /\.[^.\\/]+$/;
 
 const DIVERGENT = [
   {
     flag: 'sed -i',
-    pattern: /(^|[;&|(`$\s])sed\s+(-[a-zA-Z]*\s+)*-i/,
+    pattern: /(^|[;&|(`$\s])sed\s+(-[a-zA-Z]*\s+)*(-i|--in-place)/,
     portable: 'rewrite the file with node/python3, or read + write explicitly',
   },
   {
     flag: 'readlink -f',
-    pattern: /(^|[;&|(`$\s])readlink\s+(-[a-zA-Z]*\s+)*-f\b/,
+    pattern: /(^|[;&|(`$\s])readlink\s+(-[a-zA-Z]*\s+)*(-f\b|--canonicalize\b)/,
     portable: 'node -e "console.log(require(\'fs\').realpathSync(p))"',
   },
   {
     flag: 'stat -c',
-    pattern: /(^|[;&|(`$\s])stat\s+(-[a-zA-Z]*\s+)*-c\b/,
+    pattern: /(^|[;&|(`$\s])stat\s+(-[a-zA-Z]*\s+)*(-c\b|--format\b|--printf\b)/,
     portable: 'node -e with fs.statSync',
   },
   {
@@ -73,7 +83,7 @@ const DIVERGENT = [
   },
   {
     flag: 'base64 -w',
-    pattern: /(^|[;&|(`$\s])base64\s+(-[a-zA-Z]*\s+)*-w/,
+    pattern: /(^|[;&|(`$\s])base64\s+(-[a-zA-Z]*\s+)*(-w|--wrap)/,
     portable: 'base64 (macOS does not wrap) or node Buffer',
   },
   {
@@ -83,7 +93,7 @@ const DIVERGENT = [
   },
   {
     flag: 'xargs -r',
-    pattern: /(^|[;&|(`$\s])xargs\s+(-[a-zA-Z]*\s+)*-r\b/,
+    pattern: /(^|[;&|(`$\s])xargs\s+(-[a-zA-Z]*\s+)*(-r\b|--no-run-if-empty\b)/,
     portable: 'guard the empty case before the pipe',
   },
 ];
@@ -138,6 +148,15 @@ function logicalLines(text) {
   return out;
 }
 
+/** Whether an extensionless file declares itself a shell script. Unreadable counts as "no". */
+function isShellShebang(absolute) {
+  try {
+    return SHEBANG.test(readFileSync(absolute, 'utf8').split('\n', 1)[0] ?? '');
+  } catch {
+    return false;
+  }
+}
+
 function walk(root, relDir, out, skipped) {
   const absolute = path.join(root, relDir);
   if (!existsSync(absolute)) return out;
@@ -150,8 +169,11 @@ function walk(root, relDir, out, skipped) {
       }
       walk(root, rel, out, skipped);
     } else if (entry.isFile()) {
-      const topLevel = relDir.split(path.sep)[0];
-      if (EXTENSIONS.test(entry.name) || EXTENSIONLESS_ROOTS.has(topLevel)) out.push(rel);
+      if (EXTENSIONS.test(entry.name)) {
+        out.push(rel);
+      } else if (!HAS_EXTENSION.test(entry.name) && isShellShebang(path.join(root, rel))) {
+        out.push(rel);
+      }
     }
   }
   return out;
