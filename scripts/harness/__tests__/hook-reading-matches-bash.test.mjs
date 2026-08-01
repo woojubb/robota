@@ -309,6 +309,17 @@ describe('a redirection is not a statement separator', () => {
     { command: 'sleep 1 & echo done', statements: 2 },
     { command: 'a && b', statements: 2 },
     { command: 'a & b & c', statements: 3 },
+    // A separator INSIDE a substitution is a separator, and the guards depend on it: the `.husky`
+    // whitelist checks the LEADING verb of each command position, so `$(echo x; rm .husky/pre-push)`
+    // is only refused because the `rm` starts a statement of its own. Reported as a bypass in review
+    // of #1588 on the assumption that it does not split; it does. Pinned so the assumption cannot
+    // quietly become true.
+    { command: 'echo "$(echo x; rm .husky/pre-push)"', statements: 2 },
+    { command: 'echo "$(echo x && rm -rf .husky)"', statements: 2 },
+    { command: 'echo "$(echo x | rm .husky/pre-push)"', statements: 2 },
+    // And with NO separator inside, it is one statement — which is why the chmod reading has to ask
+    // for the substitution-INCLUDING word list rather than relying on the split.
+    { command: 'echo "$(chmod -x .husky/pre-push)"', statements: 1 },
   ];
 
   for (const { command, statements } of cases) {

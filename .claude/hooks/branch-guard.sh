@@ -471,8 +471,19 @@ while read -r STMT_START STMT_LEN; do
     #                                           inside a substitution the character before it is `(`
     #
     # Both disarmed a hook and were permitted. The second is why this asks `hook_statement_all_words`
-    # rather than `hook_statement_words`: a statement range does not split at a substitution, so the
-    # substitution-excluding reading cannot see a `chmod` that runs inside one.
+    # rather than `hook_statement_words`.
+    #
+    # The property precisely, because the loose version of this sentence misled a reviewer into
+    # reporting a bypass that does not exist. Statement ranges split at a SEPARATOR, and a separator
+    # inside a substitution is a separator — measured:
+    #
+    #   echo "$(echo x; rm .husky/pre-push)"   ->  two statements, and the second leads with `rm`
+    #   echo "$(chmod -x .husky/pre-push)"     ->  ONE statement
+    #
+    # So what the substitution-excluding reading cannot see is a command that shares a statement with
+    # the one it is nested in — which is exactly the chmod above, and is not a general blindness to
+    # substitutions. The whitelist below still checks each substitution as its own command position,
+    # for the same reason.
     #
     # EVERY chmod in the statement is judged, not the first: `chmod +x a && chmod -x .husky/pre-push`
     # has a restoring one in front of a disarming one.
