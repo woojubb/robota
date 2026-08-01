@@ -134,7 +134,7 @@ export function matchesAnyPattern(
  * means "not denied" — so `MyTool(secrets/**)` lost to a broader `allow: ['MyTool']` and the
  * invocation was auto-approved. "I cannot tell" is not "no".
  */
-function hasUnevaluableArgumentPattern(
+export function hasUnevaluableArgumentPattern(
   toolName: string,
   _args: TToolArgs,
   patterns: readonly string[],

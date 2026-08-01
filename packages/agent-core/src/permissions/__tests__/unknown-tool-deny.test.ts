@@ -5,6 +5,7 @@ import {
   evaluatePermission,
   registerToolArgumentKey,
 } from '../permission-gate.js';
+import { resolvePermissionByPolicy } from '../permission-policy.js';
 
 /**
  * CORE-030 — a deny the gate could not EVALUATE was overridden by a broader allow.
@@ -129,5 +130,68 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
         deny: ['Shell(rm*)'],
       }),
     ).toBe('deny');
+  });
+});
+
+/**
+ * The SIBLING gate, found in review of #1596. `resolvePermissionByPolicy` had the same defect and
+ * was untouched by the first pass — a missed call site, not a deferred one.
+ *
+ * It is worse here. This is the gate for BACKGROUND and SUBAGENT calls
+ * (`agent-session/src/permission-enforcer.ts:219`), it exists to be MORE restrictive than the
+ * session mode, and it has no prompt at its allow step: an unevaluable deny beside a broader allow
+ * resolved to `'allow'` outright.
+ *
+ * It denies rather than prompting, because a detached task has no human attached by definition —
+ * the same reasoning the allow step already applies with "unmatched → deny (never prompt)".
+ */
+describe('the background/subagent gate has the same rule (CORE-030)', () => {
+  afterEach(() => clearRegisteredToolArgumentKeys());
+
+  const context = { taskDeny: ['MyTool(secrets/**)'], taskAllow: ['MyTool'] };
+
+  it('THE DEFECT: an unevaluable deny no longer resolves to allow', () => {
+    // Previously `'allow'` — the deny could not match, and the allowlist decided.
+    expect(
+      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
+    ).toBe('deny');
+  });
+
+  it('the same on the inherited path', () => {
+    expect(
+      resolvePermissionByPolicy(
+        'inherit-allowlist',
+        'MyTool',
+        { path: 'secrets/key.pem' },
+        {
+          parentDeny: ['MyTool(secrets/**)'],
+          parentAllow: ['MyTool'],
+        },
+      ),
+    ).toBe('deny');
+  });
+
+  it('ALLOWS once the owner declares the key and the argument does not match the deny', () => {
+    registerToolArgumentKey('MyTool', 'path');
+    expect(
+      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'public/readme.md' }, context),
+    ).toBe('allow');
+    expect(
+      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
+    ).toBe('deny');
+  });
+
+  it('leaves a known tool alone', () => {
+    expect(
+      resolvePermissionByPolicy(
+        'preapproved',
+        'Shell',
+        { command: 'ls' },
+        {
+          taskDeny: ['Shell(rm*)'],
+          taskAllow: ['Shell'],
+        },
+      ),
+    ).toBe('allow');
   });
 });
