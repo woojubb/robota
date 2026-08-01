@@ -88,15 +88,22 @@ fi
 # never mechanically reached. This is the reaching. (INFRA-082)
 #
 # Read-only subcommands (`list`, `show`) are untouched — they cannot move anyone's work.
-# Fail closed on an unreadable command, matching this file's first read of the same payload and
-# hook-facts.sh's stated contract: a non-zero return means the value could NOT be read, and a guard
-# must refuse rather than treat it as an empty string that matches nothing.
-if ! STASH_CMD=$(hook_command_of "$INPUT"); then
-  echo "[worktree-cwd-guard] Blocked: the tool command could not be decoded, so it cannot be judged." >&2
-  exit 2
-fi
-if ! STASH_VERBS=$(hook_verb_scan "$STASH_CMD"); then
-  echo "[worktree-cwd-guard] Blocked: the command could not be scanned, so a stash cannot be ruled out." >&2
+# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `VERBS` from the
+# tokenizer and `SCAN` from two line-oriented passes that did no quote masking at all. Measured on a
+# worktree session, with the bare form refused correctly:
+#   git -C <MAIN> reset --hard                                 -> exit 2
+#   echo "see <<EOF for details" ; git -C <MAIN> reset --hard  -> exit 0
+# The quoted `<<EOF` opened a heredoc the old reading never saw close, so the `git -C <MAIN>` after it
+# was deleted from the string this guard examined and the destructive command was allowed.
+#
+# Computed HERE, above the stash gate, and read by both checks. The stash block first ran the
+# tokenizer a second time on the same text — and since it runs before the worktree-session gate, that
+# doubled the cost on EVERY Bash call in every session, not only ones naming a stash. (#1585)
+#
+# Fail closed on an unreadable command: a non-zero return means the value could NOT be read, and a
+# guard must refuse rather than treat it as an empty string that matches nothing.
+if ! VERBS=$(hook_verb_scan "$COMMAND"); then
+  echo "[worktree-cwd-guard] Blocked: the command could not be scanned, so nothing can be judged." >&2
   exit 2
 fi
 # ONE boundary pair, used by every match below.
@@ -108,7 +115,7 @@ fi
 #
 # The leading class matches this file's GITPFX; the trailing one is GITEND's rule — anything that is
 # not a word character or `-`, which covers the closing backtick, `)`, `;` and end of line.
-STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=)?[[:space:]]*'
+STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*([^[:space:]]+=)?[[:space:]]*'
 STASH_END='([^-[:alnum:]_]|$)'
 # `git`, INCLUDING the global flags that may precede a subcommand — the same tolerance GITPFX below
 # already has. Written once and used by every match, because the fourth review finding on this change
@@ -117,7 +124,7 @@ STASH_END='([^-[:alnum:]_]|$)'
 # another. Three earlier findings on this same block were the same shape: a rule this file already
 # states, re-derived worse a few lines away. (#1585)
 STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
-if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
+if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
   BARE_STASH=false
   # PER STATEMENT, and a comment is not a statement.
   #
@@ -129,7 +136,7 @@ if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}";
   #
   # Same separators the override loop uses. Comments are stripped first, because a suppression a
   # reader can write in prose is not a suppression.
-  STASH_STATEMENTS=$(printf '%s\n' "$STASH_VERBS" | sed -E 's/#.*$//' | sed -E 's/(\|\||&&|[;&|])/\n/g')
+  STASH_STATEMENTS=$(printf '%s\n' "$VERBS" | sed -E 's/#.*$//' | sed -E 's/(\|\||&&|[;&|])/\n/g')
   while IFS= read -r STMT; do
     printf '%s' "$STMT" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}" || continue
     # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
@@ -160,7 +167,7 @@ if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}";
     # contract — so a `||` fallback never fires for the ordinary case anyway. The resolver takes the
     # first non-empty of the three, which is what "first-nonempty" means. (#1585)
     STASH_REPO=$(hook_effective_repo first-nonempty \
-      "$(hook_git_c_path "$STASH_CMD" 2>/dev/null || printf '')" \
+      "$(hook_git_c_path "$COMMAND" 2>/dev/null || printf '')" \
       "$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')" \
       "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
     if [[ -z "$STASH_REPO" ]]; then
@@ -238,15 +245,6 @@ if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
 fi
 
 # --- Detect destructive git commands ------------------------------------------------------------
-# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `VERBS` from the
-# tokenizer and `SCAN` from two line-oriented passes that did no quote masking at all, and the `-C`
-# extraction below read `SCAN`. Measured on a worktree session, with the bare form refused correctly:
-#   git -C <MAIN> reset --hard                                 -> exit 2
-#   echo "see <<EOF for details" ; git -C <MAIN> reset --hard  -> exit 0
-# The quoted `<<EOF` opened a heredoc the old reading never saw close, so the `git -C <MAIN>` after it
-# was deleted from the string this guard examined, the effective repo fell back to the worktree, and a
-# `git reset --hard` on the MAIN checkout — the incident this file exists for — was allowed.
-VERBS=$(hook_verb_scan "$COMMAND")
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.
