@@ -1,5 +1,5 @@
 {
-  "apps/agent-server/src/websocket-server.ts": 367,
+  "apps/agent-server/src/websocket-server.ts": 363,
   "apps/remote-signaling/src/relay.ts": 311,
   "packages/agent-cli/src/cli.ts": 504,
   "packages/agent-cli/src/remote-control/remote-control-controller.ts": 485,
