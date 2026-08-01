@@ -697,14 +697,34 @@ HOOK_SCAN_AWK='
     # that has to guess: `--no-''verify` and `--no-\verify` are one word to the shell and are one
     # word here. A character the mask hides stays hidden, so a quoted argument does not become an
     # option — which is what keeps a commit message that merely NAMES a flag from reading as one.
-    if (MODE == "words") {
+    # `allwords` is the same split with the substitutions INCLUDED, each opening and closing
+    # delimiter acting as a word break. It answers a different question, and the difference is not a
+    # preference:
+    #
+    #   words     — "what flags did THIS command receive?"  A substitution is a different command,
+    #               and reading its `-n` as this one is a false positive.
+    #   allwords  — "does anything anywhere in this statement do X?"  A substitution RUNS, so a
+    #               destructive verb inside one is as real as a leading one. Measured:
+    #               `echo "$(chmod -x .husky/pre-push)"` disarmed a hook and was permitted, because
+    #               the only reading that could have seen it excluded substitutions by design.
+    #
+    # A statement range does NOT split at a substitution, so asking the range question does not
+    # answer this one — checked, `echo "$(chmod …)"` is a single statement. (#1588 review)
+    if (MODE == "words" || MODE == "allwords") {
       word = ""
       started = 0
       sub_depth = 0
       bt_open = 0
+      incsubs = (MODE == "allwords")
       for (i = 1; i <= length(s); i++) {
         mc = substr(mask, i, 1)
         rc = substr(s, i, 1)
+        if (incsubs) {
+          if (mc == "$" || mc == "(" || mc == ")" || mc == "\140" || mc == "{" || mc == "}") {
+            if (started) { print word; word = ""; started = 0 }
+            continue
+          }
+        }
         # A substitution RUNS, so its content is a command in its own right and NOT part of this
         # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
         # dropping them let the words inside a substitution leak out as words of the outer command:
@@ -856,6 +876,14 @@ hook_verb_scan() {
 # whether its letters appear somewhere. See the `words` branch for why it lives here.
 hook_statement_words() {
   printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The same split with SUBSTITUTION CONTENTS included, each delimiter a word break. Ask this when the
+# question is "does anything in this statement do X" rather than "what did THIS command receive" —
+# a substitution runs, so a destructive verb inside one is as real as a leading one. See the
+# `allwords` branch for the measurement that made the distinction necessary.
+hook_statement_all_words() {
+  printf '%s\n' "$1" | awk -v MODE=allwords -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,

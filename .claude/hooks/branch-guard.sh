@@ -460,8 +460,53 @@ while read -r STMT_START STMT_LEN; do
     # Only REAL options are skipped over. `-[Rvfch]`-style flags are chmod's; `-x` is a MODE that
     # happens to start with a minus, and treating it as an option made the mode come back as the file
     # path — so `chmod -x` stopped being caught by the very change meant to widen the check.
-    CHMOD_MODE=$(printf '%s' "$STMT_MASK" | sed -nE 's/.*(^|[[:space:]])chmod[[:space:]]+(--?[RLHPvfc]+[[:space:]]+)*([^[:space:]]+).*/\3/p')
-    if [[ -n "$CHMOD_MODE" ]]; then
+    #
+    # THE MODE IS TAKEN FROM THE WORDS, not from a sed pass over the mask. That pass was the last
+    # second reading in this file and it was wrong in two ways at once, both measured:
+    #
+    #   chmod --recursive -x .husky/pre-push    the option class was SHORT-only (`[RLHPvfc]`), so the
+    #                                           long option was captured AS the mode and the real
+    #                                           `-x` behind it was never judged
+    #   echo "$(chmod -x .husky/pre-push)"      the pattern demanded whitespace before `chmod`, and
+    #                                           inside a substitution the character before it is `(`
+    #
+    # Both disarmed a hook and were permitted. The second is why this asks `hook_statement_all_words`
+    # rather than `hook_statement_words`: a statement range does not split at a substitution, so the
+    # substitution-excluding reading cannot see a `chmod` that runs inside one.
+    #
+    # EVERY chmod in the statement is judged, not the first: `chmod +x a && chmod -x .husky/pre-push`
+    # has a restoring one in front of a disarming one.
+    if ! STMT_ALL_WORDS=$(hook_statement_all_words "$COMMAND" "$STMT_START" "$STMT_LEN" && printf '\001'); then
+      echo "[branch-guard] Blocked: a statement naming a hook path could not be split into words," >&2
+      echo "[branch-guard] so what it does to that hook was never read. This is not a pass." >&2
+      exit 2
+    fi
+    STMT_ALL_WORDS=${STMT_ALL_WORDS%$'\n\001'}
+    CHMOD_MODES=()
+    CHMOD_SEEK=false
+    while IFS= read -r W; do
+      if [[ "$CHMOD_SEEK" == "true" ]]; then
+        case "$W" in
+          # `--reference=<file>` copies another file's mode and can strip execute without ever naming
+          # one. Refused rather than reasoned about: there is no mode token to judge, and "I cannot
+          # tell" is a refusal here. (#1588 review)
+          --reference*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; CHMOD_SEEK=false; continue ;;
+          # A long option is never a mode. This is the class the sed pattern did not have.
+          --*) continue ;;
+          # A short cluster is an option only if EVERY letter is one of chmod's. `-x` is a MODE that
+          # happens to start with a minus, and skipping it as an option made the file path come back
+          # as the mode — so `chmod -x` stopped being caught by the change meant to widen the check.
+          -*) [[ "${W#-}" =~ ^[RLHPvfc]+$ ]] && continue
+              CHMOD_MODES+=("$W"); CHMOD_SEEK=false; continue ;;
+          '') continue ;;
+          *) CHMOD_MODES+=("$W"); CHMOD_SEEK=false; continue ;;
+        esac
+      fi
+      case "$W" in
+        chmod|*/chmod) CHMOD_SEEK=true ;;
+      esac
+    done <<< "$STMT_ALL_WORDS"
+    for CHMOD_MODE in ${CHMOD_MODES+"${CHMOD_MODES[@]}"}; do
       # Each comma-separated CLAUSE is judged, and the LAST word about execute wins — `+x` appearing
       # anywhere is not "restoring". `chmod a-x,+X` removes the bit and then conditionally does
       # nothing (`+X` only acts when some execute bit survives), so a presence test read a pure
@@ -477,18 +522,6 @@ while read -r STMT_START STMT_LEN; do
           *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
         esac
       done
-      # `--reference=<file>` copies another file's mode, which can strip execute without ever naming
-      # a mode this parser can read. It is refused rather than reasoned about: there is no mode token
-      # to judge, and "I cannot tell" is a refusal here. (#1588 review)
-      #
-      # Asked of the WORDS, where a splice cannot hide it (`--refe\rence` is one word to bash and one
-      # word there), AND of the mask, because a substitution's content is not part of this
-      # statement's words and `chmod` can be run from inside one.
-      while IFS= read -r W; do
-        case "$W" in --reference*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;; esac
-      done <<< "$STMT_WORDS"
-      printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--reference' &&
-        { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
       case "$CHMOD_MODE" in
         *+x*|*+X*) ;;                                   # handled by the clause walk above
         [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7])
@@ -500,7 +533,7 @@ while read -r STMT_START STMT_LEN; do
           ;;
         *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
       esac
-    fi
+    done
     # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
     # `-exec` is refused even when the command it runs only reads (`find .husky -exec cat {} \;`).
     # Judging that would mean evaluating the exec'd command, which is the evaluator this file

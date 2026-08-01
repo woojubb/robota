@@ -418,6 +418,24 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // `--reference` copies another file's mode and can strip execute without naming one. There is
       // no mode token to judge, and "I cannot tell" is a refusal here. (#1588 review)
       'chmod --reference=/etc/hosts .husky/pre-push',
+      // A LONG option in front of the mode. The mode was extracted by a sed pass whose option class
+      // was short-only (`[RLHPvfc]`), so the long option was captured AS the mode and the real `-x`
+      // behind it was never judged. (#1588 review)
+      'chmod --recursive -x .husky/pre-push',
+      'chmod --verbose -x .husky/pre-push',
+      'chmod --changes 644 .husky/pre-push',
+      // Inside a SUBSTITUTION. `chmod` is on the readers whitelist, so the outer position passed it
+      // through, and the mode pattern demanded whitespace before `chmod` — inside a substitution the
+      // character before it is `(`. A statement range does not split at a substitution either, so
+      // the substitution-excluding word reading could not see it. (#1588 review)
+      'echo "$(chmod -x .husky/pre-push)"',
+      'echo `chmod 000 .husky/pre-push`',
+      // EVERY chmod in the statement, not the first — and a RESTORING one in front does not excuse
+      // the disarming one behind it. `&&` would split these into two statements judged separately,
+      // so the case that actually needs this is a second chmod inside a substitution, which stays in
+      // the same statement. (Measured: the previous reading permitted both of these.)
+      'chmod +x a $(chmod -x .husky/pre-push)',
+      'chmod +x "$(chmod -x .husky/pre-push)"',
       // Comma-joined symbolic modes. `+x` appearing ANYWHERE read as "restoring", so a clause that
       // removes the bit was excused by a later one that does not put it back — `+X` is conditional
       // and does nothing when no execute bit remains. Order of clauses, not presence of a `+`.
@@ -474,6 +492,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // refused" — and the readers-only whitelist contradicted its own statement for these two.
       // Restoring an executable bit and editing a hook in place are not bypasses. (#1588 review)
       'chmod +x .husky/pre-push',
+      // The counterparts of the long-option and multiple-chmod cases above: reading the mode from
+      // the WORDS must not start refusing a restore.
+      'chmod -R +x .husky',
+      'chmod --recursive +x .husky',
+      'chmod u+x .husky/pre-push',
+      'chmod 755 .husky/pre-push',
       'sed -i "s/foo/bar/" .husky/pre-push',
       // husky's env var also skips its INSTALL step, which gates nothing. Refusing this blocked
       // ordinary setup — and the fresh-worktree guidance in this same change would want to run it.
