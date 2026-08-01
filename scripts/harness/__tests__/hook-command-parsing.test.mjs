@@ -965,7 +965,23 @@ describe('the command parse has one owner', () => {
     // Named rather than described: a second reading is cheap to reintroduce and expensive to
     // notice, and the shape it comes back in is a helper that pre-chews the command before the
     // tokenizer sees it.
-    const RETIRED = ['hook_executable_part', 'hook_strip_heredocs', 'hook_strip_comments'];
+    //
+    // The second batch came back anyway, in `branch-guard.sh` and in the shape this comment
+    // predicted: a sed pass that spliced quotes out of the raw statement, a second that removed
+    // substitution spans, and two hand-rolled option readers over the result. Each was written to
+    // answer a question the tokenizer already answers, and each was wrong differently — a `-v`
+    // assignment that unescaped a backslash into a vertical tab, a splice-removal that
+    // desynchronised the quoting and hid a live `--no-verify`. They are named here so the next one
+    // has to be given a new name to get in. (#1588)
+    const RETIRED = [
+      'hook_executable_part',
+      'hook_strip_heredocs',
+      'hook_strip_comments',
+      'STMT_SPLICED',
+      'STMT_EVASIVE',
+      'STMT_NO_SUBS',
+      'strip_substitutions',
+    ];
     const offenders = [];
     const files = [
       ...bashHooks.map((name) => path.join(HOOKS_DIR, name)),
@@ -983,8 +999,9 @@ describe('the command parse has one owner', () => {
     }
     expect(
       offenders,
-      'a second reading of a command is back. Every guard must read hook_verb_scan, and every ' +
-        'extractor masks the RAW command itself — handing it a string another reader already ' +
+      'a second reading of a command is back. Every guard must ask the tokenizer — hook_verb_scan ' +
+        'for what the shell executes, hook_statement_words for the words it builds — and every ' +
+        'extractor masks the RAW command itself. Handing it a string another reader already ' +
         'altered is the bypass #1572 measured.',
     ).toStrictEqual([]);
   });
