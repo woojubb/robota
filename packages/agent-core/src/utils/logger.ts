@@ -56,6 +56,7 @@ export const SilentLogger: ILogger = {
 class LoggerConfig {
   private static instance: LoggerConfig;
   private globalLevel: TUtilLogLevel;
+  private globalSink: ILogger | undefined;
 
   private constructor() {
     // Set default level (environment variables no longer used for browser compatibility)
@@ -76,6 +77,14 @@ class LoggerConfig {
   setGlobalLevel(level: TUtilLogLevel): void {
     this.globalLevel = level;
   }
+
+  getGlobalSink(): ILogger | undefined {
+    return this.globalSink;
+  }
+
+  setGlobalSink(sink: ILogger | undefined): void {
+    this.globalSink = sink;
+  }
 }
 
 /**
@@ -85,11 +94,27 @@ class LoggerConfig {
 export class ConsoleLogger implements ILogger {
   private level?: TUtilLogLevel; // undefined means use global level
   private packageName: string;
-  private sinkLogger: ILogger;
+  private explicitSink: ILogger | undefined;
 
+  /**
+   * CORE-029: the sink is resolved PER CALL, not frozen at construction.
+   *
+   * It used to be `logger || SilentLogger`, decided once in the constructor. No call site in the
+   * repository ever passed one and there was no way to set one afterwards, so every diagnostic this
+   * package emits — 157 `logger.*` calls, including "Robota initialization failed" and every
+   * catch-and-log-only path — went to `SilentLogger` by construction. Not "was not configured":
+   * could not be.
+   *
+   * Resolving late is what makes a host able to turn logging on at all, and it is also why a logger
+   * created during module initialisation still honours a sink installed afterwards.
+   */
   constructor(packageName: string, logger?: ILogger) {
     this.packageName = packageName;
-    this.sinkLogger = logger || SilentLogger;
+    this.explicitSink = logger;
+  }
+
+  private get sinkLogger(): ILogger {
+    return this.explicitSink ?? LoggerConfig.getInstance().getGlobalSink() ?? SilentLogger;
   }
 
   debug(...args: Array<TUniversalValue | TLoggerData | Error>): void {
@@ -196,6 +221,26 @@ export function setGlobalLogLevel(level: TUtilLogLevel): void {
  */
 export function getGlobalLogLevel(): TUtilLogLevel {
   return LoggerConfig.getInstance().getGlobalLevel();
+}
+
+/**
+ * Install the process-wide sink every logger writes to. CORE-029.
+ *
+ * Without this there was no way to receive anything this package logs: `createLogger`'s optional
+ * sink parameter had no caller anywhere in the repository, and nothing could supply one later, so
+ * `SilentLogger` was not a default — it was the only reachable outcome.
+ *
+ * The default stays SILENT. A library that starts writing to `console` because it was imported is a
+ * different defect, so turning diagnostics on remains something a host does deliberately. Pass
+ * `undefined` to go back to silence.
+ */
+export function setGlobalLoggerSink(sink: ILogger | undefined): void {
+  LoggerConfig.getInstance().setGlobalSink(sink);
+}
+
+/** The installed process-wide sink, or `undefined` when diagnostics are going nowhere. */
+export function getGlobalLoggerSink(): ILogger | undefined {
+  return LoggerConfig.getInstance().getGlobalSink();
 }
 
 /**
