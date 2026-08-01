@@ -351,6 +351,9 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // occurrence and discarded everything in front of it, including the real flag. (#1588 review)
       'git commit --no-verify -m "$(git commit --dry-run 2>&1)"',
       'git push --no-verify origin "$(git push --dry-run 2>&1)"',
+      // A combined redirection between the verb and the flag. (#1588 review)
+      'git commit -m "x" &> /dev/null --no-verify',
+      'git push origin feat/probe &>> log --no-verify',
       'echo ok && git commit --no-verify -m "x"',
     ]) {
       expect(

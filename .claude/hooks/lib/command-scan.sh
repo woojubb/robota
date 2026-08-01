@@ -648,9 +648,17 @@ HOOK_SCAN_AWK='
         # caller then judged a truncated fragment, in one measured case one carrying an unclosed
         # `$(`. A redirecting `&` is preceded by `>` or `<`, optionally with a digit between.
         # (INFRA-085, found while chasing a #1588 review finding whose stated cause was elsewhere.)
-        if (c == "&" && i > 1) {
-          p = substr(mask, i - 1, 1)
-          if (p == ">" || p == "<") continue
+        if (c == "&") {
+          # `2>&1` and `>&2` put the ampersand AFTER the arrow; `&>` and `&>>` put it BEFORE. Reading
+          # only the character in front caught the first pair and missed the second, and bash accepts
+          # a redirection BETWEEN arguments — so `git commit -m "x" &> /dev/null --no-verify` split
+          # into a fragment holding the verb and one holding the flag, and the gate saw neither.
+          # (INFRA-085, second half, from a #1588 review.)
+          if (i > 1) {
+            p = substr(mask, i - 1, 1)
+            if (p == ">" || p == "<") continue
+          }
+          if (i < len && substr(mask, i + 1, 1) == ">") continue
         }
         if (c == ";" || c == "&" || c == "|" || c == "\n") {
           if (i > start) { print start " " (i - start) }

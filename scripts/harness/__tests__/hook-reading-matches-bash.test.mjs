@@ -299,6 +299,12 @@ describe('a redirection is not a statement separator', () => {
     { command: 'git push origin main 2>&1', statements: 1 },
     { command: 'cmd 1>&2', statements: 1 },
     { command: 'cmd >&2', statements: 1 },
+    // `&>` and `&>>` put the ampersand BEFORE the arrow. Looking only at what precedes it caught
+    // `2>&1` and missed these — and bash accepts a redirection between arguments, so
+    // `git commit -m "x" &> /dev/null --no-verify` really runs with the flag. (#1588 review)
+    { command: 'cmd &> /dev/null', statements: 1 },
+    { command: 'cmd &>> log', statements: 1 },
+    { command: 'git commit -m "x" &> /dev/null --no-verify', statements: 1 },
     // A real background `&` and a real `&&` still split.
     { command: 'sleep 1 & echo done', statements: 2 },
     { command: 'a && b', statements: 2 },
