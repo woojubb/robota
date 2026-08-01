@@ -386,6 +386,11 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'truncate -s0 .husky/pre-push',
       'find .husky -delete',
       'find .husky -type f -exec rm {} +',
+      // Inside a substitution. The tokenizer leaves that content executable because it RUNS, so a
+      // destructive verb hid behind a whitelisted leading one. (#1588 review)
+      'echo "$(rm .husky/pre-push)"',
+      'echo `rm -rf .husky`',
+      'git config core.hooksPath /dev/null',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,
@@ -414,6 +419,9 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // Restoring an executable bit and editing a hook in place are not bypasses. (#1588 review)
       'chmod +x .husky/pre-push',
       'sed -i "s/foo/bar/" .husky/pre-push',
+      // husky's env var also skips its INSTALL step, which gates nothing. Refusing this blocked
+      // ordinary setup — and the fresh-worktree guidance in this same change would want to run it.
+      'HUSKY=0 pnpm install',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
@@ -459,33 +467,36 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
   });
 });
 
-describe('a hook cannot be emptied through the Edit tool either', () => {
-  // The Bash guard covers commands. It cannot cover the tool an agent would actually reach for:
-  // Write/Edit/MultiEdit change file CONTENT without running a command at all, so `.husky/pre-commit`
-  // could simply be replaced with an empty body. Claiming "zero exceptions" for hook destruction
-  // while that door is open would be a claim, not a gate. (#1588 review)
+describe('changing a verification hook is deliberate', () => {
+  // The Bash guard covers COMMANDS. Write/Edit/MultiEdit change content without running one, so a
+  // hook could be replaced outright. PATH-based, not content-based: the first attempt asked whether
+  // the new content was empty and was measured wrong in BOTH directions — it refused an ordinary
+  // partial deletion, and it passed `content: "exit 0"`, which disables a hook exactly as emptying
+  // it would. `hook_edit_content_of` returns the changed FRAGMENT, never the resulting file, so no
+  // emptiness test on it could have been right. (#1588 review)
   const FORBIDDEN = path.join(HOOKS_DIR, 'check-forbidden-patterns.sh');
 
-  function runTool(payload) {
+  function runTool(payload, env = {}) {
     const result = spawnSync('bash', [FORBIDDEN], {
       input: JSON.stringify(payload),
       encoding: 'utf8',
-      env: { PATH: process.env.PATH, HOME: process.env.HOME },
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
       timeout: 120_000,
     });
     return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
   }
 
-  it('refuses a Write or Edit that guts a husky hook', () => {
+  it('refuses an unacknowledged change to a hook, however it is spelled', () => {
     const cases = [
       { tool_name: 'Write', tool_input: { file_path: '/r/.husky/pre-commit', content: '' } },
+      // The evasion the content check could not see.
       {
         tool_name: 'Write',
-        tool_input: { file_path: '/r/.husky/pre-push', content: '#!/bin/sh\n' },
+        tool_input: { file_path: '/r/.husky/pre-commit', content: 'exit 0\n' },
       },
       {
         tool_name: 'Edit',
-        tool_input: { file_path: '/r/.husky/pre-commit', new_string: '', old_string: 'x' },
+        tool_input: { file_path: '/r/.husky/pre-push', old_string: 'x', new_string: 'true' },
       },
       {
         tool_name: 'MultiEdit',
@@ -498,31 +509,28 @@ describe('a hook cannot be emptied through the Edit tool either', () => {
     for (const payload of cases) {
       expect(
         runTool(payload).status,
-        `a husky hook was gutted through ${payload.tool_name}`,
+        `a hook changed unacknowledged via ${payload.tool_name}`,
       ).not.toBe(0);
     }
   });
 
-  it('leaves a real hook edit, and every other file, alone', () => {
-    // A hook that GAINS content is ordinary maintenance — this session edited `.husky/pre-commit`
-    // to add the cross-worktree lock. Refusing that would make the guard unusable.
-    const ok = [
-      {
-        tool_name: 'Edit',
-        tool_input: {
-          file_path: '/r/.husky/pre-commit',
-          old_string: 'pnpm exec lint-staged',
-          new_string: 'with-repo-lock.sh pnpm exec lint-staged',
-        },
+  it('allows an acknowledged change, and every other file', () => {
+    const ack = {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: '/r/.husky/pre-commit',
+        old_string: 'pnpm exec lint-staged',
+        new_string: 'with-repo-lock.sh pnpm exec lint-staged',
       },
-      { tool_name: 'Write', tool_input: { file_path: '/r/src/index.ts', content: '' } },
-    ];
-    for (const payload of ok) {
-      const { status, output } = runTool(payload);
-      expect(
-        status,
-        `ordinary work was refused: ${JSON.stringify(payload.tool_input)} -> ${output}`,
-      ).toBe(0);
-    }
+    };
+    expect(
+      runTool(ack, { HOOK_EDIT_ACK: '1' }).status,
+      'an acknowledged hook edit was refused',
+    ).toBe(0);
+    expect(
+      runTool({ tool_name: 'Write', tool_input: { file_path: '/r/src/index.ts', content: '' } })
+        .status,
+      'an unrelated file was refused',
+    ).toBe(0);
   });
 });

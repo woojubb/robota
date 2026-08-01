@@ -111,6 +111,11 @@ Reading, listing and editing a hook are untouched; only destroying one is refuse
 through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
 left with nothing to run is a removal wearing an edit's clothes.
 
+Changing a hook through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`. That is not an escape
+from a check — it IS the check: a hook may be changed, it may not be changed in passing. The first
+version asked whether the new content was empty and was wrong in both directions, refusing an
+ordinary partial deletion while passing `exit 0`.
+
 **One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
 that apart from an ordinary substitution means evaluating the editor's program, and being wrong
 either way costs more than the gap — too strict refuses everyday edits, too loose buys the next

@@ -292,11 +292,24 @@ while read -r STMT_START STMT_LEN; do
     printf '%s' "$COMMIT_ARGS" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' &&
       { SKIP_HOOKS=true; SKIP_WHAT="git commit -n"; }
   fi
-  # husky's own kill switch, as an environment assignment on the command.
-  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])HUSKY=0([[:space:]]|$)' &&
-    { SKIP_HOOKS=true; SKIP_WHAT="HUSKY=0"; }
-  # git's own: `git -c core.hooksPath=…` for one call, `git config core.hooksPath …` forever.
-  printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
+  # Only when the statement actually commits or pushes. `HUSKY=0 pnpm install` skips husky's
+  # INSTALL step and gates nothing — refusing it blocked ordinary setup, and the fresh-worktree
+  # guidance on this very change would want to run it. Measured from review of #1588.
+  #
+  # `git config core.hooksPath …` is the exception that carries no verb: it disarms every FUTURE
+  # commit, so it is refused wherever it appears.
+  # Asked of the STATEMENT, not of the extracted arguments: `git -c core.hooksPath=/dev/null push`
+  # has no arguments after the verb, so a non-empty ARGS test read it as "not a push" and skipped the
+  # check entirely. An empty argument list is not an absent command. (#1588 review)
+  IS_GATED_STMT=false
+  printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(commit|push)${GITEND}" && IS_GATED_STMT=true
+  if [[ "$IS_GATED_STMT" == "true" ]]; then
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])HUSKY=0([[:space:]]|$)' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="HUSKY=0"; }
+    printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
+  fi
+  printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}config${GITEND}[^;&|]*core\.hooksPath" &&
     { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
   # And simply destroying the hooks — asked as a WHITELIST, because the destructive side is
   # open-ended and the readable side is not.
@@ -309,7 +322,12 @@ while read -r STMT_START STMT_LEN; do
   # of yet.
   #
   # `find` and `git` are readable but not only-readable, so their destructive forms are named.
-  if printf '%s' "$STMT_MASK" | grep -qE '[^[:space:]]*\.husky([/[:space:]]|$)'; then
+  # `HUSKY_TOKEN`'s trailing boundary is GITEND's rule — anything that is not a word character or
+  # `-`. The first spelling listed `/` and whitespace, so `echo \`rm -rf .husky\`` did not even enter
+  # this block: `.husky` was followed by a closing BACKTICK. That is the third time in this file a
+  # hand-written boundary class omitted the backtick, which is why it is written once here. (#1588)
+  HUSKY_TOKEN='[^[:space:]]*\.husky([^-[:alnum:]_]|$)'
+  if printf '%s' "$STMT_MASK" | grep -qE "$HUSKY_TOKEN"; then
     # The whitelist names commands that may not DESTROY, which is a wider set than "may only read".
     # `git-branch.md` says "reading, listing and EDITING a hook are untouched; only destroying one is
     # refused", and the first version contradicted its own statement: `chmod +x` restoring an
@@ -323,9 +341,21 @@ while read -r STMT_START STMT_LEN; do
     # the next program spelling. The path an agent actually takes — Write/Edit/MultiEdit — IS closed,
     # in check-forbidden-patterns.sh, which refuses a hook body left with nothing to run.
     HUSKY_SAFE='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf|sed|awk|chmod|vim|nano|node|python3)'
-    printf '%s' "$STMT_MASK" |
-      grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_SAFE}([[:space:]]|$)" ||
-      { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
+    # EVERY command position, including the ones inside a substitution. The tokenizer deliberately
+    # leaves substitution content executable — it runs — so `echo "$(rm .husky/pre-push)"` led with a
+    # whitelisted verb while really deleting the hook. Checking only the statement's first token is
+    # the same mistake the flag check made one screen up, and it was still here. (#1588 review)
+    #
+    # Each `$(`/backtick opens a new command position, so the text after one is checked as its own
+    # leading verb, exactly as the statement's start is.
+    HUSKY_POSITIONS=$(printf '%s' "$STMT_MASK" | sed -E 's/(\$\(|`)/\n/g')
+    while IFS= read -r POS; do
+      [[ -n "${POS//[[:space:]]/}" ]] || continue
+      printf '%s' "$POS" | grep -qE "$HUSKY_TOKEN" || continue
+      printf '%s' "$POS" |
+        grep -qE "^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_SAFE}([[:space:]]|$)" ||
+        { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
+    done <<< "$HUSKY_POSITIONS"
     # `chmod` may restore a bit; it may not remove the executable one.
     printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]*-[^[:space:]]*x' &&
       { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }

@@ -50,36 +50,30 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
-# --- A verification hook cannot be gutted through the Edit tool (INFRA-083) ---------------------
+# --- Changing a verification hook is deliberate (INFRA-083) --------------------------------------
 #
-# The Bash guard in branch-guard.sh covers COMMANDS. It cannot cover this: Write/Edit/MultiEdit
-# change file content without running a command at all, so `.husky/pre-commit` could simply be
-# replaced with an empty body. Claiming "zero exceptions" for hook destruction while that door stood
-# open would be a claim rather than a gate — and the Bash side deliberately allows editors precisely
-# because forbidding them there produces false positives and does not close this. (#1588 review)
+# The Bash guard covers COMMANDS. Write/Edit/MultiEdit change file content without running one, so
+# `.husky/pre-commit` could be replaced outright. Claiming "zero exceptions" for hook destruction
+# while that door stood open would be a claim, not a gate.
 #
-# What is refused is EMPTYING, not editing. A hook that gains content is ordinary maintenance — this
-# very session added a cross-worktree lock to `.husky/pre-commit` — so the test asserts that passes.
+# PATH-based, not content-based, and the first attempt taught why. It asked whether the new content
+# was empty, and review measured it wrong in BOTH directions: an ordinary partial deletion
+# (`old_string: "# stale note\n"`, `new_string: ""`) was refused although the rest of the hook was
+# intact, and `content: "exit 0"` passed while disabling the hook exactly as emptying it would.
+# `hook_edit_content_of` returns the changed FRAGMENT, never the resulting file, so no emptiness test
+# on it could have been right — and "the body still has a line in it" was never the property that
+# matters anyway.
+#
+# So the property is deliberateness. A hook may be changed; it may not be changed by accident or in
+# passing. `HOOK_EDIT_ACK=1` in the environment is the acknowledgement, in the same spirit as the
+# other documented overrides — this one is not an escape from a check, it IS the check.
 case "$FILE_PATH" in
   */.husky/*|.husky/*)
-    # `hook_edit_content_of` is this file's OWN reader, used unchanged. It already handles all three
-    # shapes — Write's `content`, Edit's `new_string`, MultiEdit's `edits[].new_string` — and the
-    # comment below it records that MultiEdit once bypassed this guard entirely by carrying its
-    # replacements in an array. A second extraction here would be a third reading of one fact, which
-    # is the defect this session spent seven review rounds on elsewhere.
-    if ! HUSKY_NEW=$(hook_edit_content_of "$INPUT"); then
-      echo "[check-forbidden-patterns] Blocked: the edit content could not be decoded, so a hook" >&2
-      echo "[check-forbidden-patterns] change cannot be judged." >&2
-      exit 2
-    fi
-    # A body with no runnable line left — empty, or nothing but a shebang and blanks — is a removal
-    # wearing an edit's clothes.
-    HUSKY_BODY=$(printf '%s' "$HUSKY_NEW" | sed -E '/^[[:space:]]*#!/d; /^[[:space:]]*$/d')
-    if [ -z "$HUSKY_BODY" ]; then
-      echo "[check-forbidden-patterns] Blocked: this would leave a git hook with nothing to run." >&2
-      echo "[check-forbidden-patterns] Emptying a hook disables the gate rather than satisfying it." >&2
-      echo "[check-forbidden-patterns] If a check is wrong, unrunnable, or fires on correct work," >&2
-      echo "[check-forbidden-patterns] change the CHECK. (git-branch.md, INFRA-083)" >&2
+    if [ "${HOOK_EDIT_ACK:-0}" != "1" ]; then
+      echo "[check-forbidden-patterns] Blocked: '$FILE_PATH' is a verification hook." >&2
+      echo "[check-forbidden-patterns] Changing one is deliberate work, not a passing edit — a hook" >&2
+      echo "[check-forbidden-patterns] that quietly becomes 'exit 0' is the gate gone with nothing said." >&2
+      echo "[check-forbidden-patterns] If the change is intended: HOOK_EDIT_ACK=1 (git-branch.md)" >&2
       exit 2
     fi
     exit 0
