@@ -53,9 +53,31 @@ export const DEFAULT_CONTEXT_WINDOW = 200_000;
  */
 const registeredModels = new Map<string, IModelDefinition>();
 
-/** Contribute model metadata from the package that owns the model. */
+/**
+ * Contribute model metadata from the package that owns the model.
+ *
+ * The last registration wins, which is what lets a host correct a provider. A CONFLICTING one is
+ * announced first: two packages claiming the same model id with different numbers means one of them
+ * is wrong, and replacing a value in silence is the failure mode this whole change is against.
+ * Re-registering identical values — which happens whenever a module is loaded twice — says nothing.
+ */
 export function registerModelMetadata(...definitions: IModelDefinition[]): void {
-  for (const definition of definitions) registeredModels.set(definition.id, definition);
+  for (const definition of definitions) {
+    const existing = registeredModels.get(definition.id);
+    if (existing && !sameDefinition(existing, definition)) {
+      logger.warn(
+        `Model "${definition.id}" was already registered with different metadata ` +
+          `(context window ${existing.contextWindow} -> ${definition.contextWindow}, ` +
+          `max output ${existing.maxOutput} -> ${definition.maxOutput}). The later registration ` +
+          'wins; one of the two owners is wrong. (NEUT-010)',
+      );
+    }
+    registeredModels.set(definition.id, definition);
+  }
+}
+
+function sameDefinition(a: IModelDefinition, b: IModelDefinition): boolean {
+  return a.name === b.name && a.contextWindow === b.contextWindow && a.maxOutput === b.maxOutput;
 }
 
 /** Forget contributed metadata. Exposed for tests and for hosts that rebuild a registry. */

@@ -85,16 +85,30 @@ describe('model metadata registry (NEUT-010)', () => {
     expect(lines.filter((l) => l.includes('unregistered-model'))).toHaveLength(0);
   });
 
-  it('a registered entry overrides the built-in table, so a stale built-in can be corrected', () => {
-    const before = getModelContextWindow('claude-haiku-4-5');
-    expect(before).toBe(200_000);
-    registerModelMetadata({
-      id: 'claude-haiku-4-5',
-      name: 'Claude Haiku 4.5',
-      contextWindow: 999,
-      maxOutput: 1,
-    });
-    expect(getModelContextWindow('claude-haiku-4-5')).toBe(999);
+  /**
+   * Named "overrides the built-in table" in review of #1595, which was WRONG in a way worth
+   * recording: this change removes the built-in table, so there is nothing to override. Its `before`
+   * value of 200 000 was the unknown-model FALLBACK, which happens to equal the window Claude Haiku
+   * really has — the exact coincidence this suite avoids elsewhere by probing with Sonnet, whose
+   * real window differs from the default. A test whose premise is a coincidence proves nothing.
+   *
+   * What the re-registration behaviour actually is: the last registration wins, and a CONFLICTING
+   * one says so rather than replacing a value in silence.
+   */
+  it('re-registering the same id replaces it, and a conflicting value is announced', () => {
+    const { sink, lines } = recordingSink();
+    setGlobalLoggerSink(sink);
+    registerModelMetadata({ id: 'vendor/x', name: 'X', contextWindow: 1_000, maxOutput: 100 });
+    expect(getModelContextWindow('vendor/x')).toBe(1_000);
+
+    // Same values again: nothing changed, so nothing to report.
+    registerModelMetadata({ id: 'vendor/x', name: 'X', contextWindow: 1_000, maxOutput: 100 });
+    expect(lines.filter((l) => l.includes('vendor/x'))).toHaveLength(0);
+
+    // Different values: one of the two owners is wrong, and that is worth knowing.
+    registerModelMetadata({ id: 'vendor/x', name: 'X', contextWindow: 2_000, maxOutput: 100 });
+    expect(getModelContextWindow('vendor/x')).toBe(2_000);
+    expect(lines.some((l) => l.includes('vendor/x'))).toBe(true);
   });
 
   it('findModelDefinition says when nothing owns a model, rather than inventing one', () => {
