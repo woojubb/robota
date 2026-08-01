@@ -323,3 +323,68 @@ describe('an override covers the statements it was given to, and no others', () 
     expect(status, `a fully-overridden command was refused: ${output}`).toBe(0);
   });
 });
+
+describe('a gate cannot be skipped by asking git to skip it', () => {
+  // INFRA-083. Four parallel agents pushed with `--no-verify` in one day. The cause was fixed
+  // (HARNESS-058: the gate could not go green in a worktree) and the agents were TOLD not to bypass —
+  // and being told is not a mechanism. `--no-verify` skips the git-level hook, so the pre-push hook
+  // cannot catch its own bypass; the PreToolUse layer runs on the TOOL CALL and is the one place the
+  // flag cannot reach.
+  //
+  // Zero exceptions, matching the `gh pr merge --delete-branch` ban already in this file: an
+  // override for an override is the next bypass. If a gate is wrong, the gate is what changes.
+
+  it('refuses to skip the commit hooks', () => {
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git commit --no-verify -m "x"',
+      'git commit -n -m "x"',
+      'git commit -nm "x"',
+      'git commit -am "x" --no-verify',
+      'echo ok && git commit --no-verify -m "x"',
+    ]) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a commit skipped its hooks: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('refuses to skip the push hooks', () => {
+    const dir = scratchRepo('feat/probe');
+    for (const command of ['git push --no-verify', 'git push origin feat/probe --no-verify']) {
+      expect(
+        run('branch-guard.sh', command, dir).status,
+        `a push skipped its hooks: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('leaves the ordinary forms alone, and `git push -n` is a DRY RUN', () => {
+    // Measured, not assumed: `git push -h` documents `-n` as `--dry-run`, while `git commit -h`
+    // documents `-n` as `--no-verify`. Refusing `git push -n` would refuse a harmless rehearsal —
+    // the same short flag meaning two different things in two subcommands.
+    const dir = scratchRepo('feat/probe');
+    for (const command of [
+      'git push -n',
+      'git push --dry-run',
+      'git commit -am "x"',
+      'git commit -m "x"',
+      'git push origin feat/probe',
+    ]) {
+      const { status, output } = run('branch-guard.sh', command, dir);
+      expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
+    }
+  });
+
+  it('is not disarmed by the flag sitting inside a quoted message', () => {
+    // The masker's whole job. A commit whose MESSAGE discusses the flag is prose, not a bypass.
+    const dir = scratchRepo('feat/probe');
+    const { status, output } = run(
+      'branch-guard.sh',
+      'git commit -m "note: --no-verify is banned"',
+      dir,
+    );
+    expect(status, `a quoted mention was read as the flag: ${output}`).toBe(0);
+  });
+});

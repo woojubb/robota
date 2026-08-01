@@ -91,6 +91,35 @@ reads as stalling. Avoid the opposite failure too: do not fragment into many tri
 context window filling is **not** a reason to stop implementing or to switch to planning-only; keep
 implementing and keep committing. (Owner feedback, 2026-07-17, validated on SELFHOST-003 P1.)
 
+### `--no-verify` is Prohibited on `commit` and `push`
+
+**Never pass `--no-verify` (or `git commit -n`). Zero exceptions.** Enforced by `branch-guard.sh`
+(INFRA-083), and it has to be enforced THERE: `--no-verify` disables the git-level hook, so the
+pre-push hook cannot catch its own bypass — by the time it would run it has already been skipped.
+The PreToolUse layer runs on the tool call, which the flag cannot reach.
+
+```bash
+# WRONG — steps around the gate:
+git push --no-verify
+git commit -n -m "..."
+
+# CORRECT — if the gate is wrong or unrunnable, change the gate:
+pnpm install --frozen-lockfile && pnpm build   # a fresh worktree owes this once
+```
+
+**Measured 2026-08-01: four parallel agents bypassed this way in a single day.** The cause was real —
+the gate could not go green in a worktree (HARNESS-058) — and fixing it was necessary. It was not
+sufficient. The agents were then _told_ not to bypass, which worked, and being told is not a
+mechanism: the identical shape had already been written down about a bare `git stash pop` since
+LESSON-005 and an agent did it anyway ten weeks later.
+
+There is deliberately no override token. An override for an override is the next bypass. **If a check
+is wrong, unrunnable, or fires on correct work, the check is what changes** — that is the whole of
+HARNESS-058, and a gate that trains people to route around it has already failed.
+
+`git push -n` is **not** covered, because for `push` that flag is `--dry-run`, not `--no-verify`. The
+same short flag means different things in the two subcommands; a rehearsal is not a bypass.
+
 ### `--delete-branch` is Prohibited in `gh pr merge`
 
 **Never pass `--delete-branch` to `gh pr merge`. Zero exceptions.**

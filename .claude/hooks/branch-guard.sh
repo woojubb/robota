@@ -232,6 +232,43 @@ while read -r STMT_START STMT_LEN; do
     IS_GH_DELETE_BRANCH=true
   fi
 
+  # --- A gate is not skipped by asking git to skip it (INFRA-083) -------------------------------
+  #
+  # `--no-verify` disables the git-level hook, which means the pre-push hook cannot catch its own
+  # bypass — by the time it would run, it has already been skipped. This layer runs on the TOOL CALL
+  # and is the one place the flag cannot reach.
+  #
+  # Measured 2026-08-01: four parallel agents pushed with `--no-verify` in a single day. The cause
+  # was real and was fixed (HARNESS-058 — the gate could not go green in a worktree), and the agents
+  # were then TOLD not to bypass, which worked and is not a mechanism. A rule stated and never
+  # mechanically reached is this repository's signature defect; `git-branch.md` had said the same
+  # about a bare `git stash pop` since LESSON-005 and an agent did it anyway ten weeks later.
+  #
+  # ZERO EXCEPTIONS, matching the `--delete-branch` ban below. An override for an override is simply
+  # the next bypass. If a gate is wrong, the gate is what changes — that is the whole of HARNESS-058.
+  #
+  # `-n` is read for COMMIT only, and the asymmetry is measured rather than assumed:
+  #   git commit -h  ->  -n, --no-verify
+  #   git push   -h  ->  -n, --[no-]dry-run
+  # Refusing `git push -n` would refuse a harmless rehearsal. The short cluster is matched because
+  # `git commit -nm "x"` bundles, and it reads the MASKED statement, so a message DISCUSSING the flag
+  # is prose and passes.
+  SKIP_HOOKS=false
+  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}commit${GITEND}"; then
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' && SKIP_HOOKS=true
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' && SKIP_HOOKS=true
+  fi
+  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}push${GITEND}"; then
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' && SKIP_HOOKS=true
+  fi
+  if [[ "$SKIP_HOOKS" == "true" ]]; then
+    echo "[branch-guard] Blocked: '--no-verify' skips the gate. Zero exceptions." >&2
+    echo "[branch-guard] Four agents bypassed this way in one day; the gate was broken and was fixed." >&2
+    echo "[branch-guard] If a check is wrong or unrunnable, change the check — do not step around it." >&2
+    echo "[branch-guard] A fresh worktree needs 'pnpm install --frozen-lockfile' and 'pnpm build' once." >&2
+    exit 2
+  fi
+
   if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
     echo "[branch-guard] It once deleted the develop integration branch. Merge without it, then delete" >&2
