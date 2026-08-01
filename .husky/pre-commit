@@ -38,4 +38,10 @@ if [ "${ALLOW_LESSONS_COMMIT:-0}" != "1" ]; then
   fi
 fi
 
-NODE_OPTIONS="--max-old-space-size=8192" pnpm exec lint-staged
+# Held across every worktree of this clone, because `lint-staged` backs up unstaged changes with
+# `git stash` and `refs/stash` is shared — a concurrent commit in a sibling worktree destroys the
+# backup and the commit fails with "lint-staged automatic backup is missing!", which is the state in
+# which uncommitted work is at risk. Measured during a five-agent parallel wave. (INFRA-082)
+NODE_OPTIONS="--max-old-space-size=8192" \
+  "$(git rev-parse --show-toplevel)/scripts/harness/with-repo-lock.sh" \
+  pnpm exec lint-staged

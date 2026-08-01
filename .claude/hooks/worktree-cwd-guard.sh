@@ -88,6 +88,51 @@ fi
 # deployment rather than hoped for from it.
 #
 # The env marker is still honoured, for a launcher that does export it.
+# --- The shared stash ------------------------------------------------------------------------
+#
+# Checked BEFORE the worktree-session gate below, and that placement is the point: the hazard is not
+# "I am inside a worktree", it is "this clone HAS more than one", which is equally true of the main
+# checkout. A guard that only fired inside worktrees would miss the main clone racing them.
+#
+# `refs/stash` is a single ref on the shared object store. `worktree-parallel-orchestration` promises
+# worktree-isolated agents, and the isolation is real for the working tree and the index — not for
+# this. Measured 2026-08-01 during a five-agent wave: one agent's bare `git stash push` + `pop` took
+# ANOTHER agent's uncommitted work into its own tree.
+#
+# git-branch.md has said "never a bare `git stash pop`, pop by explicit ref" since LESSON-005
+# (2026-06-15), and an agent did it anyway ten weeks later, because the rule was written down and
+# never mechanically reached. This is the reaching. (INFRA-082)
+#
+# Read-only subcommands (`list`, `show`) are untouched — they cannot move anyone's work.
+STASH_CMD=$(hook_command_of "$INPUT" 2>/dev/null || true)
+STASH_VERBS=$(hook_verb_scan "$STASH_CMD" 2>/dev/null || true)
+if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:space:]]+stash([[:space:]]|$)'; then
+  BARE_STASH=false
+  # A bare `git stash` / `git stash push` (creates an entry others may pop), or a `pop`/`apply`/
+  # `drop` with no explicit `stash@{N}` (takes whatever is on top, which may be someone else's).
+  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]*(;|&|\||$)' && BARE_STASH=true
+  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(push|save)([[:space:]]|$)' && BARE_STASH=true
+  if printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(pop|apply|drop)([[:space:]]|$)'; then
+    printf '%s' "$STASH_VERBS" | grep -qE 'stash@\{' || BARE_STASH=true
+  fi
+  if [[ "$BARE_STASH" == "true" ]]; then
+    STASH_REPO="${CLAUDE_PROJECT_DIR:-$(hook_cwd_of "$INPUT" 2>/dev/null || echo .)}"
+    # `git worktree list` counts the main checkout as one, so >1 means a sibling exists.
+    # `hook_git_in`, not a bare `git -C`: with `GIT_DIR` exported, `git -C <dir>` reports the OUTER
+    # repository, so the count would be another clone's. INFRA-077 measured that and this file's own
+    # floor caught this line the moment it was written.
+    WORKTREE_COUNT=$(hook_git_in "$STASH_REPO" worktree list 2>/dev/null | grep -c . || echo 0)
+    if [[ "$WORKTREE_COUNT" -gt 1 ]]; then
+      echo "[worktree-cwd-guard] Blocked: a bare stash command while this clone has $WORKTREE_COUNT worktrees." >&2
+      echo "[worktree-cwd-guard] refs/stash is SHARED across every worktree — a bare push or pop can" >&2
+      echo "[worktree-cwd-guard] take another agent's uncommitted work. It has already happened once." >&2
+      echo "[worktree-cwd-guard] Pop by explicit ref: git stash pop stash@{N}   (git-branch.md)" >&2
+      echo "[worktree-cwd-guard] To save state instead, copy the files — no shared ref is involved." >&2
+      exit 2
+    fi
+  fi
+fi
+
 IN_WORKTREE_SESSION=false
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")
 case "$SELF_DIR" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
