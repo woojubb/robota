@@ -247,12 +247,6 @@ while read -r STMT_START STMT_LEN; do
   # ZERO EXCEPTIONS, matching the `--delete-branch` ban below. An override for an override is simply
   # the next bypass. If a gate is wrong, the gate is what changes — that is the whole of HARNESS-058.
   #
-  # `-n` is read for COMMIT only, and the asymmetry is measured rather than assumed:
-  #   git commit -h  ->  -n, --no-verify
-  #   git push   -h  ->  -n, --[no-]dry-run
-  # Refusing `git push -n` would refuse a harmless rehearsal. The short cluster is matched because
-  # `git commit -nm "x"` bundles, and it reads the MASKED statement, so a message DISCUSSING the flag
-  # is prose and passes.
   # WHAT BASH WOULD SEE — asked of the tokenizer, not reconstructed here.
   #
   # This block previously did its own parsing with sed and grep, and every round of review found a

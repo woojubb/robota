@@ -705,10 +705,23 @@ HOOK_SCAN_AWK='
       for (i = 1; i <= length(s); i++) {
         mc = substr(mask, i, 1)
         rc = substr(s, i, 1)
-        # INSIDE A SUBSTITUTION FIRST, before anything else looks at this character. A space in there
-        # belongs to the inner command and is not a separator of the outer one — checking it after the
-        # whitespace break split `echo "$(git log -n 1)"` into four words, which is the very leak this
-        # depth tracking exists to stop.
+        # A substitution RUNS, so its content is a command in its own right and NOT part of this
+        # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
+        # dropping them let the words inside a substitution leak out as words of the outer command:
+        # `git commit -m "$(git log -n 1)"` handed a bare `-n` to a matcher looking for the flag that
+        # skips hooks, and refused an ordinary commit. A guard that wants to judge what runs inside
+        # asks about THAT statement — which is what the statement ranges are for. Dropping the
+        # characters also swallowed a bare `}` closing a function, leaving a real statement with no
+        # words at all. (#1588)
+        #
+        # The depth test comes FIRST, before anything else looks at this character. A space inside a
+        # substitution belongs to the inner command and is not a separator of the outer one — testing
+        # it after the whitespace break split `echo "$(git log -n 1)"` into four words, which is the
+        # very leak this tracking exists to stop.
+        #
+        # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment here
+        # CLOSES it, and the file then fails to source at all — which is how this comment lost its
+        # possessives. Write around them.
         if (sub_depth > 0) {
           started = 1
           if (mc == "(" || mc == "{") { sub_depth++ }
@@ -728,18 +741,7 @@ HOOK_SCAN_AWK='
         if (mc == " ") { continue }
         # Masked content is data. It keeps the word STARTED, so `-m "some message"` stays one word.
         if (mc == "\001") { continue }
-        # A substitution RUNS, so its content is a command in its own right and NOT part of this
-        # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
-        # dropping them let the words inside a substitution leak out as words of the outer command:
-        # `git commit -m "$(git log -n 1)"` handed a bare `-n` to a matcher looking for the flag that
-        # skips hooks, and refused an ordinary commit. A guard that wants to judge what runs inside
-        # asks about THAT statement — which is what the statement ranges are for. Dropping the
-        # characters also swallowed a bare `}` closing a function, leaving a real statement with no
-        # words at all. (#1588)
-        #
-        # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment here
-        # CLOSES it, and the file then fails to source at all — which is how this comment lost its
-        # possessives. Write around them.
+        # Where a substitution OPENS. See the depth test above for why its content is skipped.
         if (mc == "\140") { bt_open = 1; continue }
         if (mc == "$" && (substr(mask, i + 1, 1) == "(" || substr(mask, i + 1, 1) == "{")) {
           sub_depth = 1
@@ -833,6 +835,10 @@ hook_match_extract_after() {
 # by a reader that did not know the grammar. The tokenizer knows both, and reading them together is
 # what lets a comment inside a substitution end at its own newline rather than at the substitution's
 # closing paren. Those passes are gone; see the note where they stood.
+hook_verb_scan() {
+  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
 # The WORDS a statement is built from, one per line, with splices collapsed and quoted content
 # hidden. $2/$3 narrow the reading to one statement, as everywhere else.
 #
@@ -840,10 +846,6 @@ hook_match_extract_after() {
 # whether its letters appear somewhere. See the `words` branch for why it lives here.
 hook_statement_words() {
   printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
-}
-
-hook_verb_scan() {
-  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,
