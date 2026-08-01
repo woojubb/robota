@@ -259,6 +259,24 @@ sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the stud
 | `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
 | `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
 
+### Diagnostic Sink Public API (CORE-029)
+
+Where this package's diagnostics go. `createLogger(name, sink?)` fell back to `SilentLogger` when no
+sink was passed; no call site in the repository ever passed one, and nothing could install one
+afterwards — so every `logger.*` call in the package, including "Robota initialization failed" and
+every catch-and-log-only path, had no reachable destination. That is not "logging was not
+configured": it could not be.
+
+The default remains SILENT. A library that starts writing to `console` because it was imported is a
+different defect, so turning diagnostics on is something a host does deliberately. The sink is
+resolved per call rather than frozen at construction, which is what lets a logger created during
+module initialisation honour a sink installed afterwards.
+
+| Export                | Kind     | Description                                                                        |
+| --------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `setGlobalLoggerSink` | function | Install the process-wide sink every logger writes to; `undefined` restores silence |
+| `getGlobalLoggerSink` | function | The installed sink, or `undefined` when diagnostics are going nowhere              |
+
 ### Abort Classification Public API (CORE-027)
 
 The SSOT for "was this failure an ABORT?" whenever the answer changes what the caller reports.
