@@ -427,6 +427,21 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       "node -e \"require('fs').writeFileSync('.husky/pre-push','exit 0')\"",
       "python3 -c \"open('.husky/pre-push','w').write('exit 0')\"",
       'vim .husky/pre-push',
+      // A PARAMETER EXPANSION or an ARITHMETIC one earlier in the statement. The word splitter tracked
+      // command substitutions by counting their delimiters, and `${…}`/`$((…))` are masked WITH their
+      // closing character — so the region it opened could never close, and every remaining word was
+      // swallowed. The flag behind one was never read and the commit passed in silence. Exactly the
+      // bypass this change exists to close, reopened by the change itself. (#1588 review)
+      'git commit ${EXTRA} --no-verify -m x',
+      'git commit $((1)) --no-verify -m x',
+      'git commit ${E} -n -m x',
+      'git push ${ARGS} --no-verify',
+      // A git GLOBAL option whose value is the next word. Only `-c`/`-C` were consumed, so the value
+      // of any other was latched as the subcommand — and the `-n` and `HUSKY=0` checks both ask
+      // whether the subcommand is `commit`. (#1588 review)
+      'git --work-tree /x commit -n -m y',
+      'git --git-dir /x/.git commit -n -m y',
+      'HUSKY=0 git --work-tree /x commit -m y',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,
@@ -466,6 +481,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       '"$(date)"',
       '""',
       'f() { echo hi; }',
+      // The counterparts of the expansion bypass above: an expansion in an ORDINARY command must not
+      // start refusing work now that it no longer opens a skip region.
+      'git commit -m "${MSG}"',
+      'git --work-tree /x commit -m y',
+      'echo ${HOME} && git log',
+      'git commit -m "$((1 + 1)) files changed"',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);

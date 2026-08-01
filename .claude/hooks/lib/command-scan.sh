@@ -724,8 +724,8 @@ HOOK_SCAN_AWK='
         # possessives. Write around them.
         if (sub_depth > 0) {
           started = 1
-          if (mc == "(" || mc == "{") { sub_depth++ }
-          else if (mc == ")" || mc == "}") { sub_depth-- }
+          if (mc == "(") { sub_depth++ }
+          else if (mc == ")") { sub_depth-- }
           continue
         }
         if (bt_open) { started = 1; if (mc == "\140") { bt_open = 0 } ; continue }
@@ -741,9 +741,19 @@ HOOK_SCAN_AWK='
         if (mc == " ") { continue }
         # Masked content is data. It keeps the word STARTED, so `-m "some message"` stays one word.
         if (mc == "\001") { continue }
-        # Where a substitution OPENS. See the depth test above for why its content is skipped.
+        # Where a COMMAND substitution opens. See the depth test above for why its content is skipped.
+        #
+        # `${...}` and `$((...))` are deliberately NOT opened here, and the reason is that the masker
+        # has already dealt with them: an unquoted `${HOME}` comes back as `${` plus five mask bytes,
+        # the CLOSING BRACE AMONG THEM. Counting braces therefore opened a region that could never
+        # close, and every remaining word of the statement was swallowed — measured on
+        # `git commit ${EXTRA} --no-verify -m x`, which this guard then permitted in silence. The
+        # exact bypass this change exists to close, reopened by the change itself. (#1588 review)
+        #
+        # `$((` is arithmetic, not a command, so it is excluded by lookahead rather than by hoping
+        # the parens balance: its closing pair is masked in the same way.
         if (mc == "\140") { bt_open = 1; continue }
-        if (mc == "$" && (substr(mask, i + 1, 1) == "(" || substr(mask, i + 1, 1) == "{")) {
+        if (mc == "$" && substr(mask, i + 1, 1) == "(" && substr(mask, i + 2, 1) != "(") {
           sub_depth = 1
           i++
           continue

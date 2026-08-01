@@ -304,13 +304,27 @@ while read -r STMT_START STMT_LEN; do
       continue
     fi
     if [[ -z "$GIT_VERB" ]]; then
+      # A GLOBAL option that takes its value as the NEXT word must consume it, or that value is read
+      # as the subcommand. Measured: `git --work-tree /x commit -n -m y` set the verb to `/x`, which
+      # silenced both the `-n` check and the HUSKY=0 check — they ask whether the verb is `commit`.
+      # Only `-c`/`-C` were consumed before. (#1588 review)
       case "$W" in
-        -c|-C) EXPECT_VALUE=true; continue ;;
-        -*) continue ;;
-        *) GIT_VERB="$W"
-           case "$W" in commit|push) IS_GATED_STMT=true ;; esac
-           continue ;;
+        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
+          EXPECT_VALUE=true; continue ;;
       esac
+      case "$W" in
+        -*) continue ;;
+      esac
+      # A verb is a git subcommand, and the option list above cannot be complete — git gains flags.
+      # A word carrying a path separator or a dot is the VALUE of some option this list has not heard
+      # of yet, not a subcommand, so it is skipped rather than latched as the verb. Getting this wrong
+      # in the permissive direction is what the finding above measured.
+      case "$W" in
+        */*|.*|*.*) continue ;;
+      esac
+      GIT_VERB="$W"
+      case "$W" in commit|push) IS_GATED_STMT=true ;; esac
+      continue
     fi
     # Past the verb: these are this invocation's own options.
     case "$W" in
