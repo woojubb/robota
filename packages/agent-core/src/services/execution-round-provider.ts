@@ -3,9 +3,8 @@
  * Extracted from execution-round.ts for single-responsibility.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
+import { randomId } from '../utils/random-id.js';
 
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
@@ -85,7 +84,7 @@ export async function callProviderWithCache(
         role: 'assistant',
         content: cachedResponse,
         timestamp: new Date(),
-        id: randomUUID(),
+        id: randomId(),
         state: 'complete' as const,
       };
     }
