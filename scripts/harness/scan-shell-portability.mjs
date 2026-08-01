@@ -94,6 +94,50 @@ function isComment(line) {
   return t.startsWith('#') || t.startsWith('//') || t.startsWith('*') || t.startsWith('/*');
 }
 
+/**
+ * The LOGICAL lines — a trailing backslash continues onto the next one, and the shell reads the
+ * result as a single command. A line-by-line match missed
+ *
+ *     sed \
+ *       -i 's/a/b/' f
+ *
+ * because no single line holds `sed … -i`: a portability bug passing in silence, which is the class
+ * this scan exists to catch. Raised in review of this change and closed rather than documented.
+ *
+ * A comment is NOT continued: bash ends a comment at the newline whatever the last character is, so
+ * joining there would splice real code onto prose and invent a command nobody wrote.
+ *
+ * Each logical line carries the 1-based number of the line it STARTED on, so a finding still points
+ * at something a reader can open.
+ */
+function logicalLines(text) {
+  const raw = text.split('\n');
+  const out = [];
+  let buffer = null;
+  let startLine = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i];
+    if (buffer === null) {
+      if (isComment(line)) {
+        out.push({ text: line, line: i + 1, comment: true });
+        continue;
+      }
+      buffer = line;
+      startLine = i + 1;
+    } else {
+      buffer = `${buffer} ${line.replace(/^\s+/, '')}`;
+    }
+    if (/\\\s*$/.test(buffer)) {
+      buffer = buffer.replace(/\\\s*$/, '');
+      continue;
+    }
+    out.push({ text: buffer, line: startLine, comment: false });
+    buffer = null;
+  }
+  if (buffer !== null) out.push({ text: buffer, line: startLine, comment: false });
+  return out;
+}
+
 function walk(root, relDir, out, skipped) {
   const absolute = path.join(root, relDir);
   if (!existsSync(absolute)) return out;
@@ -130,17 +174,16 @@ export function findPortabilityFindings(root = WORKSPACE_ROOT) {
     const files = stat.isFile() ? [dir] : walk(root, dir, [], skipped);
     for (const rel of files) {
       filesExamined++;
-      const lines = readFileSync(path.join(root, rel), 'utf8').split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        if (isComment(lines[i])) continue;
+      for (const logical of logicalLines(readFileSync(path.join(root, rel), 'utf8'))) {
+        if (logical.comment) continue;
         for (const { flag, pattern, portable } of DIVERGENT) {
-          if (pattern.test(lines[i])) {
+          if (pattern.test(logical.text)) {
             findings.push({
               file: rel,
-              line: i + 1,
+              line: logical.line,
               flag,
               portable,
-              text: lines[i].trim().slice(0, 120),
+              text: logical.text.trim().slice(0, 120),
             });
             break;
           }

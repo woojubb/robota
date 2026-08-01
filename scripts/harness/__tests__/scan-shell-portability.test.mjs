@@ -75,6 +75,35 @@ describe('scan-shell-portability', () => {
     expect(findings.map((f) => f.file)).toEqual([path.join('scripts', 'real.sh')]);
   });
 
+  // An EXTENSIONLESS husky hook is scanned. The "leaves portable spellings alone" case includes one
+  // too, but that passes just as well if the file is never opened — a vacuous green. This one fails
+  // if the extensionless branch stops working.
+  it('scans an extensionless husky hook', () => {
+    const root = fixture({ '.husky/pre-push': 'stat -c %Y f\n' });
+    const { findings } = findPortabilityFindings(root);
+    expect(findings.map((f) => `${f.file}:${f.flag}`)).toEqual([
+      `${path.join('.husky', 'pre-push')}:stat -c`,
+    ]);
+  });
+
+  // A trailing backslash continues the command, and the shell reads the result as one line. A
+  // line-by-line match saw neither half and passed — a portability bug in silence, which is the
+  // class this scan is for. (Review of #1590.)
+  it('follows a LINE CONTINUATION, and reports the line the command started on', () => {
+    const root = fixture({ 'scripts/cont.sh': "sed \\\n  -i 's/a/b/' f\n" });
+    const { findings } = findPortabilityFindings(root);
+    expect(findings.map((f) => f.flag)).toEqual(['sed -i']);
+    expect(findings[0].line).toBe(1);
+  });
+
+  it('does not continue a COMMENT — bash ends one at the newline whatever the last character is', () => {
+    // Joining here would splice real code onto prose and invent a command nobody wrote.
+    const root = fixture({
+      'scripts/c.sh': '# a trailing backslash in prose \\\n-i is not a command\n',
+    });
+    expect(findPortabilityFindings(root).findings).toEqual([]);
+  });
+
   it('does not flag a COMMENT — prose that discusses a flag does not run it', () => {
     const root = fixture({
       'scripts/doc.sh': '# sed -i is banned here, use node\n  // readlink -f likewise\nexit 0\n',
