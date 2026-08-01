@@ -98,10 +98,17 @@ const DIVERGENT = [
   },
 ];
 
-/** A line whose executable part is empty — the flag is being DISCUSSED, not run. */
+/**
+ * A line whose executable part is empty — the flag is being DISCUSSED, not run.
+ *
+ * `#` ONLY, because that is the whole of shell comment syntax. The first version also accepted
+ * `//`, `*` and `/*`, carried over from when this scan read `.mjs` files too, and once the scope
+ * narrowed to shell they stopped being harmless: `*) sed -i 's/a/b/' f ;;` is the default branch of
+ * a `case`, a perfectly ordinary line of shell, and it was skipped as a comment. A rule that hides
+ * real commands is worse than no rule — this scan exists to remove silent misses. (#1590 review)
+ */
 function isComment(line) {
-  const t = line.trim();
-  return t.startsWith('#') || t.startsWith('//') || t.startsWith('*') || t.startsWith('/*');
+  return line.trimStart().startsWith('#');
 }
 
 /**

@@ -128,9 +128,26 @@ describe('scan-shell-portability', () => {
     expect(findPortabilityFindings(root).findings).toEqual([]);
   });
 
+  // `#` is the whole of shell comment syntax. The first version also treated `//`, `*` and `/*` as
+  // comments — carried over from when this scan read `.mjs` too — and once the scope narrowed to
+  // shell they started HIDING code: the default branch of a `case` begins with `*`. A rule that
+  // hides real commands is worse than no rule. (#1590 review)
+  it('does not mistake a case branch for a comment', () => {
+    const root = fixture({
+      'scripts/case.sh': 'case "$x" in\n  a) echo a ;;\n  *) sed -i "s/a/b/" f ;;\nesac\n',
+      'scripts/star.sh': '  * ) stat -c %Y f ;;\n',
+    });
+    const { findings } = findPortabilityFindings(root);
+    expect(findings.map((f) => `${f.file}:${f.flag}`).sort()).toEqual([
+      `${path.join('scripts', 'case.sh')}:sed -i`,
+      `${path.join('scripts', 'star.sh')}:stat -c`,
+    ]);
+  });
+
   it('does not flag a COMMENT — prose that discusses a flag does not run it', () => {
     const root = fixture({
-      'scripts/doc.sh': '# sed -i is banned here, use node\n  // readlink -f likewise\nexit 0\n',
+      // `#` only — the whole of shell comment syntax, indented or not.
+      'scripts/doc.sh': '# sed -i is banned here, use node\n  # readlink -f likewise\nexit 0\n',
     });
     expect(findPortabilityFindings(root).findings).toEqual([]);
   });
