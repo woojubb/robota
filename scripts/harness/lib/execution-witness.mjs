@@ -368,8 +368,16 @@ export function defaultRunVitestRaw(workspaceRoot, pkg) {
         env: { ...process.env, ...env },
       });
     } catch {
-      // A failing case is the EXPECTED outcome here — the witness runs on the reversed source, where
-      // the deciding case is red. The instrument's output is what matters, not the exit code.
+      // The exit code is not the signal here; the instrument's output is. `spawnSync` throws or
+      // reports non-zero for reasons that say nothing about whether the case reached the fix — a
+      // sibling case failing in the same file, a non-zero from the runner itself — and the trace has
+      // already been written by then either way.
+      //
+      // This comment previously said the witness runs on the REVERSED source. It does not:
+      // `check-regression-red-proof.mjs` calls `executionWitness` only after `restore([source])`,
+      // and `defaultExecutionWitness`'s own docstring says "on the RESTORED source". The behaviour
+      // was right and the stated invariant was backwards — which matters more in this file than
+      // most, since its whole subject is measuring rather than assuming what a run did.
     }
   };
 }
