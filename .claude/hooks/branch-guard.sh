@@ -253,6 +253,22 @@ while read -r STMT_START STMT_LEN; do
   # Refusing `git push -n` would refuse a harmless rehearsal. The short cluster is matched because
   # `git commit -nm "x"` bundles, and it reads the MASKED statement, so a message DISCUSSING the flag
   # is prose and passes.
+  # WHAT BASH WOULD SEE, for the flag checks below.
+  #
+  # The mask replaces a quote character with a SPACE, which breaks a shell splice: bash reads
+  # `--no-''verify` as the single word `--no-verify`, while the mask shows `--no-  verify` and a
+  # literal match finds nothing. Measured — that spelling, `H''USKY=0`, and `-''n` all walked past
+  # the three checks this change added. A backslash splices the same way (`--no-\verify`).
+  #
+  # Read from the RAW statement, not the mask: by mask time each quote is already a space, so there
+  # is nothing left to splice out. Removing the empty pairs and the escapes from the original
+  # reproduces the word bash actually builds.
+  STMT_SPLICED=$(printf '%s' "${COMMAND:$((STMT_START - 1)):STMT_LEN}" | sed -E "s/(''|\"\"|\\\\)//g")
+  # Then MASK that. Splicing alone exposes quoted text, so on its own it refuses a commit message
+  # that merely DISCUSSES the flag — measured, and it blocked this very session's work. Masking the
+  # spliced text keeps both properties: the splice is closed, and a quoted argument is still hidden.
+  # A real flag survives both; a mention survives neither.
+  STMT_EVASIVE=$(hook_verb_scan "$STMT_SPLICED" 2>/dev/null || printf '%s' "$STMT_MASK")
   # The CLASS is "disable the gate instead of satisfying it", not one flag. The first version of this
   # ban closed `--no-verify` alone, and measuring it immediately found SIX other routes walking
   # through — the instance-not-class mistake this file's history is full of. Each member below is a
@@ -278,7 +294,7 @@ while read -r STMT_START STMT_LEN; do
   # `.*` anchored on a NESTED occurrence of the same verb and discarded everything in front of it —
   # so `git commit --no-verify -m "$(git commit --dry-run)"` had its real flag thrown away with the
   # prefix. Strip first and the nested verb is not there to anchor on. (#1588 review)
-  STMT_NO_SUBS=$(strip_substitutions "$STMT_MASK")
+  STMT_NO_SUBS=$(strip_substitutions "$STMT_EVASIVE")
   COMMIT_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}commit${GITEND}//p" |
     sed -E 's/(;|&&|\|\|).*//')
   PUSH_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}push${GITEND}//p" |
@@ -313,9 +329,14 @@ while read -r STMT_START STMT_LEN; do
   IS_GATED_STMT=false
   printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(commit|push)${GITEND}" && IS_GATED_STMT=true
   if [[ "$IS_GATED_STMT" == "true" ]]; then
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])HUSKY=0([[:space:]]|$)' &&
+    # As an ENVIRONMENT PREFIX, which is the only position that disables anything. The tokenizer
+    # leaves a single-token quoted argument visible, so `git commit -m "HUSKY=0"` — a commit whose
+    # message IS that string — matched a bare presence test and was refused. An assignment that
+    # disables husky sits at the head of its statement, ahead of the command. (#1588 review)
+    printf '%s' "$STMT_EVASIVE" |
+      grep -qE '(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*HUSKY=0[[:space:]]' &&
       { SKIP_HOOKS=true; SKIP_WHAT="HUSKY=0"; }
-    printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
+    printf '%s' "$STMT_EVASIVE" | grep -qE 'core\.hooksPath' &&
       { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
   fi
   printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}config${GITEND}[^;&|]*core\.hooksPath" &&

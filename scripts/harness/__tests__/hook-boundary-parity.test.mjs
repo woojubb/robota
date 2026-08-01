@@ -354,6 +354,13 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // A combined redirection between the verb and the flag. (#1588 review)
       'git commit -m "x" &> /dev/null --no-verify',
       'git push origin feat/probe &>> log --no-verify',
+      // Quote and backslash SPLICING. bash joins `--no-``''``verify` into one word; the mask turns
+      // each quote into a SPACE, so a literal match saw `--no-  verify` and found nothing. All three
+      // new checks shared the hole. (#1588 review)
+      "git commit -m 'x' --no-''verify",
+      "H''USKY=0 git commit -m 'x'",
+      "git commit -''n -m x",
+      'git commit -m x --no-\\verify',
       'echo ok && git commit --no-verify -m "x"',
     ]) {
       expect(
@@ -472,6 +479,10 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // `-mn "x"` is `-m` taking the value `n` — an ordinary commit whose message is "n". The
       // cluster rule matched any `-…n…` regardless of order and refused it. (#1588 review)
       'git commit -mn "x"',
+      // A commit whose MESSAGE is the env var. A single-token quoted argument stays visible in the
+      // mask, so a bare presence test refused an ordinary commit. An assignment that disables husky
+      // sits at the head of its statement. (#1588 review)
+      'git commit -m "HUSKY=0"',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
