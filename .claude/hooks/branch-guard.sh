@@ -274,9 +274,14 @@ while read -r STMT_START STMT_LEN; do
   strip_substitutions() {
     printf '%s' "$1" | sed -E ':a; s/\$\([^()]*\)//g; s/`[^`]*`//g; ta'
   }
-  COMMIT_ARGS=$(strip_substitutions "$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}commit${GITEND}//p")" |
+  # Substitutions are removed BEFORE the verb is located, not after. Applied afterwards, a greedy
+  # `.*` anchored on a NESTED occurrence of the same verb and discarded everything in front of it —
+  # so `git commit --no-verify -m "$(git commit --dry-run)"` had its real flag thrown away with the
+  # prefix. Strip first and the nested verb is not there to anchor on. (#1588 review)
+  STMT_NO_SUBS=$(strip_substitutions "$STMT_MASK")
+  COMMIT_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}commit${GITEND}//p" |
     sed -E 's/(;|&&|\|\|).*//')
-  PUSH_ARGS=$(strip_substitutions "$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}push${GITEND}//p")" |
+  PUSH_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}push${GITEND}//p" |
     sed -E 's/(;|&&|\|\|).*//')
   for ARGS in "$COMMIT_ARGS" "$PUSH_ARGS"; do
     [[ -n "$ARGS" ]] || continue

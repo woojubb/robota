@@ -347,6 +347,10 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git commit -m "$(git log -n 1)" --no-verify',
       'git push origin "$(git branch --show-current)" --no-verify',
       'git commit -m "$(date)" -n',
+      // The flag BEFORE a nested use of the same verb. A greedy `.*` anchored on the nested
+      // occurrence and discarded everything in front of it, including the real flag. (#1588 review)
+      'git commit --no-verify -m "$(git commit --dry-run 2>&1)"',
+      'git push --no-verify origin "$(git push --dry-run 2>&1)"',
       'echo ok && git commit --no-verify -m "x"',
     ]) {
       expect(

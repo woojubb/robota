@@ -286,3 +286,39 @@ describe('the guards VERDICT on the same corpus matches what bash does with it',
     // instead of asking a function what it would have said.
   }, 300_000);
 });
+
+describe('a redirection is not a statement separator', () => {
+  // `2>&1` is one of the most common things in any command line, and its `&` was splitting the
+  // statement in two. Every guard that reads per statement then judged a truncated fragment with an
+  // unclosed `$(` in it — measured on branch-guard, where `git commit --no-verify -m "$(…2>&1)"` had
+  // its real flag thrown away with the discarded prefix. Found while chasing a review finding on
+  // #1588 whose stated cause was elsewhere. (INFRA-085)
+  const cases = [
+    { command: 'git commit -m x 2>&1', statements: 1 },
+    { command: 'echo a 2>&1; echo b', statements: 2 },
+    { command: 'git push origin main 2>&1', statements: 1 },
+    { command: 'cmd 1>&2', statements: 1 },
+    { command: 'cmd >&2', statements: 1 },
+    // A real background `&` and a real `&&` still split.
+    { command: 'sleep 1 & echo done', statements: 2 },
+    { command: 'a && b', statements: 2 },
+    { command: 'a & b & c', statements: 3 },
+  ];
+
+  for (const { command, statements } of cases) {
+    it(`splits ${JSON.stringify(command)} into ${statements}`, () => {
+      const result = spawnSync(
+        'bash',
+        [
+          '-c',
+          `source .claude/hooks/lib/command-scan.sh && hook_statement_ranges "$1"`,
+          '_',
+          command,
+        ],
+        { cwd: WORKSPACE_ROOT, encoding: 'utf8' },
+      );
+      const lines = (result.stdout ?? '').split('\n').filter((l) => l.trim() !== '');
+      expect(lines.length, `ranges: ${JSON.stringify(lines)}`).toBe(statements);
+    });
+  }
+});

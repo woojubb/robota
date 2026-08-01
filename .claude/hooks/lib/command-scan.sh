@@ -643,6 +643,15 @@ HOOK_SCAN_AWK='
       start = 1
       for (i = 1; i <= len; i++) {
         c = substr(mask, i, 1)
+        # `&` in a REDIRECTION is not a separator. `2>&1`, `1>&2` and `>&2` are among the most
+        # common things anyone writes, and splitting on that `&` cut the statement in two — every
+        # caller then judged a truncated fragment, in one measured case one carrying an unclosed
+        # `$(`. A redirecting `&` is preceded by `>` or `<`, optionally with a digit between.
+        # (INFRA-085, found while chasing a #1588 review finding whose stated cause was elsewhere.)
+        if (c == "&" && i > 1) {
+          p = substr(mask, i - 1, 1)
+          if (p == ">" || p == "<") continue
+        }
         if (c == ";" || c == "&" || c == "|" || c == "\n") {
           if (i > start) { print start " " (i - start) }
           start = i + 1
