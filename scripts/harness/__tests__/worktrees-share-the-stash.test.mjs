@@ -326,4 +326,38 @@ describe('a bare stash command is refused while the stack is shared', () => {
     const { status, output } = run(`git -C ${sibling} stash pop stash@{0}`, dir);
     expect(status, `the explicit form behind -C was refused: ${output}`).toBe(0);
   });
+
+  it('refuses when no directory can be named, instead of judging the hook own cwd', () => {
+    // Review of #1585, MUST — and the FIFTH time this change re-derived something this file already
+    // documents. Its own comment on EFFECTIVE_DIR says why `.` was rejected there: "`.` is wherever
+    // the hook binary runs, not where the tool command runs — resolving its toplevel would judge an
+    // unrelated checkout (this caused a fail-safe bug)". I wrote that fallback back in.
+    //
+    // The fixture makes the difference visible: the hook PROCESS sits in a repo with ONE worktree,
+    // and the payload names no directory at all. With the `.` fallback the count comes from that
+    // unrelated repo, reads 1, and a bare pop is waved through — while the repository the command
+    // would really act on is unknown and may well be shared.
+    //
+    // Refuse rather than fail-safe, and that differs from the destructive-command path deliberately:
+    // a bare pop always HAS a correct form (`stash@{N}`), so refusing costs the caller a ref they
+    // should have written anyway. The destructive path has no such substitute, which is why it
+    // fails safe instead.
+    //
+    // A first version of this case set `cwd` to the MULTI-worktree repo and passed on arrival — it
+    // blocked for the ordinary reason and proved nothing.
+    const unrelated = repoWithWorktrees(1);
+    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git stash pop' } });
+    const result = spawnSync('bash', [HOOK], {
+      input: payload,
+      cwd: unrelated,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: process.env.HOME },
+      timeout: 120_000,
+    });
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    expect(
+      result.status ?? 1,
+      `a nameless directory was judged against the hook own cwd: ${output}`,
+    ).not.toBe(0);
+  });
 });

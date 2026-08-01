@@ -149,14 +149,29 @@ if printf '%s' "$STASH_VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}";
     fi
   done <<< "$STASH_STATEMENTS"
   if [[ "$BARE_STASH" == "true" ]]; then
-    # `hook_cwd_of` returns exit 0 with an EMPTY string when the field is absent — that is its stated
-    # contract — so `|| echo .` never fires there and `git -C ""` would mean "no change" rather than
-    # the intended fallback. The default is applied to the VALUE, not to the exit code. (#1585)
-    STASH_REPO="${CLAUDE_PROJECT_DIR:-}"
+    # The same resolver the destructive-command path uses, and NO `.` fallback. This file already
+    # documents why `.` was rejected there — "`.` is wherever the hook binary runs, not where the
+    # tool command runs — resolving its toplevel would judge an unrelated checkout (this caused a
+    # fail-safe bug)" — and I wrote that fallback back in here. With no `CLAUDE_PROJECT_DIR` and no
+    # payload `cwd`, the worktree count came from whatever repository the hook process happened to
+    # sit in: one worktree there, and a bare pop in the real, shared target was waved through.
+    #
+    # `hook_cwd_of` returns exit 0 with an EMPTY string when the field is absent — its stated
+    # contract — so a `||` fallback never fires for the ordinary case anyway. The resolver takes the
+    # first non-empty of the three, which is what "first-nonempty" means. (#1585)
+    STASH_REPO=$(hook_effective_repo first-nonempty \
+      "$(hook_git_c_path "$STASH_CMD" 2>/dev/null || printf '')" \
+      "$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')" \
+      "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
     if [[ -z "$STASH_REPO" ]]; then
-      STASH_REPO=$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')
+      # REFUSE, not fail-safe — and the difference from the destructive path is deliberate. A bare
+      # pop always has a correct form (`stash@{N}`), so refusing costs the caller a ref they should
+      # have written. A destructive command has no such substitute, which is why that path fails safe.
+      echo "[worktree-cwd-guard] Blocked: a bare stash command, and no repository could be named," >&2
+      echo "[worktree-cwd-guard] so a shared stack cannot be ruled out." >&2
+      echo "[worktree-cwd-guard] Name an explicit ref: git stash pop stash@{N}   (git-branch.md)" >&2
+      exit 2
     fi
-    [[ -n "$STASH_REPO" ]] || STASH_REPO=.
     # `git worktree list` counts the main checkout as one, so >1 means a sibling exists.
     # `hook_git_in`, not a bare `git -C`: with `GIT_DIR` exported, `git -C <dir>` reports the OUTER
     # repository, so the count would be another clone's. INFRA-077 measured that and this file's own
