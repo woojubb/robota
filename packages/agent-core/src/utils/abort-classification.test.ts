@@ -62,9 +62,43 @@ describe('isAbortFailure (CORE-027)', () => {
     expect(isAbortFailure(new Error('provider call failed', { cause: inner }))).toBe(true);
   });
 
-  it('a non-Error rejection is not an abort', () => {
+  it('a non-error rejection is not an abort', () => {
     expect(isAbortFailure('abort')).toBe(false);
     expect(isAbortFailure(undefined)).toBe(false);
+    expect(isAbortFailure(null)).toBe(false);
+    // A bare tag is not an error: an error carries a message.
     expect(isAbortFailure({ name: 'AbortError' })).toBe(false);
+  });
+
+  /**
+   * The classification does not depend on `instanceof Error`, for two independent reasons — only one
+   * of which was raised in review of #1593.
+   *
+   * The review's claim was that `DOMException` does not extend `Error`. Measured on this runtime, it
+   * does (`new DOMException('x','AbortError') instanceof Error === true`, Node 22.14, and WebIDL has
+   * put `Error.prototype` in its chain since 2021), so the claim does not hold here — the
+   * `DOMException` case below passed before this change and still passes.
+   *
+   * It is fixed anyway, because `agent-core` ships a browser build and because `instanceof` also
+   * fails CROSS-REALM: an abort thrown in a worker or a `vm` context is an ordinary error that this
+   * realm's `Error` does not recognise. That case is the one no `instanceof` spelling can cover, and
+   * it is asserted below.
+   */
+  describe('recognises an abort that instanceof cannot reach', () => {
+    it('a DOMException abort', () => {
+      expect(isAbortFailure(new DOMException('The operation was aborted.', 'AbortError'))).toBe(
+        true,
+      );
+    });
+
+    it('a CROSS-REALM error, which fails instanceof against this realm', async () => {
+      const vm = await import('node:vm');
+      const foreign: unknown = vm.runInNewContext(
+        "(() => { const e = new Error('aborted'); e.name = 'AbortError'; return e; })()",
+      );
+      // The premise of the test: this really is unreachable by instanceof here.
+      expect(foreign instanceof Error).toBe(false);
+      expect(isAbortFailure(foreign)).toBe(true);
+    });
   });
 });
