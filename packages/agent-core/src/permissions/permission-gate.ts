@@ -73,7 +73,40 @@ function parsePattern(pattern: string): { toolName: string; argPattern: string |
  *   Glob → args.pattern
  *   Grep → args.pattern
  */
+const registeredArgumentKeys = new Map<string, string>();
+
+/**
+ * Declare which argument a tool's permission patterns are scoped to. CORE-030.
+ *
+ * The switch below is a hardcoded list of PRODUCT tool names in the vendor-neutral foundation, and
+ * a tool it has never heard of had no way onto it. That is not merely a layering complaint: an
+ * argument-scoped deny for such a tool could never match, and evaluation fell through to
+ * `UNKNOWN_TOOL_FALLBACK`, which is `'approve'` in `default` and `acceptEdits`. A deny that silently
+ * becomes an approve is the worst direction for this particular failure.
+ *
+ * A tool's owner registers its key; the built-in switch remains until those tools do the same.
+ */
+export function registerToolArgumentKey(toolName: string, argumentKey: string): void {
+  registeredArgumentKeys.set(toolName, argumentKey);
+}
+
+/** Forget registered argument keys. For tests and for hosts that rebuild a registry. */
+export function clearRegisteredToolArgumentKeys(): void {
+  registeredArgumentKeys.clear();
+}
+
+/** Whether the argument a pattern would be matched against is knowable for this tool at all. */
+function hasKnownArgumentKey(toolName: string): boolean {
+  if (registeredArgumentKeys.has(toolName)) return true;
+  return ['Shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'].includes(toolName);
+}
+
 function primaryArg(toolName: string, args: TToolArgs): string | undefined {
+  const registeredKey = registeredArgumentKeys.get(toolName);
+  if (registeredKey !== undefined) {
+    const value = args[registeredKey];
+    return typeof value === 'string' ? value : undefined;
+  }
   switch (toolName) {
     case 'Shell':
     case 'Bash':
@@ -100,6 +133,27 @@ export function matchesAnyPattern(
   patterns: readonly string[],
 ): boolean {
   return patterns.some((pattern) => matchesPattern(toolName, args, pattern));
+}
+
+/**
+ * Whether an argument-scoped pattern for this tool cannot be evaluated at all. CORE-030.
+ *
+ * `matchesPattern` answers `false` when the argument is unknowable, and `false` from a DENY list
+ * means "not denied" — so `MyTool(secrets/**)` silently permitted every invocation of a tool the
+ * foundation had never heard of. "I cannot tell" is not "no".
+ */
+function hasUnevaluableArgumentPattern(
+  toolName: string,
+  args: TToolArgs,
+  patterns: readonly string[],
+): boolean {
+  return patterns.some((pattern) => {
+    const parsed = parsePattern(pattern);
+    if (parsed.toolName !== toolName || parsed.argPattern === undefined) return false;
+    // Knowable in principle but absent from THIS invocation is a real non-match; unknowable at all
+    // is the case that must not read as one.
+    return !hasKnownArgumentKey(toolName) || primaryArg(toolName, args) === undefined;
+  });
 }
 
 /**
@@ -145,6 +199,18 @@ export function evaluatePermission(
   // Step 1: deny list — if any deny pattern matches, block immediately
   if (matchesAnyPattern(toolName, toolArgs, deny)) {
     return 'deny';
+  }
+
+  // CORE-030: a deny the gate could not EVALUATE is not a deny that did not match. When the
+  // argument a pattern is scoped to is unknowable for this tool, the previous code answered "not
+  // denied" and — in `default` and `acceptEdits` — went on to AUTO-approve. The operator wrote a
+  // deny and got an approval.
+  //
+  // `'approve'` in this vocabulary means "ask the user", which is the right answer here: refusing
+  // outright would break a legitimate invocation the pattern was never about, and auto-approving is
+  // what this exists to stop. `plan` mode still denies, matching its fallback.
+  if (hasUnevaluableArgumentPattern(toolName, toolArgs, deny)) {
+    return mode === 'plan' ? 'deny' : 'approve';
   }
 
   // Step 2: allow list — if any allow pattern matches, auto-approve

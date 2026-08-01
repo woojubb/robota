@@ -12,9 +12,25 @@ depends_on: []
 
 ## Problem
 
-A `MyTool(secrets/**)` **deny** pattern never matches, and evaluation falls through to
-`UNKNOWN_TOOL_FALLBACK = 'approve'` in `default` and `acceptEdits` modes. A tool the table does not
-know about is therefore **unprotectable and defaults to approve** — silently.
+A `MyTool(secrets/**)` **deny** pattern never matches for a tool the argument table does not know,
+so evaluation walks on past the deny list.
+
+**Severity correction, measured while implementing (#1596).** The audit said this "falls through to
+`UNKNOWN_TOOL_FALLBACK = 'approve'`" and read that as fail-open. It is not: in this vocabulary
+`'approve'` means PROMPT THE USER and `'auto'` is the decision that proceeds silently
+(`permissions/types.ts:29-34`). A deny with no allow beside it already ended at a prompt.
+
+The real fail-open needs an allow entry as well, and it is genuine — measured against the pre-fix
+code:
+
+```
+deny: ['MyTool(secrets/**)']                     -> approve   (prompt; already fine)
+deny: ['MyTool(secrets/**)'], allow: ['MyTool']  -> auto      (silently approved)
+deny: ['Shell(rm*)'],        allow: ['Shell']    -> deny      (known tool; correct)
+```
+
+Denying a narrow case while allowing the tool broadly is the ordinary way to write these lists, so
+for any tool the foundation does not know, the narrow deny simply vanished.
 
 Risk classification is owned by a hardcoded name table in the zero-dependency foundation, two layers
 below the tools it names, instead of being declared by each tool. The two owners can drift silently,
@@ -55,7 +71,7 @@ know about is unprotectable and defaults to approve._
 **FOUNDATIONAL.** The synthesis's reasoning: the table lives in the zero-dependency foundation and is
 keyed on a closed union of product tool names, so no layer above — and no third-party tool author —
 can register a tool's risk classification. The `default: return undefined` in `permission-gate.ts`
-plus `UNKNOWN_TOOL_FALLBACK = 'approve'` makes the failure mode fail-open.
+makes an unevaluable deny lose to a broader allow — see the severity correction above.
 
 Severity HIGH, security-relevant and silent. The synthesis also cross-lists it under theme T3 (a
 trust boundary that is documentation rather than code) and theme T9 (`TKnownToolName`/`MODE_POLICY`
