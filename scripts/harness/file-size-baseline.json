@@ -17,7 +17,7 @@
   "packages/agent-core/src/plugins/event-emitter-plugin.ts": 310,
   "packages/agent-core/src/services/execution-round.ts": 308,
   "packages/agent-core/src/services/execution-service-helpers.ts": 373,
-  "packages/agent-core/src/services/execution-service.ts": 311,
+  "packages/agent-core/src/services/execution-service.ts": 310,
   "packages/agent-core/src/services/execution-stream.ts": 317,
   "packages/agent-core/src/utils/errors.ts": 315,
   "packages/agent-executor/src/background-tasks/background-task-manager.ts": 398,
