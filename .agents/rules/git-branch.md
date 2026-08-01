@@ -96,12 +96,13 @@ implementing and keep committing. (Owner feedback, 2026-07-17, validated on SELF
 **Never disable a hook instead of satisfying it. Zero exceptions.** Enforced by `branch-guard.sh`
 (INFRA-083). The banned set is every documented kill switch, not one flag:
 
-| Route                                                       | Published by |
-| ----------------------------------------------------------- | ------------ |
-| `--no-verify`, `git commit -n`                              | git          |
-| `HUSKY=0`                                                   | husky        |
-| `git -c core.hooksPath=…`, `git config core.hooksPath …`    | git          |
-| removing, emptying or `chmod -x`-ing a file under `.husky/` | —            |
+| Route                                                                       | Published by |
+| --------------------------------------------------------------------------- | ------------ |
+| `--no-verify`, `git commit -n`                                              | git          |
+| `HUSKY=0`                                                                   | husky        |
+| `git -c core.hooksPath=…`, `git config core.hooksPath …`                    | git          |
+| removing, emptying, or dropping the execute bit on anything under `.husky/` | —            |
+| opening a hook in an editor, or writing one from `node`/`python3`           | —            |
 
 The first version of this rule banned `--no-verify` alone. Measuring it immediately found **six other
 routes walking straight through** — closing the instance and leaving the class, which is the mistake
