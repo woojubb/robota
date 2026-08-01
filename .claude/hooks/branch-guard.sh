@@ -259,17 +259,28 @@ while read -r STMT_START STMT_LEN; do
   # documented kill switch published by the tool it belongs to, and none has a legitimate agent use.
   SKIP_HOOKS=false
   SKIP_WHAT=""
-  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(commit|push)${GITEND}"; then
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' &&
+  # The flag must be an ARGUMENT OF THIS `git commit`/`git push`, not merely present somewhere in the
+  # statement. A substitution's content is deliberately left executable by the tokenizer — it runs —
+  # so `git commit -m "$(git log -n 1 --format=%s)"` put an inner command's `-n` in the same
+  # statement, and reading the two facts independently blocked an ordinary commit that never named
+  # the flag. Measured, both shapes, from review of #1588.
+  #
+  # `ARGS` is what follows the verb up to the first thing that starts a DIFFERENT command — `$(`,
+  # a backtick, or a separator. That is where this invocation's own options live.
+  COMMIT_ARGS=$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}commit${GITEND}//p" | sed -E 's/(\$\(|`|;|&&|\|\|).*//')
+  PUSH_ARGS=$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}push${GITEND}//p" | sed -E 's/(\$\(|`|;|&&|\|\|).*//')
+  for ARGS in "$COMMIT_ARGS" "$PUSH_ARGS"; do
+    [[ -n "$ARGS" ]] || continue
+    printf '%s' "$ARGS" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' &&
       { SKIP_HOOKS=true; SKIP_WHAT="--no-verify"; }
-  fi
+  done
   # The short form is COMMIT-only, and the asymmetry is measured rather than assumed:
   #   git commit -h  ->  -n, --no-verify
   #   git push   -h  ->  -n, --[no-]dry-run
   # Refusing it on a push would refuse a harmless rehearsal. The cluster is matched because
   # `git commit -nm "x"` bundles.
-  if printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}commit${GITEND}"; then
-    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' &&
+  if [[ -n "$COMMIT_ARGS" ]]; then
+    printf '%s' "$COMMIT_ARGS" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' &&
       { SKIP_HOOKS=true; SKIP_WHAT="git commit -n"; }
   fi
   # husky's own kill switch, as an environment assignment on the command.

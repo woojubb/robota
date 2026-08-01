@@ -397,6 +397,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'ls .husky',
       'echo "HUSKY=0 is banned"',
       'git -c core.editor=true commit -m "x"',
+      // Review of #1588: a substitution's content is deliberately NOT masked — it runs — so an
+      // inner `-n` belonging to a DIFFERENT command was read as the outer commit's skip-hooks flag.
+      // These are ordinary commits that never name the flag at all.
+      'git commit -m "$(git log -n 1 --format=%s)"',
+      'git commit -m "$(grep -n TODO file.txt)"',
+      'git commit -F - <<EOF\nsee git log -n 1\nEOF',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
