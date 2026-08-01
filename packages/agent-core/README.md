@@ -43,7 +43,7 @@ console.log(response);
 - **Plugin system**: `AbstractPlugin` base class with lifecycle hooks (beforeRun, afterRun, onError, etc.)
 - **Event services**: Unified event emission with owner path tracking
 - **Error hierarchy**: Typed errors extending `RobotaError` (ProviderError, RateLimitError, etc.)
-- **Model definitions**: Central `CLAUDE_MODELS` registry with context windows, output limits, and human-readable names
+- **Model metadata registry**: providers contribute their own models via `registerModelMetadata()`; core owns the registry and the lookups, not any vendor's catalogue (NEUT-010)
 - **callProviderWithCache**: Accepts `Partial<IChatOptions>` overrides for per-call configuration
 - **AbortSignal propagation**: Signal flows through the entire execution chain (Session -> Robota -> Provider)
 - **Execution boundary events**: `Robota.run()` can emit provider/tool provenance events through `onExecutionEvent`
@@ -196,7 +196,7 @@ agent-cli         ← Terminal UI
 | **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName`                                             |
 | **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                                                                        |
 | **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                                                            |
-| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                                         |
+| **Models**      | `registerModelMetadata()`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                               |
 | **Context**     | `estimateContextTokensFromMessages()`, `estimateSerializedContextTokens()`, `readTokenUsageFromMessage()`, `IContextTokenEstimate`, `IMessageTokenUsage`, `IContextWindowState`, `IContextTokenUsage`                                 |
 | **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IProviderCapabilities`, `IProviderNativeWebToolRequest`, `IToolSchema`, `TTextDeltaCallback`                                    |
 | **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                                                                   |

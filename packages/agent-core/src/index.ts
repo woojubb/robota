@@ -309,11 +309,9 @@ export type {
   IContextTokenEstimateOptions,
   IMessageTokenUsage,
 } from './context/index.js';
-export type { IModelDefinition } from './context/index.js';
-export type { IModelPrice } from './context/index.js';
+export type { IModelDefinition, IModelPrice } from './context/index.js';
 export {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
-  CLAUDE_MODELS,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_OUTPUT,
   estimateContextTokensFromMessages,
@@ -322,6 +320,7 @@ export {
   getModelMaxOutput,
   getModelName,
   formatTokenCount,
+  registerModelMetadata,
   readTokenUsageFromMessage,
   readTokenUsageFromMetadata,
   MODEL_PRICES,

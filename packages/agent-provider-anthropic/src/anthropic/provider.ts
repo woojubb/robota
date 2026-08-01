@@ -3,12 +3,12 @@ import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   AbstractAIProvider,
-  getModelMaxOutput,
   RateLimitError,
   ConfigurationError,
   ValidationError,
 } from '@robota-sdk/agent-core';
 
+import { resolveAnthropicMaxTokens } from './claude-models.js';
 import {
   convertToAnthropicFormat,
   convertToolsToAnthropicFormat,
@@ -131,7 +131,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
       model: options.model as string,
       messages: anthropicMessages,
-      max_tokens: options?.maxTokens || getModelMaxOutput(options.model as string),
+      max_tokens: resolveAnthropicMaxTokens(options.model as string, options?.maxTokens),
       ...(systemPrompt && { system: systemPrompt }),
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
@@ -206,7 +206,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const requestParams: Anthropic.MessageCreateParamsStreaming = {
       model: options.model as string,
       messages: anthropicMessages,
-      max_tokens: options?.maxTokens || getModelMaxOutput(options.model as string),
+      max_tokens: resolveAnthropicMaxTokens(options.model as string, options?.maxTokens),
       stream: true,
       ...buildOutputConfig(options),
     };

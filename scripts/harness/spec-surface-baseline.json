@@ -1,7 +1,7 @@
 {
   "@robota-sdk/agent-cli": 1,
   "@robota-sdk/agent-command": 140,
-  "@robota-sdk/agent-core": 147,
+  "@robota-sdk/agent-core": 146,
   "@robota-sdk/agent-executor": 19,
   "@robota-sdk/agent-framework": 160,
   "@robota-sdk/agent-interface-transport": 4,

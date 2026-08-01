@@ -1,9 +1,6 @@
-import {
-  CLAUDE_MODELS,
-  type IProviderDefinition,
-  type IProviderModelCatalogEntry,
-} from '@robota-sdk/agent-core';
+import { type IProviderDefinition, type IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
 
+import { CLAUDE_MODELS } from './claude-models.js';
 import { refreshAnthropicModelCatalog } from './model-catalog-refresh';
 import { AnthropicProvider } from './provider';
 
