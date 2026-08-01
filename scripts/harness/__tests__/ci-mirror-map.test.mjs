@@ -163,6 +163,41 @@ describe('the stage table itself is well-formed', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  /**
+   * HARNESS-058 — a prerequisite must run BEFORE what needs it.
+   *
+   * `typecheck` was stage 5 and `build` stage 6, so a cross-package `tsgo` run resolved to
+   * declaration files nothing had produced yet and the gate went red on a branch that changed no
+   * code. The fix is not a one-off swap: every stage now DECLARES whether it reads build output,
+   * and this pins the declaration to the order. A stage added below `build` needing dist is caught
+   * here rather than by the next agent to run the gate in a fresh worktree.
+   */
+  it('every stage declares whether it reads build output', () => {
+    for (const stage of CI_STAGES) {
+      expect(
+        typeof stage.needsBuildOutput,
+        `stage \`${stage.name}\` must declare needsBuildOutput — the stage order is derived from it, and an undeclared stage silently sorts as "needs nothing".`,
+      ).toBe('boolean');
+    }
+  });
+
+  it('the build stage does not itself read build output', () => {
+    const build = CI_STAGES.find((stage) => stage.name === 'build');
+    expect(build, 'the stage that produces build output must exist').toBeDefined();
+    expect(build.needsBuildOutput).toBe(false);
+  });
+
+  it('every stage that reads build output runs AFTER the stage that produces it', () => {
+    const buildIndex = CI_STAGES.findIndex((stage) => stage.name === 'build');
+    const tooEarly = CI_STAGES.filter(
+      (stage, index) => stage.needsBuildOutput && index < buildIndex,
+    ).map((stage) => stage.name);
+    expect(
+      tooEarly,
+      `stage(s) that read build output are ordered BEFORE \`build\`: ${tooEarly.join(', ')}. On an unbuilt tree they fail on missing declaration files / modules, which reads as a defect in the change under test (HARNESS-058).`,
+    ).toEqual([]);
+  });
+
   it('no stage mirrors a job the ruleset does not require', () => {
     const requiredJobs = new Set(REQUIRED.map((entry) => entry.job));
     for (const stage of CI_STAGES) {

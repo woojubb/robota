@@ -12,6 +12,11 @@ import {
   renderCommand,
   validateScenarioRecordArtifact,
 } from './scenario-records.mjs';
+// HARNESS-058 note, deliberately NOT a prerequisite gate here: this script's WORKSPACE_ROOT is
+// `process.cwd()`, and it is legitimately run against synthetic workspace fixtures that have no
+// install (see `__tests__/detect-changed-files.test.mjs`). A tree-prerequisite assertion at this
+// layer fails those honest runs. The prerequisite is asserted by the entry points that invoke this
+// one as a GATE — `verify-like-ci.mjs` and `pre-push.mjs` — which own a real repository root.
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import {
   WORKSPACE_ROOT,

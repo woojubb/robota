@@ -1,0 +1,153 @@
+/**
+ * HARNESS-058 (second face) — the pre-push gate must not demand a prerequisite for work it has
+ * already decided not to do.
+ *
+ * The defect: `assertTreePrerequisites` ran third, before `decidePrePushVerification` decided
+ * whether anything would be verified at all. Two kinds of push verify nothing — a delete-only push,
+ * and a re-push whose tree has no content delta from its base — and neither reads `node_modules` or
+ * `dist`. Measured in a fresh worktree, both were refused with "run `pnpm install && pnpm build`"
+ * for a push with nothing to check, in exactly the parallel-subagent configuration the item serves.
+ *
+ * These assert the SEQUENCE, not only the two cases. A test that checked only "a delete-only push is
+ * allowed" would go green again the moment someone moved the assertion back ahead of the decision
+ * for an unrelated reason, because a tree that happens to be prepared passes either way. What is
+ * pinned here is that no step which reads build output runs before the decision that makes it
+ * relevant.
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { runPrePushGate } from '../pre-push.mjs';
+import { decidePrePushVerification, parsePrePushUpdates } from '../pre-push-updates.mjs';
+
+/** Steps that record their own names instead of touching git, pnpm or the filesystem. */
+function recordingSteps(decision) {
+  const order = [];
+  const record =
+    (name, result) =>
+    (...args) => {
+      order.push(name);
+      return typeof result === 'function' ? result(...args) : result;
+    };
+  return {
+    order,
+    steps: {
+      pruneAndWarnStaleWorktrees: record('prune-worktrees'),
+      assertCleanWorkingTree: record('clean-working-tree'),
+      assertLockfileConsistency: record('lockfile-consistency'),
+      decideVerification: record('decide-verification', decision),
+      reportSkipped: record('report-skipped'),
+      assertTreePrerequisites: record('tree-prerequisites'),
+      runVerification: record('run-verification'),
+    },
+  };
+}
+
+const SKIP_DELETE_ONLY = { shouldRun: false, reason: 'delete-only push' };
+const SKIP_NO_DELTA = { shouldRun: false, reason: 'no content delta from origin/develop' };
+const VERIFY = { shouldRun: true, reason: null };
+
+describe('runPrePushGate step order', () => {
+  it('asserts the tree prerequisites only AFTER deciding to verify', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    runPrePushGate(steps);
+    expect(order).toEqual([
+      'prune-worktrees',
+      'clean-working-tree',
+      'lockfile-consistency',
+      'decide-verification',
+      'tree-prerequisites',
+      'run-verification',
+    ]);
+  });
+
+  it('never places a build-output-reading step before the decision', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    runPrePushGate(steps);
+    // Stated as an ordering invariant rather than an index, so it keeps its meaning if steps are
+    // added around it: a prerequisite is owed only by work that is going to happen.
+    expect(order.indexOf('tree-prerequisites')).toBeGreaterThan(
+      order.indexOf('decide-verification'),
+    );
+    expect(order.indexOf('tree-prerequisites')).toBeLessThan(order.indexOf('run-verification'));
+  });
+
+  it.each([
+    ['delete-only push', SKIP_DELETE_ONLY],
+    ['no content delta', SKIP_NO_DELTA],
+  ])('does not assert tree prerequisites when the decision is to skip (%s)', (_label, decision) => {
+    const { order, steps } = recordingSteps(decision);
+    const result = runPrePushGate(steps);
+    expect(order).toEqual([
+      'prune-worktrees',
+      'clean-working-tree',
+      'lockfile-consistency',
+      'decide-verification',
+      'report-skipped',
+    ]);
+    expect(order).not.toContain('tree-prerequisites');
+    expect(order).not.toContain('run-verification');
+    expect(result).toEqual({ verified: false, reason: decision.reason });
+  });
+
+  it('reports the skip reason it was given, so the push says why it verified nothing', () => {
+    const reported = [];
+    const { steps } = recordingSteps(SKIP_NO_DELTA);
+    steps.reportSkipped = (reason) => reported.push(reason);
+    runPrePushGate(steps);
+    expect(reported).toEqual(['no content delta from origin/develop']);
+  });
+
+  it('reports a verified run', () => {
+    const { steps } = recordingSteps(VERIFY);
+    expect(runPrePushGate(steps)).toEqual({ verified: true, reason: null });
+  });
+});
+
+/**
+ * The sequence test above uses a stubbed decision, so these connect it to the REAL predicate: the
+ * two skip reasons are the ones `decidePrePushVerification` actually produces from real hook stdin.
+ * Without this pairing the ordering test could pin a decision shape nothing ever returns.
+ */
+describe('the real decision reaches the gate as a skip', () => {
+  const ZERO = '0'.repeat(40);
+  const SHA = 'a'.repeat(40);
+
+  const gateFor = (input, { baseRef, treeMatchesBase }) => {
+    const decision = decidePrePushVerification({
+      updates: parsePrePushUpdates(input),
+      baseRef,
+      treeMatchesBase,
+    });
+    const { order, steps } = recordingSteps(decision);
+    const result = runPrePushGate(steps);
+    return { order, result, decision };
+  };
+
+  it('a real delete-only hook line skips verification and asserts no prerequisite', () => {
+    const { order, result } = gateFor(`(delete) ${ZERO} refs/heads/gone ${SHA}\n`, {
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+    expect(result).toEqual({ verified: false, reason: 'delete-only push' });
+    expect(order).not.toContain('tree-prerequisites');
+  });
+
+  it('a real no-delta re-push skips verification and asserts no prerequisite', () => {
+    const { order, result } = gateFor(`refs/heads/x ${SHA} refs/heads/x ${ZERO}\n`, {
+      baseRef: 'origin/develop',
+      treeMatchesBase: true,
+    });
+    expect(result).toEqual({ verified: false, reason: 'no content delta from origin/develop' });
+    expect(order).not.toContain('tree-prerequisites');
+  });
+
+  it('a real push WITH a delta still reaches the prerequisite assertion', () => {
+    const { order, result } = gateFor(`refs/heads/x ${SHA} refs/heads/x ${ZERO}\n`, {
+      baseRef: 'origin/develop',
+      treeMatchesBase: false,
+    });
+    expect(result).toEqual({ verified: true, reason: null });
+    expect(order).toContain('tree-prerequisites');
+  });
+});
