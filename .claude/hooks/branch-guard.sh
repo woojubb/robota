@@ -294,7 +294,11 @@ while read -r STMT_START STMT_LEN; do
   # Refusing it on a push would refuse a harmless rehearsal. The cluster is matched because
   # `git commit -nm "x"` bundles.
   if [[ -n "$COMMIT_ARGS" ]]; then
-    printf '%s' "$COMMIT_ARGS" | grep -qE '(^|[[:space:]])-[[:alpha:]]*n[[:alpha:]]*([[:space:]]|$)' &&
+    # `-m` CONSUMES its value, so `-mn "x"` is `-m` with the message "n" — an ordinary commit. The
+    # cluster is read left to right and stops at the first value-taking option, because everything
+    # after it is that option's argument, not more flags. (#1588 review)
+    printf '%s' "$COMMIT_ARGS" |
+      grep -qE '(^|[[:space:]])-[^-[:space:]mFCc]*n[^[:space:]]*([[:space:]]|$)' &&
       { SKIP_HOOKS=true; SKIP_WHAT="git commit -n"; }
   fi
   # Only when the statement actually commits or pushes. `HUSKY=0 pnpm install` skips husky's
@@ -379,8 +383,23 @@ while read -r STMT_START STMT_LEN; do
     # path — so `chmod -x` stopped being caught by the very change meant to widen the check.
     CHMOD_MODE=$(printf '%s' "$STMT_MASK" | sed -nE 's/.*(^|[[:space:]])chmod[[:space:]]+(--?[RLHPvfc]+[[:space:]]+)*([^[:space:]]+).*/\3/p')
     if [[ -n "$CHMOD_MODE" ]]; then
+      # Each comma-separated CLAUSE is judged, and the LAST word about execute wins — `+x` appearing
+      # anywhere is not "restoring". `chmod a-x,+X` removes the bit and then conditionally does
+      # nothing (`+X` only acts when some execute bit survives), so a presence test read a pure
+      # disarming as a restore. (#1588 review)
+      # ANY clause that removes execute disarms the hook, whatever a later clause grants to someone
+      # else. `chmod u-x,g+x` takes it from the OWNER — the identity git runs the hook as — and gives
+      # it to the group, which does not put it back. A last-clause-wins reading called that a
+      # restore. `+X` is conditional (it grants only where execute already survives) and so can never
+      # undo a `-x` in the same command. (#1588 review)
+      IFS=',' read -ra CHMOD_CLAUSES <<< "$CHMOD_MODE"
+      for CLAUSE in "${CHMOD_CLAUSES[@]}"; do
+        case "$CLAUSE" in
+          *-x*|*-X*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;;
+        esac
+      done
       case "$CHMOD_MODE" in
-        *+x*|*+X*) ;;                                   # restoring the bit
+        *+x*|*+X*) ;;                                   # handled by the clause walk above
         [0-7][0-7][0-7]|[0-7][0-7][0-7][0-7])
           # Octal: the owner digit carries execute as 1, so 7/5/3/1 keep it and the rest drop it.
           case "${CHMOD_MODE: -3:1}" in

@@ -399,6 +399,11 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // to the mode token. Both disarm the hook. (#1588 review)
       'chmod 644 .husky/pre-push',
       'chmod 000 .husky/pre-push',
+      // Comma-joined symbolic modes. `+x` appearing ANYWHERE read as "restoring", so a clause that
+      // removes the bit was excused by a later one that does not put it back — `+X` is conditional
+      // and does nothing when no execute bit remains. Order of clauses, not presence of a `+`.
+      'chmod a-x,+X .husky/pre-push',
+      'chmod u-x,g+x .husky/pre-push',
       // The whitelist called these "read-only". An editor writes and an interpreter runs anything.
       "node -e \"require('fs').writeFileSync('.husky/pre-push','exit 0')\"",
       "python3 -c \"open('.husky/pre-push','w').write('exit 0')\"",
@@ -461,6 +466,9 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git commit -am "x"',
       'git commit -m "x"',
       'git push origin feat/probe',
+      // `-mn "x"` is `-m` taking the value `n` — an ordinary commit whose message is "n". The
+      // cluster rule matched any `-…n…` regardless of order and refused it. (#1588 review)
+      'git commit -mn "x"',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
