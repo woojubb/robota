@@ -22,6 +22,13 @@ import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+  WITNESS,
+  changedNewLines,
+  defaultRunVitestRaw,
+  witnessDecidingCases,
+  witnessOneCase,
+} from './lib/execution-witness.mjs';
+import {
   EXECUTION,
   analyzeSpawnTargetsCached,
   classifyExecution,
@@ -32,6 +39,10 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────
 export const VERDICT = Object.freeze({
   RED_PROOF_OK: 'red-proof-ok', // ≥1 changed test genuinely fails with the fix reversed — good
+  // The added case IS red on the reversed source, and executed not one line the fix changed. Its red
+  // proves the reversed tree is broken, not that the case depends on the behaviour it names —
+  // INFRA-072's "fails for the WRONG REASON", which pass/fail cannot express.
+  PROOF_UNREACHED: 'red-proof-unreached',
   ACCIDENTAL_GREEN: 'accidental-green-fail', // all changed tests still pass — the defect this tool exists to catch
   INCONCLUSIVE: 'inconclusive', // vitest could not evaluate, or the test does not import the reversed file
   SKIPPED_NOT_FIX: 'skipped-not-fix', // range has no fix: commit
@@ -278,6 +289,37 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles, addedCases =
   return 'all-pass';
 }
 
+/**
+ * The failing cases that SUPPLIED the red — the ones an execution witness must account for.
+ *
+ * It is deliberately the same selection `classifyVitestOutcome` used to reach `assertion-fail`, and
+ * not simply "everything that failed": an older case's red is not what the gate accepted as the
+ * proof, so it is not what has to be shown to have reached the fix. A file the range added no
+ * readable title to is judged at file granularity, and there every failure is a candidate.
+ *
+ * @returns {{ file: string, name: string, qualified: boolean }[]} — `name` is the fullName vitest
+ *   filters on with `-t`. `qualified` records whether that name really is the describe-qualified one:
+ *   the pattern is anchored differently when only a bare title is known, because anchoring a bare
+ *   title against the full name matches NOTHING (measured).
+ */
+export function decidingFailures(vitestJson, changedTestFiles, addedCases = null) {
+  const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
+  const results = Array.isArray(vitestJson?.testResults) ? vitestJson.testResults : [];
+  const out = [];
+  for (const fileResult of results) {
+    const name = fileResult?.name ? path.resolve(fileResult.name) : null;
+    if (!name || !wanted.includes(name)) continue;
+    const matchers = addedCases?.get(name) ?? null;
+    for (const assertion of fileResult.assertionResults ?? []) {
+      if (assertion.status !== 'failed') continue;
+      if (matchers?.length && !matchesAddedCase(matchers, assertion)) continue;
+      const title = assertion.fullName || assertion.title;
+      if (title) out.push({ file: name, name: title, qualified: Boolean(assertion.fullName) });
+    }
+  }
+  return out;
+}
+
 // ── Pure: final verdict for one qualifying pair ─────────────────────────────────────────────────────
 
 /**
@@ -285,10 +327,14 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles, addedCases =
  * unit-tested exhaustively without git or vitest.
  *   importsReversedFile — did any changed test relatively import a reversed source file? (C3)
  *   outcome             — classifyVitestOutcome result, or null if not run (guard tripped)
+ *   witness             — did the case that supplied the red EXECUTE a line the fix changed?
+ *                         (INFRA-072 direction 3.) Defaults to UNKNOWN, which changes nothing:
+ *                         the instrument is evidence when it speaks and silent when it cannot.
  */
-export function decidePairVerdict({ importsReversedFile, outcome }) {
+export function decidePairVerdict({ importsReversedFile, outcome, witness = WITNESS.UNKNOWN }) {
   if (!importsReversedFile) return VERDICT.INCONCLUSIVE; // C3: not in the test's module graph
-  if (outcome === 'assertion-fail') return VERDICT.RED_PROOF_OK;
+  if (outcome === 'assertion-fail')
+    return witness === WITNESS.UNREACHED ? VERDICT.PROOF_UNREACHED : VERDICT.RED_PROOF_OK;
   if (outcome === 'run-error') return VERDICT.INCONCLUSIVE; // C1: never a pass
   if (outcome === 'all-pass') return VERDICT.ACCIDENTAL_GREEN;
   // The range's own new case passed on the reversed source; the red came from a case that was
@@ -492,9 +538,15 @@ export async function runRegressionRedProof(io = {}) {
     ((testPath) =>
       gitRaw(['diff', `${base}..HEAD`, '--', testPath], { stdio: ['ignore', 'pipe', 'ignore'] }));
 
+  const executionWitness = io.executionWitness ?? defaultExecutionWitness(base);
+
   let worst = VERDICT.RED_PROOF_OK;
   const rank = {
-    [VERDICT.ACCIDENTAL_GREEN]: 3,
+    [VERDICT.ACCIDENTAL_GREEN]: 4,
+    // Above INCONCLUSIVE: "the red came from outside the fix" is an observation about a proof that
+    // was offered, where INCONCLUSIVE is the absence of one. Below ACCIDENTAL_GREEN: a case that at
+    // least fails is not yet shown to guard nothing.
+    [VERDICT.PROOF_UNREACHED]: 3,
     [VERDICT.INCONCLUSIVE]: 2,
     [VERDICT.RED_PROOF_OK]: 1,
   };
@@ -566,25 +618,33 @@ export async function runRegressionRedProof(io = {}) {
       // INFRA-072 — the range's OWN new cases are what must fail, not any case in the file.
       const addedCases = exercised ? addedCaseMatchers(testsForSource, addedTestCaseDiff) : null;
       let outcome = null;
+      let witness = WITNESS.UNKNOWN;
       if (exercised) {
+        let deciders = [];
         reverseApply([source]);
         try {
-          outcome = classifyVitestOutcome(
-            await runVitest(pair.pkg, testsForSource),
-            testsForSource,
-            addedCases,
-          );
+          const vitestJson = await runVitest(pair.pkg, testsForSource);
+          outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
+          deciders = decidingFailures(vitestJson, testsForSource, addedCases);
         } finally {
           restore([source]);
         }
+        // INFRA-072 direction 3 — asked ONLY of an outcome being offered as a proof, and asked AFTER
+        // the restore, because the question is whether the deciding case executes the code this fix
+        // WROTE, and that code exists only on the restored tree. Any other outcome is already
+        // settled and an instrument could only make it milder.
+        if (outcome === 'assertion-fail') {
+          witness = await executionWitness({ pkg: pair.pkg, source, failures: deciders });
+        }
       }
 
-      const verdict = decidePairVerdict({ importsReversedFile: exercised, outcome });
+      const verdict = decidePairVerdict({ importsReversedFile: exercised, outcome, witness });
       decisions.push({
         pkg: pair.pkg,
         source,
         verdict,
         outcome,
+        witness,
         importsReversedFile: exercised,
         relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
       });
@@ -593,15 +653,82 @@ export async function runRegressionRedProof(io = {}) {
       const note =
         !exercised && undeterminedRelation
           ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
-          : outcome
-            ? ` (${outcome})`
-            : '';
+          : verdict === VERDICT.PROOF_UNREACHED
+            ? ' (the case that failed executed no line this fix changed)'
+            : outcome
+              ? ` (${outcome})`
+              : '';
       log(`${icon}  ${source}: ${verdict}${note}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }
   }
 
   return { verdict: worst, decisions };
+}
+
+/**
+ * One vitest run per deciding case, and exhausting this answers UNKNOWN rather than UNREACHED
+ * (see `witnessDecidingCases`).
+ *
+ * It was 3, paired with a comment claiming "the answer is settled by the first REACHED" — true only
+ * if every deciding failure is checked, which slicing to 3 does not do.
+ *
+ * The size is measured, not guessed, and the measurement was worth taking: across the eight replayed
+ * ranges the deciding-failure counts were 1, 1, 4, 5, 1, 10, 1, 2, 19, 3, 3, 9 — so the old cap of 3
+ * truncated the walk for **5 of 12** sources. It changed no verdict there only because an early case
+ * reached the fix in each; a range whose reaching case sat 4th would have been reported as a finding
+ * against correct work.
+ *
+ * 25 covers the observed maximum of 19 with headroom. Raising it is nearly free on the healthy path:
+ * a REACHED short-circuits, so a range with a sound proof pays for ONE run whatever the number is.
+ * Only a range heading for a finding walks the whole list, and paying ~20 vitest runs to report a
+ * correct finding instead of an UNKNOWN is the right side of that trade for an advisory gate.
+ */
+const WITNESS_RUN_BUDGET = 25;
+
+/**
+ * The real instrument (INFRA-072 direction 3): re-run each deciding case ALONE, on the RESTORED
+ * source, and ask whether it executes the lines this fix wrote.
+ *
+ * On the restored tree rather than the reversed one, and against the fix's NEW side rather than its
+ * old one, because that is where the fix's code exists. Measured on `c08e0dbd6`: the old-side
+ * formulation called a genuine red proof `unreached`, since that fix is an ADDITION and its old side
+ * held only a comment and one `case` pattern arm.
+ *
+ * Every deciding case is asked, in order, until one answers REACHED or the run budget stops the
+ * walk — and a stopped walk answers UNKNOWN, never UNREACHED. Every failure path returns UNKNOWN
+ * too: an instrument that cannot measure must not manufacture a finding.
+ */
+function defaultExecutionWitness(base) {
+  return async ({ pkg, source, failures }) => {
+    if (failures.length === 0) return WITNESS.UNKNOWN;
+    let targetLines;
+    try {
+      targetLines = changedNewLines(
+        gitRaw(['diff', `${base}..HEAD`, '--', source], { stdio: ['ignore', 'pipe', 'ignore'] }),
+      ).get(source);
+    } catch {
+      return WITNESS.UNKNOWN; // a range this cannot diff has no target, and no target is no finding
+    }
+    if (!targetLines?.size) return WITNESS.UNKNOWN; // a pure deletion wrote no line to reach
+
+    const runVitestRaw = defaultRunVitestRaw(WORKSPACE_ROOT, pkg);
+    return witnessDecidingCases({
+      failures,
+      budget: WITNESS_RUN_BUDGET,
+      witnessOne: (failure) =>
+        witnessOneCase({
+          workspaceRoot: WORKSPACE_ROOT,
+          sourceRel: source,
+          testFileAbs: failure.file,
+          caseName: failure.name,
+          caseNameQualified: failure.qualified !== false,
+          targetLines,
+          isShell: source.endsWith('.sh'),
+          runVitestRaw,
+        }),
+    });
+  };
 }
 
 function defaultRunVitest(pkg, testFiles) {
@@ -657,6 +784,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
             '   Rewrite it to FAIL on the pre-fix code, or opt out with `allow-green-at-base: <reason>`.',
         );
         process.exit(enforce ? 1 : 0); // advisory in v1 (not a required check); flip via env once stable
+      }
+      if (verdict === VERDICT.PROOF_UNREACHED) {
+        log(
+          '\n⚠︎  red-proof-unreached: the case that failed on the reversed source executed no line\n' +
+            '   this fix changed. Its red says the reversed tree is broken, not that the case depends\n' +
+            '   on the behaviour it names. Report-only — INFRA-046 owns whether this ever blocks.',
+        );
       }
       if (verdict === VERDICT.INCONCLUSIVE) {
         log('\n⚠︎  inconclusive — see decisions above (advisory).');
