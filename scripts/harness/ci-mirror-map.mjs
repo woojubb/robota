@@ -85,7 +85,12 @@ export const CI_STAGES = [
     name: 'format-check',
     needsBuildOutput: false,
     extra: '.lintstagedrc.json (prettier via .husky/pre-commit)',
-    why: 'no CI job re-checks formatting, and a --no-verify push from a fresh worktree never runs the SSOT formatter',
+    // A `format-check` CI job now EXISTS (INFRA-083) and calls this same stage, but the ruleset does
+    // not require it yet, so this stage cannot claim to mirror it — the floor beside this table
+    // refuses a mirror claim on a job nothing gates, and it is right to. The order is: land the job,
+    // watch it run green, make it required, then move this entry to `mirrors`. Claiming coverage a
+    // check does not yet provide is the shape that costs the most here.
+    why: 'formatting is the ONE local stage no REQUIRED CI check re-runs, so a bypassed hook shipped drift nothing caught (INFRA-083)',
   },
   {
     name: 'commitlint',
