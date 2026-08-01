@@ -105,6 +105,13 @@ describe('scan-shell-portability', () => {
     expect(findings.map((f) => f.file)).toEqual([path.join('.claude', 'hooks', 'guard')]);
   });
 
+  // A LEADING dot is not an extension. `.bashrc` matched neither branch — not `.sh`, and never
+  // shebang-tested — so a real shell script with that name was skipped in silence. (#1590 review)
+  it('shebang-tests a leading-dot filename, which has no extension', () => {
+    const root = fixture({ 'scripts/.hookrc': '#!/bin/sh\ndate -d yesterday\n' });
+    expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual(['date -d']);
+  });
+
   it('does not treat an extensionless NON-script as a shell script', () => {
     const root = fixture({ '.husky/NOTES': 'stat -c is GNU-only, do not use it\n' });
     expect(findPortabilityFindings(root).findings).toEqual([]);

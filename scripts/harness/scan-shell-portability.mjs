@@ -53,7 +53,18 @@ const EXTENSIONS = /\.(sh|bash|zsh)$/;
  * a list of places the property is assumed to hold — the list is what goes stale.
  */
 const SHEBANG = /^#!.*\b(sh|bash|zsh|dash|ksh|ash)\b/;
-const HAS_EXTENSION = /\.[^.\\/]+$/;
+
+/**
+ * Whether a filename has an EXTENSION — a leading dot is not one.
+ *
+ * The first spelling was `/\.[^.\/]+$/`, which classified `.bashrc` and `.hookrc` as extensioned.
+ * Such a file then matched neither branch: not `.sh`, and never shebang-tested. A real shell script
+ * with that name would have been skipped in silence, which is the failure mode this whole scan is
+ * against. (#1590 review)
+ */
+function hasExtension(name) {
+  return name.slice(1).includes('.');
+}
 
 /**
  * One entry per command, read as OPTIONS rather than matched as text.
@@ -267,7 +278,7 @@ function walk(root, relDir, out, skipped) {
     } else if (entry.isFile()) {
       if (EXTENSIONS.test(entry.name)) {
         out.push(rel);
-      } else if (!HAS_EXTENSION.test(entry.name) && isShellShebang(path.join(root, rel))) {
+      } else if (!hasExtension(entry.name) && isShellShebang(path.join(root, rel))) {
         out.push(rel);
       }
     }
