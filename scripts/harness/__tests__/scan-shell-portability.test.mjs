@@ -244,6 +244,25 @@ describe('scan-shell-portability', () => {
     expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual(['sed -i']);
   });
 
+  // Escapes, which the quote tracker has to model or it desynchronises. `\"` inside a double-quoted
+  // span does NOT close it; reading it as a close made the next real `"` an OPEN and masked the rest
+  // of the line as quoted data, swallowing anything in it. A backslash inside SINGLE quotes is a
+  // literal — applying the double-quote rule there desynchronises the other way. (#1590 review)
+  it('tracks escapes the way the shell does', () => {
+    const root = fixture({
+      'scripts/a.sh': 'echo "a\\"b" sed -i f\n',
+      'scripts/b.sh': "echo 'it\\' sed -i f\n",
+      'scripts/c.sh': 'find . -exec echo {} \\; sed -i f\n',
+      'scripts/d.sh': 'echo \\# sed -i f\n',
+    });
+    expect(findPortabilityFindings(root).findings.map((f) => f.flag)).toEqual([
+      'sed -i',
+      'sed -i',
+      'sed -i',
+      'sed -i',
+    ]);
+  });
+
   // Shell keywords are keywords in COMMAND position only; as an argument they are ordinary words.
   // Ending the walk on one is a silent miss of every flag after it. (#1590 review)
   it('does not end the command at a file named like a shell keyword', () => {

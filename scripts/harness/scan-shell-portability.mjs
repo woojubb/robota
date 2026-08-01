@@ -181,9 +181,34 @@ function executablePart(line) {
   let quote = null;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-    if (quote) {
-      out += ch === quote ? ch : 'Q';
-      if (ch === quote) quote = null;
+    // A SINGLE-quoted span has no escapes at all: a backslash is a literal character there and only
+    // the closing quote ends it. Applying the double-quote rule here would desynchronise on
+    // `'it\'` — which is a complete, closed span in shell.
+    if (quote === "'") {
+      out += ch === "'" ? ch : 'Q';
+      if (ch === "'") quote = null;
+      continue;
+    }
+    // Inside DOUBLE quotes a backslash escapes the next character, so `\"` does NOT close the span.
+    // Reading it as a close desynchronised everything after it: the next real `"` then read as an
+    // OPEN, and the rest of the line was masked as quoted data — silently swallowing any divergent
+    // command in it. That is the exact false-negative class this scan exists to remove, in its own
+    // parser. (#1590 review)
+    if (quote === '"') {
+      if (ch === '\\' && i + 1 < line.length) {
+        out += 'QQ';
+        i++;
+        continue;
+      }
+      out += ch === '"' ? ch : 'Q';
+      if (ch === '"') quote = null;
+      continue;
+    }
+    // Unquoted: a backslash escapes the next character, so `\"` does not OPEN a span either, and an
+    // escaped `;`/`#` (`find … -exec … \;`) is a literal, not a separator or a comment.
+    if (ch === '\\' && i + 1 < line.length) {
+      out += '\\Q';
+      i++;
       continue;
     }
     if (ch === "'" || ch === '"') {
