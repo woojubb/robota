@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -419,5 +419,48 @@ describe('a bare stash command is refused while the stack is shared', () => {
       run(`git -C ${shared} stash pop`, single).status,
       'the stash statement own -C was ignored',
     ).not.toBe(0);
+  });
+
+  it('judges every bare statement against its own repository', () => {
+    // Review of #1585, MUST. The `-C` was captured from whichever statement tripped bare FIRST and
+    // never re-derived, so two independently-bare stash operations against two different repos were
+    // both judged against the first one:
+    //
+    //     git -C <single-worktree scratch> stash push; git -C <shared> stash pop
+    //
+    // Count 1 from the scratch repo, whole command allowed — including the second, genuinely bare
+    // pop against the shared clone. That is the incident this guard exists for, reopened for the
+    // multi-statement case.
+    const scratch = repoWithWorktrees(1);
+    const shared = repoWithWorktrees(2);
+    expect(
+      run(`git -C ${scratch} stash push; git -C ${shared} stash pop`, scratch).status,
+      'the first statement repository answered for the second',
+    ).not.toBe(0);
+  });
+
+  it('reads a quoted -C path with a space', () => {
+    // Review of #1585, SHOULD. `hook_git_c_path` was handed `$STMT`, a slice of the ALREADY-MASKED
+    // command, so a quoted path containing whitespace came back as \001 bytes — non-empty, so the
+    // cwd/CLAUDE_PROJECT_DIR fallbacks never fired, and the guard blocked with "cannot read the
+    // worktree list": a false positive that also defeated the fallback chain.
+    //
+    // The `-C` is read from the RAW command through the statement's window now, which is what
+    // `hook_git_c_path`'s window parameters exist for.
+    const parent = mkdtempSync(path.join(tmpdir(), 'spaced-'));
+    scratch.push(parent);
+    const spaced = path.join(parent, 'a repo');
+    const git = (...a) => spawnSync('git', ['-C', spaced, ...a], { encoding: 'utf8' });
+    mkdirSync(spaced, { recursive: true });
+    git('init', '--quiet', '--initial-branch=main');
+    git('config', 'user.email', 'harness@example.test');
+    git('config', 'user.name', 'Harness');
+    writeFileSync(path.join(spaced, 'f'), 'x');
+    git('add', '-A');
+    git('commit', '--quiet', '-m', 'root');
+
+    const { status, output } = run(`git -C "${spaced}" stash pop stash@{0}`, spaced);
+    expect(status, `a quoted path with a space was misread: ${output}`).toBe(0);
+    expect(output, `the guard spoke on a correct command: ${output}`).toBe('');
   });
 });
