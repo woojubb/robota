@@ -134,9 +134,19 @@ if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
   # destructive-command override, and says so there: "the token sitting on a sibling command excuses
   # nothing". The new block did not reuse the split and reintroduced it. (#1585)
   #
-  # Same separators the override loop uses. Comments are stripped first, because a suppression a
-  # reader can write in prose is not a suppression.
-  STASH_STATEMENTS=$(printf '%s\n' "$VERBS" | sed -E 's/#.*$//' | sed -E 's/(\|\||&&|[;&|])/\n/g')
+  # Same separators the override loop uses, and NO second comment pass.
+  #
+  # The round that closed the sibling-ref hole added `sed 's/#.*$//'` here, to stop a trailing
+  # `# stash@{0}` reading as a ref. It opened a new bypass instead: a `#` mid-word is not a comment,
+  # and that sed cannot tell the difference, so `echo a#b; git stash pop` lost everything after the
+  # `#` — including the bare pop. URL fragments and unquoted issue references are ordinary text.
+  #
+  # It was also unnecessary. `hook_verb_scan` already masks REAL comments — only a `#` at a word
+  # boundary opens one — which is visible in its output:
+  #   git stash pop  # stash@{0}   ->  git stash pop  \001\001\001…
+  #   echo a#b; git stash pop      ->  echo a#b; git stash pop
+  # A crude second pass layered on a correct first one is how a fix becomes the next bypass. (#1585)
+  STASH_STATEMENTS=$(printf '%s\n' "$VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
   while IFS= read -r STMT; do
     printf '%s' "$STMT" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}" || continue
     # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
@@ -154,6 +164,14 @@ if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
     if printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]+(pop|apply|drop|branch)${STASH_END}"; then
       printf '%s' "$STMT" | grep -qE 'stash@\{' || BARE_STASH=true
     fi
+    # The repository is a property of THIS statement too. Read from the whole command,
+    # `hook_git_c_path` returned any `-C` anywhere — so `git -C /elsewhere fetch; git stash pop`
+    # counted /elsewhere's worktrees while the pop acted on the session repository. One worktree
+    # there and the guard waved it through: the same "`-C` points somewhere else" class an earlier
+    # round closed, arriving from a sibling statement. (#1585)
+    if [[ "$BARE_STASH" == "true" && -z "${BARE_STASH_C:-}" ]]; then
+      BARE_STASH_C=$(hook_git_c_path "$STMT" 2>/dev/null || printf '')
+    fi
   done <<< "$STASH_STATEMENTS"
   if [[ "$BARE_STASH" == "true" ]]; then
     # The same resolver the destructive-command path uses, and NO `.` fallback. This file already
@@ -167,7 +185,7 @@ if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
     # contract — so a `||` fallback never fires for the ordinary case anyway. The resolver takes the
     # first non-empty of the three, which is what "first-nonempty" means. (#1585)
     STASH_REPO=$(hook_effective_repo first-nonempty \
-      "$(hook_git_c_path "$COMMAND" 2>/dev/null || printf '')" \
+      "${BARE_STASH_C:-}" \
       "$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')" \
       "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
     if [[ -z "$STASH_REPO" ]]; then

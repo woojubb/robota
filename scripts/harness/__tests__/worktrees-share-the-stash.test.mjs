@@ -360,4 +360,64 @@ describe('a bare stash command is refused while the stack is shared', () => {
       `a nameless directory was judged against the hook own cwd: ${output}`,
     ).not.toBe(0);
   });
+
+  it('is not escaped by a `#` that is not a comment', () => {
+    // Review of #1585, MUST — and this bypass was INTRODUCED by the previous round's fix. I added
+    // `sed 's/#.*$//'` to strip comments, on top of a tokenizer that already masks real ones (only a
+    // `#` at a word boundary opens a comment). The second pass cannot tell those apart, so a literal
+    // `#` mid-word deleted the rest of the line — including the bare pop after it.
+    //
+    // The shapes are ordinary: a URL fragment, an unquoted issue reference.
+    const dir = repoWithWorktrees(2);
+    for (const command of [
+      'echo a#b; git stash pop',
+      'echo https://x/y#section; git stash pop',
+      'echo fix#123 && git stash clear',
+    ]) {
+      expect(run(command, dir).status, `a non-comment # escaped the gate: ${command}`).not.toBe(0);
+    }
+  });
+
+  it('still ignores a real trailing comment', () => {
+    // The other direction: a genuine comment must not turn into a ref. `git stash pop # stash@{0}`
+    // is a BARE pop with a comment after it, and the round that added comment-stripping was fixing
+    // exactly that. Both must hold at once.
+    const dir = repoWithWorktrees(2);
+    expect(
+      run('git stash pop  # stash@{0}', dir).status,
+      'a commented ref excused a bare pop',
+    ).not.toBe(0);
+    expect(
+      run('git stash pop stash@{0}  # fine', dir).status,
+      'a real comment refused a good command',
+    ).toBe(0);
+  });
+
+  it('does not take the repository from a different statement -C', () => {
+    // Review of #1585, SHOULD. `STASH_REPO` came from `hook_git_c_path` over the WHOLE command, so a
+    // `-C` on an unrelated call decided which repository the worktree count was taken from:
+    //
+    //     git -C /elsewhere fetch; git stash pop
+    //
+    // The bare pop acts on the session repository — possibly shared — while the count was read from
+    // `/elsewhere`. One worktree there and the guard waved it through: the same `-C points somewhere
+    // else` class the earlier round closed, arriving from a sibling statement instead.
+    const dir = repoWithWorktrees(2);
+    const single = repoWithWorktrees(1);
+    expect(
+      run(`git -C ${single} fetch; git stash pop`, dir).status,
+      `a sibling statement -C decided the repository`,
+    ).not.toBe(0);
+  });
+
+  it('still reads the -C of the stash statement itself', () => {
+    // The other direction, so the fix is not "ignore -C entirely" — that would undo the round that
+    // closed `git -C <sibling> stash pop`.
+    const single = repoWithWorktrees(1);
+    const shared = repoWithWorktrees(2);
+    expect(
+      run(`git -C ${shared} stash pop`, single).status,
+      'the stash statement own -C was ignored',
+    ).not.toBe(0);
+  });
 });
