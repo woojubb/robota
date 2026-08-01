@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -152,15 +152,34 @@ describe('a bare stash command is refused while the stack is shared', () => {
     return dir;
   }
 
-  function run(command, dir) {
+  function run(command, dir, overrides = {}) {
     const result = spawnSync('bash', [HOOK], {
       input: JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
       cwd: dir,
       encoding: 'utf8',
-      env: { PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_PROJECT_DIR: dir },
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        CLAUDE_PROJECT_DIR: dir,
+        ...overrides,
+      },
       timeout: 120_000,
     });
     return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  /**
+   * A PATH whose `git` produces no output and exits non-zero — the state that made the old
+   * `grep -c . || echo 0` expression yield a two-line count and fall open.
+   *
+   * The rest of the real PATH follows it, so the hook's other tools still resolve; only `git` is
+   * shadowed, which is the single input under test.
+   */
+  function mkFailingGitPath() {
+    const dir = mkdtempSync(path.join(tmpdir(), 'failing-git-'));
+    scratch.push(dir);
+    writeFileSync(path.join(dir, 'git'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    return `${dir}:${process.env.PATH}`;
   }
 
   it('refuses a bare pop or apply when a sibling worktree exists', () => {
@@ -195,5 +214,42 @@ describe('a bare stash command is refused while the stack is shared', () => {
     const dir = repoWithWorktrees(1);
     const { status, output } = run('git stash pop', dir);
     expect(status, `a bare pop was refused in a clone with one worktree: ${output}`).toBe(0);
+  });
+
+  it('refuses every subcommand that touches the shared stack, not only the ones first thought of', () => {
+    // Review of #1585. `clear` and `branch` were missing from the list, and both match the threat
+    // model exactly: `clear` takes no argument and deletes EVERY entry, including ones another agent
+    // has not popped yet; `branch` with no ref implicitly takes the top of the stack.
+    const dir = repoWithWorktrees(2);
+    for (const command of ['git stash clear', 'git stash branch feat/x']) {
+      expect(
+        run(command, dir).status,
+        `a shared-stack subcommand was allowed: ${command}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('allows git stash branch with an explicit ref', () => {
+    // `branch` names its source when given one, so it takes nobody else's entry.
+    const dir = repoWithWorktrees(2);
+    const { status, output } = run('git stash branch feat/x stash@{0}', dir);
+    expect(status, `the explicit form was refused: ${output}`).toBe(0);
+  });
+
+  it('refuses rather than waving through when the worktree count cannot be read', () => {
+    // Review of #1585, finding 3, and it is the one that mattered: `git … | grep -c . || echo 0`
+    // yields the TWO-LINE string "0\n0" when the git call produces nothing, because `grep -c` prints
+    // 0 and exits 1, so the `||` fires as well. The arithmetic comparison then errors and the guard
+    // falls open — inside the same PR whose own `with-repo-lock.sh` says "cannot resolve it, so
+    // refuse". Measured before the fix:
+    //     count=[0
+    //     0]
+    //     bash: [: 0\n0: integer expression expected
+    const dir = repoWithWorktrees(2);
+    const { status, output } = run('git stash pop', dir, {
+      // A `git` that produces nothing and fails, which is the state the old expression mishandled.
+      PATH: mkFailingGitPath(),
+    });
+    expect(status, `an unreadable worktree count waved the command through: ${output}`).not.toBe(0);
   });
 });

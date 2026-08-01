@@ -72,22 +72,6 @@ fi
 # the wrong subject. An override is given to ONE command: the one it precedes. So the only check
 # that closes it is asked of the destructive statement itself.
 
-# --- (b) worktree-assignment marker -------------------------------------------------------------
-# Present iff this session was spawned as a worktree-assigned subagent. Absent → ordinary main-clone
-# session → FAIL-SAFE, never block.
-# The marker the original design hoped for — `ROBOTA_AGENT_WORKTREE`, exported by the launcher —
-# is exported by nothing. Measured 2026-07-30: the only places that set it in this repository are
-# this guard's own tests, so in every real session the variable was empty and the guard exited here
-# before checking anything. Ten green tests, and a guard that had never once run (INFRA-068).
-#
-# The session's own cwd cannot answer the question, because a cwd that has fallen back to the main
-# checkout is the very condition being guarded. What can answer it is WHICH COPY OF THIS HOOK IS
-# RUNNING: a worktree session has `CLAUDE_PROJECT_DIR` pointing at its worktree, and
-# `.claude/settings.json` invokes the hook through that variable — so the file executing right now
-# lives under `.claude/worktrees/` exactly when this is a worktree session. That is supplied by the
-# deployment rather than hoped for from it.
-#
-# The env marker is still honoured, for a launcher that does export it.
 # --- The shared stash ------------------------------------------------------------------------
 #
 # Checked BEFORE the worktree-session gate below, and that placement is the point: the hazard is not
@@ -104,15 +88,28 @@ fi
 # never mechanically reached. This is the reaching. (INFRA-082)
 #
 # Read-only subcommands (`list`, `show`) are untouched — they cannot move anyone's work.
-STASH_CMD=$(hook_command_of "$INPUT" 2>/dev/null || true)
-STASH_VERBS=$(hook_verb_scan "$STASH_CMD" 2>/dev/null || true)
+# Fail closed on an unreadable command, matching this file's first read of the same payload and
+# hook-facts.sh's stated contract: a non-zero return means the value could NOT be read, and a guard
+# must refuse rather than treat it as an empty string that matches nothing.
+if ! STASH_CMD=$(hook_command_of "$INPUT"); then
+  echo "[worktree-cwd-guard] Blocked: the tool command could not be decoded, so it cannot be judged." >&2
+  exit 2
+fi
+if ! STASH_VERBS=$(hook_verb_scan "$STASH_CMD"); then
+  echo "[worktree-cwd-guard] Blocked: the command could not be scanned, so a stash cannot be ruled out." >&2
+  exit 2
+fi
 if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:space:]]+stash([[:space:]]|$)'; then
   BARE_STASH=false
   # A bare `git stash` / `git stash push` (creates an entry others may pop), or a `pop`/`apply`/
   # `drop` with no explicit `stash@{N}` (takes whatever is on top, which may be someone else's).
   printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]*(;|&|\||$)' && BARE_STASH=true
   printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(push|save)([[:space:]]|$)' && BARE_STASH=true
-  if printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(pop|apply|drop)([[:space:]]|$)'; then
+  # `clear` takes no argument and deletes EVERY entry, including ones another agent has not popped
+  # yet — the worst of the set, and the one the first version of this list forgot.
+  printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+clear([[:space:]]|$)' && BARE_STASH=true
+  # `branch` and `pop`/`apply`/`drop` all take the TOP of the stack when no ref is named.
+  if printf '%s' "$STASH_VERBS" | grep -qE 'git[[:space:]]+stash[[:space:]]+(pop|apply|drop|branch)([[:space:]]|$)'; then
     printf '%s' "$STASH_VERBS" | grep -qE 'stash@\{' || BARE_STASH=true
   fi
   if [[ "$BARE_STASH" == "true" ]]; then
@@ -121,7 +118,17 @@ if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:
     # `hook_git_in`, not a bare `git -C`: with `GIT_DIR` exported, `git -C <dir>` reports the OUTER
     # repository, so the count would be another clone's. INFRA-077 measured that and this file's own
     # floor caught this line the moment it was written.
-    WORKTREE_COUNT=$(hook_git_in "$STASH_REPO" worktree list 2>/dev/null | grep -c . || echo 0)
+    # Read the list first, THEN count it. `git … | grep -c . || echo 0` yields the two-line string
+    # "0\n0" when git produces nothing — `grep -c` prints 0 and exits 1, so the `||` fires as well —
+    # and the arithmetic comparison below then errors and the guard falls OPEN. Measured, and it is
+    # the opposite of what this PR's own with-repo-lock.sh does when it cannot resolve its subject.
+    if ! WORKTREE_LIST=$(hook_git_in "$STASH_REPO" worktree list 2>/dev/null); then
+      echo "[worktree-cwd-guard] Blocked: cannot read the worktree list, so a shared stash cannot be" >&2
+      echo "[worktree-cwd-guard] ruled out. Name an explicit ref: git stash pop stash@{N}" >&2
+      exit 2
+    fi
+    WORKTREE_COUNT=$(printf '%s\n' "$WORKTREE_LIST" | grep -c . || true)
+    [[ "$WORKTREE_COUNT" =~ ^[0-9]+$ ]] || WORKTREE_COUNT=0
     if [[ "$WORKTREE_COUNT" -gt 1 ]]; then
       echo "[worktree-cwd-guard] Blocked: a bare stash command while this clone has $WORKTREE_COUNT worktrees." >&2
       echo "[worktree-cwd-guard] refs/stash is SHARED across every worktree — a bare push or pop can" >&2
@@ -133,6 +140,22 @@ if printf '%s' "$STASH_VERBS" | grep -qE '(^|[;&|({[:space:]])[[:space:]]*git[[:
   fi
 fi
 
+# --- (b) worktree-assignment marker -------------------------------------------------------------
+# Present iff this session was spawned as a worktree-assigned subagent. Absent → ordinary main-clone
+# session → FAIL-SAFE, never block.
+# The marker the original design hoped for — `ROBOTA_AGENT_WORKTREE`, exported by the launcher —
+# is exported by nothing. Measured 2026-07-30: the only places that set it in this repository are
+# this guard's own tests, so in every real session the variable was empty and the guard exited here
+# before checking anything. Ten green tests, and a guard that had never once run (INFRA-068).
+#
+# The session's own cwd cannot answer the question, because a cwd that has fallen back to the main
+# checkout is the very condition being guarded. What can answer it is WHICH COPY OF THIS HOOK IS
+# RUNNING: a worktree session has `CLAUDE_PROJECT_DIR` pointing at its worktree, and
+# `.claude/settings.json` invokes the hook through that variable — so the file executing right now
+# lives under `.claude/worktrees/` exactly when this is a worktree session. That is supplied by the
+# deployment rather than hoped for from it.
+#
+# The env marker is still honoured, for a launcher that does export it.
 IN_WORKTREE_SESSION=false
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")
 case "$SELF_DIR" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
