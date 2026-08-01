@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -62,29 +62,32 @@ describe('the agent-core browser surface (CORE-028)', () => {
     ).toEqual([]);
   });
 
-  it('the BUILT bundle imports no Node builtin beyond the ones CORE-028 still tracks', () => {
-    if (!existsSync(BROWSER_BUNDLE)) {
-      // Not a silent pass: the reason is stated, and the source check above still ran. The bundle is
-      // a build output and this suite runs without one in CI.
-      console.warn(
-        `[CORE-028] SKIPPED the bundle check: ${path.relative(WORKSPACE_ROOT, BROWSER_BUNDLE)} ` +
-          'does not exist. Run `pnpm --filter @robota-sdk/agent-core build` to include it.',
-      );
-      expect(statSync(CORE_SRC).isDirectory()).toBe(true);
-      return;
-    }
+  /**
+   * `skipIf`, not an early `return`.
+   *
+   * The first version warned and returned, and vitest counts that as PASSED — "a check that reports
+   * success over work it did not do", which is the class HARNESS-052/056 exist for and which the
+   * comment right here claimed to be avoiding. In CI, where `scans` is dist-independent, that branch
+   * is ALWAYS the one taken, so a green tick stood for an assertion that never ran. Review of #1597
+   * caught it.
+   *
+   * A skipped result is a different colour from a passing one, which is the whole point.
+   */
+  it.skipIf(!existsSync(BROWSER_BUNDLE))(
+    'the BUILT bundle imports no Node builtin beyond the ones CORE-028 still tracks (needs `pnpm --filter @robota-sdk/agent-core build`)',
+    () => {
+      const source = readFileSync(BROWSER_BUNDLE, 'utf8');
+      const found = [
+        ...new Set([...source.matchAll(/["']node:([a-z_]+)["']/g)].map((m) => `node:${m[1]}`)),
+      ].sort();
 
-    const source = readFileSync(BROWSER_BUNDLE, 'utf8');
-    const found = [
-      ...new Set([...source.matchAll(/["']node:([a-z_]+)["']/g)].map((m) => `node:${m[1]}`)),
-    ].sort();
-
-    // The list is what REMAINS, not what is acceptable. Removing an entry is the point; adding one
-    // needs a reason.
-    expect(
-      found,
-      'A Node builtin appeared in the BROWSER bundle. Every browser consumer has to stub it, which ' +
-        'is the defect CORE-028 is about.',
-    ).toEqual(KNOWN_REMAINING);
-  });
+      // The list is what REMAINS, not what is acceptable. Removing an entry is the point; adding one
+      // needs a reason.
+      expect(
+        found,
+        'A Node builtin appeared in the BROWSER bundle. Every browser consumer has to stub it, which ' +
+          'is the defect CORE-028 is about.',
+      ).toEqual(KNOWN_REMAINING);
+    },
+  );
 });
