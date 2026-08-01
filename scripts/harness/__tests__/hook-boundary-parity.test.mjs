@@ -458,6 +458,14 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       // husky's env var also skips its INSTALL step, which gates nothing. Refusing this blocked
       // ordinary setup — and the fresh-worktree guidance in this same change would want to run it.
       'HUSKY=0 pnpm install',
+      // A statement can legitimately build NO words a flag matcher should see — a brace closing a
+      // function, a statement that is only a quoted string. The first spelling of the tokenizer
+      // fail-closed read an empty list as "the reading failed" and refused nearly every command
+      // typed in this repo. The error signal is the tokenizer exiting non-zero; emptiness is an
+      // ANSWER. (#1588 review)
+      '"$(date)"',
+      '""',
+      'f() { echo hi; }',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);

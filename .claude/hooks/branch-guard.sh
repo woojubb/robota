@@ -253,99 +253,107 @@ while read -r STMT_START STMT_LEN; do
   # Refusing `git push -n` would refuse a harmless rehearsal. The short cluster is matched because
   # `git commit -nm "x"` bundles, and it reads the MASKED statement, so a message DISCUSSING the flag
   # is prose and passes.
-  # WHAT BASH WOULD SEE, for the flag checks below.
+  # WHAT BASH WOULD SEE — asked of the tokenizer, not reconstructed here.
   #
-  # The mask replaces a quote character with a SPACE, which breaks a shell splice: bash reads
-  # `--no-''verify` as the single word `--no-verify`, while the mask shows `--no-  verify` and a
-  # literal match finds nothing. Measured — that spelling, `H''USKY=0`, and `-''n` all walked past
-  # the three checks this change added. A backslash splices the same way (`--no-\verify`).
+  # This block previously did its own parsing with sed and grep, and every round of review found a
+  # different way that was wrong: `awk -v` unescaped a backslash into a vertical tab; a blind
+  # splice-removal desynchronised the quoting and hid a live flag behind an unterminated string; a
+  # greedy match anchored on a nested verb and discarded the flags in front of it; an option skipper
+  # swallowed `-x` as a flag. Each was a SECOND reading of a command, written beside the one that
+  # models the shell grammar and is checked against real bash on a 200-shape corpus.
   #
-  # Read from the RAW statement, not the mask: by mask time each quote is already a space, so there
-  # is nothing left to splice out. Removing the empty pairs and the escapes from the original
-  # reproduces the word bash actually builds.
-  STMT_SPLICED=$(printf '%s' "${COMMAND:$((STMT_START - 1)):STMT_LEN}" | sed -E "s/(''|\"\"|\\\\)//g")
-  # Then MASK that. Splicing alone exposes quoted text, so on its own it refuses a commit message
-  # that merely DISCUSSES the flag — measured, and it blocked this very session's work. Masking the
-  # spliced text keeps both properties: the splice is closed, and a quoted argument is still hidden.
-  # A real flag survives both; a mention survives neither.
-  STMT_EVASIVE=$(hook_verb_scan "$STMT_SPLICED" 2>/dev/null || printf '%s' "$STMT_MASK")
+  # So the question goes to that reading. `hook_statement_words` returns the WORDS the shell builds
+  # for this statement: splices collapsed (`--no-''verify` and `--no-\verify` are one word, as bash
+  # sees them), quoted content hidden (a commit message that NAMES a flag is not passing one),
+  # substitution contents excluded (they are their own statement, judged as one).
+  # FAIL-CLOSED ON THE TOKENIZER FAILING, not on it answering "no words". The first spelling of this
+  # check treated an empty list as a failure, and that is wrong: a statement can legitimately build no
+  # words a matcher should see — a bare `}` closing a function, a statement that is only a quoted
+  # string. Measured immediately, it refused nearly every command typed in this repo. The error signal
+  # is awk's exit status; emptiness is an ANSWER. (#1588)
+  if ! STMT_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN"); then
+    echo "[branch-guard] Blocked: the statement could not be split into words, so its options were" >&2
+    echo "[branch-guard] never read. Nothing was verified; this is not a pass." >&2
+    exit 2
+  fi
+
+  # The verb, and the options that belong to THIS invocation. A value-taking option consumes the
+  # next word, which is what keeps `git commit -mn "x"` — a message of "n" — from reading as the
+  # short skip-hooks flag, and `-m "--no-verify"` from reading as the long one.
+  IS_GATED_STMT=false
+  GIT_VERB=""
+  SKIP_HOOKS=false
+  SKIP_WHAT=""
+  EXPECT_VALUE=false
+  SEEN_GIT=false
+  HAS_HUSKY0=false
+  while IFS= read -r W; do
+    # An `assignment=` is judged BEFORE the value-skip, because the one that matters travels AS a
+    # value: `git -c core.hooksPath=/dev/null commit` hands it to `-c`, and skipping the consumed
+    # word walked the whole config route straight through the check written to close it. (#1588)
+    case "$W" in
+      *core.hooksPath*=*) SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath" ;;
+    esac
+    # An EMPTY word is still a word — a fully-quoted argument builds one. It has to consume a pending
+    # value, or the option is left hungry and eats the NEXT real word instead: `-m "$(date)" -n` fed
+    # `-n` to `-m` and the skip-hooks flag behind it was never read. (#1588)
+    if [[ "$EXPECT_VALUE" == "true" ]]; then EXPECT_VALUE=false; continue; fi
+    [[ -n "$W" ]] || continue
+    # Recorded, not acted on yet: `HUSKY=0 pnpm install` is ordinary work in a fresh clone. The
+    # variable only disables a GATE when the statement it prefixes is the gated one, which is not
+    # known until the verb is read. (#1588 review)
+    case "$W" in
+      HUSKY=0) [[ "$SEEN_GIT" == "false" ]] && HAS_HUSKY0=true ;;
+    esac
+    if [[ "$SEEN_GIT" == "false" ]]; then
+      [[ "$W" == "git" ]] && SEEN_GIT=true
+      continue
+    fi
+    if [[ -z "$GIT_VERB" ]]; then
+      case "$W" in
+        -c|-C) EXPECT_VALUE=true; continue ;;
+        -*) continue ;;
+        *) GIT_VERB="$W"
+           case "$W" in commit|push) IS_GATED_STMT=true ;; esac
+           continue ;;
+      esac
+    fi
+    # Past the verb: these are this invocation's own options.
+    case "$W" in
+      --message|--file|--reuse-message|--reedit-message) EXPECT_VALUE=true; continue ;;
+    esac
+    [[ "$W" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify"
+    # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
+    # cannot see it. As an ARGUMENT it is unambiguous: a quoted message that merely names the setting
+    # is masked and never arrives here as a word.
+    [[ "$W" == *core.hooksPath* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath"
+    # A SHORT CLUSTER is walked letter by letter, and the walk STOPS at the first letter that takes a
+    # value — everything after it is that value, not more flags. `git commit -mn "x"` is a commit
+    # whose message is "n"; reading the cluster as a set refused it. The asymmetry below is measured
+    # rather than assumed:
+    #   git commit -h  ->  -n, --no-verify
+    #   git push   -h  ->  -n, --[no-]dry-run
+    # so `-n` is a kill switch on a commit and a harmless rehearsal on a push.
+    if [[ "$W" == -[!-]* ]]; then
+      CLUSTER="${W#-}"
+      while [[ -n "$CLUSTER" ]]; do
+        case "${CLUSTER:0:1}" in
+          n) [[ "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"; break ;;
+          m|F|C|c) break ;;
+        esac
+        CLUSTER="${CLUSTER:1}"
+      done
+      # A value-taking letter LAST in the cluster has no value attached, so it takes the next word.
+      case "$W" in *[mFCc]) EXPECT_VALUE=true ;; esac
+    fi
+  done <<< "$STMT_WORDS"
+  # Now that the verb is known: the husky kill switch counts only in front of a gated command.
+  [[ "$HAS_HUSKY0" == "true" && "$IS_GATED_STMT" == "true" ]] && SKIP_HOOKS=true && SKIP_WHAT="HUSKY=0"
+
   # The CLASS is "disable the gate instead of satisfying it", not one flag. The first version of this
   # ban closed `--no-verify` alone, and measuring it immediately found SIX other routes walking
   # through — the instance-not-class mistake this file's history is full of. Each member below is a
   # documented kill switch published by the tool it belongs to, and none has a legitimate agent use.
-  SKIP_HOOKS=false
-  SKIP_WHAT=""
-  # The flag must be an ARGUMENT OF THIS `git commit`/`git push`, not merely present somewhere in the
-  # statement. A substitution's content is deliberately left executable by the tokenizer — it runs —
-  # so `git commit -m "$(git log -n 1 --format=%s)"` put an inner command's `-n` in the same
-  # statement, and reading the two facts independently blocked an ordinary commit that never named
-  # the flag. Measured, both shapes, from review of #1588.
-  #
-  # `ARGS` is what follows the verb up to the first thing that starts a DIFFERENT command — `$(`,
-  # a backtick, or a separator. That is where this invocation's own options live.
-  # A substitution SPAN is removed, not truncated at. Cutting the argument list at the first `$(`
-  # threw away this invocation's own LATER flags along with the inner command's, so
-  # `git commit -m "$(git log -n 1)" --no-verify` sailed through — the bypass this change exists to
-  # close, reopened by the fix for the false positive beside it. Measured, both shapes. (#1588)
-  strip_substitutions() {
-    printf '%s' "$1" | sed -E ':a; s/\$\([^()]*\)//g; s/`[^`]*`//g; ta'
-  }
-  # Substitutions are removed BEFORE the verb is located, not after. Applied afterwards, a greedy
-  # `.*` anchored on a NESTED occurrence of the same verb and discarded everything in front of it —
-  # so `git commit --no-verify -m "$(git commit --dry-run)"` had its real flag thrown away with the
-  # prefix. Strip first and the nested verb is not there to anchor on. (#1588 review)
-  STMT_NO_SUBS=$(strip_substitutions "$STMT_EVASIVE")
-  COMMIT_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}commit${GITEND}//p" |
-    sed -E 's/(;|&&|\|\|).*//')
-  PUSH_ARGS=$(printf '%s' "$STMT_NO_SUBS" | sed -nE "s/.*${GITPFX}push${GITEND}//p" |
-    sed -E 's/(;|&&|\|\|).*//')
-  for ARGS in "$COMMIT_ARGS" "$PUSH_ARGS"; do
-    [[ -n "$ARGS" ]] || continue
-    printf '%s' "$ARGS" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' &&
-      { SKIP_HOOKS=true; SKIP_WHAT="--no-verify"; }
-  done
-  # The short form is COMMIT-only, and the asymmetry is measured rather than assumed:
-  #   git commit -h  ->  -n, --no-verify
-  #   git push   -h  ->  -n, --[no-]dry-run
-  # Refusing it on a push would refuse a harmless rehearsal. The cluster is matched because
-  # `git commit -nm "x"` bundles.
-  if [[ -n "$COMMIT_ARGS" ]]; then
-    # `-m` CONSUMES its value, so `-mn "x"` is `-m` with the message "n" — an ordinary commit. The
-    # cluster is read left to right and stops at the first value-taking option, because everything
-    # after it is that option's argument, not more flags. (#1588 review)
-    printf '%s' "$COMMIT_ARGS" |
-      grep -qE '(^|[[:space:]])-[^-[:space:]mFCc]*n[^[:space:]]*([[:space:]]|$)' &&
-      { SKIP_HOOKS=true; SKIP_WHAT="git commit -n"; }
-  fi
-  # Only when the statement actually commits or pushes. `HUSKY=0 pnpm install` skips husky's
-  # INSTALL step and gates nothing — refusing it blocked ordinary setup, and the fresh-worktree
-  # guidance on this very change would want to run it. Measured from review of #1588.
-  #
-  # `git config core.hooksPath …` is the exception that carries no verb: it disarms every FUTURE
-  # commit, so it is refused wherever it appears.
-  # Asked of the STATEMENT, not of the extracted arguments: `git -c core.hooksPath=/dev/null push`
-  # has no arguments after the verb, so a non-empty ARGS test read it as "not a push" and skipped the
-  # check entirely. An empty argument list is not an absent command. (#1588 review)
-  # Asked of the SPLICED reading, like the checks it gates. Reading the verb from the un-spliced mask
-  # while the flags were read from the spliced one left the door open on the other side: a spliced
-  # VERB kept the gate false and the kill-switch bans were skipped entirely, even though bash runs
-  # the command exactly as written. Defending against an evasion in one half of a decision and not
-  # the other is the same defect as not defending at all. (#1588 review)
-  IS_GATED_STMT=false
-  printf '%s' "$STMT_EVASIVE" | grep -qE "${GITPFX}(commit|push)${GITEND}" && IS_GATED_STMT=true
-  if [[ "$IS_GATED_STMT" == "true" ]]; then
-    # As an ENVIRONMENT PREFIX, which is the only position that disables anything. The tokenizer
-    # leaves a single-token quoted argument visible, so `git commit -m "HUSKY=0"` — a commit whose
-    # message IS that string — matched a bare presence test and was refused. An assignment that
-    # disables husky sits at the head of its statement, ahead of the command. (#1588 review)
-    printf '%s' "$STMT_EVASIVE" |
-      grep -qE '(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*HUSKY=0[[:space:]]' &&
-      { SKIP_HOOKS=true; SKIP_WHAT="HUSKY=0"; }
-    printf '%s' "$STMT_EVASIVE" | grep -qE 'core\.hooksPath' &&
-      { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
-  fi
-  printf '%s' "$STMT_EVASIVE" | grep -qE "${GITPFX}config${GITEND}[^;&|]*core\.hooksPath" &&
-    { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
   # And simply destroying the hooks — asked as a WHITELIST, because the destructive side is
   # open-ended and the readable side is not.
   #
@@ -427,7 +435,14 @@ while read -r STMT_START STMT_LEN; do
       # `--reference=<file>` copies another file's mode, which can strip execute without ever naming
       # a mode this parser can read. It is refused rather than reasoned about: there is no mode token
       # to judge, and "I cannot tell" is a refusal here. (#1588 review)
-      printf '%s' "$STMT_EVASIVE" | grep -qE 'chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+--reference' &&
+      #
+      # Asked of the WORDS, where a splice cannot hide it (`--refe\rence` is one word to bash and one
+      # word there), AND of the mask, because a substitution's content is not part of this
+      # statement's words and `chmod` can be run from inside one.
+      while IFS= read -r W; do
+        case "$W" in --reference*) SKIP_HOOKS=true; SKIP_WHAT="disarming a hook" ;; esac
+      done <<< "$STMT_WORDS"
+      printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])--reference' &&
         { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
       case "$CHMOD_MODE" in
         *+x*|*+X*) ;;                                   # handled by the clause walk above

@@ -684,6 +684,76 @@ HOOK_SCAN_AWK='
 
     if (MODE == "mask") { print mask; exit }
 
+    # ---- the WORDS the shell builds, one per line ----
+    #
+    # Added because four guards had grown their own sed/awk passes to answer "is this flag an
+    # argument of this command", and every one of them was wrong in a different way: `-v` unescaped
+    # a backslash into a vertical tab, a blind splice-removal desynchronised the quoting and hid a
+    # live flag behind an unterminated string, a greedy match anchored on a nested verb, an option
+    # skipper swallowed `-x` as a flag. Each was a SECOND reading of a command written beside the one
+    # this file exists to be.
+    #
+    # The splice is collapsed HERE, where the quoting is already known, rather than by a text pass
+    # that has to guess: `--no-''verify` and `--no-\verify` are one word to the shell and are one
+    # word here. A character the mask hides stays hidden, so a quoted argument does not become an
+    # option — which is what keeps a commit message that merely NAMES a flag from reading as one.
+    if (MODE == "words") {
+      word = ""
+      started = 0
+      sub_depth = 0
+      bt_open = 0
+      for (i = 1; i <= length(s); i++) {
+        mc = substr(mask, i, 1)
+        rc = substr(s, i, 1)
+        # INSIDE A SUBSTITUTION FIRST, before anything else looks at this character. A space in there
+        # belongs to the inner command and is not a separator of the outer one — checking it after the
+        # whitespace break split `echo "$(git log -n 1)"` into four words, which is the very leak this
+        # depth tracking exists to stop.
+        if (sub_depth > 0) {
+          started = 1
+          if (mc == "(" || mc == "{") { sub_depth++ }
+          else if (mc == ")" || mc == "}") { sub_depth-- }
+          continue
+        }
+        if (bt_open) { started = 1; if (mc == "\140") { bt_open = 0 } ; continue }
+        # A separator ends the word only where the shell sees one. The mask shows a space at a
+        # QUOTE DELIMITER too, and that is not a separator — `--no-''verify` is one word to bash.
+        # So a space is a break only when the raw character is really whitespace.
+        if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) {
+          if (started) { print word; word = ""; started = 0 }
+          continue
+        }
+        started = 1
+        # A quote delimiter itself contributes nothing but does not break the word.
+        if (mc == " ") { continue }
+        # Masked content is data. It keeps the word STARTED, so `-m "some message"` stays one word.
+        if (mc == "\001") { continue }
+        # A substitution RUNS, so its content is a command in its own right and NOT part of this
+        # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
+        # dropping them let the words inside a substitution leak out as words of the outer command:
+        # `git commit -m "$(git log -n 1)"` handed a bare `-n` to a matcher looking for the flag that
+        # skips hooks, and refused an ordinary commit. A guard that wants to judge what runs inside
+        # asks about THAT statement — which is what the statement ranges are for. Dropping the
+        # characters also swallowed a bare `}` closing a function, leaving a real statement with no
+        # words at all. (#1588)
+        #
+        # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment here
+        # CLOSES it, and the file then fails to source at all — which is how this comment lost its
+        # possessives. Write around them.
+        if (mc == "\140") { bt_open = 1; continue }
+        if (mc == "$" && (substr(mask, i + 1, 1) == "(" || substr(mask, i + 1, 1) == "{")) {
+          sub_depth = 1
+          i++
+          continue
+        }
+        # An unquoted backslash splices the next character: the shell drops it and joins.
+        if (mc == "\\" && rc == "\\") { continue }
+        word = word rc
+      }
+      if (started) { print word }
+      exit
+    }
+
     # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
     # out of a substitution came back wearing the paren that closed it: a nested
     # `git push origin --delete develop` named the branch `develop)`, which matches no protected
@@ -763,6 +833,15 @@ hook_match_extract_after() {
 # by a reader that did not know the grammar. The tokenizer knows both, and reading them together is
 # what lets a comment inside a substitution end at its own newline rather than at the substitution's
 # closing paren. Those passes are gone; see the note where they stood.
+# The WORDS a statement is built from, one per line, with splices collapsed and quoted content
+# hidden. $2/$3 narrow the reading to one statement, as everywhere else.
+#
+# This is what a guard should ask when it wants to know whether a flag was PASSED, rather than
+# whether its letters appear somewhere. See the `words` branch for why it lives here.
+hook_statement_words() {
+  printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
 hook_verb_scan() {
   printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
