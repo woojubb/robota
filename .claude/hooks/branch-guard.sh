@@ -265,11 +265,19 @@ while read -r STMT_START STMT_LEN; do
   # words a matcher should see — a bare `}` closing a function, a statement that is only a quoted
   # string. Measured immediately, it refused nearly every command typed in this repo. The error signal
   # is awk's exit status; emptiness is an ANSWER. (#1588)
-  if ! STMT_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN"); then
+  #
+  # The SENTINEL is what keeps a trailing empty word: command substitution strips trailing newlines,
+  # so a final fully-quoted argument — which builds a real but empty word — simply vanished, and
+  # `git config core.hooksPath ""` read as a key with no value and was permitted. `&& printf` also
+  # carries the failure: if the tokenizer exits non-zero the sentinel is never written and the `if`
+  # below fires. Exactly one newline plus the sentinel is removed, so the here-string re-adds exactly
+  # the one that was there. (#1588 review)
+  if ! STMT_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN" && printf '\001'); then
     echo "[branch-guard] Blocked: the statement could not be split into words, so its options were" >&2
     echo "[branch-guard] never read. Nothing was verified; this is not a pass." >&2
     exit 2
   fi
+  STMT_WORDS=${STMT_WORDS%$'\n\001'}
 
   # The verb, and the options that belong to THIS invocation. A value-taking option consumes the
   # next word, which is what keeps `git commit -mn "x"` — a message of "n" — from reading as the
@@ -281,6 +289,7 @@ while read -r STMT_START STMT_LEN; do
   EXPECT_VALUE=false
   SEEN_GIT=false
   HAS_HUSKY0=false
+  SAW_HOOKSPATH_KEY=false
   while IFS= read -r W; do
     # An `assignment=` is judged BEFORE the value-skip, because the one that matters travels AS a
     # value: `git -c core.hooksPath=/dev/null commit` hands it to `-c`, and skipping the consumed
@@ -292,6 +301,26 @@ while read -r STMT_START STMT_LEN; do
     # value, or the option is left hungry and eats the NEXT real word instead: `-m "$(date)" -n` fed
     # `-n` to `-m` and the skip-hooks flag behind it was never read. (#1588)
     if [[ "$EXPECT_VALUE" == "true" ]]; then EXPECT_VALUE=false; continue; fi
+    # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
+    # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling refused the mere
+    # appearance of the key — so `git config --get core.hooksPath` and `git grep core.hooksPath` were
+    # refused as bypasses, and `git config --unset core.hooksPath`, which RESTORES the default hooks,
+    # was refused as a way of removing them. A guard that fires on correct work is one people learn to
+    # route around; that is the argument this whole change is built on, and it was being lost a few
+    # lines below where it is made. (#1588 review)
+    #
+    # The key is remembered, and only a following POSITIONAL — the value — disables anything. An
+    # option cannot be one, and `--get`/`--unset` sit ahead of the key rather than after it. Judged
+    # BEFORE the empty-word skip, because `git config core.hooksPath ""` sets it to an empty string
+    # and a fully-quoted argument builds an empty word.
+    if [[ "$GIT_VERB" == "config" ]]; then
+      if [[ -n "$W" && "$W" == *core.hooksPath* ]]; then
+        SAW_HOOKSPATH_KEY=true
+      elif [[ "$SAW_HOOKSPATH_KEY" == "true" && "$W" != -* ]]; then
+        SKIP_HOOKS=true
+        SKIP_WHAT="core.hooksPath"
+      fi
+    fi
     [[ -n "$W" ]] || continue
     # Recorded, not acted on yet: `HUSKY=0 pnpm install` is ordinary work in a fresh clone. The
     # variable only disables a GATE when the statement it prefixes is the gated one, which is not
@@ -332,9 +361,17 @@ while read -r STMT_START STMT_LEN; do
     esac
     [[ "$W" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify"
     # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
-    # cannot see it. As an ARGUMENT it is unambiguous: a quoted message that merely names the setting
-    # is masked and never arrives here as a word.
-    [[ "$W" == *core.hooksPath* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath"
+    # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling here refused
+    # the mere appearance of the key — so `git config --get core.hooksPath` and `git grep
+    # core.hooksPath` were refused as bypasses, and `git config --unset core.hooksPath`, which
+    # RESTORES the default hooks, was refused as a way of removing them. A guard that fires on
+    # correct work is one people learn to route around; that is the argument this whole change is
+    # built on, and it was being lost one line below where it is made. (#1588 review)
+    #
+    # The key is remembered, and only a following POSITIONAL — the value — disables anything. An
+    # option cannot be one, and `--get`/`--unset` sit ahead of the key rather than after it.
+    # (the reading itself is above, before the empty-word skip: `--local core.hooksPath ""` sets it
+    # to an empty string, and a fully-quoted argument builds an EMPTY word)
     # A SHORT CLUSTER is walked letter by letter, and the walk STOPS at the first letter that takes a
     # value — everything after it is that value, not more flags. `git commit -mn "x"` is a commit
     # whose message is "n"; reading the cluster as a set refused it. The asymmetry below is measured

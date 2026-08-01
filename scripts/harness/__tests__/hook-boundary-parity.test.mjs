@@ -442,6 +442,11 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git --work-tree /x commit -n -m y',
       'git --git-dir /x/.git commit -n -m y',
       'HUSKY=0 git --work-tree /x commit -m y',
+      // Setting the hooks path to an EMPTY string. The value is a fully-quoted argument, which builds
+      // a real but empty word — and command substitution strips a TRAILING newline, so that word
+      // vanished before any check saw it and the assignment read as a key with no value. (#1588)
+      'git config core.hooksPath ""',
+      'git config --local core.hooksPath ""',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,
@@ -487,6 +492,15 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git --work-tree /x commit -m y',
       'echo ${HOME} && git log',
       'git commit -m "$((1 + 1)) files changed"',
+      // READING the setting, and RESTORING the default. What disables the gate is the assignment;
+      // the first spelling refused the mere appearance of the key, so a `--get` was refused as a
+      // bypass and `--unset` — which puts the default hooks BACK — was refused as a way of removing
+      // them. A guard that fires on correct work is one people learn to route around, which is the
+      // argument this whole change is built on. (#1588 review)
+      'git config --get core.hooksPath',
+      'git config --get-all core.hooksPath',
+      'git config --unset core.hooksPath',
+      'git grep core.hooksPath',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
