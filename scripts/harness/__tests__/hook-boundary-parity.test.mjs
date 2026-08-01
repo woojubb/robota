@@ -367,6 +367,13 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'rm .husky/pre-push',
       'echo "" > .husky/pre-commit',
       'chmod -x .husky/pre-push',
+      // The DIRECTORY forms — the most natural way anyone would actually do it, and the ones the
+      // first version missed because its pattern demanded a trailing `/`. The test missed them for
+      // the same reason, so the gap shipped green: a defect-fix test that passes on the defect.
+      'rm -rf .husky',
+      'mv .husky /tmp',
+      'chmod -R -x .husky',
+      'rm -r ./.husky',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,

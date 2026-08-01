@@ -278,13 +278,19 @@ while read -r STMT_START STMT_LEN; do
   # git's own: `git -c core.hooksPath=…` for one call, `git config core.hooksPath …` forever.
   printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
     { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
-  # And simply destroying the hook. Reading, listing and editing it are untouched — only removing,
-  # emptying or disarming it. `cat`/`ls` on the same path stay silent, which is asserted.
-  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])(rm|unlink|mv)([[:space:]]+-[^[:space:]]+)*[[:space:]]+[^[:space:]]*\.husky/' &&
+  # And simply destroying the hooks. Reading, listing and editing them are untouched — only removing,
+  # emptying or disarming. `cat`/`ls` on the same path stay silent, which is asserted.
+  #
+  # `HUSKY_PATH` ends at a boundary rather than demanding a trailing `/`. The first version required
+  # one, so it caught `rm .husky/pre-push` and missed `rm -rf .husky` — the directory forms, which
+  # are how anyone would actually do it. The regression test missed them for the same reason and
+  # shipped green: a defect-fix test that passes on the defect. (#1588 review)
+  HUSKY_PATH='[^[:space:]]*\.husky([/[:space:]]|$)'
+  printf '%s' "$STMT_MASK" | grep -qE "(^|[[:space:]])(rm|unlink|mv)([[:space:]]+-[^[:space:]]+)*[[:space:]]+${HUSKY_PATH}" &&
     { SKIP_HOOKS=true; SKIP_WHAT="removing a hook"; }
-  printf '%s' "$STMT_MASK" | grep -qE '>[[:space:]]*[^[:space:]]*\.husky/' &&
+  printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*${HUSKY_PATH}" &&
     { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
-  printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+[^[:space:]]*\.husky/' &&
+  printf '%s' "$STMT_MASK" | grep -qE "(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+${HUSKY_PATH}" &&
     { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
   if [[ "$SKIP_HOOKS" == "true" ]]; then
     echo "[branch-guard] Blocked: '$SKIP_WHAT' disables the gate rather than satisfying it. Zero exceptions." >&2
