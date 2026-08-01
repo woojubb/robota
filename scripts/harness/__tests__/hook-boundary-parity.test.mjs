@@ -341,6 +341,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git commit -n -m "x"',
       'git commit -nm "x"',
       'git commit -am "x" --no-verify',
+      // AFTER a substitution, on the same invocation. Truncating the argument list at the first
+      // `$(` — to keep an inner command's flags out — threw away this invocation's own later flags
+      // with them, and opened the bypass the whole change exists to close. (#1588 review)
+      'git commit -m "$(git log -n 1)" --no-verify',
+      'git push origin "$(git branch --show-current)" --no-verify',
+      'git commit -m "$(date)" -n',
       'echo ok && git commit --no-verify -m "x"',
     ]) {
       expect(
@@ -403,6 +409,11 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'git commit -m "$(git log -n 1 --format=%s)"',
       'git commit -m "$(grep -n TODO file.txt)"',
       'git commit -F - <<EOF\nsee git log -n 1\nEOF',
+      // The rule says "reading, listing and EDITING a hook are untouched; only destroying one is
+      // refused" — and the readers-only whitelist contradicted its own statement for these two.
+      // Restoring an executable bit and editing a hook in place are not bypasses. (#1588 review)
+      'chmod +x .husky/pre-push',
+      'sed -i "s/foo/bar/" .husky/pre-push',
     ]) {
       const { status, output } = run('branch-guard.sh', command, dir);
       expect(status, `ordinary work was refused: ${command} -> ${output}`).toBe(0);
@@ -445,5 +456,73 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       dir,
     );
     expect(status, `a quoted mention was read as the flag: ${output}`).toBe(0);
+  });
+});
+
+describe('a hook cannot be emptied through the Edit tool either', () => {
+  // The Bash guard covers commands. It cannot cover the tool an agent would actually reach for:
+  // Write/Edit/MultiEdit change file CONTENT without running a command at all, so `.husky/pre-commit`
+  // could simply be replaced with an empty body. Claiming "zero exceptions" for hook destruction
+  // while that door is open would be a claim, not a gate. (#1588 review)
+  const FORBIDDEN = path.join(HOOKS_DIR, 'check-forbidden-patterns.sh');
+
+  function runTool(payload) {
+    const result = spawnSync('bash', [FORBIDDEN], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: process.env.HOME },
+      timeout: 120_000,
+    });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses a Write or Edit that guts a husky hook', () => {
+    const cases = [
+      { tool_name: 'Write', tool_input: { file_path: '/r/.husky/pre-commit', content: '' } },
+      {
+        tool_name: 'Write',
+        tool_input: { file_path: '/r/.husky/pre-push', content: '#!/bin/sh\n' },
+      },
+      {
+        tool_name: 'Edit',
+        tool_input: { file_path: '/r/.husky/pre-commit', new_string: '', old_string: 'x' },
+      },
+      {
+        tool_name: 'MultiEdit',
+        tool_input: {
+          file_path: '/r/.husky/pre-push',
+          edits: [{ new_string: '', old_string: 'x' }],
+        },
+      },
+    ];
+    for (const payload of cases) {
+      expect(
+        runTool(payload).status,
+        `a husky hook was gutted through ${payload.tool_name}`,
+      ).not.toBe(0);
+    }
+  });
+
+  it('leaves a real hook edit, and every other file, alone', () => {
+    // A hook that GAINS content is ordinary maintenance — this session edited `.husky/pre-commit`
+    // to add the cross-worktree lock. Refusing that would make the guard unusable.
+    const ok = [
+      {
+        tool_name: 'Edit',
+        tool_input: {
+          file_path: '/r/.husky/pre-commit',
+          old_string: 'pnpm exec lint-staged',
+          new_string: 'with-repo-lock.sh pnpm exec lint-staged',
+        },
+      },
+      { tool_name: 'Write', tool_input: { file_path: '/r/src/index.ts', content: '' } },
+    ];
+    for (const payload of ok) {
+      const { status, output } = runTool(payload);
+      expect(
+        status,
+        `ordinary work was refused: ${JSON.stringify(payload.tool_input)} -> ${output}`,
+      ).toBe(0);
+    }
   });
 });

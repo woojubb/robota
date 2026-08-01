@@ -107,7 +107,14 @@ The first version of this rule banned `--no-verify` alone. Measuring it immediat
 routes walking straight through** — closing the instance and leaving the class, which is the mistake
 this rule exists to stop repeating.
 
-Reading, listing and editing a hook are untouched; only destroying one is refused.
+Reading, listing and editing a hook are untouched; only destroying one is refused. Emptying a hook
+through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
+left with nothing to run is a removal wearing an edit's clothes.
+
+**One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
+that apart from an ordinary substitution means evaluating the editor's program, and being wrong
+either way costs more than the gap — too strict refuses everyday edits, too loose buys the next
+spelling. The path an agent actually takes is the tool layer, and that one is closed.
 
 It has to be enforced at the PreToolUse layer: `--no-verify` disables the git-level hook, so the
 pre-push hook cannot catch its own bypass — by the time it would run it has already been skipped.

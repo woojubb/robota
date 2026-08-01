@@ -267,8 +267,17 @@ while read -r STMT_START STMT_LEN; do
   #
   # `ARGS` is what follows the verb up to the first thing that starts a DIFFERENT command — `$(`,
   # a backtick, or a separator. That is where this invocation's own options live.
-  COMMIT_ARGS=$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}commit${GITEND}//p" | sed -E 's/(\$\(|`|;|&&|\|\|).*//')
-  PUSH_ARGS=$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}push${GITEND}//p" | sed -E 's/(\$\(|`|;|&&|\|\|).*//')
+  # A substitution SPAN is removed, not truncated at. Cutting the argument list at the first `$(`
+  # threw away this invocation's own LATER flags along with the inner command's, so
+  # `git commit -m "$(git log -n 1)" --no-verify` sailed through — the bypass this change exists to
+  # close, reopened by the fix for the false positive beside it. Measured, both shapes. (#1588)
+  strip_substitutions() {
+    printf '%s' "$1" | sed -E ':a; s/\$\([^()]*\)//g; s/`[^`]*`//g; ta'
+  }
+  COMMIT_ARGS=$(strip_substitutions "$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}commit${GITEND}//p")" |
+    sed -E 's/(;|&&|\|\|).*//')
+  PUSH_ARGS=$(strip_substitutions "$(printf '%s' "$STMT_MASK" | sed -nE "s/.*${GITPFX}push${GITEND}//p")" |
+    sed -E 's/(;|&&|\|\|).*//')
   for ARGS in "$COMMIT_ARGS" "$PUSH_ARGS"; do
     [[ -n "$ARGS" ]] || continue
     printf '%s' "$ARGS" | grep -qE '(^|[[:space:]])--no-verify([[:space:]]|=|$)' &&
@@ -301,10 +310,25 @@ while read -r STMT_START STMT_LEN; do
   #
   # `find` and `git` are readable but not only-readable, so their destructive forms are named.
   if printf '%s' "$STMT_MASK" | grep -qE '[^[:space:]]*\.husky([/[:space:]]|$)'; then
-    HUSKY_READERS='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf)'
+    # The whitelist names commands that may not DESTROY, which is a wider set than "may only read".
+    # `git-branch.md` says "reading, listing and EDITING a hook are untouched; only destroying one is
+    # refused", and the first version contradicted its own statement: `chmod +x` restoring an
+    # executable bit and `sed -i` editing a hook were refused as bypasses. Neither removes a gate.
+    # Destruction is named separately below, so an editor here is not a hole. (#1588 review)
+    #
+    # STATED LIMIT, not a silent one: an in-place editor can EMPTY a hook — `sed -i 's/.*//'` is an
+    # edit by shape and a removal by effect. Deciding which requires evaluating the editor's program,
+    # and getting that wrong is worse in both directions: too strict refuses an ordinary
+    # `sed -i 's/foo/bar/'` (which is exactly what the review before this one found), too loose buys
+    # the next program spelling. The path an agent actually takes — Write/Edit/MultiEdit — IS closed,
+    # in check-forbidden-patterns.sh, which refuses a hook body left with nothing to run.
+    HUSKY_SAFE='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf|sed|awk|chmod|vim|nano|node|python3)'
     printf '%s' "$STMT_MASK" |
-      grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_READERS}([[:space:]]|$)" ||
+      grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_SAFE}([[:space:]]|$)" ||
       { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
+    # `chmod` may restore a bit; it may not remove the executable one.
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]*-[^[:space:]]*x' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
     # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
     printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])find([[:space:]]|$)' &&
       printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-(delete|exec)([[:space:]]|$)' &&
