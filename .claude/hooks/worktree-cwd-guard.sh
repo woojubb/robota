@@ -72,6 +72,169 @@ fi
 # the wrong subject. An override is given to ONE command: the one it precedes. So the only check
 # that closes it is asked of the destructive statement itself.
 
+# --- The shared stash ------------------------------------------------------------------------
+#
+# Checked BEFORE the worktree-session gate below, and that placement is the point: the hazard is not
+# "I am inside a worktree", it is "this clone HAS more than one", which is equally true of the main
+# checkout. A guard that only fired inside worktrees would miss the main clone racing them.
+#
+# `refs/stash` is a single ref on the shared object store. `worktree-parallel-orchestration` promises
+# worktree-isolated agents, and the isolation is real for the working tree and the index — not for
+# this. Measured 2026-08-01 during a five-agent wave: one agent's bare `git stash push` + `pop` took
+# ANOTHER agent's uncommitted work into its own tree.
+#
+# git-branch.md has said "never a bare `git stash pop`, pop by explicit ref" since LESSON-005
+# (2026-06-15), and an agent did it anyway ten weeks later, because the rule was written down and
+# never mechanically reached. This is the reaching. (INFRA-082)
+#
+# Read-only subcommands (`list`, `show`) are untouched — they cannot move anyone's work.
+# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `VERBS` from the
+# tokenizer and `SCAN` from two line-oriented passes that did no quote masking at all. Measured on a
+# worktree session, with the bare form refused correctly:
+#   git -C <MAIN> reset --hard                                 -> exit 2
+#   echo "see <<EOF for details" ; git -C <MAIN> reset --hard  -> exit 0
+# The quoted `<<EOF` opened a heredoc the old reading never saw close, so the `git -C <MAIN>` after it
+# was deleted from the string this guard examined and the destructive command was allowed.
+#
+# Computed HERE, above the stash gate, and read by both checks. The stash block first ran the
+# tokenizer a second time on the same text — and since it runs before the worktree-session gate, that
+# doubled the cost on EVERY Bash call in every session, not only ones naming a stash. (#1585)
+#
+# Fail closed on an unreadable command: a non-zero return means the value could NOT be read, and a
+# guard must refuse rather than treat it as an empty string that matches nothing.
+if ! VERBS=$(hook_verb_scan "$COMMAND"); then
+  echo "[worktree-cwd-guard] Blocked: the command could not be scanned, so nothing can be judged." >&2
+  exit 2
+fi
+# ONE boundary pair, used by every match below.
+#
+# Review of #1585 found the entry gate missing the backtick, so `OUT=`git stash pop`` skipped the
+# whole guard. Fixing that in place then left the SAME defect one line down — `pop` followed by a
+# closing backtick failed the trailing `([[:space:]]|$)`. Five hand-written copies of "what ends a
+# word" is five chances to disagree, and two of them already had. So they are written once.
+#
+# The leading class matches this file's GITPFX; the trailing one is GITEND's rule — anything that is
+# not a word character or `-`, which covers the closing backtick, `)`, `;` and end of line.
+STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*([^[:space:]]+=)?[[:space:]]*'
+STASH_END='([^-[:alnum:]_]|$)'
+# `git`, INCLUDING the global flags that may precede a subcommand — the same tolerance GITPFX below
+# already has. Written once and used by every match, because the fourth review finding on this change
+# was that the entry gate lacked it: `git -C <sibling-worktree> stash pop` skipped the whole check,
+# and a `-C` pointing at a sibling worktree is not an edge case — it is how one worktree reaches into
+# another. Three earlier findings on this same block were the same shape: a rule this file already
+# states, re-derived worse a few lines away. (#1585)
+STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
+if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
+  BARE_STASH=false
+  # PER STATEMENT, and a comment is not a statement.
+  #
+  # The ref check asked whether `stash@{` occurred ANYWHERE in the command. So a bare pop travelled
+  # free beside a well-formed sibling — `git stash pop; git stash pop stash@{0}` — and a trailing
+  # `# stash@{0}` was enough on its own. This file had already met that class further down, for the
+  # destructive-command override, and says so there: "the token sitting on a sibling command excuses
+  # nothing". The new block did not reuse the split and reintroduced it. (#1585)
+  #
+  # One judgement, called once per BARE statement — because each is judged against ITS OWN
+  # repository. Capturing the repo once let `git -C <scratch> stash push; git -C <shared> stash pop`
+  # be judged entirely against the scratch repo, and the second, genuinely bare pop went through.
+  stash_refuse_unless_single_worktree() {
+    local repo="$1" list count
+    if [[ -z "$repo" ]]; then
+      # REFUSE, not fail-safe — and the difference from the destructive path is deliberate. A bare
+      # pop always has a correct form (`stash@{N}`), so refusing costs the caller a ref they should
+      # have written. A destructive command has no such substitute, which is why that path fails safe.
+      echo "[worktree-cwd-guard] Blocked: a bare stash command, and no repository could be named," >&2
+      echo "[worktree-cwd-guard] so a shared stack cannot be ruled out." >&2
+      echo "[worktree-cwd-guard] Name an explicit ref: git stash pop stash@{N}   (git-branch.md)" >&2
+      exit 2
+    fi
+    # `hook_git_in`, not a bare `git -C`: with `GIT_DIR` exported, `git -C <dir>` reports the OUTER
+    # repository, so the count would be another clone's. INFRA-077 measured that, and this file's own
+    # floor caught the line the moment it was written.
+    #
+    # Read the list first, THEN count it. `git … | grep -c . || echo 0` yields the two-line string
+    # "0\n0" when git produces nothing — `grep -c` prints 0 AND exits 1, so the `||` fires as well —
+    # and the arithmetic comparison then errors and the guard falls OPEN.
+    if ! list=$(hook_git_in "$repo" worktree list 2>/dev/null); then
+      echo "[worktree-cwd-guard] Blocked: cannot read the worktree list, so a shared stash cannot be" >&2
+      echo "[worktree-cwd-guard] ruled out. Name an explicit ref: git stash pop stash@{N}" >&2
+      exit 2
+    fi
+    count=$(printf '%s\n' "$list" | grep -c . || true)
+    # A count that is not a number means the count was not read, and this file's stated policy is
+    # that an unreadable subject is a refusal. No test covers this branch and saying so is the honest
+    # form: `grep -c` always emits a number, so it is unreachable by construction. A test that
+    # appeared to exercise it would be passing for some other reason — the first attempt at one did
+    # exactly that, blocking because the fixture had two worktrees. (#1585)
+    if [[ ! "$count" =~ ^[0-9]+$ ]]; then
+      echo "[worktree-cwd-guard] Blocked: the worktree count could not be read, so a shared stash" >&2
+      echo "[worktree-cwd-guard] cannot be ruled out. Name an explicit ref: git stash pop stash@{N}" >&2
+      exit 2
+    fi
+    if [[ "$count" -gt 1 ]]; then
+      echo "[worktree-cwd-guard] Blocked: a bare stash command while this clone has $count worktrees." >&2
+      echo "[worktree-cwd-guard] refs/stash is SHARED across every worktree — a bare push or pop can" >&2
+      echo "[worktree-cwd-guard] take another agent's uncommitted work. It has already happened once." >&2
+      echo "[worktree-cwd-guard] Pop by explicit ref: git stash pop stash@{N}   (git-branch.md)" >&2
+      echo "[worktree-cwd-guard] To save state instead, copy the files — no shared ref is involved." >&2
+      exit 2
+    fi
+  }
+
+  # The statements come from `hook_statement_ranges`, and every reader below is given that
+  # statement's (START, LENGTH). The command is masked WHOLE and only the READING is narrowed.
+  #
+  # This replaces a `sed` split over the already-masked `$VERBS`, which was the root cause of the
+  # last two review rounds and which `command-scan.sh` warns against by name: "a per-statement
+  # judgement built by re-masking each slice would be a THIRD reading of a command, in the file whose
+  # subject is that there must be one." Both findings followed from it — a comment pass that could
+  # not tell a real comment from a `#` mid-word, and a `-C` extracted from mangled text where a
+  # quoted path with a space came back as `\001` bytes. The window is the facility that already
+  # exists for this. (#1585)
+  #
+  # Read from a here-string, never a PIPE: a `while` on the right of a pipe runs in a SUBSHELL, where
+  # the `exit 2` of a refusal would end only that subshell and the hook would carry on and exit 0 —
+  # a refusal that refuses nothing. `branch-guard.sh` records the same trap.
+  STASH_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+  if [[ -z "${STASH_RANGES//[[:space:]]/}" ]]; then
+    echo "[worktree-cwd-guard] Blocked: the command names a stash and could not be split into" >&2
+    echo "[worktree-cwd-guard] statements, so nothing in it was judged. This is not a pass." >&2
+    exit 2
+  fi
+  while read -r WSTART WLEN; do
+    [[ -n "$WSTART" && -n "$WLEN" ]] || continue
+    STMT=$(hook_verb_scan "$COMMAND" "$WSTART" "$WLEN" || printf '')
+    printf '%s' "$STMT" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}" || continue
+    STMT_BARE=false
+    # A bare `git stash`, or one whose next word is a FLAG — `-u`, `--all`, `-k` are implicit pushes
+    # with no subcommand keyword, and they add an entry another agent's bare pop can take. Matching
+    # only the literal words `push`/`save` let every one of them through. (#1585)
+    printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]*$" && STMT_BARE=true
+    printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]*(\)|\`)" && STMT_BARE=true
+    printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]+(push|save)${STASH_END}" && STMT_BARE=true
+    printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]+-" && STMT_BARE=true
+    # `clear` takes no argument and deletes EVERY entry, including ones another agent has not popped
+    # yet — the worst of the set, and the one the first version of this list forgot.
+    printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]+clear${STASH_END}" && STMT_BARE=true
+    # `branch` and `pop`/`apply`/`drop` all take the TOP of the stack when no ref is named — and the
+    # ref must be in THIS statement.
+    if printf '%s' "$STMT" | grep -qE "${STASH_GIT}[[:space:]]+(pop|apply|drop|branch)${STASH_END}"; then
+      printf '%s' "$STMT" | grep -qE 'stash@\{' || STMT_BARE=true
+    fi
+    [[ "$STMT_BARE" == "true" ]] || continue
+    BARE_STASH=true
+    # EVERY bare statement is judged against ITS OWN repository, not the first one's. Capturing the
+    # `-C` once let `git -C <scratch> stash push; git -C <shared> stash pop` be judged entirely
+    # against the scratch repo — the second, genuinely bare pop waved through. The `-C` is read from
+    # the RAW command through this statement's window, so a quoted path with a space survives. (#1585)
+    STASH_REPO=$(hook_effective_repo first-nonempty \
+      "$(hook_git_c_path "$COMMAND" "$WSTART" "$WLEN" 2>/dev/null || printf '')" \
+      "$(hook_cwd_of "$INPUT" 2>/dev/null || printf '')" \
+      "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
+    stash_refuse_unless_single_worktree "$STASH_REPO"
+  done <<< "$STASH_RANGES"
+fi
+
 # --- (b) worktree-assignment marker -------------------------------------------------------------
 # Present iff this session was spawned as a worktree-assigned subagent. Absent → ordinary main-clone
 # session → FAIL-SAFE, never block.
@@ -99,15 +262,6 @@ if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
 fi
 
 # --- Detect destructive git commands ------------------------------------------------------------
-# ONE reading, by the grammar (INFRA-075, #1572). This hook used to hold two: `VERBS` from the
-# tokenizer and `SCAN` from two line-oriented passes that did no quote masking at all, and the `-C`
-# extraction below read `SCAN`. Measured on a worktree session, with the bare form refused correctly:
-#   git -C <MAIN> reset --hard                                 -> exit 2
-#   echo "see <<EOF for details" ; git -C <MAIN> reset --hard  -> exit 0
-# The quoted `<<EOF` opened a heredoc the old reading never saw close, so the `git -C <MAIN>` after it
-# was deleted from the string this guard examined, the effective repo fell back to the worktree, and a
-# `git reset --hard` on the MAIN checkout — the incident this file exists for — was allowed.
-VERBS=$(hook_verb_scan "$COMMAND")
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
 # `git -c k=v push`) — the same pattern branch-guard uses.

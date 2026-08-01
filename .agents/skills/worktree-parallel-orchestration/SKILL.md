@@ -61,6 +61,20 @@ Spawn each parallel implementer with the `Agent` tool's `isolation: "worktree"`.
 concurrent feature branch cut from a **freshly-fetched integration branch**, created with the branch-guard
 override the git rules define for exactly this case. Hand each agent its OWNED + FORBIDDEN lists verbatim.
 
+**Where the isolation stops.** A worktree owns its working tree and its index. It shares everything
+else in the clone, and an agent told to work "in isolation" will not assume that unless it is said:
+
+| Shared                          | Consequence measured 2026-08-01                                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refs/stash`                    | one agent's bare `git stash push` + `pop` took **another agent's uncommitted work** into its own tree                                                                   |
+| `refs/stash`, via `lint-staged` | a concurrent stash destroyed the pre-commit backup: `lint-staged automatic backup is missing!` — the exposure is **every commit**, not only agents who type `git stash` |
+| `refs/` and the object store    | `branch-guard` enumerates branches across all worktrees, so every branch creation during a wave needs the open-branches override                                        |
+
+Two things follow, and both are now mechanical rather than advisory (INFRA-082): the pre-commit hook
+runs `lint-staged` under a clone-wide lock, and a bare stash command is refused while a sibling
+worktree exists. For a before/after comparison use `git archive` or a copy — no shared ref is
+involved, and it is what the agent that hit this switched to.
+
 ### 3. Sequence overlapping work behind occupants
 
 If a candidate item's territory overlaps the OWNED paths of a **currently-running** agent, **HOLD** it —
