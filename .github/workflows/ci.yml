@@ -563,8 +563,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `--base-ref` explicitly, like the sibling `commitlint` job. Without it the stage diffs against
+      # a hardcoded `origin/develop`, which is right today only because this job is skipped when the
+      # base IS main and policy sends everything else to develop — an assumption held in two places
+      # and stated in neither.
       - name: Check formatting
-        run: node scripts/harness/verify-like-ci.mjs --only format-check
+        run: node scripts/harness/verify-like-ci.mjs --only format-check --base-ref origin/${{ github.base_ref }}
 
   commitlint:
     name: commitlint

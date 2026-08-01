@@ -374,6 +374,12 @@ describe('a gate cannot be skipped by asking git to skip it', () => {
       'mv .husky /tmp',
       'chmod -R -x .husky',
       'rm -r ./.husky',
+      // Emptying a hook without `rm`, `>` or `chmod`. The rule doc says "zero exceptions"; these
+      // were as common as the covered ones, so the claim overstated the coverage until now.
+      'cp /dev/null .husky/pre-push',
+      'truncate -s0 .husky/pre-push',
+      'find .husky -delete',
+      'find .husky -type f -exec rm {} +',
     ]) {
       expect(
         run('branch-guard.sh', command, dir).status,

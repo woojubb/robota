@@ -278,20 +278,33 @@ while read -r STMT_START STMT_LEN; do
   # git's own: `git -c core.hooksPath=…` for one call, `git config core.hooksPath …` forever.
   printf '%s' "$STMT_MASK" | grep -qE 'core\.hooksPath' &&
     { SKIP_HOOKS=true; SKIP_WHAT="core.hooksPath"; }
-  # And simply destroying the hooks. Reading, listing and editing them are untouched — only removing,
-  # emptying or disarming. `cat`/`ls` on the same path stay silent, which is asserted.
+  # And simply destroying the hooks — asked as a WHITELIST, because the destructive side is
+  # open-ended and the readable side is not.
   #
-  # `HUSKY_PATH` ends at a boundary rather than demanding a trailing `/`. The first version required
-  # one, so it caught `rm .husky/pre-push` and missed `rm -rf .husky` — the directory forms, which
-  # are how anyone would actually do it. The regression test missed them for the same reason and
-  # shipped green: a defect-fix test that passes on the defect. (#1588 review)
-  HUSKY_PATH='[^[:space:]]*\.husky([/[:space:]]|$)'
-  printf '%s' "$STMT_MASK" | grep -qE "(^|[[:space:]])(rm|unlink|mv)([[:space:]]+-[^[:space:]]+)*[[:space:]]+${HUSKY_PATH}" &&
-    { SKIP_HOOKS=true; SKIP_WHAT="removing a hook"; }
-  printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*${HUSKY_PATH}" &&
-    { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
-  printf '%s' "$STMT_MASK" | grep -qE "(^|[[:space:]])chmod([[:space:]]+[^[:space:]]+)*[[:space:]]+${HUSKY_PATH}" &&
-    { SKIP_HOOKS=true; SKIP_WHAT="disarming a hook"; }
+  # Three rounds of review each named another verb the enumeration had missed: first the directory
+  # forms (`rm -rf .husky`), then `cp /dev/null`, `truncate -s0`, `find -delete`. Each addition was
+  # correct and each left the next spelling, which is the shape this whole change exists to stop.
+  # So the question is inverted: a statement that names a `.husky` path must be one of the few
+  # commands that can only READ it. Everything else is refused, including verbs nobody has thought
+  # of yet.
+  #
+  # `find` and `git` are readable but not only-readable, so their destructive forms are named.
+  if printf '%s' "$STMT_MASK" | grep -qE '[^[:space:]]*\.husky([/[:space:]]|$)'; then
+    HUSKY_READERS='(cat|bat|ls|head|tail|grep|rg|wc|stat|file|diff|less|more|find|git|echo|printf)'
+    printf '%s' "$STMT_MASK" |
+      grep -qE "(^|[;&|]|&&)[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*${HUSKY_READERS}([[:space:]]|$)" ||
+      { SKIP_HOOKS=true; SKIP_WHAT="touching .husky"; }
+    # `find … -delete` / `-exec` and `git rm|mv` name a path they then destroy.
+    printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])find([[:space:]]|$)' &&
+      printf '%s' "$STMT_MASK" | grep -qE '(^|[[:space:]])-(delete|exec)([[:space:]]|$)' &&
+      { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(rm|mv)${GITEND}" &&
+      { SKIP_HOOKS=true; SKIP_WHAT="removing a hook from git"; }
+    # A redirection writes wherever it points, whatever the command in front of it is.
+    printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*[^[:space:]]*\.husky" &&
+      { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
+    # `echo`/`printf` are readers ONLY without a redirection, which the line above catches.
+  fi
   if [[ "$SKIP_HOOKS" == "true" ]]; then
     echo "[branch-guard] Blocked: '$SKIP_WHAT' disables the gate rather than satisfying it. Zero exceptions." >&2
     echo "[branch-guard] Four agents bypassed in one day; the gate was broken (HARNESS-058) and was fixed." >&2
