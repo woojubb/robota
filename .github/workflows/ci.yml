@@ -553,7 +553,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # INFRA-049: lint ONLY the commits this PR authored. Three things make that true, and all
-      # three are load-bearing — see .agents/backlog/completed/INFRA-049-*.md for the evidence.
+      # three are load-bearing — see .agents/tasks/completed/INFRA-049-*.md for the evidence.
       #
       # 1. NO base fetch, and above all no `--depth`. `actions/checkout` already fetched every
       #    branch at full depth (fetch-depth: 0), so `origin/<base>` is present and complete. The

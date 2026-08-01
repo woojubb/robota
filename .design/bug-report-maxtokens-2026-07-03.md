@@ -94,6 +94,6 @@ PR #933에서 수정됨. 원인: (1) `executeStream`(runStream 경로)의 chat o
 (무제한 13,501자 vs cap 50에서 238/211자)은 `CORE-016` 백로그 evidence에 기록.
 
 제안 3(silent-ignore 완화)은 일반화하여 후속 백로그 `CORE-017`
-(`.agents/backlog/CORE-017-run-options-dead-field-audit.md`)로 등록: 동일 결함 부류로
+(`.agents/tasks/CORE-017-run-options-dead-field-audit.md`)로 등록: 동일 결함 부류로
 `IRunOptions.stream`/`toolChoice`가 스레딩되지 않는 죽은 필드임을 grep으로 확인했으며,
 모든 공개 run 옵션은 동작하거나 제거되어야 한다는 정책으로 전수 감사 예정.

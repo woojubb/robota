@@ -25,10 +25,10 @@ spec coverage audit passed.
 spec path scan passed.
 workspace ref scan passed.
 stub marker scan passed.
-  superseded: .agents/backlog/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/shell-exec.ts — shell-exec.ts deleted in HARNESS-015 (orphan burn-down) — the dedup it verified holds; skill ! substitution moved with the TUI refactor
-  superseded: .agents/backlog/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; shellExec dedup is held by current agent-transport/cli suites
-  superseded: .agents/backlog/completed/CLIR-L01-agent-name-hardcoded.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; AGENT_CLI_NAME single definition still holds in constants.ts
-  superseded: .agents/backlog/completed/DOC-002-multilang-readme.md → packages/agent-cli/README.ko.md — README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales)
+  superseded: .agents/tasks/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/shell-exec.ts — shell-exec.ts deleted in HARNESS-015 (orphan burn-down) — the dedup it verified holds; skill ! substitution moved with the TUI refactor
+  superseded: .agents/tasks/completed/CLIR-H02-shellexec-duplication.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; shellExec dedup is held by current agent-transport/cli suites
+  superseded: .agents/tasks/completed/CLIR-L01-agent-name-hardcoded.md → packages/agent-cli/src/modes/tui-mode.ts — tui-mode.ts removed in the TUI → agent-transport migration; AGENT_CLI_NAME single definition still holds in constants.ts
+  superseded: .agents/tasks/completed/DOC-002-multilang-readme.md → packages/agent-cli/README.ko.md — README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales)
 done-evidence scan passed (4 superseded reference(s)).
 orphan export scan passed.
 ✅ No dependency direction violations found.
