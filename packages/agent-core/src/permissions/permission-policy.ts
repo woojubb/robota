@@ -15,7 +15,7 @@
  *      unmatched → deny (never prompt) — the detached-safe locked-down semantics.
  */
 
-import { matchesAnyPattern } from './permission-gate.js';
+import { hasUnevaluableArgumentPattern, matchesAnyPattern } from './permission-gate.js';
 
 import type { TToolArgs } from './permission-gate.js';
 import type { TBackgroundPermissionPolicy } from './types.js';
@@ -49,6 +49,21 @@ export function resolvePermissionByPolicy(
   if (
     matchesAnyPattern(toolName, toolArgs, taskDeny) ||
     matchesAnyPattern(toolName, toolArgs, parentDeny)
+  ) {
+    return 'deny';
+  }
+
+  // CORE-030: and a deny this gate could not EVALUATE is not one that did not match. Same defect as
+  // `evaluatePermission`'s, found in review of #1596 — but WORSE here, because this path has no
+  // prompt at step 4: an unevaluable `MyTool(secrets/**)` beside `allow: ['MyTool']` resolved to
+  // `'allow'`, and this is the gate for BACKGROUND and SUBAGENT calls, which exists to be more
+  // restrictive than the session mode, not less.
+  //
+  // It denies rather than prompting: a detached task has no human attached by definition, which is
+  // the same reasoning step 4 already applies with "unmatched → deny (never prompt)".
+  if (
+    hasUnevaluableArgumentPattern(toolName, toolArgs, taskDeny) ||
+    hasUnevaluableArgumentPattern(toolName, toolArgs, parentDeny)
   ) {
     return 'deny';
   }

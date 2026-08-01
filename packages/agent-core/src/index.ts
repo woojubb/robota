@@ -283,20 +283,19 @@ export type {
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
 // Permissions
-export type {
-  TPermissionMode,
-  TTrustLevel,
-  TPermissionDecision,
-  TBackgroundPermissionPolicy,
-  TToolArgs,
-  IPermissionLists,
-  TPermissionPolicyDecision,
-  IPermissionPolicyContext,
-  TKnownToolName,
-} from './permissions/index.js';
 export {
+  type TPermissionMode,
+  type TTrustLevel,
+  type TPermissionDecision,
+  type TBackgroundPermissionPolicy,
+  type TToolArgs,
+  type IPermissionLists,
+  type TPermissionPolicyDecision,
+  type IPermissionPolicyContext,
+  type TKnownToolName,
   TRUST_TO_MODE,
   evaluatePermission,
+  registerToolArgumentKey,
   resolvePermissionByPolicy,
   MODE_POLICY,
   UNKNOWN_TOOL_FALLBACK,
