@@ -55,48 +55,122 @@ const EXTENSIONS = /\.(sh|bash|zsh)$/;
 const SHEBANG = /^#!.*\b(sh|bash|zsh|dash|ksh|ash)\b/;
 const HAS_EXTENSION = /\.[^.\\/]+$/;
 
+/**
+ * One entry per command, read as OPTIONS rather than matched as text.
+ *
+ * The first three versions of this table were regexes of the shape
+ * `command\s+(-[a-zA-Z]*\s+)*-TARGET`, and each review found another spelling they missed. The last
+ * was fused short clusters — `grep -iP`, `sed -ni`, `stat -Lc`, `xargs -0r` — where the optional
+ * leading-flags group swallows the whole token and the required alternation then needs the target at
+ * the start of what is left. Four real idioms, all silently clean. A guard whose entire purpose is
+ * to remove silent misses cannot keep having them.
+ *
+ * So the options are WALKED instead. `short` is the target letter, and `valueTaking` names the short
+ * letters that consume the rest of their cluster as a VALUE — which is what keeps `grep -eP` (a
+ * pattern of "P") from reading as `grep -P`. The same shape closed the same class in
+ * `branch-guard.sh`. (#1590 review)
+ */
 const DIVERGENT = [
   {
     flag: 'sed -i',
-    pattern: /(^|[;&|(`$\s])sed\s+(-[a-zA-Z]*\s+)*(-i|--in-place)/,
+    command: 'sed',
+    short: 'i',
+    long: ['--in-place'],
+    valueTaking: 'ef',
     portable: 'rewrite the file with node/python3, or read + write explicitly',
   },
   {
     flag: 'readlink -f',
-    pattern: /(^|[;&|(`$\s])readlink\s+(-[a-zA-Z]*\s+)*(-f\b|--canonicalize\b)/,
+    command: 'readlink',
+    short: 'f',
+    long: ['--canonicalize'],
+    valueTaking: '',
     portable: 'node -e "console.log(require(\'fs\').realpathSync(p))"',
   },
   {
     flag: 'stat -c',
-    pattern: /(^|[;&|(`$\s])stat\s+(-[a-zA-Z]*\s+)*(-c\b|--format\b|--printf\b)/,
+    command: 'stat',
+    short: 'c',
+    long: ['--format', '--printf'],
+    valueTaking: 'f',
     portable: 'node -e with fs.statSync',
   },
   {
     flag: 'date -d',
-    pattern: /(^|[;&|(`$\s])date\s+(-[a-zA-Z]*\s+)*(-d\b|--date\b)/,
+    command: 'date',
+    short: 'd',
+    long: ['--date'],
+    valueTaking: 'f',
     portable: 'node -e with Date arithmetic',
   },
   {
     flag: 'grep -P',
-    pattern: /(^|[;&|(`$\s])grep\s+(-[a-zA-Z]*\s+)*(-P\b|--perl-regexp\b)/,
+    command: 'grep',
+    short: 'P',
+    long: ['--perl-regexp'],
+    valueTaking: 'efmABCDd',
     portable: 'rg, or grep -E',
   },
   {
     flag: 'base64 -w',
-    pattern: /(^|[;&|(`$\s])base64\s+(-[a-zA-Z]*\s+)*(-w|--wrap)/,
+    command: 'base64',
+    short: 'w',
+    long: ['--wrap'],
+    valueTaking: '',
     portable: 'base64 (macOS does not wrap) or node Buffer',
   },
   {
+    // `-printf` is a long-form primary in find's own grammar, not a short cluster.
     flag: 'find -printf',
-    pattern: /(^|[;&|(`$\s])find\s[^\n]*\s-printf\b/,
+    command: 'find',
+    short: null,
+    long: ['-printf'],
+    valueTaking: '',
     portable: 'find -exec, or a node walk',
   },
   {
     flag: 'xargs -r',
-    pattern: /(^|[;&|(`$\s])xargs\s+(-[a-zA-Z]*\s+)*(-r\b|--no-run-if-empty\b)/,
+    command: 'xargs',
+    short: 'r',
+    long: ['--no-run-if-empty'],
+    valueTaking: 'adEIiLnPs',
     portable: 'guard the empty case before the pipe',
   },
 ];
+
+/** Where one command ends and the next begins, as far as a whitespace split can tell. */
+const SEPARATOR = /^(;|&|&&|\||\|\||\)|\(|\{|\}|then|do|else|fi|done|esac)$/;
+
+/**
+ * Whether `command` is invoked with the divergent option somewhere in this logical line.
+ *
+ * Whitespace splitting, stated as a limit: a quoted argument containing spaces becomes several
+ * words. That cannot produce a MISS — an option never hides inside a quoted operand it would have to
+ * be outside of to take effect — and the false-positive direction is bounded by the separator and
+ * value-taking rules below.
+ */
+function invokesWith(line, { command, short, long, valueTaking }) {
+  const words = line.trim().split(/\s+/);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (w !== command && !w.endsWith(`/${command}`)) continue;
+    for (let j = i + 1; j < words.length; j++) {
+      const arg = words[j];
+      if (SEPARATOR.test(arg)) break;
+      // A long option, with or without an attached `=value`.
+      if (long.some((l) => arg === l || arg.startsWith(`${l}=`))) return true;
+      if (short === null) continue;
+      if (arg === '--') break;
+      if (!arg.startsWith('-') || arg.length < 2 || arg.startsWith('--')) continue;
+      for (const ch of arg.slice(1)) {
+        if (ch === short) return true;
+        // Everything after a value-taking letter is that option's value, not more flags.
+        if (valueTaking.includes(ch)) break;
+      }
+    }
+  }
+  return false;
+}
 
 /**
  * A line whose executable part is empty — the flag is being DISCUSSED, not run.
@@ -205,8 +279,9 @@ export function findPortabilityFindings(root = WORKSPACE_ROOT) {
       filesExamined++;
       for (const logical of logicalLines(readFileSync(path.join(root, rel), 'utf8'))) {
         if (logical.comment) continue;
-        for (const { flag, pattern, portable } of DIVERGENT) {
-          if (pattern.test(logical.text)) {
+        for (const entry of DIVERGENT) {
+          const { flag, portable } = entry;
+          if (invokesWith(logical.text, entry)) {
             findings.push({
               file: rel,
               line: logical.line,

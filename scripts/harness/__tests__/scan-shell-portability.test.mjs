@@ -128,6 +128,41 @@ describe('scan-shell-portability', () => {
     expect(findPortabilityFindings(root).findings).toEqual([]);
   });
 
+  // FUSED short clusters. The regex table matched `command … -TARGET` with an optional leading-flags
+  // group, and that group swallowed the whole fused token — so four real idioms were silently clean.
+  // The options are walked now. (#1590 review)
+  it('sees the target letter inside a fused short cluster', () => {
+    const root = fixture({
+      'scripts/a.sh': 'grep -iP "x" f\n',
+      'scripts/b.sh': 'grep -Pi "x" f\n',
+      'scripts/c.sh': "sed -ni '1p' f\n",
+      'scripts/d.sh': 'stat -Lc %Y f\n',
+      'scripts/e.sh': 'xargs -0r rm\n',
+    });
+    expect(
+      findPortabilityFindings(root)
+        .findings.map((f) => f.flag)
+        .sort(),
+    ).toEqual(['grep -P', 'grep -P', 'sed -i', 'stat -c', 'xargs -r']);
+  });
+
+  // The other direction, which is why the cluster is walked rather than searched: a value-taking
+  // letter consumes the rest of its cluster, so the `P` here is the PATTERN and not the flag.
+  it('does not read a cluster VALUE as the flag', () => {
+    const root = fixture({
+      'scripts/a.sh': 'grep -eP f\n',
+      'scripts/b.sh': "sed -e 'i\\' f\n",
+      'scripts/c.sh': 'xargs -I r echo\n',
+    });
+    expect(findPortabilityFindings(root).findings).toEqual([]);
+  });
+
+  // An option belongs to the command it follows, not to any command on the line.
+  it('does not attribute a later command’s flag to an earlier one', () => {
+    const root = fixture({ 'scripts/a.sh': 'grep x f | sort -f\n' });
+    expect(findPortabilityFindings(root).findings).toEqual([]);
+  });
+
   // `#` is the whole of shell comment syntax. The first version also treated `//`, `*` and `/*` as
   // comments — carried over from when this scan read `.mjs` too — and once the scope narrowed to
   // shell they started HIDING code: the default branch of a `case` begins with `*`. A rule that
