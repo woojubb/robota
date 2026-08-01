@@ -45,10 +45,27 @@ const SPEC_DOCS_ROOT = '.agents/spec-docs';
 const LIVE_HALF = 'live';
 const ARCHIVE_HALF = 'archive';
 
+/**
+ * NOT `.agents/tasks` — and the reason is the scan's own rule, not convenience.
+ *
+ * That entry was written when the directory held pre-PROC-006 work breakdowns, and HARNESS-063
+ * measured it contributing 0 documents. PROC-006 moved 67 open Tasks into it, at which point the
+ * entry would have started demanding a `## Test Plan` of every one — 34 of the 66 do not have one.
+ *
+ * A rename must not introduce a new gate on 66 pre-existing documents as a side effect. And the
+ * gate would be wrong on the merits anyway, by the criterion this file already applies to
+ * `spec-docs/draft/`: a draft is pre-GATE-WRITE and incomplete by design, so failing it fires on
+ * correct work. A Task is the PROBLEM STATEMENT — it exists before a plan is knowable, which is
+ * exactly what finding-depth.md § "Where a root item lives" establishes about the two trees.
+ *
+ * The requirement itself is not dropped. `scan-unearned-done-claims` reads the Task tree and checks
+ * evidence at DONE time, which is where the Task README's test-plan clause is enforced. Whether an
+ * OPEN Task should carry one is a decision worth making deliberately, with the 34 fixed — filed
+ * rather than smuggled in behind a directory rename.
+ */
 const SCAN_DIRS = [
   { dir: 'docs/superpowers/plans', half: ARCHIVE_HALF },
   { dir: 'docs/superpowers/specs', half: ARCHIVE_HALF },
-  { dir: '.agents/tasks', half: LIVE_HALF },
   { dir: `${SPEC_DOCS_ROOT}/backlog`, half: LIVE_HALF },
   { dir: `${SPEC_DOCS_ROOT}/todo`, half: LIVE_HALF },
   { dir: `${SPEC_DOCS_ROOT}/active`, half: LIVE_HALF },

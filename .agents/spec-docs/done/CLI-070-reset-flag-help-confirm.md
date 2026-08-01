@@ -110,7 +110,7 @@ preferences). Asks for confirmation; use --yes to skip.`
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-070.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-070.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -142,7 +142,7 @@ preferences). Asks for confirmation; use --yes to skip.`
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/CLI-070.md` exists on branch `feat/cli-070-reset-confirm` (read in full; references the spec as Test Plan SSOT).
-- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-070.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-070.md` — T1~~T7 (TC-01~~TC-06 매핑 + wrap-up).
 - Tasks ↔ Completion Criteria correspondence (≥ one task per TC-N): T1→TC-01 (printHelp lists `--reset`), T2→TC-02 (non-TTY refusal, exit 1, file intact), T3→TC-03 (`--yes` deletion, exit 0), T4→TC-04 (injected confirm n/y branches), T5→TC-05 (idempotent clean state, exit 0), T6→TC-06 (SPEC.md flag + confirmation matrix); T7 is wrap-up (test/typecheck/lint/build, PR, evidence + archive) — all 6 TC-N covered.
 - NON-COMPLIANCE trigger not present: `git status` for `packages/agent-cli` shows no modifications (only the spec move todo/ → active/ and the new tasks file); recent `packages/agent-cli/src` commits (CLI-067 #708, CLI-074 #703, DEPS-001 #702, CLI-066 #700, CLI-065 #699) belong to other specs — no implementation commits precede this tasks file.
 
@@ -150,7 +150,7 @@ preferences). Asks for confirmation; use --yes to skip.`
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-070.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063..069 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-069 done-spec GATE-VERIFY entry): PR #711 OPEN (`gh pr view 711 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-070-reset-confirm` → base `develop`) with CI green on `gh pr checks 711` — build pass (1m38s), quality pass (37s), security audit pass (7s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/backlog/completed/CLI-070-reset-flag-undocumented.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i` — `robota --help | grep -A1 -- --reset` shows the flag naming `~/.robota/settings.json` and the `--yes` skip; `robota --reset < /dev/null` → non-TTY refusal naming `--yes`, exit 1, file still present; `robota --reset --yes` → `Deleted <home>/.robota/settings.json`, exit 0) — met
+- All tasks complete: `.agents/tasks/CLI-070.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063..069 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-069 done-spec GATE-VERIFY entry): PR #711 OPEN (`gh pr view 711 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-070-reset-confirm` → base `develop`) with CI green on `gh pr checks 711` — build pass (1m38s), quality pass (37s), security audit pass (7s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/tasks/completed/CLI-070-reset-flag-undocumented.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i` — `robota --help | grep -A1 -- --reset` shows the flag naming `~/.robota/settings.json` and the `--yes` skip; `robota --reset < /dev/null` → non-TTY refusal naming `--yes`, exit 1, file still present; `robota --reset --yes` → `Deleted <home>/.robota/settings.json`, exit 0) — met
 - No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above — met
 - Build passes for affected package: `pnpm --filter @robota-sdk/agent-cli build` → "Build complete in 679ms" (ESM bundles, no errors) — met
 - Tests pass for affected package: `pnpm --filter @robota-sdk/agent-cli test` → 18 files / 145 tests passed, including the new `src/startup/__tests__/reset-config.test.ts` re-run individually → 5/5 passed (TC-01~TC-05: help content, non-TTY refusal, --yes deletion, injected y/N branches, clean state) — met
@@ -161,7 +161,7 @@ preferences). Asks for confirmation; use --yes to skip.`
 - Checkbox: `[x]` in `## Completion Criteria`.
 - Command: `npx vitest run src/startup/__tests__/reset-config.test.ts` (cwd `packages/agent-cli`) — exit 0.
 - Observed: `✓ --reset confirmation matrix (CLI-070) > TC-01: --help documents --reset with what it deletes and the --yes skip` (verbose reporter), suite 5/5 passed.
-- End-to-end corroboration: `.agents/backlog/completed/CLI-070-reset-flag-undocumented.md` evidence — real binary `robota --help | grep -A1 -- --reset` shows `--reset    Delete ~/.robota/settings.json (provider profiles and preferences). Asks for confirmation; use --yes to skip`.
+- End-to-end corroboration: `.agents/tasks/completed/CLI-070-reset-flag-undocumented.md` evidence — real binary `robota --help | grep -A1 -- --reset` shows `--reset    Delete ~/.robota/settings.json (provider profiles and preferences). Asks for confirmation; use --yes to skip`.
 - Test reference recorded in Test Plan: `packages/agent-cli/src/startup/__tests__/reset-config.test.ts` > `--reset confirmation matrix (CLI-070)` > TC-01.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13

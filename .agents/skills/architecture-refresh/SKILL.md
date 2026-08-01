@@ -42,7 +42,7 @@ The five predefined agents (spawn by `agentType`):
 
    A **FOUNDATIONAL** one is not sent to an applier. File the root item where
    [finding-depth.md](../../rules/finding-depth.md) § "Where a root item lives" says it goes — under
-   `.agents/backlog/`, in the format [its README](../../backlog/README.md) defines — register its GitHub
+   `.agents/tasks/`, in the format [its README](../../tasks/README.md) defines — register its GitHub
    issue, then take the disposition: **labelled containment** (hand the filed ID to the applier the
    auditor named, which writes the label at the site and nothing else — the note in a document, the
    comment in code, both opening `Contained — <ID>.`) or **re-plan** (**halt**, per step 2). Search the

@@ -138,7 +138,7 @@ own spec.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-B11.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-B11.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -172,7 +172,7 @@ own spec.
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/CLI-B11.md` exists (verified via `ls`, 1978 bytes, created 2026-06-13).
-- Tasks file path recorded in `## Tasks` section of this spec: `.agents/tasks/CLI-B11.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks file path recorded in `## Tasks` section of this spec: `.agents/tasks/CLI-B11.md` — T1~~T7 (TC-01~~TC-06 매핑 + wrap-up).
 - Tasks correspond to Completion Criteria — one task per TC-N: T1↔TC-01 (mock `createChannel` call-count/argument via real `SessionPicker` switch), T2↔TC-02 (real `FileSessionStore` integration, `usedTokens > 0`), T3↔TC-03 (previous channel `stop()` exactly once), T4↔TC-04 (no-factory fallback to `props.channel`, no crash), T5↔TC-05 (A→B→C consecutive switches, per-switch factory/stop bookkeeping), T6↔TC-06 (full package test green + SPEC.md Test Strategy rows); T7 is wrap-up (typecheck/lint/build, PR, backlog evidence) — all 6 TC-N covered.
 - NON-COMPLIANCE check (implementation commits without tasks file): negative — neither test file exists yet; `git status --porcelain` shows only spec/tasks/evals doc changes (no `packages/agent-transport` changes); recent commits (949e8af5d, 9b999b950, cd5b1053a) are docs/evals only.
 
@@ -180,7 +180,7 @@ own spec.
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-B11.md` T1–T6 `[x]`. T7 (wrap-up: PR merge + backlog completed/) unchecked but every component independently verified per the established CLI-063/064/065/066 GATE-VERIFY interpretation: PR #706 OPEN (`feat/cli-b11-session-switch-tests` → `develop`, "test(transport): session-switch channel regression suite (CLI-B11)") with all CI checks green on `gh pr checks 706` — build pass (1m24s), quality pass (49s), security audit pass, Cloudflare Pages pass; compat-node18 and release-grade verification report "skipping" by workflow design on feature PRs; backlog evidence recorded in `.agents/backlog/completed/CLI-B11-session-switch-context-restoration-tests.md` (frontmatter `status: done`; real-binary PTY `/resume` evidence 2026-06-13: boot `Context: 0%` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)`).
+- All tasks complete: `.agents/tasks/CLI-B11.md` T1–T6 `[x]`. T7 (wrap-up: PR merge + backlog completed/) unchecked but every component independently verified per the established CLI-063/064/065/066 GATE-VERIFY interpretation: PR #706 OPEN (`feat/cli-b11-session-switch-tests` → `develop`, "test(transport): session-switch channel regression suite (CLI-B11)") with all CI checks green on `gh pr checks 706` — build pass (1m24s), quality pass (49s), security audit pass, Cloudflare Pages pass; compat-node18 and release-grade verification report "skipping" by workflow design on feature PRs; backlog evidence recorded in `.agents/tasks/completed/CLI-B11-session-switch-context-restoration-tests.md` (frontmatter `status: done`; real-binary PTY `/resume` evidence 2026-06-13: boot `Context: 0%` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)`).
 - No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above. The TC-03 "exactly once" → "stopped and never restarted" wording is a documented in-Decision correction in this spec (italic note, resource-release contract — stop() idempotent by lifecycle contract), mirrored in T3; within the approved Decision per the CLI-066 correction-note precedent, not a blocked/divergent task.
 - Build passes: `pnpm --filter @robota-sdk/agent-transport build` fresh-run this gate — "Build complete in 758ms" (38 files, 481.52 kB), exit 0.
 - Tests pass: `pnpm --filter @robota-sdk/agent-transport test` fresh-run this gate — **61 files passed / 473 tests passed**, 0 failures, including both new suites: `src/tui/__tests__/session-switch-channel.test.tsx` (4 tests ✓) and `src/tui/__tests__/channel-factory-integration.test.ts` (2 tests ✓). Both files exist on disk and `docs/SPEC.md` Test Strategy lists both (lines 279–281), matching TC-06's doc-row requirement.
@@ -235,4 +235,4 @@ own spec.
 - Test Plan: all 6 rows updated with test file + describe/test references (TC-01…TC-05) or suite run + explicit manual-read reason (TC-06 doc-row half). No TC-N silently unaddressed.
 - Tasks file archived: `.agents/tasks/completed/CLI-B11.md` exists (2694 bytes); active path `.agents/tasks/CLI-B11.md` no longer exists; archived file shows T1–T7 all `[x]` (T7 wrap-up closed: PR merged, backlog completed).
 - `## Tasks` section points at the archived path `.agents/tasks/completed/CLI-B11.md`.
-- User-execution corroboration (done-gate): `.agents/backlog/completed/CLI-B11-session-switch-context-restoration-tests.md` frontmatter `status: done` with real-binary PTY `/resume` evidence — boot `Context: 0% (0K/200K)` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)` (file lines 107–128, verified by grep this gate).
+- User-execution corroboration (done-gate): `.agents/tasks/completed/CLI-B11-session-switch-context-restoration-tests.md` frontmatter `status: done` with real-binary PTY `/resume` evidence — boot `Context: 0% (0K/200K)` → first select `Context: 6% (11.9K/200K)` → second select `Context: 16% (31.8K/200K)` (file lines 107–128, verified by grep this gate).

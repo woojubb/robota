@@ -169,8 +169,8 @@ incremental re-index on file change. P4 = embedding-vector backend (may revise t
 ## Tasks
 
 Archived: [`.agents/tasks/completed/SELFHOST-003.md`](../../tasks/completed/SELFHOST-003.md) — v1 P1/P2/P3 `[x]`;
-P4 DEFERRED to [`.agents/backlog/SELFHOST-003-P4-embedding-vector-backend.md`](../../backlog/SELFHOST-003-P4-embedding-vector-backend.md).
-ENDORSE follow-up: [`.agents/backlog/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
+P4 DEFERRED to [`.agents/tasks/SELFHOST-003-P4-embedding-vector-backend.md`](../../backlog/SELFHOST-003-P4-embedding-vector-backend.md).
+ENDORSE follow-up: [`.agents/tasks/HARNESS-027-agent-tools-neutrality-floor.md`](../../backlog/HARNESS-027-agent-tools-neutrality-floor.md).
 
 ## Evidence Log
 

@@ -203,13 +203,13 @@ export const MANDATORY_TREE_GUARDS = [
   {
     file: 'check-backlog-placement.mjs',
     finder: 'findBacklogPlacementFindings',
-    tree: '.agents/backlog and .agents/backlog/completed',
+    tree: '.agents/tasks and .agents/tasks/completed',
     why: 'placement is a claim about the backlog tree; with no tree there are no misplaced items and no correctly-placed ones either',
   },
   {
     file: 'check-backlog-placement.mjs',
     finder: 'findDuplicateIdFindings',
-    tree: '.agents/backlog and .agents/backlog/completed',
+    tree: '.agents/tasks and .agents/tasks/completed',
     why: 'an ID collision is a relation between two directories — reading neither cannot establish that neither collides, and eight collisions landed in one week',
   },
   {
@@ -227,7 +227,7 @@ export const MANDATORY_TREE_GUARDS = [
   {
     file: 'check-done-evidence.mjs',
     finder: 'findDoneEvidenceFindings',
-    tree: '.agents/backlog/completed',
+    tree: '.agents/tasks/completed',
     why: 'the completed-backlog tree is the evidence corpus, and a readdir failure was CAUGHT and returned as "no unearned done claims" — a swallowed error wearing a verdict',
   },
   {
@@ -377,7 +377,6 @@ export const MANDATORY_TREE_GUARDS = [
  * Every `measured` value here was produced by executing the finder, not by reading it.
  */
 export const PENDING_CLASSIFICATION = [
-
   // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
   // never classified, so `harness:test` was red on develop itself. Measured here rather than
   // assumed, twice each, by executing the finder against a bare root:

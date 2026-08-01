@@ -139,7 +139,7 @@ Test strategy derived from type=SCREEN, tags=[cli]: process spawn + stdout asser
 
 **Checkbox:** `[x]` confirmed in `## Completion Criteria`.
 **Verification action (manual TC — code read + PTY artifact):** Read `packages/agent-transport/src/tui/InputArea.tsx`. `BORDER_HORIZONTAL = 0` (line 55); input `<Box>` has `borderStyle="single" borderTop={false} borderLeft={false} borderRight={false}` (lines 265–268) — only top/bottom horizontal lines render, no side `│`.
-**Observed result:** Side borders absent. Corroborated by real-PTY artifact `.agents/backlog/completed/CLI-B13-tui-input-border-cleanup.md` Scenario 1 (100x30): prompt line `" > Type a message or /help"` with `prompt line has side borders: false` — B13_VERIFY_PASS.
+**Observed result:** Side borders absent. Corroborated by real-PTY artifact `.agents/tasks/completed/CLI-B13-tui-input-border-cleanup.md` Scenario 1 (100x30): prompt line `" > Type a message or /help"` with `prompt line has side borders: false` — B13_VERIFY_PASS.
 **Test reference:** TC-01 manual — code read + PTY capture (CLI-B13 Scenario 1).
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13

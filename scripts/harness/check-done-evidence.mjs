@@ -7,7 +7,7 @@
  * CLI-042's parallelization was reverted, CLI-046's flag was never threaded,
  * REL-003 sat done while its stub survived. The done gate validates once at
  * completion time; this scan re-validates the durable-artifact layer forever:
- * every repo-file path referenced in `.agents/backlog/completed/*.md` must
+ * every repo-file path referenced in `.agents/tasks/completed/*.md` must
  * still exist, or carry an explicit `<!-- evidence-superseded: <reason> -->`
  * annotation (same line or the line directly above the reference).
  *
@@ -25,7 +25,7 @@ import { envWithoutGitVars } from './shared.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const COMPLETED_DIR = '.agents/backlog/completed';
+const COMPLETED_DIR = '.agents/tasks/completed';
 
 /**
  * Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs.
@@ -86,8 +86,7 @@ function pathExists(root, relativePath) {
 export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [COMPLETED_DIR], {
     scan: 'done-evidence',
-    why:
-      'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
+    why: 'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
   });
   const findings = [];
   const exemptions = [];

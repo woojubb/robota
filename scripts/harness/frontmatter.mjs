@@ -6,7 +6,7 @@
  * fix in one left the others broken — which is exactly how #1369 shipped: prettier (the repo's SSOT
  * formatter, applied to every `.md` by lint-staged) reflows a YAML flow array past `printWidth` onto
  * several indented lines, and a per-line regex reads the key's value as the empty string. The
- * hazard is armed repo-wide: `.agents/backlog/` alone carries 441 `depends_on: [` and 24 `related: [`
+ * hazard is armed repo-wide: `.agents/tasks/` alone carries 441 `depends_on: [` and 24 `related: [`
  * flow arrays, and `.claude/agents/*.md` may write `tools:` as a flow array.
  *
  * The fix is structural, not local: ONE parser, imported everywhere. `scripts/harness/__tests__/

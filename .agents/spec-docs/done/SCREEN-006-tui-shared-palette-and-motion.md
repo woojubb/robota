@@ -6,7 +6,7 @@ tags: [tui, ink, color, palette, tokens, motion, accessibility, no-color]
 
 # SCREEN-006: shared TUI semantic color palette and tokenized, accessible motion
 
-Backlog: `.agents/backlog/SCREEN-006-tui-shared-palette-and-motion.md` (design review 2026-06-26
+Backlog: `.agents/tasks/SCREEN-006-tui-shared-palette-and-motion.md` (design review 2026-06-26
 graded color B — scattered definitions; wave animation flagged as motion without purpose). Scope:
 `packages/agent-transport-tui` only.
 

@@ -307,10 +307,10 @@ describe('a foundational finding must name a root item that exists', () => {
 
   function repoWithBacklog(items = []) {
     const dir = scratchRepo('feat/probe');
-    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
     for (const id of items) {
       writeFileSync(
-        path.join(dir, '.agents/backlog', `${id}-something.md`),
+        path.join(dir, '.agents/tasks', `${id}-something.md`),
         '---\nstatus: todo\n---\n',
       );
     }
@@ -355,7 +355,7 @@ describe('a foundational finding must name a root item that exists', () => {
   });
 
   it('resolves an ID whose prefix has more than one segment', () => {
-    // `.agents/backlog/` already holds `ARCH-AUDIT-001` and `HARNESS-DIET-006`. A pattern reading
+    // `.agents/tasks/` already holds `ARCH-AUDIT-001` and `HARNESS-DIET-006`. A pattern reading
     // one letter-group matched neither, so the floor would have refused a root item that exists —
     // turning a filed foundational finding into an unpushable branch, which is the failure mode
     // most likely to teach someone to stop using the flag.
@@ -371,8 +371,8 @@ describe('a foundational finding must name a root item that exists', () => {
     // all. Nothing in the naming convention forbids that file name, and the failure mode is the one
     // this floor exists to prevent in reverse: refusing a root item that is right there.
     const dir = scratchRepo('feat/probe');
-    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
-    writeFileSync(path.join(dir, '.agents/backlog', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
+    writeFileSync(path.join(dir, '.agents/tasks', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
 
     const result = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
       cwd: dir,
@@ -383,14 +383,14 @@ describe('a foundational finding must name a root item that exists', () => {
   });
 
   it('keeps a phase suffix, which is part of the ID', () => {
-    // `.agents/backlog/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
+    // `.agents/tasks/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
     // Truncating at the first number does two wrong things at once: the real ID is refused, and a
     // TRUNCATED id that names no file is accepted as though it did. The repository already parses
     // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
     const dir = scratchRepo('feat/probe');
-    mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
     writeFileSync(
-      path.join(dir, '.agents/backlog', 'SELFHOST-008-P5-concrete-semantic-backend.md'),
+      path.join(dir, '.agents/tasks', 'SELFHOST-008-P5-concrete-semantic-backend.md'),
       '---\nstatus: todo\n---\n',
     );
 

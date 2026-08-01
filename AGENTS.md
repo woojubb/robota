@@ -34,8 +34,8 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns                                                                                           |
 | [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
 | [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
-| [.agents/backlog/README.md](.agents/backlog/README.md)                                 | Future work items and backlog process                                                                               |
-| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                    |
+| [.agents/tasks/README.md](.agents/tasks/README.md)                                     | **Tasks** — the record of a unit of work (the problem), and its lifecycle                                           |
+| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents (the plan) — one per Task ID that reaches a design                                     |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
 | [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
 | [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
@@ -47,7 +47,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 **North-star: [`VISION.md`](VISION.md) — Robota builds Robota.** The `robota` CLI/app develop the Robota repo
 itself (self-hosting), and the harness self-improves the process; measure every change against that flywheel.
-The capability roadmap toward it is tracked in [`.agents/backlog/SELFHOST-*`](.agents/backlog/).
+The capability roadmap toward it is tracked in [`.agents/tasks/SELFHOST-*`](.agents/tasks/).
 
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 

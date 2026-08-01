@@ -5,7 +5,7 @@ UNNECESSARY, NON-NEUTRAL, EXCESSIVE, or INEFFECTIVE. Ran as 8 read-only auditor 
 rules, 60 skills, 12 hooks, 85 harness scripts, 14 agent defs, routing + 10 CI workflows). Deliverable = audit +
 backlog; execution deferred to the sub-items.
 
-**Tracked in `.agents/backlog/HARNESS-DIET-000..007` (#1275).** 000 = epic/roadmap; 001 reviewer-agent
+**Tracked in `.agents/tasks/HARNESS-DIET-000..007` (#1275).** 000 = epic/roadmap; 001 reviewer-agent
 destructive-git safety `[high/now]`; 002 scan neutrality (config-drive); 003 dead/vacuous scan removal; 004 rules
 consolidation; 005 skills diet; 006 hooks diet; 007 routing & workflow fixes.
 

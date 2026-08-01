@@ -4,13 +4,13 @@
  * Backlog placement invariant scan (lesson 2026-07-02).
  *
  * `.agents/rules/backlog-execution.md` § Status Invariants has long required that a terminal-status
- * backlog file (`done`/`wontfix`/`skipped`/`superseded`) lives in `.agents/backlog/completed/` and an
+ * backlog file (`done`/`wontfix`/`skipped`/`superseded`) lives in `.agents/tasks/completed/` and an
  * open file (`todo`/`in-progress`) lives in the root — but the invariant existed only as prose, and
  * 8 `status: done` files were found sitting in the root (their status was flipped when the work
  * shipped, the move was skipped, and nothing failed). Prose without a mechanism does not hold.
  *
  * Findings:
- *   - a root `.agents/backlog/*.md` file with a terminal `status:` → must be moved to `completed/`
+ *   - a root `.agents/tasks/*.md` file with a terminal `status:` → must be moved to `completed/`
  *   - a `completed/*.md` file with an open `status:` → must be reopened (moved back) or closed
  *   - a root file with `status: done` and no `completed:` date → record the completion date
  *
@@ -22,8 +22,8 @@ import path from 'node:path';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const BACKLOG_DIR = '.agents/backlog';
-const COMPLETED_DIR = '.agents/backlog/completed';
+const BACKLOG_DIR = '.agents/tasks';
+const COMPLETED_DIR = '.agents/tasks/completed';
 const SPEC_DOCS_DIR = '.agents/spec-docs';
 
 /** The leading ID token of a backlog/spec filename, phase suffix included (`SELFHOST-008-P5`). */
@@ -35,7 +35,7 @@ const OPEN_STATUSES = new Set(['todo', 'in-progress']);
 /**
  * Historical debt: PR #589 (2026-05-25) archived files as implemented while leaving their
  * frontmatter at `todo`. All 17 were reconciled item-by-item by PROC-001 (2026-07-25) — see
- * `.agents/backlog/completed/PROC-001-completed-dir-status-reconciliation.md`. Do not add new
+ * `.agents/tasks/completed/PROC-001-completed-dir-status-reconciliation.md`. Do not add new
  * entries; the invariant now holds unconditionally.
  */
 const LEGACY_COMPLETED_TODO = new Set([]);
@@ -62,8 +62,7 @@ async function listMarkdown(dirAbsolute) {
 export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [BACKLOG_DIR, COMPLETED_DIR], {
     scan: 'backlog-placement',
-    why:
-      'Placement is a claim about the backlog tree; with no tree there are no misplaced items and no correct ones either.',
+    why: 'Placement is a claim about the backlog tree; with no tree there are no misplaced items and no correct ones either.',
   });
   const findings = [];
 
@@ -117,8 +116,7 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
 export async function findDuplicateIdFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [BACKLOG_DIR, COMPLETED_DIR], {
     scan: 'backlog-placement',
-    why:
-      'An ID collision is a relation between two directories \u2014 reading neither cannot establish that neither collides.',
+    why: 'An ID collision is a relation between two directories \u2014 reading neither cannot establish that neither collides.',
   });
   const findings = [];
   // The ID includes any phase suffix (`-P3`, `-P4-P5`): a phase follow-up filed while its parent
@@ -233,7 +231,7 @@ export async function main() {
   }
   process.stdout.write(
     'Per backlog-execution.md Completion Steps: set the terminal status + completed: date and ' +
-      'git mv to .agents/backlog/completed/ in the SAME commit as the closing work.\n',
+      'git mv to .agents/tasks/completed/ in the SAME commit as the closing work.\n',
   );
   process.exitCode = 1;
 }

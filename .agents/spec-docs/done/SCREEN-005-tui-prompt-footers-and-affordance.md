@@ -7,7 +7,7 @@ completed: 2026-07-24
 
 # SCREEN-005: standardize TUI prompt footers, key-hint affordance, and selection microcopy
 
-Backlog: `.agents/backlog/SCREEN-004-tui-prompt-footers-and-affordance.md` (design review 2026-06-26
+Backlog: `.agents/tasks/SCREEN-004-tui-prompt-footers-and-affordance.md` (design review 2026-06-26
 graded affordance/discoverability C). Scope: `packages/agent-transport-tui` only.
 
 > **Renumbered from SCREEN-004 at GATE-APPROVAL** (binding constraint 7): the SCREEN-004 ID was
@@ -296,6 +296,6 @@ Evidence file (created at IMPLEMENT/VERIFY): `.agents/evals/scenarios/screen-005
 - `docs/SPEC.md` gained the "Interaction Affordance Contract (SCREEN-005)" section (grammar, SSOT,
   ordering, Esc-suppression invariant, ↑↓ aliases, indicator constants + the two non-cursor glyph
   exclusions).
-- Backlog `.agents/backlog/SCREEN-004-tui-prompt-footers-and-affordance.md` → Outcome recorded,
+- Backlog `.agents/tasks/SCREEN-004-tui-prompt-footers-and-affordance.md` → Outcome recorded,
   moved to `completed/` (file keeps its SCREEN-004 name; renumbering noted inside).
 - Status `draft` → `done`; file moved `draft/` → `done/`.

@@ -129,7 +129,7 @@ describe('HARNESS-030 — helpers + live tree', () => {
  * A per-line regex reads a key whose value was wrapped onto the following indented line as the empty
  * string — turning a fully-evidenced capability spec into a false "dodged the gate" gate failure.
  * The wrapping is not hypothetical: prettier (lint-staged's `*.md` formatter) reflows any frontmatter
- * flow array past printWidth into exactly this shape, and `.agents/backlog/` already carries 441
+ * flow array past printWidth into exactly this shape, and `.agents/tasks/` already carries 441
  * `depends_on: [` arrays waiting for the day a scan reads one.
  */
 async function createSpecTree(files) {

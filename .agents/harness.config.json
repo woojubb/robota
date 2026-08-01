@@ -48,7 +48,7 @@
       ".agents/rules",
       ".agents/skills",
       ".agents/specs",
-      ".agents/backlog"
+      ".agents/tasks"
     ],
     "skillPhraseChecks": [
       {

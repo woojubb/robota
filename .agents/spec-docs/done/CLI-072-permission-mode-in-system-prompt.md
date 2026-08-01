@@ -105,7 +105,7 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-072.md` — archived at GATE-COMPLETE (T1~T5 complete, TC-01~TC-04 매핑)
+- [x] `.agents/tasks/completed/CLI-072.md` — archived at GATE-COMPLETE (T1~~T5 complete, TC-01~~TC-04 매핑)
 
 ## Evidence Log
 
@@ -134,7 +134,7 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/CLI-072.md` exists (`ls -la` → 1666 bytes, created 2026-06-13).
-- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/CLI-072.md` — T1~T5 (TC-01~TC-04 매핑 + wrap-up).
+- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/CLI-072.md` — T1~~T5 (TC-01~~TC-04 매핑 + wrap-up).
 - Tasks correspond to Completion Criteria (one task per TC-N): T1 ↔ TC-01 (permission-mode line rendered, no `Trust level:` under mode `plan`); T2 ↔ TC-02 (parameterized interpolation over the `TPermissionMode` union); T3 ↔ TC-03 (prompt-assembly regression, `trustLevel` → `permissionMode`, full framework suite green, orphaned `TRUST_LEVEL_LABELS` deletion); T4 ↔ TC-04 (framework SPEC.md documents the line change); T5 = wrap-up (verify/PR/scenario evidence) beyond the TC minimum.
 - NON-COMPLIANCE trigger (implementation commits without tasks file) not present: branch `feat/cli-072-permission-mode-prompt` has only spec/tasks doc changes; `git status --porcelain -- packages/agent-framework packages/agent-core` is clean; last commit touching `system-prompt-section-providers.ts` remains the unrelated REFACTOR-024 rename (8cac18921).
 
@@ -142,7 +142,7 @@ is removed; if no other consumer remains, the constant is deleted (no-deprecated
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-072.md` T1–T4 all `[x]` (verified by direct read). T5 (wrap-up) unchecked but every component independently verified per the established CLI-063..070 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-069 and CLI-070 done-spec GATE-VERIFY entries): PR #712 OPEN (`gh pr view 712 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-072-permission-mode-prompt` → base `develop`) with CI green on `gh pr checks 712` — build pass (1m28s), quality pass (50s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/backlog/completed/CLI-072-permission-denial-mode-name.md` (`status: done`, User Execution Test Scenario Evidence filled: 2026-06-13 real binary + real Anthropic provider, isolated HOME, `--dry-run` → permission mode `plan`, mode question answered `plan`, dry-run edit explanation describes plan-mode restrictions without misnaming the mode, edit stays blocked) — met
+- All tasks complete: `.agents/tasks/CLI-072.md` T1–T4 all `[x]` (verified by direct read). T5 (wrap-up) unchecked but every component independently verified per the established CLI-063..070 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-069 and CLI-070 done-spec GATE-VERIFY entries): PR #712 OPEN (`gh pr view 712 --json state,headRefName,baseRefName`: state OPEN, head `feat/cli-072-permission-mode-prompt` → base `develop`) with CI green on `gh pr checks 712` — build pass (1m28s), quality pass (50s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/tasks/completed/CLI-072-permission-denial-mode-name.md` (`status: done`, User Execution Test Scenario Evidence filled: 2026-06-13 real binary + real Anthropic provider, isolated HOME, `--dry-run` → permission mode `plan`, mode question answered `plan`, dry-run edit explanation describes plan-mode restrictions without misnaming the mode, edit stays blocked) — met
 - No tasks blocked or pending: tasks file contains no blocked markers (grep for "blocked" → no hits); only T5 wrap-up remains open as adjudicated above — met
 - Build passes for affected package: `pnpm --filter @robota-sdk/agent-framework build` → "Build complete in 853ms" (ESM bundles, no errors) — met
 - Tests pass for affected package: `pnpm --filter @robota-sdk/agent-framework test` → 92 files / 912 tests passed, including the CLI-072 assertions in `src/__tests__/system-prompt-builder.test.ts` (parameterized `- **Permission mode:** ${mode}` over the union at line 76-77; explicit `plan` and `acceptEdits` content assertions at lines 83-88) — met
@@ -186,4 +186,4 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - All 4 Completion Criteria checkboxes are `[x]` (TC-01–TC-04), each backed by a `[GATE-COMPLETE: TC-N]` evidence entry above with exact command, observed output, and exit code.
 - `## Test Plan` updated: TC-01/TC-02/TC-03 rows carry test references (file path + test name / full-suite run + grep), TC-04 row carries an explicit skip reason (doc prose, direct read at `docs/SPEC.md:1003`). No TC-N is silently unaddressed.
 - Tasks file archived: `.agents/tasks/completed/CLI-072.md` exists with T1–T5 all `[x]`; the un-archived path `.agents/tasks/CLI-072.md` no longer exists (`ls` → No such file or directory, exit 1). The spec `## Tasks` section points at the archived path.
-- User-execution corroboration (done-gate): `.agents/backlog/completed/CLI-072-permission-denial-mode-name.md` is `status: done` with real-provider evidence (2026-06-13, real binary + real Anthropic provider, isolated HOME): `robota -p "What is your current permission mode? ..." --dry-run` → answer `plan`; dry-run edit explanation describes plan-mode restrictions without misnaming the mode and the edit stays blocked.
+- User-execution corroboration (done-gate): `.agents/tasks/completed/CLI-072-permission-denial-mode-name.md` is `status: done` with real-provider evidence (2026-06-13, real binary + real Anthropic provider, isolated HOME): `robota -p "What is your current permission mode? ..." --dry-run` → answer `plan`; dry-run edit explanation describes plan-mode restrictions without misnaming the mode and the edit stays blocked.

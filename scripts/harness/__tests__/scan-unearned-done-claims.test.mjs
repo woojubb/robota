@@ -22,7 +22,7 @@ const rules = (findings) => findings.map((finding) => finding.rule);
 // FIRES on the document that motivated it. `scan-main-required-checks.mjs` was measured green on
 // three variants of the very defect it was built for, and `check-done-evidence.mjs` is green on
 // this one. So the pre-correction INFRA-055 text is checked in verbatim as a fixture
-// (`git show 0ba361d2d:.agents/backlog/INFRA-055-vacuous-required-checks-on-main-prs.md`) and the
+// (`git show 0ba361d2d:.agents/tasks/INFRA-055-vacuous-required-checks-on-main-prs.md`) and the
 // corrected form is read from the live corpus.
 //
 // The fixture carries a `.md.txt` suffix on purpose: as `.md` it is prettier's to reformat, and
@@ -38,7 +38,7 @@ describe('red-first against the INFRA-055 incident', () => {
   const corrected = readFileSync(
     path.join(
       WORKSPACE_ROOT,
-      '.agents/backlog/completed/INFRA-055-vacuous-required-checks-on-main-prs.md',
+      '.agents/tasks/completed/INFRA-055-vacuous-required-checks-on-main-prs.md',
     ),
     'utf8',
   );

@@ -105,7 +105,7 @@ decided in-batch; anything touching product contracts is surfaced before merging
 
 | TC-ID | Test Type   | Tool / Approach                                     | Notes                                                                                                                                                                                                                                                                            |
 | ----- | ----------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | manual      | triage table review per batch                       | Test skipped: disposition is a human classification decision — durable artifact is the 153-row triage table in `.agents/backlog/completed/HARNESS-015-orphan-baseline-burndown.md` §Triage table, verified by row count at GATE-COMPLETE                                         |
+| TC-01 | manual      | triage table review per batch                       | Test skipped: disposition is a human classification decision — durable artifact is the 153-row triage table in `.agents/tasks/completed/HARNESS-015-orphan-baseline-burndown.md` §Triage table, verified by row count at GATE-COMPLETE                                           |
 | TC-02 | integration | file-absence check + scan source grep               | Test skipped: one-time retirement check, not a regression surface — verified by command at GATE-COMPLETE (`ls` absent + grep shows no baseline identifiers); ongoing enforcement covered by `scripts/harness/__tests__/check-orphan-exports.test.mjs`                            |
 | TC-03 | integration | `pnpm harness:scan:orphan-exports` on develop       | Test written: `scripts/harness/check-orphan-exports.mjs` runs in `pnpm harness:scan` (CI); scan behavior covered by `scripts/harness/__tests__/check-orphan-exports.test.mjs`                                                                                                    |
 | TC-04 | unit        | assertion over allowlist entries (reason non-empty) | Test skipped: reasons are source comments on a `Set<string>` — not runtime-accessible without source parsing; verified by direct read at GATE-COMPLETE (2/2 entries have reason comments); allowlist mechanism covered by `check-orphan-exports.test.mjs > honors the allowlist` |
@@ -114,7 +114,7 @@ decided in-batch; anything touching product contracts is surfaced before merging
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/HARNESS-015.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/HARNESS-015.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -143,7 +143,7 @@ decided in-batch; anything touching product contracts is surfaced before merging
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/HARNESS-015.md` exists (verified by read) on branch `feat/harness-015-orphan-burndown`.
-- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/HARNESS-015.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks file path recorded in `## Tasks`: the spec's Tasks section lists `.agents/tasks/HARNESS-015.md` — T1~~T7 (TC-01~~TC-06 매핑 + wrap-up).
 - Tasks ↔ Completion Criteria correspondence: T1→TC-01 (per-entry triage table for all 153 entries), T2→TC-02 (baseline file deleted + baseline-loading branch removed), T3→TC-03 (`pnpm harness:scan:orphan-exports` exit 0), T4→TC-04 (non-empty reason string per allowlist entry), T5→TC-05 (per-package build/typecheck/tests green), T6→TC-06 (SPEC Public API tables free of deleted symbols) — one task per TC-N (6/6), plus T7 wrap-up (full harness scan, squash PR to develop, backlog archival).
 - NON-COMPLIANCE trigger checked — no implementation commits without tasks file: `git log develop..HEAD` on `feat/harness-015-orphan-burndown` is empty; `scripts/harness/orphan-export-baseline.json` still contains all 153 entries (verified by JSON count); working tree holds only the spec move todo/ → active/ and the new tasks file.
 
@@ -151,7 +151,7 @@ decided in-batch; anything touching product contracts is surfaced before merging
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/HARNESS-015.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063..073 / HARNESS-011R GATE-VERIFY interpretation (precedent confirmed by direct read of the HARNESS-011 done-spec GATE-VERIFY entry, which adjudicated its open wrap-up task the same way): PR #716 OPEN (`gh pr view 716 --json state,headRefName,baseRefName`: state OPEN, head `feat/harness-015-orphan-burndown` → base `develop`) with CI green on `gh pr checks 716` — build pass (1m29s), quality pass (3m10s), security audit pass (8s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog closure recorded at `.agents/backlog/completed/HARNESS-015-orphan-baseline-burndown.md` (`status: done`, `## Completion (2026-06-13)` section present with the full 153-row TC-01 triage table; User Execution Test Scenarios stated "N/A per this backlog (internal dead-code cleanup)") — met
+- All tasks complete: `.agents/tasks/HARNESS-015.md` T1–T6 all `[x]` (verified by direct read). T7 (wrap-up) unchecked but every component independently verified per the established CLI-063..073 / HARNESS-011R GATE-VERIFY interpretation (precedent confirmed by direct read of the HARNESS-011 done-spec GATE-VERIFY entry, which adjudicated its open wrap-up task the same way): PR #716 OPEN (`gh pr view 716 --json state,headRefName,baseRefName`: state OPEN, head `feat/harness-015-orphan-burndown` → base `develop`) with CI green on `gh pr checks 716` — build pass (1m29s), quality pass (3m10s), security audit pass (8s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog closure recorded at `.agents/tasks/completed/HARNESS-015-orphan-baseline-burndown.md` (`status: done`, `## Completion (2026-06-13)` section present with the full 153-row TC-01 triage table; User Execution Test Scenarios stated "N/A per this backlog (internal dead-code cleanup)") — met
 - No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above — met
 - Build passes (mapped): `pnpm harness:scan` → "all 23 scans passed" (orphan-exports green WITHOUT a baseline); direct `node scripts/harness/check-orphan-exports.mjs` → exit 0, "orphan export scan passed."; `scripts/harness/orphan-export-baseline.json` absent (verified by ls) and the scan source contains no baseline-loading logic (grep: only a historical comment) with `ORPHAN_EXPORT_ALLOWLIST` holding exactly 2 entries each carrying a non-empty reason comment (`collections` — Astro content.config.ts convention; `generateMetadata` — Next.js app-router convention); monorepo-wide `pnpm typecheck`/`pnpm build` green recorded in the backlog Completion section and corroborated by PR #716 CI build pass — met
 - Tests pass (mapped): `pnpm --filter @robota-sdk/agent-playground test` → 32 files / 165 tests passed (165/165); `pnpm --filter @robota-sdk/agent-framework test` → 93 files / 915 tests passed (915/915); full-suite green across touched packages recorded in the backlog Completion section (framework 915, transport 473, playground 165, cli 146) and corroborated by PR #716 CI quality pass — met
@@ -162,7 +162,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 ### [GATE-COMPLETE: TC-01] — ✅ PASS | 2026-06-13
 
 - Checkbox: TC-01 is `[x]` in Completion Criteria.
-- Command: `grep -c '^| \`' .agents/backlog/completed/HARNESS-015-orphan-baseline-burndown.md`→ output`153`, exit 0.
+- Command: `grep -c '^| \`' .agents/tasks/completed/HARNESS-015-orphan-baseline-burndown.md`→ output`153`, exit 0.
 - Observed: the backlog completion record's §Triage table (TC-01) holds exactly 153 per-entry rows — one disposition (delete / allowlist+reason / wire-to-surface) per original baseline entry (baseline was frozen at 153 entries). Manual review artifact confirmed durable and committed.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
@@ -187,7 +187,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Checkbox: TC-05 is `[x]` in Completion Criteria.
 - Command: `pnpm --filter @robota-sdk/agent-playground test` → 32 files / 165 tests passed (165/165), exit 0.
 - Command: `pnpm --filter @robota-sdk/agent-transport test` → 61 files / 473 tests passed (473/473), exit 0.
-- Monorepo-wide citation: backlog Completion record (`.agents/backlog/completed/HARNESS-015-orphan-baseline-burndown.md` §Completion) records "monorepo `pnpm typecheck` 0 errors, `pnpm build` clean, all package test suites green (framework 915, transport 473, playground 165, cli 146, …)"; corroborated by PR #716 CI green (build pass 1m29s, quality pass 3m10s per the GATE-VERIFY entry above).
+- Monorepo-wide citation: backlog Completion record (`.agents/tasks/completed/HARNESS-015-orphan-baseline-burndown.md` §Completion) records "monorepo `pnpm typecheck` 0 errors, `pnpm build` clean, all package test suites green (framework 915, transport 473, playground 165, cli 146, …)"; corroborated by PR #716 CI green (build pass 1m29s, quality pass 3m10s per the GATE-VERIFY entry above).
 
 ### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
 

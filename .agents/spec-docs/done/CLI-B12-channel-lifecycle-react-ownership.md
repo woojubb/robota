@@ -123,12 +123,12 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 | TC-02 | unit        | vitest, spied `stop()` + factory order assertion                     | Test: same file > `"TC-03 (B11) / TC-02 (B12): the previous channel is stopped before the new one becomes active"`                                                                                                                                |
 | TC-03 | unit        | re-run CLI-B11 suite on new structure                                | Test: `session-switch-channel.test.tsx` full suite (4/4) + `packages/agent-transport/src/tui/__tests__/channel-factory-integration.test.ts` (2/2)                                                                                                 |
 | TC-04 | integration | `pnpm --filter @robota-sdk/agent-transport typecheck` + build        | Verified: typecheck exit 0 + `App.tsx:40-58` `IProps` read (required `createChannel`, no `channel`) + suite test `"TC-04 (B12): App renders from the factory alone — no channel prop exists"`                                                     |
-| TC-05 | integration | PTY driver (CLI-074) or real-store integration test                  | Test: `channel-factory-integration.test.ts` (2/2 green) + PTY rebuilt-binary evidence recorded in `.agents/backlog/completed/CLI-B12-tui-channel-lifecycle-architecture.md` (Context 0% → 6% → 16%)                                               |
+| TC-05 | integration | PTY driver (CLI-074) or real-store integration test                  | Test: `channel-factory-integration.test.ts` (2/2 green) + PTY rebuilt-binary evidence recorded in `.agents/tasks/completed/CLI-B12-tui-channel-lifecycle-architecture.md` (Context 0% → 6% → 16%)                                                 |
 | TC-06 | manual      | SPEC.md diff review                                                  | Skip (no automated test): doc prose, not automatable — manually verified at GATE-COMPLETE by direct read of `packages/agent-transport/docs/SPEC.md:109-111` §TUI lifecycle single-owner paragraph (CLI-B12)                                       |
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-B12.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-B12.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -163,7 +163,7 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/CLI-B12.md` exists (verified by direct read; present as untracked file on branch `feat/cli-b12-channel-react-ownership`).
-- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-B12.md` — T1~T7 (TC-01~TC-06 매핑 + wrap-up).
+- Tasks file path recorded in `## Tasks`: spec's Tasks section lists `.agents/tasks/CLI-B12.md` — T1~~T7 (TC-01~~TC-06 매핑 + wrap-up).
 - Tasks correspond to Completion Criteria (one task per TC-N): T1→TC-01 (useState lazy-initializer channel creation, render.tsx construction removed), T2→TC-02 (old channel stop ordering before new channel active), T3→TC-03 (CLI-B11 TC-A/B/C/E regression hold), T4→TC-04 (IAppProps drops `channel`, `createChannel` required, typecheck/build), T5→TC-05 (real-store integration / PTY /resume Context > 0%), T6→TC-06 (docs/SPEC.md single-owner lifecycle contract) — all 6 TC-N covered; T7 is wrap-up (test/typecheck/lint/build + PR + backlog completion), additive beyond the minimum.
 - NON-COMPLIANCE check (tasks file before implementation): `git status` shows only spec move (todo → active), the new tasks file, and unrelated evals lessons; `packages/agent-transport/src/tui/App.tsx` and `render.tsx` untouched; latest commit touching `src/tui` is `0c472a40f` (CLI-B11 #706, prerequisite merge) — no CLI-B12 implementation commits exist.
 
@@ -171,7 +171,7 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-B12.md` T1–T6 `[x]`. T7 (wrap-up: PR + backlog completed/) unchecked but every component independently verified per the established CLI-063/064/065/066/B11 GATE-VERIFY interpretation: PR #707 OPEN (`feat/cli-b12-channel-react-ownership` → `develop`, "refactor(transport): single React owner for TuiInteractionChannel lifecycle (CLI-B12)") with all CI checks green on `gh pr checks 707` — build pass (1m28s), quality pass (54s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification report "skipping" by workflow design on feature PRs (same pattern as B11 PR #706); backlog evidence recorded in `.agents/backlog/completed/CLI-B12-tui-channel-lifecycle-architecture.md` (frontmatter `status: done`; all 4 완료 기준 `[x]` with evidence — Option A 승인, App React state sole owner, factory seam + `channel-factory-integration.test.ts`, B11 suite 4/4 + integration 2/2 with TC-D replaced per Solution step 3).
+- All tasks complete: `.agents/tasks/CLI-B12.md` T1–T6 `[x]`. T7 (wrap-up: PR + backlog completed/) unchecked but every component independently verified per the established CLI-063/064/065/066/B11 GATE-VERIFY interpretation: PR #707 OPEN (`feat/cli-b12-channel-react-ownership` → `develop`, "refactor(transport): single React owner for TuiInteractionChannel lifecycle (CLI-B12)") with all CI checks green on `gh pr checks 707` — build pass (1m28s), quality pass (54s), security audit pass (6s), Cloudflare Pages pass; compat-node18 and release-grade verification report "skipping" by workflow design on feature PRs (same pattern as B11 PR #706); backlog evidence recorded in `.agents/tasks/completed/CLI-B12-tui-channel-lifecycle-architecture.md` (frontmatter `status: done`; all 4 완료 기준 `[x]` with evidence — Option A 승인, App React state sole owner, factory seam + `channel-factory-integration.test.ts`, B11 suite 4/4 + integration 2/2 with TC-D replaced per Solution step 3).
 - No tasks blocked or pending: tasks file contains no blocked markers; only T7 wrap-up remains open as adjudicated above. The TC-03 italic correction note (suite mechanically adapted: initial channel = factory call 1 with `undefined`, switch calls shift to nth 2..4, B11 TC-D fallback test deleted as specified in Solution step 3) is a documented in-Decision correction per the CLI-066/B11 correction-note precedent, not a blocked/divergent task.
 - Implementation conformance spot-check (fresh-read this gate): `render.tsx` contains no eager `new TuiInteractionChannel` + `channel` prop — only the factory definition (`render.tsx:93-94`) passed as `createChannel` (`render.tsx:99`); `App.tsx` `useState` lazy initializer calls `props.createChannel(props.resumeSessionId)` (`App.tsx:63-68`); `onSessionSwitch` runs `void sessionState.channel.stop()` before `setSessionState` with the new channel (`App.tsx:86-87`); `IProps` has required `createChannel` and no `channel` field (`App.tsx:40-58`).
 - Build passes: `pnpm --filter @robota-sdk/agent-transport build` fresh-run this gate — "Build complete in 710ms" (38 files, 481.93 kB), exit 0. Repo-wide build (including type-level consumer `agent-cli`) green via PR #707 CI build job (pass, 1m28s).
@@ -205,7 +205,7 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 
 - Checkbox: TC-05 is `[x]` in `## Completion Criteria`.
 - Command: `npx vitest run src/tui/__tests__/channel-factory-integration.test.ts` — 2/2 passed, exit 0 (real-store integration: restored context end to end on the single-owner structure).
-- PTY evidence (direct read): `.agents/backlog/completed/CLI-B12-tui-channel-lifecycle-architecture.md` "## Evidence (2026-06-13)" records the rebuilt-binary PTY scenario on the single-owner structure: `Context: 0% → 6% (11.9K/200K) → 16% (31.8K/200K)` across consecutive `/resume` switches — Context > 0% after switch, satisfying the criterion.
+- PTY evidence (direct read): `.agents/tasks/completed/CLI-B12-tui-channel-lifecycle-architecture.md` "## Evidence (2026-06-13)" records the rebuilt-binary PTY scenario on the single-owner structure: `Context: 0% → 6% (11.9K/200K) → 16% (31.8K/200K)` across consecutive `/resume` switches — Context > 0% after switch, satisfying the criterion.
 
 ### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
 
@@ -220,5 +220,5 @@ props.createChannel(id), sessionId: id })`. Remove the `channel` prop from `IApp
 - `## Test Plan` updated this gate: TC-01–TC-05 rows carry explicit test file + test name references; TC-06 row carries an explicit skip reason (doc prose, manually verified by direct read of `SPEC.md:109-111`).
 - No TC-N silently unaddressed: 6/6 rows resolved (5 test references, 1 documented manual skip).
 - Tasks file archived: `.agents/tasks/completed/CLI-B12.md` exists (verified by `ls` + direct read) with T1–T7 all `[x]`; `.agents/tasks/CLI-B12.md` no longer exists at the active path.
-- `## Tasks` section reflects the archived path: spec lists `.agents/tasks/completed/CLI-B12.md` — archived at GATE-COMPLETE (T1~T7 complete, TC-01~TC-06 매핑).
+- `## Tasks` section reflects the archived path: spec lists `.agents/tasks/completed/CLI-B12.md` — archived at GATE-COMPLETE (T1~~T7 complete, TC-01~~TC-06 매핑).
 - Fresh test evidence this gate: session-switch suite 4/4 + channel-factory integration 2/2 + typecheck exit 0, all run 2026-06-13.

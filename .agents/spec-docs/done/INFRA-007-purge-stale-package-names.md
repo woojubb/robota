@@ -34,7 +34,7 @@ Ground truth (verified): `@robota-sdk/agent-command` is a single package exporti
 
 **Reproduction condition:** `pnpm harness:conformance` → exit 1, `packageNameViolations: 99`.
 
-> Out of scope: archived/historical records under `.agents/backlog/completed/`, `.agents/tasks/completed/`,
+> Out of scope: archived/historical records under `.agents/tasks/completed/`, `.agents/tasks/completed/`,
 > `.agents/spec-docs/done/`, and non-canonical specs (`command-inventory.md`, `agent-invocation-router.md`)
 > are NOT scanned by the gate and are point-in-time records — they are left untouched (AF-12's
 > `command-inventory.md` content refresh, if wanted, is a separate doc-accuracy backlog).

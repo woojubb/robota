@@ -98,7 +98,7 @@ Dissolve `apps/agent-web-monitor`; place each piece by its true identity:
 6. **`packages/agent-cli-web` is a sanctioned product-shell package** — amend the `Library Neutrality Rule`
    text in `.agents/project-structure.md` to name it as a THIRD product-shell member (beside `agent-cli`,
    `agent-playground`); the package-tree entry alone is insufficient for the neutrality gate.
-7. **SEC-001 client retarget** — in `.agents/backlog/SEC-001-default-loopback-ws-auth.md` (the spec's actual
+7. **SEC-001 client retarget** — in `.agents/tasks/SEC-001-default-loopback-ws-auth.md` (the spec's actual
    path): the CLI-served monitor client is now `packages/agent-cli-web` (served from localhost by item 2) —
    REMOVE the `apps/agent-web` monitor-client reference (route deleted) and ADD `agent-cli-web`; the plain-TUI
    client reference stays.
@@ -120,7 +120,7 @@ library components):
   the old `remote.html`) + add the `@robota-sdk/agent-transport-webrtc-web` dependency; remove `apps/agent-web`
   `/monitor` route + `NEXT_PUBLIC_CLI_WS_URL` (safe now that P1's CLI-served monitor exists).
 - **P3 — docs + SEC-001:** docs/map/structure/CODEOWNERS/deploy refresh; retarget the SEC-001 spec client refs
-  (path `.agents/backlog/SEC-001-...`: remove the agent-web monitor client, add agent-cli-web, keep the TUI).
+  (path `.agents/tasks/SEC-001-...`: remove the agent-web monitor client, add agent-cli-web, keep the TUI).
 
 ## Affected Files
 
@@ -131,7 +131,7 @@ library components):
   `apps/agent-web/package.json` (**add** `@robota-sdk/agent-transport-webrtc-web`), `vercel.json`
 - `.agents/project-structure.md` (**Library Neutrality Rule**: name `agent-cli-web` as a product-shell member),
   `content/guide/architecture.md`, `.agents/specs/architecture-map/*`, `CODEOWNERS`
-- `.agents/backlog/SEC-001-default-loopback-ws-auth.md` (client retarget: −agent-web monitor client,
+- `.agents/tasks/SEC-001-default-loopback-ws-auth.md` (client retarget: −agent-web monitor client,
   +agent-cli-web, keep TUI)
 
 ## Completion Criteria
@@ -195,7 +195,7 @@ premises against code. REVISE was for one load-bearing false premise + wiring ga
    Affected Files.
 3. **Product-shell exemption** for `agent-cli-web` → P1 amends the `Library Neutrality Rule` text (third
    member), not just the package tree.
-4. **SEC-001 refs** → corrected path (`.agents/backlog/…`), framed as remove-agent-web-monitor-client +
+4. **SEC-001 refs** → corrected path (`.agents/tasks/…`), framed as remove-agent-web-monitor-client +
    add-agent-cli-web, TUI client reference kept.
 
 Owner DIRECTION + the serving-reality decision (a) captured. Structural direction endorsed + revisions

@@ -894,7 +894,7 @@ neutrality section argues against. Genuinely unresolved; flagged for phase 2.
 > the rule absorbed what was missing (`rejected`, and the `in-progress`/`verifying` both-map-to-`active/`
 > fact the old arrow-list actively obscured) and the duplication is gone. **Verified before merging:**
 > this is a different vocabulary from `backlog-execution.md` > Status Invariants (spec-doc lifecycle vs
-> `.agents/backlog/` item placement); they share the tokens `in-progress`/`done` but not their meaning,
+> `.agents/tasks/` item placement); they share the tokens `in-progress`/`done` but not their meaning,
 > so neither overrides the other, and the rule now says so.
 >
 > **Reported, not closed:** there is **no mechanical floor** asserting folder ↔ status agreement

@@ -1,67 +1,67 @@
-# CLI `/context` Reference Inventory
+---
+title: 'CLI `/context` Command — Document Reference List'
+status: done
+---
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: feat/cli-context-reference-inventory
-- **Scope**: packages/agent-framework, packages/agent-command-context, packages/agent-cli docs
+# CLI `/context` Command — Document Reference List
 
-## Objective
+## Priority
 
-Extend `/context` so users can inspect and manage file references loaded through manual context
-commands and prompt `@file` references while preserving the CLI-as-thin-renderer boundary.
+P2 - developer experience and debugging convenience.
 
-## Plan
+## Problem
 
-- [x] Research comparable context-management behavior and current command boundaries.
-- [x] Update command/API specs before implementation.
-- [x] Add failing tests for `/context list/add/remove/clear` and SDK inventory integration.
-- [x] Implement SDK-owned context reference inventory and command common APIs.
-- [x] Integrate `@file` prompt references with the inventory.
-- [x] Update package docs and architecture notes.
-- [x] Run targeted and repository verification.
-- [x] Move backlog/task records to completed.
+Many AI coding assistants (Claude Code, etc.) provide a `/context` command that shows which files or documents are currently loaded in the session context. Users can immediately verify "which files am I looking at?" or "did the @reference I just added load correctly?"
 
-## Progress
+agent-cli has no standard command to list or manage currently loaded documents in context.
 
-### 2026-05-05
+## Scope
 
-- Selected SDK-owned context reference inventory as the implementation boundary.
-- Added command common APIs for listing, adding, removing, and clearing context references.
-- Integrated manual `/context add` references with prompt-time model input.
-- Registered prompt `@file` references as observed context references.
-- Updated SDK, CLI, command, and session docs/specs.
-- Split resolver and persistence helpers so new SDK files stay under the file-size rule.
-- Verified targeted package checks, root typecheck/build, docs build, diff whitespace, and harness scan.
+- `packages/agent-cli`
+- `packages/agent-framework` (shared context management API)
+- Related command packages
 
-## Decisions
+## Research Needed
 
-- Keep `agent-command-context` as the command parser/formatter only.
-- Keep file path resolution, workspace bounds, and manual context state in `agent-sdk`.
-- Treat prompt `@file` references as observed session references. Treat `/context add` references as
-  active references that are included in future prompt model input.
-- Use byte/reference budgets as the first eviction policy; token-specific LRU can build on this
-  inventory later when exact token accounting is available for arbitrary files.
+1. **Existing tool research**
+   - Claude Code `/context` behavior: list display, add/remove items, max capacity, auto-eviction policy.
+   - Other AI CLI tools (Claude, Copilot CLI, Aider, etc.) context management command patterns.
 
-## Research Notes
+2. **Current agent-cli context pipeline**
+   - When and how settings files, task files, backlog, specs, and rules are loaded.
+   - Integration with the `@` file reference feature (separate backlog item).
 
-- Comparable CLIs expose both context usage and explicit file add/remove workflows.
-- The current Robota `/context` command already owns auto-compact controls through SDK common APIs,
-  so extending that same common API layer is the narrowest boundary-preserving path.
+3. **Feature scope definition**
+   - `/context list` — currently loaded document list (file path, size, load time, reference type).
+   - `/context add <path>` — manually add a document.
+   - `/context remove <path>` — remove a document from context.
+   - `/context clear` — reset all.
+   - Auto-eviction policy (LRU etc. when token limit is reached).
 
-## Test Plan
+## Constraints
 
-- `pnpm --filter @robota-sdk/agent-command-context test`
-- `pnpm --filter @robota-sdk/agent-command-context typecheck`
-- `pnpm --filter @robota-sdk/agent-framework test -- context-command-api interactive-session`
-- `pnpm --filter @robota-sdk/agent-framework typecheck`
-- `pnpm harness:scan`
+- agent-cli must remain a thin renderer and host-effect applier.
+- Context management state belongs in SDK command packages.
+- Token limits and memory usage must be considered.
 
-## Blockers
+## Recommended Direction
 
-- None.
+Provide a `/context` command to list, add, and remove currently loaded documents. Integrate with the `@` file reference feature so that referenced files are automatically added to the list.
 
-## Result
+## Acceptance Criteria
 
-Implemented `/context` reference inventory through SDK-owned state and command common APIs. Manual
-references added with `/context add` are active and injected into future prompts; prompt `@file`
-references are recorded as observed references for inspection through `/context` and `/context list`.
+- `/context` or `/context list` displays the currently loaded document list.
+- Each entry includes file path, load type (automatic/manual/@reference), and load time.
+- `/context add <path>` allows manual document addition.
+- `/context remove <path>` allows document removal.
+- Auto-eviction policy based on token limits works correctly.
+- Integration with `@` file references so referenced files are auto-registered in the list.
+- Unit tests verify command behavior and context state management.
+
+## Verification Plan
+
+- Add unit tests for context state management layer.
+- Add `/context` command behavior tests.
+- Add `@` reference integration tests.
+- Add auto-eviction (token limit) policy tests.
+- Add CLI integration tests for actual behavior verification.

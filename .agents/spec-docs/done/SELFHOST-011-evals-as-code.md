@@ -290,7 +290,7 @@ family; in-session `/eval`).
 
 - **P1 — DONE** (merged develop `c1e856da3`, #1232): [`.agents/tasks/completed/SELFHOST-011-P1.md`](../../tasks/completed/SELFHOST-011-P1.md).
 - **P2 — DONE** (this branch; agent-run verified): [`.agents/tasks/completed/SELFHOST-011-P2.md`](../../tasks/completed/SELFHOST-011-P2.md).
-- **P3/P4 — deferred to backlog**: [`.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`](../../backlog/SELFHOST-011-P3-P4-evals-followups.md) (no neutral-library gap remains for v1).
+- **P3/P4 — deferred to backlog**: [`.agents/tasks/SELFHOST-011-P3-P4-evals-followups.md`](../../backlog/SELFHOST-011-P3-P4-evals-followups.md) (no neutral-library gap remains for v1).
 
 ## Evidence Log
 
@@ -371,7 +371,7 @@ Prior-gate precondition MET (GATE-VERIFY PASS present; frontmatter `status: veri
 **Failed criteria:**
 
 - `## Tasks` section updated to reflect archived path: the section still points at the pre-archival `.agents/tasks/SELFHOST-011-P1.md` and reads "(GATE-IMPLEMENT PASSED; in progress)" + "P2/P3/P4 task files created after P1 completes" — factually stale. Both task files are archived (`.agents/tasks/completed/SELFHOST-011-P1.md` and `-P2.md`, verified on disk), P2 is DONE, and P3/P4 are deferred to backlog. The archival criterion (files under `completed/`) is MET, but the spec's `## Tasks` pointer was never refreshed to reflect it.
-  **Required action:** Update the `## Tasks` section to reference the archived `.agents/tasks/completed/SELFHOST-011-P1.md` and `.agents/tasks/completed/SELFHOST-011-P2.md` (P1 + P2 DONE/archived; P3/P4 consciously deferred to `.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`), then re-run GATE-COMPLETE. No other criterion blocks completion.
+  **Required action:** Update the `## Tasks` section to reference the archived `.agents/tasks/completed/SELFHOST-011-P1.md` and `.agents/tasks/completed/SELFHOST-011-P2.md` (P1 + P2 DONE/archived; P3/P4 consciously deferred to `.agents/tasks/SELFHOST-011-P3-P4-evals-followups.md`), then re-run GATE-COMPLETE. No other criterion blocks completion.
 
 ### [GATE-COMPLETE] — ✅ PASS | 2026-07-19
 
@@ -384,4 +384,4 @@ Re-run after the prior GATE-COMPLETE FAIL (stale `## Tasks` pointer) was fixed. 
 - `[AGENT-RUN VERIFIED]` live-Anthropic run closes the capability-reachability done-gate; evidence file present and substantive: `.agents/evals/scenarios/selfhost-011-eval-gate-agent-run.md` (PASS→exit 0, FAIL→exit 1, missing-path→exit 1 on real `IExecutionResult`). ✓
 - `## Test Plan` carries a test reference or skip reason for every TC-N row (TC-01/02→`runner.test.ts`; TC-03→`eval-command.test.ts` (the unrelated `cli-exit-codes.test.ts` is CLI-064, not eval); TC-04→example typecheck+register; TC-05→manual grep + HARNESS-034 floor skip reason; TC-06→`runner.test.ts`+`session-run-fn.test.ts`). ✓
 - Tasks files archived: `.agents/tasks/completed/SELFHOST-011-P1.md` and `.agents/tasks/completed/SELFHOST-011-P2.md` both present on disk; the pre-archival `.agents/tasks/SELFHOST-011-P1.md`/`-P2.md` paths no longer exist. ✓
-- `## Tasks` section now reflects the archived paths (the sole prior FAIL blocker, fixed): P1 DONE → `.agents/tasks/completed/SELFHOST-011-P1.md`; P2 DONE → `.agents/tasks/completed/SELFHOST-011-P2.md`; P3/P4 consciously deferred to `.agents/backlog/SELFHOST-011-P3-P4-evals-followups.md`. No stale pre-archival pointer or "in progress" wording remains. ✓
+- `## Tasks` section now reflects the archived paths (the sole prior FAIL blocker, fixed): P1 DONE → `.agents/tasks/completed/SELFHOST-011-P1.md`; P2 DONE → `.agents/tasks/completed/SELFHOST-011-P2.md`; P3/P4 consciously deferred to `.agents/tasks/SELFHOST-011-P3-P4-evals-followups.md`. No stale pre-archival pointer or "in progress" wording remains. ✓

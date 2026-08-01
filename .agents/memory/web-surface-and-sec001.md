@@ -32,7 +32,7 @@ from localhost** (owner chose this — the only working monitor today is the dep
   `?token=`) + `--open`. Needs the RESOLVED WS port exposed from WsTransport (bindWithRetry-internal today) +
   runtime asset-path resolution. Then P2/P3 (remote route, remove agent-web `/monitor`, docs, SEC-001 retarget).
 
-## SEC-001 (approved, .agents/backlog/) — interconnected
+## SEC-001 (approved, .agents/tasks/) — interconnected
 
 Auto-mint default loopback WS token + Host/Origin 403-at-upgrade + fail-closed. P1 server core DONE on branch
 `feat/sec-001-loopback-ws-auth` (15/15 tests). Its token-DELIVERY target IS GUI-007's CLI-served monitor. Owner

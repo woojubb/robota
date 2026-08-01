@@ -6,7 +6,7 @@ tags: [distribution, bun, packaging, cli]
 
 # DIST-001: Bun-compile single-binary distribution for agent-cli
 
-> Concretizes the owner-authored backlog `.agents/backlog/DIST-001-bun-compile-single-binary.md`
+> Concretizes the owner-authored backlog `.agents/tasks/DIST-001-bun-compile-single-binary.md`
 > (status: todo) into a gated implementation spec, informed by a real compatibility spike run in this
 > environment (Bun 1.3.14 installed; `bun build --compile` executed against the built CLI).
 

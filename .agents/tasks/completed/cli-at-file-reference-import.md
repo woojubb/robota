@@ -1,57 +1,77 @@
+---
+title: 'CLI `@file` Reference Import'
+status: done
+---
+
 # CLI `@file` Reference Import
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: feat/cli-at-file-reference-import
-- **Scope**: packages/agent-framework, packages/agent-cli, command/context packages as needed
+## Priority
 
-## Objective
+P2 - improves context-loading ergonomics for CLI users.
 
-Add SDK-owned `@file` reference import support so CLI prompts can include local file references without
-making the TUI own parsing, path resolution, or context-loading semantics.
+## Problem
 
-## Plan
+Some AI coding CLIs support references such as `@AGENTS.md` or `@docs/spec.md` inside prompts or
+markdown-like command input. The referenced file is resolved, read, and included in the active
+context so users can compose work from settings, task files, backlog items, or specs without
+manually pasting file contents.
 
-- [x] Research existing prompt/context ingestion and command boundaries.
-- [x] Update owning specs before implementation.
-- [x] Add failing unit tests for parsing, resolution, diagnostics, and integration behavior.
-- [x] Implement SDK-owned resolver and thin CLI/command wiring.
-- [x] Update docs and architecture notes.
-- [x] Run targeted verification and repository checks.
-- [x] Move backlog/task records to completed.
+`agent-cli` does not currently have a standard file-reference import path. Adding one would make
+context-heavy workflows easier, but the implementation must not turn the CLI/TUI into the owner of
+context parsing or file-loading semantics.
 
-## Test List
+## Scope
 
-- [x] `@AGENTS.md` resolves from the documented project base directory.
-- [x] `@path/to/file.md` resolves with structured source metadata.
-- [x] Missing files return structured diagnostics.
-- [x] Oversize references are rejected before loading into context.
-- [x] Nested/circular references are bounded by explicit recursion policy.
-- [x] CLI prompt ingestion delegates parsing/loading to SDK-owned code.
+- `packages/agent-framework`
+- `packages/agent-command-context` or another owning command package if user-visible command
+  behavior is required
+- `packages/agent-cli` only for thin host wiring and rendering
 
-## Progress
+## Research Needed
 
-### 2026-05-05
+- Review existing CLI prompt/context loading paths in `agent-sdk`, including project context, task
+  context, and skill/plugin command expansion.
+- Review how comparable tools define `@file` resolution rules, recursion limits, missing-file
+  behavior, and display feedback.
+- Decide whether `@file` imports are prompt-time context, command-managed context, or both.
 
-- Started task from backlog and selected `@file` import as the prerequisite for `/context` inventory.
-- Added SDK-owned prompt file-reference resolver, formatter, diagnostics, and structured history records.
-- Integrated prompt preprocessing into `InteractiveSession.submit()` without adding CLI/TUI parsing.
-- Updated SDK/CLI specs, README content, and `ARCHITECTURE-MAP.md`.
-- Split parser/path helpers out of the resolver so new source files stay under the 300-line file-size rule.
-- Verified SDK tests, SDK typecheck/build/lint, docs build, root typecheck/build, formatting, diff whitespace, and harness scan.
+## Constraints
 
-## Decisions
+- `agent-cli` must remain a renderer and host adapter provider.
+- File-reference parsing, resolution, recursion control, and loaded-context records must be owned by
+  SDK common APIs or a command package, not by Ink components or TUI hooks.
+- The feature must not conflict with future mention-like syntaxes that also use `@`.
+- Referenced files must be constrained to safe local file reads and must respect existing
+  permissions/context policies.
 
-- Treat CLI as a thin host adapter. SDK or a command package owns reference parsing and diagnostics.
-- Implement file-only prompt references now; directory listings and MCP resource mentions remain out of scope.
-- Resolve relative paths against session `cwd` and reject paths outside that workspace root.
+## Recommended Direction
 
-## Blockers
+Create an SDK-owned file-reference resolver with a small explicit contract:
 
-- None.
+- parse `@path` tokens from prompt/context input;
+- resolve relative paths against a documented base directory;
+- prevent self-import and circular imports;
+- enforce a maximum depth and maximum loaded bytes/tokens;
+- return structured imported-context records and structured diagnostics.
 
-## Result
+Then compose that resolver through the context command or prompt ingestion path. The CLI should only
+render diagnostics and pass user input to the SDK/command layer.
 
-Implemented SDK-owned `@file` prompt reference preprocessing. Ordinary CLI prompts pass through
-unchanged to `InteractiveSession.submit()`, where SDK code reads bounded workspace-local file
-references, records structured history metadata, and sends enriched model input.
+## Acceptance Criteria
+
+- [ ] `@AGENTS.md` and `@path/to/file.md` references can be resolved from the documented base
+      directory.
+- [ ] Imported files are represented as structured context records with source path and import
+      reason.
+- [ ] Circular references and excessive nesting are rejected with clear diagnostics.
+- [ ] Missing files produce a clear user-facing error without silently dropping the reference.
+- [ ] The relative-path policy, recursion policy, size policy, and syntax are documented.
+- [ ] CLI/TUI code does not own file-reference parsing or context loading semantics.
+
+## Verification Plan
+
+- Add unit tests for reference parsing and path resolution.
+- Add unit tests for circular-reference and max-depth protection.
+- Add unit tests for missing-file and oversize-file diagnostics.
+- Add command or SDK integration tests proving imported files become structured context records.
+- Run `pnpm --filter @robota-sdk/agent-framework test` and the affected command/CLI package tests.

@@ -114,19 +114,19 @@ project-level, each reported), removing the either/or fallback in `checkSettings
 
 ## Test Plan
 
-| TC-ID | Test Type | Tool / Approach                                                | Notes                                                                                                                                                                                                                                                                                     |
-| ----- | --------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-01 | unit      | vitest — diagnose with temp settings fixture + injected env    | Test written: `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts > diagnose accuracy (CLI-067) > TC-01: profile with a resolvable $ENV reference passes the API key check`                                                                                               |
-| TC-02 | unit      | vitest — injected env only, no settings                        | Test written: `diagnose-accuracy.test.ts > TC-02: no profile + recognized env key resolves via env-default (CLI-066 agreement)`                                                                                                                                                           |
-| TC-03 | unit      | vitest — empty env, no settings; assert issue + returned count | Test written: `diagnose-accuracy.test.ts > TC-03: no profile + no env key fails with the runtime guidance and counts an issue`                                                                                                                                                            |
-| TC-04 | unit      | vitest — corrupt JSON fixture at isolated user level           | Test written: `diagnose-accuracy.test.ts > TC-04: corrupt user-level settings is flagged with its path even when the project file is valid`                                                                                                                                               |
-| TC-05 | unit      | vitest — issue-count → exit-code mapping both directions       | Test written: `diagnose-accuracy.test.ts > TC-05: issue count drives the exit contract — 0 when clean, >0 when any check fails`; dispatch mapping verified by read of `src/cli.ts:90-94` + real-binary exit=0/exit=1 evidence in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md` |
-| TC-06 | unit      | vitest — output scan for the injected key value                | Test written: `diagnose-accuracy.test.ts > TC-06: the key value never appears anywhere in diagnose output`                                                                                                                                                                                |
-| TC-07 | manual    | SPEC.md diff review                                            | Test skipped: doc prose is not automatable — verified at GATE-COMPLETE by direct read of `packages/agent-cli/docs/SPEC.md` §`robota diagnose` (lines 1070–1093: checks list + 0/1 exit contract)                                                                                          |
+| TC-ID | Test Type | Tool / Approach                                                | Notes                                                                                                                                                                                                                                                                                   |
+| ----- | --------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-01 | unit      | vitest — diagnose with temp settings fixture + injected env    | Test written: `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts > diagnose accuracy (CLI-067) > TC-01: profile with a resolvable $ENV reference passes the API key check`                                                                                             |
+| TC-02 | unit      | vitest — injected env only, no settings                        | Test written: `diagnose-accuracy.test.ts > TC-02: no profile + recognized env key resolves via env-default (CLI-066 agreement)`                                                                                                                                                         |
+| TC-03 | unit      | vitest — empty env, no settings; assert issue + returned count | Test written: `diagnose-accuracy.test.ts > TC-03: no profile + no env key fails with the runtime guidance and counts an issue`                                                                                                                                                          |
+| TC-04 | unit      | vitest — corrupt JSON fixture at isolated user level           | Test written: `diagnose-accuracy.test.ts > TC-04: corrupt user-level settings is flagged with its path even when the project file is valid`                                                                                                                                             |
+| TC-05 | unit      | vitest — issue-count → exit-code mapping both directions       | Test written: `diagnose-accuracy.test.ts > TC-05: issue count drives the exit contract — 0 when clean, >0 when any check fails`; dispatch mapping verified by read of `src/cli.ts:90-94` + real-binary exit=0/exit=1 evidence in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md` |
+| TC-06 | unit      | vitest — output scan for the injected key value                | Test written: `diagnose-accuracy.test.ts > TC-06: the key value never appears anywhere in diagnose output`                                                                                                                                                                              |
+| TC-07 | manual    | SPEC.md diff review                                            | Test skipped: doc prose is not automatable — verified at GATE-COMPLETE by direct read of `packages/agent-cli/docs/SPEC.md` §`robota diagnose` (lines 1070–1093: checks list + 0/1 exit contract)                                                                                        |
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-067.md` — archived at GATE-COMPLETE (T1~T8 complete, TC-01~TC-07 매핑)
+- [x] `.agents/tasks/completed/CLI-067.md` — archived at GATE-COMPLETE (T1~~T8 complete, TC-01~~TC-07 매핑)
 
 ## Evidence Log
 
@@ -163,7 +163,7 @@ project-level, each reported), removing the either/or fallback in `checkSettings
 
 **Status upgrade:** in-progress → verifying
 
-- All tasks complete: `.agents/tasks/CLI-067.md` T1–T7 all `[x]` (verified by direct read). T8 (wrap-up) unchecked but every component independently verified per the established CLI-063/064/065/066 GATE-VERIFY interpretation: PR #708 OPEN (`gh pr view 708`: "fix(cli): diagnose mirrors runtime provider resolution + exit contract (CLI-067)", head `feat/cli-067-diagnose-accuracy` → base `develop`) with CI green on `gh pr checks 708` — build pass (1m23s), quality pass (40s), security audit pass (8s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i`, profile `apiKey: "$ENV:MY_DIAG_KEY"` with var set → `✓ API key: anthropic (claude-test-model) — settings profile` + `✓ All checks passed`, exit=0; corrupt user-level `~/.robota/settings.json` with valid project file kept → `✗ Settings file: <home>/.robota/settings.json — invalid JSON` + `✗ 1 issue(s) found`, exit=1; key value occurrences in full output: 0) — met
+- All tasks complete: `.agents/tasks/CLI-067.md` T1–T7 all `[x]` (verified by direct read). T8 (wrap-up) unchecked but every component independently verified per the established CLI-063/064/065/066 GATE-VERIFY interpretation: PR #708 OPEN (`gh pr view 708`: "fix(cli): diagnose mirrors runtime provider resolution + exit contract (CLI-067)", head `feat/cli-067-diagnose-accuracy` → base `develop`) with CI green on `gh pr checks 708` — build pass (1m23s), quality pass (40s), security audit pass (8s), Cloudflare Pages pass; compat-node18 and release-grade verification "skipping" (skipped by design on feature PRs); backlog evidence recorded in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md` (`status: done`, User Execution Test Scenarios Evidence filled: 2026-06-13 real binary `bin/robota.cjs`, isolated HOME via `env -i`, profile `apiKey: "$ENV:MY_DIAG_KEY"` with var set → `✓ API key: anthropic (claude-test-model) — settings profile` + `✓ All checks passed`, exit=0; corrupt user-level `~/.robota/settings.json` with valid project file kept → `✗ Settings file: <home>/.robota/settings.json — invalid JSON` + `✗ 1 issue(s) found`, exit=1; key value occurrences in full output: 0) — met
 - No tasks blocked or pending: tasks file contains no blocked markers; only T8 wrap-up remains open as adjudicated above — met
 - Build passes for affected package: `pnpm --filter @robota-sdk/agent-cli build` → "Build complete" (ESM + CJS bundles, no errors) — met
 - Tests pass for affected package: `pnpm --filter @robota-sdk/agent-cli test` → 17 files / 140 tests passed, including the new `src/startup/__tests__/diagnose-accuracy.test.ts` re-run individually → 6/6 passed (TC-01–TC-06); prior `diagnose-command.test.ts` 2/2 and `cli-exit-codes.test.ts` 3/3 also green — met
@@ -177,7 +177,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Command: `npx vitest run src/startup/__tests__/diagnose-accuracy.test.ts` (cwd `packages/agent-cli`).
 - Output: `✓ src/startup/__tests__/diagnose-accuracy.test.ts (6 tests)` — includes `TC-01: profile with a resolvable $ENV reference passes the API key check` passing. Test Files 1 passed, Tests 6 passed. Exit code 0.
 - Test reference recorded in Test Plan: `diagnose-accuracy.test.ts > diagnose accuracy (CLI-067) > TC-01`.
-- Corroborated by real-binary evidence in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md`: profile `apiKey: "$ENV:MY_DIAG_KEY"` with var set → `✓ API key: anthropic (claude-test-model) — settings profile`, exit=0.
+- Corroborated by real-binary evidence in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md`: profile `apiKey: "$ENV:MY_DIAG_KEY"` with var set → `✓ API key: anthropic (claude-test-model) — settings profile`, exit=0.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-13
 
@@ -199,14 +199,14 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Command: same vitest run as TC-01 (exit code 0, 6/6 passed).
 - Output: test `TC-04: corrupt user-level settings is flagged with its path even when the project file is valid` passed.
 - Test reference recorded in Test Plan: `diagnose-accuracy.test.ts > TC-04`.
-- Corroborated by real-binary evidence in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md`: corrupt user-level `~/.robota/settings.json` with valid project file kept → `✗ Settings file: <home>/.robota/settings.json — invalid JSON` + `✗ 1 issue(s) found`, exit=1.
+- Corroborated by real-binary evidence in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md`: corrupt user-level `~/.robota/settings.json` with valid project file kept → `✗ Settings file: <home>/.robota/settings.json — invalid JSON` + `✗ 1 issue(s) found`, exit=1.
 
 ### [GATE-COMPLETE: TC-05] — ✅ PASS | 2026-06-13
 
 - Checkbox `[x]` in Completion Criteria — confirmed.
 - Command: same vitest run as TC-01 (exit code 0, 6/6 passed) — test `TC-05: issue count drives the exit contract — 0 when clean, >0 when any check fails` passed.
 - Dispatch-level mapping verified by direct read of `packages/agent-cli/src/cli.ts:90-94`: `const failCount = await runDiagnoseCommand({ version, terminal, cwd }); process.exitCode = failCount > 0 ? 1 : 0;` under the comment `// Exit contract (CLI-067): 0 = no issues, 1 = one or more failed checks.`
-- Both exit directions corroborated by real-binary scenario evidence in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md`: all-pass run → `✓ All checks passed. robota is ready to use.` exit=0; corrupt user-level settings run → `✗ 1 issue(s) found.` exit=1.
+- Both exit directions corroborated by real-binary scenario evidence in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md`: all-pass run → `✓ All checks passed. robota is ready to use.` exit=0; corrupt user-level settings run → `✗ 1 issue(s) found.` exit=1.
 - Test reference recorded in Test Plan: `diagnose-accuracy.test.ts > TC-05` + `src/cli.ts:90-94` read.
 
 ### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
@@ -214,7 +214,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Checkbox `[x]` in Completion Criteria — confirmed.
 - Command: same vitest run as TC-01 (exit code 0, 6/6 passed).
 - Output: test `TC-06: the key value never appears anywhere in diagnose output` passed (full-output scan with a known key in env).
-- Corroborated by real-binary evidence in `.agents/backlog/completed/CLI-067-diagnose-accuracy.md`: "Key value occurrences in full output: 0".
+- Corroborated by real-binary evidence in `.agents/tasks/completed/CLI-067-diagnose-accuracy.md`: "Key value occurrences in full output: 0".
 - Test reference recorded in Test Plan: `diagnose-accuracy.test.ts > TC-06`.
 
 ### [GATE-COMPLETE: TC-07] — ✅ PASS | 2026-06-13
@@ -232,4 +232,4 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Test Plan: all 7 rows updated — TC-01–TC-06 carry test references into `packages/agent-cli/src/startup/__tests__/diagnose-accuracy.test.ts` (suite `diagnose accuracy (CLI-067)`, 6/6 passed, vitest exit code 0); TC-07 carries an explicit skip reason (doc prose, verified by direct read). No TC-N silently unaddressed.
 - Tasks file archived: `.agents/tasks/completed/CLI-067.md` exists with T1–T8 all `[x]` (verified by direct read); `.agents/tasks/CLI-067.md` no longer present in the active tasks directory.
 - `## Tasks` section reflects the archived path: `- [x] .agents/tasks/completed/CLI-067.md — archived at GATE-COMPLETE (T1~T8 complete, TC-01~TC-07 매핑)`.
-- User-execution (done-gate) evidence present: `.agents/backlog/completed/CLI-067-diagnose-accuracy.md` records 2026-06-13 real-binary (`bin/robota.cjs`, isolated HOME via `env -i`) outputs for both exit directions and the zero-key-leak scan.
+- User-execution (done-gate) evidence present: `.agents/tasks/completed/CLI-067-diagnose-accuracy.md` records 2026-06-13 real-binary (`bin/robota.cjs`, isolated HOME via `env -i`) outputs for both exit directions and the zero-key-leak scan.

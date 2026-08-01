@@ -62,8 +62,14 @@ function isExcludedDoc(rel) {
   const p = `/${rel.split(path.sep).join('/')}`;
   if (/\/\.changeset\//.test(p)) return true; // pending changelog fragments (same class as CHANGELOG.md; a removal changeset must name the removed package)
   if (/\/\.agents\/spec-docs\/(done|rejected)\//.test(p)) return true; // closed/archived spec work items
-  if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // completed task records
-  if (/\/\.agents\/backlog\/completed\//.test(p)) return true; // completed backlog items
+  // Two rules stood here — one for the task tree's `completed/`, one for the backlog tree's — and
+  // PROC-006 collapsed those trees into one, which made them the same rule written twice.
+  //
+  // Worth recording how the second one was nearly missed: a literal-string sweep for the old path
+  // did not see it, because it was written as an ESCAPED REGEX. A rename that greps for the literal
+  // path misses every escaped spelling of it.
+  if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // archived Task records
+  if (/\/\.agents\/archive\//.test(p)) return true; // retired artefact kinds, kept as history
   if (/\/\.agents\/release-runs\//.test(p)) return true; // frozen per-release run records (immutable history)
   if (/\/content\/v\d/.test(p)) return true; // frozen versioned documentation snapshots
   if (/\/docs\/superpowers\//.test(p)) return true; // dated historical plan/spec artifacts
@@ -106,8 +112,7 @@ function listPackageDirNames(root) {
 export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'ghost-package-refs',
-    why:
-      'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
+    why: 'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
   });
   const findings = [];
   const workspaceNames = listWorkspacePackageNames(root);

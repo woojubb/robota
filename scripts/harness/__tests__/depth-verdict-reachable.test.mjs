@@ -19,7 +19,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const AGENTS_DIR = path.join(WORKSPACE_ROOT, '.claude/agents');
 const SKILLS_DIR = path.join(WORKSPACE_ROOT, '.agents/skills');
 const MAP = path.join(WORKSPACE_ROOT, '.agents/specs/orchestration-map.md');
-const BACKLOG_DIR = path.join(WORKSPACE_ROOT, '.agents/backlog');
+const BACKLOG_DIR = path.join(WORKSPACE_ROOT, '.agents/tasks');
 
 /**
  * A worker told to TAKE a depth verdict must have a pipeline that PRODUCES one.
@@ -243,7 +243,7 @@ describe('a worker told to take a depth verdict has a pipeline that produces one
  * worse than leaving it visibly open, because the label is what stops the next audit round from
  * raising it again. So the label is only worth what it resolves to.
  *
- * PROC-009 removed this file's own containment: the reader read `.agents/backlog[/completed]` while
+ * PROC-009 removed this file's own containment: the reader read `.agents/tasks[/completed]` while
  * the pipelines routed the filing to a skill that writes `.agents/spec-docs/draft/`, so an item filed
  * on the designed path failed the check that verifies it was filed. The fix was never to widen the
  * reader here — that makes a third answer where the problem is that there is no owner for the first.
@@ -384,7 +384,7 @@ describe('a containment label names a root item that exists', () => {
  *
  * Two consumers picked their own and there were two answers: the review loops routed the filing to
  * `backlog-writer`, which creates `.agents/spec-docs/draft/<ID>.md`, while the floor that verifies the
- * filing resolved `.agents/backlog[/completed]` only — so an item filed on the designed happy path
+ * filing resolved `.agents/tasks[/completed]` only — so an item filed on the designed happy path
  * failed the check that exists to confirm it was filed, with the message "file the root item first"
  * about an item that IS filed. Measured 2026-08-01: 125 IDs existed only under `.agents/spec-docs/`.
  *
@@ -468,7 +468,7 @@ describe('a root item has one place to live, and one reader of it', () => {
       declared,
       'no root-item location is declared in finding-depth.md § "Where a root item lives"',
     ).not.toEqual([]);
-    expect(declared).toContain('.agents/backlog');
+    expect(declared).toContain('.agents/tasks');
   });
 
   it('the reader resolves exactly the locations the rule declares', () => {
@@ -493,7 +493,7 @@ describe('a root item has one place to live, and one reader of it', () => {
         mkdirSync(path.join(tmp, dir), { recursive: true });
         writeFileSync(path.join(tmp, dir, `${ids[i]}-probe.md`), 'probe\n');
       });
-      const { resolved } = resolveRootItems(ids, path.join(tmp, '.agents/backlog'));
+      const { resolved } = resolveRootItems(ids, path.join(tmp, '.agents/tasks'));
       const resolvedDirs = resolved.map((id) => candidates[ids.indexOf(id)]).sort();
 
       expect(

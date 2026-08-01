@@ -153,7 +153,7 @@ if (findings.length > 0) {
   console.error('release-verification-gate scan: FINDINGS');
   for (const f of findings) console.error(`  - ${f}`);
   console.error(
-    '\nSee .agents/backlog/DIST-002-release-artifact-verification.md. This gate is red on purpose ' +
+    '\nSee .agents/tasks/DIST-002-release-artifact-verification.md. This gate is red on purpose ' +
       'until signing lands; suppressing it is not the fix.',
   );
   process.exit(1);

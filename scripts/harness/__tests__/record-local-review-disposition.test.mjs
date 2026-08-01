@@ -53,10 +53,10 @@ function scratchRepo(branch) {
 
 function repoWithBacklog(branch, items) {
   const dir = scratchRepo(branch);
-  mkdirSync(path.join(dir, '.agents/backlog'), { recursive: true });
+  mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
   for (const id of items) {
     writeFileSync(
-      path.join(dir, '.agents/backlog', `${id}-something.md`),
+      path.join(dir, '.agents/tasks', `${id}-something.md`),
       '---\nstatus: todo\n---\n',
     );
   }

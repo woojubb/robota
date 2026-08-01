@@ -1,54 +1,57 @@
+---
+title: 'CLI Session Store Boundary Cleanup'
+status: done
+---
+
 # CLI Session Store Boundary Cleanup
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: fix/cli-session-store-boundary
-- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-session, scripts/harness
+## Priority
 
-## Objective
+P1 - fixes a documented package boundary violation in the CLI beta architecture.
 
-Remove the direct `agent-cli` dependency on `@robota-sdk/agent-session` while preserving project-local
-session persistence, continue/resume/fork flows, and the saved-session picker.
+## Problem
 
-## Plan
+`packages/agent-cli/docs/SPEC.md` states that `agent-cli` must not import from
+`@robota-sdk/agent-session`, but current CLI source constructs and passes `SessionStore` directly.
+This leaks session persistence ownership into the product UI layer and keeps the CLI coupled to a
+concrete sessions package class.
 
-- [x] Confirm the current forbidden `agent-cli -> agent-sessions` imports and manifest dependency.
-- [x] Update governing SPEC/rule docs before implementation.
-- [x] Add regression tests and harness coverage for the forbidden edge.
-- [x] Add SDK-owned session persistence facade and resumable-session summary helpers.
-- [x] Migrate CLI construction, hooks, and picker to SDK-owned types/helpers.
-- [x] Update `ARCHITECTURE-MAP.md` to remove the audit violation and show the new boundary.
-- [x] Move backlog item to completed with acceptance criteria checked.
-- [x] Run targeted package and harness verification.
+Known current files:
 
-## Progress
+- `packages/agent-cli/package.json`
+- `packages/agent-cli/src/cli.ts`
+- `packages/agent-cli/src/ui/render.tsx`
+- `packages/agent-cli/src/ui/App.tsx`
+- `packages/agent-cli/src/ui/hooks/useInteractiveSession.ts`
+- `packages/agent-cli/src/ui/SessionPicker.tsx`
 
-### 2026-05-05
+## Recommended Direction
 
-- Merged PR #204, refreshed `develop`, and created `fix/cli-session-store-boundary`.
-- Confirmed direct CLI imports from `@robota-sdk/agent-session` in `cli.ts`, `render.tsx`,
-  `App.tsx`, `SessionPicker.tsx`, and `useInteractiveSession.ts`.
-- Added SDK-owned project session store and resumable-session helpers.
-- Removed the direct CLI `agent-sessions` package dependency and migrated resume/session picker flows
-  to SDK facade types.
-- Added command-layering harness checks for forbidden CLI imports and package dependencies.
-- Updated SPEC/README/content docs and `packages/agent-cli/docs/ARCHITECTURE-MAP.md`.
-- Verified affected packages and docs build.
+Move session persistence construction and host-facing resume/picker data behind an SDK-owned API or
+port. The CLI should depend on SDK-owned types and factories rather than importing
+`@robota-sdk/agent-session`.
 
-## Decisions
+Recommended shape:
 
-- Use an SDK-owned session persistence facade instead of exposing `SessionStore` to the CLI.
-- Keep the concrete JSON persistence implementation in `agent-sessions`; SDK owns the host-facing
-  facade and resumable-session summaries.
-- Add a harness check for the forbidden CLI dependency so the boundary does not regress.
+- `agent-sdk` owns a public session persistence facade or factory for project-local persistence.
+- CLI passes `cwd`, resume/fork/name options, or an SDK-owned persistence adapter into
+  `InteractiveSession`.
+- `SessionPicker` consumes an SDK-owned resumable session summary interface, not
+  `ISessionRecord` or `SessionStore`.
+- `agent-cli/package.json` no longer depends on `@robota-sdk/agent-session`.
 
-## Blockers
+## Acceptance Criteria
 
-- None.
+- [x] No production file under `packages/agent-cli/src` imports from `@robota-sdk/agent-session`.
+- [x] `packages/agent-cli/package.json` no longer declares `@robota-sdk/agent-session`.
+- [x] Resume, fork, continue, and session picker behavior still work through SDK-owned APIs.
+- [x] `packages/agent-cli/docs/SPEC.md` and `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflect the final boundary.
+- [x] Add or extend a mechanical harness/import check for this forbidden edge if feasible.
 
-## Result
+## Verification Plan
 
-Completed. The CLI now uses SDK-owned session persistence APIs for project-local stores, latest
-session resolution, named/id resume, and picker summaries. The concrete sessions package remains
-behind the SDK facade, and harness coverage now prevents the forbidden CLI dependency from
-regressing.
+- `rg -n "@robota-sdk/agent-session" packages/agent-cli/src packages/agent-cli/package.json`
+- `pnpm --filter @robota-sdk/agent-cli test`
+- `pnpm --filter @robota-sdk/agent-cli typecheck`
+- `pnpm --filter @robota-sdk/agent-framework test`
+- `pnpm --filter @robota-sdk/agent-framework typecheck`
