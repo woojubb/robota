@@ -150,13 +150,28 @@ const SEPARATOR = /^(;|&|&&|\||\|\||\)|\(|\{|\}|then|do|else|fi|done|esac)$/;
  * value-taking rules below.
  */
 function invokesWith(line, { command, short, long, valueTaking }) {
-  const words = line.trim().split(/\s+/);
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i];
+  // A command position can open without whitespace in front of it — `$(sed -i …)`, `` `sed …` ``,
+  // `(sed …`, `|sed …`. Splitting on whitespace alone left the word as `$(sed`, which matched
+  // nothing, so the opening punctuation is stripped before the comparison. (#1590 review)
+  //
+  // The RAW word is kept alongside, because a leading `;`/`&`/`|` is also what makes a word a
+  // SEPARATOR: stripping it for both purposes at once would have let the walk run past the end of
+  // its own command and blame it for a later one's flag.
+  //
+  // Three readings of the same words, because they answer three different questions:
+  //   raw      — is this word a SEPARATOR (a leading `;`/`&`/`|`/`)` ends the command it follows)
+  //   argWord  — leading punctuation removed only; `--wrap=0` must keep its `=`
+  //   cmdWord  — the last segment after any opener, so `x=$(sed` and `` x=`stat `` name the command
+  const raw = line.trim().split(/\s+/);
+  const argWords = raw.map((w) => w.replace(/^[$({`;|&]+/, ''));
+  const cmdWords = raw.map((w) => w.split(/[$(`{;|&=]/).pop() ?? w);
+  const words = argWords;
+  for (let i = 0; i < cmdWords.length; i++) {
+    const w = cmdWords[i];
     if (w !== command && !w.endsWith(`/${command}`)) continue;
     for (let j = i + 1; j < words.length; j++) {
       const arg = words[j];
-      if (SEPARATOR.test(arg)) break;
+      if (SEPARATOR.test(raw[j]) || /^[;|&)]/.test(raw[j])) break;
       // A long option, with or without an attached `=value`.
       if (long.some((l) => arg === l || arg.startsWith(`${l}=`))) return true;
       if (short === null) continue;
@@ -279,6 +294,9 @@ export function findPortabilityFindings(root = WORKSPACE_ROOT) {
       filesExamined++;
       for (const logical of logicalLines(readFileSync(path.join(root, rel), 'utf8'))) {
         if (logical.comment) continue;
+        // EVERY entry that matches, not the first. `sed -i … && stat -c …` is one logical line with
+        // two divergent commands, and breaking on the first reported one and dropped the other —
+        // a silent miss, in the scan that exists to remove them. (#1590 review)
         for (const entry of DIVERGENT) {
           const { flag, portable } = entry;
           if (invokesWith(logical.text, entry)) {
@@ -289,7 +307,6 @@ export function findPortabilityFindings(root = WORKSPACE_ROOT) {
               portable,
               text: logical.text.trim().slice(0, 120),
             });
-            break;
           }
         }
       }

@@ -157,6 +157,32 @@ describe('scan-shell-portability', () => {
     expect(findPortabilityFindings(root).findings).toEqual([]);
   });
 
+  // Two divergent commands on ONE logical line. The entry loop broke on the first match, so the
+  // second was dropped — a silent miss in the scan that exists to remove them. (#1590 review)
+  it('reports EVERY divergent command on a line, not the first', () => {
+    const root = fixture({ 'scripts/a.sh': 'sed -i "s/a/b/" f && stat -c %Y f\n' });
+    expect(
+      findPortabilityFindings(root)
+        .findings.map((f) => f.flag)
+        .sort(),
+    ).toEqual(['sed -i', 'stat -c']);
+  });
+
+  // A command position can open without whitespace in front of it. Splitting on whitespace alone
+  // left the word as `x=$(sed`, which matched nothing. (#1590 review)
+  it('sees a command that opens a substitution or follows a pipe with no space', () => {
+    const root = fixture({
+      'scripts/a.sh': 'x=$(sed -i "s/a/b/" f)\n',
+      'scripts/b.sh': 'x=`stat -c %Y f`\n',
+      'scripts/c.sh': 'cat f |sed -i "s/a/b/" g\n',
+    });
+    expect(
+      findPortabilityFindings(root)
+        .findings.map((f) => f.flag)
+        .sort(),
+    ).toEqual(['sed -i', 'sed -i', 'stat -c']);
+  });
+
   // An option belongs to the command it follows, not to any command on the line.
   it('does not attribute a later command’s flag to an earlier one', () => {
     const root = fixture({ 'scripts/a.sh': 'grep x f | sort -f\n' });
