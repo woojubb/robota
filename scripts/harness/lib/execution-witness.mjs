@@ -209,6 +209,35 @@ export function escapeTestNamePattern(title) {
 }
 
 /**
+ * The `-t` pattern that selects EXACTLY the named case.
+ *
+ * `--testNamePattern` is an UNANCHORED regex, so a bare title also selects every sibling whose name
+ * contains it — `parses config` drags in `parses config with defaults`, which is the ordinary shape
+ * of descriptive titles. The isolated run then executes both, and every line the sibling touched is
+ * credited to the deciding case: a genuine UNREACHED reported as REACHED. That is a MISSED
+ * DETECTION, the direction a false-alarm count cannot see.
+ *
+ * WHAT IT ANCHORS AGAINST was measured rather than assumed, because anchoring the wrong string
+ * matches nothing and answers UNKNOWN for everything — a worse failure than the one being fixed.
+ * Probed on vitest 3.2.6 against `describe('outer group')` + `it('parses config')`:
+ *
+ *   -t 'parses config'                    → 2 ran   (the collision)
+ *   -t '^parses config$'                  → 0 ran, 2 skipped   (the bare title is NOT the subject)
+ *   -t '^outer group parses config$'      → 1 ran, 1 skipped   (correct)
+ *
+ * So the subject is the describe chain and the title joined by single spaces — byte-identical to the
+ * json reporter's `fullName`, which is what `decidingFailures` hands over.
+ *
+ * @param qualified false when only a bare title is known (the reporter gave no `fullName`). The
+ *   ancestor chain is then unknown, so the pattern anchors the END and allows any prefix: still
+ *   immune to the sibling-suffix collision this exists for, and strictly narrower than no anchor.
+ */
+export function testNamePattern(caseName, { qualified = true } = {}) {
+  const escaped = escapeTestNamePattern(caseName);
+  return qualified ? `^${escaped}$` : `^(?:.* )?${escaped}$`;
+}
+
+/**
  * Ask the question of every deciding case, and never let "we stopped looking" pass for "nothing
  * reached it".
  *
@@ -256,6 +285,7 @@ export function witnessOneCase({
   sourceRel,
   testFileAbs,
   caseName,
+  caseNameQualified = true,
   targetLines,
   isShell,
   readText = (p) => readFileSync(p, 'utf8'),
@@ -264,7 +294,7 @@ export function witnessOneCase({
   const sourceAbs = path.resolve(workspaceRoot, sourceRel);
   const scratch = mkdtempSync(path.join(tmpdir(), 'harness-witness-'));
   try {
-    const pattern = escapeTestNamePattern(caseName);
+    const pattern = testNamePattern(caseName, { qualified: caseNameQualified });
     if (isShell) {
       const prelude = path.join(scratch, 'xtrace-prelude.sh');
       const traceFile = path.join(scratch, 'xtrace.log');

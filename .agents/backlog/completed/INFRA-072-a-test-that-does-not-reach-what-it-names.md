@@ -189,11 +189,13 @@ The conclusion is unchanged and the corrected numbers are stronger.
 The gate stays ADVISORY and `red-proof-unreached` is report-only even under
 `REGRESSION_RED_PROOF_ENFORCE`; promotion is INFRA-046's decision, not this one.
 
-### Two review findings, both of them false-alarm sources, both fixed
+### Three review findings, all fixed
 
-Neither could turn CI red today — `red-proof-unreached` never sets a non-zero exit — which is the
-reason to fix them now: they are cheap while the verdict is advisory and expensive the moment
-INFRA-046 promotes it.
+None could turn CI red today — `red-proof-unreached` never sets a non-zero exit — which is the reason
+to fix them now: they are cheap while the verdict is advisory and expensive the moment INFRA-046
+promotes it. The first two are false-alarm sources, where the gate reports a finding against correct
+work. The third is the opposite and the more costly direction: a missed detection, where the gate
+reports a sound proof over a masking bug.
 
 **1. The `case`-arm exclusion over-matched, and excluded a line bash DOES trace.** `BARE_CASE_ARM`
 matched any `(...)` line with no inner parens, so a full-line subshell in an arm BODY —
@@ -225,6 +227,42 @@ for ONE run whatever the number is; only a range heading for a finding walks the
 
 Re-measured after both fixes: the corpus result is **unchanged** — 12 REACHED, 1 UNKNOWN, 0 UNREACHED
 across the 13 red proofs.
+
+**3. `-t` selected the deciding case's SIBLINGS too, and that one hid a missed detection.**
+`--testNamePattern` is an UNANCHORED regex over the full test name, so a case called `parses config`
+also selected `parses config with defaults` — the ordinary shape of descriptive titles. The isolated
+run executed both, and every line the sibling touched was credited to the deciding case, turning a
+genuine UNREACHED into a reported REACHED.
+
+This is the finding that mattered most, and the corpus measurement was structurally blind to it: the
+failure direction is a MISSED DETECTION, not a false alarm. Zero-false-alarms was measured and would
+have stayed zero while the feature quietly did not work. The previous two findings were "a correct fix
+reported wrong"; this one is "a wrong fix reported correct".
+
+Reproduced red against a REAL vitest run — an injected runner implementing my own idea of `-t` would
+have been an accidental green — with two cases whose names are prefix/suffix of one another, only the
+longer touching the fix-written line, and the shorter as the deciding failure: `expected 'reached' to
+be 'unreached'`.
+
+WHAT `-t` ANCHORS AGAINST was measured, not read, because anchoring the wrong string matches nothing
+and answers UNKNOWN for everything — a worse bug than the one being fixed. Probed on vitest 3.2.6
+against `describe('outer group')` + `it('parses config')`:
+
+| Pattern                       | Result                                          |
+| ----------------------------- | ----------------------------------------------- |
+| `parses config`               | **2 ran** — the collision                       |
+| `^parses config$`             | **0 ran, 2 skipped** — the bare title is NOT it |
+| `^outer group parses config$` | **1 ran, 1 skipped** — correct                  |
+
+So the subject is the describe chain and the title joined by single spaces, byte-identical to the json
+reporter's `fullName`, which is what `decidingFailures` already hands over. The pattern is now
+`^<escaped fullName>$`, and when only a bare title is known (no `fullName`) it anchors the END only —
+still immune to the sibling collision, and never the empty-match trap.
+
+**The anchoring needed its own guard**, since an anchoring that matched nothing would look like a
+clean pass. Re-measured on the same eight ranges after the change: **12 REACHED, 1 UNKNOWN,
+0 UNREACHED — the 12 are still 12.** Those verdicts come from real `-t` invocations against real
+describe chains, so had the pattern stopped matching they would all have flipped to UNKNOWN.
 
 ### Re-measured against the current hooks
 

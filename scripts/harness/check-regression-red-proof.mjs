@@ -297,7 +297,10 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles, addedCases =
  * proof, so it is not what has to be shown to have reached the fix. A file the range added no
  * readable title to is judged at file granularity, and there every failure is a candidate.
  *
- * @returns {{ file: string, name: string }[]} — `name` is the fullName vitest filters on with `-t`.
+ * @returns {{ file: string, name: string, qualified: boolean }[]} — `name` is the fullName vitest
+ *   filters on with `-t`. `qualified` records whether that name really is the describe-qualified one:
+ *   the pattern is anchored differently when only a bare title is known, because anchoring a bare
+ *   title against the full name matches NOTHING (measured).
  */
 export function decidingFailures(vitestJson, changedTestFiles, addedCases = null) {
   const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
@@ -311,7 +314,7 @@ export function decidingFailures(vitestJson, changedTestFiles, addedCases = null
       if (assertion.status !== 'failed') continue;
       if (matchers?.length && !matchesAddedCase(matchers, assertion)) continue;
       const title = assertion.fullName || assertion.title;
-      if (title) out.push({ file: name, name: title });
+      if (title) out.push({ file: name, name: title, qualified: Boolean(assertion.fullName) });
     }
   }
   return out;
@@ -719,6 +722,7 @@ function defaultExecutionWitness(base) {
           sourceRel: source,
           testFileAbs: failure.file,
           caseName: failure.name,
+          caseNameQualified: failure.qualified !== false,
           targetLines,
           isShell: source.endsWith('.sh'),
           runVitestRaw,

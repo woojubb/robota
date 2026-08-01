@@ -11,6 +11,7 @@ import {
   coverageLines,
   escapeTestNamePattern,
   judgeWitness,
+  testNamePattern,
   parseXtrace,
   untraceableShellLines,
   witnessDecidingCases,
@@ -149,12 +150,12 @@ describe('INFRA-072 — a red proof that never reached the fix', () => {
             assertionResults: [
               {
                 title: 'unrelated older case',
-                fullName: 'x > unrelated older case',
+                fullName: 'x unrelated older case',
                 status: 'failed',
               },
               {
                 title: 'the new regression case',
-                fullName: 'x > the new regression case',
+                fullName: 'x the new regression case',
                 status: 'failed',
               },
             ],
@@ -166,8 +167,11 @@ describe('INFRA-072 — a red proof that never reached the fix', () => {
     );
 
     // ONLY the added case. An older case's red is not what #1568 accepted as the proof, so it is not
-    // what the witness must account for either.
-    expect(failures).toEqual([{ file: testAbs, name: 'x > the new regression case' }]);
+    // what the witness must account for either. `fullName` is space-joined, which is the shape the
+    // real reporter emits and the exact string `-t` matches against — measured, not assumed.
+    expect(failures).toEqual([
+      { file: testAbs, name: 'x the new regression case', qualified: true },
+    ]);
   });
 });
 
@@ -279,7 +283,7 @@ describe('witnessOneCase wiring', () => {
     const { seenArgs } = shellWitness({ targetLines: new Set([4]), argv: ['go'] });
 
     expect(seenArgs).toContain('-t');
-    expect(seenArgs[seenArgs.indexOf('-t') + 1]).toBe('a case \\(with parens\\)');
+    expect(seenArgs[seenArgs.indexOf('-t') + 1]).toBe('^a case \\(with parens\\)$');
   });
 
   it('REACHED when the only fix-written line is a subshell inside a case arm body', () => {
@@ -358,6 +362,67 @@ describe('witnessOneCase wiring', () => {
       WITNESS.REACHED,
     );
   });
+
+  it('isolates the named case even when a SIBLING name contains it', () => {
+    // `-t` is an UNANCHORED regex over the full test name, so `parses config` also selects
+    // `parses config with defaults` — the ordinary shape of descriptive titles. Every line the
+    // sibling touched is then credited to the deciding case, turning a genuine UNREACHED into a
+    // reported REACHED. That direction is a MISSED DETECTION: the corpus measurement cannot see it,
+    // because nothing looks wrong when the gate wrongly says the proof is sound.
+    //
+    // This runs a REAL vitest, because the defect IS vitest's `-t` semantics — an injected runner
+    // that "implements" `-t` would only test my own idea of what it means.
+    const dir = scratchDir('witness-sibling-');
+    writeFileSync(
+      path.join(dir, 'hook.sh'),
+      [
+        '#!/usr/bin/env bash',
+        'set -eu',
+        'if [ "${1:-}" = long ]; then',
+        '  echo long-only',
+        'fi',
+        'echo common',
+        '',
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(dir, 'probe.test.mjs'),
+      [
+        "import { spawnSync } from 'node:child_process';",
+        "import path from 'node:path';",
+        "import { describe, expect, it } from 'vitest';",
+        "const hook = path.join(import.meta.dirname, 'hook.sh');",
+        "const run = (arg) => spawnSync('bash', [hook, arg], { env: { ...process.env } });",
+        "describe('outer', () => {",
+        // The SHORT name is the deciding case, and it never reaches the fix-written line.
+        "  it('parses config', () => { expect(run('short').status).toBe(0); });",
+        // The sibling whose name CONTAINS it, and which does reach the line.
+        "  it('parses config with defaults', () => { expect(run('long').status).toBe(0); });",
+        '});',
+        '',
+      ].join('\n'),
+    );
+
+    const answer = witnessOneCase({
+      workspaceRoot: dir,
+      sourceRel: 'hook.sh',
+      testFileAbs: path.join(dir, 'probe.test.mjs'),
+      caseName: 'outer parses config',
+      targetLines: new Set([4]), // only `parses config with defaults` executes this
+      isShell: true,
+      runVitestRaw: (args, env) => {
+        spawnSync('npx', ['vitest', 'run', '--root', dir, ...args.slice(1)], {
+          cwd: WORKSPACE_ROOT,
+          encoding: 'utf8',
+          env: { ...process.env, ...env },
+        });
+      },
+    });
+
+    expect(answer, 'a sibling case supplied the execution credited to this one').toBe(
+      WITNESS.UNREACHED,
+    );
+  }, 60_000);
 
   it('REACHED when the case runs the changed line, UNREACHED when it does not', () => {
     expect(shellWitness({ targetLines: new Set([4]), argv: ['go'] }).answer).toBe(WITNESS.REACHED);
@@ -616,6 +681,32 @@ describe('coverageLines', () => {
 
   it('returns null for a file the report never mentions', () => {
     expect(coverageLines({}, '/repo/a.mjs')).toBeNull();
+  });
+});
+
+describe('testNamePattern', () => {
+  it('anchors the full name, so a sibling that CONTAINS it is not selected', () => {
+    const pattern = new RegExp(testNamePattern('outer parses config'));
+
+    expect(pattern.test('outer parses config')).toBe(true);
+    expect(pattern.test('outer parses config with defaults')).toBe(false);
+  });
+
+  it('anchors only the END when the describe chain is unknown', () => {
+    // `-t` matches the describe-qualified name, so anchoring a BARE title with `^…$` selects
+    // nothing at all — measured: `-t '^parses config$'` skipped both cases. When only a title is
+    // known the prefix has to stay open, which still excludes the sibling-suffix collision.
+    const pattern = new RegExp(testNamePattern('parses config', { qualified: false }));
+
+    expect(pattern.test('outer group parses config')).toBe(true);
+    expect(pattern.test('outer group parses config with defaults')).toBe(false);
+  });
+
+  it('escapes a title that would otherwise be read as a pattern', () => {
+    const pattern = new RegExp(testNamePattern('it (a|b) [c]'));
+
+    expect(pattern.test('it (a|b) [c]')).toBe(true);
+    expect(pattern.test('it a')).toBe(false);
   });
 });
 
