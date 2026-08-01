@@ -300,4 +300,30 @@ describe('a bare stash command is refused while the stack is shared', () => {
     const { status, output } = run('git stash pop stash@{0}; git stash drop stash@{1}', dir);
     expect(status, `a fully-explicit compound was refused: ${output}`).toBe(0);
   });
+
+  it('is not escaped by a global git flag', () => {
+    // Review of #1585, MUST — and the FOURTH time in this PR that a rule already written down in
+    // this file was re-derived worse a few lines away. GITPFX tolerates `git -C <path>` and
+    // `git -c k=v` before the subcommand; the entry gate written beside it did not, so
+    // `git -C <sibling-worktree> stash pop` skipped the whole shared-stash check.
+    //
+    // A `-C` pointing at a SIBLING worktree is the sharpest form of the hazard, not an edge case:
+    // it is how one worktree reaches into another in the first place.
+    const dir = repoWithWorktrees(2);
+    const sibling = path.join(dir, 'wt-1');
+    for (const command of [
+      `git -C ${sibling} stash pop`,
+      `git -c core.editor=true stash`,
+      `git -C ${sibling} stash clear`,
+    ]) {
+      expect(run(command, dir).status, `a global flag escaped the gate: ${command}`).not.toBe(0);
+    }
+  });
+
+  it('still allows the explicit form behind a global flag', () => {
+    const dir = repoWithWorktrees(2);
+    const sibling = path.join(dir, 'wt-1');
+    const { status, output } = run(`git -C ${sibling} stash pop stash@{0}`, dir);
+    expect(status, `the explicit form behind -C was refused: ${output}`).toBe(0);
+  });
 });
