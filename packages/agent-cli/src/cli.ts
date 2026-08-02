@@ -441,7 +441,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode,
+    // ARCH-013: `permissionMode` arrives via `...presetSurface` below, from this same value.
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
