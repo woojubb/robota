@@ -67,6 +67,33 @@ This is implemented in `services/dag-run-finalizer.ts`: `PENDING_TASK_STATUSES =
 
 When `WorkerLoopService` fails to acquire a lease (another worker already holds it), this is a normal contention scenario, not an error. The method should return a non-error result indicating no work was processed (`processed: false`), allowing the message to remain in the queue for the lease holder to process.
 
+### Crash Recovery (DAG-001)
+
+A worker that dies mid-node used to leave its task and its run in `running` **forever**, silently. Two
+paths now recover it, and both go through `dag-core`'s `running --RECLAIM--> queued` edge.
+
+**On redelivery.** `processOnce` reclaims a task that is already `running` when its message arrives.
+This is safe precisely here: the code reaches that point only after `lease.acquire` SUCCEEDED, so a
+live owner's duplicate delivery is nacked before it gets there. Acquiring means the previous owner
+released the lease or died and let it expire — the definition of abandoned.
+
+**On idle.** Only the in-memory queue redelivers. On a queue without it there is no message left to
+arrive, so `processOnce` calls `sweepStaleTaskRuns` on its idle branch — the one point every loop
+driver goes through, throttled to at most once per `leaseDurationMs` since a lease cannot expire
+faster than that.
+
+**When a task counts as stale**: its recorded `leaseUntil` has passed, or it is `running` with no
+lease recorded at all. The second case is included deliberately — a task orphaned before its lease was
+written has the least evidence and would otherwise be exactly the one left stuck forever.
+
+**Lease expiry is derived from the execution bound, not from `leaseDurationMs`.** That option bounds
+how long a worker may hold the distributed lock; a task's execution is bounded by its own `timeoutMs`,
+and the two are unrelated numbers. Using the lock duration would let the sweeper reclaim a task that
+is still legitimately running — executed twice, a worse failure than the trap being fixed.
+
+A swept task returns to `queued` and is executed again; it is not marked failed. The attempt counter
+and retry policy govern what happens next, as for any other failure.
+
 ### Idle Wait / Queue Wake-up
 
 `IWorkerLoopOptions.idleWaitMs` is optional and defaults to immediate dequeue semantics when omitted. When configured, `WorkerLoopService.processOnce()` passes the value to `IQueuePort.dequeue(..., waitTimeoutMs)`.
@@ -91,11 +118,16 @@ This package is SSOT for:
 
 ## Public API Surface
 
-- `WorkerLoopService` -- main service class
-  - `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` -- dequeue and process one task
-- `DlqReinjectService` -- DLQ reinject service
-  - `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`
-- `createWorkerLoopService(deps, options): WorkerLoopService` -- composition factory
+A table rather than a bullet list, because `check-spec-public-surface` reads table rows — as a list
+this section was invisible to the surface scan and every export in it counted as undocumented.
+
+| Export                    | Kind     | Description                                                                                                                                                      |
+| ------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkerLoopService`       | class    | Main service. `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` dequeues and processes one task, and sweeps abandoned tasks when the queue is idle |
+| `DlqReinjectService`      | class    | DLQ reinject. `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`                                                     |
+| `createWorkerLoopService` | function | Composition factory — `(deps, options) => WorkerLoopService`                                                                                                     |
+| `sweepStaleTaskRuns`      | function | DAG-001: returns tasks abandoned by a dead worker to the queue. The reader for `IStoragePort.listStaleRunningTaskRuns` — see § Crash Recovery                    |
+| `DAG_WORKER_PACKAGE_NAME` | constant | This package's name                                                                                                                                              |
 
 `replaceAttemptSegment(path, nextAttempt)` is an internal utility (`src/utils/execution-path.ts`), not re-exported from `src/index.ts`; see "Supporting utility" above.
 

@@ -1,6 +1,6 @@
 ---
 title: 'DAG-001: `running` is a terminal trap — the DAG subsystem has no crash-recovery path at the contract level'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -119,3 +119,67 @@ redelivering, because the message is now gone.
 - **Cleanup:** delete the run's state/store artifacts created by the scenario.
 - **Evidence (fill in after implementation):** the status output before the kill, after the restart,
   and at terminal state, with timestamps.
+
+## Progress
+
+### Complete — all three gaps closed (100% of the contract work; the two red-first regressions in the Test Plan pass)
+
+The audit named exactly three things a recovery path needs, all owned by `dag-core`, none of which
+worked. All three now do.
+
+**1. The transition.** `running --RECLAIM--> queued` in `task-run-state-machine.ts`. The event's doc
+states the precondition the state machine cannot itself check — a caller may only issue it once it has
+established the previous owner is gone — so a second caller cannot be added that skips it.
+
+**2. The query.** `IStoragePort.listStaleRunningTaskRuns(asOfIso)`, implemented in all four
+implementations (in-memory, file, sqlite, and the dag-core test double). A `running` task with NO
+lease recorded counts as stale, deliberately: one orphaned before its lease was written has the least
+evidence and would otherwise be exactly the task left stuck forever.
+
+**3. The written lease.** `IStoragePort.setTaskRunLease` is the writer `ITaskRun.leaseOwner` /
+`leaseUntil` never had. The sqlite `lease_owner` / `lease_until` columns have existed since the first
+migration and the INSERT has always copied them — from a record nothing ever set. Ghost columns, now
+load-bearing.
+
+**Two recovery paths, because only one queue adapter redelivers.**
+
+- On redelivery: `WorkerLoopService.transitionToRunning` reclaims a task already `running`. Safe
+  precisely there — it is reached only after `lease.acquire` SUCCEEDED, so a live owner's duplicate
+  delivery is nacked before it gets there.
+- On idle: `sweepStaleTaskRuns` (new, `dag-worker`), called from `processOnce`'s idle branch. That is
+  the one point all three loop drivers the audit found go through, so wiring it into any single driver
+  would have left the others without recovery. Throttled to once per `leaseDurationMs` — a lease
+  cannot expire faster than that, and the driver's 25ms idle floor would otherwise mean forty storage
+  queries a second per worker.
+
+**A bug this fix could easily have introduced, and does not.** Lease expiry is derived from the time a
+task is ALLOWED to run, not from `leaseDurationMs`. That option bounds how long a worker may hold the
+distributed lock; execution is bounded by the task's own `timeoutMs`, and the two are unrelated. Using
+the lock duration would let the sweeper reclaim a task that is still legitimately running — executed
+TWICE, worse than the trap being fixed. Pinned by its own case.
+
+**`ILeasePort.renew`: REMOVED.** The synthesis allowed either "delete" or "make load-bearing" and did
+not choose. It is deleted, because the design that would need it is a heartbeat and this is not that
+design — lease expiry is known up front. Its only callers anywhere were three tests, which is how a
+seam nothing could reach stayed green; the port records what would justify bringing it back. Keeping
+it on "we might need it later" is the argument that produced the ghost lease columns this same task
+had to fix.
+
+**Red-proof.** Removing the single `RECLAIM` table entry: 5 of 9 cases fail on named assertions
+(`expected [] to deeply equal [ 'task-run-1' ]`, `expected 'running' to be 'success'`,
+`expected 'dead-worker' to be undefined`, …). Removing the `sweepIfDue()` call alone fails the
+reachability case (`expected 'running' to be 'queued'`) — the sweep is wired, not merely written. The
+4 non-provers are the guards: live lease, live long-running task, nothing-stale, and the idle no-op.
+
+Whole workspace green: build, typecheck, every package's test suite. `spec-public-surface` passes and
+`dag-worker` leaves the burn-down entirely (4 undocumented → 0) — its Public API section was a bullet
+LIST, which the scan cannot read, so every export in it counted as undocumented; converting it to a
+table made the existing documentation visible. Baseline re-frozen in the same change.
+
+### Remaining
+
+**User Execution Test Scenarios.** The scenario is written against the product's workflow surface with
+a real worker process killed mid-node. The contract-level regressions are covered here; the
+end-to-end kill/restart scenario needs the two-node fixture the scenario itself calls for, and is not
+expressible in-process — a real mid-node kill is a separate process. Tracked as the remaining item on
+this task.

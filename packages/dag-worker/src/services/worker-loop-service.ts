@@ -16,9 +16,11 @@ import {
   type IRunProgressEventReporter,
   type TPortPayload,
   type TResult,
+  type TTaskRunStatus,
 } from '@robota-sdk/dag-core';
 import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
+import { StaleTaskSweepThrottle, claimTaskForExecution } from './task-lease-recovery.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
@@ -69,6 +71,9 @@ export class WorkerLoopService {
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
   ) {}
 
+  /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
+  private sweeper: StaleTaskSweepThrottle | undefined;
+
   /** Dequeues and processes a single task message. */
   public async processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const message = await this.queue.dequeue(
@@ -77,6 +82,10 @@ export class WorkerLoopService {
       this.options.idleWaitMs,
     );
     if (!message) {
+      // DAG-001: idle is when there is capacity to recover abandoned work, and it is the one point
+      // all three loop drivers go through — see SPEC § Crash Recovery.
+      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.options.leaseDurationMs);
+      await this.sweeper.sweepIfDue(this.storage, this.queue);
       return { ok: true, value: { processed: false } };
     }
 
@@ -114,7 +123,16 @@ export class WorkerLoopService {
       );
     }
 
-    const startResult = await this.transitionToRunning(message, taskRun);
+    const startResult = await claimTaskForExecution({
+      storage: this.storage,
+      clock: this.clock,
+      reporter: this.runProgressEventReporter,
+      workerId: this.options.workerId,
+      leaseDurationMs: this.options.leaseDurationMs,
+      timeoutMs: this.resolveTimeoutMs(message),
+      message,
+      taskRun,
+    });
     if (!startResult.ok) {
       return failAfterAck(this.queue, message.messageId, startResult.error);
     }
@@ -152,27 +170,6 @@ export class WorkerLoopService {
     }
 
     return this.handleFailurePath(message, taskRun.taskRunId, executionResult.error);
-  }
-
-  private async transitionToRunning(
-    message: IQueueMessage,
-    taskRun: ITaskRun,
-  ): Promise<TResult<void, IDagError>> {
-    const startTransition = TaskRunStateMachine.transition(taskRun.status, 'START');
-    if (!startTransition.ok) {
-      return startTransition;
-    }
-    await this.storage.updateTaskRunStatus(taskRun.taskRunId, startTransition.value.nextStatus);
-    this.runProgressEventReporter?.publish({
-      dagRunId: message.dagRunId,
-      eventType: TASK_PROGRESS_EVENTS.STARTED,
-      occurredAt: this.clock.nowIso(),
-      taskRunId: taskRun.taskRunId,
-      nodeId: message.nodeId,
-      input: message.payload,
-    });
-    await this.storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
-    return { ok: true, value: undefined };
   }
 
   private async buildExecutionInput(

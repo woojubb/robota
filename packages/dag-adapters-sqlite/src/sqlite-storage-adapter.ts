@@ -1,4 +1,6 @@
 import DatabaseConstructor from 'better-sqlite3';
+import { listStaleRunningTaskRunRows, setTaskRunLeaseRow } from './task-run-recovery-queries.js';
+import { type ITaskRunRow, rowToTaskRun } from './task-run-row.js';
 import type Database from 'better-sqlite3';
 import type {
   IDagDefinition,
@@ -32,22 +34,6 @@ interface IDagRunRow {
   ended_at: string | null;
 }
 
-interface ITaskRunRow {
-  task_run_id: string;
-  dag_run_id: string;
-  node_id: string;
-  status: string;
-  attempt: number;
-  lease_owner: string | null;
-  lease_until: string | null;
-  input_snapshot: string | null;
-  output_snapshot: string | null;
-  estimated_credits: number | null;
-  total_credits: number | null;
-  error_code: string | null;
-  error_message: string | null;
-}
-
 function rowToDefinition(row: IDefinitionRow): IDagDefinition {
   return JSON.parse(row.definition_json) as IDagDefinition;
 }
@@ -65,24 +51,6 @@ function rowToDagRun(row: IDagRunRow): IDagRun {
     inputSnapshot: row.input_snapshot ?? undefined,
     startedAt: row.started_at ?? undefined,
     endedAt: row.ended_at ?? undefined,
-  };
-}
-
-function rowToTaskRun(row: ITaskRunRow): ITaskRun {
-  return {
-    taskRunId: row.task_run_id,
-    dagRunId: row.dag_run_id,
-    nodeId: row.node_id,
-    status: row.status as TTaskRunStatus,
-    attempt: row.attempt,
-    leaseOwner: row.lease_owner ?? undefined,
-    leaseUntil: row.lease_until ?? undefined,
-    inputSnapshot: row.input_snapshot ?? undefined,
-    outputSnapshot: row.output_snapshot ?? undefined,
-    estimatedCredits: row.estimated_credits ?? undefined,
-    totalCredits: row.total_credits ?? undefined,
-    errorCode: row.error_code ?? undefined,
-    errorMessage: row.error_message ?? undefined,
   };
 }
 
@@ -128,10 +96,9 @@ export class SqliteStorageAdapter implements IStoragePort {
 
   public async getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined> {
     const row = this.db
-      .prepare<
-        [string, number],
-        IDefinitionRow
-      >('SELECT * FROM dag_definitions WHERE dag_id = ? AND version = ?')
+      .prepare<[string, number], IDefinitionRow>(
+        'SELECT * FROM dag_definitions WHERE dag_id = ? AND version = ?',
+      )
       .get(dagId, version);
     return row ? rowToDefinition(row) : undefined;
   }
@@ -145,10 +112,9 @@ export class SqliteStorageAdapter implements IStoragePort {
 
   public async listDefinitionsByDagId(dagId: string): Promise<IDagDefinition[]> {
     const rows = this.db
-      .prepare<
-        [string],
-        IDefinitionRow
-      >('SELECT * FROM dag_definitions WHERE dag_id = ? ORDER BY version')
+      .prepare<[string], IDefinitionRow>(
+        'SELECT * FROM dag_definitions WHERE dag_id = ? ORDER BY version',
+      )
       .all(dagId);
     return rows.map(rowToDefinition);
   }
@@ -281,6 +247,18 @@ export class SqliteStorageAdapter implements IStoragePort {
         'UPDATE task_runs SET status = ?, error_code = ?, error_message = ? WHERE task_run_id = ?',
       )
       .run(status, error?.code ?? null, error?.message ?? null, taskRunId);
+  }
+
+  public async setTaskRunLease(
+    taskRunId: string,
+    leaseOwner?: string,
+    leaseUntil?: string,
+  ): Promise<void> {
+    setTaskRunLeaseRow(this.db, taskRunId, leaseOwner, leaseUntil);
+  }
+
+  public async listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]> {
+    return listStaleRunningTaskRunRows(this.db, asOfIso);
   }
 
   public async saveTaskRunSnapshots(

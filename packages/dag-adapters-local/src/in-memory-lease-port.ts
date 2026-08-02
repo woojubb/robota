@@ -30,28 +30,6 @@ export class InMemoryLeasePort implements ILeasePort {
     return nextRecord;
   }
 
-  public async renew(
-    leaseKey: string,
-    ownerId: string,
-    leaseDurationMs: number,
-  ): Promise<ILeaseRecord | undefined> {
-    const current = this.records.get(leaseKey);
-    if (!current || current.ownerId !== ownerId) {
-      return undefined;
-    }
-
-    const nowEpochMs = Date.now();
-    const renewed: ILeaseRecord = {
-      leaseKey,
-      ownerId,
-      acquiredAt: current.acquiredAt,
-      leaseUntil: new Date(nowEpochMs + leaseDurationMs).toISOString(),
-    };
-
-    this.records.set(leaseKey, renewed);
-    return renewed;
-  }
-
   public async release(leaseKey: string, ownerId: string): Promise<void> {
     const current = this.records.get(leaseKey);
     if (!current || current.ownerId !== ownerId) {

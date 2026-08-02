@@ -82,6 +82,20 @@ export class TestStoragePort implements IStoragePort {
     _error?: IDagError,
   ): Promise<void> {}
 
+  // DAG-001: this double exists for the DEFINITION service's tests and stores no task runs, so the
+  // two recovery methods have nothing to act on. Inert rather than absent — a `throw` here would fail
+  // tests that never touch them, and a silent partial implementation of a port is what ARCH-010 and
+  // this task are both about, so it is said out loud instead.
+  public async setTaskRunLease(
+    _taskRunId: string,
+    _leaseOwner?: string,
+    _leaseUntil?: string,
+  ): Promise<void> {}
+
+  public async listStaleRunningTaskRuns(_asOfIso: string): Promise<ITaskRun[]> {
+    return [];
+  }
+
   public async saveTaskRunSnapshots(
     _taskRunId: string,
     _inputSnapshot?: string,
