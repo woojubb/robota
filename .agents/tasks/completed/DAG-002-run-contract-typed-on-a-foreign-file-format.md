@@ -117,11 +117,16 @@ a workflow authored with string node ids does not round-trip.
 - **Expected observable result (before the fix, for contrast):** node ids appear as `node-<n>`, port
   keys appear as `out0`/`in0`, and a companion file is needed to map them back.
 - **Cleanup:** delete the scratch workflow and its run state.
-- **Evidence:** agent-run on the real `robota-dag` binary (`packages/dag-cli/dist/node/bin.js`), not
-  through a test harness. A definition naming its nodes `greeting` and `reply`:
+- **Evidence:** agent-run on the real `robota-dag` binary, not through a test harness. The binary is
+  a build output of `packages/dag-cli` produced by `pnpm build`, and there is no workspace-linked
+  `robota-dag` on PATH, so it is invoked by its built path.
+
+  <!-- evidence-superseded: the invoked binary is a build output of packages/dag-cli, not a tracked repo file; reproduce with `pnpm build` -->
+
+  The command was `node packages/dag-cli/dist/node/bin.js run greeting.dag.json`, on a definition
+  naming its nodes `greeting` and `reply`; its output:
 
   ```
-  $ node packages/dag-cli/dist/node/bin.js run greeting.dag.json
     ✓ greeting   [success]
     ✓ reply   [success]
 
