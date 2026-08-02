@@ -11,7 +11,7 @@ import {
   type TTaskRunStatus,
 } from '@robota-sdk/dag-core';
 
-import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
+import { finishTask, finishTaskWithoutRun } from './swept-task-termination.js';
 
 /**
  * Return tasks abandoned by a dead worker to the queue. DAG-001.
@@ -60,7 +60,20 @@ export async function sweepStaleTaskRuns(
       continue;
     }
     try {
-      await sweepOne(storage, queue, clock, taskRun, options.maxAttempts, outcome);
+      // RE-READ under the lease. Everything below acted on the batch snapshot taken by
+      // `listStaleRunningTaskRuns`, whose filter guarantees `status === 'running'` — so the RECLAIM
+      // guard could never fail and was checking nothing. The lease excludes a CONCURRENT sweep, not a
+      // SEQUENTIAL one: each worker process holds its own throttle, so pass B can acquire this lease
+      // the moment pass A releases it and then act on a snapshot pass A has already superseded —
+      // double-incrementing the attempt and producing either a colliding message id or a second
+      // message for the same task, which is this PR's own double-execution defect coming back
+      // through a stale read.
+      const fresh = await storage.getTaskRun(taskRun.taskRunId);
+      if (fresh === undefined || fresh.status !== 'running' || isLeaseLive(fresh, clock.nowIso())) {
+        outcome.skipped.push(taskRun.taskRunId);
+        continue;
+      }
+      await sweepOne(storage, queue, clock, fresh, options.maxAttempts, outcome);
     } catch (error) {
       // One task's failure does not strand the rest of the pass. A queue outage probably affects them
       // all and they will fail in turn, but a corrupt single row would otherwise hold up every other
@@ -225,29 +238,6 @@ function buildRedeliveryMessage(taskRun: ITaskRun, attempt: number, nowIso: stri
 }
 
 /**
- * Land a task in a terminal status and finalize its run — the step the first draft of this branch
- * omitted.
- *
- * Every other path that terminates a task (`handleSuccessPath`, `handleTerminalFailure`) also calls
- * `finalizeDagRunIfTerminal`, because a run only leaves `running` once its last task is terminal.
- * Writing the task's status and stopping meant a swept task that was the run's last pending one left
- * the RUN stuck forever — the same terminal trap DAG-001 exists to close, moved one level up. Review
- * caught it, and noted the sweeper's tests asserted only the task's status, so it was accidental-green
- * on exactly that axis.
- */
-async function finishTask(
-  storage: IStoragePort,
-  clock: IClockPort,
-  taskRun: ITaskRun,
-  status: TTaskRunStatus,
-  error?: IDagError,
-): Promise<void> {
-  await storage.updateTaskRunStatus(taskRun.taskRunId, status, error);
-  await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
-  await finalizeDagRunIfTerminal(taskRun.dagRunId, storage, clock);
-}
-
-/**
  * The task's recorded input, or an empty payload if there is none to recover.
  *
  * A snapshot that will not parse is treated as absent rather than throwing: the alternative is that
@@ -268,19 +258,7 @@ function parseInputSnapshot(inputSnapshot: string | undefined): TPortPayload {
   }
 }
 
-/**
- * Cancel a task whose parent run is gone.
- *
- * Separate from `finishTask` because there is no run to finalize — calling `finalizeDagRunIfTerminal`
- * with a missing run would ask it to reason about a record that does not exist.
- */
-async function finishTaskWithoutRun(storage: IStoragePort, taskRun: ITaskRun): Promise<void> {
-  await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled', {
-    code: 'DAG_TASK_EXECUTION_ORPHANED',
-    category: 'task_execution',
-    message: `Task's DAG run ${taskRun.dagRunId} no longer exists; the task cannot be run or finalized`,
-    retryable: false,
-    context: { taskRunId: taskRun.taskRunId, dagRunId: taskRun.dagRunId },
-  });
-  await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+/** Whether a task's recorded lease still runs — the same rule `listStaleRunningTaskRuns` applies. */
+function isLeaseLive(taskRun: ITaskRun, nowIso: string): boolean {
+  return taskRun.leaseUntil !== undefined && taskRun.leaseUntil > nowIso;
 }

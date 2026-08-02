@@ -448,4 +448,50 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       expect(task?.status, `died ${dieAt}`).toBe('running');
     }
   });
+
+  it('a SEQUENTIAL second sweep acting on a stale snapshot does not re-reclaim the same task', async () => {
+    // The per-task lease excludes a CONCURRENT sweep, not a sequential one: each worker process holds
+    // its own throttle, so pass B can acquire the lease the instant pass A releases it and then act
+    // on a snapshot pass A has already superseded. Measured consequence before the re-read: the
+    // attempt is incremented twice, and the second message either collides on an id the first took
+    // (a PRIMARY KEY violation on sqlite) or becomes a second live message for one task — this PR's
+    // own double-execution defect, coming back through a stale read.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+
+    // Pass A completes fully and releases its lease.
+    const first = await sweep(storage, queue, clock, lease);
+    expect(first.requeued).toEqual(['task-run-1']);
+
+    // Pass B runs afterwards. Its own query re-reads storage, so it finds the task `queued` and has
+    // nothing to do — which is the point: the guard must come from storage, not from a snapshot.
+    const second = await sweep(storage, queue, clock, lease);
+
+    expect(second.requeued).toEqual([]);
+    expect((await storage.getTaskRun('task-run-1'))?.attempt).toBe(2);
+  });
+
+  it('re-reads under the lease, so a task claimed between query and sweep is left alone', async () => {
+    // The narrow window the re-read closes: the batch query saw `running` with a dead lease, and a
+    // worker legitimately claimed it before this sweep took the lease. Acting on the snapshot would
+    // reclaim a task that now has a LIVE owner.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+
+    const realList = storage.listStaleRunningTaskRuns.bind(storage);
+    storage.listStaleRunningTaskRuns = async (asOf) => {
+      const stale = await realList(asOf);
+      // …and immediately after the query, a live worker claims it.
+      await storage.setTaskRunLease('task-run-1', 'worker-live', LIVE_ISO);
+      return stale;
+    };
+
+    const outcome = await sweep(storage, queue, clock, lease);
+
+    expect(outcome.requeued).toEqual([]);
+    expect(outcome.skipped).toEqual(['task-run-1']);
+    expect((await storage.getTaskRun('task-run-1'))?.status).toBe('running');
+  });
 });

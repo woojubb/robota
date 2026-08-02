@@ -314,3 +314,12 @@ treating it as debt to honour would mean re-litigating structure at the end of a
 the review cycle was still finding real defects each round. Extracting `handleSuccessPath` /
 `handleFailurePath` (115 lines) into their own module is the right next move for this file and is a
 better separate change than a late refactor here.
+
+Eighth round, one MUST: `sweepOne` acted on the batch snapshot from `listStaleRunningTaskRuns`, whose
+filter guarantees `status === 'running'` — so its `RECLAIM` guard, whose comment claimed to check "did
+this change since the query", could never fail and was checking nothing. The per-task lease excludes a
+CONCURRENT sweep, not a SEQUENTIAL one: each worker process holds its own throttle, so pass B can
+acquire the lease the instant pass A releases it and act on a snapshot A has already superseded —
+double-incrementing the attempt and producing either a colliding message id or a second live message
+for one task. This PR's own double-execution defect, returning through a stale read. The record is now
+re-read under the lease and the sweep acts on that.
