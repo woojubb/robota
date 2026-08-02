@@ -1,3 +1,5 @@
+import { TurnClaim } from './turn-claim.js';
+
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
 import type { PermissionEnforcer } from './permission-enforcer.js';
 import type {
@@ -24,7 +26,12 @@ export abstract class SessionBase {
   protected abstract model: string;
   protected abstract systemMessage: string;
   protected abstract messageCount: number;
-  protected abstract abortController: AbortController | null;
+  /**
+   * RUNTIME-003: the turn currently running, and its owner. Was a bare `AbortController | null` that
+   * `run()` overwrote, which is why `abort()` and `isRunning()` below could answer about a turn that
+   * was not the one in flight. See `turn-claim.ts`.
+   */
+  protected readonly turnClaim = new TurnClaim();
 
   getPermissionMode(): TPermissionMode {
     return this.permissionMode;
@@ -129,14 +136,11 @@ export abstract class SessionBase {
 
   /** Abort the currently running execution. No-op if nothing is running. */
   abort(): void {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
+    this.turnClaim.abort();
   }
 
   isRunning(): boolean {
-    return this.abortController !== null;
+    return this.turnClaim.isRunning();
   }
 
   getContextState(): IContextWindowState {
