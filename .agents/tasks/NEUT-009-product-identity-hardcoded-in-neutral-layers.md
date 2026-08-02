@@ -142,7 +142,7 @@ clean. Nothing read `agent-framework`, `agent-preset`, `agent-command` or `agent
 the product's own names, frozen, may fall and never rise. Registered, and classified fail-closed by
 execution (48 → 49 proven).
 
-**The count is 108, not the 65 the finding implies.** The difference is not a disagreement — the audit
+**The count is 94, not the 65 the finding implies.** The difference is not a disagreement — the audit
 enumerated sites and this counts occurrences, including in comments.
 
 Counting prose is deliberate and is the scan's most consequential decision. `paths.ts` opens with
@@ -170,10 +170,26 @@ temp-file marker quoted that name, and the count did not fall until the comment 
   wrote. Now `.atomic-tmp-`, which says what the file is. `agent-core` was already at zero. Both are
   frozen there, so a new product name in either fails immediately rather than joining a debt.
 
+### Review round 1 (PR #1610)
+
+Two SHOULDs, both upheld, and the second is the sharper one.
+
+**Overlapping markers double-counted.** `.robota` is a substring of `~/.robota`, so every line with
+the latter scored two "product name" occurrences for one mention — 16 of them, inflating the frozen
+numbers from a true 92 to 108. The ratchet stayed monotonic, so nothing broke; but the count is what
+this scan REPORTS, and an inflated one is a wrong answer. The redundant marker is gone and overlapping
+markers now throw, because the next person adding one would hit the same thing silently.
+
+**The scan exempted itself from its own principle.** An empty `markers` or `packages` list printed a
+notice and exited 0 — in the same change that classifies every other guard against a floor whose whole
+rule is that "nothing to check" is not "clean". An emptied config is exactly how a floor disappears
+without anyone noticing. It now fails, and a case runs the real CLI from a temp cwd holding an emptied
+config rather than calling a helper.
+
 ### Remaining — stage 2
 
 The FOUNDATIONAL half is untouched: there is still **no injected product-identity/paths port**, and
-the 108 occurrences are frozen, not removed. Specifically still true:
+the 94 occurrences are frozen, not removed. Specifically still true:
 
 - `agent-framework/src/paths.ts` is not the exclusive owner even inside its own package — ten further
   `'.robota'` literals live elsewhere in it, so routing new callers through `paths.ts` without

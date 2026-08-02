@@ -88,6 +88,20 @@ export function findProductIdentity(root, config = liveConfig()) {
   const sites = {};
   if (markers.length === 0) return { counts, sites };
 
+  // Overlapping markers double-count: `.robota` is a substring of `~/.robota`, so every line with the
+  // latter scored two "product name" occurrences for one mention, and the frozen numbers were
+  // inflated. Caught in review. The monotonicity of the ratchet survived it, but the count is the
+  // thing this scan reports, so an inflated one is a wrong answer.
+  const overlapping = markers.filter((marker) =>
+    markers.some((other) => other !== marker && other.includes(marker)),
+  );
+  if (overlapping.length > 0) {
+    throw new Error(
+      `product-identity: markers overlap (${overlapping.join(', ')} are substrings of other markers) — ` +
+        'every line matching both would be counted twice, so the frozen numbers would not mean what they say.',
+    );
+  }
+
   for (const relative of config.packages ?? []) {
     const src = path.join(root, relative, 'src');
     if (!existsSync(src)) {
@@ -122,9 +136,14 @@ function loadBaseline() {
 function main() {
   const settings = liveConfig();
   if ((settings.packages ?? []).length === 0 || (settings.markers ?? []).length === 0) {
-    console.log(
-      'product-identity: NO PACKAGES OR MARKERS CONFIGURED (.agents/harness.config.json) — nothing was checked.',
+    // FAIL, not a quiet pass. Review pointed out that this scan exempted itself from the very rule
+    // the guard-scope floor in the same change enforces on every other guard: "nothing to check" is
+    // not "clean". An emptied config is how a floor disappears without anyone noticing.
+    console.error(
+      'product-identity: NO PACKAGES OR MARKERS CONFIGURED (.agents/harness.config.json) — nothing ' +
+        'was checked, which is a broken floor rather than a clean tree.',
     );
+    process.exitCode = 1;
     return;
   }
 

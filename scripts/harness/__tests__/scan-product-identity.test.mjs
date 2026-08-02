@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -112,12 +112,47 @@ describe('scan-product-identity', () => {
       ).toThrow(/does not exist/);
     });
 
+    it('REJECTS overlapping markers rather than double-counting', () => {
+      // `.robota` is a substring of `~/.robota`, so every line with the latter scored two
+      // "product name" occurrences for one mention and the frozen numbers were inflated by 16.
+      // Caught in review. The ratchet stayed monotonic, but the count is what this scan reports.
+      const root = workspace({ 'packages/lib/src/a.ts': `'~/.robota'` });
+      expect(() =>
+        findProductIdentity(root, {
+          markers: ['.robota', '~/.robota'],
+          packages: ['packages/lib'],
+        }),
+      ).toThrow(/overlap/);
+    });
+
     it('examines nothing, and says so, when no markers are configured', () => {
       const root = workspace({ 'packages/lib/src/a.ts': `'.robota'` });
       expect(findProductIdentity(root, { markers: [], packages: ['packages/lib'] }).counts).toEqual(
         {},
       );
     });
+  });
+
+  it('an emptied config FAILS rather than passing quietly', () => {
+    // The scan exempted itself from the rule the guard-scope floor enforces on every other guard:
+    // "nothing to check" is not "clean". An emptied config is how a floor disappears unnoticed.
+    //
+    // `loadHarnessConfig` reads `<cwd>/.agents/harness.config.json`, so running the real scan from a
+    // temp cwd holding an emptied config exercises the CLI path rather than a helper — the emptiness
+    // check short-circuits before any package is read, which is why the temp root needs no packages.
+    const cwd = mkdtempSync(path.join(tmpdir(), 'product-identity-config-'));
+    dirs.push(cwd);
+    mkdirSync(path.join(cwd, '.agents'), { recursive: true });
+    writeFileSync(
+      path.join(cwd, '.agents/harness.config.json'),
+      JSON.stringify({ productIdentity: { markers: [], packages: [] } }),
+    );
+
+    const scan = path.resolve(import.meta.dirname, '../scan-product-identity.mjs');
+    const result = spawnSync('node', [scan], { cwd, encoding: 'utf8' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr + result.stdout).toMatch(/broken floor/);
   });
 
   it('is registered, and its baseline matches what it counts on the live repository', () => {

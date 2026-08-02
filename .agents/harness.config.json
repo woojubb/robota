@@ -283,8 +283,8 @@
     }
   ],
   "productIdentity": {
-    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json \u2014 they may fall and must never rise. Markers are the product's own directory, config and command names.",
-    "markers": [".robota", "robota-cli", "~/.robota"],
+    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json \u2014 they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
+    "markers": [".robota", "robota-cli"],
     "packages": [
       "packages/agent-core",
       "packages/agent-tools",
