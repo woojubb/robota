@@ -101,7 +101,7 @@ export interface IClaimTaskDeps {
  */
 export async function claimTaskForExecution(
   deps: IClaimTaskDeps,
-): Promise<TResult<void, IDagError>> {
+): Promise<TResult<number, IDagError>> {
   const { storage, clock, message, taskRun } = deps;
   const wasAbandoned = taskRun.status === 'running';
   const reclaimed = reclaimIfAbandoned(taskRun);
@@ -133,6 +133,13 @@ export async function claimTaskForExecution(
     // Advance it, or the bound above is never reached on this path either.
     await storage.incrementTaskAttempt(taskRun.taskRunId);
   }
+  // The attempt now in force. It is RETURNED rather than left in storage alone: the in-flight message
+  // still carries the pre-reclaim number, and `handleFailurePath`/`handleRetry` decide the retry bound
+  // from the MESSAGE. Leaving the two to disagree makes storage run one ahead per reclaim, so the
+  // message under-counts the real attempts and `maxAttempts` is exceeded — the exact bound this branch
+  // added. The sweep path avoids it by putting the incremented attempt into the message it builds;
+  // this is the same synchronisation for the redelivery path.
+  const attemptInForce = wasAbandoned ? taskRun.attempt + 1 : taskRun.attempt;
   const started = TaskRunStateMachine.transition(reclaimed.value, 'START');
   if (!started.ok) {
     return started;
@@ -156,7 +163,7 @@ export async function claimTaskForExecution(
     input: message.payload,
   });
   await storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
-  return { ok: true, value: undefined };
+  return { ok: true, value: attemptInForce };
 }
 
 /**

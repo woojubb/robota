@@ -94,6 +94,7 @@ interface IHarness {
 async function harness(
   executor: ScriptedTaskExecutorPort,
   workerId = 'worker-2',
+  retryEnabled = false,
 ): Promise<IHarness & ReturnType<typeof createRunFixture>> {
   const fixture = createRunFixture();
   const storage = new InMemoryStoragePort();
@@ -112,7 +113,7 @@ async function harness(
     workerId,
     leaseDurationMs: 30_000,
     visibilityTimeoutMs: 30_000,
-    retryEnabled: false,
+    retryEnabled,
     maxAttempts: 3,
     defaultTimeoutMs: 50,
   });
@@ -325,5 +326,39 @@ describe('an abandoned task is recovered, not trapped (DAG-001)', () => {
     await h.service.processOnce();
 
     expect((await h.storage.getTaskRun(h.taskRun.taskRunId))?.attempt).toBe(2);
+  });
+
+  it('a reclaim followed by a REAL failure still respects the retry bound', async () => {
+    // The combination neither existing case covered: reclaim advances storage's attempt, but the
+    // in-flight message kept the pre-reclaim number — and `handleFailurePath` decides `shouldRetry`
+    // from the MESSAGE, while `handleRetry` builds the next one from `message.attempt + 1`. Storage
+    // then runs one ahead per reclaim, the message under-counts the real attempts, and `maxAttempts`
+    // is exceeded: the exact bound this branch added. The sweep path avoids it by writing the
+    // incremented attempt into the message it builds; this is the same synchronisation.
+    const h = await harness(
+      new ScriptedTaskExecutorPort(async () => ({
+        ok: false,
+        error: {
+          code: 'DAG_TASK_EXECUTION_FAILED',
+          category: 'task_execution',
+          message: 'boom',
+          retryable: true,
+        },
+      })),
+      'worker-2',
+      true, // retries ON — without this the retry path never runs and the case proves nothing.
+    );
+    // Abandoned at attempt 1.
+    await h.storage.updateTaskRunStatus(h.taskRun.taskRunId, 'running');
+    await h.queue.enqueue(h.message);
+
+    await h.service.processOnce();
+
+    // The reclaim advanced storage to 2. The message the failure path saw must say 2 as well, so the
+    // retry it enqueues carries 3 — rather than 2, repeating an attempt already recorded and letting
+    // the run exceed `maxAttempts`.
+    expect((await h.storage.getTaskRun(h.taskRun.taskRunId))?.attempt).toBe(3);
+    const retryMessage = await h.queue.dequeue('worker-9', 50);
+    expect(retryMessage?.attempt).toBe(3);
   });
 });

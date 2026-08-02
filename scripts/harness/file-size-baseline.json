@@ -91,6 +91,5 @@
   "packages/dag-framework/src/local-dag-runtime-provider.ts": 365,
   "packages/dag-nodes/gemini-image-edit/src/runtime-core.ts": 318,
   "packages/dag-nodes/instant-node/src/index.ts": 588,
-  "packages/dag-nodes/utility-text/src/index.ts": 626,
-  "packages/dag-worker/src/services/worker-loop-service.ts": 320
+  "packages/dag-nodes/utility-text/src/index.ts": 626
 }
