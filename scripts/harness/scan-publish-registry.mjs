@@ -25,7 +25,9 @@
  *      is an authorization for something nobody can inspect.
  *   3. AGREEMENT. A package in the Private table must actually carry `"private": true`, must not also
  *      be in the Published table, and a Published entry must carry `publishConfig.access: "public"`.
- *   4. GRAPH. A package the registry marks Private must not be a dependency of any published package.
+ *   4. GRAPH. A package the registry marks Private must not be a runtime dependency of any published
+ *      package — `dependencies`, `peerDependencies` or `optionalDependencies`, the three kinds npm
+ *      installs for a consumer. `devDependencies` are excluded: they do not ship.
  *      This is the rule that decides disagreements rather than merely reporting them: three
  *      manifests contradicted the Private table, and the graph settles it — `agent-interface-transport`
  *      is a dependency of fourteen published packages, so marking it private would publish fourteen
@@ -99,7 +101,16 @@ export function readWorkspacePackages(root) {
         name: parsed.name,
         private: parsed.private === true,
         access: parsed.publishConfig?.access,
-        dependencies: Object.keys(parsed.dependencies ?? {}),
+        // EVERY dependency kind npm installs. Rule 4's claim is "not a dependency of any published
+        // package", and reading only `dependencies` made that claim wider than the code — a private
+        // package added solely as a `peerDependency` would have slipped through the one rule whose
+        // whole purpose is to arbitrate this. `devDependencies` are deliberately excluded: they are
+        // not installed for a consumer, so a private dev-only dependency is not a broken install.
+        dependencies: [
+          ...Object.keys(parsed.dependencies ?? {}),
+          ...Object.keys(parsed.peerDependencies ?? {}),
+          ...Object.keys(parsed.optionalDependencies ?? {}),
+        ],
       });
     }
   }

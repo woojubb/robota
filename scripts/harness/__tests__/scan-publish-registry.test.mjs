@@ -152,6 +152,33 @@ describe('scan-publish-registry', () => {
       expect(rules(root)).toEqual(['private-dependency-of-published']);
     });
 
+    it('rule 4 (RED): a peerDependency counts, because npm installs it', () => {
+      // Review round 2. The rule CLAIMED "a dependency of any published package" while reading only
+      // `dependencies`, so a private package added solely as a peer dep slipped past the one rule
+      // whose purpose is to arbitrate exactly this.
+      const root = workspace(
+        [REGISTRY, '## Private Packages', '| `@a/internal` | reason |'].join('\n'),
+        [
+          { name: '@a/pub', peerDependencies: { '@a/internal': '*' }, ...PUBLIC },
+          { name: '@a/internal', private: true },
+        ],
+      );
+      expect(rules(root)).toEqual(['private-dependency-of-published']);
+    });
+
+    it('rule 4: a devDependency does NOT count, because it does not ship', () => {
+      // A consumer never installs it, so a private dev-only dependency is not a broken install.
+      // Counting it would make the rule fire on ordinary internal tooling and get it suppressed.
+      const root = workspace(
+        [REGISTRY, '## Private Packages', '| `@a/internal` | reason |'].join('\n'),
+        [
+          { name: '@a/pub', devDependencies: { '@a/internal': '*' }, ...PUBLIC },
+          { name: '@a/internal', private: true },
+        ],
+      );
+      expect(rules(root)).toEqual([]);
+    });
+
     it('an agreeing workspace produces nothing', () => {
       const root = workspace(
         [REGISTRY, '## Private Packages', '| `@a/internal` | reason |'].join('\n'),

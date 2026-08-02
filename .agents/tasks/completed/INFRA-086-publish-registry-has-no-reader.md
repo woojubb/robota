@@ -175,6 +175,19 @@ which passed happily while a whole tier was missing.
 The SHOULD — truncated Notes cells — came from generating the table with a `.slice(0, 84)` whose
 output I never read. Regenerated from the manifests untruncated.
 
+### Review round 2 (PR #1609)
+
+One SHOULD, upheld, and the same shape as everything else this session: rule 4's docstring claimed
+"a dependency of any published package" while the code read only `dependencies`. `peerDependencies`
+and `optionalDependencies` are installed for a consumer too, so a private package added solely as a
+peer dep would have slipped past the one rule whose entire purpose is to arbitrate that
+disagreement. No false negative on today's tree — checked — but the claim was wider than the code,
+which is the defect regardless of whether it has fired yet.
+
+The code now matches the claim. `devDependencies` are deliberately excluded and a case pins that: a
+consumer never installs them, so a private dev-only dependency is not a broken install, and counting
+it would make the rule fire on ordinary internal tooling and get it suppressed.
+
 ### Remaining
 
 - The registry's `npm tag` column is checked against nothing; the repository records nowhere what tag
