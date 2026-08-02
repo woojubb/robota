@@ -87,7 +87,10 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
-    // Measured 2026-08-02 against a bare root: throws `<declaring file> does not exist`.
+    // Measured 2026-08-02 THE WAY THIS HARNESS CALLS IT — `finder(bare)`, one argument: throws
+    // `<declaring file> does not exist`. The first measurement passed two arguments and recorded a
+    // behaviour that was not the one firing; review caught it, and the finder now defaults its
+    // config so the real path is the reachable one.
     file: 'scan-option-reachability.mjs',
     finder: 'findUnreachableOptions',
     tree: 'the declaring file of each configured interface, plus packages/ and apps/',

@@ -39,19 +39,6 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 import type {
-  IBackgroundTaskRunner,
-  ICreateSessionOptions,
-  ICommandHostAdapters,
-  ICommandModule,
-  IRemoteCommandPolicy,
-  TSubagentRunnerFactory,
-  IAgentDefinition,
-  TShellExecFn,
-  IMemoryStore,
-  IAutomaticMemoryConfig,
-  IPerTurnRecallConfig,
-} from '@robota-sdk/agent-framework';
-import type {
   ICommandInfo,
   IExecutionDetailPage,
   IExecutionResult,

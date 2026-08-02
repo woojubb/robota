@@ -142,6 +142,20 @@ describe('scan-option-reachability', () => {
       }
     });
 
+    it('fails closed the way the GUARD calls it — with a root and nothing else', () => {
+      // The guard-scope floor invokes every finder as `finder(bare)`. Without a default for
+      // `configs` that threw `TypeError: Cannot read properties of undefined`, which still counts as
+      // "threw" and so still satisfied the floor — while the behaviour recorded beside the
+      // classification was not the behaviour that fired. Caught in review; the original measurement
+      // had been taken with two arguments.
+      const bare = mkdtempSync(path.join(tmpdir(), 'option-reach-guard-'));
+      try {
+        expect(() => findUnreachableOptions(bare)).toThrow(/does not exist/);
+      } finally {
+        rmSync(bare, { recursive: true, force: true });
+      }
+    });
+
     it('throws when the interface is not found in its declaring file', () => {
       // A renamed interface is a stale config, not a clean tree.
       const root = path.resolve(import.meta.dirname, '../../..');

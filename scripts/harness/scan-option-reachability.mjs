@@ -270,8 +270,16 @@ function collectReturnedLiterals(node, into, opaque) {
   }
 }
 
-/** Keys declared by each configured interface that no production file assigns. */
-export function findUnreachableOptions(root, configs) {
+/**
+ * Keys declared by each configured interface that no production file assigns.
+ *
+ * `configs` defaults to the live configuration so that a caller handing only a root — which is how
+ * the guard-scope floor invokes every finder — exercises the REAL fail-closed path. Without the
+ * default it threw `TypeError: Cannot read properties of undefined`, which still counted as "threw"
+ * and so still satisfied that floor, while the behaviour recorded beside the classification was not
+ * the behaviour that fired. Caught in review; the measurement had been taken with two arguments.
+ */
+export function findUnreachableOptions(root, configs = liveConfigs()) {
   if (configs.length === 0) return { unreachable: {}, examined: 0 };
 
   const declared = new Map();
@@ -334,7 +342,7 @@ export function findUnreachableOptions(root, configs) {
   };
 }
 
-function configs() {
+function liveConfigs() {
   return loadHarnessConfig().optionReachability ?? [];
 }
 
@@ -343,7 +351,7 @@ function loadBaseline() {
 }
 
 function main() {
-  const configured = configs();
+  const configured = liveConfigs();
   if (configured.length === 0) {
     console.log(
       'option-reachability: NO INTERFACES CONFIGURED (.agents/harness.config.json) — nothing was checked.',
@@ -404,7 +412,7 @@ function main() {
 }
 
 function writeBaseline() {
-  const { unreachable } = findUnreachableOptions(WORKSPACE_ROOT, configs());
+  const { unreachable } = findUnreachableOptions(WORKSPACE_ROOT, liveConfigs());
   writeFileSync(BASELINE_PATH, `${JSON.stringify(unreachable, null, 2)}\n`);
   console.log(`option-reachability baseline regenerated: ${JSON.stringify(unreachable)}`);
 }

@@ -245,3 +245,27 @@ All three files fell below their baselines and were re-frozen in this change.
 - The `IResolvedPresetOptions` doc comment still claims "Every field maps to an existing
   agent-framework session/assembly seam". It is left in place deliberately until stage 2 makes it
   true or narrows it — changing the words without changing the fact is the defect, not the fix.
+
+### Review round 2 (PR #1607)
+
+One SHOULD, upheld, and it is the sharpest kind — a comment of mine recording a measurement that was
+not the behaviour that fires.
+
+The classification note beside `scan-option-reachability` in `MANDATORY_TREE_GUARDS` said "Measured
+against a bare root: throws `<declaring file> does not exist`". The guard harness invokes every finder
+as `finder(bare)` — ONE argument — and `findUnreachableOptions(root, configs)` had no default, so what
+actually threw was `TypeError: Cannot read properties of undefined (reading 'length')`. The floor was
+still satisfied, because it only asks whether the finder threw. My measurement had been taken with two
+arguments.
+
+Fixed at the mechanism rather than in the prose: `configs` now defaults to the live configuration, so
+the call the harness makes exercises the real fail-closed path, and a case pins that
+`findUnreachableOptions(bare)` — exactly one argument — throws `does not exist`. The note now says
+which call it measured.
+
+This is the second instance this session of citing a measurement taken against a different setup than
+the one being claimed (the first was two `prettier --check` runs over two different trees). Recorded
+in `.agents/memory/claimed-without-reading-back.md`, which this PR also adds.
+
+Also removed eleven type-only imports left dead in `TuiInteractionChannel.ts` by the interface move —
+an ESLint warning, not a break, but the point of the extraction was a file with one job.
