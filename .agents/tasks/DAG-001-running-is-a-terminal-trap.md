@@ -323,3 +323,23 @@ acquire the lease the instant pass A releases it and act on a snapshot A has alr
 double-incrementing the attempt and producing either a colliding message id or a second live message
 for one task. This PR's own double-execution defect, returning through a stale read. The record is now
 re-read under the lease and the sweep acts on that.
+
+Ninth round, one SHOULD — and the one that changed how this task ends. Two terminal `'failed'` writes
+still bypassed the state machine, in the same function whose sibling `'cancelled'` literal an earlier
+round had already fixed. The reviewer named it as such: the same defect class, called out and fixed
+once, left in place beside it.
+
+That is the fifth instance of a single pattern across this branch: **a comment asserts an invariant
+and nothing enforces it**. The other four were the lease being held during execution, the worker
+reloading its payload, and the sweep guard reading a snapshot. Every one was found by a reader, fixed
+at that one site, and the class survived.
+
+So this task does not end with the instance fixed. `scripts/harness/scan-authority-bypass.mjs` now
+fails when a governed value is written as a literal past its declared authority. It is registered in
+`run-all-scans`, neutral by construction (its pairs are data in `.agents/harness.config.json` →
+`authorityBypass`, so another repository configures rather than forks it), and verified three ways:
+restoring all three literals makes it fail and name each site; gutting its detection fails 5 of its
+own 11 cases; unregistering it fails its reachability case. It states its own limit — it is syntactic,
+so a value laundered through a variable passes — rather than overclaiming.
+
+Catalogued as common-mistakes #83 and mirrored to `.agents/memory/`.

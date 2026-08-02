@@ -210,7 +210,11 @@ export async function handleFailedClaim(
   if (error.code !== 'DAG_TASK_EXECUTION_ABANDONED') {
     return failAfterAck(queue, message.messageId, error);
   }
-  await storage.updateTaskRunStatus(taskRun.taskRunId, 'failed', error);
+  const failed = TaskRunStateMachine.transition(taskRun.status, 'COMPLETE_FAILURE');
+  if (!failed.ok) {
+    return failAfterAck(queue, message.messageId, failed.error);
+  }
+  await storage.updateTaskRunStatus(taskRun.taskRunId, failed.value.nextStatus, error);
   await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
   return handleTerminalFailure(
     message,

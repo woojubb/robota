@@ -139,7 +139,12 @@ async function sweepOne(
     // Retries are BOUNDED. Without this a task that kills its worker — or one that fails after being
     // set `running` — is swept, re-run and swept again forever, and `maxAttempts` never applies.
     if (taskRun.attempt >= maxAttempts) {
-      await finishTask(storage, clock, taskRun, 'failed', {
+      const failed = TaskRunStateMachine.transition(taskRun.status, 'COMPLETE_FAILURE');
+      if (!failed.ok) {
+        outcome.skipped.push(taskRun.taskRunId);
+        return;
+      }
+      await finishTask(storage, clock, taskRun, failed.value.nextStatus, {
         code: 'DAG_TASK_EXECUTION_ABANDONED',
         category: 'task_execution',
         message: `Task was abandoned by its worker ${taskRun.attempt} time(s) and has no attempts left`,

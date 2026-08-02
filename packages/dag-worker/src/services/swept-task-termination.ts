@@ -1,3 +1,5 @@
+import { TaskRunStateMachine } from '@robota-sdk/dag-core';
+
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
 
 import type {
@@ -5,6 +7,7 @@ import type {
   IDagError,
   IStoragePort,
   ITaskRun,
+  TResult,
   TTaskRunStatus,
 } from '@robota-sdk/dag-core';
 
@@ -39,14 +42,21 @@ async function finishTask(
   await finalizeDagRunIfTerminal(taskRun.dagRunId, storage, clock);
 }
 
-export /**
+/**
  * Cancel a task whose parent run is gone.
  *
  * Separate from `finishTask` because there is no run to finalize — calling `finalizeDagRunIfTerminal`
  * with a missing run would ask it to reason about a record that does not exist.
  */
-async function finishTaskWithoutRun(storage: IStoragePort, taskRun: ITaskRun): Promise<void> {
-  await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled', {
+export async function finishTaskWithoutRun(
+  storage: IStoragePort,
+  taskRun: ITaskRun,
+): Promise<TResult<void, IDagError>> {
+  const cancelled = TaskRunStateMachine.transition(taskRun.status, 'CANCEL');
+  if (!cancelled.ok) {
+    return cancelled;
+  }
+  await storage.updateTaskRunStatus(taskRun.taskRunId, cancelled.value.nextStatus, {
     code: 'DAG_TASK_EXECUTION_ORPHANED',
     category: 'task_execution',
     message: `Task's DAG run ${taskRun.dagRunId} no longer exists; the task cannot be run or finalized`,
@@ -54,4 +64,5 @@ async function finishTaskWithoutRun(storage: IStoragePort, taskRun: ITaskRun): P
     context: { taskRunId: taskRun.taskRunId, dagRunId: taskRun.dagRunId },
   });
   await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+  return { ok: true, value: undefined };
 }
