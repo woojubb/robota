@@ -254,3 +254,31 @@ the recovery path had its own unrecoverable state. It now puts the task back to 
 failure surfaces. And the `cancelled` write went through a string literal rather than the state
 machine, in a change whose own comment argues the table must stay the single place legal transitions
 live.
+
+### Second CI review round — the recovered task ran with no input
+
+The sweeper sent `payload: {}` on a claim I wrote into its own doc comment: that the worker reloads
+its execution context from storage. **The claim was wrong.** `loadWorkerExecutionContext` reloads the
+run, the definition and the node definition; `buildExecutionInput` reads `input: message.payload`
+straight off the message. So every task recovered through the sweep — on exactly the adapters the
+sweeper exists for — would have re-executed with an empty input.
+
+Worse in a way that loops back on this task: the per-node `timeoutMs` rides the same payload, so a
+custom timeout silently dropped to `defaultTimeoutMs`. When the real timeout is the longer of the
+two, that reopens the double-execution race the ownership bound was added to close.
+
+The input was available all along on `taskRun.inputSnapshot`, written by `claimTaskForExecution` at
+the first claim, and simply never read back. It is now restored, with an unparseable snapshot treated
+as absent rather than throwing — one corrupt row must not stop a sweep, and a task re-run with no
+input is a visible failure while a sweep that never runs is not.
+
+Also from that round: a single throwing `sweepOne` aborted the whole pass. Per-task failures are now
+collected in the outcome and the pass continues; the throttle still surfaces the first one as the
+loop's error, so nothing is swallowed.
+
+**A note on this Task's own record.** Four review rounds found nine, three, and one finding
+respectively, and the pattern held: every round found something the previous round's fix had created
+or left. Three of those were cases where a comment I wrote asserted a property the code did not have
+— the lease being held during execution, the state machine being the single place transitions live,
+and the worker reloading its payload. Writing the claim down did not make it true, and in each case
+the claim was what stopped the next reader (me) from checking.

@@ -117,8 +117,20 @@ export class StaleTaskSweepThrottle {
     }
     this.sweeping = true;
     try {
-      await sweepStaleTaskRuns(storage, queue, this.clock, this.lease, this.options);
-      return undefined;
+      const outcome = await sweepStaleTaskRuns(
+        storage,
+        queue,
+        this.clock,
+        this.lease,
+        this.options,
+      );
+      const first = outcome.failed[0];
+      if (first === undefined) {
+        return undefined;
+      }
+      // A per-task failure is reported by the sweep rather than thrown, so it would otherwise be
+      // swallowed here. Silence is not success: surface the first one as the loop's error.
+      throw first.error;
     } catch (error) {
       return {
         code: 'DAG_TASK_SWEEP_FAILED',

@@ -329,9 +329,67 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       throw new Error('queue unavailable');
     };
 
-    await expect(sweep(storage, queue, clock, lease)).rejects.toThrow(/queue unavailable/);
+    const outcome = await sweep(storage, queue, clock, lease);
 
-    // Back where the next sweep can see it.
+    // Reported, not thrown — one bad row must not strand the rest of the pass.
+    expect(outcome.failed.map((f) => f.taskRunId)).toEqual(['task-run-1']);
+    // …and the task is back where the next sweep can see it.
     expect((await storage.getTaskRun('task-run-1'))?.status).toBe('running');
+  });
+
+  it('RESTORES the task input on reclaim — a recovered task must not run with an empty payload', async () => {
+    // The sweeper sent `payload: {}` on the theory that the worker reloads its context from storage.
+    // The theory was wrong: `loadWorkerExecutionContext` reloads the run, definition and node
+    // definition, while `buildExecutionInput` reads `input: message.payload` straight off the
+    // message. Every task recovered through the sweep would have re-executed with no input — and the
+    // per-node `timeoutMs` rides the same payload, so a custom timeout silently dropped to the
+    // default, which reopens the double-execution race the ownership bound closes.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+    await storage.saveTaskRunSnapshots(
+      'task-run-1',
+      JSON.stringify({ city: 'seoul', timeoutMs: 600_000 }),
+    );
+
+    await sweep(storage, queue, clock, lease);
+
+    const message = await queue.dequeue('worker-9', 10);
+    expect(message?.payload).toEqual({ city: 'seoul', timeoutMs: 600_000 });
+  });
+
+  it('recovers with an empty input rather than throwing when the snapshot is unusable', async () => {
+    // One corrupt row must not stop the whole sweep: a task re-run with no input is a visible
+    // failure, a sweep that never runs is not.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+    await storage.saveTaskRunSnapshots('task-run-1', 'not json at all');
+
+    const outcome = await sweep(storage, queue, clock, lease);
+
+    expect(outcome.requeued).toEqual(['task-run-1']);
+    expect((await queue.dequeue('worker-9', 10))?.payload).toEqual({});
+  });
+
+  it('one failing task does not strand the others in the same pass', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(NOW_MS);
+    const lease = new InMemoryLeasePort();
+    await storage.createDagRun(dagRun());
+    await storage.createTaskRun(taskRun({ taskRunId: 'task-bad' }));
+    await storage.createTaskRun(taskRun({ taskRunId: 'task-good' }));
+
+    const realEnqueue = queue.enqueue.bind(queue);
+    queue.enqueue = async (message) => {
+      if (message.taskRunId === 'task-bad') throw new Error('queue unavailable');
+      return realEnqueue(message);
+    };
+
+    const outcome = await sweep(storage, queue, clock, lease);
+
+    expect(outcome.failed.map((f) => f.taskRunId)).toEqual(['task-bad']);
+    expect(outcome.requeued).toEqual(['task-good']);
   });
 });

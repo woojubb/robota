@@ -7,6 +7,7 @@ import {
   type IQueuePort,
   type IStoragePort,
   type ITaskRun,
+  type TPortPayload,
   type TTaskRunStatus,
 } from '@robota-sdk/dag-core';
 
@@ -38,7 +39,7 @@ export async function sweepStaleTaskRuns(
   options: { workerId: string; maxAttempts: number; leaseDurationMs: number },
 ): Promise<ISweepOutcome> {
   const stale = await storage.listStaleRunningTaskRuns(clock.nowIso());
-  const outcome: ISweepOutcome = { requeued: [], abandoned: [], skipped: [] };
+  const outcome: ISweepOutcome = { requeued: [], abandoned: [], skipped: [], failed: [] };
 
   for (const taskRun of stale) {
     // The SAME lease a worker takes, for the same reason. Without it two idle workers sweep the same
@@ -54,6 +55,12 @@ export async function sweepStaleTaskRuns(
     }
     try {
       await sweepOne(storage, queue, clock, taskRun, options.maxAttempts, outcome);
+    } catch (error) {
+      // One task's failure does not strand the rest of the pass. A queue outage probably affects them
+      // all and they will fail in turn, but a corrupt single row would otherwise hold up every other
+      // abandoned task until the next throttle window — and the whole point of this sweep is that
+      // stuck work gets unstuck.
+      outcome.failed.push({ taskRunId: taskRun.taskRunId, error });
     } finally {
       await lease.release(leaseKey, options.workerId);
     }
@@ -143,21 +150,32 @@ export interface ISweepOutcome {
   abandoned: string[];
   /** Changed status between the query and the write; the next sweep re-reads them. */
   skipped: string[];
+  /** Threw. Reported rather than propagated, so one bad row does not strand the rest of the pass. */
+  failed: { taskRunId: string; error: unknown }[];
 }
 
 /**
- * A fresh message for the swept task.
+ * A fresh message for the swept task, carrying the input the original message carried.
  *
- * The `messageId` is distinct per sweep so it cannot collide with the message the dead worker was
- * holding — a queue that deduplicates by id would otherwise drop the replacement and leave the task
- * `queued` with nothing to pick it up, which is the same trap one state along.
+ * The payload is RESTORED from `taskRun.inputSnapshot`, which `claimTaskForExecution` wrote when the
+ * task was first claimed. An earlier draft sent `payload: {}` on the theory that the worker reloads
+ * its context from storage — that theory was wrong, and review measured it:
+ * `loadWorkerExecutionContext` reloads only the run, the definition and the node definition, while
+ * `buildExecutionInput` reads `input: message.payload` straight off the message. Every task recovered
+ * through the sweep would have re-executed with an empty input.
  *
- * The payload is deliberately empty: the worker reloads its execution context from storage
- * (`loadWorkerExecutionContext`) rather than trusting the message, so a sweep does not need to
- * reconstruct an input snapshot it never saw.
+ * The per-node `timeoutMs` rides the same payload, so losing it also dropped a custom timeout back to
+ * the default — which, when the real timeout was the longer of the two, reopened the very
+ * double-execution race the ownership bound closes.
+ *
+ * The `messageId` is keyed on the ATTEMPT so it cannot collide with the message the dead worker was
+ * holding, nor with another sweep's — a queue that deduplicates by id would otherwise drop the
+ * replacement and leave the task `queued` with nothing to pick it up, which is the same trap one
+ * state along.
  */
 function buildRedeliveryMessage(taskRun: ITaskRun, attempt: number, nowIso: string): IQueueMessage {
   return {
+    payload: parseInputSnapshot(taskRun.inputSnapshot),
     // Keyed on the ATTEMPT, not the clock. Two sweeps in the same millisecond produced the identical
     // id, and the sqlite queue's `message_id` is a PRIMARY KEY — the second insert threw. The attempt
     // advances on every reclaim, so this is unique by construction rather than by timing.
@@ -173,7 +191,6 @@ function buildRedeliveryMessage(taskRun: ITaskRun, attempt: number, nowIso: stri
       `attempt:${attempt}`,
       'reclaimed:true',
     ],
-    payload: {},
     createdAt: nowIso,
   };
 }
@@ -199,4 +216,25 @@ async function finishTask(
   await storage.updateTaskRunStatus(taskRun.taskRunId, status, error);
   await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
   await finalizeDagRunIfTerminal(taskRun.dagRunId, storage, clock);
+}
+
+/**
+ * The task's recorded input, or an empty payload if there is none to recover.
+ *
+ * A snapshot that will not parse is treated as absent rather than throwing: the alternative is that
+ * one corrupt row stops the whole sweep, and a task re-run with no input is a visible failure while a
+ * sweep that never runs is not. The empty case is real too — a task claimed before this field was
+ * written has nothing to restore.
+ */
+function parseInputSnapshot(inputSnapshot: string | undefined): TPortPayload {
+  if (inputSnapshot === undefined) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(inputSnapshot);
+    return typeof parsed === 'object' && parsed !== null ? (parsed as TPortPayload) : {};
+  } catch {
+    // allow-fallback: an unparseable snapshot yields an empty input, not a thrown sweep — see above
+    return {};
+  }
 }
