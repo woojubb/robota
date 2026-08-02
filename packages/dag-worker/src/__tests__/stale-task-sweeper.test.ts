@@ -319,9 +319,8 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
   });
 
   it('leaves a task FINDABLE when the enqueue fails', async () => {
-    // Status-first plus a throwing enqueue left the task `queued` with an incremented attempt, no
-    // message, and nothing that could ever find it again — `listStaleRunningTaskRuns` only looks at
-    // `running`.
+    // The task must still be `running` — the only status a sweep queries — because no message
+    // exists for it.
     const { storage, queue, clock, lease } = await fixture(
       taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
     );
@@ -410,5 +409,35 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     const task = await storage.getTaskRun('task-run-1');
     expect(task?.status).toBe('cancelled');
     expect(task?.errorCode).toBe('DAG_TASK_EXECUTION_ORPHANED');
+  });
+
+  it('leaves a task FINDABLE when the SWEEPER ITSELF dies mid-sequence', async () => {
+    // The sweeper is exactly as mortal as the worker whose death it cleans up after. Writing the
+    // status before the enqueue meant a sweeper that died in between left the task `queued` with no
+    // message — and `listStaleRunningTaskRuns` only queries `running`, so nothing would ever find it
+    // again. DAG-001's own trap, reintroduced inside the recovery path.
+    //
+    // A crash is simulated by making the write that FOLLOWS the enqueue unreachable, which is the
+    // same observable state a killed process leaves behind.
+    for (const dieAt of ['before-enqueue', 'after-enqueue'] as const) {
+      const { storage, queue, clock, lease } = await fixture(
+        taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+      );
+      if (dieAt === 'before-enqueue') {
+        queue.enqueue = async () => {
+          throw new Error('sweeper died');
+        };
+      } else {
+        storage.updateTaskRunStatus = async () => {
+          throw new Error('sweeper died');
+        };
+      }
+
+      await sweep(storage, queue, clock, lease);
+
+      const task = await storage.getTaskRun('task-run-1');
+      // Still findable by the next sweep, whichever write never landed.
+      expect(task?.status, `died ${dieAt}`).toBe('running');
+    }
   });
 });

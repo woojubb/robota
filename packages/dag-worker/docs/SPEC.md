@@ -111,6 +111,15 @@ for `leaseDurationMs` alone let the lease expire mid-execution (real configs pai
 300s default timeout), after which the queue's visibility timeout redelivered the message to a worker
 that could acquire it — reclaiming a task that was still running.
 
+**A reclaimed task stays `running` until a message provably exists for it.** The sweep's four writes
+have no transaction between them, and the sweeper is exactly as mortal as the worker whose death it
+is cleaning up after. Writing the status first meant a sweeper that died mid-sequence left the task
+`queued` with no message — and `listStaleRunningTaskRuns` queries only `running`, so nothing would
+ever find it again. The order is: increment the attempt, enqueue, then set `queued`, then clear the
+lease. The attempt advances before the enqueue because the message id derives from it; a crash
+between the two burns one attempt rather than producing a second message with an id the first
+already took.
+
 **The lease is written BEFORE the status.** They are two writes with no transaction between them; in
 the other order a sweeper running in the gap would see `running` with no lease — the shape it treats
 as abandoned — and reclaim a task that was in the middle of starting.

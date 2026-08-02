@@ -289,3 +289,11 @@ three adapters, so a retention job can leave exactly that, and reporting it as a
 is how a referential-integrity bug stays invisible. It now has its own `orphaned` bucket and its own
 error code, and the file's `parseInputSnapshot` fallback — which IS deliberate — carries the
 `allow-fallback` marker this branch did not.
+
+Sixth round, one SHOULD, and the sharpest of them: the reclaim path's four writes were still ordered
+status-first, so **a sweeper that died mid-sequence** left the task `queued` with no message — and
+the query only looks at `running`. DAG-001's own trap, reintroduced inside the recovery path, in code
+whose entire subject is that processes die at inconvenient moments. The order is now: advance the
+attempt, enqueue, set `queued`, clear the lease — so the task remains findable until a message
+provably exists. The existing test simulated only a synchronous throw and did not cover the crash
+window; there is now a case for both sides of the enqueue.

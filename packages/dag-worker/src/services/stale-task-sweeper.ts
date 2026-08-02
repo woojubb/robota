@@ -137,23 +137,28 @@ async function sweepOne(
       return;
     }
 
-    await storage.updateTaskRunStatus(taskRun.taskRunId, reclaimed.value.nextStatus);
-    // Clear the dead owner's lease. Left in place it would be a lease belonging to a process that no
-    // longer exists, attached to a task somebody else is about to run.
-    await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+    // ORDER IS THE INVARIANT HERE: the task stays `running` — the only status a sweep looks at —
+    // until a message provably exists for it. These are four independent writes with no transaction
+    // between them, and the sweeper is exactly as mortal as the worker whose death it is cleaning up
+    // after. Writing the status first meant a sweeper that died mid-sequence left the task `queued`
+    // with no message, and `listStaleRunningTaskRuns` only queries `running` — so nothing would ever
+    // find it again. That is DAG-001's own trap, reintroduced inside the recovery path. Review
+    // caught it.
+    //
+    // The attempt is advanced BEFORE the enqueue because the message id derives from it: a crash
+    // between the two burns one attempt (bounded by `maxAttempts`) rather than producing a second
+    // message with an id the first already took, which the sqlite queue's PRIMARY KEY rejects.
+    const nextAttempt = taskRun.attempt + 1;
     await storage.incrementTaskAttempt(taskRun.taskRunId);
-    try {
-      // The message carries the INCREMENTED attempt, matching what storage now holds. They disagreed
-      // by one, and `handleRetry` reads the message's — so the sweeper's bound would be reached
-      // before the message-driven one.
-      await queue.enqueue(buildRedeliveryMessage(taskRun, taskRun.attempt + 1, clock.nowIso()));
-    } catch (error) {
-      // The status is already `queued`, which `listStaleRunningTaskRuns` does NOT look at — so a
-      // failed enqueue here would leave the task with no message and nothing that could ever find it
-      // again. Put it back where the sweeper can see it, then let the failure surface.
-      await storage.updateTaskRunStatus(taskRun.taskRunId, 'running');
-      throw error;
-    }
+    // The message carries the INCREMENTED attempt, matching what storage now holds. They disagreed by
+    // one, and `handleRetry` reads the message's — so the sweeper's bound would be reached before the
+    // message-driven one.
+    await queue.enqueue(buildRedeliveryMessage(taskRun, nextAttempt, clock.nowIso()));
+    await storage.updateTaskRunStatus(taskRun.taskRunId, reclaimed.value.nextStatus);
+    // Clear the dead owner's lease last. Left in place it would be a lease belonging to a process
+    // that no longer exists, attached to a task somebody else is about to run — but a crash before
+    // this point leaves a task that a message will still reach, which is the outcome that matters.
+    await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
     outcome.requeued.push(taskRun.taskRunId);
   }
 }
