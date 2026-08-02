@@ -1,6 +1,7 @@
 ---
 title: 'DAG-002: the DAG''s top-level "run a DAG" contract is typed on the imported system''s file format, and the conversion is lossy in both directions'
 status: done
+completed: 2026-08-02
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -116,8 +117,32 @@ a workflow authored with string node ids does not round-trip.
 - **Expected observable result (before the fix, for contrast):** node ids appear as `node-<n>`, port
   keys appear as `out0`/`in0`, and a companion file is needed to map them back.
 - **Cleanup:** delete the scratch workflow and its run state.
-- **Evidence (fill in after implementation):** the authored definition and the run record side by
-  side, showing ids and port names preserved.
+- **Evidence:** agent-run on the real `robota-dag` binary (`packages/dag-cli/dist/node/bin.js`), not
+  through a test harness. A definition naming its nodes `greeting` and `reply`:
+
+  ```
+  $ node packages/dag-cli/dist/node/bin.js run greeting.dag.json
+    ✓ greeting   [success]
+    ✓ reply   [success]
+
+  Outputs:
+    greeting.text: hello
+    greeting._agentSummary: Input: 5 chars.
+    reply.text: hello
+    reply._agentSummary: Input: 5 chars.
+  ```
+
+  Both the progress lines and the output keys name the ids written in the file, with no companion
+  file involved. Running the same round trip the OLD contract performed, on that same file:
+
+  ```
+  authored node ids : greeting, reply
+  what the runtime  : node-1, node-2
+  ```
+
+  Those `node-<n>` ids were what the run record showed. Full transcript, the reproduce command and
+  the backing regression test are in
+  [`.agents/evals/scenarios/dag-002-execution-contract-agent-run.md`](../../evals/scenarios/dag-002-execution-contract-agent-run.md).
 
 ## Implementation
 
