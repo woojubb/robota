@@ -154,15 +154,16 @@ Refusing, rather than cancelling the first turn: a session is a single conversat
 aborting the running turn would discard work the caller never asked to abandon. The error names the
 three ways out (await it, `abort()` first, or use a separate session).
 
-`packages/agent-session/src/__tests__/session-turn-reentrancy.test.ts` — 3 cases, red-proved by
+`packages/agent-session/src/__tests__/session-turn-reentrancy.test.ts` — 8 cases, red-proved by
 restoring the unguarded claim/release: the two defect cases fail on **named assertions**
 (`expected 'pending' to be 'rejected'`, `expected false to be true`) in 262ms and 13ms, not on a
 timeout. The third is labelled in the file as a regression guard that passes against the defect too,
-so it is not miscounted as proof. 158 `agent-session` tests pass; `agent-framework` (1311) and
+so it is not miscounted as proof. 163 `agent-session` tests pass; `agent-framework` (1311) and
 `agent-subagent-runner` (14) pass. Of the four production `session.run()` call sites, three create a
 fresh session; `child-process-subagent-worker.ts:163` (`runFollowUp`) reuses one but is serialised
 through its `running` promise chain, and `interactive-session-prompt.ts:92-95` is gated by
-`execCtrl.executing` — so none of them relied on the overwrite.
+`execCtrl.executing` on the prompt path (a blocking foreground COMMAND clears that flag
+independently — see RUNTIME-005) — so none of them relied on the overwrite.
 
 An earlier draft of this test file was four cases of which **three used a second session** and so
 proved nothing about a shared claim, and the fourth failed by a 10s timeout. Both are the

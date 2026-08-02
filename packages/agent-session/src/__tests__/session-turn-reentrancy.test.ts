@@ -108,7 +108,9 @@ describe('a session runs one turn at a time (RUNTIME-003)', () => {
     const second = await outcomeWithin(session.run('second'));
     // Against the defect this is `'pending'` — the second turn started and blocked on the provider.
     expect(second.status).toBe('rejected');
-    expect(String((second as { error: unknown }).error)).toMatch(/already running a turn/i);
+    // By TYPE, not by message: the SPEC promises `run()` rejects with `SessionBusyError`, and a
+    // message regex would still pass if the refusal were ever wrapped in something else.
+    expect((second as { error: unknown }).error).toBeInstanceOf(SessionBusyError);
 
     release();
     await expect(first).resolves.toBe('done');
@@ -162,6 +164,8 @@ describe('a session runs one turn at a time (RUNTIME-003)', () => {
     expect(afterUnwind.status).toBe('resolved');
   });
 
+  // Also not a defect-prover — it passes against the unguarded version too. It guards the
+  // direction with the worst failure: a leaked claim is permanent.
   it('a turn that REJECTS releases the claim — a failed turn must not brick the session', async () => {
     // The highest-consequence direction of this change: a leaked claim is permanent. Every later
     // `run()` on that session would be refused forever, and the session would look busy while
@@ -230,6 +234,7 @@ describe('TurnClaim (RUNTIME-003)', () => {
     expect(claim.isRunning()).toBe(true);
   });
 
+  // Not a defect-prover: passes against the unguarded version too.
   it('aborts nothing when idle', () => {
     const claim = new TurnClaim();
     expect(() => claim.abort()).not.toThrow();

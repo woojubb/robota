@@ -361,6 +361,15 @@ The contract this package now publishes:
 - `isRunning()` is therefore authoritative for the session, and a consumer does not need to maintain
   a parallel busy flag.
 
+The one caveat, stated because the recipe above is not unconditional: a turn that never OBSERVES the
+signal is never cut, and its claim is held until it unwinds. A provider that hangs is cut by
+agent-core's upstream-abort path, but a turn parked on a consumer-supplied `permissionHandler` is
+not — `PermissionEnforcer` awaits it with no signal and no timeout — so `abort()` returns, the await
+never does, and every later `run()` on that session is refused. Recovery is `shutdown()`, which does
+not consult the claim, and then a fresh session. `agent-framework` avoids the case by draining its
+prompt registry before aborting; a direct `agent-session` consumer has no equivalent, which is
+RUNTIME-004's subject, not this contract's.
+
 Concurrency ACROSS transports (MCP request correlation, the HTTP `POST /submit` TOCTOU) rides
 `InteractiveSession` in `agent-framework`, a different object, and is not covered by this contract —
 tracked as RUNTIME-003 P2.
