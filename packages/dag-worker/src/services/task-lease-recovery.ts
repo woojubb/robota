@@ -1,4 +1,7 @@
 import { sweepStaleTaskRuns } from './stale-task-sweeper.js';
+import { failAfterAck, handleTerminalFailure } from './worker-failure-handler.js';
+
+import type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-service.js';
 
 import {
   TASK_PROGRESS_EVENTS,
@@ -77,83 +80,13 @@ function leaseUntilIso(clock: IClockPort, timeoutMs: number, leaseDurationMs: nu
   return new Date(clock.nowEpochMs() + taskOwnershipMs(timeoutMs, leaseDurationMs)).toISOString();
 }
 
-/**
- * Runs the stale-task sweep at most once per lease duration.
- *
- * A lease cannot expire faster than `leaseDurationMs`, so sweeping more often than that can only
- * re-read storage to find the same nothing. Unthrottled it would run on every idle tick — which, with
- * the driver's 25ms idle floor, is a storage query forty times a second per worker.
- *
- * Owns its own clock state so the worker loop does not carry a field whose only reader is this rule.
- */
-export class StaleTaskSweepThrottle {
-  /** Zero means "never swept", so the first idle tick sweeps. */
-  private lastSweepAtMs = 0;
-
-  /** Guards against two overlapping sweeps on one throttle, now that the clock advances after. */
-  private sweeping = false;
-
-  public constructor(
-    private readonly clock: IClockPort,
-    private readonly lease: ILeasePort,
-    private readonly options: { workerId: string; leaseDurationMs: number; maxAttempts: number },
-  ) {}
-
-  /**
-   * Returns the sweep's failure rather than throwing it.
-   *
-   * A sweep runs on the IDLE branch of `processOnce`, whose promise the drivers only `.catch` when
-   * stopping — so a throw here escaped into an unhandled rejection and killed the worker loop. Review
-   * measured that path via the sqlite queue's PRIMARY KEY. Recovery failing must not take the worker
-   * with it; the loop reports it, backs off, and tries again on the next idle tick.
-   */
-  public async sweepIfDue(
-    storage: IStoragePort,
-    queue: IQueuePort,
-  ): Promise<IDagError | undefined> {
-    const nowMs = this.clock.nowEpochMs();
-    if (this.sweeping || nowMs - this.lastSweepAtMs < this.options.leaseDurationMs) {
-      return undefined;
-    }
-    this.sweeping = true;
-    try {
-      const outcome = await sweepStaleTaskRuns(
-        storage,
-        queue,
-        this.clock,
-        this.lease,
-        this.options,
-      );
-      const first = outcome.failed[0];
-      if (first === undefined) {
-        return undefined;
-      }
-      // A per-task failure is reported by the sweep rather than thrown, so it would otherwise be
-      // swallowed here. Silence is not success: surface the first one as the loop's error.
-      throw first.error;
-    } catch (error) {
-      return {
-        code: 'DAG_TASK_SWEEP_FAILED',
-        category: 'task_execution',
-        message: `Stale-task sweep failed: ${error instanceof Error ? error.message : String(error)}`,
-        retryable: true,
-        context: { workerId: this.options.workerId },
-      };
-    } finally {
-      // Advanced AFTER the sweep, not before: a throwing sweep would otherwise suppress every retry
-      // for a full lease duration, turning one failure into a window with no recovery at all.
-      this.lastSweepAtMs = this.clock.nowEpochMs();
-      this.sweeping = false;
-    }
-  }
-}
-
 /** Everything `claimTaskForExecution` needs, so the worker loop passes state rather than `this`. */
 export interface IClaimTaskDeps {
   storage: IStoragePort;
+  queue: IQueuePort;
   clock: IClockPort;
   reporter: IRunProgressEventReporter | undefined;
-  options: { workerId: string; leaseDurationMs: number };
+  options: IWorkerLoopOptions;
   timeoutMs: number;
   message: IQueueMessage;
   taskRun: ITaskRun;
@@ -170,9 +103,35 @@ export async function claimTaskForExecution(
   deps: IClaimTaskDeps,
 ): Promise<TResult<void, IDagError>> {
   const { storage, clock, message, taskRun } = deps;
+  const wasAbandoned = taskRun.status === 'running';
   const reclaimed = reclaimIfAbandoned(taskRun);
   if (!reclaimed.ok) {
     return reclaimed;
+  }
+  if (wasAbandoned) {
+    // The SAME bound the idle sweep applies, for the same scenario. Only the sweep had it, so a
+    // poison-pill task — one that kills its worker every time — was redelivered, reclaimed and
+    // re-executed without limit on the one queue adapter that redelivers, because
+    // `requeueExpiredMessages` caps nothing. An asymmetry between two paths that recover the same
+    // failure is how a bound gets enforced on paper only.
+    if (taskRun.attempt >= deps.options.maxAttempts) {
+      return {
+        ok: false,
+        error: {
+          code: 'DAG_TASK_EXECUTION_ABANDONED',
+          category: 'task_execution',
+          message: `Task was abandoned by its worker ${taskRun.attempt} time(s) and has no attempts left`,
+          retryable: false,
+          context: {
+            taskRunId: taskRun.taskRunId,
+            attempt: taskRun.attempt,
+            maxAttempts: deps.options.maxAttempts,
+          },
+        },
+      };
+    }
+    // Advance it, or the bound above is never reached on this path either.
+    await storage.incrementTaskAttempt(taskRun.taskRunId);
   }
   const started = TaskRunStateMachine.transition(reclaimed.value, 'START');
   if (!started.ok) {
@@ -233,4 +192,34 @@ export async function withTaskLease<T>(
   } finally {
     await lease.release(leaseKey, workerId);
   }
+}
+
+/**
+ * A claim that could not proceed.
+ *
+ * An EXHAUSTED reclaim is a terminal failure, not a dropped message: `failAfterAck` acks and returns,
+ * which would leave the task `running` with no accounting at all. It goes where every other terminal
+ * failure goes — the task is failed, dead-lettered if configured, and its run finalized. Writing the
+ * terminal status is the caller's job there, as on the normal failure path.
+ */
+export async function handleFailedClaim(
+  error: IDagError,
+  deps: IClaimTaskDeps,
+): Promise<TResult<IWorkerLoopResult, IDagError>> {
+  const { message, taskRun, storage, queue, clock } = deps;
+  if (error.code !== 'DAG_TASK_EXECUTION_ABANDONED') {
+    return failAfterAck(queue, message.messageId, error);
+  }
+  await storage.updateTaskRunStatus(taskRun.taskRunId, 'failed', error);
+  await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+  return handleTerminalFailure(
+    message,
+    taskRun.taskRunId,
+    error,
+    deps.options,
+    storage,
+    queue,
+    clock,
+    deps.reporter,
+  );
 }

@@ -287,4 +287,43 @@ describe('an abandoned task is recovered, not trapped (DAG-001)', () => {
     expect(acquired).toHaveLength(1);
     expect(acquired[0]).toBeGreaterThan(600_000);
   });
+
+  /**
+   * The asymmetry the last CI review round found. The idle sweep applies `maxAttempts`; the
+   * redelivery path — recovering the IDENTICAL scenario — did not. `InMemoryQueuePort`, the only
+   * adapter that redelivers, caps nothing in `requeueExpiredMessages`, so a poison-pill task that
+   * kills its worker every time was reclaimed and re-executed without limit.
+   */
+  it('applies the SAME retry bound the sweep applies, so a poison pill cannot loop forever', async () => {
+    let executions = 0;
+    const h = await harness(
+      new ScriptedTaskExecutorPort(async () => {
+        executions += 1;
+        return { ok: true, output: {} };
+      }),
+    );
+    // Abandoned, and already at the bound (`maxAttempts` is 3 in this harness).
+    await h.storage.updateTaskRunStatus(h.taskRun.taskRunId, 'running');
+    await h.storage.incrementTaskAttempt(h.taskRun.taskRunId);
+    await h.storage.incrementTaskAttempt(h.taskRun.taskRunId);
+    await h.queue.enqueue({ ...h.message, attempt: 3 });
+
+    await h.service.processOnce();
+
+    // Not re-executed, and terminated rather than dropped.
+    expect(executions).toBe(0);
+    const task = await h.storage.getTaskRun(h.taskRun.taskRunId);
+    expect(task?.status).toBe('failed');
+    expect(task?.errorCode).toBe('DAG_TASK_EXECUTION_ABANDONED');
+  });
+
+  it('advances the attempt when it reclaims, so the bound can ever be reached', async () => {
+    const h = await harness(new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })));
+    await h.storage.updateTaskRunStatus(h.taskRun.taskRunId, 'running');
+    await h.queue.enqueue(h.message);
+
+    await h.service.processOnce();
+
+    expect((await h.storage.getTaskRun(h.taskRun.taskRunId))?.attempt).toBe(2);
+  });
 });

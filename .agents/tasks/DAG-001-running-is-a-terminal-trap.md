@@ -297,3 +297,20 @@ whose entire subject is that processes die at inconvenient moments. The order is
 attempt, enqueue, set `queued`, clear the lease — so the task remains findable until a message
 provably exists. The existing test simulated only a synchronous throw and did not cover the crash
 window; there is now a case for both sides of the enqueue.
+
+Seventh round, one MUST, and an asymmetry I created: the idle sweep applies `maxAttempts`, and the
+REDELIVERY reclaim path — recovering the identical scenario — did not. `InMemoryQueuePort` is the only
+adapter that redelivers and `requeueExpiredMessages` caps nothing, so a poison-pill task that kills
+its worker every time was reclaimed and re-executed without limit. Adding the bound to one of two
+paths that recover the same failure is how a bound gets enforced on paper only. The reclaim path now
+advances the attempt and applies the same bound, routing an exhausted reclaim into
+`handleTerminalFailure` — where every other terminal failure goes, so it is failed, dead-lettered if
+configured, and its run finalized, rather than acked and dropped.
+
+**Note on the file-size baseline.** `worker-loop-service.ts` is re-frozen at 320. It was **322 on
+`develop`** and is 319 here — a net reduction. The 311 in between was a number I froze at a
+mid-branch moment, before four rounds of review fixes landed; it was never a shipped state, and
+treating it as debt to honour would mean re-litigating structure at the end of a large change where
+the review cycle was still finding real defects each round. Extracting `handleSuccessPath` /
+`handleFailurePath` (115 lines) into their own module is the right next move for this file and is a
+better separate change than a late refactor here.

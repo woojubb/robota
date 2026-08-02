@@ -280,7 +280,15 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       storage,
       clock,
       reporter: undefined,
-      options: { workerId: 'worker-1', leaseDurationMs: 30_000 },
+      queue,
+      options: {
+        workerId: 'worker-1',
+        leaseDurationMs: 30_000,
+        maxAttempts: MAX_ATTEMPTS,
+        visibilityTimeoutMs: 30_000,
+        retryEnabled: false,
+        defaultTimeoutMs: 50,
+      },
       timeoutMs: 1_000,
       message: {
         messageId: 'm1',

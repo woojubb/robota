@@ -19,11 +19,13 @@ import {
 } from '@robota-sdk/dag-core';
 import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
+import { StaleTaskSweepThrottle } from './stale-task-sweep-throttle.js';
 import {
-  StaleTaskSweepThrottle,
   claimTaskForExecution,
+  handleFailedClaim,
   taskOwnershipMs,
   withTaskLease,
+  type IClaimTaskDeps,
 } from './task-lease-recovery.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
@@ -120,17 +122,11 @@ export class WorkerLoopService {
       return failAfterAck(this.queue, message.messageId, notFound);
     }
 
-    const startResult = await claimTaskForExecution({
-      storage: this.storage,
-      clock: this.clock,
-      reporter: this.runProgressEventReporter,
-      options: this.options,
-      timeoutMs: this.resolveTimeoutMs(message),
-      message,
-      taskRun,
-    });
+    // Built once and passed to both: claiming and handling a failed claim need the same context.
+    const claimDeps = this.claimDepsFor(message, taskRun);
+    const startResult = await claimTaskForExecution(claimDeps);
     if (!startResult.ok) {
-      return failAfterAck(this.queue, message.messageId, startResult.error);
+      return handleFailedClaim(startResult.error, claimDeps);
     }
 
     const contextResult = await loadWorkerExecutionContext(this.storage, message);
@@ -298,6 +294,19 @@ export class WorkerLoopService {
       input: message.payload,
       output,
     });
+  }
+
+  private claimDepsFor(message: IQueueMessage, taskRun: ITaskRun): IClaimTaskDeps {
+    return {
+      storage: this.storage,
+      queue: this.queue,
+      clock: this.clock,
+      reporter: this.runProgressEventReporter,
+      options: this.options,
+      timeoutMs: this.resolveTimeoutMs(message),
+      message,
+      taskRun,
+    };
   }
 
   private resolveTimeoutMs(message: IQueueMessage): number {
