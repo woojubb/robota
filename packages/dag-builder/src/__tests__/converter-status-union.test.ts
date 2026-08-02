@@ -108,3 +108,33 @@ describe('the import boundary rejects a status the domain type cannot hold (DAG-
     expect(() => dagDefinitionFromParsedFile({ dagId: 'd', version: 1, nodes: [] })).not.toThrow();
   });
 });
+
+describe('BOTH import branches are validated, not just one (DAG-002)', () => {
+  it('a COMPANION carrying an out-of-union status is rejected too', () => {
+    // Review round 3. `assertStatusInUnion` guarded only the legacy-definition branch; the
+    // workflow-file branch returned `companion?.status ?? 'draft'` unchecked. `tryReadCompanion` in
+    // dag-cli parses a companion with a bare `as IDagRobotaCompanion`, so a pre-DAG-002 companion
+    // carrying 'active' would have walked straight through — the same defect, reachable through the
+    // branch nobody red-proved. No caller passes a companion TODAY, which is exactly why it had to be
+    // closed before DAG-004 routes the eight CLI sites through here with theirs.
+    expect(() =>
+      dagDefinitionFromParsedFile(emptyWorkflowFile(), {
+        dagId: 'd',
+        version: 1,
+        status: 'active' as never,
+        nodes: {},
+      }),
+    ).toThrow(/'active'/);
+  });
+
+  it('a companion with a legal status still passes', () => {
+    expect(
+      dagDefinitionFromParsedFile(emptyWorkflowFile(), {
+        dagId: 'd',
+        version: 1,
+        status: 'published',
+        nodes: {},
+      }).status,
+    ).toBe('published');
+  });
+});

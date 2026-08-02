@@ -30,7 +30,8 @@ const DEFINITION_STATUSES: readonly TDagDefinitionStatus[] = ['draft', 'publishe
  * A definition read off disk may carry a status the domain type says cannot exist.
  *
  * `scan-literal-cast-union` catches the shape that produced most of them — a literal cast to a union
- * it is not in — but it cannot reach a value that arrives at RUNTIME. `dag-cli node`'s example
+ * it is not in — but it cannot reach a value that arrives at RUNTIME, from a definition file OR from
+ * the companion a workflow file is read with. `dag-cli node`'s example
  * generator wrote `status: 'active'` into an untyped object literal and printed it for the user to
  * save; files from before DAG-002 are already on disk. This is the boundary every import now passes
  * through, so it is where the impossible value gets named instead of flowing on as a lie the type
@@ -55,7 +56,12 @@ export function dagDefinitionFromParsedFile(
   parsed: unknown,
   companion?: IDagRobotaCompanion,
 ): IDagDefinition {
-  if (isWorkflowFileFormat(parsed)) return fromDagWorkflowFile(parsed, companion);
+  // BOTH branches, not just the one that was easy to reach. The workflow-file branch takes its status
+  // from the companion, which `dag-cli` parses with a bare `as IDagRobotaCompanion`, so a companion
+  // written before DAG-002 carries 'active' into a definition exactly as a definition file would.
+  if (isWorkflowFileFormat(parsed)) {
+    return assertStatusInUnion(fromDagWorkflowFile(parsed, companion));
+  }
   if (isLegacyDefinitionFormat(parsed)) return assertStatusInUnion(parsed);
   // Neither shape. Both open-coded copies this replaces ended in a bare `as` here, so an
   // unrecognised file was handed to the runtime wearing a type it did not have and failed later,

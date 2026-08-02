@@ -269,3 +269,17 @@ that stopped the next reader from checking.
   wearing this item's name.
 - Both claims are narrowed to what actually holds, and the SPEC now names DAG-004 so the gap is
   readable from the document that overstated it.
+
+### Review round 3 (PR #1605)
+
+One SHOULD, upheld. `assertStatusInUnion` guarded only the legacy-definition branch; the workflow-file
+branch returned `companion?.status ?? 'draft'` unchecked, and `dag-cli`'s `tryReadCompanion` parses a
+companion with a bare `as IDagRobotaCompanion`. A companion written before DAG-002 carries `'active'`
+into a definition exactly as a definition file would.
+
+It does not fire today — no current caller passes a companion — which is precisely the reason to close
+it now: DAG-004's stated direction is to route the eight remaining CLI sites through this function
+"passing the companion where one is read", and that activates it. A guard that covers the branch that
+happens to be reachable is the shape this whole item is about.
+
+Both branches now pass through `assertStatusInUnion`, red-proved on the companion path.
