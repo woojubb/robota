@@ -1,6 +1,6 @@
 ---
 title: 'DAG-002: the DAG''s top-level "run a DAG" contract is typed on the imported system''s file format, and the conversion is lossy in both directions'
-status: in-progress
+status: done
 created: 2026-08-02
 priority: critical
 urgency: now
