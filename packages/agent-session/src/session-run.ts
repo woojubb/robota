@@ -84,7 +84,7 @@ export interface IRunContext {
   hookTypeExecutors: IHookTypeExecutor[] | undefined;
   sessionStartStdout: string;
   log: (event: string, data: TSessionLogData) => void;
-  compact: () => Promise<void>;
+  compact: (signal?: AbortSignal) => Promise<void>; // RUNTIME-004: abort must not rewrite history
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
@@ -123,7 +123,7 @@ export async function executeRun(
     const savedDelta = provider.onTextDelta;
     provider.onTextDelta = undefined;
     try {
-      await ctx.compact();
+      await ctx.compact(abortSignal);
     } finally {
       provider.onTextDelta = savedDelta;
     }
