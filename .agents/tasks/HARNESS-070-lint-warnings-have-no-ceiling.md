@@ -8,11 +8,11 @@ area: scripts/harness, eslint.config
 depends_on: []
 ---
 
-# HARNESS-070: 1925 warnings, and nothing objects to 1926
+# HARNESS-070: 1927 warnings, and nothing objects to 1928
 
 ## Problem
 
-`pnpm lint` reports **1925 warnings and 0 errors**, and passes. It runs without `--max-warnings`, so a
+`pnpm lint` reports **1927 warnings and 0 errors** (measured 2026-08-03), and passes. It runs without `--max-warnings`, so a
 rule configured as `warn` has no effect on any gate: a change may add as many warnings as it likes and
 every check stays green. The rules currently in that state include
 `@typescript-eslint/no-unused-vars`, `complexity` and `max-lines-per-function`.
@@ -32,6 +32,9 @@ modules. Each extraction left the imports that had backed the moved code behind:
   `ITransportRegistryView`, and earlier eleven more from `@robota-sdk/agent-framework`
 
 Nineteen dead imports across one PR. `no-unused-vars` flagged every one of them and nothing failed.
+(The count is dominated by other rules — 747 of the warnings are `ban-types` on `unknown` — so the
+delta a single PR contributes is not separable from the total without a per-rule freeze. That is an
+argument FOR per-rule freezing, not against the ratchet.)
 Two review rounds each named ONE of them; the rest were found by a sweep afterwards. A reviewer
 reading warnings is not a gate — it is a person doing a mechanical job by hand, which is the shape
 this repository keeps replacing.
@@ -52,7 +55,7 @@ A warning-count ratchet, following the pattern the repository already uses four 
 - A rise fails and names the rules that grew. A fall demands a re-freeze in the same change.
 - Run it from `pnpm lint` or as a registered scan, not as a separate thing to remember.
 
-The alternative — promoting rules from `warn` to `error` — is not landable at 1925 and would be
+The alternative — promoting rules from `warn` to `error` — is not landable at 1927 and would be
 suppressed rather than obeyed, which is why the ratchet shape is preferred here.
 
 Not decided: whether the per-rule breakdown is frozen from the start or added once the total is

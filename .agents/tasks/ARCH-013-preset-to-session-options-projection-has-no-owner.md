@@ -283,6 +283,6 @@ of the detector mis-read `TActionResponse as TUserActionResponse` as dead when i
 
 **No mechanism yet, and that is a gap.** `@typescript-eslint/no-unused-vars` is a WARNING and
 `pnpm lint` runs without `--max-warnings`, so nothing objects to any of this. Three separate instances
-in one PR is a pattern, not bad luck. A warning-COUNT ratchet — frozen at today's number, may fall,
+in one PR is a pattern, not bad luck. A warning-COUNT ratchet — frozen at today's 1927, may fall,
 never rise — is the neutral mechanism that would have caught all eight, and it is filed as HARNESS-070
 rather than added here, because this change is already carrying one new scan.
