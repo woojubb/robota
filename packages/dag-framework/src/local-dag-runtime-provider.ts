@@ -102,9 +102,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult> {
     const nodeDefinitions = await this.buildNodeRegistry();
-    // DAG-002: executed as given. `fromDagWorkflowFile(dag, undefined)` used to sit here, rewriting
-    // every node id to `node-<n>` — undoing a conversion the caller had just performed.
-    const definition = dag;
+    // DAG-002: run as given. `fromDagWorkflowFile(dag, undefined)` used to sit here, rewriting every
+    // node id to `node-<n>` — undoing a conversion the caller had just performed.
 
     const startMs = Date.now();
     let aborted = false;
@@ -115,7 +114,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
 
     try {
       const result = await runDagOnce(
-        definition,
+        dag,
         nodeDefinitions,
         inputs as TPortPayload,
         options?.onProgress,

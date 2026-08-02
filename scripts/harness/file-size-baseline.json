@@ -87,7 +87,7 @@
   "packages/dag-cli/src/studio/ui-html.ts": 355,
   "packages/dag-framework/src/adapters/orchestration-adapter.ts": 665,
   "packages/dag-framework/src/adapters/prompt-backend.ts": 402,
-  "packages/dag-framework/src/local-dag-runtime-provider.ts": 365,
+  "packages/dag-framework/src/local-dag-runtime-provider.ts": 364,
   "packages/dag-nodes/gemini-image-edit/src/runtime-core.ts": 318,
   "packages/dag-nodes/instant-node/src/index.ts": 588,
   "packages/dag-nodes/utility-text/src/index.ts": 626
