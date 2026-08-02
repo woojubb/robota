@@ -176,7 +176,7 @@ Two SHOULDs, both upheld, and the second is the sharper one.
 
 **Overlapping markers double-counted.** `.robota` is a substring of `~/.robota`, so every line with
 the latter scored two "product name" occurrences for one mention — 16 of them, inflating the frozen
-numbers from a true 92 to 108. The ratchet stayed monotonic, so nothing broke; but the count is what
+numbers from the measured 94 to 108. The ratchet stayed monotonic, so nothing broke; but the count is what
 this scan REPORTS, and an inflated one is a wrong answer. The redundant marker is gone and overlapping
 markers now throw, because the next person adding one would hit the same thing silently.
 
@@ -185,6 +185,22 @@ notice and exited 0 — in the same change that classifies every other guard aga
 rule is that "nothing to check" is not "clean". An emptied config is exactly how a floor disappears
 without anyone noticing. It now fails, and a case runs the real CLI from a temp cwd holding an emptied
 config rather than calling a helper.
+
+### Review round 2 (PR #1610)
+
+Two SHOULDs, both upheld, and both are instances of what this same PR added a memory note about.
+
+**Three documents claimed three different counts** — 92 in the task file, 94 in the committed
+baseline, 108 in the guard-scope classification. The baseline is the measured truth; the other two
+were written without reading it back. All three now say 94, taken from the file.
+
+**A regression case of mine was accidental-green.** "still points inside the user home when HOME is
+set" asserted only that the path ends `.robota/settings.json` — which the buggy expression also
+produces whenever HOME exists. It cannot be made discriminating on POSIX either, because `homedir()`
+reads HOME there, so the two implementations agree by construction in that state. The case is now
+labelled for what it is (a non-regression guard) and asserts the whole path; the two cases that prove
+the defect do it with HOME UNSET, which is the Windows default and the only state where the two
+differ.
 
 ### Remaining — stage 2
 

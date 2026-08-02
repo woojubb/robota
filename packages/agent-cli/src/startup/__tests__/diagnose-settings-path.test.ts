@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -51,8 +51,16 @@ describe('diagnose reports an absolute user settings path (NEUT-009)', () => {
     expect(path.resolve(cwd, resolved)).not.toBe(path.join(cwd, '.robota', 'settings.json'));
   });
 
-  it('still points inside the user home when HOME is set', () => {
+  it('resolves under the platform home — a NON-REGRESSION check, not a red-provable one', () => {
+    // Review was right that the earlier form of this case was accidental-green: with HOME set, the
+    // suffix `.robota/settings.json` is produced by the buggy expression too. It cannot be made
+    // discriminating on POSIX either, because `homedir()` reads HOME there — the two implementations
+    // agree by construction whenever HOME exists.
+    //
+    // So it is labelled for what it is: a guard that the fix did not move the normal case somewhere
+    // else. The two cases above are what prove the defect, and they do it with HOME unset — which is
+    // the Windows default and the only state where the two differ.
     savedHome = process.env['HOME'];
-    expect(resolveUserSettingsPath()).toContain(path.join('.robota', 'settings.json'));
+    expect(resolveUserSettingsPath()).toBe(path.join(homedir(), '.robota', 'settings.json'));
   });
 });

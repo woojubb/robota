@@ -92,7 +92,7 @@ export const MANDATORY_TREE_GUARDS = [
     file: 'scan-product-identity.mjs',
     finder: 'findProductIdentity',
     tree: 'the src/ of each configured library package',
-    why: "it counts the consumer product's names inside libraries that must not know them; over a root with no packages every library is vacuously neutral, and the 108 occurrences it now freezes were invisible precisely because the existing neutrality scan was scoped to two packages that were already clean",
+    why: "it counts the consumer product's names inside libraries that must not know them; over a root with no packages every library is vacuously neutral, and the 94 occurrences it now freezes were invisible precisely because the existing neutrality scan was scoped to two packages that were already clean",
   },
   {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws

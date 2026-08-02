@@ -4,7 +4,7 @@
  * A library must not name its consumer's product.
  *
  * WHY THIS EXISTS, measured (NEUT-009). Four library packages write `robota`'s own directory names,
- * config file names, default agent name and model-facing command text — **108 occurrences** when
+ * config file names, default agent name and model-facing command text — **94 occurrences** when
  * counted, none of them covered by any neutrality scan. `scan-composition-neutrality` is about a different property
  * (the assembler's purity) and covers `agent-product` and `agent-capability-pack`; the packages where
  * the problem lives were read by nothing.
@@ -15,7 +15,7 @@
  * `process.env['HOME'] ?? ''`, which on Windows is unset, so the command whose job is reporting which
  * configuration is in effect reported a relative path resolved against the working directory.
  *
- * A RATCHET, NOT A BAN. 108 occurrences cannot be removed in one change, and a ban would be suppressed
+ * A RATCHET, NOT A BAN. 94 occurrences cannot be removed in one change, and a ban would be suppressed
  * rather than obeyed. The count per package is frozen: it may fall and must never rise, so every new
  * product name in a library is a deliberate, visible decision. Two packages sit at zero and are
  * protected outright by the same rule — `agent-tools` reached it in this change by renaming a temp
