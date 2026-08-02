@@ -297,4 +297,41 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
 
     expect(sweptDuringClaim).toEqual([]);
   });
+
+  /**
+   * The findings CI review added. The first was accidental-green on an axis these tests never
+   * asserted: they checked the TASK's status and never the run's.
+   */
+  it('FINALIZES the run when the abandoned task was its last pending one', async () => {
+    // Writing the task's status and stopping left the RUN stuck in `running` forever — the same
+    // terminal trap DAG-001 exists to close, moved one level up. Every other terminal path calls
+    // `finalizeDagRunIfTerminal`; this branch did not.
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(NOW_MS);
+    await storage.createDagRun(dagRun());
+    await storage.createTaskRun(taskRun({ attempt: MAX_ATTEMPTS }));
+
+    await sweep(storage, queue, clock);
+
+    expect((await storage.getTaskRun('task-run-1'))?.status).toBe('failed');
+    expect((await storage.getDagRun('dag-run-1'))?.status).toBe('failed');
+  });
+
+  it('leaves a task FINDABLE when the enqueue fails', async () => {
+    // Status-first plus a throwing enqueue left the task `queued` with an incremented attempt, no
+    // message, and nothing that could ever find it again — `listStaleRunningTaskRuns` only looks at
+    // `running`.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+    queue.enqueue = async () => {
+      throw new Error('queue unavailable');
+    };
+
+    await expect(sweep(storage, queue, clock, lease)).rejects.toThrow(/queue unavailable/);
+
+    // Back where the next sweep can see it.
+    expect((await storage.getTaskRun('task-run-1'))?.status).toBe('running');
+  });
 });

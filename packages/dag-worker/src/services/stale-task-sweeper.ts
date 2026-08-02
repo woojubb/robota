@@ -1,12 +1,16 @@
 import {
   TaskRunStateMachine,
   type IClockPort,
+  type IDagError,
   type ILeasePort,
   type IQueueMessage,
   type IQueuePort,
   type IStoragePort,
   type ITaskRun,
+  type TTaskRunStatus,
 } from '@robota-sdk/dag-core';
+
+import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
 
 /**
  * Return tasks abandoned by a dead worker to the queue. DAG-001.
@@ -81,8 +85,14 @@ async function sweepOne(
     // and waiting would silently re-execute the node the user cancelled. Cancel has to mean stop.
     const dagRun = await storage.getDagRun(taskRun.dagRunId);
     if (dagRun === undefined || TERMINAL_RUN_STATUSES.has(dagRun.status)) {
-      await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled');
-      await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+      // Through the state machine, not a literal — the table stays the single place the legal
+      // transitions live, which is the rule the RECLAIM check above follows.
+      const cancelled = TaskRunStateMachine.transition(taskRun.status, 'CANCEL');
+      if (!cancelled.ok) {
+        outcome.skipped.push(taskRun.taskRunId);
+        return;
+      }
+      await finishTask(storage, clock, taskRun, cancelled.value.nextStatus);
       outcome.abandoned.push(taskRun.taskRunId);
       return;
     }
@@ -90,14 +100,13 @@ async function sweepOne(
     // Retries are BOUNDED. Without this a task that kills its worker — or one that fails after being
     // set `running` — is swept, re-run and swept again forever, and `maxAttempts` never applies.
     if (taskRun.attempt >= maxAttempts) {
-      await storage.updateTaskRunStatus(taskRun.taskRunId, 'failed', {
+      await finishTask(storage, clock, taskRun, 'failed', {
         code: 'DAG_TASK_EXECUTION_ABANDONED',
         category: 'task_execution',
         message: `Task was abandoned by its worker ${taskRun.attempt} time(s) and has no attempts left`,
         retryable: false,
         context: { taskRunId: taskRun.taskRunId, attempt: taskRun.attempt, maxAttempts },
       });
-      await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
       outcome.abandoned.push(taskRun.taskRunId);
       return;
     }
@@ -107,10 +116,18 @@ async function sweepOne(
     // longer exists, attached to a task somebody else is about to run.
     await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
     await storage.incrementTaskAttempt(taskRun.taskRunId);
-    // The message carries the INCREMENTED attempt, matching what storage now holds. They disagreed by
-    // one, and `handleRetry` reads the message's — so the sweeper's bound would be reached before the
-    // message-driven one.
-    await queue.enqueue(buildRedeliveryMessage(taskRun, taskRun.attempt + 1, clock.nowIso()));
+    try {
+      // The message carries the INCREMENTED attempt, matching what storage now holds. They disagreed
+      // by one, and `handleRetry` reads the message's — so the sweeper's bound would be reached
+      // before the message-driven one.
+      await queue.enqueue(buildRedeliveryMessage(taskRun, taskRun.attempt + 1, clock.nowIso()));
+    } catch (error) {
+      // The status is already `queued`, which `listStaleRunningTaskRuns` does NOT look at — so a
+      // failed enqueue here would leave the task with no message and nothing that could ever find it
+      // again. Put it back where the sweeper can see it, then let the failure surface.
+      await storage.updateTaskRunStatus(taskRun.taskRunId, 'running');
+      throw error;
+    }
     outcome.requeued.push(taskRun.taskRunId);
   }
 }
@@ -159,4 +176,27 @@ function buildRedeliveryMessage(taskRun: ITaskRun, attempt: number, nowIso: stri
     payload: {},
     createdAt: nowIso,
   };
+}
+
+/**
+ * Land a task in a terminal status and finalize its run — the step the first draft of this branch
+ * omitted.
+ *
+ * Every other path that terminates a task (`handleSuccessPath`, `handleTerminalFailure`) also calls
+ * `finalizeDagRunIfTerminal`, because a run only leaves `running` once its last task is terminal.
+ * Writing the task's status and stopping meant a swept task that was the run's last pending one left
+ * the RUN stuck forever — the same terminal trap DAG-001 exists to close, moved one level up. Review
+ * caught it, and noted the sweeper's tests asserted only the task's status, so it was accidental-green
+ * on exactly that axis.
+ */
+async function finishTask(
+  storage: IStoragePort,
+  clock: IClockPort,
+  taskRun: ITaskRun,
+  status: TTaskRunStatus,
+  error?: IDagError,
+): Promise<void> {
+  await storage.updateTaskRunStatus(taskRun.taskRunId, status, error);
+  await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+  await finalizeDagRunIfTerminal(taskRun.dagRunId, storage, clock);
 }

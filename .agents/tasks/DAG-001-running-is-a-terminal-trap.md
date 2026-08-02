@@ -234,3 +234,23 @@ hazards open and one fix unguarded.
 Also taken: the requeued message now carries the INCREMENTED attempt, matching storage — they
 disagreed by one and `handleRetry` reads the message's, so the sweeper's bound was reached before the
 message-driven one.
+
+### CI review round — the trap moved one level up
+
+`Claude review` on the PR read the sweeper's terminal writes against the paths that already existed
+and found the one thing two probing rounds had not:
+
+**The abandoned branch never finalized the run.** Every other path that terminates a task
+(`handleSuccessPath`, `handleTerminalFailure`) also calls `finalizeDagRunIfTerminal`, because a run
+only leaves `running` once its last task is terminal. Writing the task's status and stopping meant a
+swept task that was the run's LAST pending one left the run stuck forever — the same terminal trap
+this task exists to close, moved from the task to the run. And the sweeper's tests asserted only the
+task's status, so it was accidental-green on exactly that axis. Both terminal branches now go through
+one `finishTask` helper that finalizes.
+
+Also from that round: a failed `queue.enqueue` left the task `queued` with an incremented attempt, no
+message, and nothing that could find it again — `listStaleRunningTaskRuns` only looks at `running`, so
+the recovery path had its own unrecoverable state. It now puts the task back to `running` before the
+failure surfaces. And the `cancelled` write went through a string literal rather than the state
+machine, in a change whose own comment argues the table must stay the single place legal transitions
+live.
