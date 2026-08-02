@@ -9,6 +9,15 @@ import { describe, expect, it } from 'vitest';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 import { sweepStaleTaskRuns } from '../services/stale-task-sweeper.js';
 
+import type { IClockPort, IQueuePort, IStoragePort } from '@robota-sdk/dag-core';
+
+const MAX_ATTEMPTS = 3;
+
+/** The sweep under test, with the retry bound every case shares. */
+function sweep(storage: IStoragePort, queue: IQueuePort, clock: IClockPort) {
+  return sweepStaleTaskRuns(storage, queue, clock, MAX_ATTEMPTS);
+}
+
 import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
 
 /**
@@ -69,7 +78,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       taskRun({ leaseOwner: 'dead-worker', leaseUntil: EXPIRED_ISO }),
     );
 
-    const swept = await sweepStaleTaskRuns(storage, queue, clock);
+    const swept = (await sweep(storage, queue, clock)).requeued;
 
     expect(swept).toEqual(['task-run-1']);
     expect((await storage.getTaskRun('task-run-1'))?.status).toBe('queued');
@@ -84,7 +93,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     // would leave exactly the tasks with the least evidence permanently stuck.
     const { storage, queue, clock } = await fixture(taskRun());
 
-    expect(await sweepStaleTaskRuns(storage, queue, clock)).toEqual(['task-run-1']);
+    expect((await sweep(storage, queue, clock)).requeued).toEqual(['task-run-1']);
     expect((await storage.getTaskRun('task-run-1'))?.status).toBe('queued');
   });
 
@@ -93,7 +102,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       taskRun({ leaseOwner: 'worker-1', leaseUntil: LIVE_ISO }),
     );
 
-    expect(await sweepStaleTaskRuns(storage, queue, clock)).toEqual([]);
+    expect((await sweep(storage, queue, clock)).requeued).toEqual([]);
     expect((await storage.getTaskRun('task-run-1'))?.status).toBe('running');
     expect(await queue.dequeue('worker-9', 10)).toBeUndefined();
   });
@@ -103,13 +112,13 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       taskRun({ leaseOwner: 'dead-worker', leaseUntil: EXPIRED_ISO }),
     );
 
-    await sweepStaleTaskRuns(storage, queue, clock);
+    await sweep(storage, queue, clock);
 
     const swept = await storage.getTaskRun('task-run-1');
     expect(swept?.leaseOwner).toBeUndefined();
     expect(swept?.leaseUntil).toBeUndefined();
     // Second pass finds nothing: the task is `queued`, not `running`.
-    expect(await sweepStaleTaskRuns(storage, queue, clock)).toEqual([]);
+    expect((await sweep(storage, queue, clock)).requeued).toEqual([]);
     expect(NOW_ISO).toBeDefined();
   });
 
@@ -117,7 +126,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const clock = new ManualClockPort(NOW_MS);
-    expect(await sweepStaleTaskRuns(storage, queue, clock)).toEqual([]);
+    expect((await sweep(storage, queue, clock)).requeued).toEqual([]);
   });
   /**
    * REACHABILITY, not just correctness. A sweeper nothing calls is the declared-but-unreachable seam
@@ -150,5 +159,57 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
 
     expect(result.ok).toBe(true);
     expect((await storage.getTaskRun('task-run-1'))?.status).toBe('queued');
+  });
+
+  /**
+   * The three findings an independent review MEASURED against the first draft of this fix. Each was a
+   * way the recovery path made things worse than the trap it replaced, and each is pinned here so the
+   * regression cannot come back quietly.
+   */
+  it('does NOT restart work for a run that is already over', async () => {
+    // `RunCancelService.cancelRun` updates only the RUN, leaving its tasks `running`. Without this,
+    // cancelling a run and waiting silently re-executed the node the user cancelled — cancel stopped
+    // meaning stop, and node side effects fired afterwards.
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(NOW_MS);
+    await storage.createDagRun({ ...dagRun(), status: 'cancelled' });
+    await storage.createTaskRun(taskRun({ leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }));
+    await storage.setTaskRunLease('task-run-1', 'dead', EXPIRED_ISO);
+
+    const outcome = await sweep(storage, queue, clock);
+
+    expect(outcome.requeued).toEqual([]);
+    expect(outcome.abandoned).toEqual(['task-run-1']);
+    expect((await storage.getTaskRun('task-run-1'))?.status).toBe('cancelled');
+    expect(await queue.dequeue('worker-9', 10)).toBeUndefined();
+  });
+
+  it('FAILS a task that has exhausted its attempts instead of sweeping it forever', async () => {
+    // A task that kills its worker was swept, re-run and swept again with `attempt` never advancing,
+    // so `maxAttempts` never applied and the loop had no end.
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(NOW_MS);
+    await storage.createDagRun(dagRun());
+    await storage.createTaskRun(taskRun({ attempt: MAX_ATTEMPTS }));
+
+    const outcome = await sweep(storage, queue, clock);
+
+    expect(outcome.abandoned).toEqual(['task-run-1']);
+    const task = await storage.getTaskRun('task-run-1');
+    expect(task?.status).toBe('failed');
+    expect(task?.errorCode).toBe('DAG_TASK_ABANDONED');
+    expect(await queue.dequeue('worker-9', 10)).toBeUndefined();
+  });
+
+  it('advances the attempt when it requeues, so the retry bound can ever be reached', async () => {
+    const { storage, queue, clock } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+
+    await sweep(storage, queue, clock);
+
+    expect((await storage.getTaskRun('task-run-1'))?.attempt).toBe(2);
   });
 });

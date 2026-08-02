@@ -20,24 +20,52 @@ import {
  * recorded at all. The second case is included deliberately — a task orphaned before its lease was
  * written has the least evidence and would otherwise be exactly the one left stuck forever.
  *
- * WHAT THIS DOES NOT DO: it does not decide the task failed. A swept task returns to `queued` and is
- * executed again, so a node that crashed its worker will be retried; the attempt counter and the
- * retry policy govern what happens after that, as they do for any other failure. Marking it failed
- * here would turn a worker restart into a run failure.
+ * A swept task returns to `queued` with its attempt INCREMENTED and is executed again — bounded by
+ * `maxAttempts`, exactly like any other retry. A task that keeps killing its worker is failed with
+ * `DAG_TASK_ABANDONED` rather than being re-run forever, and a task belonging to a run that has
+ * already finished is cancelled rather than restarted.
  */
 export async function sweepStaleTaskRuns(
   storage: IStoragePort,
   queue: IQueuePort,
   clock: IClockPort,
-): Promise<string[]> {
+  maxAttempts: number,
+): Promise<ISweepOutcome> {
   const stale = await storage.listStaleRunningTaskRuns(clock.nowIso());
-  const swept: string[] = [];
+  const outcome: ISweepOutcome = { requeued: [], abandoned: [], skipped: [] };
 
   for (const taskRun of stale) {
     const reclaimed = TaskRunStateMachine.transition(taskRun.status, 'RECLAIM');
     if (!reclaimed.ok) {
-      // A task that changed status between the query and here is no longer ours to move. Skipping is
-      // correct and silent-safe: the next sweep re-reads the truth rather than acting on a stale read.
+      // A task that changed status between the query and here is no longer ours to move. REPORTED,
+      // not silently continued: a sweeper that finds tasks and moves none must be observable.
+      outcome.skipped.push(taskRun.taskRunId);
+      continue;
+    }
+
+    // A run that is already over does not get its work restarted. `RunCancelService.cancelRun`
+    // updates only the RUN, leaving its tasks `running` — so without this check, cancelling a run
+    // and waiting would silently re-execute the node the user cancelled. Cancel has to mean stop.
+    const dagRun = await storage.getDagRun(taskRun.dagRunId);
+    if (dagRun === undefined || TERMINAL_RUN_STATUSES.has(dagRun.status)) {
+      await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled');
+      await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+      outcome.abandoned.push(taskRun.taskRunId);
+      continue;
+    }
+
+    // Retries are BOUNDED. Without this a task that kills its worker — or one that fails after being
+    // set `running` — is swept, re-run and swept again forever, and `maxAttempts` never applies.
+    if (taskRun.attempt >= maxAttempts) {
+      await storage.updateTaskRunStatus(taskRun.taskRunId, 'failed', {
+        code: 'DAG_TASK_ABANDONED',
+        category: 'task_execution',
+        message: `Task was abandoned by its worker ${taskRun.attempt} time(s) and has no attempts left`,
+        retryable: false,
+        context: { taskRunId: taskRun.taskRunId, attempt: taskRun.attempt, maxAttempts },
+      });
+      await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+      outcome.abandoned.push(taskRun.taskRunId);
       continue;
     }
 
@@ -45,11 +73,25 @@ export async function sweepStaleTaskRuns(
     // Clear the dead owner's lease. Left in place it would be a lease belonging to a process that no
     // longer exists, attached to a task somebody else is about to run.
     await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
+    await storage.incrementTaskAttempt(taskRun.taskRunId);
     await queue.enqueue(buildRedeliveryMessage(taskRun, clock.nowIso()));
-    swept.push(taskRun.taskRunId);
+    outcome.requeued.push(taskRun.taskRunId);
   }
 
-  return swept;
+  return outcome;
+}
+
+/** A run in one of these has finished; its leftover tasks are not restarted. */
+const TERMINAL_RUN_STATUSES = new Set(['success', 'failed', 'cancelled']);
+
+/** What a sweep did. Reported rather than counted, so a sweep that moves nothing is still visible. */
+export interface ISweepOutcome {
+  /** Returned to the queue for another attempt. */
+  requeued: string[];
+  /** Given up on — the run is over, or the task has no attempts left. */
+  abandoned: string[];
+  /** Changed status between the query and the write; the next sweep re-reads them. */
+  skipped: string[];
 }
 
 /**

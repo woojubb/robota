@@ -16,11 +16,15 @@ import {
   type IRunProgressEventReporter,
   type TPortPayload,
   type TResult,
-  type TTaskRunStatus,
 } from '@robota-sdk/dag-core';
 import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
-import { StaleTaskSweepThrottle, claimTaskForExecution } from './task-lease-recovery.js';
+import {
+  StaleTaskSweepThrottle,
+  claimTaskForExecution,
+  taskOwnershipMs,
+  withTaskLease,
+} from './task-lease-recovery.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
@@ -84,27 +88,22 @@ export class WorkerLoopService {
     if (!message) {
       // DAG-001: idle is when there is capacity to recover abandoned work, and it is the one point
       // all three loop drivers go through — see SPEC § Crash Recovery.
-      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.options.leaseDurationMs);
+      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.options);
       await this.sweeper.sweepIfDue(this.storage, this.queue);
       return { ok: true, value: { processed: false } };
     }
 
-    const leaseKey = `taskRun:${message.taskRunId}`;
-    const acquired = await this.lease.acquire(
-      leaseKey,
+    return withTaskLease(
+      this.lease,
+      message.taskRunId,
       this.options.workerId,
-      this.options.leaseDurationMs,
+      taskOwnershipMs(this.resolveTimeoutMs(message), this.options.leaseDurationMs),
+      async () => this.processAcquiredMessage(message),
+      async () => {
+        await this.queue.nack(message.messageId);
+        return { ok: true, value: { processed: false } };
+      },
     );
-    if (!acquired) {
-      await this.queue.nack(message.messageId);
-      return { ok: true, value: { processed: false } };
-    }
-
-    try {
-      return this.processAcquiredMessage(message);
-    } finally {
-      await this.lease.release(leaseKey, this.options.workerId);
-    }
   }
 
   private async processAcquiredMessage(
@@ -127,8 +126,7 @@ export class WorkerLoopService {
       storage: this.storage,
       clock: this.clock,
       reporter: this.runProgressEventReporter,
-      workerId: this.options.workerId,
-      leaseDurationMs: this.options.leaseDurationMs,
+      options: this.options,
       timeoutMs: this.resolveTimeoutMs(message),
       message,
       taskRun,

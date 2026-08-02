@@ -3,6 +3,7 @@ import { sweepStaleTaskRuns } from './stale-task-sweeper.js';
 import {
   TASK_PROGRESS_EVENTS,
   TaskRunStateMachine,
+  type ILeasePort,
   type IQueueMessage,
   type IQueuePort,
   type IRunProgressEventReporter,
@@ -47,11 +48,13 @@ function reclaimIfAbandoned(taskRun: ITaskRun): TResult<TTaskRunStatus, IDagErro
   if (taskRun.status !== 'running') {
     return { ok: true, value: taskRun.status };
   }
+  // `running:RECLAIM` is in the table and `status` is narrowed to `running` above, so this cannot
+  // fail — but it goes through the state machine rather than hardcoding `queued`, so the table stays
+  // the single place the legal transitions live.
   const reclaimed = TaskRunStateMachine.transition(taskRun.status, 'RECLAIM');
-  if (!reclaimed.ok) {
-    return reclaimed;
-  }
-  return { ok: true, value: reclaimed.value.nextStatus };
+  return reclaimed.ok
+    ? { ok: true, value: reclaimed.value.nextStatus }
+    : /* istanbul ignore next */ reclaimed;
 }
 
 /**
@@ -66,9 +69,12 @@ function reclaimIfAbandoned(taskRun: ITaskRun): TResult<TTaskRunStatus, IDagErro
  * A task that outlives this has outlived its own timeout, so its worker is either dead or about to
  * abandon it either way.
  */
+export function taskOwnershipMs(timeoutMs: number, leaseDurationMs: number): number {
+  return Math.max(timeoutMs, leaseDurationMs) + LEASE_GRACE_MS;
+}
+
 function leaseUntilIso(clock: IClockPort, timeoutMs: number, leaseDurationMs: number): string {
-  const boundMs = Math.max(timeoutMs, leaseDurationMs) + LEASE_GRACE_MS;
-  return new Date(clock.nowEpochMs() + boundMs).toISOString();
+  return new Date(clock.nowEpochMs() + taskOwnershipMs(timeoutMs, leaseDurationMs)).toISOString();
 }
 
 /**
@@ -86,16 +92,21 @@ export class StaleTaskSweepThrottle {
 
   public constructor(
     private readonly clock: IClockPort,
-    private readonly leaseDurationMs: number,
+    private readonly options: { leaseDurationMs: number; maxAttempts: number },
   ) {}
 
   public async sweepIfDue(storage: IStoragePort, queue: IQueuePort): Promise<void> {
     const nowMs = this.clock.nowEpochMs();
-    if (nowMs - this.lastSweepAtMs < this.leaseDurationMs) {
+    if (nowMs - this.lastSweepAtMs < this.options.leaseDurationMs) {
       return;
     }
-    this.lastSweepAtMs = nowMs;
-    await sweepStaleTaskRuns(storage, queue, this.clock);
+    // Advanced AFTER the sweep, not before: a throwing sweep would otherwise suppress every retry for
+    // a full lease duration, turning one failure into a window with no recovery at all.
+    try {
+      await sweepStaleTaskRuns(storage, queue, this.clock, this.options.maxAttempts);
+    } finally {
+      this.lastSweepAtMs = this.clock.nowEpochMs();
+    }
   }
 }
 
@@ -103,9 +114,8 @@ export class StaleTaskSweepThrottle {
 export interface IClaimTaskDeps {
   storage: IStoragePort;
   clock: IClockPort;
-  reporter?: IRunProgressEventReporter;
-  workerId: string;
-  leaseDurationMs: number;
+  reporter: IRunProgressEventReporter | undefined;
+  options: { workerId: string; leaseDurationMs: number };
   timeoutMs: number;
   message: IQueueMessage;
   taskRun: ITaskRun;
@@ -130,12 +140,16 @@ export async function claimTaskForExecution(
   if (!started.ok) {
     return started;
   }
-  await storage.updateTaskRunStatus(taskRun.taskRunId, started.value.nextStatus);
+  // LEASE FIRST, then the status. These are two writes with no transaction between them, and a
+  // sweeper running in the gap would see `running` with no lease — the shape it treats as abandoned —
+  // and reclaim a task that was in the middle of STARTING. In this order the gap contains a `queued`
+  // task carrying a lease, which no sweeper looks at.
   await storage.setTaskRunLease(
     taskRun.taskRunId,
-    deps.workerId,
-    leaseUntilIso(clock, deps.timeoutMs, deps.leaseDurationMs),
+    deps.options.workerId,
+    leaseUntilIso(clock, deps.timeoutMs, deps.options.leaseDurationMs),
   );
+  await storage.updateTaskRunStatus(taskRun.taskRunId, started.value.nextStatus);
   deps.reporter?.publish({
     dagRunId: message.dagRunId,
     eventType: TASK_PROGRESS_EVENTS.STARTED,
@@ -146,4 +160,39 @@ export async function claimTaskForExecution(
   });
   await storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
   return { ok: true, value: undefined };
+}
+
+/**
+ * Hold the task's lease for the WHOLE of `run`, or decline the message.
+ *
+ * The lease is what makes reclaiming safe: a worker may only take over a task whose owner is gone,
+ * and "gone" is defined by nobody holding this. Everything about that guarantee lives here rather
+ * than inline in the loop, because it is one rule with two easy ways to get it silently wrong —
+ * both of which review found in the first draft:
+ *
+ * - `return promise` inside `try/finally` runs the `finally` at the RETURN STATEMENT, not when the
+ *   promise settles, so the lease was released one microtask into execution and was not held during
+ *   the work at all. Measured: the same node executed twice.
+ * - Acquiring for `leaseDurationMs` alone let the lease expire mid-execution (real configs pair a
+ *   60s lease with a 300s default timeout), after which the queue's visibility timeout redelivered
+ *   the message to a worker that could then acquire it.
+ */
+export async function withTaskLease<T>(
+  lease: ILeasePort,
+  taskRunId: string,
+  workerId: string,
+  ownershipMs: number,
+  run: () => Promise<T>,
+  onDeclined: () => Promise<T>,
+): Promise<T> {
+  const leaseKey = `taskRun:${taskRunId}`;
+  const acquired = await lease.acquire(leaseKey, workerId, ownershipMs);
+  if (!acquired) {
+    return onDeclined();
+  }
+  try {
+    return await run();
+  } finally {
+    await lease.release(leaseKey, workerId);
+  }
 }

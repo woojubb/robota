@@ -91,8 +91,29 @@ how long a worker may hold the distributed lock; a task's execution is bounded b
 and the two are unrelated numbers. Using the lock duration would let the sweeper reclaim a task that
 is still legitimately running — executed twice, a worse failure than the trap being fixed.
 
-A swept task returns to `queued` and is executed again; it is not marked failed. The attempt counter
-and retry policy govern what happens next, as for any other failure.
+A swept task returns to `queued` with its attempt INCREMENTED and is executed again, bounded by
+`maxAttempts` exactly like any other retry. Two cases are not re-run at all:
+
+- **A run that is already over.** `RunCancelService.cancelRun` updates only the RUN, leaving its tasks
+  `running`, so without this check cancelling a run and waiting would silently re-execute the node the
+  user cancelled. Such tasks are marked `cancelled`.
+- **A task with no attempts left.** Failed with `DAG_TASK_ABANDONED`. Without the attempt increment
+  above, a task that keeps killing its worker would be swept and re-run forever and `maxAttempts`
+  would never apply.
+
+The sweep returns what it did (`requeued` / `abandoned` / `skipped`) rather than a count, so a sweep
+that finds tasks and moves none is observable.
+
+**Ownership is one bound, used twice.** The worker acquires the `ILeasePort` lease for
+`max(timeoutMs, leaseDurationMs) + grace` — the same value it records as `leaseUntil` — so the
+in-memory lock and the persisted lease cannot disagree about when a task stops being owned. Acquiring
+for `leaseDurationMs` alone let the lease expire mid-execution (real configs pair a 60s lease with a
+300s default timeout), after which the queue's visibility timeout redelivered the message to a worker
+that could acquire it — reclaiming a task that was still running.
+
+**The lease is written BEFORE the status.** They are two writes with no transaction between them; in
+the other order a sweeper running in the gap would see `running` with no lease — the shape it treats
+as abandoned — and reclaim a task that was in the middle of starting.
 
 ### Idle Wait / Queue Wake-up
 

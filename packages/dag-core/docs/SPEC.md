@@ -256,7 +256,7 @@ interface IDagError {
 | ------------------ | ------------------------------------------- | ----------------- |
 | `validation`       | Schema, structure, or constraint violations | `false`           |
 | `state_transition` | Invalid state machine transitions           | `false`           |
-| `lease`            | Lease acquisition or renewal failures       | `false`           |
+| `lease`            | Lease acquisition failures                  | `false`           |
 | `dispatch`         | Task dispatch/queue failures                | `true`            |
 | `task_execution`   | Errors during node execution                | varies            |
 

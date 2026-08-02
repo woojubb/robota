@@ -127,7 +127,9 @@ export interface IStoragePort {
    * NOTHING ever wrote them: ghost columns. Without them there is no way to tell an abandoned task
    * from one a live worker is executing, so `running` was a state nothing could ever leave.
    *
-   * Pass `undefined` for both to clear, which a worker does when it stops owning the task.
+   * Pass `undefined` for both to clear. Only the SWEEPER clears — a worker that finishes leaves its
+   * lease behind on a task that is no longer `running`, which no sweeper looks at, so clearing there
+   * would be a write with no reader.
    */
   setTaskRunLease(taskRunId: string, leaseOwner?: string, leaseUntil?: string): Promise<void>;
 

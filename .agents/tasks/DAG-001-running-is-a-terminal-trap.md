@@ -143,7 +143,7 @@ load-bearing.
 
 **Two recovery paths, because only one queue adapter redelivers.**
 
-- On redelivery: `WorkerLoopService.transitionToRunning` reclaims a task already `running`. Safe
+- On redelivery: `claimTaskForExecution` (`task-lease-recovery.ts`) reclaims a task already `running`. Safe
   precisely there — it is reached only after `lease.acquire` SUCCEEDED, so a live owner's duplicate
   delivery is nacked before it gets there.
 - On idle: `sweepStaleTaskRuns` (new, `dag-worker`), called from `processOnce`'s idle branch. That is
@@ -165,7 +165,7 @@ seam nothing could reach stayed green; the port records what would justify bring
 it on "we might need it later" is the argument that produced the ghost lease columns this same task
 had to fix.
 
-**Red-proof.** Removing the single `RECLAIM` table entry: 5 of 9 cases fail on named assertions
+**Red-proof.** Removing the single `RECLAIM` table entry: 6 of 16 cases fail on named assertions
 (`expected [] to deeply equal [ 'task-run-1' ]`, `expected 'running' to be 'success'`,
 `expected 'dead-worker' to be undefined`, …). Removing the `sweepIfDue()` call alone fails the
 reachability case (`expected 'running' to be 'queued'`) — the sweep is wired, not merely written. The
@@ -183,3 +183,32 @@ a real worker process killed mid-node. The contract-level regressions are covere
 end-to-end kill/restart scenario needs the two-node fixture the scenario itself calls for, and is not
 expressible in-process — a real mid-node kill is a separate process. Tracked as the remaining item on
 this task.
+
+### Review round — three MUSTs, all measured, all real
+
+An independent review probed the first draft rather than reading it, and found that it made things
+**worse than the trap it replaced**. All three are fixed and each red-proves on its own assertion.
+
+1. **The lease was not held during execution.** `return this.processAcquiredMessage(message)` inside
+   `try/finally` runs the `finally` at the RETURN STATEMENT, not when the promise settles — so the
+   lease was released one microtask in. The entire "a live owner still holds its lease" safety
+   argument, stated in four places, was false: the probe measured `executions: 2` at HEAD against 1
+   on `develop`. One missing `await`. The existing guard case could not catch it because it acquires
+   the lease EXTERNALLY and so never exercises the worker's own hold; the new case observes the lease
+   from inside the executor.
+2. **The lease was acquired for the lock duration, not the task's runtime.** Real configs pair
+   `leaseDurationMs: 60_000` with `defaultTimeoutMs: 300_000`, so the lease expired mid-execution and
+   the visibility timeout redelivered to a worker that could then acquire — reclaiming a task still
+   running. Removing `renew` had closed the only mechanism that could have extended it. Ownership is
+   now one bound (`taskOwnershipMs`) used for both the lock and the recorded `leaseUntil`.
+3. **The sweeper resurrected CANCELLED runs.** `RunCancelService.cancelRun` updates only the run,
+   leaving tasks `running`, so cancelling and waiting silently re-executed the node the user
+   cancelled. Cancel has to mean stop; such tasks are now marked `cancelled`.
+
+Also from that round: the lease is written BEFORE the status (two non-atomic writes, and a sweep in
+the gap saw `running` with no lease and reclaimed a task that was STARTING); the attempt is
+incremented on reclaim and a task out of attempts is failed with `DAG_TASK_ABANDONED`, since without
+it a task that kills its worker was swept and re-run forever with `maxAttempts` never applying; the
+sweep returns what it did rather than a count, so a sweep that moves nothing is observable; and the
+throttle advances its clock AFTER the sweep, so a throwing sweep no longer suppresses recovery for a
+full lease duration.

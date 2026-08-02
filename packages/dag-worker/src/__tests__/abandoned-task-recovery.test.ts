@@ -235,4 +235,56 @@ describe('an abandoned task is recovered, not trapped (DAG-001)', () => {
     expect(observed?.leaseOwner).toBe('worker-2');
     expect(observed?.leaseUntil).toBeDefined();
   });
+
+  /**
+   * THE CASE THAT CAUGHT THE REGRESSION. An independent review measured this against the first draft
+   * of this fix and found `executions: 2` where `origin/develop` had 1: the change turned "task
+   * stuck" into "same node executed twice, concurrently".
+   *
+   * The cause was one missing keyword. `return this.processAcquiredMessage(message)` inside a
+   * `try/finally` runs the `finally` at the RETURN STATEMENT, not when the returned promise settles —
+   * so the lease was released one microtask into execution and was not held during the work at all.
+   * Every safety claim about reclaiming rests on that lease being held.
+   *
+   * The pre-existing guard case is not this one: it acquires the lease EXTERNALLY, so it never
+   * exercises the worker's own hold. This observes the lease from INSIDE the executor, which is the
+   * only place the difference is visible.
+   */
+  it('holds the lease FOR THE DURATION of execution, so a redelivery cannot run the task twice', async () => {
+    let leaseDuringExecution: unknown;
+    let executions = 0;
+    const h = await harness(
+      new ScriptedTaskExecutorPort(async () => {
+        executions += 1;
+        leaseDuringExecution = await h.lease.get(`taskRun:${h.taskRun.taskRunId}`);
+        return { ok: true, output: { done: true } };
+      }),
+    );
+    await h.queue.enqueue(h.message);
+
+    await h.service.processOnce();
+
+    expect(executions).toBe(1);
+    // Against the defect this is `undefined`: released before the executor ever ran.
+    expect(leaseDuringExecution).toBeDefined();
+  });
+
+  it("acquires the lease for the task's OWN runtime, not merely the lock duration", async () => {
+    // Real configs pair `leaseDurationMs: 60_000` with `defaultTimeoutMs: 300_000`. Acquiring for the
+    // lock duration let the lease expire mid-execution, and the queue's visibility timeout then
+    // redelivered the message to a worker that could acquire — reclaiming a task still running.
+    const acquired: number[] = [];
+    const h = await harness(new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })));
+    const realAcquire = h.lease.acquire.bind(h.lease);
+    h.lease.acquire = async (key: string, owner: string, ms: number) => {
+      acquired.push(ms);
+      return realAcquire(key, owner, ms);
+    };
+    await h.queue.enqueue({ ...h.message, payload: { timeoutMs: 600_000 } });
+
+    await h.service.processOnce();
+
+    expect(acquired).toHaveLength(1);
+    expect(acquired[0]).toBeGreaterThan(600_000);
+  });
 });
