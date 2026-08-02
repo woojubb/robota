@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.agents/publish-registry.md does not exist`.
+    file: 'scan-publish-registry.mjs',
+    finder: 'findPublishRegistryFindings',
+    tree: '.agents/publish-registry.md plus packages/ and apps/',
+    why: 'it reconciles the only authorization for the npm scope against the manifests, in both directions; over a root with neither there is nothing to disagree with, and this document had already drifted into authorizing five packages that do not exist while omitting thirteen that ship publishable — precisely because nothing read it',
+  },
+  {
     // Measured 2026-08-02 THE WAY THIS HARNESS CALLS IT — `finder(bare)`, one argument: throws
     // `<declaring file> does not exist`. The first measurement passed two arguments and recorded a
     // behaviour that was not the one firing; review caught it, and the finder now defaults its

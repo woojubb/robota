@@ -241,6 +241,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-option-reachability.mjs'],
   },
   {
+    name: 'publish-registry',
+    command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },
