@@ -830,14 +830,27 @@ export function ledgerCeilingFindings(ceilings = loadLedgerCeilings()) {
   return findings;
 }
 
-const LEDGER_CEILINGS_PATH = path.join(
-  WORKSPACE_ROOT,
-  'scripts/harness/guard-ledger-ceilings.json',
-);
+/**
+ * Where the frozen ceilings live — overridable, like every other path in this file.
+ *
+ * `GUARD_LEDGER_CEILINGS` exists for the reachability case, which has to prove the ceiling check
+ * runs through the CLI and not merely as an exported helper. Its first version mutated the real
+ * checked-in file and restored it in a `finally`; a kill in between — and this file's own docstring
+ * records a harness scan dying mid-run with no output — would leave the working tree holding a
+ * corrupted ceiling, which is the one direction this ratchet must never fail in. Everything else
+ * here takes a `root` for exactly that reason.
+ */
+function ledgerCeilingsPath() {
+  return (
+    process.env['GUARD_LEDGER_CEILINGS'] ??
+    path.join(WORKSPACE_ROOT, 'scripts/harness/guard-ledger-ceilings.json')
+  );
+}
 
 function loadLedgerCeilings() {
-  if (!existsSync(LEDGER_CEILINGS_PATH)) return {};
-  return JSON.parse(readFileSync(LEDGER_CEILINGS_PATH, 'utf8'));
+  const file = ledgerCeilingsPath();
+  if (!existsSync(file)) return {};
+  return JSON.parse(readFileSync(file, 'utf8'));
 }
 
 export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
@@ -854,6 +867,17 @@ export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
 }
 
 export async function main() {
+  // A parametrised path is a bypass surface: point the ratchet at a permissive file and it passes
+  // over a ceiling nobody froze. It cannot be closed by removing the seam — an argument would be the
+  // same hole with a different spelling — so it is made SELF-DECLARING instead. A run against
+  // anything but the checked-in ceilings says so on both the pass and the fail path, which turns a
+  // silent bypass into one that has to be read past.
+  if (process.env['GUARD_LEDGER_CEILINGS'] !== undefined) {
+    process.stdout.write(
+      `guard-ledger ceilings OVERRIDDEN via GUARD_LEDGER_CEILINGS=${ledgerCeilingsPath()} — this ` +
+        'run did NOT check the frozen ceilings in scripts/harness/.\n',
+    );
+  }
   const findings = await findGuardScopeFindings();
   if (findings.length > 0) {
     process.stdout.write('guard-scope-fail-closed scan failed (HARNESS-052):\n');
@@ -878,7 +902,7 @@ export async function main() {
 function writeLedgerCeilings() {
   const vacuous = measuredVacuous().length;
   const next = { vacuous, unpinned: PENDING_CLASSIFICATION.length - vacuous };
-  writeFileSync(LEDGER_CEILINGS_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  writeFileSync(ledgerCeilingsPath(), `${JSON.stringify(next, null, 2)}\n`);
   process.stdout.write(`guard-ledger ceilings frozen: ${JSON.stringify(next)}\n`);
 }
 

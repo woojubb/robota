@@ -138,3 +138,18 @@ as the CLI does over a deliberately wrong ceiling file and requires exit 1.
   as-is would certify a property they do not hold. Lowering that 14 means fixing those guards, one at
   a time, each with its own measurement.
 - **The 4 vacuous entries** are live instances, owned by HARNESS-052 and INFRA-060.
+
+### Review round 1 (PR #1604)
+
+One SHOULD, upheld: the reachability case mutated the real checked-in `guard-ledger-ceilings.json`
+and restored it in a `finally`, so a kill between the two — this scan's own docstring records a
+harness scan dying mid-run with no output — would leave the working tree holding a corrupted ceiling.
+An under-count is the direction a ratchet must never fail in, and every other path in the file already
+takes a `root` for exactly that reason.
+
+The loader is now parametrised (`GUARD_LEDGER_CEILINGS`) and the case points the spawned CLI at a
+temp copy, touching nothing tracked. That seam is itself a way past the ratchet, and cannot be closed
+by removing it — an argument would be the same hole spelled differently — so a run against anything
+but the frozen file now DECLARES that on both the pass and the fail path, and a case pins the
+declaration. The wiring red-proof was re-run against the change: deleting the line that calls
+`ledgerCeilingFindings` from `findGuardScopeFindings` still fails the reachability case.

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -285,19 +285,28 @@ describe('rule 4 — the debt ledger may shrink and never grow (HARNESS-064)', (
    */
   it('a violated ceiling fails the SCAN, not just the helper', () => {
     const root = path.resolve(import.meta.dirname, '../../..');
-    const ceilingsPath = path.join(root, 'scripts/harness/guard-ledger-ceilings.json');
-    const original = readFileSync(ceilingsPath, 'utf8');
+    const frozen = JSON.parse(
+      readFileSync(path.join(root, 'scripts/harness/guard-ledger-ceilings.json'), 'utf8'),
+    );
+    // A TEMP ceiling file, never the checked-in one. Mutating the real file and restoring it in a
+    // `finally` leaves the working tree corrupted if the process is killed in between — and this
+    // scan's own docstring records a harness scan dying mid-run with no output.
+    const dir = mkdtempSync(path.join(tmpdir(), 'guard-ledger-'));
+    const ceilingsPath = path.join(dir, 'ceilings.json');
+    writeFileSync(ceilingsPath, JSON.stringify({ ...frozen, vacuous: frozen.vacuous - 1 }));
     try {
-      const frozen = JSON.parse(original);
-      writeFileSync(ceilingsPath, JSON.stringify({ ...frozen, vacuous: frozen.vacuous - 1 }));
       const result = spawnSync('node', ['scripts/harness/scan-guard-scope-fail-closed.mjs'], {
         cwd: root,
         encoding: 'utf8',
+        env: { ...process.env, GUARD_LEDGER_CEILINGS: ceilingsPath },
       });
       expect(result.status).toBe(1);
       expect(result.stdout).toMatch(/ledger-ceiling:vacuous/);
+      // The seam that made this case safe is itself a way past the ratchet, so a run that did not
+      // read the frozen file has to SAY so. Silent is the one thing it must not be.
+      expect(result.stdout).toMatch(/ceilings OVERRIDDEN via GUARD_LEDGER_CEILINGS=/);
     } finally {
-      writeFileSync(ceilingsPath, original);
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
