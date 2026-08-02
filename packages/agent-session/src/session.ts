@@ -175,7 +175,7 @@ export class Session extends SessionBase {
   /**
    * @param options.ephemeralSystemContext SELFHOST-008 P3 — a transient system-role block included in this
    *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
-   * @throws if a turn is already running — RUNTIME-003; `turn-claim.ts` has the why.
+   * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
    */
   async run(
     message: string,

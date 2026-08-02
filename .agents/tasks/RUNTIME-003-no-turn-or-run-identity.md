@@ -159,13 +159,32 @@ restoring the unguarded claim/release: the two defect cases fail on **named asse
 (`expected 'pending' to be 'rejected'`, `expected false to be true`) in 262ms and 13ms, not on a
 timeout. The third is labelled in the file as a regression guard that passes against the defect too,
 so it is not miscounted as proof. 158 `agent-session` tests pass; `agent-framework` (1311) and
-`agent-subagent-runner` (14) pass — all three `session.run()` callers use a fresh session and await
-it, so none of them relied on the overwrite.
+`agent-subagent-runner` (14) pass. Of the four production `session.run()` call sites, three create a
+fresh session; `child-process-subagent-worker.ts:163` (`runFollowUp`) reuses one but is serialised
+through its `running` promise chain, and `interactive-session-prompt.ts:92-95` is gated by
+`execCtrl.executing` — so none of them relied on the overwrite.
 
 An earlier draft of this test file was four cases of which **three used a second session** and so
 proved nothing about a shared claim, and the fourth failed by a 10s timeout. Both are the
 accidental-green/accidental-red shapes HARNESS-052 exists for; they were caught and rewritten before
 this landed, and the file records why at its own head.
+
+#### `abort()` no longer frees the session — a review finding, not a design choice
+
+The first draft released the claim inside `abort()`. That looked harmless and was not: `isRunning()`
+answered `false` the instant `abort()` returned, while the aborted turn was still unwinding and still
+able to write history — so a new `run()` could claim the session and interleave with it. That is the
+RUNTIME-003 defect itself, moved behind the abort boundary, and the class doc asserting "only that
+caller can release it" contradicted it. The local review caught it before push.
+
+`abort()` now signals only; the owning turn's `finally` releases. A turn is over when it has stopped,
+not when it was asked to. Cancel-and-restart is `abort()` → await the turn → `run()`, which is what
+every caller in this repo already does. The refusal is a typed, exported `SessionBusyError` rather
+than a bare `Error`, because a consumer that has to regex-match a message still needs the busy flag
+this change exists to remove.
+
+Five of the eight cases red-prove against the original defect, all on named assertions; the three
+that do not (release path, failed-turn path, idle abort) say so at their own definitions.
 
 ### Remaining
 
