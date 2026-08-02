@@ -161,6 +161,19 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
+    // ARCH-011: a run-to-completion transport is started without being awaited, so this is the only
+    // thing watching it. Without this the process-lifetime wait would sit on signals alone while such
+    // a transport failed unobserved — the same "route nothing calls" shape the registry layer fixed.
+    // No such transport is registered here today; the wire is what stops that from mattering later.
+    void host
+      .waitForCompletion()
+      .then(() => settle('all run-to-completion transports finished'))
+      .catch((error: unknown) => {
+        process.stderr.write(
+          `transport failed: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+        settle('a transport failed');
+      });
     // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
     // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
     // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only

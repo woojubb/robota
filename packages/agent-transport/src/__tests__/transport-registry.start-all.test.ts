@@ -183,4 +183,44 @@ describe('startAll starts every transport (ARCH-011)', () => {
     expect(await within(registry.waitForCompletion())).toBe('settled');
     blocking.release();
   });
+
+  it('a failure that arrives AFTER a stop does not leak into the next session', async () => {
+    // The handler attached to an in-flight `start()` cannot be detached, so it fires after the stop.
+    // Emptying the failure array in place left that write landing in the same instance the NEXT
+    // session read, and a failure from a stopped session was thrown as if it belonged to the current
+    // one — contradicting "a later startAll starts from empty". A session switch is exactly this
+    // shape, and the earlier stop case only exercised the resolve path.
+    const registry = registryOverTempSettings();
+    let failFirst!: (error: Error) => void;
+    let run = 0;
+    registry.register({
+      name: 'headless',
+      defaultEnabled: true,
+      attach: vi.fn(),
+      // A fresh promise per start, as a real transport gives: the FIRST session's fails, the second
+      // is healthy. Returning one shared promise would make the second session fail on its own
+      // account and prove nothing about leakage.
+      start: () => {
+        run += 1;
+        return run === 1
+          ? new Promise<void>((_resolve, reject) => {
+              failFirst = reject;
+            })
+          : Promise.resolve();
+      },
+      stop: async () => {},
+      runsToCompletion: true,
+    });
+
+    await registry.startAll(createTestInteractiveSession());
+    await registry.stopAll();
+
+    // The stopped session's transport fails only now.
+    failFirst(new Error('previous session died'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // A new session starts on the same registry, and finishes cleanly.
+    await registry.startAll(createTestInteractiveSession());
+    await expect(registry.waitForCompletion()).resolves.toBeUndefined();
+  });
 });

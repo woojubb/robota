@@ -20,8 +20,16 @@ export class TransportRegistry {
   private readonly settingsPath: string;
   /** ARCH-011: in-flight `start()` promises of run-to-completion transports, by name. */
   private readonly running = new Map<string, Promise<void>>();
-  /** Failures of run-to-completion transports, held until `waitForCompletion` asks for them. */
-  private readonly failures: unknown[] = [];
+  /**
+   * Failures of run-to-completion transports, held until `waitForCompletion` asks for them.
+   *
+   * REPLACED on `stopAll`, not emptied. A handler attached to a still-in-flight `start()` cannot be
+   * detached, so it fires after the stop and writes to whatever array it captured. Emptying the array
+   * in place left that write landing in the SAME instance a later session was reading, so a failure
+   * from a stopped session was thrown as if it belonged to the current one. Replacing it means the
+   * stale handler writes to an array nobody holds.
+   */
+  private failures: unknown[] = [];
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
@@ -99,13 +107,16 @@ export class TransportRegistry {
    * switch does exactly this — does not accumulate or overwrite them.
    */
   private trackRunToCompletion(name: string, promise: Promise<void>): void {
+    // Captured at TRACK time. A stop replaces `this.failures`, so a handler that fires afterwards
+    // records into the array of the generation it belonged to — which nobody reads.
+    const sink = this.failures;
     const tracked = promise.then(
       () => {
         this.running.delete(name);
       },
       (error: unknown) => {
         this.running.delete(name);
-        this.failures.push(error);
+        sink.push(error);
       },
     );
     this.running.set(name, tracked);
@@ -136,7 +147,7 @@ export class TransportRegistry {
     // honest: `waitForCompletion` after a stop resolves rather than hanging on work nobody will
     // finish, and a later `startAll` (a session switch does this) starts from empty.
     this.running.clear();
-    this.failures.length = 0;
+    this.failures = [];
     for (const transport of this.entries.values()) {
       try {
         await transport.stop();

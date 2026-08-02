@@ -189,3 +189,19 @@ Also: `stopAll` ignored the tracking entirely, so it reported success over live 
 `waitForCompletion` would hang on a transport whose `stop()` is a documented no-op. It abandons them
 explicitly, which is what makes its bounded best-effort contract honest — and what lets a session
 switch start from empty rather than overwrite a promise that then has no handler.
+
+CI review round: two more, and the first is the same class again.
+
+**A failure from a STOPPED session leaked into the next one.** `stopAll` emptied the failure array in
+place, but the handler attached to a still-in-flight `start()` cannot be detached — it fires after the
+stop and writes to whatever array it captured, which was the same instance the next session read. So
+"a later `startAll` starts from empty", which I had written into the code and the SPEC, was not true.
+The array is REPLACED now and the handler captures its own generation, so a stale write lands where
+nobody reads. The earlier stop case only exercised the resolve path; the new one rejects after the
+stop, and red-proves.
+
+**And the new route still had no production caller.** `serve-mode` — the `--serve` process-lifetime
+waiter — awaited signals alone. Exposing `IRuntimeHostHandle.waitForCompletion()` without anything
+racing it is the same shape this branch fixed at the registry layer, one level up. It races it now;
+no run-to-completion transport is registered there today, and the wire is what stops that from
+mattering later.
