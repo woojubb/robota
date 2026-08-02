@@ -161,6 +161,17 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
+    // ARCH-011: a run-to-completion transport is started without being awaited, so this is the only
+    // thing watching it. ONLY A FAILURE settles the wait — `--serve`'s whole job is to stay alive
+    // until a signal or a host-executed exit, and `waitForCompletion()` RESOLVES IMMEDIATELY when
+    // there is nothing to wait for, which is the ordinary case here. Settling on resolution too meant
+    // every ordinary `--serve` run tore itself down one microtask after it started serving; the
+    // binary e2e caught it (`serve host did not come up within 20000ms`).
+    void host.waitForCompletion().catch((error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`transport failed: ${detail}\n`);
+      settle('a transport failed');
+    });
     // CMD-004 Phase 2 (Stage B): late-bound serve-mode process adapter. A host-executed exit or
     // restart terminates the SHARED host serving ALL attached surfaces — the deliberate
     // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
