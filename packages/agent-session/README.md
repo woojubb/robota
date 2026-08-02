@@ -47,28 +47,29 @@ await session.compact('Focus on the API changes');
 | **Compaction**             | LLM-generated conversation summary to free context space; an invalid summary throws `CompactionError` and leaves history untouched |
 | **Persistence**            | `SessionStore` for JSON file-based session save/load (atomic temp-file + rename writes)                                            |
 | **Abort**                  | Cancel via `session.abort()` — propagates AbortSignal to `robota.run()`, throws `AbortError` to caller                             |
+| **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError` (RUNTIME-003); `isRunning()` is authoritative — see SPEC § Turn Identity   |
 | **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                                                        |
 | **Replay events**          | Provider/tool execution boundary events are forwarded from core into append-only session logs                                      |
 | **Provider capabilities**  | Generic native web capability setup is requested through the provider contract, not provider-name branches                         |
 
 ## Key Methods
 
-| Method                                            | Description                                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------ |
-| `constructor(options)` (with `sessionId`)         | Accepts optional `sessionId` for deterministic IDs                 |
-| `run(message)`                                    | Send a message, returns AI response                                |
-| `injectMessage(message)`                          | Inject a message into history without running the agent            |
-| `compact(instructions?)`                          | Compress conversation via LLM summary                              |
-| `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }` |
-| `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled            |
-| `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                                        |
-| `getHistory()` / `clearHistory()`                 | Access or clear conversation history                               |
-| `abort()`                                         | Cancel running execution                                           |
-| `isRunning()`                                     | Returns true if a `run()` call is in progress                      |
-| `getSessionId()`                                  | Returns the stable session identifier                              |
-| `getMessageCount()`                               | Returns the number of completed `run()` calls                      |
-| `getSessionAllowedTools()`                        | Tools approved for this session                                    |
-| `clearSessionAllowedTools()`                      | Clears all session-scoped allow rules                              |
+| Method                                            | Description                                                             |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| `constructor(options)` (with `sessionId`)         | Accepts optional `sessionId` for deterministic IDs                      |
+| `run(message)`                                    | Send a message, returns AI response                                     |
+| `injectMessage(message)`                          | Inject a message into history without running the agent                 |
+| `compact(instructions?)`                          | Compress conversation via LLM summary                                   |
+| `getContextState()`                               | Effective token usage: `{ usedTokens, maxTokens, usedPercentage }`      |
+| `getAutoCompactThreshold()`                       | Auto-compact threshold fraction, or `false` if disabled                 |
+| `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                                             |
+| `getHistory()` / `clearHistory()`                 | Access or clear conversation history                                    |
+| `abort()`                                         | Signal the running turn to stop (it holds the session until it unwinds) |
+| `isRunning()`                                     | True while a turn is in flight, including one aborted and unwinding     |
+| `getSessionId()`                                  | Returns the stable session identifier                                   |
+| `getMessageCount()`                               | Returns the number of completed `run()` calls                           |
+| `getSessionAllowedTools()`                        | Tools approved for this session                                         |
+| `clearSessionAllowedTools()`                      | Clears all session-scoped allow rules                                   |
 
 ## Public API Surface
 

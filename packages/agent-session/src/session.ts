@@ -77,7 +77,6 @@ export class Session extends SessionBase {
   protected model: string;
   protected systemMessage: string;
   protected messageCount = 0;
-  protected abortController: AbortController | null = null;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: ISessionStore;
   private readonly cwd: string;
@@ -176,20 +175,21 @@ export class Session extends SessionBase {
   /**
    * @param options.ephemeralSystemContext SELFHOST-008 P3 — a transient system-role block included in this
    *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
+   * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
    */
   async run(
     message: string,
     rawInput?: string,
     options?: { ephemeralSystemContext?: string },
   ): Promise<string> {
-    this.abortController = new AbortController();
-    const { signal } = this.abortController;
+    const controller = this.turnClaim.claim(); // Synchronously, before any await.
+    const { signal } = controller;
     try {
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
     } finally {
-      this.abortController = null;
+      this.turnClaim.release(controller);
     }
   }
 

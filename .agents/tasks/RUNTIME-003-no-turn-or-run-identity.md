@@ -1,6 +1,6 @@
 ---
 title: 'RUNTIME-003: no turn or run identity — concurrency has no owner, so every consumer invents its own busy flag and two of them race'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -127,3 +127,76 @@ observable failure (interleaved or cross-resolved responses) is user-visible.
 - **Cleanup:** stop the served transport.
 - **Evidence (fill in after implementation):** the two request/response pairs showing correct
   correlation, plus a transcript excerpt for the cancel case.
+
+## Progress
+
+### P1 — the library layer refuses a concurrent turn (100% of P1; 1 of 3 phases, ~33% of the task)
+
+`packages/agent-session/src/turn-claim.ts` (new) — the unit of work now has an **owner**. The bare
+`AbortController | null` field was doing three jobs at once (cancellation channel, busy flag, turn
+identity) and could only do them for one turn. `TurnClaim` takes the claim synchronously, refuses a
+second, and releases only for the caller that holds it. `session.ts` `run()` calls `claim()` before
+its first `await` and `release(controller)` in `finally`; `session-base.ts` `abort()`/`isRunning()`
+delegate to the same object, so all three answer about the same turn.
+
+Extracting it was not optional: the inline version pushed `session.ts` past its frozen size
+baseline, and the file-size ratchet says to split rather than extend. Re-freezing the baseline would
+have been disabling the gate to fit the change. The split is also what the Direction above asks for —
+turn identity owned by the layer that runs it.
+
+That is the defect itself rather than a symptom: the guard previously existed only one layer up in
+`agent-framework`
+(`interactive-session-execution-controller.ts:268-274`), so every consumer of the **published**
+`agent-session` library got none. `abort()` and `isRunning()` (`session-base.ts:131-140`) read the
+same field, so both now answer about the one turn that owns it.
+
+Refusing, rather than cancelling the first turn: a session is a single conversation, and silently
+aborting the running turn would discard work the caller never asked to abandon. The error names the
+three ways out (await it, `abort()` first, or use a separate session).
+
+`packages/agent-session/src/__tests__/session-turn-reentrancy.test.ts` — 8 cases, red-proved by
+restoring the unguarded claim/release: the two defect cases fail on **named assertions**
+(`expected 'pending' to be 'rejected'`, `expected false to be true`) in 262ms and 13ms, not on a
+timeout. The third is labelled in the file as a regression guard that passes against the defect too,
+so it is not miscounted as proof. 163 `agent-session` tests pass; `agent-framework` (1311) and
+`agent-subagent-runner` (14) pass. Of the four production `session.run()` call sites, three create a
+fresh session; `child-process-subagent-worker.ts:163` (`runFollowUp`) reuses one but is serialised
+through its `running` promise chain, and `interactive-session-prompt.ts:92-95` is gated by
+`execCtrl.executing` on the prompt path (a blocking foreground COMMAND clears that flag
+independently — see RUNTIME-005) — so none of them relied on the overwrite.
+
+An earlier draft of this test file was four cases of which **three used a second session** and so
+proved nothing about a shared claim, and the fourth failed by a 10s timeout. Both are the
+accidental-green/accidental-red shapes HARNESS-052 exists for; they were caught and rewritten before
+this landed, and the file records why at its own head.
+
+#### `abort()` no longer frees the session — a review finding, not a design choice
+
+The first draft released the claim inside `abort()`. That looked harmless and was not: `isRunning()`
+answered `false` the instant `abort()` returned, while the aborted turn was still unwinding and still
+able to write history — so a new `run()` could claim the session and interleave with it. That is the
+RUNTIME-003 defect itself, moved behind the abort boundary, and the class doc asserting "only that
+caller can release it" contradicted it. The local review caught it before push.
+
+`abort()` now signals only; the owning turn's `finally` releases. A turn is over when it has stopped,
+not when it was asked to. Cancel-and-restart is `abort()` → await the turn → `run()`, which is what
+every caller in this repo already does. The refusal is a typed, exported `SessionBusyError` rather
+than a bare `Error`, because a consumer that has to regex-match a message still needs the busy flag
+this change exists to remove.
+
+Five of the eight cases red-prove against the original defect, all on named assertions; the three
+that do not (release path, failed-turn path, idle abort) say so at their own definitions.
+
+### Remaining
+
+- **P2 — transport correlation.** `agent-transport-mcp/src/mcp-server.ts:130-162` still subscribes to
+  session-global `complete`/`interrupted`/`error` with no request correlation, and
+  `agent-transport-http/src/routes.ts:46-54` still documents its own TOCTOU. Both ride the
+  `InteractiveSession` surface (`execCtrl.executing`), which is a **different** object from the
+  `Session` fixed here — P1 does not close them. They are the LOCAL symptoms this task's synthesis
+  already distinguished from the cause.
+- **P3 — DAG run advancement.** Owned by [DAG-001](DAG-001-running-is-a-terminal-trap.md) and
+  [DAG-002](DAG-002-run-contract-typed-on-a-foreign-file-format.md); the floating
+  `void this.processRunUntilTerminal(...)` (`prompt-backend.ts:89`) belongs with them.
+- **User Execution Test Scenarios** are written against the transport surface, so they close with P2,
+  not with P1.
