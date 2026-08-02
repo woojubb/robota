@@ -5,7 +5,7 @@
 // behind a single TypeScript interface, so that a local in-process runtime —
 // and any future native provider — are fully substitutable.
 
-import type { IDagWorkflowFile } from './workflow-file.js';
+import type { IDagDefinition } from './domain.js';
 
 /**
  * Port type spec for a node input.
@@ -16,9 +16,7 @@ import type { IDagWorkflowFile } from './workflow-file.js';
  *   - `[choices, schema]` — enumerated choices plus options
  */
 export type INodePortSpec =
-  | [string]
-  | [string, Record<string, unknown>]
-  | [string[], Record<string, unknown>];
+  [string] | [string, Record<string, unknown>] | [string[], Record<string, unknown>];
 
 /**
  * A single node entry in the catalog returned by `listNodes()`.
@@ -109,8 +107,19 @@ export interface IDagRuntimeProvider {
   readonly providerId: string;
   readonly displayName: string;
   listNodes(): Promise<IDagNodeManifest[]>;
+  /**
+   * Run a DAG.
+   *
+   * DAG-002: this takes the canonical domain model. It used to take `IDagWorkflowFile` — the
+   * absorbed ComfyUI-style serialization — so every caller, already holding an `IDagDefinition`,
+   * converted DOWN to it and every provider converted straight back UP. The conversion preserves
+   * information in neither direction: node ids were rewritten to `node-<n>` and unnamed ports were
+   * invented as `out<i>`/`in<i>`, and the loss reached the user in run outputs, which are keyed
+   * `<nodeId>.<port>`. The file format remains what it always was — an import/export shape, read at
+   * the edge by `fromDagWorkflowFile` — and is no longer the execution contract.
+   */
   execute(
-    dag: IDagWorkflowFile,
+    dag: IDagDefinition,
     inputs: Record<string, unknown>,
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult>;
@@ -122,7 +131,7 @@ export interface IDagRuntimeProvider {
  * `runId` + queue/history lifecycle.
  */
 export interface IDetachableRunProvider extends IDagRuntimeProvider {
-  submitRun(dag: IDagWorkflowFile, inputs: Record<string, unknown>): Promise<string>;
+  submitRun(dag: IDagDefinition, inputs: Record<string, unknown>): Promise<string>;
   watchRun(
     runId: string,
     onProgress: (event: IDagRuntimeProgressEvent) => void,

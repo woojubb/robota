@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { isLegacyDefinitionFormat, toDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 
 import {
   DEFAULT_WORKSPACE_LAYOUT,
-  type IDagWorkflowFile,
+  type IDagDefinition,
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-transport';
@@ -13,17 +13,16 @@ import { parseFileArg } from './args.js';
 import { createWorkspaceRuntime } from './workspace-runtime.js';
 
 /**
- * Read a workflow file in either supported on-disk format and return the runtime workflow-file shape.
- * Legible legacy `IDagDefinition` files (what `create`/dag-cli save) are converted; ComfyUI-style
- * workflow files are used as-is.
+ * Read a workflow file in either supported on-disk format and return the canonical domain model.
+ *
+ * DAG-002: this is the import adapter, and it is the only place the file format belongs. It used to
+ * run the other way — an `IDagDefinition` file was converted INTO the workflow-file format because
+ * that was the provider's parameter type, and the provider converted it straight back, losing the
+ * node ids and port names on the way. A definition on disk is now passed through untouched, and only
+ * a genuine workflow file is converted.
  */
-async function readDagFile(absPath: string): Promise<IDagWorkflowFile> {
-  const raw = await readFile(absPath, 'utf-8');
-  const parsed = JSON.parse(raw) as unknown;
-  if (isLegacyDefinitionFormat(parsed)) {
-    return toDagWorkflowFile(parsed).workflowFile;
-  }
-  return parsed as IDagWorkflowFile;
+async function readDagFile(absPath: string): Promise<IDagDefinition> {
+  return dagDefinitionFromParsedFile(JSON.parse(await readFile(absPath, 'utf-8')));
 }
 
 /**

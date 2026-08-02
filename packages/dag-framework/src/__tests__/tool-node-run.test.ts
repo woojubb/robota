@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildDagFromPipeline, toDagWorkflowFile } from '@robota-sdk/dag-builder';
+import { buildDagFromPipeline } from '@robota-sdk/dag-builder';
 import type { INodeManifest } from '@robota-sdk/dag-core';
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
@@ -56,8 +56,9 @@ describe('tool node — functional run through LocalDagRuntimeProvider', () => {
     expect(build.ok).toBe(true);
     if (!build.ok) return;
 
-    const { workflowFile } = toDagWorkflowFile(build.definition);
-    const result = await provider.execute(workflowFile, {});
+    // DAG-002: the provider takes the definition the builder produced, with no round trip through
+    // the workflow-file format in between.
+    const result = await provider.execute(build.definition, {});
 
     expect(result.ok).toBe(true);
     const serialized = JSON.stringify(result.outputs);

@@ -77,7 +77,6 @@
   "packages/dag-cli/src/commands/node.ts": 1479,
   "packages/dag-cli/src/commands/perf.ts": 402,
   "packages/dag-cli/src/commands/run.ts": 2390,
-  "packages/dag-cli/src/commands/runs.ts": 302,
   "packages/dag-cli/src/commands/share.ts": 475,
   "packages/dag-cli/src/commands/tutorial.ts": 684,
   "packages/dag-cli/src/commands/validate.ts": 815,

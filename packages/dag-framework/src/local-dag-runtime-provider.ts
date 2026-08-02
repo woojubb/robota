@@ -13,7 +13,6 @@ import type {
   IDagRuntimeResult,
   IDagNodeManifest,
   INodePortSpec,
-  IDagWorkflowFile,
   ITaskExecutorPort,
   TPortPayload,
   TRunProgressEvent,
@@ -34,7 +33,6 @@ import {
   StaticNodeManifestRegistry,
   StaticNodeTaskHandlerRegistry,
 } from '@robota-sdk/dag-node';
-import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 
 import { loadDefaultNodeRegistrySync } from './load-default-node-registry.js';
 import { createExecutionComposition } from './composition/create-execution-composition.js';
@@ -99,12 +97,14 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   }
 
   public async execute(
-    dag: IDagWorkflowFile,
+    dag: IDagDefinition,
     inputs: Record<string, unknown>,
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult> {
     const nodeDefinitions = await this.buildNodeRegistry();
-    const definition = fromDagWorkflowFile(dag, undefined);
+    // DAG-002: executed as given. `fromDagWorkflowFile(dag, undefined)` used to sit here, rewriting
+    // every node id to `node-<n>` — undoing a conversion the caller had just performed.
+    const definition = dag;
 
     const startMs = Date.now();
     let aborted = false;

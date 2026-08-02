@@ -10,13 +10,10 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getRunStore } from '../run-store.js';
-import type {
-  IDagRuntimeProvider,
-  IDetachableRunProvider,
-  IDagWorkflowFile,
-} from '@robota-sdk/dag-core';
+import type { IDagRuntimeProvider, IDetachableRunProvider } from '@robota-sdk/dag-core';
 import { FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import type { IDagCliIo } from '../types.js';
+import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 import { resolveProvider } from '../providers/index.js';
 
 const JSON_INDENT = 2;
@@ -286,7 +283,8 @@ export async function runsCommand(
       return USAGE_ERROR_EXIT_CODE;
     }
     const text = await readFile(resolve(filePath), 'utf8');
-    const dag = JSON.parse(text) as IDagWorkflowFile;
+    // DAG-002: this used to assert the workflow-file shape with a bare cast and never check it.
+    const dag = dagDefinitionFromParsedFile(JSON.parse(text));
     const runId = await runtimeProvider.submitRun(dag, {});
     if (outputFormat === 'json') {
       io.write(`${JSON.stringify({ runId }, null, JSON_INDENT)}\n`);

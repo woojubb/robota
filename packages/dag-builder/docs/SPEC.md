@@ -32,11 +32,24 @@
 
 ## Public API Surface
 
-- `buildDagFromPipeline(input, manifests)` — main builder function
-- `toDagWorkflowFile(definition)` — convert to `.dag.json` format
-- `fromDagWorkflowFile(file)` — parse `.dag.json` back to `IDagDefinition`
-- `toWorkflowNodeType(nodeType)` / `fromWorkflowNodeType(nodeType)` — node type string helpers
-- `isWorkflowFileFormat(obj)` / `isLegacyDefinitionFormat(obj)` — format detection guards
+| Export                        | Signature              | Purpose                                                                 |
+| ----------------------------- | ---------------------- | ----------------------------------------------------------------------- |
+| `buildDagFromPipeline`        | `(input, manifests)`   | Main builder: a pipeline spec plus node manifests → `IDagDefinition`    |
+| `dagDefinitionFromParsedFile` | `(parsed, companion?)` | Import adapter: parsed JSON in either on-disk format → `IDagDefinition` |
+| `toDagWorkflowFile`           | `(definition)`         | Export a definition to the `.dag.json` workflow-file format             |
+| `fromDagWorkflowFile`         | `(file, companion?)`   | Parse a `.dag.json` workflow file back to `IDagDefinition`              |
+| `toWorkflowNodeType`          | `(nodeType)`           | Domain node type → workflow-file node type string                       |
+| `fromWorkflowNodeType`        | `(nodeType)`           | Workflow-file node type string → domain node type                       |
+| `isWorkflowFileFormat`        | `(obj)`                | Format guard: parsed JSON is a workflow file                            |
+| `isLegacyDefinitionFormat`    | `(obj)`                | Format guard: parsed JSON is an `IDagDefinition`                        |
+| `DAG_BUILDER_PACKAGE_NAME`    | `string`               | This package's name, for diagnostics that must not hardcode it          |
+
+`dagDefinitionFromParsedFile` is the one place the workflow-file format is read. Since DAG-002 the
+execution contract is the domain model (`IDagRuntimeProvider.execute` takes an `IDagDefinition`), so
+import at the edge is the only job the file format has. It is pure and synchronous: a caller that
+also reads a `.dag.robota.json` companion off disk does that IO itself and passes the result in — the
+companion carries what the format cannot (original node ids, retry and cost policies), and without it
+an imported workflow's nodes are named `node-<n>` because that is genuinely all the file records.
 
 ## Extension Points
 
