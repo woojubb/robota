@@ -205,3 +205,23 @@ waiter — awaited signals alone. Exposing `IRuntimeHostHandle.waitForCompletion
 racing it is the same shape this branch fixed at the registry layer, one level up. It races it now;
 no run-to-completion transport is registered there today, and the wire is what stops that from
 mattering later.
+
+Second CI round, three more — and the first was a regression I introduced while fixing the previous
+round's SHOULD.
+
+**`--serve` tore itself down one microtask after it started serving.** Wiring
+`host.waitForCompletion()` into the process-lifetime wait, I settled on RESOLUTION as well as
+rejection. `waitForCompletion` resolves immediately when there is nothing to wait for, which is the
+ordinary case for `--serve` — so every ordinary run ended instantly. Only a FAILURE settles it now:
+`--serve`'s whole job is to stay alive until a signal or a host-executed exit. The binary e2e caught
+it (`serve host did not come up within 20000ms`), and that is the second time in this branch a fix
+for a review finding introduced a worse defect than the finding.
+
+**A stale settle deleted the CURRENT session's entry.** `this.running.delete(name)` keyed on the
+transport name with no ownership check, so a promise abandoned by `stopAll` could, on settling late,
+delete the entry a NEW session had put under the same name — and `waitForCompletion` would then
+resolve without waiting for work still in flight. The previous case covered the opposite ordering
+only. Same `if (current === ours)` check `TurnClaim.release` needed in RUNTIME-003.
+
+**A rejection with no value was read as no failure.** `Promise.reject()` pushes `undefined`, and the
+`!== undefined` guard swallowed it. Presence, not equality.

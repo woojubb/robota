@@ -223,4 +223,56 @@ describe('startAll starts every transport (ARCH-011)', () => {
     await registry.startAll(createTestInteractiveSession());
     await expect(registry.waitForCompletion()).resolves.toBeUndefined();
   });
+
+  it("a STALE settle does not drop the current session's entry for the same transport", async () => {
+    // The ordering the previous case did not cover. Session A starts `headless`; `stopAll` abandons
+    // it while its promise is still live; session B starts the same-named transport; only THEN does
+    // A's promise settle. Deleting by name alone dropped B's entry, and `waitForCompletion` resolved
+    // without waiting for work that was still in flight — silently losing the guarantee this whole
+    // change exists to add.
+    const registry = registryOverTempSettings();
+    const finishers: Array<() => void> = [];
+    registry.register({
+      name: 'headless',
+      defaultEnabled: true,
+      attach: vi.fn(),
+      start: () =>
+        new Promise<void>((resolve) => {
+          finishers.push(resolve);
+        }),
+      stop: async () => {},
+      runsToCompletion: true,
+    });
+
+    await registry.startAll(createTestInteractiveSession()); // session A
+    await registry.stopAll();
+    await registry.startAll(createTestInteractiveSession()); // session B, same name
+
+    finishers[0]?.(); // A settles LATE
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // B is still running, so this must NOT settle yet.
+    expect(await within(registry.waitForCompletion(), 100)).toBe('pending');
+
+    finishers[1]?.();
+    expect(await within(registry.waitForCompletion())).toBe('settled');
+  });
+
+  it('a rejection with no value is still a failure', async () => {
+    // `Promise.reject()` pushes `undefined`, and an `!== undefined` check read that as "no failure".
+    const registry = registryOverTempSettings();
+    registry.register({
+      name: 'headless',
+      defaultEnabled: true,
+      attach: vi.fn(),
+      start: () => Promise.reject(),
+      stop: async () => {},
+      runsToCompletion: true,
+    });
+
+    await registry.startAll(createTestInteractiveSession());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await expect(registry.waitForCompletion()).rejects.toBeUndefined();
+  });
 });

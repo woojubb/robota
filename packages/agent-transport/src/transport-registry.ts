@@ -110,15 +110,20 @@ export class TransportRegistry {
     // Captured at TRACK time. A stop replaces `this.failures`, so a handler that fires afterwards
     // records into the array of the generation it belonged to — which nobody reads.
     const sink = this.failures;
-    const tracked = promise.then(
-      () => {
+    // Deleted only if it is still OURS. The key is the transport name, and a stale promise from a
+    // stopped session settles late — deleting by name alone would drop the CURRENT session's entry
+    // for the same transport, and `waitForCompletion` would then resolve without waiting for work
+    // that is still in flight.
+    let tracked: Promise<void>;
+    const clearIfOurs = (): void => {
+      if (this.running.get(name) === tracked) {
         this.running.delete(name);
-      },
-      (error: unknown) => {
-        this.running.delete(name);
-        sink.push(error);
-      },
-    );
+      }
+    };
+    tracked = promise.then(clearIfOurs, (error: unknown) => {
+      clearIfOurs();
+      sink.push(error);
+    });
     this.running.set(name, tracked);
   }
 
@@ -128,9 +133,10 @@ export class TransportRegistry {
    */
   async waitForCompletion(): Promise<void> {
     await Promise.all([...this.running.values()]);
-    const first = this.failures.shift();
-    if (first !== undefined) {
-      throw first;
+    // Presence, not `!== undefined`: `Promise.reject()` with no value pushes `undefined`, and an
+    // equality check would read that as "no failure" and swallow it.
+    if (this.failures.length > 0) {
+      throw this.failures.shift();
     }
   }
 
