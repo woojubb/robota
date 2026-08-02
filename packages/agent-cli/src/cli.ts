@@ -25,6 +25,7 @@ import type { IParsedCliArgs } from './utils/cli-args.js';
 import { resolveShellPreset } from './startup/preset-selection.js';
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { DEFAULT_AGENT_NAME, getPreset, loadExternalPresets } from '@robota-sdk/agent-preset';
+import { buildPresetSurfaceOptions } from './startup/preset-surface-options.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 import {
   createRobotaPacks,
@@ -327,6 +328,10 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     terminal.writeError(`Capability ${kind} "${id}" was not composed: ${reason}.`);
   }
 
+  // ARCH-013: the preset fields every surface forwards, projected ONCE. This literal used to be
+  // written out three times below — print, serve, interactive — kept in step by memory.
+  const presetSurface = buildPresetSurfaceOptions(resolvedPreset, selectedPresetId, permissionMode);
+
   const sessionStore = createProjectSessionStore(cwd);
   let resumeSessionId: string | undefined;
   let showSessionPickerOnStart = false;
@@ -371,20 +376,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       commandModules,
       commandHostAdapters,
       { resumeSessionId, forkSession: args.forkSession },
-      {
-        model: modelId,
-        agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
-        activePresetId: selectedPresetId,
-        persona: resolvedPreset.persona,
-        // ARCH-007: the posture the KERNEL resolved (explicit --permission-mode, else the preset's).
-        ...(permissionMode !== undefined ? { permissionMode } : {}),
-        ...(resolvedPreset.enableParallelSubagents !== undefined
-          ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
-          : {}),
-        ...(resolvedPreset.selfVerification !== undefined
-          ? { selfVerification: resolvedPreset.selfVerification }
-          : {}),
-      },
+      { model: modelId, ...presetSurface },
       memorySessionOptions,
     );
     return;
@@ -419,18 +411,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
       ...(remoteCommandPolicy ? { remoteCommandPolicy } : {}),
       resumeSessionId,
       model: modelId,
-      preset: {
-        agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
-        activePresetId: selectedPresetId,
-        persona: resolvedPreset.persona,
-        ...(permissionMode !== undefined ? { permissionMode } : {}),
-        ...(resolvedPreset.enableParallelSubagents !== undefined
-          ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
-          : {}),
-        ...(resolvedPreset.selfVerification !== undefined
-          ? { selfVerification: resolvedPreset.selfVerification }
-          : {}),
-      },
+      preset: presetSurface,
       memorySessionOptions,
     });
     return;
@@ -460,7 +441,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     providerType: providerSettings.name,
     modelId,
     language: args.language,
-    permissionMode,
+    // ARCH-013: `permissionMode` arrives via `...presetSurface` below, from this same value.
     maxTurns: args.maxTurns,
     allowedTools: parseToolList(args.allowedTools),
     deniedTools: parseToolList(args.deniedTools),
@@ -489,15 +470,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
     ...memorySessionOptions,
     cliAdapter: createDefaultTuiCliAdapter({ providerDefinitions, reloadPluginCommandSource }),
     reloadPluginCommandSource,
-    agentName: resolvedPreset.agentName ?? DEFAULT_AGENT_NAME,
-    activePresetId: selectedPresetId,
-    persona: resolvedPreset.persona,
-    ...(resolvedPreset.enableParallelSubagents !== undefined
-      ? { enableParallelSubagents: resolvedPreset.enableParallelSubagents }
-      : {}),
-    ...(resolvedPreset.selfVerification !== undefined
-      ? { selfVerification: resolvedPreset.selfVerification }
-      : {}),
+    ...presetSurface,
   });
   process.exit(0);
 }

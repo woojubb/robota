@@ -1,0 +1,15 @@
+{
+  "ICreateSessionOptions": [
+    "additionalHookExecutors",
+    "autoCompactThreshold",
+    "compactInstructions",
+    "guardrails",
+    "onCompact",
+    "promptForApproval",
+    "providerFactory",
+    "retrievalAdapter",
+    "sessionFactory",
+    "sessionStore",
+    "toolDescriptions"
+  ]
+}

@@ -87,6 +87,16 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured 2026-08-02 THE WAY THIS HARNESS CALLS IT — `finder(bare)`, one argument: throws
+    // `<declaring file> does not exist`. The first measurement passed two arguments and recorded a
+    // behaviour that was not the one firing; review caught it, and the finder now defaults its
+    // config so the real path is the reachable one.
+    file: 'scan-option-reachability.mjs',
+    finder: 'findUnreachableOptions',
+    tree: 'the declaring file of each configured interface, plus packages/ and apps/',
+    why: 'it answers "does any production code set this option" by reading BOTH the declarations and the call sites out of the same tree; over a root with neither, every declared option is vacuously reachable — and the two capabilities it exists for (guardrails, retrievalAdapter) shipped for months precisely because nothing objected to their absence',
+  },
+  {
     // Measured 2026-08-02 against a bare root: throws `none of packages, apps, scripts exist`.
     file: 'scan-literal-cast-union.mjs',
     finder: 'findLiteralCastUnionFindings',

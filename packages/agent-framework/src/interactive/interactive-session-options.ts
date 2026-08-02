@@ -57,6 +57,12 @@ export interface IInteractiveSessionStandardOptions {
   deniedTools?: string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
+  /**
+   * Reasoning-effort dial resolved from the active preset (PRESET-008). ARCH-013: this key did not
+   * exist, so a preset's `effort` reached nothing at startup while `/preset` applied it mid-session.
+   * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
+   */
+  effort?: ICreateSessionOptions['effort'];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */
@@ -213,6 +219,12 @@ export interface IInitOptions {
   deniedTools?: string[];
   /** Override the model from config. When set, takes precedence over config.provider.model. */
   model?: string;
+  /**
+   * Reasoning-effort dial resolved from the active preset (PRESET-008). ARCH-013: this key did not
+   * exist, so a preset's `effort` reached nothing at startup while `/preset` applied it mid-session.
+   * Typed FROM the seam, not re-declared beside it — that is how the two drift apart again.
+   */
+  effort?: ICreateSessionOptions['effort'];
   /** Text to append to the system prompt. */
   appendSystemPrompt?: string;
   /** Preset persona block composed as a `source: 'persona'` system-prompt section (priority 5). */

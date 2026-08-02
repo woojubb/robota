@@ -273,5 +273,13 @@
   "contractCastRatchet": {
     "$comment": "ARCH-012: contracts whose `as X` cast count is frozen by scan-contract-cast-ratchet. A cast is a partial re-implementation nothing checks against the real contract; the count may fall and never rise while capability-scoped ports are designed.",
     "contracts": ["IInteractiveSession"]
-  }
+  },
+  "optionReachability": [
+    {
+      "name": "ICreateSessionOptions",
+      "file": "packages/agent-framework/src/assembly/create-session-types.ts",
+      "constructors": ["createSession"],
+      "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession \u2014 two documented capabilities no shipped surface could turn on."
+    }
+  ]
 }
