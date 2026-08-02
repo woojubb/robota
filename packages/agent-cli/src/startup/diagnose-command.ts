@@ -1,5 +1,6 @@
 import { createConnection } from 'node:net';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { getProviderSettingsPaths, readProviderSettings } from '@robota-sdk/agent-framework';
@@ -128,9 +129,22 @@ function tryReadCurrentProvider(settingsPath: string): string | undefined {
   }
 }
 
+/**
+ * The user's settings file, absolutely.
+ *
+ * NEUT-009: this read `process.env['HOME'] ?? ''`, and on Windows `HOME` is normally unset — so the
+ * empty fallback made the whole path RELATIVE and it resolved against the current working directory.
+ * The command whose entire job is reporting which configuration is in effect reported the wrong file,
+ * confidently. `homedir()` is the platform-correct answer and is what `agent-framework`'s
+ * `userPaths()` already uses; this was the one site that rebuilt the path from the environment.
+ */
+export function resolveUserSettingsPath(): string {
+  return join(homedir(), '.robota', 'settings.json');
+}
+
 function resolveNetworkEndpoint(cwd: string): { host: string; port: number } {
   const settingsPath = join(cwd, '.robota', 'settings.json');
-  const homeSettings = join(process.env['HOME'] ?? '', '.robota', 'settings.json');
+  const homeSettings = resolveUserSettingsPath();
   const activePath = existsSync(settingsPath)
     ? settingsPath
     : existsSync(homeSettings)

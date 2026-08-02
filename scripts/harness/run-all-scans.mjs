@@ -245,6 +245,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
   },
   {
+    name: 'product-identity',
+    command: ['node', 'scripts/harness/scan-product-identity.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },

@@ -6,11 +6,21 @@ const TEMP_RANDOM_BYTES = 6;
 const PRESERVED_MODE_BITS = 0o7777;
 const MISSING_FILE_ERROR_CODE = 'ENOENT';
 
+/**
+ * NEUT-009: this marker used to carry the consumer's product name, so a neutral tool library wrote
+ * that name onto every temporary file it created — inherited by any other product built on it. The
+ * marker now says what the file IS, which is all it was ever for.
+ *
+ * The product name is not quoted here either: the ratchet counts prose, deliberately, because a
+ * library whose comments teach the product's layout is coupled to it just as firmly.
+ */
+const TEMP_MARKER = '.atomic-tmp-';
+
 function createTempFilePath(filePath: string): string {
   const dir = dirname(filePath);
   const name = basename(filePath);
   const suffix = randomBytes(TEMP_RANDOM_BYTES).toString('hex');
-  return join(dir, `.${name}.robota-tmp-${process.pid}-${Date.now()}-${suffix}`);
+  return join(dir, `.${name}${TEMP_MARKER}${process.pid}-${Date.now()}-${suffix}`);
 }
 
 async function readExistingMode(filePath: string): Promise<number | undefined> {
