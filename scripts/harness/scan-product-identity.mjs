@@ -92,13 +92,19 @@ export function findProductIdentity(root, config = liveConfig()) {
   // latter scored two "product name" occurrences for one mention, and the frozen numbers were
   // inflated. Caught in review. The monotonicity of the ratchet survived it, but the count is the
   // thing this scan reports, so an inflated one is a wrong answer.
-  const overlapping = markers.filter((marker) =>
-    markers.some((other) => other !== marker && other.includes(marker)),
+  //
+  // Compared by INDEX, not by value. The first version tested `other !== marker`, which let an
+  // exactly-duplicated marker through — the same list is searched twice and every occurrence doubles.
+  // Also caught in review, in the change that added the check: a guard against duplication with a
+  // hole for the most literal kind of duplication.
+  const overlapping = markers.filter((marker, index) =>
+    markers.some((other, otherIndex) => otherIndex !== index && other.includes(marker)),
   );
   if (overlapping.length > 0) {
     throw new Error(
-      `product-identity: markers overlap (${overlapping.join(', ')} are substrings of other markers) — ` +
-        'every line matching both would be counted twice, so the frozen numbers would not mean what they say.',
+      `product-identity: markers overlap (${[...new Set(overlapping)].join(', ')}) — every line ` +
+        'matching more than one would be counted once per match, so the frozen numbers would not ' +
+        'mean what they say.',
     );
   }
 

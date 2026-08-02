@@ -125,6 +125,16 @@ describe('scan-product-identity', () => {
       ).toThrow(/overlap/);
     });
 
+    it('REJECTS an exactly duplicated marker too', () => {
+      // The first overlap check compared by value (`other !== marker`), so an identical duplicate
+      // slipped through and every occurrence doubled — a guard against duplication with a hole for
+      // the most literal kind of it. Comparing by index closes that.
+      const root = workspace({ 'packages/lib/src/a.ts': `'.robota'` });
+      expect(() =>
+        findProductIdentity(root, { markers: ['.robota', '.robota'], packages: ['packages/lib'] }),
+      ).toThrow(/overlap/);
+    });
+
     it('examines nothing, and says so, when no markers are configured', () => {
       const root = workspace({ 'packages/lib/src/a.ts': `'.robota'` });
       expect(findProductIdentity(root, { markers: [], packages: ['packages/lib'] }).counts).toEqual(
