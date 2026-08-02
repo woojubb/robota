@@ -44,7 +44,10 @@
 | `isLegacyDefinitionFormat`    | `(obj)`                | Format guard: parsed JSON is an `IDagDefinition`                        |
 | `DAG_BUILDER_PACKAGE_NAME`    | `string`               | This package's name, for diagnostics that must not hardcode it          |
 
-`dagDefinitionFromParsedFile` is the one place the workflow-file format is read. Since DAG-002 the
+`dagDefinitionFromParsedFile` is where the workflow-file format SHOULD be read, and where the
+surfaces converted so far do read it — `/workflows run`, `/workflows validate` and `dag runs submit`.
+Eight `dag-cli` commands still open-code the same branch and pass a definition through unchecked;
+that sweep is DAG-004. Do not read this as coverage it does not yet have. Since DAG-002 the
 execution contract is the domain model (`IDagRuntimeProvider.execute` takes an `IDagDefinition`), so
 import at the edge is the only job the file format has. It is pure and synchronous: a caller that
 also reads a `.dag.robota.json` companion off disk does that IO itself and passes the result in — the

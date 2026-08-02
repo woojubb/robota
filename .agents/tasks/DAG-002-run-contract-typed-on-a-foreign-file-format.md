@@ -246,3 +246,26 @@ this task recorded from the start. Both literals are fixed, and
 `dagDefinitionFromParsedFile` now validates the status of every definition it imports, naming the
 value and the legal set. An ABSENT status stays legal; only a present one outside the union fails.
 Two layers, and the scan's docstring now says so rather than implying it is the whole guarantee.
+
+### Review round 2 (PR #1605)
+
+One SHOULD, upheld, and it is a correction to a claim of mine rather than to the code: the SPEC said
+`dagDefinitionFromParsedFile` is "the one place the workflow-file format is read", and this task file
+said it "validates the status of every definition it imports". Neither was true. `/workflows validate`
+and eight `dag-cli` sites still open-coded the branch and passed a legacy-format object straight
+through, so a file carrying `status: 'active'` — the value this change exists to eliminate, and one
+`dag-cli node` emitted until this same change fixed it — entered cleanly through all of them.
+
+Making a claim that stops the next reader from checking, in the change whose whole subject is a claim
+that stopped the next reader from checking.
+
+- `/workflows validate` is converted, because a surface whose entire job is answering "is this file
+  valid?" reporting an invalid status as valid is not a coverage gap, it is the wrong answer. The case
+  is red-proved, and the red-proof is why it asserts the MESSAGE: the unfixed code already returned
+  `success: false` for an unrelated empty-node-list issue, so asserting the verdict alone would have
+  passed whether or not the status was ever checked.
+- The eight `dag-cli` sites are filed as **DAG-004** with each location listed. They read a companion
+  first and each renders its own exit code, so converting them mid-change would have been a sweep
+  wearing this item's name.
+- Both claims are narrowed to what actually holds, and the SPEC now names DAG-004 so the gap is
+  readable from the document that overstated it.

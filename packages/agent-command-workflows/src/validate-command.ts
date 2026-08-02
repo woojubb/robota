@@ -1,11 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import {
-  fromDagWorkflowFile,
-  isLegacyDefinitionFormat,
-  isWorkflowFileFormat,
-} from '@robota-sdk/dag-builder';
+import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 
 import { parseFileArg } from './args.js';
@@ -45,15 +41,16 @@ export async function executeWorkflowsValidate(
     return { success: false, message: parsed.message };
   }
 
+  // DAG-002: through the shared import adapter, so the surface whose entire job is answering "is
+  // this file valid?" reports an unrecognised shape AND a status outside `TDagDefinitionStatus`
+  // rather than passing either through as if the file were fine.
   let definition: IDagDefinition;
-  if (isWorkflowFileFormat(parsed)) {
-    definition = fromDagWorkflowFile(parsed);
-  } else if (isLegacyDefinitionFormat(parsed)) {
-    definition = parsed;
-  } else {
+  try {
+    definition = dagDefinitionFromParsedFile(parsed);
+  } catch (err) {
     return {
       success: false,
-      message: `"${filePath}" is not a recognized DAG workflow file (expected a .dag.json node-graph or a DAG definition).`,
+      message: `"${filePath}": ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 
