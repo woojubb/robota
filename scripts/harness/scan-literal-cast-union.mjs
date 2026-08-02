@@ -31,6 +31,12 @@
  * - It says nothing about non-literal operands. `someString as TStatus` is exactly as unchecked as it
  *   was; this scan narrows the hole to the case it can decide with certainty, and does not claim the
  *   rest.
+ * - It sees only CASTS. A literal written into an UNTYPED object literal and then serialized reaches
+ *   the same wrong place with no cast to find: review caught `dag-cli node` printing
+ *   `status: 'active'` in an example definition for the user to save, on a file DAG-002 never
+ *   touched. Static analysis was never going to reach a value that arrives at runtime either, so
+ *   `dagDefinitionFromParsedFile` validates the status of every definition it imports. This scan is
+ *   one of two layers, not the whole guarantee.
  *
  * FAIL-CLOSED: the governed source tree is mandatory. A run over a root without it is a run that
  * could not judge, and reports that rather than a pass.

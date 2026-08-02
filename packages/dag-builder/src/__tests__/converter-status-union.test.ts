@@ -74,3 +74,37 @@ describe('dagDefinitionFromParsedFile is the one import adapter (DAG-002)', () =
     expect(() => dagDefinitionFromParsedFile(null)).toThrow(/Not a DAG file/);
   });
 });
+
+describe('the import boundary rejects a status the domain type cannot hold (DAG-002)', () => {
+  it('names the offending value and the legal set', () => {
+    // The scan cannot see this one: `status: 'active'` written into an UNTYPED object literal, then
+    // serialized. `dag-cli node`'s example generator did exactly that and printed the result for the
+    // user to save — found by review, on a file this PR never touched. A static check over casts was
+    // never going to reach data that arrives at runtime, and files written by older versions are
+    // already out there, so the boundary that now owns every import owns this too.
+    expect(() =>
+      dagDefinitionFromParsedFile({
+        dagId: 'd',
+        version: 1,
+        status: 'active',
+        nodes: [],
+        edges: [],
+      }),
+    ).toThrow(/'active'.*draft.*published.*deprecated/s);
+  });
+
+  it('accepts every legal status', () => {
+    for (const status of STATUSES) {
+      expect(
+        dagDefinitionFromParsedFile({ dagId: 'd', version: 1, status, nodes: [], edges: [] })
+          .status,
+      ).toBe(status);
+    }
+  });
+
+  it('accepts a definition with no status at all rather than inventing one', () => {
+    // Absent is not invalid — only a PRESENT value outside the union is. Rejecting absence would
+    // break every file that predates the field.
+    expect(() => dagDefinitionFromParsedFile({ dagId: 'd', version: 1, nodes: [] })).not.toThrow();
+  });
+});

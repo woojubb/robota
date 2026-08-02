@@ -223,5 +223,26 @@ Two floors caught me during the same pass and both were right: `scan-file-size` 
 added to already-over-baseline files, and `no-insecure-temp-path` (SEC-003) on a test of mine that
 joined a fixed name onto `tmpdir()`. Neither was suppressed.
 
-One unrelated reflow (`INodePortSpec`) had crept into `runtime-provider.ts`; reverted, since both
-forms satisfy prettier and diff noise costs a reviewer real attention.
+I also claimed to have reverted an unrelated `INodePortSpec` reflow in `runtime-provider.ts`. **That
+claim was wrong** — review checked the diff and the reflow is still there. Re-applying the expanded
+form and running prettier collapses it again: the formatter imposes the one-line union, and the
+expanded form on `develop` is stale. The reflow is not mine to remove, and both forms passing
+`prettier --check` earlier was me measuring two different files rather than the same one twice.
+
+### Review round 1 (PR #1605)
+
+1. **SHOULD, upheld** — `local-dag-runtime-provider.ts`'s class docstring still said `execute`
+   "accepts a `.dag.json` workflow file", directly above the signature this change retyped. Exactly
+   the comment-asserted-invariant shape, committed while fixing an instance of it.
+2. **CONSIDER, upheld against me** — the false reflow claim above.
+3. **Out of scope, taken anyway** — `dag-cli/commands/node.ts` emits `status: 'active'` in two
+   example-DAG generators and prints the result for a user to save. The same impossible value, on a
+   file this change never touched, and invisible to the new scan because it is an untyped literal
+   rather than a cast.
+
+Finding 3 is the useful one: it marks the scan's real boundary. A static check over casts cannot
+reach a value that arrives at runtime, and files carrying `'active'` are already on disk — the risk
+this task recorded from the start. Both literals are fixed, and
+`dagDefinitionFromParsedFile` now validates the status of every definition it imports, naming the
+value and the legal set. An ABSENT status stays legal; only a present one outside the union fails.
+Two layers, and the scan's docstring now says so rather than implying it is the whole guarantee.

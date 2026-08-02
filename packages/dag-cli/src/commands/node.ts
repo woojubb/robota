@@ -878,7 +878,7 @@ function handleExampleCommand(manifests: INodeManifest[], nodeType: string, io: 
   const example = {
     dagId: `${nodeType}-example`,
     version: 1,
-    status: 'active',
+    status: 'draft', // DAG-002: 'active' is not in TDagDefinitionStatus
     nodes,
     edges,
   };
@@ -1116,7 +1116,7 @@ async function runExampleInPlace(
   const example = {
     dagId: `${nodeType}-example`,
     version: 1,
-    status: 'active',
+    status: 'draft', // DAG-002: 'active' is not in TDagDefinitionStatus
     nodes,
     edges,
   };

@@ -81,9 +81,9 @@ export interface ILocalDagRuntimeProviderOptions {
 /**
  * Local (in-process) implementation of {@link IDagRuntimeProvider}.
  *
- * Surfaces the node catalog via {@link listNodes} and accepts a `.dag.json`
- * workflow file via {@link execute}, emitting {@link IDagRuntimeProgressEvent}s
- * as the run progresses.
+ * Surfaces the node catalog via {@link listNodes} and runs an {@link IDagDefinition} via
+ * {@link execute} (DAG-002 — it took a `.dag.json` workflow file before), emitting
+ * {@link IDagRuntimeProgressEvent}s as the run progresses.
  */
 export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly providerId = 'local';
