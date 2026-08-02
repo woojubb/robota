@@ -392,4 +392,23 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     expect(outcome.failed.map((f) => f.taskRunId)).toEqual(['task-bad']);
     expect(outcome.requeued).toEqual(['task-good']);
   });
+
+  it('reports a task whose parent RUN is gone as ORPHANED, not as an ordinary abandonment', async () => {
+    // `deleteDagRun` does not cascade to task runs in any of the three adapters, so a retention job
+    // can leave a `running` task with no parent. Folding that into the same branch as "the run
+    // finished" is how a referential-integrity bug becomes invisible — the sweep would report a
+    // routine abandonment and nothing would ever say a record was missing.
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(NOW_MS);
+    await storage.createTaskRun(taskRun()); // no DAG run created at all
+
+    const outcome = await sweep(storage, queue, clock);
+
+    expect(outcome.orphaned).toEqual(['task-run-1']);
+    expect(outcome.abandoned).toEqual([]);
+    const task = await storage.getTaskRun('task-run-1');
+    expect(task?.status).toBe('cancelled');
+    expect(task?.errorCode).toBe('DAG_TASK_EXECUTION_ORPHANED');
+  });
 });

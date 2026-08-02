@@ -282,3 +282,10 @@ or left. Three of those were cases where a comment I wrote asserted a property t
 — the lease being held during execution, the state machine being the single place transitions live,
 and the worker reloading its payload. Writing the claim down did not make it true, and in each case
 the claim was what stopped the next reader (me) from checking.
+
+Fifth round, one SHOULD: `dagRun === undefined` — the parent run record is MISSING — was folded into
+the same branch as "the run finished". `deleteDagRun` does not cascade to task runs in any of the
+three adapters, so a retention job can leave exactly that, and reporting it as a routine abandonment
+is how a referential-integrity bug stays invisible. It now has its own `orphaned` bucket and its own
+error code, and the file's `parseInputSnapshot` fallback — which IS deliberate — carries the
+`allow-fallback` marker this branch did not.

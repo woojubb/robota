@@ -199,6 +199,10 @@ All errors use `IDagError` from `dag-core` with the following codes:
 - `DAG_TASK_EXECUTION_FAILED` -- generic run failure
 - `DAG_TASK_EXECUTION_ABANDONED` -- DAG-001: the task was abandoned by its worker and has no attempts
   left. Emitted by the stale-task sweep, not by an executor
+- `DAG_TASK_EXECUTION_ORPHANED` -- DAG-001: the task's parent DAG run no longer exists, so it can be
+  neither run nor finalized. `deleteDagRun` does not cascade to task runs, so a retention job can
+  leave this. Reported in its own `orphaned` bucket rather than as an ordinary abandonment — treating
+  a missing parent record as a finished run is how a referential-integrity bug becomes invisible
 - `DAG_TASK_SWEEP_FAILED` -- DAG-001: the stale-task sweep itself failed. Returned as an ordinary
   `processOnce` error rather than thrown, because the sweep runs on the idle branch whose promise the
   drivers only `.catch` when stopping — a throw there became an unhandled rejection that killed the

@@ -39,7 +39,13 @@ export async function sweepStaleTaskRuns(
   options: { workerId: string; maxAttempts: number; leaseDurationMs: number },
 ): Promise<ISweepOutcome> {
   const stale = await storage.listStaleRunningTaskRuns(clock.nowIso());
-  const outcome: ISweepOutcome = { requeued: [], abandoned: [], skipped: [], failed: [] };
+  const outcome: ISweepOutcome = {
+    requeued: [],
+    abandoned: [],
+    skipped: [],
+    failed: [],
+    orphaned: [],
+  };
 
   for (const taskRun of stale) {
     // The SAME lease a worker takes, for the same reason. Without it two idle workers sweep the same
@@ -87,11 +93,24 @@ async function sweepOne(
       return;
     }
 
+    const dagRun = await storage.getDagRun(taskRun.dagRunId);
+
+    // A task whose parent RUN does not exist is a referential-integrity problem, not a finished run.
+    // `deleteDagRun` does not cascade to task runs in any of the three adapters, so a retention job
+    // can leave exactly this. It is reported in its own bucket rather than folded into `abandoned`:
+    // treating "the parent record is missing" as "the run finished" is how a data bug becomes
+    // invisible. The task is still cancelled — there is no run for it to belong to — but the sweep
+    // says which of the two happened.
+    if (dagRun === undefined) {
+      await finishTaskWithoutRun(storage, taskRun);
+      outcome.orphaned.push(taskRun.taskRunId);
+      return;
+    }
+
     // A run that is already over does not get its work restarted. `RunCancelService.cancelRun`
     // updates only the RUN, leaving its tasks `running` — so without this check, cancelling a run
     // and waiting would silently re-execute the node the user cancelled. Cancel has to mean stop.
-    const dagRun = await storage.getDagRun(taskRun.dagRunId);
-    if (dagRun === undefined || TERMINAL_RUN_STATUSES.has(dagRun.status)) {
+    if (TERMINAL_RUN_STATUSES.has(dagRun.status)) {
       // Through the state machine, not a literal — the table stays the single place the legal
       // transitions live, which is the rule the RECLAIM check above follows.
       const cancelled = TaskRunStateMachine.transition(taskRun.status, 'CANCEL');
@@ -152,6 +171,11 @@ export interface ISweepOutcome {
   skipped: string[];
   /** Threw. Reported rather than propagated, so one bad row does not strand the rest of the pass. */
   failed: { taskRunId: string; error: unknown }[];
+  /**
+   * Cancelled because their parent DAG run no longer exists — a referential-integrity problem, kept
+   * separate from `abandoned` so it cannot hide behind a run that merely finished.
+   */
+  orphaned: string[];
 }
 
 /**
@@ -237,4 +261,21 @@ function parseInputSnapshot(inputSnapshot: string | undefined): TPortPayload {
     // allow-fallback: an unparseable snapshot yields an empty input, not a thrown sweep — see above
     return {};
   }
+}
+
+/**
+ * Cancel a task whose parent run is gone.
+ *
+ * Separate from `finishTask` because there is no run to finalize — calling `finalizeDagRunIfTerminal`
+ * with a missing run would ask it to reason about a record that does not exist.
+ */
+async function finishTaskWithoutRun(storage: IStoragePort, taskRun: ITaskRun): Promise<void> {
+  await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled', {
+    code: 'DAG_TASK_EXECUTION_ORPHANED',
+    category: 'task_execution',
+    message: `Task's DAG run ${taskRun.dagRunId} no longer exists; the task cannot be run or finalized`,
+    retryable: false,
+    context: { taskRunId: taskRun.taskRunId, dagRunId: taskRun.dagRunId },
+  });
+  await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
 }
