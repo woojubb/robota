@@ -269,3 +269,20 @@ in `.agents/memory/claimed-without-reading-back.md`, which this PR also adds.
 
 Also removed eleven type-only imports left dead in `TuiInteractionChannel.ts` by the interface move —
 an ESLint warning, not a break, but the point of the extraction was a file with one job.
+
+### Review round 3 (PR #1607)
+
+One SHOULD, upheld: a dead `NOOP_TERMINAL` import left in `interactive-session-init.ts` by the
+projection extraction — in the same change whose commit message said it had removed exactly this kind
+of leftover from another file. Fixing the named instance alone would have been the defect again, so
+the whole class was swept: `FileSessionLogger` was dead for the same reason in that file, and six more
+(`IAIProvider`, `IToolWithEventService`, `TPermissionMode`, `IInteractiveSession`,
+`IInteractiveSessionStore`, `ITransportRegistryView`) were left dead in `TuiInteractionChannel.ts` by
+the interface move — two more than review named. Verified by typecheck, not by the count: a first pass
+of the detector mis-read `TActionResponse as TUserActionResponse` as dead when it has five live uses.
+
+**No mechanism yet, and that is a gap.** `@typescript-eslint/no-unused-vars` is a WARNING and
+`pnpm lint` runs without `--max-warnings`, so nothing objects to any of this. Three separate instances
+in one PR is a pattern, not bad luck. A warning-COUNT ratchet — frozen at today's number, may fall,
+never rise — is the neutral mechanism that would have caught all eight, and it is filed as HARNESS-070
+rather than added here, because this change is already carrying one new scan.

@@ -25,12 +25,7 @@ import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-in
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
 import type { ITuiInteractionChannelOptions } from './tui-channel-options.js';
 import type { IPendingPermissionRequest } from './types.js';
-import type {
-  IAIProvider,
-  IToolWithEventService,
-  TPermissionMode,
-  TSessionEndReason,
-} from '@robota-sdk/agent-core';
+import type { TSessionEndReason } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
 // CMD-004 unified action contract (SSOT in agent-core).
 import type {
@@ -44,10 +39,7 @@ import type {
   IExecutionResult,
   IExecutionWorkspaceEvent,
   IInteractionChannel,
-  IInteractiveSession,
   IInteractiveSessionEvents,
-  IInteractiveSessionStore,
-  ITransportRegistryView,
   InteractionEvent,
   TInteractiveEventName,
   TPermissionResultValue,

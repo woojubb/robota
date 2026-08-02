@@ -9,10 +9,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileSessionLogger } from '@robota-sdk/agent-session';
-
 import { buildCreateSessionOptions } from './create-session-projection.js';
-import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { detectProject } from '../context/project-detector.js';
 import { projectPaths } from '../paths.js';
 import {
