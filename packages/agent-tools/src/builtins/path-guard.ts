@@ -5,8 +5,12 @@ import { isPathInside } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 /**
- * Returns a JSON-serialized IToolInvocationResult error when filePath is outside cwd.
- * Returns undefined when the path is within cwd or cwd is not set.
+ * Returns a JSON-serialized IToolInvocationResult error when filePath is outside cwd, or when NO
+ * containment root is configured. Returns undefined only when the path is inside a configured root.
+ *
+ * This sentence used to end "or cwd is not set" — the fail-open default ARCH-010 removed. It sat
+ * directly above the two functions that implement the distinction, which is the worst place for a
+ * comment to say the opposite of the code.
  *
  * SEC-006: containment is decided on the CANONICAL (symlink-resolved) paths, via the shared
  * `isPathInside` SSOT in agent-core. A purely lexical `resolve()` + `startsWith` comparison let
