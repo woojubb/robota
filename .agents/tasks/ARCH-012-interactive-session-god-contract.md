@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-012: `IInteractiveSession` is a 40+-member god contract that nothing can implement, with 51 unchecked casts and no conformant test double'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -135,3 +135,83 @@ the published packages. (The internal refactor and the cast count belong to `## 
 - **Cleanup:** delete the scratch project.
 - **Evidence (fill in after implementation):** the consumer's source (showing no casts), the
   typecheck output, and the console output for steps 2 and 3.
+
+## Progress
+
+### P1 — the optionality is gone, the double is reachable, and the count is frozen
+
+**Three corrections to this Task's own evidence, made by measuring rather than repeating.** They
+change what the work is, so they are recorded before the progress.
+
+1. **A published conformant double already existed.** The Task says _"there is no published double"_.
+   `createTestInteractiveSession` has been exported from `@robota-sdk/agent-framework`'s testing entry
+   and documented in its SPEC.
+2. **It had zero consumers — and the reason is the dependency direction.** Every transport package
+   sits BELOW `agent-framework`, so none of them could import it. The hand-rolled partials were not an
+   oversight; they were the only thing those packages could reach. That reframes direction item 3
+   entirely: the double did not need building, it needed MOVING.
+3. **The cast count was over-reported.** The audit's `rg 'as IInteractiveSession'` also matched
+   `as IInteractiveSessionEvents[...]` and `as IInteractiveSessionStandardOptions` — 11 lines that are
+   casts to different types. The figure for the contract itself was **41 across 29 files**, not 51/33.
+
+**The optionality is removed.** `isInitialized`, `getPendingCount` and `getActiveDriverId` are
+REQUIRED. That was the sharp edge the Problem statement names: `session.getActiveDriverId?.() ??
+undefined` returned the same `undefined` for "no driver is active" and "this host cannot attribute
+turns at all", losing every attribution silently. `null` now means one thing. The seam at
+`ws-session-events.ts:48` is a plain call.
+
+Red-proved at the TYPE level, which is where it lives: an `@ts-expect-error` on a host that omits
+exactly those three members. The first draft of that test was an accidental green — the object it
+used was missing forty other required members too, so the directive was satisfied by the wrong error.
+It uses `Omit<IInteractiveSession, ...>` now, which differs in the three and nothing else.
+
+**The double moved to `@robota-sdk/agent-interface-transport/testing`** — the SUBPATH, not the main
+entry. The first draft put it on the main entry and review measured it in the shipped
+`dist/node/index.js`: a test fixture in a published runtime bundle, against an explicit rule with an
+existing precedent (`agent-core/testing`). It is NOT re-exported from `agent-framework`: pass-through
+re-exports of another package's symbols are banned (STRUCT-07), and the old export had zero importers.
+
+**Five hand-rolled partials replaced** with it, across `agent-transport-protocol`,
+`agent-transport-ws` and `agent-transport-webrtc`. Each had been accepted only by a cast: making the
+three members required broke them at RUNTIME, which is the finding demonstrated — the casts were
+hiding missing members, and those suites were proving things about session shapes no implementation
+could have.
+
+**The count is now a ratchet.** `scan-contract-cast-ratchet.mjs`, registered in `run-all-scans`,
+config-driven (`.agents/harness.config.json` → `contractCastRatchet`) so it is neutral. It may fall
+and never rise. It caught its own author twice: once when the replacement introduced
+`as IInteractiveSession['on']` member-type casts, and once when the count did not fall after two
+removals because the comments explaining the removals quoted the pattern. Both are fixed and pinned
+by cases — the scan counts CODE, not prose, and not member types.
+
+### Remaining
+
+- **Capability-scoped ports** (direction item 1) — the 40+-member interface is still one interface.
+  This is the large refactor and it now has a safety net it did not have: a conformant double the
+  affected packages can actually reach.
+- **`ICommandHostContext`** (direction item 4, ~50 members / ~30 optional) — untouched.
+- **The remaining 37 casts.** The ratchet stops them growing; deleting them is the port work above.
+- **User Execution Test Scenarios** — the scratch consumer project that implements the contract
+  without a cast. It depends on the capability ports, so it closes with that work.
+
+### Review round — five findings, two of them MUST
+
+- **The double landed on the published main entry.** Measured in `dist/node/index.js`. Moved behind a
+  `./testing` subpath with its own build entry, matching `@robota-sdk/agent-core/testing`.
+- **No changeset** for three members going optional → required on a published interface, plus a moved
+  export, across two non-private packages. Added, with the migration for both.
+- **The `agent-framework` re-export was a banned pass-through** (STRUCT-07) with zero importers.
+  Deleted, and the removal explained where the file used to be.
+- **The ratchet's own counter mis-parsed.** Its hand-rolled comment/string blanker under-counted on a
+  string ending in a backslash, an apostrophe inside a regex, and a cast inside a template
+  substitution — the worse direction, since the scan treats a FALL as something to re-freeze, so a
+  wrong low number gets frozen and the ratchet goes blind by that many casts. It parses with the
+  TypeScript AST now; `as IFoo['bar']` and `as IFooEvents` are excluded by the shape of the tree
+  rather than by a lookahead. Reproduces 37 exactly, which the reviewer's independent AST walk agrees
+  with (35 plain + 2 intersection).
+- **The scan's docstring asserted the 51/33 numbers this change disproves** — the explanation an agent
+  reads when the ratchet fires. Corrected to the measured figures.
+
+Also taken: five further doubles that flow into `subscribeSessionEvents` and would have thrown on the
+first attributed event, a now-unreachable `getPendingCount?.() ?? …` fallback in `useTuiChannel`, the
+`agent-framework` SPEC's stale description, and the config block's missing `$comment`.

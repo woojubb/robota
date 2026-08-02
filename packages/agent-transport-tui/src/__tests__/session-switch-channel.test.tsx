@@ -75,6 +75,10 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel {
   // CMD-004 Stage C: App subscribes to `ui_intent`/`session_renamed` on the session.
   const sessionListeners = new Map<string, Set<(payload: unknown) => void>>();
   const fakeSession = {
+    // ARCH-012: required. `useTuiChannel` reads the co-drive queue length live from the session; the
+    // `?.() ?? …` that tolerated its absence was a branch nothing could take once the member became
+    // required, and a wrong count if it ever did.
+    getPendingCount: (): number => 0,
     getName: (): string | undefined => undefined,
     getSession: (): never => {
       throw new Error('session not initialized (test fake)');
