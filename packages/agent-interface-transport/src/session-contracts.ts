@@ -334,10 +334,10 @@ export interface IInteractiveSessionEvents {
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
-/** Minimal session surface consumed by transport adapters and test factories. */
+/** Minimal session surface. ARCH-012: capability members are REQUIRED — see SPEC § Session capability members. */
 export interface IInteractiveSession {
   /** True once the underlying session has been initialized. */
-  readonly isInitialized?: boolean;
+  readonly isInitialized: boolean;
 
   // Submission
   // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
@@ -364,9 +364,9 @@ export interface IInteractiveSession {
   isExecuting(): boolean;
   getPendingPrompt(): string | null;
   /** REMOTE-014 E5: number of queued inputs behind the head (0 when none) — for a co-drive "N queued" hint. */
-  getPendingCount?(): number;
-  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
-  getActiveDriverId?(): TDriverId | null;
+  getPendingCount(): number;
+  /** REMOTE-014 E5: the ACTIVE turn's driver id. `null` means nobody is driving, and only that. */
+  getActiveDriverId(): TDriverId | null;
   getMessages(): TUniversalMessage[];
   getContextState(): IContextWindowState;
   getSession(): { getSessionId(): string };

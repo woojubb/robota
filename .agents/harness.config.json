@@ -269,5 +269,6 @@
       "reason": "This helper lands a task in a terminal status; a literal here launders the same bypass through one more call.",
       "scope": ["packages/dag-worker/src"]
     }
-  ]
+  ],
+  "contractCastRatchet": ["IInteractiveSession"]
 }

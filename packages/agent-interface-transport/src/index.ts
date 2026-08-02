@@ -215,3 +215,7 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
+
+// ARCH-012: the conformant test double for `IInteractiveSession`, published from the package that
+// owns the contract so every transport below `agent-framework` can actually reach it.
+export { createTestInteractiveSession } from './testing-session-double.js';

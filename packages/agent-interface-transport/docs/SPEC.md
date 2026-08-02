@@ -83,15 +83,16 @@ are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*
 
 ## Public API Surface
 
-| Export                   | Kind      | Description                                                                                    |
-| ------------------------ | --------- | ---------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
-| `ITransportConfig`       | Interface | Persisted enabled + options shape                                                              |
-| `IConfigurableTransport` | Interface | Configurable transport with defaultEnabled + options schema                                    |
-| `ITransportEntry`        | Interface | (transport, config) pair used in registry storage                                              |
-| `ITransportRegistryView` | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
-| `OWNER_DRIVER_ID`        | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
-| `AGENT_DRIVER_ID`        | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
+| Export                         | Kind      | Description                                                                                    |
+| ------------------------------ | --------- | ---------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`            | Interface | Core attach/start/stop lifecycle contract (generic TSession)                                   |
+| `ITransportConfig`             | Interface | Persisted enabled + options shape                                                              |
+| `IConfigurableTransport`       | Interface | Configurable transport with defaultEnabled + options schema                                    |
+| `ITransportEntry`              | Interface | (transport, config) pair used in registry storage                                              |
+| `ITransportRegistryView`       | Interface | Registry management: getAll, setEnabled, startAll, stopAll                                     |
+| `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
+| `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
+| `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
@@ -113,6 +114,29 @@ are type-only except for the four pure accessor functions re-exported from `inte
 | Driver identity (`driver-contracts`)                          | `TDriverId`, `ISubmitOptions`, `OWNER_DRIVER_ID`/`AGENT_DRIVER_ID`, `IUiIntentEvent`, `ISessionRenamedEvent`                                                                                                                                                                                                           |
 
 ## Interface Contracts
+
+### Session capability members, and why they are not optional (ARCH-012)
+
+`IInteractiveSession`'s `isInitialized`, `getPendingCount` and `getActiveDriverId` were OPTIONAL. The
+one consumer read attribution as `session.getActiveDriverId?.() ?? undefined`, and two unrelated
+situations arrived as the same `undefined`:
+
+- the host attributes turns and none is active right now, and
+- the host cannot attribute turns at all.
+
+The second loses every co-drive attribution with no error, no log and nothing to distinguish it from
+the first. They are REQUIRED now: a host either provides the capability or does not claim this
+contract, so `null` from `getActiveDriverId()` means exactly one thing.
+
+**`createTestInteractiveSession` lives here, with the contract.** A double existed before, published
+from `@robota-sdk/agent-framework` and documented in its SPEC — with zero consumers, because every
+transport package sits BELOW `agent-framework` and could not import it. The 41 hand-rolled
+`as unknown as IInteractiveSession` partials were not an oversight; they were the only thing those
+packages could reach. `agent-framework` re-exports this one rather than keeping a second: two doubles
+for one contract can disagree, which is this defect one level down.
+
+The remaining casts are held by a ratchet (`scan-contract-cast-ratchet`) that may fall and never
+rise, so the debt cannot grow while the capability-scoped ports are designed.
 
 ### `ITransportAdapter<TSession>`
 

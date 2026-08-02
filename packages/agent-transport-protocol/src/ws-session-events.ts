@@ -45,8 +45,10 @@ export function subscribeSessionEvents(
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
   const attr = (): { driverId?: TDriverId } => {
-    const d = session.getActiveDriverId?.() ?? undefined;
-    return d ? { driverId: d } : {};
+    // ARCH-012: a plain call, not `?.() ?? undefined`. The member is required, so `null` means
+    // nobody is driving — it can no longer also mean "this host cannot answer".
+    const driverId = session.getActiveDriverId();
+    return driverId ? { driverId } : {};
   };
   const onUserMessage = (content: string): void =>
     send({ type: 'user_message', content, ...attr() });

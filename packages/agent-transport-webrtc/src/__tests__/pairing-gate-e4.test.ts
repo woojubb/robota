@@ -1,4 +1,5 @@
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { describe, expect, it } from 'vitest';
 
@@ -14,11 +15,16 @@ function fakeSession(): {
   fire: (event: string, arg: unknown) => void;
 } {
   const handlers = new Map<string, (arg: unknown) => void>();
-  const session = {
-    on: (e: string, h: (arg: unknown) => void) => handlers.set(e, h),
-    off: (e: string) => handlers.delete(e),
-    getMessages: () => [],
-  } as unknown as IInteractiveSession;
+  // ARCH-012: the conformant double. The three-member partial this replaces was accepted only by a
+  // cast, so the suite ran against a session shape no implementation could have.
+  const session = createTestInteractiveSession({
+    on: ((e: string, h: (arg: unknown) => void) => {
+      handlers.set(e, h);
+    }) as IInteractiveSession['on'],
+    off: ((e: string) => {
+      handlers.delete(e);
+    }) as IInteractiveSession['off'],
+  });
   return { session, fire: (e, a) => handlers.get(e)?.(a) };
 }
 

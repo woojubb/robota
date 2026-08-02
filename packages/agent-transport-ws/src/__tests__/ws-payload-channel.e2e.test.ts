@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { decodeChannelFrame, encodeBinaryFrame } from '@robota-sdk/agent-transport-protocol';
 import { WebSocket } from 'ws';
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -24,30 +25,30 @@ type TListener = (...args: unknown[]) => void;
 /** Minimal session double with a REAL emitter, so `text_delta` genuinely flows over the wire. */
 function emittingSession(): IInteractiveSession & { emit: (event: string, arg: unknown) => void } {
   const listeners = new Map<string, Set<TListener>>();
-  const session = {
-    getMessages: vi.fn().mockReturnValue([]),
+  // ARCH-012: the conformant double plus a real emitter. The hand-rolled partial this replaces was
+  // `as unknown as IInteractiveSession` over nine members — a cast that let the double omit the rest,
+  // including the ones the contract now requires, so this suite ran against a session shape no
+  // implementation could actually have.
+  const session = createTestInteractiveSession({
+    // A spy, because a case below asserts on its calls. The double's default is a real no-op, which
+    // is the right default and the wrong thing to assert against.
+    submit: vi.fn().mockResolvedValue(undefined),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
     getContextState: vi.fn().mockReturnValue({ usedPercentage: 0, usedTokens: 0, maxTokens: 1 }),
-    isExecuting: vi.fn().mockReturnValue(false),
-    getPendingPrompt: vi.fn().mockReturnValue(null),
-    submit: vi.fn().mockResolvedValue(undefined),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
-    on: (event: string, fn: TListener) => {
+    on: ((event: string, fn: TListener) => {
       const set = listeners.get(event) ?? new Set<TListener>();
       set.add(fn);
       listeners.set(event, set);
-    },
-    off: (event: string, fn: TListener) => {
+    }) as IInteractiveSession['on'],
+    off: ((event: string, fn: TListener) => {
       listeners.get(event)?.delete(fn);
-    },
+    }) as IInteractiveSession['off'],
+  });
+  return Object.assign(session, {
     emit: (event: string, arg: unknown) => {
       for (const fn of listeners.get(event) ?? []) fn(arg);
     },
-  };
-  return session as unknown as IInteractiveSession & {
-    emit: (event: string, arg: unknown) => void;
-  };
+  });
 }
 
 const started: WsTransport[] = [];

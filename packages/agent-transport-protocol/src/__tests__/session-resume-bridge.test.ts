@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
+
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 /**
@@ -15,14 +17,16 @@ function fakeSession(): {
   fire: (event: string, arg: unknown) => void;
 } {
   const handlers = new Map<string, (arg: unknown) => void>();
-  const session = {
-    on: (event: string, handler: (arg: unknown) => void) => handlers.set(event, handler),
-    off: (event: string) => handlers.delete(event),
-    getMessages: () => [],
-    getContextState: () => ({}),
-    isExecuting: () => false,
-    getPendingPrompt: () => null,
-  } as unknown as IInteractiveSession;
+  // ARCH-012: the published conformant double, overridden where this case needs behaviour. The
+  // hand-rolled partial it replaces was `as unknown as IInteractiveSession` — a cast that hid four
+  // missing members, so this suite proved things the real contract does not permit.
+  const session = createTestInteractiveSession({
+    on: ((event: string, handler: (arg: unknown) => void) =>
+      handlers.set(event, handler)) as IInteractiveSession['on'],
+    off: ((event: string) => {
+      handlers.delete(event);
+    }) as IInteractiveSession['off'],
+  });
   return { session, fire: (event, arg) => handlers.get(event)?.(arg) };
 }
 

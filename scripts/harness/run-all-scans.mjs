@@ -229,6 +229,10 @@ export const SCAN_COMMANDS = [
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
   {
+    name: 'contract-cast-ratchet',
+    command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },

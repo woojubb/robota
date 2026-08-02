@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-012: `IInteractiveSession` is a 40+-member god contract that nothing can implement, with 51 unchecked casts and no conformant test double'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -135,3 +135,59 @@ the published packages. (The internal refactor and the cast count belong to `## 
 - **Cleanup:** delete the scratch project.
 - **Evidence (fill in after implementation):** the consumer's source (showing no casts), the
   typecheck output, and the console output for steps 2 and 3.
+
+## Progress
+
+### P1 — the optionality is gone, the double is reachable, and the count is frozen
+
+**Three corrections to this Task's own evidence, made by measuring rather than repeating.** They
+change what the work is, so they are recorded before the progress.
+
+1. **A published conformant double already existed.** The Task says _"there is no published double"_.
+   `createTestInteractiveSession` has been exported from `@robota-sdk/agent-framework`'s testing entry
+   and documented in its SPEC.
+2. **It had zero consumers — and the reason is the dependency direction.** Every transport package
+   sits BELOW `agent-framework`, so none of them could import it. The hand-rolled partials were not an
+   oversight; they were the only thing those packages could reach. That reframes direction item 3
+   entirely: the double did not need building, it needed MOVING.
+3. **The cast count was over-reported.** The audit's `rg 'as IInteractiveSession'` also matched
+   `as IInteractiveSessionEvents[...]` and `as IInteractiveSessionStandardOptions` — 11 lines that are
+   casts to different types. The figure for the contract itself was **41 across 29 files**, not 51/33.
+
+**The optionality is removed.** `isInitialized`, `getPendingCount` and `getActiveDriverId` are
+REQUIRED. That was the sharp edge the Problem statement names: `session.getActiveDriverId?.() ??
+undefined` returned the same `undefined` for "no driver is active" and "this host cannot attribute
+turns at all", losing every attribution silently. `null` now means one thing. The seam at
+`ws-session-events.ts:48` is a plain call.
+
+Red-proved at the TYPE level, which is where it lives: an `@ts-expect-error` on a host that omits
+exactly those three members. The first draft of that test was an accidental green — the object it
+used was missing forty other required members too, so the directive was satisfied by the wrong error.
+It uses `Omit<IInteractiveSession, ...>` now, which differs in the three and nothing else.
+
+**The double moved to the contract package**, `@robota-sdk/agent-interface-transport`, reachable by
+everything that consumes the contract. `agent-framework` re-exports it rather than keeping a second
+implementation — two doubles for one contract can disagree, which is this defect one level down.
+
+**Five hand-rolled partials replaced** with it, across `agent-transport-protocol`,
+`agent-transport-ws` and `agent-transport-webrtc`. Each had been accepted only by a cast: making the
+three members required broke them at RUNTIME, which is the finding demonstrated — the casts were
+hiding missing members, and those suites were proving things about session shapes no implementation
+could have.
+
+**The count is now a ratchet.** `scan-contract-cast-ratchet.mjs`, registered in `run-all-scans`,
+config-driven (`.agents/harness.config.json` → `contractCastRatchet`) so it is neutral. It may fall
+and never rise. It caught its own author twice: once when the replacement introduced
+`as IInteractiveSession['on']` member-type casts, and once when the count did not fall after two
+removals because the comments explaining the removals quoted the pattern. Both are fixed and pinned
+by cases — the scan counts CODE, not prose, and not member types.
+
+### Remaining
+
+- **Capability-scoped ports** (direction item 1) — the 40+-member interface is still one interface.
+  This is the large refactor and it now has a safety net it did not have: a conformant double the
+  affected packages can actually reach.
+- **`ICommandHostContext`** (direction item 4, ~50 members / ~30 optional) — untouched.
+- **The remaining 37 casts.** The ratchet stops them growing; deleting them is the port work above.
+- **User Execution Test Scenarios** — the scratch consumer project that implements the contract
+  without a cast. It depends on the capability ports, so it closes with that work.
