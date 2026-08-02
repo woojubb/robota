@@ -108,4 +108,17 @@ describe('scan-authority-bypass', () => {
     const examined = Number(/passed \((\d+) file/.exec(output)?.[1] ?? '0');
     expect(examined).toBeGreaterThan(0);
   });
+
+  it('a literal containing an unbalanced paren does not truncate the parse', () => {
+    // The parser depth-counts parens to find the end of the call. Without skipping string content, a
+    // `)` inside a literal closes the call early and the governed argument is read from truncated
+    // text — a parser that mis-reads silently is the failure mode this scan exists to end.
+    const source = `updateTaskRunStatus(label('a)b'), 'failed');`;
+    expect(scan(source)).toHaveLength(1);
+  });
+
+  it('a paren inside a literal in a LATER argument does not hide the finding', () => {
+    const source = `updateTaskRunStatus(id, 'failed', { message: 'oops :-)' });`;
+    expect(scan(source).map((f) => f.literal)).toEqual(["'failed'"]);
+  });
 });

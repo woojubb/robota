@@ -115,7 +115,15 @@ async function sweepOne(
     // invisible. The task is still cancelled — there is no run for it to belong to — but the sweep
     // says which of the two happened.
     if (dagRun === undefined) {
-      await finishTaskWithoutRun(storage, taskRun);
+      const orphaned = await finishTaskWithoutRun(storage, taskRun);
+      if (!orphaned.ok) {
+        // Checked like every other Result in this file. Unreachable today — the RECLAIM check above
+        // guarantees `running`, and `running:CANCEL` is in the table — but reporting `orphaned` over
+        // a status write that failed is the report-success-over-work-not-done shape, and a future
+        // edit to the transition table is exactly the drift this branch exists to stop being silent.
+        outcome.skipped.push(taskRun.taskRunId);
+        return;
+      }
       outcome.orphaned.push(taskRun.taskRunId);
       return;
     }

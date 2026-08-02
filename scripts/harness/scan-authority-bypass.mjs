@@ -46,11 +46,21 @@ function findCalls(source, name) {
     // Reject a longer identifier that merely ends with the name (`myUpdateTaskRunStatus(`).
     const before = source[at - 1] ?? '';
     if (/[\w$]/.test(before) && before !== '.') continue;
+    // Skip STRING CONTENT while counting. Without this a literal containing an unbalanced `)` — a
+    // message, a regex, a path — closes the call early and the governed argument is read from
+    // truncated text. A parser that mis-reads silently is the failure mode this scan exists to end,
+    // so it must not have it itself.
     let depth = 1;
     let i = from;
+    let quote = '';
     for (; i < source.length && depth > 0; i += 1) {
       const ch = source[i];
-      if (ch === '(') depth += 1;
+      if (quote) {
+        if (ch === quote && source[i - 1] !== '\\') quote = '';
+        continue;
+      }
+      if (ch === "'" || ch === '"' || ch === '`') quote = ch;
+      else if (ch === '(') depth += 1;
       else if (ch === ')') depth -= 1;
     }
     calls.push({ index: at, args: source.slice(from, i - 1) });
