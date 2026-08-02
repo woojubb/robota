@@ -71,7 +71,7 @@
  * Exit code 0 = every classified guard behaves as declared, 1 = violation found.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -777,6 +777,69 @@ export async function ledgerDriftFindings(root = WORKSPACE_ROOT) {
 }
 
 /** Findings across all three rules. */
+/**
+ * Rule 4: THE DEBT MAY SHRINK AND NEVER GROW. HARNESS-064.
+ *
+ * Rules 1–3 make every finder answer for itself and keep the ledger honest, but they place no bound
+ * on its SIZE: a new scan could be classified `pending` forever, and a new `vacuous` entry — a live
+ * instance of the audited defect — could be added with a paragraph explaining it and nothing would
+ * object. The ledger was already a set of claims nobody re-measured before rule 3; without this it
+ * is a set of measurements nobody bounds.
+ *
+ * Two ceilings, because they mean different things. `vacuous` entries are live defects and their
+ * count is the one that matters most. `fail-closed` entries behave correctly but are not pinned, so
+ * they are debt of a milder kind. Both are frozen; both may fall.
+ *
+ * Lowering either means re-freezing in the SAME change, exactly like `file-size` and
+ * `spec-public-surface` — an unlocked gain is a licence to grow back.
+ */
+export function ledgerCeilingFindings(ceilings = loadLedgerCeilings()) {
+  const vacuous = measuredVacuous().length;
+  const unpinned = PENDING_CLASSIFICATION.length - vacuous;
+  const findings = [];
+  const check = (label, actual, frozen) => {
+    if (frozen === undefined) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail: `${actual} entr(y/ies) with no frozen ceiling — run --write-ledger-ceilings.`,
+      });
+      return;
+    }
+    if (actual > frozen) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail:
+          `${actual} entr(y/ies), up from a frozen ${frozen}. ` +
+          (label === 'vacuous'
+            ? 'A new vacuous entry is a NEW live instance of the defect this scan audits — fix the guard, do not record it.'
+            : 'Pin the guard in MANDATORY_TREE_GUARDS instead of adding to the ledger.'),
+      });
+      return;
+    }
+    if (actual < frozen) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail:
+          `${actual} entr(y/ies), DOWN from a frozen ${frozen}. Re-freeze it in this same change ` +
+          '(`--write-ledger-ceilings`) — an unlocked gain is a licence to grow back.',
+      });
+    }
+  };
+  check('vacuous', vacuous, ceilings.vacuous);
+  check('unpinned', unpinned, ceilings.unpinned);
+  return findings;
+}
+
+const LEDGER_CEILINGS_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/guard-ledger-ceilings.json',
+);
+
+function loadLedgerCeilings() {
+  if (!existsSync(LEDGER_CEILINGS_PATH)) return {};
+  return JSON.parse(readFileSync(LEDGER_CEILINGS_PATH, 'utf8'));
+}
+
 export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
   const findings = classificationFindings(root);
   for (const entry of MANDATORY_TREE_GUARDS) {
@@ -784,6 +847,9 @@ export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
     if (finding) findings.push(finding);
   }
   findings.push(...(await ledgerDriftFindings(root)));
+  // Only meaningful about the real tree — a temporary root has the same ledger, but the caller that
+  // hands one in is asking about tree-scope behaviour, not about this repo's debt.
+  if (root === WORKSPACE_ROOT) findings.push(...ledgerCeilingFindings());
   return findings;
 }
 
@@ -809,9 +875,17 @@ export async function main() {
   );
 }
 
+function writeLedgerCeilings() {
+  const vacuous = measuredVacuous().length;
+  const next = { vacuous, unpinned: PENDING_CLASSIFICATION.length - vacuous };
+  writeFileSync(LEDGER_CEILINGS_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  process.stdout.write(`guard-ledger ceilings frozen: ${JSON.stringify(next)}\n`);
+}
+
 const isDirectExecution =
   process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
 if (isDirectExecution) {
-  await main();
+  if (process.argv.includes('--write-ledger-ceilings')) writeLedgerCeilings();
+  else await main();
 }
