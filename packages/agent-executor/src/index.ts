@@ -36,6 +36,8 @@ export {
   SubagentManager,
   WorktreeSubagentRunner,
   createWorktreeSubagentRunner,
+  // ARCH-010: the single answer to "which directory does this subagent run in".
+  subagentExecutionRoot,
 } from './subagents/index.js';
 export type {
   IPreparedSubagentWorktree,

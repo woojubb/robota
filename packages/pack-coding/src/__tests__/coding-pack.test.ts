@@ -40,7 +40,9 @@ async function invoke(
 describe("codingPack — contributes exactly robota's current coding toolset", () => {
   it("bundles the same tools (by name) that robota's createDefaultTools() ships by default", () => {
     // No adapters supplied → the always-present coding toolset (retrieval/computer are adapter-gated, absent).
-    const defaultToolNames = createDefaultTools().map((tool) => tool.getName());
+    // ARCH-010 — `createDefaultTools` now requires the root. It is `CWD`, the same root the pack under
+    // test is built with, so the two sides of this comparison are assembled alike; only NAMES are read.
+    const defaultToolNames = createDefaultTools({ cwd: CWD }).map((tool) => tool.getName());
     const packToolNames = (createCodingPack({ cwd: CWD }).tools ?? []).map((tool) =>
       tool.getName(),
     );

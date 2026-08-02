@@ -79,9 +79,12 @@ describe('Shell — the configured containment root is the DEFAULT working direc
   );
 
   it(
-    'falls back to the host process cwd when no root is configured',
+    'runs in the host process cwd when that is the configured root',
     async () => {
-      const result = await runTool(createShellTool(), { command: 'pwd' });
+      // ARCH-010 made `cwd` REQUIRED, so "no root configured" is no longer constructible through the
+      // factory — a caller that means the host process directory now says so where a reader can see it.
+      // The observable this case was always about is unchanged: that directory is where the command runs.
+      const result = await runTool(createShellTool({ cwd: process.cwd() }), { command: 'pwd' });
       expect(realpathSync(result.output.trim())).toBe(realpathSync(process.cwd()));
     },
     SPAWN_TIMEOUT_MS,

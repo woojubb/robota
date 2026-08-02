@@ -1,3 +1,4 @@
+export { subagentExecutionRoot } from './execution-root.js';
 export { SubagentManager } from './subagent-manager.js';
 export {
   WorktreeSubagentRunner,

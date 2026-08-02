@@ -65,6 +65,7 @@ function blockingProvider() {
 
 function makeSession(provider: unknown) {
   return new Session({
+    cwd: process.cwd(),
     tools: [] as never,
     provider: provider as never,
     systemMessage: 'test',

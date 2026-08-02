@@ -31,33 +31,55 @@ const weatherTool = createZodFunctionTool(
 ### Use Built-in Tools
 
 ```typescript
-import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
+import {
+  createBashTool,
+  createReadTool,
+  createGlobTool,
+  createGrepTool,
+} from '@robota-sdk/agent-tools';
 import { Robota } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
+
+// A file tool is built against an explicit containment root and refuses anything outside it
+// (ARCH-010). There is no ready-made instance to import: one bound at import time can carry no root,
+// and a file tool without a root has no boundary.
+const cwd = process.cwd();
+
 const agent = new Robota({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [bashTool, readTool, globTool, grepTool],
+  tools: [
+    createBashTool({ cwd }),
+    createReadTool({ cwd }),
+    createGlobTool({ cwd }),
+    createGrepTool({ cwd }),
+  ],
 });
 ```
 
 ## Built-in Tools
 
+Every tool that touches the filesystem is a FACTORY taking the containment root it operates in
+(`cwd`, required — ARCH-010). There is no ready-made instance to import: one bound at import time can
+carry no root, and a file tool with no root has no boundary.
+
 | Export                | Tool Name       | Description                                                                   |
 | --------------------- | --------------- | ----------------------------------------------------------------------------- |
-| `shellTool`           | Shell           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
-| `bashTool`            | Bash            | Model-familiar alias of `Shell` — same OS-aware implementation                |
-| `readTool`            | Read            | Read file contents with line numbers (cat -n)                                 |
-| `writeTool`           | Write           | Write content to a file (creates parent dirs)                                 |
-| `editTool`            | Edit            | Replace a specific string in a file                                           |
-| `globTool`            | Glob            | Find files matching a glob pattern (fast-glob)                                |
-| `grepTool`            | Grep            | Search file contents with regex patterns                                      |
+| `createShellTool`     | Shell           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell) |
+| `createBashTool`      | Bash            | Model-familiar alias of `Shell` — same OS-aware implementation                |
+| `createReadTool`      | Read            | Read file contents with line numbers (cat -n)                                 |
+| `createWriteTool`     | Write           | Write content to a file (creates parent dirs)                                 |
+| `createEditTool`      | Edit            | Replace a specific string in a file                                           |
+| `createGlobTool`      | Glob            | Find files matching a glob pattern (fast-glob)                                |
+| `createGrepTool`      | Grep            | Search file contents with regex patterns                                      |
 | `webFetchTool`        | WebFetch        | Fetch URL content (HTML-to-text conversion)                                   |
 | `webSearchTool`       | WebSearch       | Web search via Brave Search API                                               |
 | `askUserQuestionTool` | AskUserQuestion | Model asks the user structured questions (options/multi-select/free text)     |
+
+The last three stay instances: they touch no filesystem, so there is no root to contain them by.
 
 `AskUserQuestion` lets the model ask the user 1–4 structured questions mid-turn through the injected
 ask port (CMD-004); each environment renders it its own way (Ink dialog, web modal, programmatic
@@ -65,7 +87,7 @@ pre-answer), and headless runs get a structured `unavailable` result instead of 
 
 `Shell` and `Bash` are two registered names for one OS-aware implementation: the shell is resolved per-OS and the tool description names the active OS/shell so the model writes the right syntax (e.g. macOS BSD vs Linux GNU utilities differ).
 
-Factory exports (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) accept an optional `sandboxClient`. The default singleton exports keep host-local behavior.
+The sandbox-aware factories (`createBashTool`, `createReadTool`, `createWriteTool`, `createEditTool`) also accept an optional `sandboxClient`; without one they run against the host filesystem, contained by `cwd`.
 
 ## Sandbox Execution
 
@@ -80,8 +102,11 @@ import { Sandbox } from 'e2b';
 const e2b = await Sandbox.create();
 const sandboxClient = new E2BSandboxClient({ sandbox: e2b });
 
-const bashTool = createBashTool({ sandboxClient });
-const readTool = createReadTool({ sandboxClient });
+// `cwd` is required even with a sandbox client: it is the root inside the sandbox, and the host
+// path guard still applies to any tool that falls through to the host filesystem.
+const cwd = '/workspace';
+const bashTool = createBashTool({ sandboxClient, cwd });
+const readTool = createReadTool({ sandboxClient, cwd });
 ```
 
 The package does not depend on E2B directly. `E2BSandboxClient` adapts an E2B-compatible object with `commands.run`, `files.read`, `files.write`, and optional `createSnapshot`, `pause`, `connect`, or factory methods supplied by the application. `snapshot()` returns a provider-owned resumable workspace reference; `restore(snapshotId)` hydrates the adapter from that reference. `InMemorySandboxClient` is available for deterministic tests and contract verification.

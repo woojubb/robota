@@ -39,7 +39,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 });
 
 // Import AFTER the mock so grep-tool binds to the instrumented readFile.
-const { grepTool } = await import('../builtins/grep-tool.js');
+const { createGrepTool } = await import('../builtins/grep-tool.js');
 
 interface IGrepResult {
   success: boolean;
@@ -47,8 +47,12 @@ interface IGrepResult {
   error?: string;
 }
 
-async function runGrep(args: Record<string, unknown>): Promise<IGrepResult> {
-  const wrapper = await grepTool.execute(args as Parameters<typeof grepTool.execute>[0]);
+// ARCH-010 — the context-free `grepTool` singleton is gone and the root is a required argument, so the
+// tool is built against the fixture this suite creates. The root is the scan's boundary, so it has to be
+// the fixture: bound anywhere wider, the in-flight counts below would be measuring somebody else's files.
+async function runGrep(root: string, args: Record<string, unknown>): Promise<IGrepResult> {
+  const tool = createGrepTool({ cwd: root });
+  const wrapper = await tool.execute(args as Parameters<typeof tool.execute>[0]);
   const data = (wrapper as { data: unknown }).data;
   return (typeof data === 'string' ? JSON.parse(data) : data) as IGrepResult;
 }
@@ -76,7 +80,11 @@ describe('grepTool bounded concurrency (CLI-042)', () => {
     readTracker.maxInFlight = 0;
     readTracker.enabled = true;
     try {
-      const result = await runGrep({ pattern: 'needle', path: fixtureDir, outputMode: 'count' });
+      const result = await runGrep(fixtureDir, {
+        pattern: 'needle',
+        path: fixtureDir,
+        outputMode: 'count',
+      });
       expect(result.success).toBe(true);
       expect(result.output.split('\n')).toHaveLength(FILE_COUNT);
     } finally {

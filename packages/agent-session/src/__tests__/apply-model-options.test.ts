@@ -52,6 +52,7 @@ const MOCK_TERMINAL = {
 
 function buildSession(): Session {
   return new Session({
+    cwd: process.cwd(),
     tools: [],
     provider: MOCK_PROVIDER as never,
     systemMessage: 'test',

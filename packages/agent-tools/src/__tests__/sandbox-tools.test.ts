@@ -10,6 +10,14 @@ import {
 } from '../index.js';
 import type { ISandboxRunOptions, IToolInvocationResult } from '../index.js';
 
+/**
+ * ARCH-010 made `cwd` — the HOST working-directory root — a required constructor argument. Every tool
+ * below is built with a sandbox client, and the sandbox seam is taken BEFORE the host path guard, so
+ * this root is never consulted: it names the sandbox root the fixtures use so the two read consistently
+ * rather than pointing the host guard at somewhere real that no case here can reach.
+ */
+const SANDBOX_HOST_ROOT = '/workspace';
+
 async function executeTool(
   tool: IToolWithEventService,
   parameters: TToolParameters,
@@ -30,7 +38,7 @@ describe('sandbox-aware built-in tools', () => {
       },
     });
 
-    const result = await executeTool(createBashTool({ sandboxClient }), {
+    const result = await executeTool(createBashTool({ sandboxClient, cwd: SANDBOX_HOST_ROOT }), {
       command: 'npm test',
       timeout: 1234,
       workingDirectory: '/workspace',
@@ -53,24 +61,33 @@ describe('sandbox-aware built-in tools', () => {
       },
     });
 
-    const readResult = await executeTool(createReadTool({ sandboxClient }), {
-      filePath: '/workspace/source.ts',
-    });
+    const readResult = await executeTool(
+      createReadTool({ sandboxClient, cwd: SANDBOX_HOST_ROOT }),
+      {
+        filePath: '/workspace/source.ts',
+      },
+    );
     expect(readResult.success).toBe(true);
     expect(readResult.output).toContain('1\tconst value = 1;');
 
-    const editResult = await executeTool(createEditTool({ sandboxClient }), {
-      filePath: '/workspace/source.ts',
-      oldString: 'const value = 1;',
-      newString: 'const value = 2;',
-    });
+    const editResult = await executeTool(
+      createEditTool({ sandboxClient, cwd: SANDBOX_HOST_ROOT }),
+      {
+        filePath: '/workspace/source.ts',
+        oldString: 'const value = 1;',
+        newString: 'const value = 2;',
+      },
+    );
     expect(editResult.success).toBe(true);
     expect(sandboxClient.getFile('/workspace/source.ts')).toBe('const value = 2;\n');
 
-    const writeResult = await executeTool(createWriteTool({ sandboxClient }), {
-      filePath: '/workspace/generated.ts',
-      content: 'export const generated = true;\n',
-    });
+    const writeResult = await executeTool(
+      createWriteTool({ sandboxClient, cwd: SANDBOX_HOST_ROOT }),
+      {
+        filePath: '/workspace/generated.ts',
+        content: 'export const generated = true;\n',
+      },
+    );
     expect(writeResult.success).toBe(true);
     expect(sandboxClient.getFile('/workspace/generated.ts')).toBe(
       'export const generated = true;\n',

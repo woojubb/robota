@@ -183,7 +183,7 @@ function buildGrepDescription(shellToolName: string): string {
 /**
  * Create a GrepTool instance — register with Robota agent tools registry.
  */
-export function createGrepTool(options: IGrepToolOptions = {}): FunctionTool {
+export function createGrepTool(options: IGrepToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Grep',
     options.description ?? buildGrepDescription(options.shellToolName ?? DEFAULT_SHELL_TOOL_NAME),
@@ -193,11 +193,3 @@ export function createGrepTool(options: IGrepToolOptions = {}): FunctionTool {
     },
   );
 }
-
-/**
- * GrepTool instance — register with Robota agent tools registry.
- *
- * UNCONTAINED, deliberately — see the note on {@link globTool}. Assemblies with a session root build
- * their own through {@link createGrepTool}.
- */
-export const grepTool = createGrepTool();

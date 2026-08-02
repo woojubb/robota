@@ -240,6 +240,10 @@ export function createSession(options: ICreateSessionOptions): ICreateSessionRes
     provider,
     systemMessage: finalSystemMessage,
     terminal: options.terminal,
+    // ARCH-010: the same root the tools, hooks and skill source were bound to above. It used to be
+    // computed here and then re-derived inside `Session` from `process.cwd()`, so the two could
+    // disagree the moment a caller supplied `options.cwd`.
+    cwd,
     permissions: mergedPermissions,
     hooks: resolvedHooks,
     permissionMode: options.permissionMode,

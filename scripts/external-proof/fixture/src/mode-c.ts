@@ -31,7 +31,7 @@ import { check, checkEqual, mode, note, section } from './harness.js';
 
 /**
  * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
- * would carry a disarmed working-directory path guard on its file tools. A consumer builds it exactly as
+ * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
  * robota's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });
@@ -171,7 +171,12 @@ export async function runModeC(): Promise<void> {
     (options.agentDefinitions ?? []).some((definition) => definition.name === 'acme-triager'),
   );
   section('C5 — the tool axis at PARITY with the command and subagent axes (ARCH-006)');
-  const frameworkDefaultToolNames = createDefaultTools().map((tool) => tool.getName());
+  // ARCH-010: `cwd` is required. This proof only compares tool NAMES, so any root would do — which
+  // is exactly why it must be an explicit one rather than an omission: the omission is what used to
+  // produce a tool set with no containment boundary at all.
+  const frameworkDefaultToolNames = createDefaultTools({ cwd: process.cwd() }).map((tool) =>
+    tool.getName(),
+  );
   const codingPackToolNames = (codingPack.tools ?? []).map((tool) => tool.getName());
   check(
     'a pack tool the framework does NOT ship is genuinely additive — it reaches the runtime',
@@ -260,7 +265,7 @@ export async function runModeC(): Promise<void> {
   );
   note(
     'SAFETY: a pack that owns the tool surface MUST carry the session context. `createCodingPack` takes a ' +
-      'REQUIRED `cwd` for exactly that reason — `agent-tools` disarms its working-directory path guard ' +
+      'REQUIRED `cwd` for exactly that reason — `agent-tools` USED TO disarm its working-directory path guard ' +
       'when `cwd` is undefined, so a context-free pack paired with `defaultTools: []` would ship an ' +
       'unsandboxed Read/Write/Edit. There is deliberately no context-free `codingPack` constant.',
   );

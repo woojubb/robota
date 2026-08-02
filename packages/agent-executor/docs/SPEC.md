@@ -134,7 +134,7 @@ Hook event types and hook execution are owned by `agent-core`.
 
 ## Public API Surface
 
-### Background Tasks
+### Public API: Background Tasks
 
 | Export                                  | Kind     | Description                                          |
 | --------------------------------------- | -------- | ---------------------------------------------------- |
@@ -148,7 +148,7 @@ Hook event types and hook execution are owned by `agent-core`.
 | `createBackgroundTaskLogPage`           | function | Cursor-based log pagination helper                   |
 | `DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE` | constant | Default page size (200 lines) for log pagination     |
 
-### Background Task Runners (Concrete — default implementations)
+### Public API: Background Task Runners (Concrete — default implementations)
 
 The following are concrete `IBackgroundTaskRunner` implementations provided by this package.
 They depend on Node.js `child_process`. CLI and SDK shells use them as default runners;
@@ -171,13 +171,14 @@ wiring croner's own `.pause()`/`.resume()` on the handle (`IBackgroundTaskHandle
 in place (same task id + `schedule`). No new scheduler is introduced — this is a thin lifecycle extension over
 the existing runner. (Persistence of `paused` across restart is the FLOW-003 re-arm path — a later slice.)
 
-### Subagents
+### Public API: Subagents
 
-| Export                         | Kind     | Description                                                     |
-| ------------------------------ | -------- | --------------------------------------------------------------- |
-| `SubagentManager`              | class    | Subagent facade over `BackgroundTaskManager`                    |
-| `WorktreeSubagentRunner`       | class    | Decorates an `ISubagentRunner` with worktree isolation behavior |
-| `createWorktreeSubagentRunner` | function | Factory for `WorktreeSubagentRunner`                            |
+| Export                         | Kind     | Description                                                                                                                                                                                |
+| ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SubagentManager`              | class    | Subagent facade over `BackgroundTaskManager`                                                                                                                                               |
+| `WorktreeSubagentRunner`       | class    | Decorates an `ISubagentRunner` with worktree isolation behavior                                                                                                                            |
+| `createWorktreeSubagentRunner` | function | Factory for `WorktreeSubagentRunner`                                                                                                                                                       |
+| `subagentExecutionRoot`        | function | ARCH-010: the single answer to which directory a spawned subagent runs in — `worktreePath ?? cwd`, never the process directory. Both runners read it rather than each writing the rule out |
 
 **Note on the concrete worktree adapter (ARCH-FIX-024 — DONE)**: The concrete
 `GitWorktreeIsolationAdapter` (calls `execFileSync`, performs Git operations) has been moved out of
@@ -189,7 +190,7 @@ and scheduled task runners; that usage is documented above and is unrelated to w
 
 The package entrypoint exports these symbols explicitly from `src/index.ts`. SDK compatibility barrels may re-export the same symbols, but they must not redefine the contracts.
 
-### Provider Factory
+### Public API: Provider Factory
 
 Functions in `src/providers/` resolve serializable provider config or profiles into live `IAIProvider` instances. They depend only on `@robota-sdk/agent-core` provider definitions and are provider-package-agnostic.
 

@@ -44,6 +44,13 @@ function makeTool(name: string): IToolWithEventService {
   } as unknown as IToolWithEventService;
 }
 
+/**
+ * ARCH-010 made `ISubagentOptions.cwd` required — a subagent's execution root is passed in rather than
+ * derived. `Session` is mocked here and every tool is a `makeTool` double, so this root arms no path
+ * guard; it is the host process directory, which is what the assembly resolved on its own before.
+ */
+const SUBAGENT_ROOT = process.cwd();
+
 function makeTerminal(): ITerminalOutput {
   return {
     write: vi.fn(),
@@ -99,6 +106,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     expect(mockSessionConstructor).toHaveBeenCalledTimes(1);
@@ -119,6 +127,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -143,6 +152,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -163,6 +173,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -179,6 +190,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       roleModels: {
         planner: [
           { provider: 'anthropic', model: 'claude-opus-4-5' },
@@ -199,6 +211,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       roleModels: { planner: [{ provider: 'anthropic', model: 'claude-opus-4-5' }] },
     });
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -214,6 +227,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       roleModels: { planner: [{ provider: 'anthropic', model: 'claude-opus-4-5' }] },
     });
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -231,6 +245,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider, // name: 'anthropic'
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       roleModels: {
         planner: [
           { provider: 'openai', model: 'o3' }, // primary — foreign provider, skipped in v1
@@ -251,6 +266,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider, // name: 'anthropic'
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       roleModels: { planner: [{ provider: 'openai', model: 'o3' }] }, // no anthropic entry
     });
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -267,6 +283,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -283,6 +300,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -299,6 +317,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -317,6 +336,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -336,6 +356,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -357,6 +378,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       isForkWorker: true,
     });
 
@@ -375,6 +397,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -392,6 +415,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       permissionHandler: handler,
     });
 
@@ -411,6 +435,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       onTextDelta,
       onToolExecution,
     });
@@ -431,6 +456,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -452,6 +478,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -474,6 +501,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -493,6 +521,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -510,6 +539,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -532,6 +562,7 @@ describe('createSubagentSession', () => {
       parentTools: tools,
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -552,6 +583,7 @@ describe('createSubagentSession', () => {
       parentTools: [],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -569,6 +601,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
       // isForkWorker not specified
     });
 
@@ -589,6 +622,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -605,6 +639,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
@@ -623,6 +658,7 @@ describe('createSubagentSession', () => {
       parentTools: [makeTool('Read')],
       provider: mockProvider,
       terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
     });
 
     const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;

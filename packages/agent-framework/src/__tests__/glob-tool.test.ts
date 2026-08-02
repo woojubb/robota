@@ -6,11 +6,19 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { globTool } from '@robota-sdk/agent-tools';
+import { createGlobTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `globTool` singleton is gone and the containment root is a required
+ * constructor argument, so the tool is built against the tmpdir fixture below. The root is what a
+ * pathless glob enumerates, so it has to be the fixture: pointed at the repo, the counts and exclusion
+ * assertions here would be about the source tree rather than the files this suite created.
+ */
+let globTool: ReturnType<typeof createGlobTool>;
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await globTool.execute(params);
@@ -43,6 +51,8 @@ beforeAll(async () => {
   await writeFile(join(tmpDir, 'node_modules', 'excluded.ts'), 'excluded');
   await mkdir(join(tmpDir, '.git'));
   await writeFile(join(tmpDir, '.git', 'excluded.ts'), 'excluded');
+
+  globTool = createGlobTool({ cwd: tmpDir });
 });
 
 afterAll(async () => {
@@ -88,7 +98,8 @@ describe('GlobTool', () => {
   });
 
   it('uses cwd as default path when path is not provided', async () => {
-    // Just verify it doesn't crash — actual results depend on the test cwd
+    // Just verify it doesn't crash — ARCH-010 made the root explicit, so the default path is now this
+    // suite's fixture rather than whatever directory vitest happened to start in.
     const result = await run({ pattern: '*.json' });
     expect(result.success).toBe(true);
   });

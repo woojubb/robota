@@ -101,13 +101,13 @@ export type {
 } from './implementations/function-tool/types';
 
 // Built-in CLI tools
-export { shellTool, createShellTool, bashTool, createBashTool } from './builtins/shell-tool';
+export { createShellTool, createBashTool } from './builtins/shell-tool';
 export type { IShellToolOptions } from './builtins/shell-tool';
-export { readTool, createReadTool } from './builtins/read-tool';
-export { writeTool, createWriteTool } from './builtins/write-tool';
-export { editTool, createEditTool } from './builtins/edit-tool';
-export { globTool, createGlobTool } from './builtins/glob-tool';
-export { grepTool, createGrepTool } from './builtins/grep-tool';
+export { createReadTool } from './builtins/read-tool';
+export { createWriteTool } from './builtins/write-tool';
+export { createEditTool } from './builtins/edit-tool';
+export { createGlobTool } from './builtins/glob-tool';
+export { createGrepTool } from './builtins/grep-tool';
 export type { IGrepToolOptions } from './builtins/grep-tool';
 export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
 export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';

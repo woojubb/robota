@@ -333,7 +333,12 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
   });
 
   it('leaves the tool set and identity defaults untouched', () => {
-    expect(createDefaultTools().map((t) => t.getName())).toEqual(BASELINE_DEFAULT_TOOL_NAMES);
+    // ARCH-010 — `createDefaultTools` now requires the root. This case reads tool NAMES only and never
+    // executes a tool, so the root is inert; it is the same `/tmp/equivalence` the session cases above
+    // use, rather than a real workspace the assertion has no business pointing at.
+    expect(createDefaultTools({ cwd: '/tmp/equivalence' }).map((t) => t.getName())).toEqual(
+      BASELINE_DEFAULT_TOOL_NAMES,
+    );
     expect(DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
   });
 
