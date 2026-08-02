@@ -90,22 +90,48 @@ export class StaleTaskSweepThrottle {
   /** Zero means "never swept", so the first idle tick sweeps. */
   private lastSweepAtMs = 0;
 
+  /** Guards against two overlapping sweeps on one throttle, now that the clock advances after. */
+  private sweeping = false;
+
   public constructor(
     private readonly clock: IClockPort,
-    private readonly options: { leaseDurationMs: number; maxAttempts: number },
+    private readonly lease: ILeasePort,
+    private readonly options: { workerId: string; leaseDurationMs: number; maxAttempts: number },
   ) {}
 
-  public async sweepIfDue(storage: IStoragePort, queue: IQueuePort): Promise<void> {
+  /**
+   * Returns the sweep's failure rather than throwing it.
+   *
+   * A sweep runs on the IDLE branch of `processOnce`, whose promise the drivers only `.catch` when
+   * stopping — so a throw here escaped into an unhandled rejection and killed the worker loop. Review
+   * measured that path via the sqlite queue's PRIMARY KEY. Recovery failing must not take the worker
+   * with it; the loop reports it, backs off, and tries again on the next idle tick.
+   */
+  public async sweepIfDue(
+    storage: IStoragePort,
+    queue: IQueuePort,
+  ): Promise<IDagError | undefined> {
     const nowMs = this.clock.nowEpochMs();
-    if (nowMs - this.lastSweepAtMs < this.options.leaseDurationMs) {
-      return;
+    if (this.sweeping || nowMs - this.lastSweepAtMs < this.options.leaseDurationMs) {
+      return undefined;
     }
-    // Advanced AFTER the sweep, not before: a throwing sweep would otherwise suppress every retry for
-    // a full lease duration, turning one failure into a window with no recovery at all.
+    this.sweeping = true;
     try {
-      await sweepStaleTaskRuns(storage, queue, this.clock, this.options.maxAttempts);
+      await sweepStaleTaskRuns(storage, queue, this.clock, this.lease, this.options);
+      return undefined;
+    } catch (error) {
+      return {
+        code: 'DAG_TASK_SWEEP_FAILED',
+        category: 'task_execution',
+        message: `Stale-task sweep failed: ${error instanceof Error ? error.message : String(error)}`,
+        retryable: true,
+        context: { workerId: this.options.workerId },
+      };
     } finally {
+      // Advanced AFTER the sweep, not before: a throwing sweep would otherwise suppress every retry
+      // for a full lease duration, turning one failure into a window with no recovery at all.
       this.lastSweepAtMs = this.clock.nowEpochMs();
+      this.sweeping = false;
     }
   }
 }

@@ -86,11 +86,12 @@ export class WorkerLoopService {
       this.options.idleWaitMs,
     );
     if (!message) {
-      // DAG-001: idle is when there is capacity to recover abandoned work, and it is the one point
-      // all three loop drivers go through — see SPEC § Crash Recovery.
-      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.options);
-      await this.sweeper.sweepIfDue(this.storage, this.queue);
-      return { ok: true, value: { processed: false } };
+      // DAG-001: idle is when there is capacity to recover — SPEC § Crash Recovery.
+      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.lease, this.options);
+      const sweepError = await this.sweeper.sweepIfDue(this.storage, this.queue);
+      return sweepError
+        ? { ok: false, error: sweepError }
+        : { ok: true, value: { processed: false } };
     }
 
     return withTaskLease(
@@ -111,15 +112,12 @@ export class WorkerLoopService {
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const taskRun = await this.storage.getTaskRun(message.taskRunId);
     if (!taskRun) {
-      return failAfterAck(
-        this.queue,
-        message.messageId,
-        buildValidationError(
-          'DAG_VALIDATION_TASK_RUN_NOT_FOUND',
-          'TaskRun not found for dequeued message',
-          { taskRunId: message.taskRunId },
-        ),
+      const notFound = buildValidationError(
+        'DAG_VALIDATION_TASK_RUN_NOT_FOUND',
+        'TaskRun not found for dequeued message',
+        { taskRunId: message.taskRunId },
       );
+      return failAfterAck(this.queue, message.messageId, notFound);
     }
 
     const startResult = await claimTaskForExecution({
@@ -141,16 +139,11 @@ export class WorkerLoopService {
     }
     const { dagRun, definition, nodeDefinition } = contextResult.value;
 
-    const executionInput = await this.buildExecutionInput(
-      message,
-      dagRun,
-      definition,
-      nodeDefinition,
-    );
+    const input = await this.buildExecutionInput(message, dagRun, definition, nodeDefinition);
     const timeoutMs = this.resolveTimeoutMs(message);
     const executionResult = await executeWithTimeout(
       this.executor,
-      executionInput,
+      input,
       timeoutMs,
       message.taskRunId,
     );

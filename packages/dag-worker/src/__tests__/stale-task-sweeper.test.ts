@@ -7,15 +7,22 @@ import { ManualClockPort, ScriptedTaskExecutorPort } from '@robota-sdk/dag-adapt
 import { describe, expect, it } from 'vitest';
 
 import { WorkerLoopService } from '../services/worker-loop-service.js';
+import { claimTaskForExecution } from '../services/task-lease-recovery.js';
 import { sweepStaleTaskRuns } from '../services/stale-task-sweeper.js';
 
-import type { IClockPort, IQueuePort, IStoragePort } from '@robota-sdk/dag-core';
+import type { IClockPort, ILeasePort, IQueuePort, IStoragePort } from '@robota-sdk/dag-core';
 
 const MAX_ATTEMPTS = 3;
+const SWEEP_OPTIONS = { workerId: 'sweeper', maxAttempts: MAX_ATTEMPTS, leaseDurationMs: 30_000 };
 
-/** The sweep under test, with the retry bound every case shares. */
-function sweep(storage: IStoragePort, queue: IQueuePort, clock: IClockPort) {
-  return sweepStaleTaskRuns(storage, queue, clock, MAX_ATTEMPTS);
+/** The sweep under test, with the lease and retry bound every case shares. */
+function sweep(
+  storage: IStoragePort,
+  queue: IQueuePort,
+  clock: IClockPort,
+  lease: ILeasePort = new InMemoryLeasePort(),
+) {
+  return sweepStaleTaskRuns(storage, queue, clock, lease, SWEEP_OPTIONS);
 }
 
 import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
@@ -64,12 +71,13 @@ async function fixture(task: ITaskRun) {
   const storage = new InMemoryStoragePort();
   const queue = new InMemoryQueuePort();
   const clock = new ManualClockPort(NOW_MS);
+  const lease = new InMemoryLeasePort();
   await storage.createDagRun(dagRun());
   await storage.createTaskRun(task);
   if (task.leaseOwner !== undefined || task.leaseUntil !== undefined) {
     await storage.setTaskRunLease(task.taskRunId, task.leaseOwner, task.leaseUntil);
   }
-  return { storage, queue, clock };
+  return { storage, queue, clock, lease };
 }
 
 describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
@@ -199,7 +207,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     expect(outcome.abandoned).toEqual(['task-run-1']);
     const task = await storage.getTaskRun('task-run-1');
     expect(task?.status).toBe('failed');
-    expect(task?.errorCode).toBe('DAG_TASK_ABANDONED');
+    expect(task?.errorCode).toBe('DAG_TASK_EXECUTION_ABANDONED');
     expect(await queue.dequeue('worker-9', 10)).toBeUndefined();
   });
 
@@ -211,5 +219,82 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
     await sweep(storage, queue, clock);
 
     expect((await storage.getTaskRun('task-run-1'))?.attempt).toBe(2);
+  });
+
+  /**
+   * The two hazards the SECOND review round measured. Both were still open after the first round of
+   * fixes, and one of them killed the worker process outright.
+   */
+  it('two concurrent sweeps do not both requeue the same task', async () => {
+    // Measured before this fix: both reported `requeued`, `attempt` went 1 → 3 so a healthy task
+    // would be failed well before `maxAttempts`, and the two messages carried the IDENTICAL id —
+    // which on the sqlite queue is a PRIMARY KEY, so the second insert threw.
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+
+    const [first, second] = await Promise.all([
+      sweepStaleTaskRuns(storage, queue, clock, lease, { ...SWEEP_OPTIONS, workerId: 'sweeper-a' }),
+      sweepStaleTaskRuns(storage, queue, clock, lease, { ...SWEEP_OPTIONS, workerId: 'sweeper-b' }),
+    ]);
+
+    const requeued = [...first.requeued, ...second.requeued];
+    expect(requeued).toEqual(['task-run-1']);
+    expect((await storage.getTaskRun('task-run-1'))?.attempt).toBe(2);
+    expect(await queue.dequeue('worker-9', 10)).toBeDefined();
+    expect(await queue.dequeue('worker-9', 10)).toBeUndefined();
+  });
+
+  it('the reclaim message id is keyed on the ATTEMPT, so it cannot collide with itself', async () => {
+    const { storage, queue, clock, lease } = await fixture(
+      taskRun({ attempt: 1, leaseOwner: 'dead', leaseUntil: EXPIRED_ISO }),
+    );
+
+    await sweep(storage, queue, clock, lease);
+    const message = await queue.dequeue('worker-9', 10);
+
+    // Not the clock: two sweeps in the same millisecond produced the same string.
+    expect(message?.messageId).toBe('task-run-1:reclaim:2');
+    // …and the message's attempt matches what storage now holds, since `handleRetry` reads the
+    // message's and would otherwise reach the retry bound one attempt early.
+    expect(message?.attempt).toBe(2);
+    expect((await storage.getTaskRun('task-run-1'))?.attempt).toBe(2);
+  });
+
+  it('does NOT sweep a task that is mid-CLAIM — the lease is written before the status', async () => {
+    // The ordering fix had no guard: swapping the two writes back left the whole suite green, so a
+    // refactor could reintroduce it silently. This runs a sweep in the window between them.
+    const { storage, queue, clock, lease } = await fixture(taskRun({ status: 'queued' }));
+    let sweptDuringClaim: string[] = [];
+
+    const realUpdate = storage.updateTaskRunStatus.bind(storage);
+    storage.updateTaskRunStatus = async (id, status, error) => {
+      await realUpdate(id, status, error);
+      if (status === 'running') {
+        // The instant the task becomes `running`, a concurrent sweeper looks at it.
+        sweptDuringClaim = (await sweep(storage, queue, clock, new InMemoryLeasePort())).requeued;
+      }
+    };
+
+    await claimTaskForExecution({
+      storage,
+      clock,
+      reporter: undefined,
+      options: { workerId: 'worker-1', leaseDurationMs: 30_000 },
+      timeoutMs: 1_000,
+      message: {
+        messageId: 'm1',
+        dagRunId: 'dag-run-1',
+        taskRunId: 'task-run-1',
+        nodeId: 'entry',
+        attempt: 1,
+        executionPath: [],
+        payload: {},
+        createdAt: NOW_ISO,
+      },
+      taskRun: taskRun({ status: 'queued' }),
+    });
+
+    expect(sweptDuringClaim).toEqual([]);
   });
 });

@@ -165,11 +165,10 @@ seam nothing could reach stayed green; the port records what would justify bring
 it on "we might need it later" is the argument that produced the ghost lease columns this same task
 had to fix.
 
-**Red-proof.** Removing the single `RECLAIM` table entry: 6 of 16 cases fail on named assertions
+**Red-proof.** Removing the single `RECLAIM` table entry: 9 of 16 cases fail on named assertions
 (`expected [] to deeply equal [ 'task-run-1' ]`, `expected 'running' to be 'success'`,
 `expected 'dead-worker' to be undefined`, …). Removing the `sweepIfDue()` call alone fails the
-reachability case (`expected 'running' to be 'queued'`) — the sweep is wired, not merely written. The
-4 non-provers are the guards: live lease, live long-running task, nothing-stale, and the idle no-op.
+reachability case (`expected 'running' to be 'queued'`) — the sweep is wired, not merely written. The non-provers are the guards: live lease, live long-running task, nothing-stale, and the idle no-op.
 
 Whole workspace green: build, typecheck, every package's test suite. `spec-public-surface` passes and
 `dag-worker` leaves the burn-down entirely (4 undocumented → 0) — its Public API section was a bullet
@@ -212,3 +211,26 @@ it a task that kills its worker was swept and re-run forever with `maxAttempts` 
 sweep returns what it did rather than a count, so a sweep that moves nothing is observable; and the
 throttle advances its clock AFTER the sweep, so a throwing sweep no longer suppresses recovery for a
 full lease duration.
+
+### Second review round — three more, all measured
+
+The same reviewer probed the fixes rather than reading them, and found the first round had left two
+hazards open and one fix unguarded.
+
+- **Two idle workers swept the same task concurrently.** Both requeued it, the attempt went 1 → 3 so a
+  healthy task would be failed well before `maxAttempts`, and both messages carried the IDENTICAL id —
+  which on the sqlite queue is a `TEXT PRIMARY KEY`, so the second insert threw. That throw escaped
+  `sweepIfDue` and `processOnce` into `WorkerLoopDriver.runLoop`, whose promise is only `.catch`ed in
+  `stop()`: an unhandled rejection and a dead worker. The sweeper now takes the same `ILeasePort`
+  lease a worker takes, the message id is keyed on the ATTEMPT rather than the clock, and a sweep
+  failure is RETURNED as a `processOnce` error instead of thrown.
+- **The lease-before-status ordering had no test.** Swapping the two writes back left all 16 cases
+  green — measured. Every other fix red-proved; this one did not, so a refactor could have
+  reintroduced it silently. There is now a case that sweeps in the window between the two writes.
+- **`DAG_TASK_ABANDONED` was not in the SPEC's error registry** and did not follow the naming of the
+  three codes in its own category. Renamed `DAG_TASK_EXECUTION_ABANDONED` and listed, along with
+  `DAG_TASK_SWEEP_FAILED`.
+
+Also taken: the requeued message now carries the INCREMENTED attempt, matching storage — they
+disagreed by one and `handleRetry` reads the message's, so the sweeper's bound was reached before the
+message-driven one.

@@ -115,6 +115,13 @@ that could acquire it — reclaiming a task that was still running.
 the other order a sweeper running in the gap would see `running` with no lease — the shape it treats
 as abandoned — and reclaim a task that was in the middle of starting.
 
+**The sweeper takes the same `ILeasePort` lease a worker takes**, for the same reason. Without it two
+idle workers sweep one task concurrently: both requeue it, the attempt jumps by two so a healthy task
+is failed well before `maxAttempts`, and the two messages carry the same id — which on the sqlite
+queue is a PRIMARY KEY, so the second insert throws. The reclaim message's id is keyed on the
+ATTEMPT rather than the clock, so it is unique by construction rather than by timing, and it carries
+the incremented attempt so the message and storage agree (`handleRetry` reads the message's).
+
 ### Idle Wait / Queue Wake-up
 
 `IWorkerLoopOptions.idleWaitMs` is optional and defaults to immediate dequeue semantics when omitted. When configured, `WorkerLoopService.processOnce()` passes the value to `IQueuePort.dequeue(..., waitTimeoutMs)`.
@@ -190,6 +197,12 @@ All errors use `IDagError` from `dag-core` with the following codes:
 - `DAG_TASK_EXECUTION_TIMEOUT` -- task exceeded timeout
 - `DAG_TASK_EXECUTION_EXCEPTION` -- executor threw an exception
 - `DAG_TASK_EXECUTION_FAILED` -- generic run failure
+- `DAG_TASK_EXECUTION_ABANDONED` -- DAG-001: the task was abandoned by its worker and has no attempts
+  left. Emitted by the stale-task sweep, not by an executor
+- `DAG_TASK_SWEEP_FAILED` -- DAG-001: the stale-task sweep itself failed. Returned as an ordinary
+  `processOnce` error rather than thrown, because the sweep runs on the idle branch whose promise the
+  drivers only `.catch` when stopping — a throw there became an unhandled rejection that killed the
+  worker. Recovery failing must not take the worker with it
 
 ## Class Contract Registry
 

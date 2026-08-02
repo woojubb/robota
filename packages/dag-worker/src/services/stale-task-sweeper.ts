@@ -1,6 +1,7 @@
 import {
   TaskRunStateMachine,
   type IClockPort,
+  type ILeasePort,
   type IQueueMessage,
   type IQueuePort,
   type IStoragePort,
@@ -29,18 +30,50 @@ export async function sweepStaleTaskRuns(
   storage: IStoragePort,
   queue: IQueuePort,
   clock: IClockPort,
-  maxAttempts: number,
+  lease: ILeasePort,
+  options: { workerId: string; maxAttempts: number; leaseDurationMs: number },
 ): Promise<ISweepOutcome> {
   const stale = await storage.listStaleRunningTaskRuns(clock.nowIso());
   const outcome: ISweepOutcome = { requeued: [], abandoned: [], skipped: [] };
 
   for (const taskRun of stale) {
+    // The SAME lease a worker takes, for the same reason. Without it two idle workers sweep the same
+    // task concurrently: both requeue it, the attempt jumps by two so a healthy task is failed with
+    // `DAG_TASK_EXECUTION_ABANDONED` well before `maxAttempts`, and on the sqlite queue — the adapter
+    // this sweeper exists for — the duplicate insert violates `message_id`'s PRIMARY KEY and throws.
+    // Review measured all three.
+    const leaseKey = `taskRun:${taskRun.taskRunId}`;
+    const held = await lease.acquire(leaseKey, options.workerId, options.leaseDurationMs);
+    if (!held) {
+      outcome.skipped.push(taskRun.taskRunId);
+      continue;
+    }
+    try {
+      await sweepOne(storage, queue, clock, taskRun, options.maxAttempts, outcome);
+    } finally {
+      await lease.release(leaseKey, options.workerId);
+    }
+  }
+
+  return outcome;
+}
+
+/** One task's sweep, with its lease already held by the caller. */
+async function sweepOne(
+  storage: IStoragePort,
+  queue: IQueuePort,
+  clock: IClockPort,
+  taskRun: ITaskRun,
+  maxAttempts: number,
+  outcome: ISweepOutcome,
+): Promise<void> {
+  {
     const reclaimed = TaskRunStateMachine.transition(taskRun.status, 'RECLAIM');
     if (!reclaimed.ok) {
       // A task that changed status between the query and here is no longer ours to move. REPORTED,
       // not silently continued: a sweeper that finds tasks and moves none must be observable.
       outcome.skipped.push(taskRun.taskRunId);
-      continue;
+      return;
     }
 
     // A run that is already over does not get its work restarted. `RunCancelService.cancelRun`
@@ -51,14 +84,14 @@ export async function sweepStaleTaskRuns(
       await storage.updateTaskRunStatus(taskRun.taskRunId, 'cancelled');
       await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
       outcome.abandoned.push(taskRun.taskRunId);
-      continue;
+      return;
     }
 
     // Retries are BOUNDED. Without this a task that kills its worker — or one that fails after being
     // set `running` — is swept, re-run and swept again forever, and `maxAttempts` never applies.
     if (taskRun.attempt >= maxAttempts) {
       await storage.updateTaskRunStatus(taskRun.taskRunId, 'failed', {
-        code: 'DAG_TASK_ABANDONED',
+        code: 'DAG_TASK_EXECUTION_ABANDONED',
         category: 'task_execution',
         message: `Task was abandoned by its worker ${taskRun.attempt} time(s) and has no attempts left`,
         retryable: false,
@@ -66,7 +99,7 @@ export async function sweepStaleTaskRuns(
       });
       await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
       outcome.abandoned.push(taskRun.taskRunId);
-      continue;
+      return;
     }
 
     await storage.updateTaskRunStatus(taskRun.taskRunId, reclaimed.value.nextStatus);
@@ -74,11 +107,12 @@ export async function sweepStaleTaskRuns(
     // longer exists, attached to a task somebody else is about to run.
     await storage.setTaskRunLease(taskRun.taskRunId, undefined, undefined);
     await storage.incrementTaskAttempt(taskRun.taskRunId);
-    await queue.enqueue(buildRedeliveryMessage(taskRun, clock.nowIso()));
+    // The message carries the INCREMENTED attempt, matching what storage now holds. They disagreed by
+    // one, and `handleRetry` reads the message's — so the sweeper's bound would be reached before the
+    // message-driven one.
+    await queue.enqueue(buildRedeliveryMessage(taskRun, taskRun.attempt + 1, clock.nowIso()));
     outcome.requeued.push(taskRun.taskRunId);
   }
-
-  return outcome;
 }
 
 /** A run in one of these has finished; its leftover tasks are not restarted. */
@@ -105,18 +139,21 @@ export interface ISweepOutcome {
  * (`loadWorkerExecutionContext`) rather than trusting the message, so a sweep does not need to
  * reconstruct an input snapshot it never saw.
  */
-function buildRedeliveryMessage(taskRun: ITaskRun, nowIso: string): IQueueMessage {
+function buildRedeliveryMessage(taskRun: ITaskRun, attempt: number, nowIso: string): IQueueMessage {
   return {
-    messageId: `${taskRun.taskRunId}:reclaim:${nowIso}`,
+    // Keyed on the ATTEMPT, not the clock. Two sweeps in the same millisecond produced the identical
+    // id, and the sqlite queue's `message_id` is a PRIMARY KEY — the second insert threw. The attempt
+    // advances on every reclaim, so this is unique by construction rather than by timing.
+    messageId: `${taskRun.taskRunId}:reclaim:${attempt}`,
     dagRunId: taskRun.dagRunId,
     taskRunId: taskRun.taskRunId,
     nodeId: taskRun.nodeId,
-    attempt: taskRun.attempt,
+    attempt,
     executionPath: [
       `dagRunId:${taskRun.dagRunId}`,
       `nodeId:${taskRun.nodeId}`,
       `taskRunId:${taskRun.taskRunId}`,
-      `attempt:${taskRun.attempt}`,
+      `attempt:${attempt}`,
       'reclaimed:true',
     ],
     payload: {},
