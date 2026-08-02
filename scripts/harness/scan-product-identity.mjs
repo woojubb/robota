@@ -200,7 +200,19 @@ function main() {
 }
 
 function writeBaseline() {
-  const { counts } = findProductIdentity(WORKSPACE_ROOT, liveConfig());
+  const settings = liveConfig();
+  // The same guard `main()` applies. Without it an emptied config writes `{}` and the floor is gone
+  // until the next run notices — self-correcting, but a scan whose whole subject is guards with holes
+  // should not ship one.
+  if ((settings.packages ?? []).length === 0 || (settings.markers ?? []).length === 0) {
+    console.error(
+      'product-identity: refusing to freeze a baseline from an empty configuration — that would ' +
+        'record "nothing to check" as the floor.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const { counts } = findProductIdentity(WORKSPACE_ROOT, settings);
   writeFileSync(BASELINE_PATH, `${JSON.stringify(counts, null, 2)}\n`);
   console.log(`product-identity baseline regenerated: ${JSON.stringify(counts)}`);
 }

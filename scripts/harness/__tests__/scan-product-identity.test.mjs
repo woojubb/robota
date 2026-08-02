@@ -165,6 +165,25 @@ describe('scan-product-identity', () => {
     expect(result.stderr + result.stdout).toMatch(/broken floor/);
   });
 
+  it('refuses to FREEZE a baseline from an empty configuration', () => {
+    // Review CONSIDER: `--write-baseline` lacked the guard `main()` has, so a mis-set config would
+    // record `{}` as the floor. Self-correcting on the next run, but a scan whose subject is guards
+    // with holes should not ship one.
+    const cwd = mkdtempSync(path.join(tmpdir(), 'product-identity-freeze-'));
+    dirs.push(cwd);
+    mkdirSync(path.join(cwd, '.agents'), { recursive: true });
+    writeFileSync(
+      path.join(cwd, '.agents/harness.config.json'),
+      JSON.stringify({ productIdentity: { markers: [], packages: [] } }),
+    );
+
+    const scan = path.resolve(import.meta.dirname, '../scan-product-identity.mjs');
+    const result = spawnSync('node', [scan, '--write-baseline'], { cwd, encoding: 'utf8' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr + result.stdout).toMatch(/refusing to freeze/);
+  });
+
   it('is registered, and its baseline matches what it counts on the live repository', () => {
     const root = path.resolve(import.meta.dirname, '../../..');
     expect(readFileSync(path.join(root, 'scripts/harness/run-all-scans.mjs'), 'utf8')).toContain(
