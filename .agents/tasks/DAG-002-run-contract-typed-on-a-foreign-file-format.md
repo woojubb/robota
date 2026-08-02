@@ -202,3 +202,26 @@ from 8 undocumented exports to 0, and its baseline entry is removed entirely.
   them; the scan prevents new ones. Recorded as the open half of this item's risk surface.
 - The six other CLI commands still open-code their own companion-reading loader. They do IO the new
   adapter deliberately does not, and adopting it there is a separate cleanup.
+
+### Self-review round (pre-push)
+
+Two findings on my own diff, both upheld:
+
+1. **The adapter repeated the defect it was extracted to end.** `dagDefinitionFromParsedFile` fell
+   through to `parsed as IDagDefinition` for anything it did not recognise — a bare cast at exactly
+   the boundary whose bare cast is this item's subject. It now throws and names both expected shapes,
+   so an unrecognised file fails where it is read rather than later, somewhere else, as something
+   else. Three cases pin it, including `null`.
+
+2. **That throw would have reached the CLI as a stack trace.** `runs submit` has no try/catch and the
+   runner does not wrap it, so the new error — and the pre-existing unparseable-JSON error, which was
+   always unhandled — would crash rather than report. Extracted to `read-dag-file-arg.ts` returning a
+   discriminated result; `runs submit` renders a usage error. The extraction was also what the
+   file-size ceiling required: folding it inline pushed `runs.ts` past the hard 300-line maximum.
+
+Two floors caught me during the same pass and both were right: `scan-file-size` on the comments I
+added to already-over-baseline files, and `no-insecure-temp-path` (SEC-003) on a test of mine that
+joined a fixed name onto `tmpdir()`. Neither was suppressed.
+
+One unrelated reflow (`INodePortSpec`) had crept into `runtime-provider.ts`; reverted, since both
+forms satisfy prettier and diff noise costs a reviewer real attention.

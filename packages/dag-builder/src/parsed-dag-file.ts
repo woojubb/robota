@@ -1,6 +1,10 @@
-import { fromDagWorkflowFile, isWorkflowFileFormat } from './dag-workflow-converter.js';
+import {
+  fromDagWorkflowFile,
+  isLegacyDefinitionFormat,
+  isWorkflowFileFormat,
+} from './dag-workflow-converter.js';
 
-import type { IDagDefinition, IDagRobotaCompanion, IDagWorkflowFile } from '@robota-sdk/dag-core';
+import type { IDagDefinition, IDagRobotaCompanion } from '@robota-sdk/dag-core';
 
 /**
  * The import adapter: parsed JSON in either on-disk format → the canonical domain model.
@@ -20,7 +24,13 @@ export function dagDefinitionFromParsedFile(
   parsed: unknown,
   companion?: IDagRobotaCompanion,
 ): IDagDefinition {
-  if (isWorkflowFileFormat(parsed))
-    return fromDagWorkflowFile(parsed as IDagWorkflowFile, companion);
-  return parsed as IDagDefinition;
+  if (isWorkflowFileFormat(parsed)) return fromDagWorkflowFile(parsed, companion);
+  if (isLegacyDefinitionFormat(parsed)) return parsed;
+  // Neither shape. Both open-coded copies this replaces ended in a bare `as` here, so an
+  // unrecognised file was handed to the runtime wearing a type it did not have and failed later,
+  // somewhere else, as something else. Naming it at the boundary is the whole point of having one.
+  throw new Error(
+    'Not a DAG file: expected either a workflow file (nodes + links + version) or a definition ' +
+      '(dagId + nodes). Neither shape was found.',
+  );
 }

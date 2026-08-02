@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fromDagWorkflowFile } from '../dag-workflow-converter.js';
+import { dagDefinitionFromParsedFile } from '../parsed-dag-file.js';
 
 import type { IDagWorkflowFile, TDagDefinitionStatus } from '@robota-sdk/dag-core';
 
@@ -52,5 +53,24 @@ describe('fromDagWorkflowFile produces a status inside its own union (DAG-002)',
       nodes: {},
     });
     expect(definition.status).toBe('published');
+  });
+});
+
+describe('dagDefinitionFromParsedFile is the one import adapter (DAG-002)', () => {
+  it('passes a definition file through untouched', () => {
+    const definition = { dagId: 'd', version: 1, status: 'draft', nodes: [], edges: [] };
+    expect(dagDefinitionFromParsedFile(definition)).toBe(definition);
+  });
+
+  it('converts a workflow file', () => {
+    expect(dagDefinitionFromParsedFile(emptyWorkflowFile()).dagId).toBe('unknown');
+  });
+
+  it('THROWS on a shape that is neither, rather than casting it onward', () => {
+    // Both open-coded copies this replaces ended in a bare `as` here, so an unrecognised file was
+    // handed to the runtime wearing a type it did not have and failed later, somewhere else, as
+    // something else. Naming it at the boundary is the whole point of having one boundary.
+    expect(() => dagDefinitionFromParsedFile({ something: 'else' })).toThrow(/Not a DAG file/);
+    expect(() => dagDefinitionFromParsedFile(null)).toThrow(/Not a DAG file/);
   });
 });
