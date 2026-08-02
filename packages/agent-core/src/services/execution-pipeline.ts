@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { EXECUTION_EVENTS } from './execution-constants';
 import { executeRound } from './execution-round';
 import { buildFinalResult } from './execution-service-helpers';
@@ -11,6 +9,7 @@ import {
   PREVIEW_LENGTH,
 } from './execution-types';
 import { callPluginHook } from './plugin-hook-dispatcher';
+import { randomId } from '../utils/random-id.js';
 
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
@@ -149,7 +148,7 @@ async function forceSummaryCall(
       systemMsg && !hasSystemMsg
         ? [
             {
-              id: randomUUID(),
+              id: randomId(),
               role: 'system' as const,
               content: systemMsg,
               state: 'complete' as const,

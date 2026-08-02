@@ -3,10 +3,10 @@
  *
  * In-memory history classes live in ./conversation-store-history.ts.
  */
-import { randomUUID } from 'node:crypto';
 
 import { SimpleConversationHistory } from './conversation-store-history';
 import { isAssistantMessage, isToolMessage } from '../interfaces/messages';
+import { randomId } from '../utils/random-id.js';
 
 import type { IConversationHistory } from './conversation-history-manager';
 import type {
@@ -140,7 +140,7 @@ export class ConversationStore implements IConversationHistory {
   beginAssistant(): void {
     if (!this.pendingAssistant) {
       this.pendingAssistant = {
-        id: randomUUID(),
+        id: randomId(),
         content: '',
         toolCalls: [],
       };
@@ -151,7 +151,7 @@ export class ConversationStore implements IConversationHistory {
   appendStreaming(delta: string): void {
     if (!this.pendingAssistant) {
       this.pendingAssistant = {
-        id: randomUUID(),
+        id: randomId(),
         content: '',
         toolCalls: [],
       };
@@ -163,7 +163,7 @@ export class ConversationStore implements IConversationHistory {
   appendToolCall(toolCall: IToolCall): void {
     if (!this.pendingAssistant) {
       this.pendingAssistant = {
-        id: randomUUID(),
+        id: randomId(),
         content: '',
         toolCalls: [],
       };
