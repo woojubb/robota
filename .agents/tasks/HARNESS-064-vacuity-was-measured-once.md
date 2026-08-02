@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-064: vacuity was measured once and never again — 30 of 76 scans could not fail, and nothing tracks whether that number moves'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -86,3 +86,70 @@ is what this Task exists because of.
 
 **Does not apply.** This changes no user-facing product surface; it changes what the repo's own CI
 can conclude. The verification is the red-first regression above.
+
+## Progress
+
+### The premise was wrong for the axis that has a mechanism — corrected before acting
+
+This Task says the 30/76 measurement "was written down once" and "nothing re-measures it". For the
+**guard-scope axis that is false**, and finding out cost less than building a duplicate would have.
+
+`scripts/harness/scan-guard-scope-fail-closed.mjs` already:
+
+- DERIVES the finder set from the registration list and the source, so a new scan cannot be added
+  without being classified (rule 1);
+- EXECUTES every pinned guard against a root lacking its governed tree and requires a throw or a
+  finding — a behavioural assertion, not a source-pattern match (rule 2);
+- RE-EXECUTES every ledger entry's recorded verdict on every run and fails if it drifted (rule 3),
+  written because the ledger went stale within the hour it was first authored.
+
+Today it reports **45 guards proven fail-closed by execution, 4 measured vacuous and recorded
+unfixed, 14 fail-closed but unpinned**. The 30/76 figure is stale in both terms: the suite is 87
+scans now, and that number came from the OTHER axis in `check-validity-two-axes` — _does it check
+the right thing_ — which that memory itself records as a ceiling nothing catches.
+
+### What was actually missing: the ledger had no ceiling
+
+Rules 1–3 make every finder answer for itself and keep the ledger honest. None of them bounds its
+SIZE. `PENDING_CLASSIFICATION.length` appeared only in the pass message — so a new scan could be
+classified `pending` forever, and a new `vacuous` entry (a LIVE instance of the audited defect) could
+be added with a paragraph explaining it, and nothing would object.
+
+**Rule 4: the debt may shrink and never grow.** Two ceilings, frozen at the measured 4 vacuous and 14
+unpinned, in `scripts/harness/guard-ledger-ceilings.json`. They are separate because they mean
+different things — a vacuous entry is a live defect, an unpinned one is milder debt — and a rise in
+either fails with the instruction that fits it: _fix the guard, do not record it_ versus _pin it in
+`MANDATORY_TREE_GUARDS`_. A FALL also fails, demanding a re-freeze in the same change, because an
+unlocked gain is a licence to grow back.
+
+Red-proved four ways: a lowered `vacuous` ceiling fires with the right message, a lowered `unpinned`
+one likewise, a raised ceiling demands the re-freeze, and an ABSENT ceiling is a finding rather than a
+pass. Plus reachability — the first draft of those cases called the helper directly, so deleting the
+line wiring it into `findGuardScopeFindings` failed nothing; there is now a case that runs the scan
+as the CLI does over a deliberately wrong ceiling file and requires exit 1.
+
+### Remaining
+
+- **The second axis is still uncovered**, and this does not change that: whether a check examines the
+  RIGHT thing is not decidable by executing it against an empty root. `check-validity-two-axes`
+  records it as a ceiling; nothing here lifts it.
+- **The 14 unpinned guards.** Each is unpinned for a recorded reason — some fail closed only
+  INCIDENTALLY, via a stale-allowlist assertion rather than a deliberate check, so pinning them
+  as-is would certify a property they do not hold. Lowering that 14 means fixing those guards, one at
+  a time, each with its own measurement.
+- **The 4 vacuous entries** are live instances, owned by HARNESS-052 and INFRA-060.
+
+### Review round 1 (PR #1604)
+
+One SHOULD, upheld: the reachability case mutated the real checked-in `guard-ledger-ceilings.json`
+and restored it in a `finally`, so a kill between the two — this scan's own docstring records a
+harness scan dying mid-run with no output — would leave the working tree holding a corrupted ceiling.
+An under-count is the direction a ratchet must never fail in, and every other path in the file already
+takes a `root` for exactly that reason.
+
+The loader is now parametrised (`GUARD_LEDGER_CEILINGS`) and the case points the spawned CLI at a
+temp copy, touching nothing tracked. That seam is itself a way past the ratchet, and cannot be closed
+by removing it — an argument would be the same hole spelled differently — so a run against anything
+but the frozen file now DECLARES that on both the pass and the fail path, and a case pins the
+declaration. The wiring red-proof was re-run against the change: deleting the line that calls
+`ledgerCeilingFindings` from `findGuardScopeFindings` still fails the reachability case.
