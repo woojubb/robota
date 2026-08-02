@@ -88,6 +88,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
 export const MANDATORY_TREE_GUARDS = [
   {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `packages/agent-core/src does not exist`.
+    file: 'scan-product-identity.mjs',
+    finder: 'findProductIdentity',
+    tree: 'the src/ of each configured library package',
+    why: "it counts the consumer product's names inside libraries that must not know them; over a root with no packages every library is vacuously neutral, and the 94 occurrences it now freezes were invisible precisely because the existing neutrality scan was scoped to two packages that were already clean",
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `.agents/publish-registry.md does not exist`.
     file: 'scan-publish-registry.mjs',
     finder: 'findPublishRegistryFindings',

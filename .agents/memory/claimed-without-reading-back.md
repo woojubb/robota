@@ -24,6 +24,10 @@ diff.
 
 ## What to do instead
 
+- **Never put a file edit in the same Bash call as `git commit`/`git push`.** Measured: four times in
+  one session. This repository's hooks reject git commands often and by design, a `PreToolUse`
+  rejection runs NONE of the command, and the edit meant to accompany the commit silently does not
+  exist — twice the commit message then described it. Edits in one call, git in the next.
 - After any blocked or failed command, re-check what actually landed. A hook that rejects a compound
   command runs none of it, including the parts that would have succeeded.
 - Write the sentence describing a change from `git diff --staged`, not from memory of the edit.

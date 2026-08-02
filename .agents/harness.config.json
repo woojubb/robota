@@ -281,5 +281,17 @@
       "constructors": ["createSession"],
       "reason": "The session-construction option surface. `guardrails` (SELFHOST-005) and `retrievalAdapter` (SELFHOST-003) were declared, read at the consuming end, and set by no production call to createSession \u2014 two documented capabilities no shipped surface could turn on."
     }
-  ]
+  ],
+  "productIdentity": {
+    "$comment": "NEUT-009: a library must not name its consumer's product. Per-package occurrence counts are frozen in scripts/harness/product-identity-baseline.json \u2014 they may fall and must never rise. Markers must NOT overlap: `~/.robota` was removed because `.robota` already matches it and every such line was counted twice.",
+    "markers": [".robota", "robota-cli"],
+    "packages": [
+      "packages/agent-core",
+      "packages/agent-tools",
+      "packages/agent-session",
+      "packages/agent-preset",
+      "packages/agent-command",
+      "packages/agent-framework"
+    ]
+  }
 }

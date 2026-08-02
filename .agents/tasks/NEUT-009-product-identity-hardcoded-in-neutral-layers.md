@@ -1,6 +1,6 @@
 ---
 title: 'NEUT-009: product identity (`.robota`, `.claude`, `AGENTS.md`, `robota-cli`, `/provider`) is hardcoded across four neutral library layers, and no neutrality scan covers the layers where it happens'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -128,3 +128,92 @@ in `## Test Plan`; a second product built on the libraries is not a surface a us
 - **Cleanup:** none.
 - **Evidence (fill in after implementation):** the `diagnose` output with `HOME` unset, alongside the
   path the session actually loaded.
+
+## Implementation — stage 1 of 2
+
+### The measurement gap, closed
+
+The finding's central claim is that no scan covers the layers where the problem is, and that held
+exactly: `scan-composition-neutrality` checks a different property (the assembler's purity, IO-freedom
+and absence of product conditionals) over `agent-product` and `agent-capability-pack`, both already
+clean. Nothing read `agent-framework`, `agent-preset`, `agent-command` or `agent-session`.
+
+`scripts/harness/scan-product-identity.mjs` now does, as a ratchet: per-package occurrence counts of
+the product's own names, frozen, may fall and never rise. Registered, and classified fail-closed by
+execution (48 → 49 proven).
+
+**The count is 94, not the 65 the finding implies.** The difference is not a disagreement — the audit
+enumerated sites and this counts occurrences, including in comments.
+
+Counting prose is deliberate and is the scan's most consequential decision. `paths.ts` opens with
+"All CLI runtime data lives under .robota/": the documentation IS the coupling, not a remark about it,
+and counting only string literals would make the docstring the cheapest place to keep it. The decision
+demonstrated itself within minutes — the comment written to explain removing the product's name from a
+temp-file marker quoted that name, and the count did not fall until the comment was reworded.
+
+### Two things actually fixed
+
+- **The outright bug.** `diagnose` built the user settings path from `process.env['HOME'] ?? ''`. On
+  Windows `HOME` is normally unset, so the empty fallback made the path RELATIVE and it resolved
+  against the working directory: the command whose entire job is reporting which configuration is in
+  effect reported a different file, confidently. `homedir()` is the platform-correct answer and is
+  what `agent-framework`'s `userPaths()` already used — `diagnose` was the one site that rebuilt it
+  from the environment.
+
+  Red-proved properly rather than conveniently: the first attempt failed with "function is not
+  defined", which proves an export is missing and nothing about the defect. The expression was
+  extracted verbatim first so the case could fail on the real thing — a relative path resolving under
+  cwd — and only then fixed.
+
+- **`agent-tools` reached zero.** Its one occurrence was `.robota-tmp-` in the temp filename every
+  atomic write creates: a neutral tool library stamping the consumer's product name onto every file it
+  wrote. Now `.atomic-tmp-`, which says what the file is. `agent-core` was already at zero. Both are
+  frozen there, so a new product name in either fails immediately rather than joining a debt.
+
+### Review round 1 (PR #1610)
+
+Two SHOULDs, both upheld, and the second is the sharper one.
+
+**Overlapping markers double-counted.** `.robota` is a substring of `~/.robota`, so every line with
+the latter scored two "product name" occurrences for one mention — 16 of them, inflating the frozen
+numbers from the measured 94 to 108. The ratchet stayed monotonic, so nothing broke; but the count is what
+this scan REPORTS, and an inflated one is a wrong answer. The redundant marker is gone and overlapping
+markers now throw, because the next person adding one would hit the same thing silently.
+
+**The scan exempted itself from its own principle.** An empty `markers` or `packages` list printed a
+notice and exited 0 — in the same change that classifies every other guard against a floor whose whole
+rule is that "nothing to check" is not "clean". An emptied config is exactly how a floor disappears
+without anyone noticing. It now fails, and a case runs the real CLI from a temp cwd holding an emptied
+config rather than calling a helper.
+
+### Review round 2 (PR #1610)
+
+Two SHOULDs, both upheld, and both are instances of what this same PR added a memory note about.
+
+**Three documents claimed three different counts** — 92 in the task file, 94 in the committed
+baseline, 108 in the guard-scope classification. The baseline is the measured truth; the other two
+were written without reading it back. All three now say 94, taken from the file.
+
+**A regression case of mine was accidental-green.** "still points inside the user home when HOME is
+set" asserted only that the path ends `.robota/settings.json` — which the buggy expression also
+produces whenever HOME exists. It cannot be made discriminating on POSIX either, because `homedir()`
+reads HOME there, so the two implementations agree by construction in that state. The case is now
+labelled for what it is (a non-regression guard) and asserts the whole path; the two cases that prove
+the defect do it with HOME UNSET, which is the Windows default and the only state where the two
+differ.
+
+### Remaining — stage 2
+
+The FOUNDATIONAL half is untouched: there is still **no injected product-identity/paths port**, and
+the 94 occurrences are frozen, not removed. Specifically still true:
+
+- `agent-framework/src/paths.ts` is not the exclusive owner even inside its own package — ten further
+  `'.robota'` literals live elsewhere in it, so routing new callers through `paths.ts` without
+  sweeping those leaves the port bypassed on day one. That risk is the finding's, and it stands.
+- `DEFAULT_AGENT_NAME = 'robota-cli'` is still baked into `agent-preset`.
+- `error-humanizer.ts` still tells a user to run `/provider` from a library.
+- `agent-command`'s plugin adapter still joins `~/.robota/plugins` inside a library.
+- The four `agent-cli` sites the audit calls LOCAL are still open; one of them was the bug fixed
+  above, the other three are replaceable with the existing `projectPaths()` seam.
+
+The ratchet is what makes that debt safe to carry: it cannot grow while the port is designed.
