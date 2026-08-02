@@ -12,6 +12,7 @@ import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
 
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
+import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
@@ -39,6 +40,8 @@ export interface IRenderOptions {
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
+  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
+  effort?: ITuiInteractionChannelOptions['effort'];
   language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
@@ -109,6 +112,7 @@ export function toChannelOptions(
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).
     ...(options.modelId !== undefined ? { model: options.modelId } : {}),
+    ...(options.effort !== undefined ? { effort: options.effort } : {}),
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,

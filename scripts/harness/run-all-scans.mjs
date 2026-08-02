@@ -237,6 +237,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
   },
   {
+    name: 'option-reachability',
+    command: ['node', 'scripts/harness/scan-option-reachability.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },

@@ -15,6 +15,7 @@ import {
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import type { ICreateSessionOptions } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -42,6 +43,8 @@ export interface IServeModePresetOptions {
   permissionMode?: TInteractiveSessionOptions['permissionMode'];
   enableParallelSubagents?: boolean;
   selfVerification?: boolean;
+  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
+  effort?: ICreateSessionOptions['effort'];
 }
 
 export interface IServeModeOptions {
@@ -121,6 +124,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       ? { enableParallelSubagents: preset.enableParallelSubagents }
       : {}),
     ...(preset.selfVerification !== undefined ? { selfVerification: preset.selfVerification } : {}),
+    ...(preset.effort !== undefined ? { effort: preset.effort } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };

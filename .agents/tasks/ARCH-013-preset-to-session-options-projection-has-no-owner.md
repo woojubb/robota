@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-013: the (preset, CLI args) → session options projection chain has no owner — eleven assembly seams are unreachable and nine resolved preset fields are computed and discarded'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -153,3 +153,95 @@ Risks named by the synthesis:
 - **Cleanup:** delete `task.md` and the scratch preset.
 - **Evidence (fill in after implementation):** TUI transcript for steps 2–3, and the two applied-state
   readouts for step 4.
+
+## Implementation — stage 1 of 3
+
+This item is three separable pieces of work and this is the first. It is NOT closed by this change.
+
+### Verified before anything was changed
+
+Every premise held, and an independent read of the code produced three corrections to the audit,
+which are recorded because a plan built on a wrong map is worse than no plan:
+
+- `cli.ts` never reads `resolvedPreset.permissionMode`. What it forwards comes back out of the kernel
+  overlay (ARCH-007), so the hand-written expression the audit describes was already removed.
+- Sites 1, 2, 4, 5 and 7 do not consume `IResolvedPresetOptions` at all — each declares its own
+  preset-SHAPED interface. That is the duplication, stated more precisely than "mapped by hand".
+- `defaultTrustLevel` is not merely unprojected: it is validated and then read by nothing. Fully dead.
+
+And one addition: the audit lists eleven unreachable `ICreateSessionOptions` keys. There are
+**twelve** — `autoCompactThreshold` is the one nobody named. It was found by the scan below rather
+than by reading, which is the point of having it.
+
+### The mechanism
+
+`scripts/harness/scan-option-reachability.mjs` fails when a declared option is set by no production
+code. For each configured interface it takes the declared property names and looks for assignments on
+object literals that either reach a configured constructor (`createSession`) or are returned by a
+function declaring that return type.
+
+Two things about its construction are worth recording, because both were errors caught by measuring:
+
+1. **The first version matched property names anywhere in the tree and found 1 of the 12.**
+   `guardrails` also names a key of an unrelated zod schema and `retrievalAdapter` a key of the
+   tool-assembly options, so both looked set. Scoping to the constructor is what makes the answer mean
+   anything.
+2. **The producer branch exists because this change broke its own scan.** Extracting the options
+   literal into `buildCreateSessionOptions` — the fix below — made all 39 previously-assigned keys
+   report as unreachable, because the literal was no longer a constructor argument. The scan fired
+   rather than passing quietly, which is the behaviour it exists for.
+
+A spread whose keys cannot be read (`...base`) is reported as OPAQUE rather than assumed empty or
+assumed complete. The baseline is frozen at 11 keys, may shrink, and must never grow.
+
+### The capability that now fires: `effort`
+
+`TPresetEffort` is declared as `NonNullable<ICreateSessionOptions['effort']>` precisely to thread onto
+that seam, and three of the four built-in presets set it — `neutral-executor` asks for `'medium'`
+while the core defaults to `'high'`. At startup it reached nothing. The same preset chosen mid-session
+with `/preset` DID apply it, so one session could hold two different answers for the same preset
+depending on when it was chosen.
+
+Wired end to end, at every surface rather than the one that was convenient: the session option
+surface and `IInitOptions`, the framework projection, the TUI channel and its projection, the
+renderer, the headless channel, and print/serve mode. Red-proved at the TUI and headless hops by
+removing each hop and watching its case fail.
+
+The types are derived FROM the seam (`ICreateSessionOptions['effort']`) at every hop rather than
+re-declared beside it, since a parallel declaration is how two definitions drift apart again.
+
+**One thing this change did wrong and then fixed:** the first attempt passed `effort` into print and
+serve mode without adding it to their own preset-shaped types. It typechecked — a conditional spread
+is not subject to excess-property checking — and the field was silently dropped. That is this item's
+defect, committed while fixing it.
+
+### Single owners, where the size ratchet asked for them
+
+Three files grew past their frozen size. Rather than trimming comments, each grew because a projection
+was inline, so each projection was extracted — which is what this item asks for anyway:
+
+- `buildPresetSurfaceOptions` (`agent-cli/src/startup/preset-surface-options.ts`) — the preset fields
+  every shell surface forwards, written out three times inside `cli.ts` and kept in step by memory.
+- `buildCreateSessionOptions` (`agent-framework/src/interactive/create-session-projection.ts`) — the
+  `IInitOptions → ICreateSessionOptions` hop, previously mixed in with config merging and path
+  resolution inside a 332-line initializer.
+- `ITuiInteractionChannelOptions` moved beside its projection (`tui-channel-options.ts`), out of a
+  698-line implementation file.
+
+All three files fell below their baselines and were re-frozen in this change.
+
+### Remaining — stages 2 and 3
+
+- **Stage 2: the resolved-preset side.** Nine fields still reach no session: `systemPrompt`,
+  `appendSystemPrompt`, `language`, `temperature`, `maxOutputTokens`, `defaultTrustLevel`,
+  `allowedTools`, `deniedTools`, plus `autonomy`/`defaultPermissionMode` which are derivation-only
+  inputs. `--system-prompt`, `--append-system-prompt`, `--task-file` and `--json-schema` are still
+  dropped in interactive TUI mode. This needs the OPPOSITE direction of scan — consumption
+  reachability, not assignment — which is why it is not folded in here.
+- **Stage 3: `guardrails` and `retrievalAdapter`.** Both remain in the frozen baseline; both are
+  advertised capabilities (SELFHOST-005, SELFHOST-003) that no surface can turn on. The two
+  `guardrails` shapes (`ICreateSessionOptions.guardrails` as a map vs `config-types.ts:82` as a string
+  array) are still unbridged and must be reconciled as part of it.
+- The `IResolvedPresetOptions` doc comment still claims "Every field maps to an existing
+  agent-framework session/assembly seam". It is left in place deliberately until stage 2 makes it
+  true or narrows it — changing the words without changing the fact is the defect, not the fix.
