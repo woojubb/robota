@@ -97,10 +97,13 @@ export class CompactionOrchestrator {
     instructions?: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    if (history.length === 0) return '';
-    // RUNTIME-004: before anything costs anything. A user who cancelled before the turn began gets
-    // no provider call and no summary.
+    // RUNTIME-004: FIRST, before the empty-history shortcut. Review found that ordering the other way
+    // returned `''` for an already-cancelled turn — and the caller replaces the conversation with
+    // whatever this returns, so a cancel could still clear it and inject an empty summary. The
+    // shortcut is reachable with a non-empty conversation, because the caller filters system messages
+    // out before calling.
     signal?.throwIfAborted();
+    if (history.length === 0) return '';
 
     const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
 

@@ -202,3 +202,25 @@ Untouched and still true as the audit describes it:
 
 That is a contract change across four packages and is not folded into a change whose subject is one
 destructive path in another.
+
+### Review round 1 (PR #1608)
+
+Two SHOULDs, both upheld.
+
+**The abort check was ordered after the empty-history shortcut.** `if (history.length === 0) return ''`
+ran first, so an already-cancelled turn got `''` back — and the caller replaces the conversation with
+whatever it returns, so a cancel could still clear history and inject an empty summary. A hole in the
+exact invariant this change exists to establish, and reachable with a NON-empty conversation, because
+the caller filters system messages out before calling. The check now runs first; red-proved.
+
+**The SPEC did not describe the new parameter or the new rejection.** Added as rule 4 of the
+Compaction Failure Contract, which is where a reader would look: a cancel is a failure for the
+purpose of rule 2 (history untouched), and it rejects with an `AbortError` rather than a
+`CompactionError`, so `isAbortFailure` keeps a user's own cancellation from being reported as a failed
+turn.
+
+Review's analysis of the first finding also surfaced a **different** defect that has nothing to do
+with cancellation: the same shortcut returns `''` for an empty history, and the caller replaces the
+conversation with it, producing a system message plus an empty `[Context Summary]`. CORE-019's
+validity check cannot catch it because the provider is never called. Filed as **CORE-031** rather
+than folded in — it is one shortcut with one caller and its own choice to make.

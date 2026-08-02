@@ -104,6 +104,20 @@ describe('compaction honours the turn abort (RUNTIME-004)', () => {
     expect(isAbortFailure(error)).toBe(true);
   });
 
+  it('checks the signal even when there is nothing to summarise', async () => {
+    // Review round 1. The empty-history early return came BEFORE the abort check, so the orchestrator
+    // returned `''` for an already-cancelled turn — and the caller replaces history with whatever it
+    // returns, so a cancel could still clear the conversation and inject an empty summary. Narrow to
+    // reach (the caller filters system messages, so a system-only history takes this path) and a
+    // real hole in the one invariant this change exists to establish.
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      createOrchestrator().compact(createProvider(), [], undefined, controller.signal),
+    ).rejects.toThrow(/abort/i);
+  });
+
   it('a signal that never aborts changes nothing', async () => {
     const controller = new AbortController();
     const summary = await createOrchestrator().compact(
