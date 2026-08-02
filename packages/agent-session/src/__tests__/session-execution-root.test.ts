@@ -58,6 +58,13 @@ describe('a session must be told where it runs (ARCH-010)', () => {
     expect(construct(123)).toThrow(/requires `cwd`/i);
   });
 
+  it('refuses a RELATIVE root — the ambient read must not return through the value', () => {
+    // `./workspace` is resolved against `process.cwd()` by everything downstream, so accepting it
+    // would reintroduce exactly the ambient dependency this field replaces.
+    expect(construct('./workspace')).toThrow(/ABSOLUTE/);
+    expect(construct('workspace')).toThrow(/ABSOLUTE/);
+  });
+
   it('names what the value is FOR, so the caller can tell whether process.cwd() is right', () => {
     // An error that only says "cwd is required" gets `process.cwd()` pasted in reflexively, which is
     // the ambient read this change removed. Saying what consumes it makes that a decision.

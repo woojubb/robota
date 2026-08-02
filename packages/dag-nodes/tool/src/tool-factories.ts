@@ -31,9 +31,11 @@ export type FunctionTool = ITool;
  * A builtin factory, always given a containment root (SEC-007).
  *
  * `cwd` is REQUIRED here rather than optional, for the reason `pack-coding`'s `ICodingPackOptions`
- * makes it required: `checkPathWithinCwd` is a NO-OP when `cwd` is `undefined`, so an optional root is
- * a guard that disarms itself by omission. The two builtins that reach the network (`web-fetch`,
- * `web-search`) have no filesystem path to contain and ignore it.
+ * makes it required: `checkPathWithinCwd` USED TO BE a no-op when `cwd` was `undefined`, so an optional
+ * root was a guard that disarmed itself by omission. ARCH-010 made the guard refuse instead, and made
+ * `cwd` required on the `agent-tools` factories too — so this is now the same rule stated at three
+ * layers rather than the only thing enforcing it. The two builtins that reach the network
+ * (`web-fetch`, `web-search`) have no filesystem path to contain and ignore it.
  */
 export type ToolFactory = (options: { cwd: string }) => FunctionTool;
 
@@ -49,8 +51,8 @@ export const TOOL_FACTORIES: Readonly<Record<string, ToolFactory>> = {
   shell: (o) => createShellTool(o),
   bash: (o) => createBashTool(o),
   // SEC-007: built per invocation and bound to the root, not the module-level `globTool`/`grepTool`
-  // singletons this node used to hand back. Those are documented as UNCONTAINED precisely because a
-  // singleton is context-free by construction — there is nothing for a containment root to bind to.
+  // singletons this node used to hand back. A singleton is context-free by construction — there is
+  // nothing for a containment root to bind to — which is why ARCH-010 deleted them outright.
   glob: (o) => createGlobTool(o),
   grep: (o) => createGrepTool(o),
   'web-fetch': () => webFetchTool,

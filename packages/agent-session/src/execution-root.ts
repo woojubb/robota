@@ -1,3 +1,5 @@
+import { isAbsolute } from 'node:path';
+
 /**
  * The session's execution root. ARCH-010.
  *
@@ -18,6 +20,16 @@ export function requireExecutionRoot(cwd: unknown): string {
       'Session requires `cwd`: the absolute path this session executes in (ARCH-010). It feeds ' +
         'every hook input, CLAUDE_PROJECT_DIR, the permission root and the persisted record. Pass ' +
         '`process.cwd()` explicitly if that is genuinely what you mean.',
+    );
+  }
+  // ABSOLUTE, not merely present. A relative root is resolved against `process.cwd()` by everything
+  // downstream, so accepting one would let the ambient read this change removes back in through the
+  // VALUE instead of through its absence — the same defect wearing a different shape.
+  if (!isAbsolute(cwd)) {
+    throw new Error(
+      `Session requires an ABSOLUTE \`cwd\`; got ${JSON.stringify(cwd)} (ARCH-010). A relative ` +
+        'root is resolved against the process directory downstream, which is the ambient value this ' +
+        'field exists to replace. Resolve it at your composition root.',
     );
   }
   return cwd;

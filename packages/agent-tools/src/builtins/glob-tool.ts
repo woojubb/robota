@@ -103,10 +103,13 @@ async function globFileTool(
       ignore: ['**/node_modules/**', '**/.git/**'],
       dot: true,
       absolute: false,
-      // Contained: a symlinked directory is a BOUNDARY, not a doorway. Descending through one both
-      // escapes the sandbox and turns a single Glob call into a whole-disk walk when the link points
-      // at `/`. Unarmed (no containment root), fast-glob's default traversal is unchanged.
-      followSymbolicLinks: containmentRoot === undefined,
+      // A symlinked directory is a BOUNDARY, not a doorway. Descending through one both escapes the
+      // sandbox and turns a single Glob call into a whole-disk walk when the link points at `/`.
+      //
+      // Unconditional since ARCH-010. This used to be `containmentRoot === undefined` — following
+      // links when there was no root — but a rootless call now fails at `resolveSearchRoot` above and
+      // never reaches here, so that branch described a state that can no longer exist.
+      followSymbolicLinks: false,
     });
   } catch (err) {
     const result: IToolInvocationResult = {

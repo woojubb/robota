@@ -112,6 +112,19 @@ async function runShell(
   // so that link was unreachable — and an unreachable fallback still reads as a supported one, which
   // is how the ambient-root habit spreads. A caller that means the process directory says so.
   const effectiveCwd = workingDirectory ?? options.cwd;
+  if (effectiveCwd === undefined) {
+    // Only reachable from a caller that skipped the type — `options.cwd` is required. Refusing beats
+    // letting `spawn` silently inherit the process directory, which was the last ambient root in this
+    // package and the one contract violation that produced no message at all (ARCH-010).
+    return JSON.stringify({
+      success: false,
+      output: '',
+      error:
+        'Shell tool has no working directory: it was constructed without a `cwd` (ARCH-010). This ' +
+        'is an assembly bug — the tool would otherwise run in whatever directory the host process ' +
+        'was started in.',
+    });
+  }
   if (options.sandboxClient) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }

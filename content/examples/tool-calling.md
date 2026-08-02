@@ -153,10 +153,12 @@ const agent = new Robota({
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   tools: [
-    createBashTool({ sandboxClient }),
-    createReadTool({ sandboxClient }),
-    createWriteTool({ sandboxClient }),
-    createEditTool({ sandboxClient }),
+    // `cwd` is required even with a sandbox client (ARCH-010): it is the root inside the sandbox,
+    // and it still contains any tool that falls through to the host filesystem.
+    createBashTool({ sandboxClient, cwd: '/workspace' }),
+    createReadTool({ sandboxClient, cwd: '/workspace' }),
+    createWriteTool({ sandboxClient, cwd: '/workspace' }),
+    createEditTool({ sandboxClient, cwd: '/workspace' }),
   ],
 });
 ```

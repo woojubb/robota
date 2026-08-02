@@ -20,12 +20,16 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
  * The session context robota's coding tools are bound to.
  *
  * `cwd` is **required, not optional** — and that is the whole point of this factory. `agent-tools`'
- * `checkPathWithinCwd` is a NO-OP when `cwd` is `undefined`, so file tools constructed with no options
- * carry a DISARMED working-directory guard: their `Read` will happily return `/etc/hostname`. Before
+ * `checkPathWithinCwd` USED TO BE a no-op when `cwd` was `undefined`, so file tools constructed with no
+ * options carried a DISARMED working-directory guard: their `Read` returned `/etc/hostname`. Before
  * ARCH-006 that was inert, because the framework's own context-bound default tier always won a name
- * collision. Now that a product can hand the entire tool surface to its packs (`defaultTools: []`), a
- * context-free pack would be an unsandboxed `Read`/`Write`/`Edit`. Requiring `cwd` makes the scoping
- * decision impossible to forget.
+ * collision. Once a product could hand the entire tool surface to its packs (`defaultTools: []`), a
+ * context-free pack became an unsandboxed `Read`/`Write`/`Edit`.
+ *
+ * ARCH-010 has since fixed the layer below: the guard refuses when no root is configured, and the tool
+ * factories require `cwd` themselves. This requirement is therefore no longer load-bearing on its own —
+ * it is the precedent the audit's fix followed, and it stays because the scoping decision should be
+ * impossible to forget at every layer, not only the lowest one.
  */
 export interface ICodingPackOptions {
   /**

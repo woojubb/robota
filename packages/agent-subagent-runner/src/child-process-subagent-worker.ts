@@ -1,5 +1,5 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
-import { createProviderFromProfile } from '@robota-sdk/agent-executor';
+import { createProviderFromProfile, subagentExecutionRoot } from '@robota-sdk/agent-executor';
 import {
   createDefaultTools,
   createSubagentLogger,
@@ -82,20 +82,6 @@ function readSessionUsage(
   }
 }
 
-/**
- * The root this subagent runs in — ARCH-010.
- *
- * `ISubagentSpawnRequest.cwd` has always been required; this worker simply never read it, so
- * `createDefaultTools()` was called with no argument and the child's file tools had no containment
- * boundary at all. A worktree-isolated job runs in its worktree, which is the point of the isolation.
- *
- * One reader rather than two call sites, because the tools and the session being told DIFFERENT roots
- * is the same class of defect as neither being told one.
- */
-function subagentRoot(payload: ISubagentWorkerStartPayload): string {
-  return payload.request.worktreePath ?? payload.request.cwd;
-}
-
 async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<void> {
   try {
     const provider = createProviderFromProfile(
@@ -110,10 +96,12 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       agentDefinition: payload.agentDefinition,
       parentConfig: payload.parentConfig,
       parentContext: payload.parentContext,
-      // ARCH-010: the spawn request already carries the root (`ISubagentSpawnRequest.cwd` is
-      // required); this call simply never passed it, so every tool the child built was unconfined.
-      parentTools: createDefaultTools({ cwd: subagentRoot(payload) }),
-      cwd: subagentRoot(payload),
+      // ARCH-010: the spawn request already carries the root; this call simply never passed it, so
+      // every tool the child built was unconfined. Same reader as the session root below — the tools
+      // and the session being told DIFFERENT roots is the same class of defect as neither being told
+      // one.
+      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload.request) }),
+      cwd: subagentExecutionRoot(payload.request),
       provider,
       terminal: NOOP_TERMINAL,
       sessionId: payload.jobId,
