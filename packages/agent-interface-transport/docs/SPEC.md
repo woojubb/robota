@@ -51,13 +51,13 @@ agent-transport
 
 Types owned by this package (SSOT):
 
-| Type                     | Kind      | File                   | Description                                                                                          |
-| ------------------------ | --------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
-| `ITransportAdapter`      | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, `attach(session: TSession)`, `start()`, `stop()`                   |
-| `ITransportConfig`       | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                    |
-| `IConfigurableTransport` | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()` |
-| `ITransportEntry`        | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape           |
-| `ITransportRegistryView` | Interface | `transport-config.ts`  | `getAll()`, `setEnabled()`, `startAll()`, `stopAll()` — registry management contract                 |
+| Type                     | Kind      | File                   | Description                                                                                              |
+| ------------------------ | --------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ITransportAdapter`      | Interface | `transport-adapter.ts` | Core transport lifecycle: `name`, `attach(session)`, `start()`, `stop()`, `runsToCompletion?` (ARCH-011) |
+| `ITransportConfig`       | Interface | `transport-config.ts`  | Persisted config shape: `{ enabled: boolean; options?: Record<string, unknown> }`                        |
+| `IConfigurableTransport` | Interface | `transport-config.ts`  | Extends `ITransportAdapter` with `defaultEnabled`, `optionsSchema`, and optional `validateOptions()`     |
+| `ITransportEntry`        | Interface | `transport-config.ts`  | `{ transport: IConfigurableTransport<T>; config: ITransportConfig }` — registry item shape               |
+| `ITransportRegistryView` | Interface | `transport-config.ts`  | `getAll()`, `setEnabled()`, `startAll()`, `stopAll()` — registry management contract                     |
 
 In addition to the transport-adapter contracts above, the package owns several further contract
 groups, each in its own file (all re-exported from `src/index.ts`):
@@ -146,13 +146,34 @@ export interface ITransportAdapter<TSession = unknown> {
   attach(session: TSession): void;
   start(): Promise<void>;
   stop(): Promise<void>;
+  readonly runsToCompletion?: boolean;
 }
 ```
 
 - `name` — unique human-readable identifier (e.g., `'ws'`, `'tui'`, `'headless'`)
 - `attach()` — called before `start()` to bind the transport to a session
-- `start()` — begin serving; idempotent
+- `start()` — begin serving; idempotent. **Resolves once the transport is SERVING, not when its work
+  is done** — unless it declares `runsToCompletion`
 - `stop()` — stop serving and release resources; idempotent
+- `runsToCompletion` — `true` when `start()` does not return while the transport is alive
+
+#### What `start()` means, and why it had to be said (ARCH-011)
+
+The contract used to say only `start(): Promise<void>`, and two readings coexisted. Four transports
+bound a port and returned. `headless` ran the entire prompt inside `start()`; `tui` blocked for the
+life of the UI. `TransportRegistry.startAll` awaited each in turn, so registering either of those
+first meant **every transport behind it never started** — no crash, no error, simply never reached.
+
+A transport whose whole job happens inside `start()` declares `runsToCompletion: true`, and the
+registry starts it without awaiting. Its promise is kept, not dropped: `TransportRegistry.waitForCompletion()`
+is where its result and its failure arrive, because the transport whose entire job is inside `start()`
+is exactly the one whose failure matters, and an unawaited rejection would be an unhandled promise
+rather than a reported error.
+
+`runsToCompletion` is the ONE optional member on this contract, and deliberately so: "resolves once
+serving" is the ordinary case, a transport that omits it is asserting that meaning, and the registry
+treats absence as `false` rather than guessing. Contrast `IInteractiveSession`'s capability members
+(ARCH-012), where silence had no safe reading and optionality was removed.
 
 ### `ITransportConfig`
 

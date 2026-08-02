@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-011: `ITransportAdapter` is a four-member lifecycle stub, so six transports have each grown a private dialect and nothing mechanical can see the drift'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -129,3 +129,42 @@ without private dialects, and the scenario is to do it.
 - **Cleanup:** delete the scratch project.
 - **Evidence (fill in after implementation):** the consumer's source (showing no casts), and its
   console output across the three steps.
+
+## Progress
+
+### P1 — `start()` means one thing, and the deadlock is closed
+
+The synthesis lists this finding twice under theme T8, and the second listing is the one with a
+runnable failure: `ITransportAdapter.start()` meant "bind" in four implementations and "run to
+completion" in two, while `TransportRegistry.startAll` awaited each sequentially. Registering
+`headless` or `tui` first meant **every transport behind it never started** — no crash, no error,
+never reached.
+
+`start()` now says which it means: it resolves once the transport is SERVING. A transport whose whole
+job happens inside `start()` declares `runsToCompletion: true`, and the registry starts it without
+awaiting — keeping the promise, not dropping it, so `waitForCompletion()` is where its failure
+arrives. `headless-transport` and `tui-transport` declare it.
+
+`runsToCompletion` is optional, and that is a decision rather than an omission: "resolves once
+serving" is the ordinary case, so a transport that says nothing is asserting it, and the registry
+treats absence as `false` rather than guessing. That is the opposite call from ARCH-012's capability
+members, where silence had no safe reading — the difference is stated in the SPEC so the next reader
+does not have to infer which rule applies.
+
+Red-proved on both halves, separately: restoring the sequential await fails
+`expected 'pending' to be 'settled'`; dropping the promise instead of keeping it fails
+`promise resolved "undefined" instead of rejecting`.
+
+### Remaining — the conformance suite and the other axes
+
+The synthesis's direction has two parts and this is the first. What remains:
+
+- **The shared conformance suite** across all six transports, asserting one agreed answer per axis
+  (admission, cancellation verb, error shape, in-flight-on-disconnect, session surface). Without it
+  the contract still has as many meanings as it has adapters on those axes.
+- **The intersection types** (`& { getApp() }`, `& { getServer() }`, `& { onMessage }`,
+  `& { getExitCode() }`) that consumers depend on. The synthesis names narrowing them without
+  capability-scoped equivalents as the risk, and those equivalents are ARCH-012 P2.
+- **The capability gap** — HTTP exposing a subset of session methods, background-task/job-group/
+  execution-workspace WS-only. The synthesis says the new contract must be able to ASK this, not
+  necessarily answer it for every transport here.

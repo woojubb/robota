@@ -18,6 +18,8 @@ import type {
 export class TransportRegistry {
   private readonly entries = new Map<string, IConfigurableTransport<IInteractiveSession>>();
   private readonly settingsPath: string;
+  /** ARCH-011: in-flight `start()` promises of run-to-completion transports, by name. */
+  private readonly running = new Map<string, Promise<void>>();
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
@@ -59,12 +61,35 @@ export class TransportRegistry {
     writeSettings(this.settingsPath, settings);
   }
 
+  /**
+   * Start every enabled transport. ARCH-011.
+   *
+   * A transport that declares `runsToCompletion` is started WITHOUT being awaited — its `start()`
+   * does not return while it is alive, and awaiting it meant every transport behind it never
+   * started. Its promise is kept, not dropped: `waitForCompletion()` is where its result and its
+   * failure arrive, because a transport whose entire job happens inside `start()` is exactly the one
+   * whose failure matters, and an unawaited rejection would be an unhandled promise instead of a
+   * reported error.
+   */
   async startAll(session: IInteractiveSession): Promise<void> {
     const enabled = this.getEnabled();
     for (const transport of enabled) {
       transport.attach(session);
+      if (transport.runsToCompletion === true) {
+        this.running.set(transport.name, transport.start());
+        continue;
+      }
       await transport.start();
     }
+  }
+
+  /**
+   * Settle when every run-to-completion transport has finished, rejecting with the first failure.
+   *
+   * Resolves immediately when there are none, which is the ordinary case.
+   */
+  async waitForCompletion(): Promise<void> {
+    await Promise.all([...this.running.values()]);
   }
 
   /**

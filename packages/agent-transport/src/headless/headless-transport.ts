@@ -28,6 +28,9 @@ export function createHeadlessTransport(
     attach(s: IInteractiveSession) {
       session = s;
     },
+    // ARCH-011: `start()` here runs the entire prompt. Declared, so `startAll` does not await it and
+    // block every transport registered behind this one.
+    runsToCompletion: true,
     async start() {
       if (!session) throw new Error('No session attached. Call attach() first.');
       const runner = createHeadlessRunner({ session, outputFormat: options.outputFormat });
