@@ -67,7 +67,7 @@ describe('scan-contract-cast-ratchet', () => {
   it('does NOT count the pattern when it appears in a COMMENT', () => {
     // Found the honest way: a commit that removed two casts left the number unchanged, because the
     // comments explaining the removal quoted the pattern. A counter that counts prose blocks work on
-    // documentation.
+    // documentation. Parsing makes this structural — a comment is not an expression.
     const source = [
       `// the partial this replaces was \`as unknown as IInteractiveSession\``,
       `/* also as IInteractiveSession in a block comment */`,
@@ -78,6 +78,29 @@ describe('scan-contract-cast-ratchet', () => {
 
   it('does NOT count the pattern inside a string literal', () => {
     expect(count(`const msg = 'use as unknown as IInteractiveSession here';`).casts).toBe(0);
+  });
+
+  it('a string ending in a backslash does not swallow the rest of the file', () => {
+    // The hand-rolled scanner this replaced read the closing quote as escaped and blanked everything
+    // after it — a SILENT under-count, which is the worse direction: the scan treats a fall as
+    // something to re-freeze, so a wrong low number gets frozen and the ratchet goes blind.
+    const source = [`const p = 'C:\\\\';`, `const s = x as IInteractiveSession;`].join('\n');
+    expect(count(source).casts).toBe(1);
+  });
+
+  it('an apostrophe inside a regex literal does not open a string', () => {
+    const source = [`const r = /'/g;`, `const s = x as IInteractiveSession;`].join('\n');
+    expect(count(source).casts).toBe(1);
+  });
+
+  it('counts a cast inside a template substitution', () => {
+    expect(count('const m = `${x as IInteractiveSession}`;').casts).toBe(1);
+  });
+
+  it('counts an intersection whose first member is the contract', () => {
+    // `as unknown as IFoo & { _emit }` still stands in for the contract.
+    const source = `const s = x as unknown as IInteractiveSession & { _emit: () => void };`;
+    expect(count(source).casts).toBe(1);
   });
 
   it('a contract that appears only as a type annotation is not a cast', () => {

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { subscribeSessionEvents } from '../ws-session-events.js';
 
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, TDriverId } from '@robota-sdk/agent-interface-transport';
 
 /**
  * ARCH-012 — the sharp edge of an optional contract member.
@@ -25,7 +25,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  * capability or does not claim the contract. These cases pin that the member is REQUIRED, which is
  * what makes "no active driver" the only thing `null` can mean.
  */
-function hostWithAttribution(driverId: string | null): IInteractiveSession {
+function hostWithAttribution(driverId: TDriverId | null): IInteractiveSession {
   // The conformant double, not another hand-rolled partial — the cast ratchet objected to the first
   // draft of this very file, which is the behaviour it exists for.
   return createTestInteractiveSession({

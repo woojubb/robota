@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createWsHandler } from '../ws-handler.js';
 import { SessionResumeBridge } from '../session-resume-bridge.js';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 

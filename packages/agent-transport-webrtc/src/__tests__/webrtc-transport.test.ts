@@ -9,6 +9,9 @@ import { createInMemorySignalingPair, type ISignalingClient } from '../signaling
 function createStubSession(): IInteractiveSession {
   return {
     getMessages: vi.fn().mockReturnValue([{ role: 'user', content: 'hi' }]),
+    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // turn-authored event — omitting it throws the moment a case emits one.
+    getActiveDriverId: () => null,
     on: vi.fn(),
     off: vi.fn(),
   } as unknown as IInteractiveSession;

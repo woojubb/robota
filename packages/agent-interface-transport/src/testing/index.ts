@@ -1,23 +1,5 @@
-import type { IInteractiveSession } from './session-contracts.js';
+import type { IInteractiveSession } from '../session-contracts.js';
 
-/**
- * The conformant `IInteractiveSession` double, next to the contract it implements. ARCH-012.
- *
- * WHY IT LIVES HERE. A double for this contract already existed, published, and documented — in
- * `@robota-sdk/agent-framework`. It had **zero consumers**, and the reason is the dependency
- * direction: every transport package sits BELOW `agent-framework`, so none of them can import it.
- * The 41 hand-rolled `as unknown as IInteractiveSession` partials across 29 files were not an
- * oversight; they were the only thing those packages could reach.
- *
- * Placed with the contract, it is importable by everything that consumes the contract. The framework
- * re-exports this one rather than keeping a second implementation — two doubles for one contract can
- * disagree, which is the defect a level down.
- *
- * WHAT MAKES IT CONFORMANT: it is typed as `IInteractiveSession` with no cast, so the compiler
- * refuses it the moment the contract gains a member. That is the property the private partials do not
- * have — each was checked against nothing, so the suites built on them proved things no shipped code
- * guarantees.
- */
 const EMPTY_CONTEXT_STATE = {
   usedTokens: 0,
   maxTokens: 200000,
@@ -52,8 +34,27 @@ const EMPTY_BACKGROUND_GROUP = {
   results: [],
 };
 
-/** Creates a stub IInteractiveSession for use in tests. All methods return sensible defaults.
- *  Pass overrides to spy on or replace specific methods. */
+/**
+ * The conformant `IInteractiveSession` double, next to the contract it implements. ARCH-012.
+ *
+ * WHY IT LIVES HERE. A double for this contract already existed, published, and documented — in
+ * `@robota-sdk/agent-framework`. It had **zero consumers**, and the reason is the dependency
+ * direction: every transport package sits BELOW `agent-framework`, so none of them can import it.
+ * The 41 hand-rolled `as unknown as IInteractiveSession` partials across 29 files were not an
+ * oversight; they were the only thing those packages could reach.
+ *
+ * Placed with the contract, it is importable by everything that consumes the contract — but behind
+ * the `./testing` SUBPATH, never the main entry. `code-quality.md` is explicit about that, and the
+ * reason is concrete: the main entry is the shipped runtime bundle of a published package, and a test
+ * fixture has no business in it. `@robota-sdk/agent-core/testing`'s scripted-provider is the
+ * precedent. The first draft of this move put it on the main entry and review measured the double in
+ * `dist/node/index.js`.
+ *
+ * WHAT MAKES IT CONFORMANT: it is typed as `IInteractiveSession` with no cast, so the compiler
+ * refuses it the moment the contract gains a member. That is the property the private partials do not
+ * have — each was checked against nothing, so the suites built on them proved things no shipped code
+ * guarantees.
+ */
 export function createTestInteractiveSession(
   overrides?: Partial<IInteractiveSession>,
 ): IInteractiveSession {

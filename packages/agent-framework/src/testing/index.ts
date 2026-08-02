@@ -17,4 +17,7 @@ export {
   type IScriptedSessionOptions,
 } from './scripted-session-harness.js';
 
-export { createTestInteractiveSession } from './create-test-interactive-session.js';
+// ARCH-012: `createTestInteractiveSession` moved to `@robota-sdk/agent-interface-transport/testing`,
+// beside the contract it doubles — the transports that need it all sit BELOW this package and could
+// never import it from here. It is NOT re-exported: pass-through re-exports of another package's
+// symbols are banned (STRUCT-07, project-structure.md), and this one had zero importers.

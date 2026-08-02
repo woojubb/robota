@@ -1,5 +1,5 @@
 import { SessionResumeBridge } from '@robota-sdk/agent-transport-protocol';
-import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { describe, expect, it } from 'vitest';
 

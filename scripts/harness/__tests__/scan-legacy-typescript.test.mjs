@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -11,6 +12,7 @@ import {
   findBelowMinimumInstalled,
   findLegacyDependencies,
   findLegacyImportsInSource,
+  gitTrackedFiles,
   formatNotices,
   installedMajor,
   lowestMajorAdmitted,
@@ -449,5 +451,51 @@ describe('formatNotices', () => {
       'no node_modules at /x',
       'y/package.json no longer declares it',
     ]);
+  });
+});
+
+describe('gitTrackedFiles', () => {
+  /**
+   * `git ls-files` reports what the index knows, which is not always what is on disk. A change that
+   * DELETES a source file — or a materialised tree built from HEAD plus working changes — leaves
+   * entries naming files that are gone, and the caller hands each straight to `readFileSync`.
+   *
+   * Before this guard that was an ENOENT stack instead of a verdict, so any commit removing a `.ts`
+   * file failed the scan for a reason unrelated to what it checks. A gate that blocks correct work is
+   * one people route around.
+   */
+  it('skips a tracked path that is absent from disk, and says how many', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'tracked-files-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      writeFileSync(path.join(root, 'kept.ts'), 'export const a = 1;\n');
+      writeFileSync(path.join(root, 'removed.ts'), 'export const b = 2;\n');
+      execFileSync('git', ['add', '.'], { cwd: root });
+      unlinkSync(path.join(root, 'removed.ts'));
+
+      const notices = [];
+      const files = gitTrackedFiles(root, notices);
+
+      expect(files).toEqual(['kept.ts']);
+      expect(notices.join('\n')).toMatch(/1 tracked path\(s\) are absent from disk/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('reports nothing when every tracked path is present', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'tracked-files-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: root });
+      writeFileSync(path.join(root, 'kept.ts'), 'export const a = 1;\n');
+      execFileSync('git', ['add', '.'], { cwd: root });
+
+      const notices = [];
+      expect(gitTrackedFiles(root, notices)).toEqual(['kept.ts']);
+      // A scan that narrows its scope must say so; one that does not must stay quiet.
+      expect(notices).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -165,9 +165,11 @@ exactly those three members. The first draft of that test was an accidental gree
 used was missing forty other required members too, so the directive was satisfied by the wrong error.
 It uses `Omit<IInteractiveSession, ...>` now, which differs in the three and nothing else.
 
-**The double moved to the contract package**, `@robota-sdk/agent-interface-transport`, reachable by
-everything that consumes the contract. `agent-framework` re-exports it rather than keeping a second
-implementation — two doubles for one contract can disagree, which is this defect one level down.
+**The double moved to `@robota-sdk/agent-interface-transport/testing`** — the SUBPATH, not the main
+entry. The first draft put it on the main entry and review measured it in the shipped
+`dist/node/index.js`: a test fixture in a published runtime bundle, against an explicit rule with an
+existing precedent (`agent-core/testing`). It is NOT re-exported from `agent-framework`: pass-through
+re-exports of another package's symbols are banned (STRUCT-07), and the old export had zero importers.
 
 **Five hand-rolled partials replaced** with it, across `agent-transport-protocol`,
 `agent-transport-ws` and `agent-transport-webrtc`. Each had been accepted only by a cast: making the
@@ -191,3 +193,25 @@ by cases — the scan counts CODE, not prose, and not member types.
 - **The remaining 37 casts.** The ratchet stops them growing; deleting them is the port work above.
 - **User Execution Test Scenarios** — the scratch consumer project that implements the contract
   without a cast. It depends on the capability ports, so it closes with that work.
+
+### Review round — five findings, two of them MUST
+
+- **The double landed on the published main entry.** Measured in `dist/node/index.js`. Moved behind a
+  `./testing` subpath with its own build entry, matching `@robota-sdk/agent-core/testing`.
+- **No changeset** for three members going optional → required on a published interface, plus a moved
+  export, across two non-private packages. Added, with the migration for both.
+- **The `agent-framework` re-export was a banned pass-through** (STRUCT-07) with zero importers.
+  Deleted, and the removal explained where the file used to be.
+- **The ratchet's own counter mis-parsed.** Its hand-rolled comment/string blanker under-counted on a
+  string ending in a backslash, an apostrophe inside a regex, and a cast inside a template
+  substitution — the worse direction, since the scan treats a FALL as something to re-freeze, so a
+  wrong low number gets frozen and the ratchet goes blind by that many casts. It parses with the
+  TypeScript AST now; `as IFoo['bar']` and `as IFooEvents` are excluded by the shape of the tree
+  rather than by a lookahead. Reproduces 37 exactly, which the reviewer's independent AST walk agrees
+  with (35 plain + 2 intersection).
+- **The scan's docstring asserted the 51/33 numbers this change disproves** — the explanation an agent
+  reads when the ratchet fires. Corrected to the measured figures.
+
+Also taken: five further doubles that flow into `subscribeSessionEvents` and would have thrown on the
+first attributed event, a now-unreachable `getPendingCount?.() ?? …` fallback in `useTuiChannel`, the
+`agent-framework` SPEC's stale description, and the config block's missing `$comment`.

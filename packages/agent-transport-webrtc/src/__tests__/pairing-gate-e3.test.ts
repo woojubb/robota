@@ -20,6 +20,9 @@ import { PairingGate, type IHostReconnectConfig } from '../pairing-gate.js';
 function stubSession(): IInteractiveSession {
   return {
     getMessages: vi.fn().mockReturnValue([]),
+    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // turn-authored event — omitting it throws the moment a case emits one.
+    getActiveDriverId: () => null,
     on: vi.fn(),
     off: vi.fn(),
   } as unknown as IInteractiveSession;

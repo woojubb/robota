@@ -10,11 +10,16 @@
  * guarantees.
  *
  * WHY THIS EXISTS, measured. `IInteractiveSession` carries 40+ members across nine unrelated
- * responsibilities, and is cast to **51 times across 33 files in 8 packages** (ARCH-012). A published
- * conformant double already exists — `createTestInteractiveSession` in `@robota-sdk/agent-framework`
- * — and has **zero consumers**: every one of those 51 sites hand-rolled its own partial instead.
- * Replacing them is a large refactor, and this scan is what stops the number growing while that work
- * is designed.
+ * responsibilities. Before ARCH-012 it was cast to **41 times across 29 files**, and a published
+ * conformant double existed the whole time — in `@robota-sdk/agent-framework`, which every transport
+ * package sits BELOW, so none of them could import it. The partials were not an oversight; they were
+ * the only thing those packages could reach. The double now lives at
+ * `@robota-sdk/agent-interface-transport/testing`, beside the contract, and the count is 37.
+ *
+ * (The audit that raised this reported 51/33. That came from `rg 'as IInteractiveSession'`, which
+ * also matches `as IInteractiveSessionEvents[...]` and `as IInteractiveSessionStandardOptions` —
+ * casts to different types. Recorded because a baseline whose provenance nobody can explain is a
+ * number, not a ratchet.)
  *
  * A RATCHET, NOT A BAN. The count may fall and must never rise. Banning outright would be
  * unlandable today and would be suppressed rather than obeyed; freezing the number makes every new
@@ -23,12 +28,21 @@
  * NEUTRAL BY CONSTRUCTION: the contracts it watches are data in `.agents/harness.config.json` →
  * `contractCastRatchet`, so another repository names its own and changes no code here.
  *
- * WHAT IT CANNOT DO: it counts textual casts. A double built without the words `as unknown as`
- * — assigned through a helper, or via a typed factory — is invisible to it. A falling number is
- * therefore evidence the debt is shrinking, not proof that it has.
+ * WHAT IT CANNOT DO: it counts `as` expressions. A double built without one — assigned through a
+ * helper, or via a typed factory that lies — is invisible to it. A falling number is evidence the
+ * debt is shrinking, not proof that it has.
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+
+import {
+  ScriptTarget,
+  SyntaxKind,
+  createSourceFile,
+  forEachChild,
+  isAsExpression,
+  isTypeReferenceNode,
+} from './lib/ts-ast.mjs';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 
@@ -45,67 +59,63 @@ function sourceFiles(dir, out = []) {
 }
 
 /**
- * Blank out comments and string literals so the count measures CODE.
+ * Count casts by PARSING, not by matching text.
  *
- * A comment that describes the pattern — "the partial this replaces was `as unknown as IFoo`" — is
- * not a cast, and counting it means the ratchet blocks on prose. Found the honest way: the commit
- * that removed two casts left the number unchanged, because the comments explaining the removal
- * mentioned them.
+ * The first version blanked comments and strings with a hand-rolled scanner and then ran a regex.
+ * Review measured three ways it read the file wrong, all of them SILENT UNDER-COUNTS: a string ending
+ * in a backslash (`'C:\\'`) swallowed the rest of the file, an apostrophe inside a regex literal
+ * (`/'/g`) opened a string that never closed, and a cast inside a template `${…}` was blanked away.
+ * An under-count matters more than an over-count here: the scan treats a FALL as something to
+ * re-freeze, so a wrong low number gets frozen and the ratchet goes blind by exactly that many casts.
  *
- * Length-preserving, so reported line numbers stay true to the file.
+ * A real parser has no such ambiguities — the repo's native-AST adapter (`lib/ts-ast.mjs`), not the
+ * legacy `typescript` package, which PERF-005 bans from first-party code. `as X` is an `AsExpression`; the type it names is
+ * a `TypeReference`, so `as IFoo['bar']` (an `IndexedAccessType`) and `as IFooEvents` are excluded by
+ * the shape of the tree rather than by a lookahead. `as unknown as IFoo` nests, and only the outer
+ * one names the contract. Comments and strings are not expressions and never reach the walk.
  */
-function codeOnly(source) {
-  let out = '';
-  let i = 0;
-  while (i < source.length) {
-    const two = source.slice(i, i + 2);
-    if (two === '//') {
-      const end = source.indexOf('\n', i);
-      const stop = end === -1 ? source.length : end;
-      out += ' '.repeat(stop - i);
-      i = stop;
-      continue;
+function countCastsInSource(source, fileName, contracts, tally) {
+  const ast = createSourceFile(fileName, source, ScriptTarget.Latest, true);
+
+  /** The contract this cast names, or undefined for anything else. */
+  const contractOf = (typeNode) => {
+    // `as IFoo & { … }` — an intersection whose first member is the contract still stands in for it.
+    // An intersection whose first member is the contract still stands in for it. Matched by kind
+    // rather than a guard, because the adapter's guard set does not carry one for it.
+    if (typeNode.kind === SyntaxKind.IntersectionType) return contractOf(typeNode.types[0]);
+    if (!isTypeReferenceNode(typeNode)) return undefined;
+    const name = typeNode.typeName.getText(ast);
+    return contracts.includes(name) ? name : undefined;
+  };
+
+  const visit = (node) => {
+    if (isAsExpression(node)) {
+      const name = contractOf(node.type);
+      if (name !== undefined) {
+        const entry = tally.get(name);
+        entry.casts += 1;
+        entry.files.add(fileName);
+      }
     }
-    if (two === '/*') {
-      const end = source.indexOf('*/', i + 2);
-      const stop = end === -1 ? source.length : end + 2;
-      out += source.slice(i, stop).replace(/[^\n]/g, ' ');
-      i = stop;
-      continue;
-    }
-    const ch = source[i];
-    if (ch === "'" || ch === '"' || ch === '`') {
-      let j = i + 1;
-      while (j < source.length && !(source[j] === ch && source[j - 1] !== '\\')) j += 1;
-      out += source.slice(i, j + 1).replace(/[^\n]/g, ' ');
-      i = j + 1;
-      continue;
-    }
-    out += ch;
-    i += 1;
-  }
-  return out;
+    forEachChild(node, visit);
+  };
+  visit(ast);
 }
 
-/** Count `as (unknown as )?<Contract>` occurrences per contract, and the files carrying them. */
+/** Count `as <Contract>` casts per contract, and the files carrying them. */
 export function countContractCasts(files, contracts, readFile = (f) => readFileSync(f, 'utf8')) {
   const counts = new Map(contracts.map((name) => [name, { casts: 0, files: new Set() }]));
   for (const file of files) {
-    const source = codeOnly(readFile(file));
-    for (const name of contracts) {
-      const pattern = new RegExp(`\\bas\\s+(?:unknown\\s+as\\s+)?${name}\\b(?![\\w$['.])`, 'g');
-      const found = source.match(pattern);
-      if (!found) continue;
-      const entry = counts.get(name);
-      entry.casts += found.length;
-      entry.files.add(file);
-    }
+    const source = readFile(file);
+    // A cheap reject before parsing: most files never mention the contract at all.
+    if (!contracts.some((name) => source.includes(name))) continue;
+    countCastsInSource(source, file, contracts, counts);
   }
   return counts;
 }
 
 function main() {
-  const contracts = loadHarnessConfig().contractCastRatchet ?? [];
+  const contracts = loadHarnessConfig().contractCastRatchet?.contracts ?? [];
   if (contracts.length === 0) {
     console.log(
       'contract-cast ratchet: NO CONTRACTS CONFIGURED (.agents/harness.config.json) — nothing was checked.',
@@ -167,7 +177,7 @@ function main() {
 }
 
 function writeBaseline() {
-  const contracts = loadHarnessConfig().contractCastRatchet ?? [];
+  const contracts = loadHarnessConfig().contractCastRatchet?.contracts ?? [];
   const roots = ['packages', 'apps', 'scripts'].filter((dir) => existsSync(dir));
   const counts = countContractCasts(
     roots.flatMap((dir) => sourceFiles(dir)),
