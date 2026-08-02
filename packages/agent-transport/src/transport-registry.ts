@@ -20,6 +20,8 @@ export class TransportRegistry {
   private readonly settingsPath: string;
   /** ARCH-011: in-flight `start()` promises of run-to-completion transports, by name. */
   private readonly running = new Map<string, Promise<void>>();
+  /** Failures of run-to-completion transports, held until `waitForCompletion` asks for them. */
+  private readonly failures: unknown[] = [];
 
   constructor(settingsPath: string) {
     this.settingsPath = settingsPath;
@@ -76,7 +78,7 @@ export class TransportRegistry {
     for (const transport of enabled) {
       transport.attach(session);
       if (transport.runsToCompletion === true) {
-        this.running.set(transport.name, transport.start());
+        this.trackRunToCompletion(transport.name, transport.start());
         continue;
       }
       await transport.start();
@@ -84,12 +86,41 @@ export class TransportRegistry {
   }
 
   /**
-   * Settle when every run-to-completion transport has finished, rejecting with the first failure.
+   * Take ownership of a run-to-completion transport's promise.
    *
-   * Resolves immediately when there are none, which is the ordinary case.
+   * The handler is attached HERE, not left to `waitForCompletion`. Merely storing the promise does
+   * not attach one: a rejection between `startAll` returning and the caller getting round to
+   * `waitForCompletion` is an unhandled rejection, which on Node ≥15 aborts the process — measured,
+   * exit code 1, bypassing shutdown entirely. The first draft's comment claimed the opposite. The
+   * outcome is recorded and replayed instead, so the failure arrives when it is asked for and never
+   * escapes in the meantime.
+   *
+   * The entry is dropped once it settles, so a registry that is stopped and started again — a session
+   * switch does exactly this — does not accumulate or overwrite them.
+   */
+  private trackRunToCompletion(name: string, promise: Promise<void>): void {
+    const tracked = promise.then(
+      () => {
+        this.running.delete(name);
+      },
+      (error: unknown) => {
+        this.running.delete(name);
+        this.failures.push(error);
+      },
+    );
+    this.running.set(name, tracked);
+  }
+
+  /**
+   * Settle when every run-to-completion transport has finished, rejecting with the first failure to
+   * occur. Resolves immediately when there are none, which is the ordinary case.
    */
   async waitForCompletion(): Promise<void> {
     await Promise.all([...this.running.values()]);
+    const first = this.failures.shift();
+    if (first !== undefined) {
+      throw first;
+    }
   }
 
   /**
@@ -99,6 +130,13 @@ export class TransportRegistry {
    */
   async stopAll(): Promise<IDestroyResult> {
     const errors: Error[] = [];
+    // ARCH-011: a run-to-completion transport is ABANDONED here, not awaited. `stopAll`'s contract is
+    // best-effort and bounded (CORE-013); waiting on a transport whose `stop()` is a documented no-op
+    // — which both of them are — would make it neither. Dropping the tracking is what makes it
+    // honest: `waitForCompletion` after a stop resolves rather than hanging on work nobody will
+    // finish, and a later `startAll` (a session switch does this) starts from empty.
+    this.running.clear();
+    this.failures.length = 0;
     for (const transport of this.entries.values()) {
       try {
         await transport.stop();

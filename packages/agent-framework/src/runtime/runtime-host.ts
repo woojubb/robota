@@ -41,6 +41,15 @@ export interface IRuntimeHostHandle {
   readonly session: InteractiveSession;
   /** Stop the transports and shut the session down (bounded); idempotent. */
   shutdown(message?: string): Promise<void>;
+  /**
+   * Settle when every run-to-completion transport has finished, rejecting with the first failure
+   * (ARCH-011). Resolves immediately when there are none, which is the ordinary case.
+   *
+   * The caller owns the process-lifetime wait; this is what it races that wait against, so a
+   * transport whose entire job happens inside `start()` cannot fail unobserved. Without it the
+   * failure would sit in the registry with nothing able to ask for it.
+   */
+  waitForCompletion(): Promise<void>;
 }
 
 /**
@@ -56,6 +65,9 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
   let stopped = false;
   return {
     session,
+    async waitForCompletion(): Promise<void> {
+      await opts.transportRegistry?.waitForCompletion();
+    },
     async shutdown(message = 'runtime host stopped'): Promise<void> {
       if (stopped) return;
       stopped = true;

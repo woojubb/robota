@@ -168,3 +168,24 @@ The synthesis's direction has two parts and this is the first. What remains:
 - **The capability gap** — HTTP exposing a subset of session methods, background-task/job-group/
   execution-workspace WS-only. The synthesis says the new contract must be able to ASK this, not
   necessarily answer it for every transport here.
+
+### Review round — the failure route nothing could call
+
+Two MUSTs, both measured, and the second is this session's recurring class in a new shape.
+
+1. **`waitForCompletion()` was on the concrete registry only.** Both production `startAll` callers
+   hold `ITransportRegistryView`, which did not declare it, so neither could call it — and neither
+   did. The failure of a run-to-completion transport was stored in a map nothing could read, which is
+   WORSE than before, where `startAll` awaited it and the error reached the caller. It is on the view
+   now, and `IRuntimeHostHandle` exposes it to the caller that owns the process-lifetime wait.
+2. **Holding a promise is not handling it.** `this.running.set(name, transport.start())` keeps a
+   reference and attaches nothing, so a rejection between `startAll` returning and the caller reaching
+   `waitForCompletion` is an unhandled rejection — measured as exit code 1, bypassing shutdown. My
+   JSDoc and the SPEC both asserted the opposite. The handler is attached at start time now and the
+   outcome replayed, and the existing test could not have caught it because it awaited the two back to
+   back and never left the microtask drain. The new case puts a macrotask between them.
+
+Also: `stopAll` ignored the tracking entirely, so it reported success over live work and a subsequent
+`waitForCompletion` would hang on a transport whose `stop()` is a documented no-op. It abandons them
+explicitly, which is what makes its bounded best-effort contract honest — and what lets a session
+switch start from empty rather than overwrite a promise that then has no handler.

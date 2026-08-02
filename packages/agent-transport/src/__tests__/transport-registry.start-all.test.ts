@@ -62,7 +62,7 @@ function blockingTransport(
     stop: async () => {},
     // ARCH-011: the declaration that makes the difference visible to the registry.
     runsToCompletion: true,
-  } as IConfigurableTransport<IInteractiveSession> & { release: () => void };
+  };
 }
 
 /** A registry over a real, empty settings file — `/dev/null` is not valid JSON. */
@@ -126,7 +126,7 @@ describe('startAll starts every transport (ARCH-011)', () => {
     // `start()` is exactly the one whose failure matters, and an unawaited rejection would be an
     // unhandled promise rather than a reported error.
     const registry = registryOverTempSettings();
-    const failing = {
+    const failing: IConfigurableTransport<IInteractiveSession> = {
       name: 'headless',
       defaultEnabled: true,
       attach: vi.fn(),
@@ -135,11 +135,52 @@ describe('startAll starts every transport (ARCH-011)', () => {
       },
       stop: async () => {},
       runsToCompletion: true,
-    } as unknown as IConfigurableTransport<IInteractiveSession>;
+    };
     registry.register(failing);
 
     await registry.startAll(createTestInteractiveSession());
 
     await expect(registry.waitForCompletion()).rejects.toThrow(/prompt failed/);
+  });
+
+  it('holds a failure across a MACROTASK — the shape a real consumer has', async () => {
+    // The window the first draft left open. Storing the promise is not attaching a handler: a
+    // rejection between `startAll` returning and the caller reaching `waitForCompletion` was an
+    // unhandled rejection, which on Node ≥15 aborts the process. Review measured exit code 1, with
+    // `startAll` having already resolved OK. The previous case awaited the two back to back and so
+    // never left the microtask drain, which is exactly why it did not catch this.
+    const registry = registryOverTempSettings();
+    registry.register({
+      name: 'headless',
+      defaultEnabled: true,
+      attach: vi.fn(),
+      start: async () => {
+        throw new Error('prompt failed');
+      },
+      stop: async () => {},
+      runsToCompletion: true,
+    });
+
+    await registry.startAll(createTestInteractiveSession());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await expect(registry.waitForCompletion()).rejects.toThrow(/prompt failed/);
+  });
+
+  it('a stopped registry does not wait on work nobody will finish', async () => {
+    // `stop()` is a documented no-op for both run-to-completion transports, so awaiting them after
+    // `stopAll` would hang forever. Abandoning them is what makes `stopAll`'s bounded, best-effort
+    // contract honest — and it is what lets a session switch start from empty rather than
+    // overwriting a promise that then has no handler.
+    const started: string[] = [];
+    const registry = registryOverTempSettings();
+    const blocking = blockingTransport('tui', started);
+    registry.register(blocking);
+
+    await registry.startAll(createTestInteractiveSession());
+    await registry.stopAll();
+
+    expect(await within(registry.waitForCompletion())).toBe('settled');
+    blocking.release();
   });
 });

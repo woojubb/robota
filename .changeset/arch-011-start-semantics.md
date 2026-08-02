@@ -1,7 +1,7 @@
 ---
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-transport': minor
-'@robota-sdk/agent-transport-tui': patch
+'@robota-sdk/agent-transport-tui': minor
 ---
 
 **ARCH-011: `ITransportAdapter.start()` now says which of its two meanings it has.**
@@ -28,9 +28,15 @@ const transport: ITransportAdapter = {
 };
 ```
 
-`TransportRegistry` gains `waitForCompletion()`, which settles when every run-to-completion transport
-has finished and rejects with the first failure. The promise is kept rather than dropped, because a
-transport whose entire job is inside `start()` is exactly the one whose failure matters.
+`ITransportRegistryView` and `TransportRegistry` gain `waitForCompletion()`, which settles when every
+run-to-completion transport has finished and rejects with the first failure to occur — **any custom
+implementation of `ITransportRegistryView` must add it**. `IRuntimeHostHandle` gains the same method,
+so the caller that owns the process-lifetime wait can race it.
+
+The registry attaches the rejection handler when it starts such a transport rather than leaving it to
+whoever calls `waitForCompletion`: holding a promise is not handling it, and a rejection in the gap
+aborts the process. `stopAll()` abandons in-flight run-to-completion transports, since `stop()` is a
+no-op for both of them.
 
 Existing transports need no change: absence of `runsToCompletion` means the ordinary "resolves once
 serving", which is what four of the six already did.

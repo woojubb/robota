@@ -170,6 +170,11 @@ is where its result and its failure arrive, because the transport whose entire j
 is exactly the one whose failure matters, and an unawaited rejection would be an unhandled promise
 rather than a reported error.
 
+The route is wired: `ITransportRegistryView.waitForCompletion()` carries it, and
+`IRuntimeHostHandle.waitForCompletion()` exposes it to the caller that owns the process-lifetime
+wait. The first draft put the method on the concrete registry alone, where neither production caller
+— both hold the view — could reach it; a failure route nothing can call is not a route.
+
 `runsToCompletion` is the ONE optional member on this contract, and deliberately so: "resolves once
 serving" is the ordinary case, a transport that omits it is asserting that meaning, and the registry
 treats absence as `false` rather than guessing. Contrast `IInteractiveSession`'s capability members
