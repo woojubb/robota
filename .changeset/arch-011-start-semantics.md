@@ -2,6 +2,7 @@
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-transport': minor
 '@robota-sdk/agent-transport-tui': minor
+'@robota-sdk/agent-framework': minor
 ---
 
 **ARCH-011: `ITransportAdapter.start()` now says which of its two meanings it has.**
@@ -30,8 +31,9 @@ const transport: ITransportAdapter = {
 
 `ITransportRegistryView` and `TransportRegistry` gain `waitForCompletion()`, which settles when every
 run-to-completion transport has finished and rejects with the first failure to occur — **any custom
-implementation of `ITransportRegistryView` must add it**. `IRuntimeHostHandle` gains the same method,
-so the caller that owns the process-lifetime wait can race it.
+implementation of `ITransportRegistryView` must add it**. `IRuntimeHostHandle` (`@robota-sdk/agent-framework`) gains the
+same method, so the caller that owns the process-lifetime wait can race it — **any consumer
+implementing or mocking that handle must add it**.
 
 The registry attaches the rejection handler when it starts such a transport rather than leaving it to
 whoever calls `waitForCompletion`: holding a promise is not handling it, and a rejection in the gap

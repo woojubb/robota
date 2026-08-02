@@ -172,7 +172,14 @@ rather than a reported error.
 
 The route is wired: `ITransportRegistryView.waitForCompletion()` carries it, and
 `IRuntimeHostHandle.waitForCompletion()` exposes it to the caller that owns the process-lifetime
-wait. The first draft put the method on the concrete registry alone, where neither production caller
+wait.
+
+**What it actually covers**, stated because the apparatus is easy to read as wider than it is: a
+transport whose `start()` REJECTS. `headless` — the transport that most obviously runs to completion —
+absorbs every failure inside its runner and always resolves, expressing failure through
+`getExitCode()` instead; so it does not use this route today, and a non-zero exit code is not a
+rejection. Whether a run-to-completion transport should be able to report failure by result as well
+as by rejection is an open question recorded on ARCH-011, not something this contract answers. The first draft put the method on the concrete registry alone, where neither production caller
 — both hold the view — could reach it; a failure route nothing can call is not a route.
 
 `runsToCompletion` is the ONE optional member on this contract, and deliberately so: "resolves once

@@ -3,6 +3,11 @@
  *
  * Wraps createHeadlessRunner into the unified ITransportAdapter interface.
  * After start() completes, getExitCode() returns the runner's exit code.
+ *
+ * ARCH-011: this transport declares `runsToCompletion`, so a registry does not await it — read
+ * `getExitCode()` only after `waitForCompletion()`, never straight after `startAll()`. Note that the
+ * runner ABSORBS failures and always resolves, so failure arrives here as a non-zero exit code and
+ * never as a rejection: `waitForCompletion()` will not report it.
  */
 
 import { createHeadlessRunner } from './headless-runner.js';

@@ -225,3 +225,21 @@ only. Same `if (current === ours)` check `TurnClaim.release` needed in RUNTIME-0
 
 **A rejection with no value was read as no failure.** `Promise.reject()` pushes `undefined`, and the
 `!== undefined` guard swallowed it. Presence, not equality.
+
+Third CI round, two SHOULDs, both about completeness rather than correctness.
+
+`agent-framework` was missing from the changeset although its public `IRuntimeHostHandle` gained a
+required member. Added.
+
+And the sharper one: **the failure route's real reach is narrower than the narrative.** `headless` —
+the transport that most obviously runs to completion — absorbs every failure inside its runner and
+always resolves, expressing failure through `getExitCode()`. So its actual failure mode does not
+reject and therefore never reaches `trackRunToCompletion` → `waitForCompletion` → serve-mode's
+`.catch`. The new tests use a synthetic `start()` that throws, which is a different shape from the
+one production has. The machinery is right for what it covers; the prose implied it covered more.
+Both SPEC and the transport header now say which channel carries what.
+
+**Open question recorded rather than answered:** should a run-to-completion transport be able to
+report failure BY RESULT (a non-zero exit code) as well as by rejection? Making `waitForCompletion`
+observe exit codes would change `headless`'s deliberate black-box contract (RUNTIME-001), so it is a
+design decision for the conformance-suite work, not a patch here.
