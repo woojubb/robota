@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { toDagWorkflowFile } from '@robota-sdk/dag-builder';
 import { createDagFramework, HttpDagRuntimeProvider } from '@robota-sdk/dag-framework';
 
 import { createDagRuntimeServer } from '../app.js';
 
-import type { IDagDefinition, IDagWorkflowFile } from '@robota-sdk/dag-core';
+import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 
 // A single-node DAG: one InputNode emitting its configured text on the `text` output port.
@@ -18,10 +17,6 @@ const SINGLE_INPUT_DEFINITION: IDagDefinition = {
   nodes: [{ nodeId: 'in', nodeType: 'input', dependsOn: [], config: { text: 'hello-http' } }],
   edges: [],
 };
-
-function buildWorkflowFile(): IDagWorkflowFile {
-  return toDagWorkflowFile(SINGLE_INPUT_DEFINITION).workflowFile;
-}
 
 describe('HttpDagRuntimeProvider round-trip against the in-process server', () => {
   let framework: IDagFramework;
@@ -53,7 +48,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
   it('executes a DAG end-to-end (submit → watch → result)', async () => {
     const events: string[] = [];
     const result = await provider.execute(
-      buildWorkflowFile(),
+      SINGLE_INPUT_DEFINITION,
       { text: 'hello-http' },
       { onProgress: (e) => events.push(e.type) },
     );
@@ -62,16 +57,18 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
     expect(result.error).toBeUndefined();
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
     // The InputNode's `text` output (the run input, runtime-priority) reached the mapped result —
-    // proof the payload flowed submit → execute → result over HTTP. The output key embeds the
-    // recovered node id, so assert on the value rather than a brittle exact key.
-    const textOutputs = Object.entries(result.outputs)
-      .filter(([key]) => key.endsWith('.text'))
-      .map(([, value]) => value);
-    expect(textOutputs).toContain('hello-http');
+    // proof the payload flowed submit → execute → result over HTTP.
+    //
+    // DAG-002: this used to filter on `key.endsWith('.text')` and assert only the VALUE, because the
+    // node id in the key was not the one this test wrote — the round trip through the workflow-file
+    // format renamed `in` to `node-1`. The comment called that "a brittle exact key". It was not
+    // brittle; it was wrong, and the test worked around it rather than reporting it. The provider now
+    // runs the definition as given, so the key can be asserted whole.
+    expect(result.outputs['in.text']).toBe('hello-http');
   });
 
   it('submitRun returns a runId whose status becomes terminal', async () => {
-    const runId = await provider.submitRun(buildWorkflowFile(), { text: 'status-check' });
+    const runId = await provider.submitRun(SINGLE_INPUT_DEFINITION, { text: 'status-check' });
     expect(typeof runId).toBe('string');
     expect(runId.length).toBeGreaterThan(0);
 

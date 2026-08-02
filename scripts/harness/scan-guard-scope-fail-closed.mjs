@@ -87,6 +87,13 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured 2026-08-02 against a bare root: throws `none of packages, apps, scripts exist`.
+    file: 'scan-literal-cast-union.mjs',
+    finder: 'findLiteralCastUnionFindings',
+    tree: 'packages/, apps/ and scripts/',
+    why: 'it decides membership by reading the union declarations AND the cast sites out of the same tree; over a root with neither, "no literal is cast outside its union" is true of nothing, and the defect it exists for (a status value outside its own union, laundered by a cast, DAG-002) is exactly the kind that survives by producing no symptom',
+  },
+  {
     file: 'scan-review-token-supply.mjs',
     finder: 'findReviewTokenSupplyFindings',
     tree: '.github/workflows',

@@ -13,7 +13,6 @@
   "@robota-sdk/agent-transport": 9,
   "@robota-sdk/dag-adapters-sqlite": 2,
   "@robota-sdk/dag-api": 10,
-  "@robota-sdk/dag-builder": 8,
   "@robota-sdk/dag-cli": 1,
   "@robota-sdk/dag-core": 10,
   "@robota-sdk/dag-framework": 8,

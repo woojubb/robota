@@ -3,13 +3,13 @@
 // progress over the SSE stream, query status, and read the final result. Mirrors LocalDagRuntimeProvider
 // behaviour via the shared run-result mapping (no per-provider drift).
 
-import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 
 import { isTerminalStatus, mapRunToResult } from './run-result-mapping.js';
 import { trimTrailingSlashes } from './trim-trailing-slashes.js';
 
 import type {
+  IDagDefinition,
   IDagNodeManifest,
   IDagRun,
   IDagRunStatus,
@@ -17,7 +17,6 @@ import type {
   IDagRunSummary,
   IDagRuntimeProgressEvent,
   IDagRuntimeResult,
-  IDagWorkflowFile,
   IDetachableRunProvider,
   IListRunsOptions,
   ITaskRun,
@@ -134,7 +133,7 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
   }
 
   public async execute(
-    dag: IDagWorkflowFile,
+    dag: IDagDefinition,
     inputs: Record<string, unknown>,
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult> {
@@ -142,9 +141,11 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
     return this.watchRun(runId, options?.onProgress ?? (() => undefined), options?.signal);
   }
 
-  public async submitRun(dag: IDagWorkflowFile, inputs: Record<string, unknown>): Promise<string> {
-    const definition = fromDagWorkflowFile(dag);
-    const created = await this.client.createRun({ definition, input: inputs as TPortPayload });
+  public async submitRun(dag: IDagDefinition, inputs: Record<string, unknown>): Promise<string> {
+    // DAG-002: the wire body was ALWAYS the canonical definition — `createRun` takes one. The
+    // conversion here existed only to undo a conversion the caller had just performed, and lost node
+    // ids and port names on the way through.
+    const created = await this.client.createRun({ definition: dag, input: inputs as TPortPayload });
     if (!created.ok) {
       throw new Error(`createRun failed (HTTP ${created.status})`);
     }

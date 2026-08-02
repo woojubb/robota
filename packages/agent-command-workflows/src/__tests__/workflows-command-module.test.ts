@@ -145,7 +145,7 @@ describe('workflows validate', () => {
     await writeFile(join(dir, 'x.dag.json'), JSON.stringify({ foo: 1 }));
     const result = await executeWorkflowsValidate('x.dag.json', dir);
     expect(result.success).toBe(false);
-    expect(result.message).toContain('not a recognized DAG workflow file');
+    expect(result.message).toContain('Not a DAG file');
   });
 });
 

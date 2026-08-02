@@ -1,6 +1,6 @@
 ---
 title: 'DAG-002: the DAG''s top-level "run a DAG" contract is typed on the imported system''s file format, and the conversion is lossy in both directions'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -118,3 +118,168 @@ a workflow authored with string node ids does not round-trip.
 - **Cleanup:** delete the scratch workflow and its run state.
 - **Evidence (fill in after implementation):** the authored definition and the run record side by
   side, showing ids and port names preserved.
+
+## Implementation
+
+### What was measured before anything was changed
+
+Every premise in the finding held, checked against the code rather than repeated:
+`IDagRuntimeProvider.execute(dag: IDagWorkflowFile, …)`, `TDagDefinitionStatus = 'draft' |
+'published' | 'deprecated'`, and `status: (companion?.status ?? 'active') as TDagDefinitionStatus`.
+One thing the finding did not say, and which decides the shape of the fix: `IDagRobotaCompanion.status`
+is ALREADY typed as `TDagDefinitionStatus` (`workflow-file.ts:83`), so the cast was never needed for
+the companion branch. It existed to make one wrong default compile.
+
+A second measured fact narrows the blast radius. Of the 20 `fromDagWorkflowFile` call sites, most are
+CLI commands parsing a file off disk — that is an import adapter and entirely legitimate. The defect
+is confined to the execution contract: the two callers that already held an `IDagDefinition` and the
+two providers that converted it straight back.
+
+### The red-first proof
+
+`executeDefinition` — the function `/workflows create` and `/workflows run` both call — was run with a
+definition whose node ids are words (`greeting`, `reply`) joined on a named port. Against the unfixed
+code it returned:
+
+    ['node-1.passage', 'node-2.passage']
+
+Fabricated ids, on the real production path, in the result a user reads. That is the regression test.
+A first draft asserted the same thing through `LocalDagRuntimeProvider` directly, but against the old
+signature it failed with `workflowFile.links is not iterable` — a crash proving the types differ, not
+the loss. It was rewritten to go through the caller, where the failure is the defect itself.
+
+The status defect is red-proved separately: `fromDagWorkflowFile` with no companion returned
+`'active'`, and the case asserts membership in the union rather than one replacement value.
+
+### The change
+
+- `IDagRuntimeProvider.execute` / `IDetachableRunProvider.submitRun` take `IDagDefinition`.
+- Both providers drop their conversion. `HttpDagRuntimeProvider` is the sharpest instance: its wire
+  body was ALWAYS the canonical definition (`createRun({ definition })`), so the round trip existed
+  purely to undo the caller's — and lost ids on the way through.
+- `execute-workflow.ts` and `instant-node-loader.ts` drop theirs. The companion-derived
+  `node-<n> → <originalId>` map, which existed only to repair what the conversion destroyed, is gone.
+- `dagDefinitionFromParsedFile` (new, `dag-builder`) is now the single import adapter. It was
+  open-coded at each call site and the copies had drifted: `runs.ts submit` asserted the workflow-file
+  shape with a bare cast and never checked, so a definition file submitted there reached the provider
+  mislabelled.
+- The status default becomes `'draft'` and the cast is deleted.
+
+`toDagWorkflowFile` survives at exactly three sites — `migrate`, and the MCP `format`/`build` handlers
+— all of which genuinely emit the file format. That is the whole of its remaining job.
+
+### Recurrence prevention (mechanical)
+
+Fixing the site leaves the shape available everywhere else, so `scan-literal-cast-union.mjs` now fails
+when a string literal is cast to a repo-declared union it is not a member of. It resolves unions by
+parsing the tree's own `type X = 'a' | 'b'` declarations and follows `??`, `||`, `?:` and parentheses
+into the operand — the operators that spell a default, which is how this one was written.
+
+Red-proved end to end: reinstated on the real converter it reports the exact line; removed again it
+passes over 2728 files with no other finding, so there is no pre-existing debt being suppressed. It is
+registered in `run-all-scans`, fails closed on a root without the governed tree, and is classified in
+`MANDATORY_TREE_GUARDS` by execution (45 → 46 proven fail-closed).
+
+It deliberately does NOT judge what it cannot decide — a non-literal operand, an imported union, a
+composed union — because a scan that reports findings it cannot support is suppressed rather than
+obeyed. Its cheap pre-filter (2728 files → 117) was verified equivalent against the full parse rather
+than assumed; the first version matched only `'` and silently dropped two double-quoted unions, which
+is the under-report direction that would have made it blind.
+
+### Ratchets
+
+Three files were already over their frozen size and my comments pushed them past it. Rather than
+suppress, the explanations were tightened and the shared adapter extracted, which took `runs.ts` BELOW
+its baseline — re-frozen in this change. `dag-builder`'s SPEC public-API section was a bullet list the
+surface scan could not read at all; converting it to a table with bare identifiers took the package
+from 8 undocumented exports to 0, and its baseline entry is removed entirely.
+
+### Not done here
+
+- `IDagWorkflowFile` still lives in `dag-core` alongside the domain model. The finding left that
+  choice open (import/export adapter package vs. deletion) and it is not decided by this change.
+- Stored artifacts written through the old path may still carry `status: 'active'`. Nothing migrates
+  them; the scan prevents new ones. Recorded as the open half of this item's risk surface.
+- The six other CLI commands still open-code their own companion-reading loader. They do IO the new
+  adapter deliberately does not, and adopting it there is a separate cleanup.
+
+### Self-review round (pre-push)
+
+Two findings on my own diff, both upheld:
+
+1. **The adapter repeated the defect it was extracted to end.** `dagDefinitionFromParsedFile` fell
+   through to `parsed as IDagDefinition` for anything it did not recognise — a bare cast at exactly
+   the boundary whose bare cast is this item's subject. It now throws and names both expected shapes,
+   so an unrecognised file fails where it is read rather than later, somewhere else, as something
+   else. Three cases pin it, including `null`.
+
+2. **That throw would have reached the CLI as a stack trace.** `runs submit` has no try/catch and the
+   runner does not wrap it, so the new error — and the pre-existing unparseable-JSON error, which was
+   always unhandled — would crash rather than report. Extracted to `read-dag-file-arg.ts` returning a
+   discriminated result; `runs submit` renders a usage error. The extraction was also what the
+   file-size ceiling required: folding it inline pushed `runs.ts` past the hard 300-line maximum.
+
+Two floors caught me during the same pass and both were right: `scan-file-size` on the comments I
+added to already-over-baseline files, and `no-insecure-temp-path` (SEC-003) on a test of mine that
+joined a fixed name onto `tmpdir()`. Neither was suppressed.
+
+I also claimed to have reverted an unrelated `INodePortSpec` reflow in `runtime-provider.ts`. **That
+claim was wrong** — review checked the diff and the reflow is still there. Re-applying the expanded
+form and running prettier collapses it again: the formatter imposes the one-line union, and the
+expanded form on `develop` is stale. The reflow is not mine to remove, and both forms passing
+`prettier --check` earlier was me measuring two different files rather than the same one twice.
+
+### Review round 1 (PR #1605)
+
+1. **SHOULD, upheld** — `local-dag-runtime-provider.ts`'s class docstring still said `execute`
+   "accepts a `.dag.json` workflow file", directly above the signature this change retyped. Exactly
+   the comment-asserted-invariant shape, committed while fixing an instance of it.
+2. **CONSIDER, upheld against me** — the false reflow claim above.
+3. **Out of scope, taken anyway** — `dag-cli/commands/node.ts` emits `status: 'active'` in two
+   example-DAG generators and prints the result for a user to save. The same impossible value, on a
+   file this change never touched, and invisible to the new scan because it is an untyped literal
+   rather than a cast.
+
+Finding 3 is the useful one: it marks the scan's real boundary. A static check over casts cannot
+reach a value that arrives at runtime, and files carrying `'active'` are already on disk — the risk
+this task recorded from the start. Both literals are fixed, and
+`dagDefinitionFromParsedFile` now validates the status of every definition it imports, naming the
+value and the legal set. An ABSENT status stays legal; only a present one outside the union fails.
+Two layers, and the scan's docstring now says so rather than implying it is the whole guarantee.
+
+### Review round 2 (PR #1605)
+
+One SHOULD, upheld, and it is a correction to a claim of mine rather than to the code: the SPEC said
+`dagDefinitionFromParsedFile` is "the one place the workflow-file format is read", and this task file
+said it "validates the status of every definition it imports". Neither was true. `/workflows validate`
+and eight `dag-cli` sites still open-coded the branch and passed a legacy-format object straight
+through, so a file carrying `status: 'active'` — the value this change exists to eliminate, and one
+`dag-cli node` emitted until this same change fixed it — entered cleanly through all of them.
+
+Making a claim that stops the next reader from checking, in the change whose whole subject is a claim
+that stopped the next reader from checking.
+
+- `/workflows validate` is converted, because a surface whose entire job is answering "is this file
+  valid?" reporting an invalid status as valid is not a coverage gap, it is the wrong answer. The case
+  is red-proved, and the red-proof is why it asserts the MESSAGE: the unfixed code already returned
+  `success: false` for an unrelated empty-node-list issue, so asserting the verdict alone would have
+  passed whether or not the status was ever checked.
+- The eight `dag-cli` sites are filed as **DAG-004** with each location listed. They read a companion
+  first and each renders its own exit code, so converting them mid-change would have been a sweep
+  wearing this item's name.
+- Both claims are narrowed to what actually holds, and the SPEC now names DAG-004 so the gap is
+  readable from the document that overstated it.
+
+### Review round 3 (PR #1605)
+
+One SHOULD, upheld. `assertStatusInUnion` guarded only the legacy-definition branch; the workflow-file
+branch returned `companion?.status ?? 'draft'` unchecked, and `dag-cli`'s `tryReadCompanion` parses a
+companion with a bare `as IDagRobotaCompanion`. A companion written before DAG-002 carries `'active'`
+into a definition exactly as a definition file would.
+
+It does not fire today — no current caller passes a companion — which is precisely the reason to close
+it now: DAG-004's stated direction is to route the eight remaining CLI sites through this function
+"passing the companion where one is read", and that activates it. A guard that covers the branch that
+happens to be reachable is the shape this whole item is about.
+
+Both branches now pass through `assertStatusInUnion`, red-proved on the companion path.

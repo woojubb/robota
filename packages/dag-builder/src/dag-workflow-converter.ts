@@ -10,7 +10,6 @@ import type {
   IDagNode,
   IEdgeBinding,
   INodeConfigObject,
-  TDagDefinitionStatus,
 } from '@robota-sdk/dag-core';
 import type {
   IDagRobotaCompanion,
@@ -278,7 +277,8 @@ export function fromDagWorkflowFile(
   return {
     dagId: companion?.dagId ?? 'unknown',
     version: companion?.version ?? 1,
-    status: (companion?.status ?? 'active') as TDagDefinitionStatus,
+    // DAG-002: `'active'`, the old default, is not a member of `TDagDefinitionStatus`.
+    status: companion?.status ?? 'draft',
     nodes,
     edges,
     ...(companion?.costPolicy ? { costPolicy: companion.costPolicy } : {}),

@@ -233,6 +233,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
   },
   {
+    name: 'literal-cast-union',
+    command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },

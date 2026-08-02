@@ -7,16 +7,11 @@
 //   dag runs cancel   <runId>
 //   dag runs submit   <file>
 
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { getRunStore } from '../run-store.js';
-import type {
-  IDagRuntimeProvider,
-  IDetachableRunProvider,
-  IDagWorkflowFile,
-} from '@robota-sdk/dag-core';
+import type { IDagRuntimeProvider, IDetachableRunProvider } from '@robota-sdk/dag-core';
 import { FAILURE_EXIT_CODE, USAGE_ERROR_EXIT_CODE, SUCCESS_EXIT_CODE } from '../types.js';
 import type { IDagCliIo } from '../types.js';
+import { readDagFileArg } from './read-dag-file-arg.js';
 import { resolveProvider } from '../providers/index.js';
 
 const JSON_INDENT = 2;
@@ -285,9 +280,12 @@ export async function runsCommand(
       io.writeError('Error: submit requires a workflow file path.\n');
       return USAGE_ERROR_EXIT_CODE;
     }
-    const text = await readFile(resolve(filePath), 'utf8');
-    const dag = JSON.parse(text) as IDagWorkflowFile;
-    const runId = await runtimeProvider.submitRun(dag, {});
+    const loaded = await readDagFileArg(filePath);
+    if (!loaded.ok) {
+      io.writeError(`Error: ${loaded.message}\n`);
+      return USAGE_ERROR_EXIT_CODE;
+    }
+    const runId = await runtimeProvider.submitRun(loaded.value, {});
     if (outputFormat === 'json') {
       io.write(`${JSON.stringify({ runId }, null, JSON_INDENT)}\n`);
     } else {
