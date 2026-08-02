@@ -6,7 +6,7 @@ import {
   buildRobota,
   buildSessionTrackers,
 } from './session-components.js';
-import { compact, persistSession } from './session-history-ops.js';
+import { buildCompactContext, compact, persistSession } from './session-history-ops.js';
 import {
   configureProvider,
   fireSessionEndHook,
@@ -272,22 +272,19 @@ export class Session extends SessionBase {
     this.aiProvider = newProvider;
   }
 
-  async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {
-    await compact(instructions, {
-      sessionId: this.sessionId,
-      cwd: this.cwd,
+  async compact(
+    instructions?: string,
+    trigger: TCompactTrigger = 'manual',
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const extras = {
       systemMessage: this.systemMessage,
-      robota: this.robota,
-      aiProvider: this.aiProvider,
       compactionOrchestrator: this.compactionOrchestrator,
-      contextTracker: this.contextTracker,
-      hooks: this.hooks,
-      hookTypeExecutors: this.hookTypeExecutors,
       onCompactCallback: this.onCompactCallback,
       onCompactEventCallback: this.onCompactEventCallback,
       trigger,
-      log: (event, data) => this.log(event, data),
-    });
+    };
+    await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
 
   private buildRunContext(): IRunContext {
@@ -302,7 +299,7 @@ export class Session extends SessionBase {
       hookTypeExecutors: this.hookTypeExecutors,
       sessionStartStdout: this.sessionStartStdout,
       log: (event: string, data: TSessionLogData) => this.log(event, data),
-      compact: () => this.compact(undefined, 'auto'),
+      compact: (signal?: AbortSignal) => this.compact(undefined, 'auto', signal),
       persistSession: () => this.persistSessionInternal(),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

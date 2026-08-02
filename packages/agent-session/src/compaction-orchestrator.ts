@@ -84,6 +84,9 @@ export class CompactionOrchestrator {
    * @param provider - The AI provider to use for summarization
    * @param history - Current conversation history
    * @param instructions - Optional focus instructions for the summary
+   * @param signal - The turn's cancellation signal (RUNTIME-004). Checked before the provider call
+   *   and again after it: an abort throws rather than returning, so the caller's existing
+   *   leave-history-untouched path covers a cancel as well as a failure.
    * @returns The generated summary string (always a non-empty string)
    * @throws {CompactionError} when the provider returns a non-string or empty summary —
    *   callers must leave the conversation history untouched in that case
@@ -92,7 +95,14 @@ export class CompactionOrchestrator {
     provider: IAIProvider,
     history: TUniversalMessage[],
     instructions?: string,
+    signal?: AbortSignal,
   ): Promise<string> {
+    // RUNTIME-004: FIRST, before the empty-history shortcut. Review found that ordering the other way
+    // returned `''` for an already-cancelled turn — and the caller replaces the conversation with
+    // whatever this returns, so a cancel could still clear it and inject an empty summary. The
+    // shortcut is reachable with a non-empty conversation, because the caller filters system messages
+    // out before calling.
+    signal?.throwIfAborted();
     if (history.length === 0) return '';
 
     const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
@@ -125,8 +135,12 @@ export class CompactionOrchestrator {
           timestamp: new Date(),
         },
       ],
-      { model: this.model },
+      { model: this.model, ...(signal !== undefined ? { signal } : {}) },
     );
+    // RUNTIME-004: the caller REPLACES the whole conversation with what this returns, so returning a
+    // summary after a cancel is what destroyed it. Throwing puts an abort on the same path CORE-019
+    // already built for an invalid summary — history left untouched.
+    signal?.throwIfAborted();
     if (typeof summaryMessage.content !== 'string' || summaryMessage.content.trim() === '') {
       throw new CompactionError(
         `Compaction produced an invalid summary (provider=${provider.name}, content type=${typeof summaryMessage.content}); conversation history preserved untouched`,

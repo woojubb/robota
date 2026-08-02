@@ -1,6 +1,6 @@
 ---
 title: 'RUNTIME-004: cancellation is declared at four layers and honoured at none'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: soon
@@ -137,3 +137,90 @@ one of them destructive.
 - **Cleanup:** delete the scratch session and workflow run state.
 - **Evidence (fill in after implementation):** before/after history listings for steps 1–2, and the
   run's node-execution record for step 3.
+
+## Implementation — stage 1 of 2
+
+### One premise of this item is already false
+
+**L0 F1 is fixed.** `createAbortError` is still an untyped bare `Error`, but the substring matching
+the audit describes is gone: CORE-027 landed `packages/agent-core/src/utils/abort-classification.ts`,
+which decides on the caller's own `AbortSignal` and on `error.name === 'AbortError'` (including one
+level of `cause`), never on prose. All four sites the audit names now call it — the two in
+`agent-core`, and `agent-framework`'s `isAbortError`, which is a one-line delegation with a comment
+saying why. There is one owner and no copies. Nothing to do.
+
+That leaves two real halves: the destructive compaction path (L1 #7) — this stage — and the DAG stack
+(L5 F4) — stage 2.
+
+### The destructive instance, closed
+
+Verified before changing anything: `compact()` took no signal, called
+`provider.chat(…, { model })`, and `session-run.ts` invoked it with the turn's `abortSignal` in scope
+and unpassed. So a user who cancelled during auto-compaction got the provider call anyway, and then
+`session-history-ops` unconditionally ran `clearHistory()` → re-inject system → inject
+`[Context Summary]`. Cancelling did not cancel, and did not leave things alone: it replaced the whole
+conversation with a summary the user had asked not to produce.
+
+The signal is now threaded to the leaf — `executeRun` → `ctx.compact` → `Session.compact` →
+`compact()` → `provider.chat({ model, signal })` — and checked twice:
+
+- **before** the provider call, so a turn cancelled before it began costs nothing, and
+- **after** it returns, where an abort THROWS rather than returning a summary.
+
+Throwing is the load-bearing choice. CORE-019 already established that a compaction which produces an
+invalid summary must leave history untouched, and the caller implements that by simply not reaching
+the replacement. Throwing on abort puts a cancel on that same existing path instead of adding a second
+one.
+
+Self-review caught one thing before pushing: the doc on `compact()` said an abort makes it "return
+without touching the history", when it in fact THROWS and propagates. A comment describing behaviour
+the code does not have is this repository's most-repeated defect, and it was written while fixing an
+instance of the same family. Corrected, and a case now checks the thrown error against `isAbortFailure`
+— the one owner of that decision — rather than asserting the classification in prose.
+
+Red-proved six ways, including the chain itself: removing the single `abortSignal` argument at
+`session-run.ts` makes the handoff case fail while every leaf case still passes — which is what wiring
+only the leaf would have looked like.
+
+### Ratchets
+
+`session.ts` grew because the widened signature reformatted. Rather than trimming comments, the
+duplication underneath it was removed: `ICompactContext` and `IRunContext` shared eight fields written
+out twice, and the assembly moved to `session-history-ops.ts`, the module that consumes it. The file
+fell BELOW its baseline and was re-frozen.
+
+### Remaining — stage 2 (the DAG stack, L5 F4)
+
+Untouched and still true as the audit describes it:
+
+- `IDagOrchestrationPort` has no cancel method, so the capability is dropped at that boundary.
+- `local-dag-runtime-provider` sets a boolean and still runs `processOnce()` in the same iteration.
+- `run-cancel-service` writes `dagRun.status` and nothing else, and
+  `worker-loop-service` never reads it — so a cancelled run's queued tasks run to completion.
+- `INodeExecutionContext` carries no signal, so `INodeLifecycle.execute` is uncancellable by
+  construction; `task-timeout-executor` says so about itself.
+
+That is a contract change across four packages and is not folded into a change whose subject is one
+destructive path in another.
+
+### Review round 1 (PR #1608)
+
+Two SHOULDs, both upheld.
+
+**The abort check was ordered after the empty-history shortcut.** `if (history.length === 0) return ''`
+ran first, so an already-cancelled turn got `''` back — and the caller replaces the conversation with
+whatever it returns, so a cancel could still clear history and inject an empty summary. A hole in the
+exact invariant this change exists to establish, and reachable with a NON-empty conversation, because
+the caller filters system messages out before calling. The check now runs first; red-proved.
+
+**The SPEC did not describe the new parameter or the new rejection.** Added as rule 4 of the
+Compaction Failure Contract, which is where a reader would look: a cancel is a failure for the
+purpose of rule 2 (history untouched), and it rejects with an `AbortError` rather than a
+`CompactionError`, so `isAbortFailure` keeps a user's own cancellation from being reported as a failed
+turn.
+
+Review's analysis of the first finding also surfaced a **different** defect that has nothing to do
+with cancellation: the same shortcut returns `''` for an empty history, and the caller replaces the
+conversation with it, producing a system message plus an empty `[Context Summary]`. CORE-019's
+validity check cannot catch it because the provider is never called. Filed as **CORE-031** rather
+than folded in — it is one shortcut with one caller and its own choice to make.

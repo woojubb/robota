@@ -40,15 +40,43 @@ export interface ICompactContext {
   log: (event: string, data: TSessionLogData) => void;
 }
 
+/** What compaction needs beyond the run context it shares eight fields with. */
+export interface ICompactExtras {
+  systemMessage: string;
+  compactionOrchestrator: CompactionOrchestrator;
+  onCompactCallback: ((summary: string) => void) | undefined;
+  onCompactEventCallback: ((event: ICompactEvent) => void) | undefined;
+  trigger: TCompactTrigger;
+}
+
+/**
+ * Assemble the compaction context from the run context plus the five fields only it needs.
+ *
+ * The eight shared fields were written out twice in `Session`, once per context — the duplication
+ * this module is the natural owner of, since it is the one that consumes the result.
+ */
+export function buildCompactContext(
+  run: Omit<ICompactContext, keyof ICompactExtras>,
+  extras: ICompactExtras,
+): ICompactContext {
+  return { ...run, ...extras };
+}
+
 /**
  * Summarize the conversation to free context space.
  *
  * @param instructions - Optional focus instructions for the summary
  * @param ctx - Session state and callbacks
+ * @param signal - The turn's cancellation signal (RUNTIME-004). When it aborts the orchestrator
+ *   THROWS, so this propagates and the history replacement below is never reached — the conversation
+ *   is append-only source data and a cancel must not replace it with a summary the user asked not to
+ *   produce. The error is an `AbortError`, which `isAbortFailure` already classifies as the user's
+ *   own cancellation rather than a failed turn.
  */
 export async function compact(
   instructions: string | undefined,
   ctx: ICompactContext,
+  signal?: AbortSignal,
 ): Promise<void> {
   const history = ctx.robota.getHistory();
   if (history.length === 0) return;
@@ -58,10 +86,13 @@ export async function compact(
 
   // Exclude system messages from compaction — they are preserved and re-injected after
   const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
+  // RUNTIME-004: the orchestrator throws if the turn was cancelled, so the history replacement below
+  // is not reached — the same guarantee CORE-019 gives for an invalid summary.
   const summary = await ctx.compactionOrchestrator.compact(
     ctx.aiProvider,
     nonSystemHistory,
     instructions,
+    signal,
   );
 
   // Clear history, re-inject system message, then inject summary.
