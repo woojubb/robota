@@ -28,7 +28,7 @@ import { finishTask, finishTaskWithoutRun } from './swept-task-termination.js';
  *
  * A swept task returns to `queued` with its attempt INCREMENTED and is executed again — bounded by
  * `maxAttempts`, exactly like any other retry. A task that keeps killing its worker is failed with
- * `DAG_TASK_ABANDONED` rather than being re-run forever, and a task belonging to a run that has
+ * `DAG_TASK_EXECUTION_ABANDONED` rather than being re-run forever, and a task belonging to a run that has
  * already finished is cancelled rather than restarted.
  */
 export async function sweepStaleTaskRuns(

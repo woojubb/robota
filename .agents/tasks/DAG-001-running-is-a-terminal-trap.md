@@ -343,3 +343,22 @@ own 11 cases; unregistering it fails its reachability case. It states its own li
 so a value laundered through a variable passes — rather than overclaiming.
 
 Catalogued as common-mistakes #83 and mirrored to `.agents/memory/`.
+
+Tenth round, two SHOULDs — one prose drift (`DAG_TASK_ABANDONED` vs the code's
+`DAG_TASK_EXECUTION_ABANDONED`), and one that matters:
+
+**`FileStoragePort` persists only DEFINITIONS.** Its runs and task runs are in-memory `Map`s, so
+against that adapter a real crash loses the `status`/`leaseUntil` the sweep reads — there is nothing
+left to recover. Only `SqliteStorageAdapter` gets crash-durable recovery. The gap is pre-existing, but
+this task's own SPEC named "the sqlite/file path" as the sweeper's two target adapters, so the
+documentation promised a guarantee one of them cannot give.
+
+FOUNDATIONAL, so it is filed as [DAG-003](DAG-003-file-storage-persists-only-definitions.md) rather
+than patched here, and the overclaim is corrected in three places: the adapter's SPEC row, this
+task's § Crash Recovery (which now names which adapter is actually protected), and the
+`task-run-recovery.ts` comment that had recorded the fact in passing while the change depended on the
+opposite.
+
+Notably this is the sixth instance of the branch's dominant class — a claim asserting a property the
+code does not have — this time in prose rather than code, which `scan-authority-bypass` does not
+reach. Its limits are stated in its own header for exactly this reason.

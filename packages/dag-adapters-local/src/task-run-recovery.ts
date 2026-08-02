@@ -3,7 +3,9 @@ import type { ITaskRun } from '@robota-sdk/dag-core';
 /**
  * The two task-run operations a crash-recovery path needs, over an in-memory task map. DAG-001.
  *
- * Shared by the in-memory and file adapters, which hold their task runs the same way. Two copies of
+ * Shared by the in-memory and file adapters, which hold their task runs the same way — in memory.
+ * For the FILE adapter that is a durability gap, not a detail: it persists definitions only, so the
+ * crash recovery built on these functions has nothing to read after a real restart (DAG-003). Two copies of
  * "which task counts as abandoned" could disagree, and a task nobody agrees is stuck is a task nobody
  * recovers — which is the defect this closes.
  */

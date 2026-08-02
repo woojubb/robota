@@ -77,6 +77,14 @@ This is safe precisely here: the code reaches that point only after `lease.acqui
 live owner's duplicate delivery is nacked before it gets there. Acquiring means the previous owner
 released the lease or died and let it expire — the definition of abandoned.
 
+**Which adapters this actually protects.** The sweep recovers state it can still READ after a
+restart, so it is crash-durable only where the store is. `SqliteStorageAdapter` persists task runs
+and their leases and gets the full guarantee. `FileStoragePort` persists only DAG **definitions** —
+its runs and task runs are in-memory — so a real process crash there loses the `status`/`leaseUntil`
+the sweep reads and there is nothing left to recover. That is pre-existing and tracked as DAG-003;
+it is named here rather than left implied, because this section would otherwise promise a guarantee
+one of its two named adapters cannot give.
+
 **On idle.** Only the in-memory queue redelivers. On a queue without it there is no message left to
 arrive, so `processOnce` calls `sweepStaleTaskRuns` on its idle branch — the one point every loop
 driver goes through, throttled to at most once per `leaseDurationMs` since a lease cannot expire
@@ -97,7 +105,7 @@ A swept task returns to `queued` with its attempt INCREMENTED and is executed ag
 - **A run that is already over.** `RunCancelService.cancelRun` updates only the RUN, leaving its tasks
   `running`, so without this check cancelling a run and waiting would silently re-execute the node the
   user cancelled. Such tasks are marked `cancelled`.
-- **A task with no attempts left.** Failed with `DAG_TASK_ABANDONED`. Without the attempt increment
+- **A task with no attempts left.** Failed with `DAG_TASK_EXECUTION_ABANDONED`. Without the attempt increment
   above, a task that keeps killing its worker would be swept and re-run forever and `maxAttempts`
   would never apply.
 
