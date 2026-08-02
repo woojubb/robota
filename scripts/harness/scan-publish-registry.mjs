@@ -36,7 +36,7 @@
  * and the manifests describe the same world. A pass means the gate is CONSISTENT, never that a
  * publish is safe.
  *
- * FAIL-CLOSED: the registry file and at least one package root must exist. A run that could not read
+ * FAIL-CLOSED: the registry file and at least one workspace manifest must exist. A run that could not read
  * either reports that rather than a pass.
  *
  * Exit code 0 = the registry and the workspace agree, 1 = they do not.
@@ -46,17 +46,53 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const REGISTRY_PATH = '.agents/publish-registry.md';
-const PACKAGE_ROOTS = ['packages', 'apps'];
+const WORKSPACE_FILE = 'pnpm-workspace.yaml';
+
+/**
+ * Tiers that are workspace members for dependency resolution but are never published.
+ *
+ * Mirrors `shared.mjs`'s `listWorkspaceScopes`, which skips them for the same reason: `examples/*`
+ * are members only so pnpm links `@robota-sdk/*` to local source for drift-detecting typecheck, and
+ * `scratch` is a gitignored dev-tooling skeleton.
+ */
+const NON_PUBLISHING_TIERS = new Set(['examples', 'scratch']);
+
+/**
+ * The workspace's own package globs, from `pnpm-workspace.yaml` — not a hardcoded list.
+ *
+ * The first version of this scan hardcoded `['packages', 'apps']` and read one directory level, which
+ * silently missed the entire `packages/dag-nodes/*` tier: twenty packages invisible to every rule
+ * here. Review caught it, and the way it caught it matters — the PR had used that same broken count
+ * to "correct" the audit's figure of 86 down to 66. The audit was right; the instrument was wrong.
+ * Reading the globs the workspace itself declares is what makes a new tier arrive automatically
+ * instead of silently.
+ */
+export function workspaceGlobs(root) {
+  const file = path.join(root, WORKSPACE_FILE);
+  if (!existsSync(file)) return [];
+  const globs = [];
+  let inPackages = false;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (/^packages:\s*$/.test(line)) {
+      inPackages = true;
+      continue;
+    }
+    if (inPackages && /^\S/.test(line)) break;
+    const entry = /^\s*-\s*['"]?([^'"#\s]+)['"]?/.exec(line);
+    if (inPackages && entry) globs.push(entry[1]);
+  }
+  return globs.filter((glob) => !NON_PUBLISHING_TIERS.has(glob.split('/')[0]));
+}
 
 /** Every workspace manifest, as `{ name, private, access, dependencies }`. */
 export function readWorkspacePackages(root) {
   const found = [];
-  for (const dir of PACKAGE_ROOTS) {
-    const full = path.join(root, dir);
-    if (!existsSync(full)) continue;
-    for (const entry of readdirSync(full)) {
-      const manifest = path.join(full, entry, 'package.json');
-      if (!existsSync(manifest)) continue;
+  const seen = new Set();
+  for (const glob of workspaceGlobs(root)) {
+    for (const dir of expandGlob(root, glob)) {
+      const manifest = path.join(dir, 'package.json');
+      if (!existsSync(manifest) || seen.has(manifest)) continue;
+      seen.add(manifest);
       const parsed = JSON.parse(readFileSync(manifest, 'utf8'));
       if (typeof parsed.name !== 'string') continue;
       found.push({
@@ -68,6 +104,28 @@ export function readWorkspacePackages(root) {
     }
   }
   return found;
+}
+
+/** Directories matching a pnpm workspace glob. Only `*` is used by this workspace. */
+function expandGlob(root, glob) {
+  const segments = glob.split('/');
+  let dirs = [root];
+  for (const segment of segments) {
+    const next = [];
+    for (const dir of dirs) {
+      if (segment === '*') {
+        if (!existsSync(dir)) continue;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (entry.isDirectory() && entry.name !== 'node_modules')
+            next.push(path.join(dir, entry.name));
+        }
+      } else {
+        next.push(path.join(dir, segment));
+      }
+    }
+    dirs = next;
+  }
+  return dirs.filter((dir) => existsSync(dir));
 }
 
 /**
@@ -114,7 +172,7 @@ export function findPublishRegistryFindings(root = WORKSPACE_ROOT) {
   const packages = readWorkspacePackages(root);
   if (packages.length === 0) {
     throw new Error(
-      `publish-registry: no package manifests found under ${PACKAGE_ROOTS.join(', ')} in ${root} — nothing could be checked against the registry.`,
+      `publish-registry: no package manifests found for the ${WORKSPACE_FILE} globs in ${root} — nothing could be checked against the registry.`,
     );
   }
 

@@ -5,7 +5,12 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { findPublishRegistryFindings, parseRegistry } from '../scan-publish-registry.mjs';
+import {
+  findPublishRegistryFindings,
+  parseRegistry,
+  readWorkspacePackages,
+  workspaceGlobs,
+} from '../scan-publish-registry.mjs';
 
 /**
  * The scan exists because the publishing gate was prose nobody read. On the live tree its first run
@@ -23,11 +28,20 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-/** A throwaway workspace: a registry plus a set of manifests. */
-function workspace(registry, packages) {
+/**
+ * A throwaway workspace: a `pnpm-workspace.yaml`, a registry, and a set of manifests.
+ *
+ * The workspace file is part of the fixture because the scan derives its package roots from it rather
+ * than hardcoding them — which is the whole point of the fix that made it read `packages/dag-nodes/*`.
+ */
+function workspace(registry, packages, globs = ['packages/*']) {
   const root = mkdtempSync(path.join(tmpdir(), 'publish-registry-'));
   dirs.push(root);
   mkdirSync(path.join(root, '.agents'), { recursive: true });
+  writeFileSync(
+    path.join(root, 'pnpm-workspace.yaml'),
+    ['packages:', ...globs.map((glob) => `  - '${glob}'`), ''].join('\n'),
+  );
   writeFileSync(path.join(root, '.agents/publish-registry.md'), registry);
   for (const pkg of packages) {
     const dir = path.join(root, 'packages', pkg.name.split('/').pop());
@@ -108,6 +122,22 @@ describe('scan-publish-registry', () => {
       expect(rules(root)).toEqual(['missing-public-access']);
     });
 
+    it('finds a package in a NESTED glob tier', () => {
+      // `packages/dag-nodes/*` shape: one directory level deeper than `packages/*`. Twenty-two real
+      // packages lived there and the first version of this scan could not see any of them.
+      const root = workspace(REGISTRY, [{ name: '@a/pub', ...PUBLIC }], ['packages/*']);
+      mkdirSync(path.join(root, 'packages/nested/deep'), { recursive: true });
+      writeFileSync(
+        path.join(root, 'packages/nested/deep/package.json'),
+        JSON.stringify({ name: '@a/deep', ...PUBLIC }),
+      );
+      writeFileSync(
+        path.join(root, 'pnpm-workspace.yaml'),
+        "packages:\n  - 'packages/*'\n  - 'packages/nested/*'\n",
+      );
+      expect(rules(root)).toEqual(['unlisted-publishable']);
+    });
+
     it('rule 4 (RED): a Private package depended on by a published one fails', () => {
       // The rule that DECIDES rather than reports. Three manifests contradicted this repository's
       // Private table and the graph settled it: publishing the dependents would ship installs that
@@ -155,6 +185,30 @@ describe('scan-publish-registry', () => {
       const root = workspace('## Published Packages', []);
       expect(() => findPublishRegistryFindings(root)).toThrow(/no package manifests/);
     });
+
+    it('throws when the workspace file declares no roots at all', () => {
+      // No globs means no packages means nothing checked — an empty gate, not a clean one.
+      const root = workspace('## Published Packages', [], []);
+      expect(() => findPublishRegistryFindings(root)).toThrow(/no package manifests/);
+    });
+  });
+
+  it('sees a NESTED workspace tier, not just one directory level', () => {
+    // `packages/dag-nodes/*` is its own glob in `pnpm-workspace.yaml`. The first version hardcoded
+    // `['packages', 'apps']` and read one level, so twenty-two packages were invisible to every rule
+    // — and the count it produced was then used to "correct" the audit's figure downwards. The audit
+    // was right; the instrument was wrong.
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const names = readWorkspacePackages(root).map((pkg) => pkg.name);
+    expect(names.filter((name) => name.includes('dag-node')).length).toBeGreaterThan(15);
+  });
+
+  it('excludes the tiers that are members but never publish', () => {
+    // `examples/*` and `scratch` are workspace members only so pnpm links local source; treating
+    // them as publishable would make rule 1 fire on every example.
+    const root = path.resolve(import.meta.dirname, '../../..');
+    expect(workspaceGlobs(root).some((glob) => glob.startsWith('examples'))).toBe(false);
+    expect(workspaceGlobs(root)).toContain('packages/dag-nodes/*');
   });
 
   it('is registered and passes on the live repository', () => {
@@ -167,8 +221,9 @@ describe('scan-publish-registry', () => {
       cwd: root,
       encoding: 'utf8',
     });
-    // A pass over nothing is not a pass — assert the size it reports.
+    // Not a loose floor. The number the scan reports must equal what an independent walk of the
+    // workspace globs finds — `> 30` passed happily while a whole tier was missing.
     const examined = Number(/\((\d+) workspace package/.exec(output)?.[1] ?? '0');
-    expect(examined).toBeGreaterThan(30);
+    expect(examined).toBe(readWorkspacePackages(root).length);
   });
 });

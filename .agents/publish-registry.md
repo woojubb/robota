@@ -16,39 +16,39 @@ Last audited: 2026-08-03 (INFRA-086 — reconciled against the manifests and giv
 
 ## Published Packages
 
-| Package                                        | npm tag | Notes                                                                                |
-| ---------------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
-| `@robota-sdk/agent-capability-pack`            | beta    | Additive capability-bundle contract (ICapabilityPack) and the pure mergeCapabilityPa |
-| `@robota-sdk/agent-cli`                        | beta    | AI coding assistant CLI built on Robota SDK                                          |
-| `@robota-sdk/agent-command`                    | beta    | Consolidated command module implementations for Robota SDK CLI                       |
-| `@robota-sdk/agent-core`                       | beta    | Complete AI agent implementation with unified core and tools functionality           |
-| `@robota-sdk/agent-executor`                   | beta    | Composable runtime primitives for Robota background tasks and subagent orchestration |
-| `@robota-sdk/agent-framework`                  | beta    | Programmatic SDK for building AI agents with Robota                                  |
-| `@robota-sdk/agent-interface-transport`        | beta    | Transport contract interfaces for the Robota SDK (ITransportAdapter, IConfigurableTr |
-| `@robota-sdk/agent-interface-tui`              | beta    | TUI interaction contract interfaces for the Robota SDK (ITuiPickerItem, ITuiCommandI |
-| `@robota-sdk/agent-plugin`                     | beta    | Consolidated plugin implementations for Robota SDK                                   |
-| `@robota-sdk/agent-preset`                     | beta    | Preset contract and resolver for the Robota SDK (IPreset, resolvePreset, listPresets |
-| `@robota-sdk/agent-process`                    | beta    | Domain-free child-process termination primitives for the Robota SDK                  |
-| `@robota-sdk/agent-product`                    | beta    | The product-assembly kernel for the Robota SDK: assembleProduct                      |
-| `@robota-sdk/agent-provider-anthropic`         | beta    | Anthropic Claude provider implementation for Robota SDK                              |
-| `@robota-sdk/agent-provider-bytedance`         | beta    | Bytedance (ModelArk) video generation provider for Robota SDK                        |
-| `@robota-sdk/agent-provider-defaults`          | beta    | Default provider definition aggregator for Robota SDK                                |
-| `@robota-sdk/agent-provider-gemini`            | beta    | Google Gemini provider implementation for Robota SDK                                 |
-| `@robota-sdk/agent-provider-openai`            | beta    | OpenAI provider implementation for Robota SDK                                        |
-| `@robota-sdk/agent-provider-openai-compatible` | beta    | OpenAI-compatible providers (DeepSeek, Qwen, Gemma) for Robota SDK                   |
-| `@robota-sdk/agent-remote-pairing`             | beta    | Isomorphic pairing + DTLS-fingerprint channel binding for Robota P2P remote-control  |
-| `@robota-sdk/agent-session`                    | beta    | Session and chat management for Robota SDK                                           |
-| `@robota-sdk/agent-session-analytics`          | beta    | Session-log timing analysis and reporting for the Robota SDK (analyzeSession, aggreg |
-| `@robota-sdk/agent-subagent-runner`            | beta    | Child-process subagent runner for Robota SDK                                         |
-| `@robota-sdk/agent-tools`                      | beta    | Tool registry and implementations for Robota SDK                                     |
-| `@robota-sdk/agent-transport`                  | beta    | Core transport package for Robota SDK                                                |
-| `@robota-sdk/agent-transport-http`             | beta    | HTTP (Hono) transport for the Robota SDK                                             |
-| `@robota-sdk/agent-transport-mcp`              | beta    | Model Context Protocol (MCP) server transport for the Robota SDK                     |
-| `@robota-sdk/agent-transport-protocol`         | beta    | Transport-neutral session bridge + wire protocol for the Robota SDK (shared by trans |
-| `@robota-sdk/agent-transport-tui`              | beta    | Terminal UI (React + Ink) transport for the Robota SDK                               |
-| `@robota-sdk/agent-transport-webrtc`           | beta    | WebRTC P2P transport for the Robota SDK (data-channel session bridge; REMOTE-001)    |
-| `@robota-sdk/agent-transport-ws`               | beta    | WebSocket transport and protocol for the Robota SDK                                  |
-| `@robota-sdk/pack-coding`                      | beta    | Robota's coding capability pack                                                      |
+| Package                                        | npm tag | Notes                                                                                                                                                              |
+| ---------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-capability-pack`            | beta    | Additive capability-bundle contract (ICapabilityPack) and the pure mergeCapabilityPacks merger for the Robota SDK                                                  |
+| `@robota-sdk/agent-cli`                        | beta    | AI coding assistant CLI built on Robota SDK                                                                                                                        |
+| `@robota-sdk/agent-command`                    | beta    | Consolidated command module implementations for Robota SDK CLI                                                                                                     |
+| `@robota-sdk/agent-core`                       | beta    | Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features                   |
+| `@robota-sdk/agent-executor`                   | beta    | Composable runtime primitives for Robota background tasks and subagent orchestration                                                                               |
+| `@robota-sdk/agent-framework`                  | beta    | Programmatic SDK for building AI agents with Robota — provides InteractiveSession, createQuery(), command APIs, permissions, hooks, and context loading            |
+| `@robota-sdk/agent-interface-transport`        | beta    | Transport contract interfaces for the Robota SDK (ITransportAdapter, IConfigurableTransport, ITransportConfig)                                                     |
+| `@robota-sdk/agent-interface-tui`              | beta    | TUI interaction contract interfaces for the Robota SDK (ITuiPickerItem, ITuiCommandInteraction, ITuiPickerInteraction, ITuiConfirmInteraction)                     |
+| `@robota-sdk/agent-plugin`                     | beta    | Consolidated plugin implementations for Robota SDK                                                                                                                 |
+| `@robota-sdk/agent-preset`                     | beta    | Preset contract and resolver for the Robota SDK (IPreset, resolvePreset, listPresets, built-in presets)                                                            |
+| `@robota-sdk/agent-process`                    | beta    | Domain-free child-process termination primitives for the Robota SDK — killProcessTree (SIGTERM→grace→SIGKILL, process-group aware)                                 |
+| `@robota-sdk/agent-product`                    | beta    | The product-assembly kernel for the Robota SDK: assembleProduct — a pure, IO-free fold over IProductProfile that delegates runtime construction to agent-framework |
+| `@robota-sdk/agent-provider-anthropic`         | beta    | Anthropic Claude provider implementation for Robota SDK                                                                                                            |
+| `@robota-sdk/agent-provider-bytedance`         | beta    | Bytedance (ModelArk) video generation provider for Robota SDK                                                                                                      |
+| `@robota-sdk/agent-provider-defaults`          | beta    | Default provider definition aggregator for Robota SDK                                                                                                              |
+| `@robota-sdk/agent-provider-gemini`            | beta    | Google Gemini provider implementation for Robota SDK                                                                                                               |
+| `@robota-sdk/agent-provider-openai`            | beta    | OpenAI provider implementation for Robota SDK                                                                                                                      |
+| `@robota-sdk/agent-provider-openai-compatible` | beta    | OpenAI-compatible providers (DeepSeek, Qwen, Gemma) for Robota SDK                                                                                                 |
+| `@robota-sdk/agent-remote-pairing`             | beta    | Isomorphic pairing + DTLS-fingerprint channel binding for Robota P2P remote-control (REMOTE-001)                                                                   |
+| `@robota-sdk/agent-session`                    | beta    | Session and chat management for Robota SDK - multi-session support with independent workspaces                                                                     |
+| `@robota-sdk/agent-session-analytics`          | beta    | Session-log timing analysis and reporting for the Robota SDK (analyzeSession, aggregateReports, report formatters)                                                 |
+| `@robota-sdk/agent-subagent-runner`            | beta    | Child-process subagent runner for Robota SDK — optional package for running subagents in isolated child processes                                                  |
+| `@robota-sdk/agent-tools`                      | beta    | Tool registry and implementations for Robota SDK                                                                                                                   |
+| `@robota-sdk/agent-transport`                  | beta    | Core transport package for Robota SDK — headless adapter, scripted-provider testing fixtures, and the transport registry                                           |
+| `@robota-sdk/agent-transport-http`             | beta    | HTTP (Hono) transport for the Robota SDK                                                                                                                           |
+| `@robota-sdk/agent-transport-mcp`              | beta    | Model Context Protocol (MCP) server transport for the Robota SDK                                                                                                   |
+| `@robota-sdk/agent-transport-protocol`         | beta    | Transport-neutral session bridge + wire protocol for the Robota SDK (shared by transport implementations)                                                          |
+| `@robota-sdk/agent-transport-tui`              | beta    | Terminal UI (React + Ink) transport for the Robota SDK                                                                                                             |
+| `@robota-sdk/agent-transport-webrtc`           | beta    | WebRTC P2P transport for the Robota SDK (data-channel session bridge; REMOTE-001)                                                                                  |
+| `@robota-sdk/agent-transport-ws`               | beta    | WebSocket transport and protocol for the Robota SDK                                                                                                                |
+| `@robota-sdk/pack-coding`                      | beta    | Robota's coding capability pack — an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents                              |
 
 ## Private Packages (must NOT be published)
 
