@@ -19,6 +19,15 @@ import {
 } from '@robota-sdk/dag-core';
 import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
+import { StaleTaskSweepThrottle } from './stale-task-sweep-throttle.js';
+import {
+  claimTaskForExecution,
+  handleFailedClaim,
+  taskOwnershipMs,
+  withTaskLease,
+  type IClaimTaskDeps,
+} from './task-lease-recovery.js';
+import { TaskOutcomeHandler } from './task-outcome-handler.js';
 import { executeWithTimeout } from './task-timeout-executor.js';
 import { resolveCurrentTotalCredits } from './worker-cost-progress.js';
 import { loadWorkerExecutionContext } from './worker-execution-context.js';
@@ -69,6 +78,22 @@ export class WorkerLoopService {
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
   ) {}
 
+  /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
+  private sweeper: StaleTaskSweepThrottle | undefined;
+  private outcomesInstance: TaskOutcomeHandler | undefined;
+
+  /** Lazily built: parameter properties are not assigned when field initialisers run. */
+  private get outcomes(): TaskOutcomeHandler {
+    this.outcomesInstance ??= new TaskOutcomeHandler(
+      this.storage,
+      this.queue,
+      this.clock,
+      this.options,
+      this.runProgressEventReporter,
+    );
+    return this.outcomesInstance;
+  }
+
   /** Dequeues and processes a single task message. */
   public async processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const message = await this.queue.dequeue(
@@ -77,25 +102,25 @@ export class WorkerLoopService {
       this.options.idleWaitMs,
     );
     if (!message) {
-      return { ok: true, value: { processed: false } };
+      // DAG-001: idle is when there is capacity to recover — SPEC § Crash Recovery.
+      this.sweeper ??= new StaleTaskSweepThrottle(this.clock, this.lease, this.options);
+      const sweepError = await this.sweeper.sweepIfDue(this.storage, this.queue);
+      return sweepError
+        ? { ok: false, error: sweepError }
+        : { ok: true, value: { processed: false } };
     }
 
-    const leaseKey = `taskRun:${message.taskRunId}`;
-    const acquired = await this.lease.acquire(
-      leaseKey,
+    return withTaskLease(
+      this.lease,
+      message.taskRunId,
       this.options.workerId,
-      this.options.leaseDurationMs,
+      taskOwnershipMs(this.resolveTimeoutMs(message), this.options.leaseDurationMs),
+      async () => this.processAcquiredMessage(message),
+      async () => {
+        await this.queue.nack(message.messageId);
+        return { ok: true, value: { processed: false } };
+      },
     );
-    if (!acquired) {
-      await this.queue.nack(message.messageId);
-      return { ok: true, value: { processed: false } };
-    }
-
-    try {
-      return this.processAcquiredMessage(message);
-    } finally {
-      await this.lease.release(leaseKey, this.options.workerId);
-    }
   }
 
   private async processAcquiredMessage(
@@ -103,45 +128,40 @@ export class WorkerLoopService {
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const taskRun = await this.storage.getTaskRun(message.taskRunId);
     if (!taskRun) {
-      return failAfterAck(
-        this.queue,
-        message.messageId,
-        buildValidationError(
-          'DAG_VALIDATION_TASK_RUN_NOT_FOUND',
-          'TaskRun not found for dequeued message',
-          { taskRunId: message.taskRunId },
-        ),
+      const notFound = buildValidationError(
+        'DAG_VALIDATION_TASK_RUN_NOT_FOUND',
+        'TaskRun not found for dequeued message',
+        { taskRunId: message.taskRunId },
       );
+      return failAfterAck(this.queue, message.messageId, notFound);
     }
 
-    const startResult = await this.transitionToRunning(message, taskRun);
+    // Built once and passed to both: claiming and handling a failed claim need the same context.
+    const claimDeps = this.claimDepsFor(message, taskRun);
+    const startResult = await claimTaskForExecution(claimDeps);
     if (!startResult.ok) {
-      return failAfterAck(this.queue, message.messageId, startResult.error);
+      return handleFailedClaim(startResult.error, claimDeps);
     }
+    // The attempt now in force; a reclaim advanced storage's (`claimTaskForExecution`).
+    const claimed: IQueueMessage = { ...message, attempt: startResult.value };
 
-    const contextResult = await loadWorkerExecutionContext(this.storage, message);
+    const contextResult = await loadWorkerExecutionContext(this.storage, claimed);
     if (!contextResult.ok) {
       return failAfterAck(this.queue, message.messageId, contextResult.error);
     }
     const { dagRun, definition, nodeDefinition } = contextResult.value;
 
-    const executionInput = await this.buildExecutionInput(
-      message,
-      dagRun,
-      definition,
-      nodeDefinition,
-    );
-    const timeoutMs = this.resolveTimeoutMs(message);
+    const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
     const executionResult = await executeWithTimeout(
       this.executor,
-      executionInput,
-      timeoutMs,
+      input,
+      claimDeps.timeoutMs,
       message.taskRunId,
     );
 
     if (executionResult.ok) {
-      return this.handleSuccessPath(
-        message,
+      return this.outcomes.handleSuccessPath(
+        claimed,
         taskRun.taskRunId,
         dagRun,
         definition,
@@ -151,28 +171,7 @@ export class WorkerLoopService {
       );
     }
 
-    return this.handleFailurePath(message, taskRun.taskRunId, executionResult.error);
-  }
-
-  private async transitionToRunning(
-    message: IQueueMessage,
-    taskRun: ITaskRun,
-  ): Promise<TResult<void, IDagError>> {
-    const startTransition = TaskRunStateMachine.transition(taskRun.status, 'START');
-    if (!startTransition.ok) {
-      return startTransition;
-    }
-    await this.storage.updateTaskRunStatus(taskRun.taskRunId, startTransition.value.nextStatus);
-    this.runProgressEventReporter?.publish({
-      dagRunId: message.dagRunId,
-      eventType: TASK_PROGRESS_EVENTS.STARTED,
-      occurredAt: this.clock.nowIso(),
-      taskRunId: taskRun.taskRunId,
-      nodeId: message.nodeId,
-      input: message.payload,
-    });
-    await this.storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
-    return { ok: true, value: undefined };
+    return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, executionResult.error);
   }
 
   private async buildExecutionInput(
@@ -197,119 +196,17 @@ export class WorkerLoopService {
     };
   }
 
-  private async handleSuccessPath(
-    message: IQueueMessage,
-    taskRunId: string,
-    dagRun: IDagRun,
-    definition: IDagDefinition,
-    output: TPortPayload,
-    estimatedCredits?: number,
-    totalCredits?: number,
-  ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const completeTransition = TaskRunStateMachine.transition('running', 'COMPLETE_SUCCESS');
-    if (!completeTransition.ok) {
-      return failAfterAck(this.queue, message.messageId, completeTransition.error);
-    }
-
-    await this.completeTaskRun(
+  private claimDepsFor(message: IQueueMessage, taskRun: ITaskRun): IClaimTaskDeps {
+    return {
+      storage: this.storage,
+      queue: this.queue,
+      clock: this.clock,
+      reporter: this.runProgressEventReporter,
+      options: this.options,
+      timeoutMs: this.resolveTimeoutMs(message),
       message,
-      taskRunId,
-      completeTransition.value.nextStatus,
-      output,
-      estimatedCredits,
-      totalCredits,
-    );
-
-    const dispatched = await dispatchDownstreamReadyTasks(
-      dagRun,
-      definition,
-      message.nodeId,
-      output,
-      this.storage,
-      this.queue,
-      this.clock,
-    );
-    if (!dispatched.ok) {
-      return failAfterAck(this.queue, message.messageId, dispatched.error);
-    }
-
-    const finalized = await finalizeDagRunIfTerminal(
-      message.dagRunId,
-      this.storage,
-      this.clock,
-      this.runProgressEventReporter,
-    );
-    if (!finalized.ok) {
-      return failAfterAck(this.queue, message.messageId, finalized.error);
-    }
-
-    return successAfterAck(this.queue, message.messageId, taskRunId, false);
-  }
-
-  private async handleFailurePath(
-    message: IQueueMessage,
-    taskRunId: string,
-    error: IDagError,
-  ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const failTransition = TaskRunStateMachine.transition('running', 'COMPLETE_FAILURE');
-    if (!failTransition.ok) {
-      return failAfterAck(this.queue, message.messageId, failTransition.error);
-    }
-
-    await this.storage.updateTaskRunStatus(taskRunId, failTransition.value.nextStatus, error);
-    this.runProgressEventReporter?.publish({
-      dagRunId: message.dagRunId,
-      eventType: TASK_PROGRESS_EVENTS.FAILED,
-      occurredAt: this.clock.nowIso(),
-      taskRunId,
-      nodeId: message.nodeId,
-      input: message.payload,
-      error,
-    });
-
-    const shouldRetry =
-      this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
-    if (!shouldRetry) {
-      return handleTerminalFailure(
-        message,
-        taskRunId,
-        error,
-        this.options,
-        this.storage,
-        this.queue,
-        this.clock,
-        this.runProgressEventReporter,
-      );
-    }
-
-    return handleRetry(message, taskRunId, this.storage, this.queue, this.clock);
-  }
-
-  private async completeTaskRun(
-    message: IQueueMessage,
-    taskRunId: string,
-    status: ITaskRun['status'],
-    output: TPortPayload,
-    estimatedCredits?: number,
-    totalCredits?: number,
-  ): Promise<void> {
-    await this.storage.updateTaskRunStatus(taskRunId, status);
-    await this.storage.saveTaskRunSnapshots(
-      taskRunId,
-      undefined,
-      JSON.stringify(output),
-      estimatedCredits,
-      totalCredits,
-    );
-    this.runProgressEventReporter?.publish({
-      dagRunId: message.dagRunId,
-      eventType: TASK_PROGRESS_EVENTS.COMPLETED,
-      occurredAt: this.clock.nowIso(),
-      taskRunId,
-      nodeId: message.nodeId,
-      input: message.payload,
-      output,
-    });
+      taskRun,
+    };
   }
 
   private resolveTimeoutMs(message: IQueueMessage): number {

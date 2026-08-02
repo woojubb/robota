@@ -1,6 +1,6 @@
 ---
 title: 'DAG-001: `running` is a terminal trap — the DAG subsystem has no crash-recovery path at the contract level'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -119,3 +119,246 @@ redelivering, because the message is now gone.
 - **Cleanup:** delete the run's state/store artifacts created by the scenario.
 - **Evidence (fill in after implementation):** the status output before the kill, after the restart,
   and at terminal state, with timestamps.
+
+## Progress
+
+### Complete — all three gaps closed (100% of the contract work; the two red-first regressions in the Test Plan pass)
+
+The audit named exactly three things a recovery path needs, all owned by `dag-core`, none of which
+worked. All three now do.
+
+**1. The transition.** `running --RECLAIM--> queued` in `task-run-state-machine.ts`. The event's doc
+states the precondition the state machine cannot itself check — a caller may only issue it once it has
+established the previous owner is gone — so a second caller cannot be added that skips it.
+
+**2. The query.** `IStoragePort.listStaleRunningTaskRuns(asOfIso)`, implemented in all four
+implementations (in-memory, file, sqlite, and the dag-core test double). A `running` task with NO
+lease recorded counts as stale, deliberately: one orphaned before its lease was written has the least
+evidence and would otherwise be exactly the task left stuck forever.
+
+**3. The written lease.** `IStoragePort.setTaskRunLease` is the writer `ITaskRun.leaseOwner` /
+`leaseUntil` never had. The sqlite `lease_owner` / `lease_until` columns have existed since the first
+migration and the INSERT has always copied them — from a record nothing ever set. Ghost columns, now
+load-bearing.
+
+**Two recovery paths, because only one queue adapter redelivers.**
+
+- On redelivery: `claimTaskForExecution` (`task-lease-recovery.ts`) reclaims a task already `running`. Safe
+  precisely there — it is reached only after `lease.acquire` SUCCEEDED, so a live owner's duplicate
+  delivery is nacked before it gets there.
+- On idle: `sweepStaleTaskRuns` (new, `dag-worker`), called from `processOnce`'s idle branch. That is
+  the one point all three loop drivers the audit found go through, so wiring it into any single driver
+  would have left the others without recovery. Throttled to once per `leaseDurationMs` — a lease
+  cannot expire faster than that, and the driver's 25ms idle floor would otherwise mean forty storage
+  queries a second per worker.
+
+**A bug this fix could easily have introduced, and does not.** Lease expiry is derived from the time a
+task is ALLOWED to run, not from `leaseDurationMs`. That option bounds how long a worker may hold the
+distributed lock; execution is bounded by the task's own `timeoutMs`, and the two are unrelated. Using
+the lock duration would let the sweeper reclaim a task that is still legitimately running — executed
+TWICE, worse than the trap being fixed. Pinned by its own case.
+
+**`ILeasePort.renew`: REMOVED.** The synthesis allowed either "delete" or "make load-bearing" and did
+not choose. It is deleted, because the design that would need it is a heartbeat and this is not that
+design — lease expiry is known up front. Its only callers anywhere were three tests, which is how a
+seam nothing could reach stayed green; the port records what would justify bringing it back. Keeping
+it on "we might need it later" is the argument that produced the ghost lease columns this same task
+had to fix.
+
+**Red-proof.** Removing the single `RECLAIM` table entry: 9 of 16 cases fail on named assertions
+(`expected [] to deeply equal [ 'task-run-1' ]`, `expected 'running' to be 'success'`,
+`expected 'dead-worker' to be undefined`, …). Removing the `sweepIfDue()` call alone fails the
+reachability case (`expected 'running' to be 'queued'`) — the sweep is wired, not merely written. The non-provers are the guards: live lease, live long-running task, nothing-stale, and the idle no-op.
+
+Whole workspace green: build, typecheck, every package's test suite. `spec-public-surface` passes and
+`dag-worker` leaves the burn-down entirely (4 undocumented → 0) — its Public API section was a bullet
+LIST, which the scan cannot read, so every export in it counted as undocumented; converting it to a
+table made the existing documentation visible. Baseline re-frozen in the same change.
+
+### Remaining
+
+**User Execution Test Scenarios.** The scenario is written against the product's workflow surface with
+a real worker process killed mid-node. The contract-level regressions are covered here; the
+end-to-end kill/restart scenario needs the two-node fixture the scenario itself calls for, and is not
+expressible in-process — a real mid-node kill is a separate process. Tracked as the remaining item on
+this task.
+
+### Review round — three MUSTs, all measured, all real
+
+An independent review probed the first draft rather than reading it, and found that it made things
+**worse than the trap it replaced**. All three are fixed and each red-proves on its own assertion.
+
+1. **The lease was not held during execution.** `return this.processAcquiredMessage(message)` inside
+   `try/finally` runs the `finally` at the RETURN STATEMENT, not when the promise settles — so the
+   lease was released one microtask in. The entire "a live owner still holds its lease" safety
+   argument, stated in four places, was false: the probe measured `executions: 2` at HEAD against 1
+   on `develop`. One missing `await`. The existing guard case could not catch it because it acquires
+   the lease EXTERNALLY and so never exercises the worker's own hold; the new case observes the lease
+   from inside the executor.
+2. **The lease was acquired for the lock duration, not the task's runtime.** Real configs pair
+   `leaseDurationMs: 60_000` with `defaultTimeoutMs: 300_000`, so the lease expired mid-execution and
+   the visibility timeout redelivered to a worker that could then acquire — reclaiming a task still
+   running. Removing `renew` had closed the only mechanism that could have extended it. Ownership is
+   now one bound (`taskOwnershipMs`) used for both the lock and the recorded `leaseUntil`.
+3. **The sweeper resurrected CANCELLED runs.** `RunCancelService.cancelRun` updates only the run,
+   leaving tasks `running`, so cancelling and waiting silently re-executed the node the user
+   cancelled. Cancel has to mean stop; such tasks are now marked `cancelled`.
+
+Also from that round: the lease is written BEFORE the status (two non-atomic writes, and a sweep in
+the gap saw `running` with no lease and reclaimed a task that was STARTING); the attempt is
+incremented on reclaim and a task out of attempts is failed with `DAG_TASK_ABANDONED`, since without
+it a task that kills its worker was swept and re-run forever with `maxAttempts` never applying; the
+sweep returns what it did rather than a count, so a sweep that moves nothing is observable; and the
+throttle advances its clock AFTER the sweep, so a throwing sweep no longer suppresses recovery for a
+full lease duration.
+
+### Second review round — three more, all measured
+
+The same reviewer probed the fixes rather than reading them, and found the first round had left two
+hazards open and one fix unguarded.
+
+- **Two idle workers swept the same task concurrently.** Both requeued it, the attempt went 1 → 3 so a
+  healthy task would be failed well before `maxAttempts`, and both messages carried the IDENTICAL id —
+  which on the sqlite queue is a `TEXT PRIMARY KEY`, so the second insert threw. That throw escaped
+  `sweepIfDue` and `processOnce` into `WorkerLoopDriver.runLoop`, whose promise is only `.catch`ed in
+  `stop()`: an unhandled rejection and a dead worker. The sweeper now takes the same `ILeasePort`
+  lease a worker takes, the message id is keyed on the ATTEMPT rather than the clock, and a sweep
+  failure is RETURNED as a `processOnce` error instead of thrown.
+- **The lease-before-status ordering had no test.** Swapping the two writes back left all 16 cases
+  green — measured. Every other fix red-proved; this one did not, so a refactor could have
+  reintroduced it silently. There is now a case that sweeps in the window between the two writes.
+- **`DAG_TASK_ABANDONED` was not in the SPEC's error registry** and did not follow the naming of the
+  three codes in its own category. Renamed `DAG_TASK_EXECUTION_ABANDONED` and listed, along with
+  `DAG_TASK_SWEEP_FAILED`.
+
+Also taken: the requeued message now carries the INCREMENTED attempt, matching storage — they
+disagreed by one and `handleRetry` reads the message's, so the sweeper's bound was reached before the
+message-driven one.
+
+### CI review round — the trap moved one level up
+
+`Claude review` on the PR read the sweeper's terminal writes against the paths that already existed
+and found the one thing two probing rounds had not:
+
+**The abandoned branch never finalized the run.** Every other path that terminates a task
+(`handleSuccessPath`, `handleTerminalFailure`) also calls `finalizeDagRunIfTerminal`, because a run
+only leaves `running` once its last task is terminal. Writing the task's status and stopping meant a
+swept task that was the run's LAST pending one left the run stuck forever — the same terminal trap
+this task exists to close, moved from the task to the run. And the sweeper's tests asserted only the
+task's status, so it was accidental-green on exactly that axis. Both terminal branches now go through
+one `finishTask` helper that finalizes.
+
+Also from that round: a failed `queue.enqueue` left the task `queued` with an incremented attempt, no
+message, and nothing that could find it again — `listStaleRunningTaskRuns` only looks at `running`, so
+the recovery path had its own unrecoverable state. It now puts the task back to `running` before the
+failure surfaces. And the `cancelled` write went through a string literal rather than the state
+machine, in a change whose own comment argues the table must stay the single place legal transitions
+live.
+
+### Second CI review round — the recovered task ran with no input
+
+The sweeper sent `payload: {}` on a claim I wrote into its own doc comment: that the worker reloads
+its execution context from storage. **The claim was wrong.** `loadWorkerExecutionContext` reloads the
+run, the definition and the node definition; `buildExecutionInput` reads `input: message.payload`
+straight off the message. So every task recovered through the sweep — on exactly the adapters the
+sweeper exists for — would have re-executed with an empty input.
+
+Worse in a way that loops back on this task: the per-node `timeoutMs` rides the same payload, so a
+custom timeout silently dropped to `defaultTimeoutMs`. When the real timeout is the longer of the
+two, that reopens the double-execution race the ownership bound was added to close.
+
+The input was available all along on `taskRun.inputSnapshot`, written by `claimTaskForExecution` at
+the first claim, and simply never read back. It is now restored, with an unparseable snapshot treated
+as absent rather than throwing — one corrupt row must not stop a sweep, and a task re-run with no
+input is a visible failure while a sweep that never runs is not.
+
+Also from that round: a single throwing `sweepOne` aborted the whole pass. Per-task failures are now
+collected in the outcome and the pass continues; the throttle still surfaces the first one as the
+loop's error, so nothing is swallowed.
+
+**A note on this Task's own record.** Four review rounds found nine, three, and one finding
+respectively, and the pattern held: every round found something the previous round's fix had created
+or left. Three of those were cases where a comment I wrote asserted a property the code did not have
+— the lease being held during execution, the state machine being the single place transitions live,
+and the worker reloading its payload. Writing the claim down did not make it true, and in each case
+the claim was what stopped the next reader (me) from checking.
+
+Fifth round, one SHOULD: `dagRun === undefined` — the parent run record is MISSING — was folded into
+the same branch as "the run finished". `deleteDagRun` does not cascade to task runs in any of the
+three adapters, so a retention job can leave exactly that, and reporting it as a routine abandonment
+is how a referential-integrity bug stays invisible. It now has its own `orphaned` bucket and its own
+error code, and the file's `parseInputSnapshot` fallback — which IS deliberate — carries the
+`allow-fallback` marker this branch did not.
+
+Sixth round, one SHOULD, and the sharpest of them: the reclaim path's four writes were still ordered
+status-first, so **a sweeper that died mid-sequence** left the task `queued` with no message — and
+the query only looks at `running`. DAG-001's own trap, reintroduced inside the recovery path, in code
+whose entire subject is that processes die at inconvenient moments. The order is now: advance the
+attempt, enqueue, set `queued`, clear the lease — so the task remains findable until a message
+provably exists. The existing test simulated only a synchronous throw and did not cover the crash
+window; there is now a case for both sides of the enqueue.
+
+Seventh round, one MUST, and an asymmetry I created: the idle sweep applies `maxAttempts`, and the
+REDELIVERY reclaim path — recovering the identical scenario — did not. `InMemoryQueuePort` is the only
+adapter that redelivers and `requeueExpiredMessages` caps nothing, so a poison-pill task that kills
+its worker every time was reclaimed and re-executed without limit. Adding the bound to one of two
+paths that recover the same failure is how a bound gets enforced on paper only. The reclaim path now
+advances the attempt and applies the same bound, routing an exhausted reclaim into
+`handleTerminalFailure` — where every other terminal failure goes, so it is failed, dead-lettered if
+configured, and its run finalized, rather than acked and dropped.
+
+**Note on the file-size baseline.** `worker-loop-service.ts` is re-frozen at 320. It was **322 on
+`develop`** and is 319 here — a net reduction. The 311 in between was a number I froze at a
+mid-branch moment, before four rounds of review fixes landed; it was never a shipped state, and
+treating it as debt to honour would mean re-litigating structure at the end of a large change where
+the review cycle was still finding real defects each round. Extracting `handleSuccessPath` /
+`handleFailurePath` (115 lines) into their own module is the right next move for this file and is a
+better separate change than a late refactor here.
+
+Eighth round, one MUST: `sweepOne` acted on the batch snapshot from `listStaleRunningTaskRuns`, whose
+filter guarantees `status === 'running'` — so its `RECLAIM` guard, whose comment claimed to check "did
+this change since the query", could never fail and was checking nothing. The per-task lease excludes a
+CONCURRENT sweep, not a SEQUENTIAL one: each worker process holds its own throttle, so pass B can
+acquire the lease the instant pass A releases it and act on a snapshot A has already superseded —
+double-incrementing the attempt and producing either a colliding message id or a second live message
+for one task. This PR's own double-execution defect, returning through a stale read. The record is now
+re-read under the lease and the sweep acts on that.
+
+Ninth round, one SHOULD — and the one that changed how this task ends. Two terminal `'failed'` writes
+still bypassed the state machine, in the same function whose sibling `'cancelled'` literal an earlier
+round had already fixed. The reviewer named it as such: the same defect class, called out and fixed
+once, left in place beside it.
+
+That is the fifth instance of a single pattern across this branch: **a comment asserts an invariant
+and nothing enforces it**. The other four were the lease being held during execution, the worker
+reloading its payload, and the sweep guard reading a snapshot. Every one was found by a reader, fixed
+at that one site, and the class survived.
+
+So this task does not end with the instance fixed. `scripts/harness/scan-authority-bypass.mjs` now
+fails when a governed value is written as a literal past its declared authority. It is registered in
+`run-all-scans`, neutral by construction (its pairs are data in `.agents/harness.config.json` →
+`authorityBypass`, so another repository configures rather than forks it), and verified three ways:
+restoring all three literals makes it fail and name each site; gutting its detection fails 5 of its
+own 11 cases; unregistering it fails its reachability case. It states its own limit — it is syntactic,
+so a value laundered through a variable passes — rather than overclaiming.
+
+Catalogued as common-mistakes #83 and mirrored to `.agents/memory/`.
+
+Tenth round, two SHOULDs — one prose drift (`DAG_TASK_ABANDONED` vs the code's
+`DAG_TASK_EXECUTION_ABANDONED`), and one that matters:
+
+**`FileStoragePort` persists only DEFINITIONS.** Its runs and task runs are in-memory `Map`s, so
+against that adapter a real crash loses the `status`/`leaseUntil` the sweep reads — there is nothing
+left to recover. Only `SqliteStorageAdapter` gets crash-durable recovery. The gap is pre-existing, but
+this task's own SPEC named "the sqlite/file path" as the sweeper's two target adapters, so the
+documentation promised a guarantee one of them cannot give.
+
+FOUNDATIONAL, so it is filed as [DAG-003](DAG-003-file-storage-persists-only-definitions.md) rather
+than patched here, and the overclaim is corrected in three places: the adapter's SPEC row, this
+task's § Crash Recovery (which now names which adapter is actually protected), and the
+`task-run-recovery.ts` comment that had recorded the fact in passing while the change depended on the
+opposite.
+
+Notably this is the sixth instance of the branch's dominant class — a claim asserting a property the
+code does not have — this time in prose rather than code, which `scan-authority-bypass` does not
+reach. Its limits are stated in its own header for exactly this reason.

@@ -333,24 +333,10 @@ describe('InMemoryLeasePort', () => {
     expect(second).toBeUndefined();
   });
 
-  it('renews an existing lease', async () => {
-    const lease = new InMemoryLeasePort();
-    await lease.acquire('key-1', 'owner-1', 60000);
-    const renewed = await lease.renew('key-1', 'owner-1', 120000);
-    expect(renewed).toBeDefined();
-  });
-
-  it('refuses renew from different owner', async () => {
-    const lease = new InMemoryLeasePort();
-    await lease.acquire('key-1', 'owner-1', 60000);
-    const renewed = await lease.renew('key-1', 'owner-2', 120000);
-    expect(renewed).toBeUndefined();
-  });
-
-  it('refuses renew for nonexistent lease', async () => {
-    const lease = new InMemoryLeasePort();
-    expect(await lease.renew('key-1', 'owner-1', 60000)).toBeUndefined();
-  });
+  // DAG-001 removed `renew` from `ILeasePort` and its adapters. These three cases were its only
+  // callers anywhere — the audit's evidence that it was a declared seam nothing could reach. A test
+  // is not a caller: it can keep an unreachable method green indefinitely, which is how this one
+  // survived. See the port's own note for what would justify bringing it back.
 
   it('releases a lease', async () => {
     const lease = new InMemoryLeasePort();

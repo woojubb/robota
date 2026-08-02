@@ -67,6 +67,78 @@ This is implemented in `services/dag-run-finalizer.ts`: `PENDING_TASK_STATUSES =
 
 When `WorkerLoopService` fails to acquire a lease (another worker already holds it), this is a normal contention scenario, not an error. The method should return a non-error result indicating no work was processed (`processed: false`), allowing the message to remain in the queue for the lease holder to process.
 
+### Crash Recovery (DAG-001)
+
+A worker that dies mid-node used to leave its task and its run in `running` **forever**, silently. Two
+paths now recover it, and both go through `dag-core`'s `running --RECLAIM--> queued` edge.
+
+**On redelivery.** `processOnce` reclaims a task that is already `running` when its message arrives.
+This is safe precisely here: the code reaches that point only after `lease.acquire` SUCCEEDED, so a
+live owner's duplicate delivery is nacked before it gets there. Acquiring means the previous owner
+released the lease or died and let it expire — the definition of abandoned.
+
+**Which adapters this actually protects.** The sweep recovers state it can still READ after a
+restart, so it is crash-durable only where the store is. `SqliteStorageAdapter` persists task runs
+and their leases and gets the full guarantee. `FileStoragePort` persists only DAG **definitions** —
+its runs and task runs are in-memory — so a real process crash there loses the `status`/`leaseUntil`
+the sweep reads and there is nothing left to recover. That is pre-existing and tracked as DAG-003;
+it is named here rather than left implied, because this section would otherwise promise a guarantee
+one of its two named adapters cannot give.
+
+**On idle.** Only the in-memory queue redelivers. On a queue without it there is no message left to
+arrive, so `processOnce` calls `sweepStaleTaskRuns` on its idle branch — the one point every loop
+driver goes through, throttled to at most once per `leaseDurationMs` since a lease cannot expire
+faster than that.
+
+**When a task counts as stale**: its recorded `leaseUntil` has passed, or it is `running` with no
+lease recorded at all. The second case is included deliberately — a task orphaned before its lease was
+written has the least evidence and would otherwise be exactly the one left stuck forever.
+
+**Lease expiry is derived from the execution bound, not from `leaseDurationMs`.** That option bounds
+how long a worker may hold the distributed lock; a task's execution is bounded by its own `timeoutMs`,
+and the two are unrelated numbers. Using the lock duration would let the sweeper reclaim a task that
+is still legitimately running — executed twice, a worse failure than the trap being fixed.
+
+A swept task returns to `queued` with its attempt INCREMENTED and is executed again, bounded by
+`maxAttempts` exactly like any other retry. Two cases are not re-run at all:
+
+- **A run that is already over.** `RunCancelService.cancelRun` updates only the RUN, leaving its tasks
+  `running`, so without this check cancelling a run and waiting would silently re-execute the node the
+  user cancelled. Such tasks are marked `cancelled`.
+- **A task with no attempts left.** Failed with `DAG_TASK_EXECUTION_ABANDONED`. Without the attempt increment
+  above, a task that keeps killing its worker would be swept and re-run forever and `maxAttempts`
+  would never apply.
+
+The sweep returns what it did (`requeued` / `abandoned` / `skipped`) rather than a count, so a sweep
+that finds tasks and moves none is observable.
+
+**Ownership is one bound, used twice.** The worker acquires the `ILeasePort` lease for
+`max(timeoutMs, leaseDurationMs) + grace` — the same value it records as `leaseUntil` — so the
+in-memory lock and the persisted lease cannot disagree about when a task stops being owned. Acquiring
+for `leaseDurationMs` alone let the lease expire mid-execution (real configs pair a 60s lease with a
+300s default timeout), after which the queue's visibility timeout redelivered the message to a worker
+that could acquire it — reclaiming a task that was still running.
+
+**A reclaimed task stays `running` until a message provably exists for it.** The sweep's four writes
+have no transaction between them, and the sweeper is exactly as mortal as the worker whose death it
+is cleaning up after. Writing the status first meant a sweeper that died mid-sequence left the task
+`queued` with no message — and `listStaleRunningTaskRuns` queries only `running`, so nothing would
+ever find it again. The order is: increment the attempt, enqueue, then set `queued`, then clear the
+lease. The attempt advances before the enqueue because the message id derives from it; a crash
+between the two burns one attempt rather than producing a second message with an id the first
+already took.
+
+**The lease is written BEFORE the status.** They are two writes with no transaction between them; in
+the other order a sweeper running in the gap would see `running` with no lease — the shape it treats
+as abandoned — and reclaim a task that was in the middle of starting.
+
+**The sweeper takes the same `ILeasePort` lease a worker takes**, for the same reason. Without it two
+idle workers sweep one task concurrently: both requeue it, the attempt jumps by two so a healthy task
+is failed well before `maxAttempts`, and the two messages carry the same id — which on the sqlite
+queue is a PRIMARY KEY, so the second insert throws. The reclaim message's id is keyed on the
+ATTEMPT rather than the clock, so it is unique by construction rather than by timing, and it carries
+the incremented attempt so the message and storage agree (`handleRetry` reads the message's).
+
 ### Idle Wait / Queue Wake-up
 
 `IWorkerLoopOptions.idleWaitMs` is optional and defaults to immediate dequeue semantics when omitted. When configured, `WorkerLoopService.processOnce()` passes the value to `IQueuePort.dequeue(..., waitTimeoutMs)`.
@@ -91,11 +163,16 @@ This package is SSOT for:
 
 ## Public API Surface
 
-- `WorkerLoopService` -- main service class
-  - `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` -- dequeue and process one task
-- `DlqReinjectService` -- DLQ reinject service
-  - `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`
-- `createWorkerLoopService(deps, options): WorkerLoopService` -- composition factory
+A table rather than a bullet list, because `check-spec-public-surface` reads table rows — as a list
+this section was invisible to the surface scan and every export in it counted as undocumented.
+
+| Export                    | Kind     | Description                                                                                                                                                      |
+| ------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkerLoopService`       | class    | Main service. `processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>>` dequeues and processes one task, and sweeps abandoned tasks when the queue is idle |
+| `DlqReinjectService`      | class    | DLQ reinject. `reinjectOnce(workerId, visibilityTimeoutMs): Promise<TResult<IDlqReinjectResult, IDagError>>`                                                     |
+| `createWorkerLoopService` | function | Composition factory — `(deps, options) => WorkerLoopService`                                                                                                     |
+| `sweepStaleTaskRuns`      | function | DAG-001: returns tasks abandoned by a dead worker to the queue. The reader for `IStoragePort.listStaleRunningTaskRuns` — see § Crash Recovery                    |
+| `DAG_WORKER_PACKAGE_NAME` | constant | This package's name                                                                                                                                              |
 
 `replaceAttemptSegment(path, nextAttempt)` is an internal utility (`src/utils/execution-path.ts`), not re-exported from `src/index.ts`; see "Supporting utility" above.
 
@@ -137,6 +214,16 @@ All errors use `IDagError` from `dag-core` with the following codes:
 - `DAG_TASK_EXECUTION_TIMEOUT` -- task exceeded timeout
 - `DAG_TASK_EXECUTION_EXCEPTION` -- executor threw an exception
 - `DAG_TASK_EXECUTION_FAILED` -- generic run failure
+- `DAG_TASK_EXECUTION_ABANDONED` -- DAG-001: the task was abandoned by its worker and has no attempts
+  left. Emitted by the stale-task sweep, not by an executor
+- `DAG_TASK_EXECUTION_ORPHANED` -- DAG-001: the task's parent DAG run no longer exists, so it can be
+  neither run nor finalized. `deleteDagRun` does not cascade to task runs, so a retention job can
+  leave this. Reported in its own `orphaned` bucket rather than as an ordinary abandonment — treating
+  a missing parent record as a finished run is how a referential-integrity bug becomes invisible
+- `DAG_TASK_SWEEP_FAILED` -- DAG-001: the stale-task sweep itself failed. Returned as an ordinary
+  `processOnce` error rather than thrown, because the sweep runs on the idle branch whose promise the
+  drivers only `.catch` when stopping — a throw there became an unhandled rejection that killed the
+  worker. Recovery failing must not take the worker with it
 
 ## Class Contract Registry
 

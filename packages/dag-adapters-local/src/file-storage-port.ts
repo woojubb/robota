@@ -1,5 +1,7 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+import { applyTaskRunLease, selectStaleRunningTaskRuns } from './task-run-recovery.js';
 import type {
   IDagDefinition,
   IDagRun,
@@ -223,6 +225,18 @@ export class FileStoragePort implements IStoragePort {
       });
       return;
     }
+  }
+
+  public async setTaskRunLease(
+    taskRunId: string,
+    leaseOwner?: string,
+    leaseUntil?: string,
+  ): Promise<void> {
+    applyTaskRunLease(this.taskRuns, taskRunId, leaseOwner, leaseUntil);
+  }
+
+  public async listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]> {
+    return selectStaleRunningTaskRuns(this.taskRuns, asOfIso);
   }
 
   public async saveTaskRunSnapshots(

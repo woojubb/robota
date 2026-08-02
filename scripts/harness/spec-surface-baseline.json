@@ -21,6 +21,5 @@
   "@robota-sdk/dag-node": 1,
   "@robota-sdk/dag-orchestration-client": 2,
   "@robota-sdk/dag-projection": 2,
-  "@robota-sdk/dag-scheduler": 2,
-  "@robota-sdk/dag-worker": 4
+  "@robota-sdk/dag-scheduler": 2
 }

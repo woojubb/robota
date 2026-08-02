@@ -69,14 +69,19 @@ export interface ILeaseRecord {
   leaseUntil: string;
 }
 
-/** Port for distributed lease management: acquire, renew, release, and query. */
+/**
+ * Port for distributed lease management: acquire, release, and query.
+ *
+ * DAG-001 REMOVED `renew`. It had existed with zero production callers — the audit named it under the
+ * theme that a declared seam must be reachable from the construction path the product actually uses.
+ * A heartbeat is the design that would need it, and this is not that design: a task's lease expiry is
+ * derived from the time the task is ALLOWED to run (`WorkerLoopService.leaseUntilIso`), which is known
+ * up front and needs no renewal. Reintroduce it together with its caller if a heartbeat design
+ * arrives — "we might need it later" is the argument that produced the ghost lease columns this same
+ * task had to fix.
+ */
 export interface ILeasePort {
   acquire(
-    leaseKey: string,
-    ownerId: string,
-    leaseDurationMs: number,
-  ): Promise<ILeaseRecord | undefined>;
-  renew(
     leaseKey: string,
     ownerId: string,
     leaseDurationMs: number,
@@ -114,6 +119,29 @@ export interface IStoragePort {
   ): Promise<void>;
   incrementTaskAttempt(taskRunId: string): Promise<void>;
   deleteDefinition(dagId: string, version: number): Promise<void>;
+
+  /**
+   * Record which worker holds a task and until when — or clear it. DAG-001.
+   *
+   * `ITaskRun.leaseOwner` / `leaseUntil` existed on the domain type and in the sqlite INSERT, and
+   * NOTHING ever wrote them: ghost columns. Without them there is no way to tell an abandoned task
+   * from one a live worker is executing, so `running` was a state nothing could ever leave.
+   *
+   * Pass `undefined` for both to clear. Only the SWEEPER clears — a worker that finishes leaves its
+   * lease behind on a task that is no longer `running`, which no sweeper looks at, so clearing there
+   * would be a write with no reader.
+   */
+  setTaskRunLease(taskRunId: string, leaseOwner?: string, leaseUntil?: string): Promise<void>;
+
+  /**
+   * Tasks left `running` by a worker that never came back — those whose recorded `leaseUntil` is at
+   * or before `asOfIso`, plus any `running` task with no lease recorded at all. DAG-001.
+   *
+   * The port had no query that could FIND a stale task, which is why no adapter could add recovery
+   * however it tried. A queue that redelivers surfaces the message again; one that does not needs
+   * this, and a task orphaned before its lease was written needs it either way.
+   */
+  listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]>;
 }
 
 /** Input bundle for executing a single task within a DAG run. */
