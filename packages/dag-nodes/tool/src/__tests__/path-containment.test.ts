@@ -11,9 +11,10 @@
  * The threat model is the one part A already accepted for `file-read`/`file-write` in this same
  * package family: a `.dag.json` is a shareable, LLM-authorable document. The `tool` node was strictly
  * worse than the `file-*` nodes it sits beside — `toolName: "read"` with an absolute path bypassed
- * `file-read`'s containment entirely, because `config.cwd` is optional and `checkPathWithinCwd` is a
- * NO-OP when `cwd` is `undefined`. The guard was disarmed by omission, which is exactly what
- * `pack-coding` makes `cwd` REQUIRED to prevent.
+ * `file-read`'s containment entirely, because `config.cwd` is optional and `checkPathWithinCwd` WAS a
+ * NO-OP when `cwd` was `undefined` (ARCH-010 has since made that case refuse, and made the root a
+ * required constructor argument). The guard was disarmed by omission, which is exactly what
+ * `pack-coding` made `cwd` REQUIRED to prevent.
  *
  * And `config.cwd` could not have been the boundary even when set: it comes out of the same
  * LLM-authorable document as the path it is supposed to contain, so `{"cwd":"/"}` disarms it. A root
@@ -35,7 +36,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { globTool, grepTool } from '@robota-sdk/agent-tools';
+import { createGlobTool, createGrepTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 
 import { ToolNodeDefinition } from '../index.js';
@@ -98,20 +99,37 @@ async function run(
   };
 }
 
-describe('CONTROL — the singletons this node handed out really do escape', () => {
-  it('globTool enumerates out-of-root files through the escaping symlink', async () => {
-    const raw = await globTool.execute({ pattern: '**/*.txt' } as Parameters<
-      typeof globTool.execute
-    >[0]);
-    expect(JSON.stringify(raw.data)).toContain('escape/outside.txt');
+/**
+ * ARCH-010 INVERTED this block. It was a CONTROL asserting the opposite of what it now asserts: that
+ * the module-level `globTool`/`grepTool` this node used to hand out really did escape, because a guard
+ * with no root answered "allowed" and a singleton can never have a root. Those singletons are deleted
+ * and the root is a required constructor argument, so the escape is no longer constructible and the
+ * control has nothing left to demonstrate. What replaces it is the same demonstration from the other
+ * side: the SAME two tools, built the way this node builds them, do not reach through the symlink.
+ */
+describe('CONTROL — the tools this node hands out are rooted, and do not escape (ARCH-010)', () => {
+  it('Glob does not enumerate out-of-root files through the escaping symlink', async () => {
+    const glob = createGlobTool({ cwd: workdir });
+    const raw = await glob.execute({ pattern: '**/*.txt' } as Parameters<typeof glob.execute>[0]);
+    // The in-root hit first: an absence assertion that holds because nothing ran at all would prove
+    // nothing, and that is the shape an inverted assertion fails in.
+    expect(JSON.stringify(raw.data)).toContain('inside.txt');
+    expect(JSON.stringify(raw.data)).not.toContain('escape/outside.txt');
   });
 
-  it('grepTool returns the out-of-root file CONTENT through the escaping symlink', async () => {
-    const raw = await grepTool.execute({
-      pattern: 'SECRET-VALUE',
-      outputMode: 'content',
-    } as Parameters<typeof grepTool.execute>[0]);
-    expect(JSON.stringify(raw.data)).toContain('SECRET-VALUE');
+  it('Grep does not return the out-of-root file CONTENT through the escaping symlink', async () => {
+    const grep = createGrepTool({ cwd: workdir });
+    const args = { outputMode: 'content' } as const;
+    const inRoot = await grep.execute({ ...args, pattern: 'nested-ordinary' } as Parameters<
+      typeof grep.execute
+    >[0]);
+    // Same positive control: the search does reach the files inside the root.
+    expect(JSON.stringify(inRoot.data)).toContain('nested-ordinary');
+
+    const raw = await grep.execute({ ...args, pattern: 'SECRET-VALUE' } as Parameters<
+      typeof grep.execute
+    >[0]);
+    expect(JSON.stringify(raw.data)).not.toContain('SECRET-VALUE');
   });
 });
 

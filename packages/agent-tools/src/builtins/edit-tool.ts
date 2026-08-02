@@ -37,7 +37,7 @@ const EditSchema = z.object({
 
 type TEditArgs = z.infer<typeof EditSchema>;
 
-async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}): Promise<string> {
+async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Promise<string> {
   const { filePath, oldString, newString, replaceAll = false } = args;
 
   if (!options.sandboxClient) {
@@ -123,7 +123,7 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions = {}):
 /**
  * Create an EditTool instance — register with Robota agent tools registry.
  */
-export function createEditTool(options: ISandboxBuiltinToolOptions = {}): FunctionTool {
+export function createEditTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Edit',
     options.description ?? DEFAULT_EDIT_DESCRIPTION,
@@ -133,8 +133,3 @@ export function createEditTool(options: ISandboxBuiltinToolOptions = {}): Functi
     },
   );
 }
-
-/**
- * EditTool instance — register with Robota agent tools registry.
- */
-export const editTool = createEditTool();

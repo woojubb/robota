@@ -99,15 +99,19 @@ async function runInSandbox(
  */
 async function runShell(
   args: TShellArgs,
-  options: ISandboxToolOptions = {},
+  options: ISandboxToolOptions,
   signal?: AbortSignal,
 ): Promise<string> {
   const { command, timeout: rawTimeout = DEFAULT_TIMEOUT_MS, workingDirectory } = args;
   const timeout = Math.min(rawTimeout, 600_000);
-  // SEC-007: the configured containment root is the DEFAULT working directory (see the file header
-  // for why it is not a boundary). Without this, an assembly that scoped its file tools to a
-  // workspace still ran every shell command in whatever directory the host process was started in.
-  const effectiveCwd = workingDirectory ?? options.cwd ?? process.cwd();
+  // SEC-007: the configured root is the DEFAULT working directory (see the file header for why it is
+  // not a boundary). Without this, an assembly that scoped its file tools to a workspace still ran
+  // every shell command in whatever directory the host process was started in.
+  //
+  // ARCH-010 removed a third `?? process.cwd()` link from this chain. `options.cwd` is required now,
+  // so that link was unreachable — and an unreachable fallback still reads as a supported one, which
+  // is how the ambient-root habit spreads. A caller that means the process directory says so.
+  const effectiveCwd = workingDirectory ?? options.cwd;
   if (options.sandboxClient) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
@@ -243,19 +247,13 @@ function createHostShellTool(name: string, options: IShellToolOptions): Function
  * Create a `Shell` tool instance — register with the Robota agent tools registry.
  * The description is resolved at creation time for the host's active shell.
  */
-export function createShellTool(options: IShellToolOptions = {}): FunctionTool {
+export function createShellTool(options: IShellToolOptions): FunctionTool {
   return createHostShellTool('Shell', options);
 }
 
 /**
  * Create a `Bash` tool instance — the model-familiar alias of the same OS-aware shell tool.
  */
-export function createBashTool(options: IShellToolOptions = {}): FunctionTool {
+export function createBashTool(options: IShellToolOptions): FunctionTool {
   return createHostShellTool('Bash', options);
 }
-
-/** `Shell` tool instance — register with the Robota agent tools registry. */
-export const shellTool = createShellTool();
-
-/** `Bash` tool instance — model-familiar alias of {@link shellTool}. */
-export const bashTool = createBashTool();

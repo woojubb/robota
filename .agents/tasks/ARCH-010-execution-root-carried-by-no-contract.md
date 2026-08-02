@@ -1,6 +1,6 @@
 ---
 title: 'ARCH-010: the execution root (`cwd`) is carried by no execution contract, so every layer falls back to `process.cwd()` and the containment guard is disarmed by default'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -124,3 +124,77 @@ to read.
 - **Cleanup:** none — the scenario writes nothing.
 - **Evidence (fill in after implementation):** transcript excerpt showing the refusal and the root it
   was measured against.
+
+## Progress
+
+### P1 — the root is a required field, and the guard fails closed (2 of 3 phases; ~67%)
+
+**The guard.** `packages/agent-tools/src/builtins/path-guard.ts` — `isWithinCwd(path, undefined)`
+returned `true`, so with no root everything was inside it. It now returns `false`, and
+`checkPathWithinCwd` returns a refusal naming the real fault ("no containment root is configured …
+this is an assembly bug, not a path problem") rather than an ordinary out-of-root message. Inverting
+this FIRST is what the Direction's risk note asks for: making the field required without it would
+leave any not-yet-migrated site silently unprotected.
+
+Measured, not inferred: before the change, a `Read` built with no root returned
+`[File: /etc/hostname (1 lines)]\n1\tserver`. That is `pack-coding`'s doc comment, reproduced.
+
+**The contracts.** `cwd` is now REQUIRED on `ISandboxToolOptions`, `IContainedBuiltinToolOptions`
+(and therefore `ISandboxBuiltinToolOptions`/`IShellToolOptions`/`IGrepToolOptions`),
+`ICreateDefaultToolsOptions`, `ISessionOptions`, and `ISubagentOptions`. The `= {}` default parameter
+is gone from every builtin factory — that default was the mechanism by which "forgot the root" was
+legal. `Session` no longer reads `process.cwd()` in its constructor, and `getCwd()` exposes the root
+so a fork or subagent asks the session rather than re-deriving one that can disagree.
+
+**The call sites the type system then named**, each fixed with the root that was already in scope:
+`child-process-subagent-worker.ts` (`payload.request.cwd` — the spawn contract had carried it all
+along), `in-process-subagent-runner.ts` (`job.request.worktreePath ?? job.request.cwd`, so a
+worktree-isolated subagent runs in its worktree), `create-session.ts` (the same `cwd` it had already
+bound the tools, hooks and skill source to), `create-subagent-session.ts`, `interactive-session-fork.ts`
+(`parentSession.getCwd()` — a fork continues the same conversation in the same place).
+
+**Seven context-free singletons removed** — `readTool`, `writeTool`, `editTool`, `globTool`,
+`grepTool`, `shellTool`, `bashTool`. A module-level instance is bound at import time and can carry no
+root, so post-inversion they could only refuse; they had no in-repo consumer, and every assembly
+already built per-session tools. Keeping them would have meant shipping seven exports that always
+fail — the same declared-but-unreachable shape the audit is about. SPEC and README updated.
+
+**A control test that depended on the defect.** `enumeration-containment.test.ts`'s CONTROL pair
+proved the escape was real by running Glob/Grep with NO root — which worked only because the guard
+was fail-open, so closing it turned the control red. Grep's control now uses a WIDER root; Glob's
+uses a `..` traversal instead of the symlink, because a contained Glob sets
+`followSymbolicLinks: false` and so cannot observe a symlink escape under any root. A control that
+depends on a defect elsewhere stops being a control the moment that defect is fixed.
+
+**Required is enforced at RUNTIME too, not only by the type.** `Session`'s constructor refuses a
+missing, empty or non-string `cwd` with an error naming what the value FEEDS. This is not belt-and-
+braces: this package's tsconfig EXCLUDES `*.test.ts` and a JavaScript consumer is not type-checked at
+all, so the field would otherwise simply be `undefined` and the session would report a root it does
+not have. The error says what consumes the root so a caller can judge whether `process.cwd()` is
+actually right, rather than pasting it in reflexively — which is the ambient read this removes.
+
+**Red-proof (8 cases, all on named assertions, no timeouts).** Restoring the two defects — the
+fail-open guard and the constructor's `?? process.cwd()`:
+
+```
+× a session must be told where it runs > REFUSES to construct with no execution root
+  → expected [Function] to throw an error
+× … > refuses an empty string / a non-string / names what the value is FOR   (3 more, same shape)
+× checkPathWithinCwd > REFUSES when cwd is not set          → expected undefined to be defined
+× containment is fail-closed > isWithinCwd REFUSES …        → expected true to be false
+× containment is fail-closed > checkPathWithinCwd returns a refusal …
+× containment is fail-closed > a Read built with no root REFUSES an absolute path …
+```
+
+### Remaining — P2, the DAG half
+
+`INodeExecutionContext` still carries no workspace root, and `dag-nodes/skill/src/index.ts:96` still
+takes its root from the LLM-authorable `.dag.json` (`config.cwd ?? process.cwd()`) without calling
+`resolveContainmentRoot`.
+
+A finding that changes the shape of that work, recorded here rather than acted on blind: the
+synthesis names `IWorkspaceLayout` (`dag-core/src/types/workspace-layout.ts`) as the existing unused
+seam, but its `root` is a path RELATIVE to the project dir (`.workflows`) and it describes where
+workflow DEFINITIONS live — it is not an absolute execution root and cannot be threaded in as one
+without changing what it means. `INodeExecutionContext` also has 57 consumers, so adding a required
+member there is its own migration. P2 needs a design pass, not a mechanical edit.

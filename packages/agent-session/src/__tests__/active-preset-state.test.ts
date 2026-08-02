@@ -49,6 +49,7 @@ const MOCK_TERMINAL = {
 describe('Session active preset state (PRESET-011)', () => {
   it('TC-01: initializes activePresetId from options', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -61,6 +62,7 @@ describe('Session active preset state (PRESET-011)', () => {
 
   it("TC-02: defaults activePresetId to 'default' when not provided", () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -72,6 +74,7 @@ describe('Session active preset state (PRESET-011)', () => {
 
   it('TC-03: setActivePresetId mutates state only — no option re-application', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',

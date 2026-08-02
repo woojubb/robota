@@ -39,6 +39,7 @@ function createTerminal() {
 
 function createSession(provider: IAIProvider, onTextDelta: (delta: string) => void): Session {
   return new Session({
+    cwd: process.cwd(),
     tools: [],
     provider,
     systemMessage: 'test system',
@@ -80,6 +81,7 @@ describe('Session provider callback isolation', () => {
       };
     });
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider,
       systemMessage: 'test system',

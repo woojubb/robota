@@ -8,8 +8,12 @@ import { checkPathWithinCwd } from '../builtins/path-guard.js';
 describe('checkPathWithinCwd', () => {
   const cwd = '/project/root';
 
-  it('returns undefined when cwd is not set', () => {
-    expect(checkPathWithinCwd('/etc/passwd', undefined)).toBeUndefined();
+  // ARCH-010 inverted this. It used to assert `undefined` — "no objection" — which is what let a
+  // rootless `Read` return `/etc/hostname`. A guard with no configured boundary now refuses.
+  it('REFUSES when cwd is not set', () => {
+    const error = checkPathWithinCwd('/etc/passwd', undefined);
+    expect(error).toBeDefined();
+    expect(error).toMatch(/no containment root/i);
   });
 
   it('returns undefined for path inside cwd', () => {

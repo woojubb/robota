@@ -98,6 +98,7 @@ let mockProvider: ReturnType<typeof createMockProvider>;
 function createSession(opts: Record<string, unknown> = {}): Session {
   mockProvider = createMockProvider();
   return new Session({
+    cwd: process.cwd(),
     tools: MOCK_TOOLS,
     provider: mockProvider,
     systemMessage: 'test system',

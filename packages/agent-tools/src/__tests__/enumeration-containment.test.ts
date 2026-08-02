@@ -70,25 +70,78 @@ afterAll(() => {
 /**
  * CONTROL — pins WHY the fix is shaped the way it is (the same role SEC-006's R4 control test played).
  *
- * With no containment root the tools are unchanged: an escaping symlink is followed and out-of-root
- * content is returned. This is the exact behaviour the contained cases below must NOT show, and it is
- * what every registered `Glob`/`Grep` did before SEC-007, because the factories took no `cwd` at all.
+ * The contained cases below assert that out-of-root content is ABSENT. That assertion is worth
+ * nothing unless the walk would otherwise reach it, so this pair proves the escape is real: the
+ * symlink IS followed and the canary IS returned when the root does not exclude it.
+ *
+ * The control is driven with a WIDER root (`root`, the parent of both `workdir` and `outside`), not
+ * with no root at all. It used to use no root, which worked only because the guard was fail-open —
+ * so the control was measuring the disarmed guard rather than the walk, and ARCH-010 closing that
+ * default turned it red. A control that depends on a defect elsewhere stops being a control the
+ * moment that defect is fixed. This shape isolates the one property it is here to establish.
  */
-describe('CONTROL — an unconstrained Glob/Grep really does escape through the symlink', () => {
-  it('Glob enumerates out-of-root files through the escaping symlink', async () => {
-    const result = await runTool(createGlobTool(), { pattern: '**/*.txt', path: workdir });
+describe('CONTROL — the escape really is reachable when the root does not exclude it', () => {
+  /**
+   * Glob's control uses a `..` TRAVERSAL rather than the symlink, because those are guarded by two
+   * different mechanisms and only one of them is still observable here. A contained Glob sets
+   * `followSymbolicLinks: false`, so under ANY root a symlinked entry is never emitted at all — the
+   * old symlink control could only see the escape in the rootless mode ARCH-010 removes. The per-
+   * result canonical check is what this pair is a control FOR, and a traversal pattern is what
+   * reaches it: `../outside/secret.txt` survives the wide root and is dropped by the narrow one.
+   */
+  it('Glob enumerates out-of-root files through a traversal pattern', async () => {
+    const result = await runTool(createGlobTool({ cwd: root }), {
+      pattern: '../outside/*.txt',
+      path: workdir,
+    });
     expect(result.success).toBe(true);
-    expect(result.output).toMatch(/escape\/secret\.txt/);
+    expect(result.output).toMatch(/outside\/secret\.txt/);
+  });
+
+  it('…and the narrow root drops that same traversal', async () => {
+    const result = await runTool(createGlobTool({ cwd: workdir }), {
+      pattern: '../outside/*.txt',
+      path: workdir,
+    });
+    expect(result.success).toBe(true);
+    expect(result.output).not.toMatch(/secret\.txt/);
   });
 
   it('Grep returns the out-of-root file CONTENT through the escaping symlink', async () => {
-    const result = await runTool(createGrepTool(), {
+    const result = await runTool(createGrepTool({ cwd: root }), {
       pattern: CANARY,
       path: workdir,
       outputMode: 'content',
     });
     expect(result.success).toBe(true);
     expect(result.output).toContain(CANARY);
+  });
+});
+
+/**
+ * ARCH-010 — and with NO root the tools refuse rather than roam. The old control above relied on this
+ * being the opposite; it is the whole point of the change.
+ *
+ * `cwd` is now REQUIRED on the factory, so a TypeScript caller cannot build a rootless tool at all —
+ * these cases have to reach past the type to construct one. That is not a contrived shape: this
+ * package ships to JavaScript consumers who get no type check, and the whole reason the guard fails
+ * closed rather than merely being required is that a type is not a runtime boundary.
+ */
+describe('a rootless Glob/Grep enumerates nothing (ARCH-010)', () => {
+  it('Glob returns no out-of-root entry when no containment root is configured', async () => {
+    const rootless = createGlobTool({} as never);
+    const result = await runTool(rootless, { pattern: '**/*.txt', path: workdir });
+    expect(result.output ?? '').not.toMatch(/secret\.txt/);
+  });
+
+  it('Grep discloses no content when no containment root is configured', async () => {
+    const rootless = createGrepTool({} as never);
+    const result = await runTool(rootless, {
+      pattern: CANARY,
+      path: workdir,
+      outputMode: 'content',
+    });
+    expect(result.output ?? '').not.toContain(CANARY);
   });
 });
 

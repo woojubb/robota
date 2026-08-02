@@ -44,6 +44,20 @@ export interface ISessionOptions {
   systemMessage: string;
   /** Terminal I/O for permission prompts */
   terminal: ITerminalOutput;
+  /**
+   * The session's execution root. REQUIRED — ARCH-010.
+   *
+   * This field did not exist. `Session` read `process.cwd()` in its constructor and that ambient
+   * value became the session's identity everywhere it matters: every hook input,
+   * `CLAUDE_PROJECT_DIR`, `PermissionEnforcer`'s root, and the persisted record. Meanwhile the
+   * subagent spawn contract has always declared `cwd` REQUIRED — and the in-process runner passed
+   * none, because there was no option to pass it to. A session that cannot be told where it runs
+   * silently runs wherever the process happens to be, which for a subagent is not its own workspace.
+   *
+   * A caller that genuinely means "this process's directory" passes `process.cwd()` where a reader
+   * can see the decision.
+   */
+  cwd: string;
   /** Permission and hook configuration */
   permissions?: { allow: string[]; deny: string[] };
   hooks?: Record<string, unknown>;

@@ -2,11 +2,19 @@
  * Tests for BashTool
  */
 
-import { bashTool } from '@robota-sdk/agent-tools';
+import { createBashTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `bashTool` singleton is gone and `cwd` is required. For the shell family
+ * `cwd` is the DEFAULT WORKING DIRECTORY and deliberately not a containment boundary, so the host process
+ * directory is what these cases already ran in; it is now said out loud. No case here reads or writes a
+ * file — the two that care about a directory pass `workingDirectory` explicitly.
+ */
+const bashTool = createBashTool({ cwd: process.cwd() });
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await bashTool.execute(params);

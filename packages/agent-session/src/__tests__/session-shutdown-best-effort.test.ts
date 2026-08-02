@@ -39,6 +39,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
       execute: vi.fn().mockRejectedValue(new Error('hook boom')),
     };
     const session = new Session({
+      cwd: process.cwd(),
       tools: [] as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -53,6 +54,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
 
   it('destroys the wrapped agent — run() after shutdown rejects with [LIFECYCLE] (CORE-022)', async () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [] as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -66,6 +68,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
 
   it('returns the same cached promise on repeated shutdown calls', async () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [] as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',

@@ -79,9 +79,11 @@ function makeEnforcer(executor: IHookTypeExecutor): PermissionEnforcer {
 
 describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
   it('exit-code-2 hook blocks the tool: execute is never called, denial returned', async () => {
-    const underlying = vi.fn(
-      async (): Promise<IToolResult> => ({ success: true, data: 'ran', metadata: {} }),
-    );
+    const underlying = vi.fn(async (): Promise<IToolResult> => ({
+      success: true,
+      data: 'ran',
+      metadata: {},
+    }));
     const enforcer = makeEnforcer(makeDenyExecutor('exit2'));
     const [wrapped] = enforcer.wrapTools([makeTool('Bash', underlying)]);
 
@@ -94,9 +96,11 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
   });
 
   it('permissionDecision:"deny" hook blocks the tool the same way', async () => {
-    const underlying = vi.fn(
-      async (): Promise<IToolResult> => ({ success: true, data: 'ran', metadata: {} }),
-    );
+    const underlying = vi.fn(async (): Promise<IToolResult> => ({
+      success: true,
+      data: 'ran',
+      metadata: {},
+    }));
     const enforcer = makeEnforcer(makeDenyExecutor('json-deny'));
     const [wrapped] = enforcer.wrapTools([makeTool('Write', underlying)]);
 
@@ -108,9 +112,11 @@ describe('SELFHOST-009 TC-02 — PreToolUse security gate (functional)', () => {
   });
 
   it('a passing (exit 0) PreToolUse hook lets the tool run', async () => {
-    const underlying = vi.fn(
-      async (): Promise<IToolResult> => ({ success: true, data: 'ran', metadata: {} }),
-    );
+    const underlying = vi.fn(async (): Promise<IToolResult> => ({
+      success: true,
+      data: 'ran',
+      metadata: {},
+    }));
     const passExecutor: IHookTypeExecutor = {
       type: 'command',
       execute: vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' })),

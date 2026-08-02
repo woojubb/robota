@@ -40,7 +40,15 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
-  cwd?: string;
+  /**
+   * The execution root every file tool is contained by. REQUIRED — ARCH-010.
+   *
+   * It was optional, and `child-process-subagent-worker.ts` called this factory with no argument at
+   * all: `cwd` was `undefined`, the path guard was fail-open, and the subagent's `Read` returned
+   * `/etc/hostname`. Requiring it means a construction site that forgets does not compile, which is
+   * the only way a containment root stays a contract rather than a convention.
+   */
+  cwd: string;
   /** SELFHOST-003: when present, adds the adapter-gated `CodebaseRetrieval` tool (absent otherwise). */
   retrievalAdapter?: IRetrievalAdapter;
   /**
@@ -51,9 +59,7 @@ export interface ICreateDefaultToolsOptions {
   computerDriver?: IComputerDriver;
 }
 
-export function createDefaultTools(
-  options: ICreateDefaultToolsOptions = {},
-): IToolWithEventService[] {
+export function createDefaultTools(options: ICreateDefaultToolsOptions): IToolWithEventService[] {
   return [
     createShellTool(options) as IToolWithEventService,
     createBashTool(options) as IToolWithEventService,

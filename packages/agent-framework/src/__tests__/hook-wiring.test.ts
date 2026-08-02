@@ -119,6 +119,14 @@ function createMockProvider() {
   } as never;
 }
 
+/**
+ * ARCH-010 made `ISessionOptions.cwd` required — `Session` no longer reads `process.cwd()` itself. Every
+ * session here is built with `tools: []`, so this root arms no tool guard; it is the session's execution
+ * root, which reaches the hook and permission context these cases assert on, and the host process
+ * directory is what the constructor used to derive on its own.
+ */
+const SESSION_ROOT = process.cwd();
+
 describe('Hook wiring in session', () => {
   beforeEach(() => {
     runHooksCalls.length = 0;
@@ -130,6 +138,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -145,6 +154,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -164,6 +174,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -183,6 +194,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -203,6 +215,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -223,6 +236,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 
@@ -243,6 +257,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
       hookTypeExecutors: [mockExecutor],
     });
@@ -262,6 +277,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       // No hooks config
     });
 
@@ -280,6 +296,7 @@ describe('Hook wiring in session', () => {
       provider: createMockProvider(),
       systemMessage: 'test',
       terminal: MOCK_TERMINAL,
+      cwd: SESSION_ROOT,
       hooks: SAMPLE_HOOKS,
     });
 

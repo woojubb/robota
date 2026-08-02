@@ -26,8 +26,15 @@ vi.mock('../../assembly/create-subagent-session.js', () => ({
   createSubagentSession: mocks.createSubagentSession,
 }));
 
-function makeParentSession() {
+/**
+ * ARCH-010 — a `Session` now carries its execution root and exposes it as `getCwd()`; a fork reads the
+ * PARENT's root instead of re-deriving one, so this double has to answer. It reports the same directory
+ * the `InteractiveSession` under test is given (each case's own tmpdir), which is what a real parent
+ * session in that position would hold. The default is only for the case that constructs no `cwd` at all.
+ */
+function makeParentSession(cwd: string = process.cwd()) {
   return {
+    getCwd: vi.fn().mockReturnValue(cwd),
     run: vi.fn().mockResolvedValue('parent response'),
     abort: vi.fn(),
     getHistory: vi.fn().mockReturnValue([]),
@@ -106,7 +113,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('submits non-fork skills into the parent session', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-common-api-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
     const skillActivation = vi.fn();
     session.on('skill_activation', skillActivation);
@@ -149,7 +156,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('activates model-invocable skills through the SDK path without submitting a user turn', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-model-skill-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
     const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
@@ -177,7 +184,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('executes named user skills through the SDK path', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-user-skill-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
     const result = await session.executeSkillCommandByName('audit', 'src/index.ts', {
@@ -216,7 +223,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('does not route natural-language skill directives outside the command tool path', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-natural-language-skill-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
     await session.submit('Use the audit skill to inspect src/index.ts.');
@@ -231,7 +238,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('does not record skill activation for prompt-only skill references', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-prompt-only-skill-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
 
     await session.submit('The audit skill exists in this repository.');
@@ -244,7 +251,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('persists skill activation events in the session record', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-persisted-skill-'));
     createTempSkill(cwd);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     let savedRecord: IInteractiveSessionRecord | undefined;
     const sessionStore: IInteractiveSessionStore = {
       save: (record) => {
@@ -273,7 +280,7 @@ describe('InteractiveSession skill activation common API', () => {
   it('runs context: fork skills through an isolated subagent session', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'robota-fork-skill-common-api-'));
     createTempSkill(cwd, 'audit', ['context: fork', 'agent: Explore', 'allowed-tools: Read']);
-    const parentSession = makeParentSession();
+    const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({ session: parentSession as never, cwd });
     const exploreAgent: IAgentDefinition = {
       name: 'Explore',

@@ -23,7 +23,7 @@ const WriteSchema = z.object({
 
 type TWriteArgs = z.infer<typeof WriteSchema>;
 
-async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}): Promise<string> {
+async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Promise<string> {
   const { filePath, content } = args;
 
   if (!options.sandboxClient) {
@@ -57,7 +57,7 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions = {}
 /**
  * Create a WriteTool instance — register with Robota agent tools registry.
  */
-export function createWriteTool(options: ISandboxBuiltinToolOptions = {}): FunctionTool {
+export function createWriteTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Write',
     options.description ?? DEFAULT_WRITE_DESCRIPTION,
@@ -67,8 +67,3 @@ export function createWriteTool(options: ISandboxBuiltinToolOptions = {}): Funct
     },
   );
 }
-
-/**
- * WriteTool instance — register with Robota agent tools registry.
- */
-export const writeTool = createWriteTool();

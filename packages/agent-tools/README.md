@@ -31,16 +31,32 @@ const weatherTool = createZodFunctionTool(
 ### Use Built-in Tools
 
 ```typescript
-import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
+import {
+  createBashTool,
+  createReadTool,
+  createGlobTool,
+  createGrepTool,
+} from '@robota-sdk/agent-tools';
 import { Robota } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
+
+// A file tool is built against an explicit containment root and refuses anything outside it
+// (ARCH-010). There is no ready-made instance to import: one bound at import time can carry no root,
+// and a file tool without a root has no boundary.
+const cwd = process.cwd();
+
 const agent = new Robota({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [bashTool, readTool, globTool, grepTool],
+  tools: [
+    createBashTool({ cwd }),
+    createReadTool({ cwd }),
+    createGlobTool({ cwd }),
+    createGrepTool({ cwd }),
+  ],
 });
 ```
 

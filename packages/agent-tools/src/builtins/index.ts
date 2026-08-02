@@ -1,11 +1,11 @@
 // Built-in CLI tools
-export { shellTool, createShellTool, bashTool, createBashTool } from './shell-tool.js';
+export { createShellTool, createBashTool } from './shell-tool.js';
 export type { IShellToolOptions } from './shell-tool.js';
-export { readTool, createReadTool } from './read-tool.js';
-export { writeTool, createWriteTool } from './write-tool.js';
-export { editTool, createEditTool } from './edit-tool.js';
-export { globTool, createGlobTool } from './glob-tool.js';
-export { grepTool, createGrepTool } from './grep-tool.js';
+export { createReadTool } from './read-tool.js';
+export { createWriteTool } from './write-tool.js';
+export { createEditTool } from './edit-tool.js';
+export { createGlobTool } from './glob-tool.js';
+export { createGrepTool } from './grep-tool.js';
 export type { IGrepToolOptions } from './grep-tool.js';
 export { webFetchTool, createWebFetchTool, classifyFetchError } from './web-fetch-tool.js';
 export { webSearchTool, createWebSearchTool } from './web-search-tool.js';

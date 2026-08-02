@@ -79,7 +79,6 @@ export class Session extends SessionBase {
   protected messageCount = 0;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: ISessionStore;
-  private readonly cwd: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
@@ -97,14 +96,13 @@ export class Session extends SessionBase {
   private readonly transcriptPath: string | undefined;
 
   constructor(options: ISessionOptions) {
-    super();
+    super(options.cwd);
     const { tools, provider, systemMessage } = options;
 
     this.terminal = options.terminal;
     this.sessionStore = options.sessionStore;
     this.systemMessage = systemMessage;
     this.toolSchemas = tools.map((tool) => tool.schema);
-    this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;

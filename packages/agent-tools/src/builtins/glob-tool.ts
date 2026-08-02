@@ -143,7 +143,7 @@ const DEFAULT_GLOB_DESCRIPTION =
 /**
  * Create a GlobTool instance — register with Robota agent tools registry.
  */
-export function createGlobTool(options: IContainedBuiltinToolOptions = {}): FunctionTool {
+export function createGlobTool(options: IContainedBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Glob',
     options.description ?? DEFAULT_GLOB_DESCRIPTION,
@@ -153,12 +153,3 @@ export function createGlobTool(options: IContainedBuiltinToolOptions = {}): Func
     },
   );
 }
-
-/**
- * GlobTool instance — register with Robota agent tools registry.
- *
- * UNCONTAINED, deliberately: a module-level singleton can only ever be context-free. Assemblies that
- * have a session root MUST build their own via {@link createGlobTool} (`createDefaultTools`,
- * `createCodingPack`) — that is exactly what SEC-007 changed.
- */
-export const globTool = createGlobTool();

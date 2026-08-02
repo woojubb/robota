@@ -30,7 +30,7 @@ Use owner packages for general-purpose APIs:
 
 ```typescript
 import { getMessagesForAPI, type IHistoryEntry } from '@robota-sdk/agent-core';
-import { readTool, webSearchTool } from '@robota-sdk/agent-tools';
+import { createReadTool, webSearchTool } from '@robota-sdk/agent-tools';
 import { Session } from '@robota-sdk/agent-session';
 ```
 

@@ -189,6 +189,7 @@ the agent runtime was built at assembly. The default is `true`.
 | `getPermissionMode`           | `() => TPermissionMode`                                                                                                 | Returns the active permission mode.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `setPermissionMode`           | `(mode: TPermissionMode) => void`                                                                                       | Changes the permission mode for future tool calls.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `getSessionId`                | `() => string`                                                                                                          | Returns the stable session identifier.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `getCwd`                      | `() => string`                                                                                                          | ARCH-010: the session's execution root, as supplied to `ISessionOptions.cwd`. Readable so a fork or subagent derived from this session asks it rather than re-deriving from `process.cwd()`.                                                                                                                                                                                                                                                            |
 | `getMessageCount`             | `() => number`                                                                                                          | Returns the number of completed `run()` calls.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `clearHistory`                | `() => void`                                                                                                            | Clears the underlying Robota conversation history and resets token usage.                                                                                                                                                                                                                                                                                                                                                                               |
 | `getHistory`                  | `() => TUniversalMessage[]`                                                                                             | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                                                                                                                                                                                                                                                                                                                                       |
@@ -338,6 +339,17 @@ bytes are already on disk and is safely ignored.
 ## Abort Behavior
 
 The `Session` class supports aborting an in-progress `run()` call via `AbortController`.
+
+### Execution Root (ARCH-010)
+
+`ISessionOptions.cwd` is REQUIRED. It did not exist: the constructor read `process.cwd()`, and that
+ambient value became the session's identity everywhere it matters — every hook input,
+`CLAUDE_PROJECT_DIR`, the permission enforcer's root, and the persisted record. A session could not be
+told where it ran, so a subagent ran in its parent's directory rather than its own workspace, while
+the subagent spawn contract had declared `cwd` required all along.
+
+`getCwd()` exposes it, because a fork or subagent derived from a session must be able to ask which
+root that session actually uses instead of re-deriving one that can disagree.
 
 ### Turn Identity (RUNTIME-003)
 

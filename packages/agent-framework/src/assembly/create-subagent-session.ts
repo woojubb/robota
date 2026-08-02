@@ -59,6 +59,15 @@ export interface ISubagentOptions {
   roleModels?: TRoleModelMap;
   /** Terminal output interface. */
   terminal: ITerminalOutput;
+  /**
+   * The subagent's execution root. REQUIRED — ARCH-010.
+   *
+   * The spawn contract has always declared it required (`ISubagentSpawnRequest.cwd: string`), but
+   * this assembly had no field for it, so the runner could not pass it on and the child session fell
+   * back to whatever `process.cwd()` happened to be — the parent's directory, not the subagent's
+   * workspace. A worktree-isolated subagent was the case that made that visibly wrong.
+   */
+  cwd: string;
   /** Stable session ID for transcript files. */
   sessionId?: string;
   /** Optional logger for subagent transcripts. */
@@ -186,6 +195,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     provider,
     systemMessage,
     terminal,
+    cwd: options.cwd,
     ...(options.sessionId !== undefined ? { sessionId: options.sessionId } : {}),
     ...(options.sessionLogger !== undefined ? { sessionLogger: options.sessionLogger } : {}),
     model,

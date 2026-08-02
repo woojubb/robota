@@ -6,11 +6,18 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { editTool } from '@robota-sdk/agent-tools';
+import { createEditTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `editTool` singleton is gone and the containment root is a required
+ * constructor argument, so the tool is built against the tmpdir fixture below. That fixture is the only
+ * directory these cases edit; a wider root would let this suite rewrite files outside its own fixture.
+ */
+let editTool: ReturnType<typeof createEditTool>;
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await editTool.execute(params);
@@ -21,6 +28,7 @@ let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), 'edit-tool-test-'));
+  editTool = createEditTool({ cwd: tmpDir });
 });
 
 afterAll(async () => {

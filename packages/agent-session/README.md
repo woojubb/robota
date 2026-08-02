@@ -23,6 +23,10 @@ const session = new Session({
   provider,
   systemMessage: 'You are a helpful assistant.',
   terminal,
+  // ARCH-010: required. The session's execution root feeds every hook input, CLAUDE_PROJECT_DIR, the
+  // permission root and the persisted record — it is not read from the process any more, so a
+  // subagent runs in its own workspace rather than its parent's.
+  cwd: process.cwd(),
   permissions: { allow: ['Read(*)'], deny: [] },
   autoCompactThreshold: 0.75,
 });

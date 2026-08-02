@@ -42,6 +42,7 @@ const MOCK_TERMINAL = {
 
 function buildColdSession(): Session {
   return new Session({
+    cwd: process.cwd(),
     tools: [],
     provider: new ColdTestProvider() as never,
     systemMessage: 'test',
