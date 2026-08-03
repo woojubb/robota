@@ -131,9 +131,13 @@ printed a verdict indistinguishable from a real one. Both fixed; the override no
 way `GUARD_LEDGER_CEILINGS` does.
 
 Also from round 2: `stale-tmp-doc` is excluded from the ratchet because it is derived from mtime
-rather than from the tree — a fresh CI checkout can never fire it and a local tree that sat over a
-weekend turns `harness:test` red with no code change, and a ratchet is a claim about a COMMIT. It is
-still reported and still counted. And a `--write-baseline` run now writes `verdict: "baseline-frozen"`
+rather than from the tree — a fresh CI checkout resets every mtime and can never reach the 14-day
+threshold, while a working copy whose `.design/tmp/` files have sat past it would turn `harness:test`
+red with no code change, and a ratchet is a claim about a COMMIT. It is still reported and still
+counted. (Round 6 corrected an "over a weekend" phrasing of this in three places and its commit
+message said three; there were FOUR, and the survivor was in this file five lines above round 6's own
+edit. Round 2's "three of four call sites under a claim of _every_" recurring inside the record that
+documents it — round 7's finding.) And a `--write-baseline` run now writes `verdict: "baseline-frozen"`
 instead of `passed: true`: a freeze measures, it does not judge, and claiming a pass nothing checked
 is the same defect one field over.
 

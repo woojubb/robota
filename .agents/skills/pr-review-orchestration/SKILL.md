@@ -1,6 +1,6 @@
 ---
 name: pr-review-orchestration
-description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr-review-reviewer (guardian) → pr-review-writer → pr-review-fixer agents on a PR, loops until the reviewer reports ACTIONABLE FINDINGS 0, bounded by a max-iteration cap + progress detection, then hands to the gated merge path. It manages ONLY the pipeline flow — it does not review, write, fix, or judge quality itself. Synchronous today (async firing is HARNESS-018a).
+description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr-review-reviewer (guardian) → pr-review-writer → pr-review-fixer agents on a PR, loops until the reviewer reports ACTIONABLE FINDINGS 0 — no round cap (owner directive 2026-08-03); the only escape is progress detection — then hands to the gated merge path. It manages ONLY the pipeline flow — it does not review, write, fix, or judge quality itself. Synchronous today (async firing is HARNESS-018a).
 ---
 
 # PR Review Orchestration
@@ -91,7 +91,7 @@ already-reviewed content and no diff of its own.
 
 ### Round B — on the open PR, before merge
 
-Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identities `file:line + severity`).
+Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 
 0. **Wait for the gate precondition** the rule sets (required checks green): dispatch
    [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or `STALLED` →
@@ -125,12 +125,24 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
    to get there — the whole reason the label is a condition and not a courtesy
    ([finding-depth.md](../../rules/finding-depth.md)). Re-plan is not a resolution: it withdraws or
    reduces the change, so it **halts** this loop rather than counting toward zero.
-4. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
-   unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
-5. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).
-6. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
+4. **Progress detection — the only escape.** If the current finding-identity set equals `last_findings` (the
+   same findings recurred unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin).
+   Else set `last_findings` to it and continue. There is **no round cap**, and asking the user "another
+   round or merge?" is not a step of this loop: the stopping condition is zero.
+
+   Owner directive, 2026-08-03: _"라운드는 계속 돌려. 앞으로도"_ — keep running the rounds, from now on too.
+   It replaced an `iteration >= 3` cap, and the evidence is the PR that was open when it was given
+   (#1615): rounds 4, 5, 6 and 7 each found gating items, so under the cap that PR would have merged
+   with a README linking to three npm packages that do not exist, two new test cases that could not
+   fail, and a record contradicting itself in one paragraph. A stuck loop and a productive one look
+   the same from a counter and different from the finding SET, which is why that is the test kept.
+
+   The cost is real and is the point: rounds are not free, and the owner has priced them. Do not
+   reintroduce a cap without the owner.
+
+5. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
    MUST/SHOULD fixes). Each fix returns to **Round A** — review the new local diff and record it before pushing
-   again — then increment `iteration` and go to step 1.
+   again — then go to step 1.
 
 ## Merge path (on `ACTIONABLE FINDINGS: 0`)
 

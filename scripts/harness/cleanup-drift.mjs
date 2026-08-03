@@ -435,8 +435,9 @@ async function main() {
  *
  * `stale-tmp-doc` counts files in `.design/tmp/` older than 14 days by mtime. Two different runs of
  * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never reach the
- * threshold there, while a working copy whose `.design/tmp/` files have sat past 14 days turns
- * `pnpm harness:test` red with no code change. A ratchet is a claim about a COMMIT; a number that
+ * threshold there, while a working copy whose `.design/tmp/` files have sat past 14 days WOULD turn
+ * `pnpm harness:test` red with no code change — the state this exclusion exists to prevent, not one
+ * the tree is in. A ratchet is a claim about a COMMIT; a number that
  * changes while the commit does not is not one.
  *
  * Excluded from the comparison, not from the report — the finding is still printed and still counted

@@ -38,8 +38,11 @@ Comparable products, from product documentation (not source):
   `pull_request_target` running untrusted fork code a "pwn request"; `actions/checkout` v7 refuses fork code under
   it by default (2026-07-16). [Securely using pull_request_target](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target),
   [Preventing pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/)
-- **Loop bounding.** Hard max-iteration cap + progress detection (identify each finding; if it recurs unchanged,
-  declare stuck and escalate). [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
+- **Loop bounding.** Progress detection (identify each finding; if it recurs unchanged, declare stuck and
+  escalate). Prior art also recommends a hard max-iteration cap; this loop shipped one and the owner removed
+  it on 2026-08-03 after four consecutive rounds past the cap each found gating items — see
+  [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
+  [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
 
 **Constraint for Robota / reuse vs add.** Robota already has: `/code-review` (REVIEWER logic, MUST/SHOULD vocab);
 the `architecture-refresh` auto-loop converging on the **existing** `ACTIONABLE FINDINGS: <n>` signal; independent

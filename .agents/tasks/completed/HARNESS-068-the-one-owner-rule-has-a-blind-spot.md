@@ -89,11 +89,14 @@ it with this change's own detector and got different numbers. The claim was a ju
 KIND stated as if it were a count, which is the same species of error as the drifted list it justified
 removing.
 
-**Measured with the SHIPPED detector** — 174 of 2707 tracked markdown files, and 145 of 1768
-root+`.agents` files, enumerate three or more package paths; the owner yields 7, not 3. (Round 3
-reported 171 and 142 for the same two populations. Those were taken before the same commit widened
-the detector to ordered lists, so a corrected figure shipped alongside the change that made it wrong
-— round 5's finding, and the third time in this PR that a number outlived the code it described.)
+**Measured with the SHIPPED detector, at `07d1f46c0`** — 174 of 2707 tracked markdown files, and 145
+of 1768 root+`.agents` files, enumerate three or more package paths; the owner yields 7, not 3.
+
+Both the detector version and the commit are named, because this figure has now gone stale twice.
+Round 3 reported 171 and 142 for the same two populations; those were taken before the same commit
+widened the detector to ordered lists, so a corrected figure shipped alongside the change that made it
+wrong (round 5's finding). Round 7 then caught the denominators one behind, because the PR had added
+a file since. A measurement is only as durable as the state it names.
 
 What the measurement supports: 134 of the 145 are dated records — completed Tasks, archived audits,
 closed spec-docs — where a listing is history and correct as written. Of the eleven that are not, one
@@ -101,12 +104,15 @@ is the owner and one is `CHANGELOG.md`. Eight name several packages because thos
 SUBJECT of the document (an open Task's affected areas, a rule's examples). The ninth,
 `worktree-parallel-orchestration/SKILL.md`, reaches the threshold on `packages/foo`, `packages/bar`
 and `packages/baz` — placeholders in a worked example, which the ENUMERATION detector counts and the
-EXISTENCE detector deliberately does not. Two detectors, two questions; the difference is a real one
-and is stated rather than smoothed over. None is a second copy of
+EXISTENCE detector deliberately does not. Two detectors, two questions; the difference is real and is
+stated rather than smoothed over. (The first version of this sentence claimed all three were excluded
+and only `foo` and `bar` were — round 7 measured it. `baz` is now in the set, with a case, so the
+sentence is true and a front-door document using the repo's own placeholder triple is no longer
+reported as naming a package that does not exist.) None is a second copy of
 the repository's structure, which is what the one-owner rule is about — and `README.md`, which does
-list packages, lists them as an npm catalogue of `@robota-sdk/*` names with links and descriptions:
-a published-package index, a different document kind from the internal path layout, and deliberately
-not governed by the enumeration rule.
+list packages, lists them as an npm catalogue of `@robota-sdk/*` names with descriptions: a curated
+index of packages you might install, a different document kind from the internal path layout, and
+deliberately not governed by the enumeration rule.
 
 The three `apps/` entries in the deleted block were verified to exist before removal, so nothing
 correct was lost with the incorrect entry.

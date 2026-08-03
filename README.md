@@ -145,9 +145,11 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | `@robota-sdk/agent-transport-webrtc` _(not yet published)_                                                     | P2P remote-control transport                                                                                                                                                                                                                             |
 | `@robota-sdk/agent-transport-protocol` _(not yet published)_                                                   | Wire protocol shared by the transports                                                                                                                                                                                                                   |
 
-These tables list what you can install. `agent-transport-gui` and `agent-transport-webrtc-web` are
-workspace-private and are not listed; the complete package layout lives in
-[`.agents/project-structure.md`](.agents/project-structure.md).
+These tables are a **curated index**, not the full workspace: they name the packages you are most
+likely to want, and they omit both the workspace-private ones and several published packages that
+are not part of a usual assembly. A row marked _(not yet published)_ exists in the repository and is
+not yet on the registry. The complete package layout lives in
+[`.agents/project-structure.md`](.agents/project-structure.md), which owns it.
 
 ## Documentation
 

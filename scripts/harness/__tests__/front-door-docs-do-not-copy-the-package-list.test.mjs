@@ -18,7 +18,7 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * `packages/*` enumeration, which fails today"), and deleting the list without it would leave nothing
  * to stop the list coming back — the Task's own thesis, unlearned.
  *
- * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 174 of 2707
+ * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: at `07d1f46c0`, 174 of 2707
  * tracked markdown files enumerate three or more package paths, nearly all of them dated records —
  * completed Tasks, archived audits, closed spec-docs — where a listing is history and correct as
  * written. (Measured with THIS detector after it was widened to ordered lists. The first figure, 171,
@@ -139,7 +139,7 @@ const SCOPE_PREFIX = '@robota-sdk/';
  * (`packages/dag-*`), and the placeholder words below stand in for "a package" in a command
  * template (`--scope <packages/foo|apps/bar>`).
  */
-const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'name', 'your-package']);
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
 
 export function namedPackages(markdown) {
   const named = new Set();
@@ -239,5 +239,9 @@ describe('a front-door document may not name a package that does not exist (HARN
   it('a glob or a placeholder is not a package name', () => {
     expect(namedPackages('- `packages/dag-*` are the DAG packages').size).toBe(0);
     expect(namedPackages('`--scope <packages/foo|apps/bar>`').size).toBe(0);
+    // The repo's own worked-example triple. `baz` was missing from the set, so two thirds of a
+    // placeholder trio were excluded and the third would have been reported as a nonexistent
+    // package — found by review checking a task-file sentence that claimed all three were excluded.
+    expect(namedPackages('`packages/foo`, `packages/bar`, `packages/baz`').size).toBe(0);
   });
 });
