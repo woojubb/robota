@@ -6,6 +6,7 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { isReviewed, recordPathFor } from '../record-local-review.mjs';
+import { dispatchedAgents } from '../scan-orchestration-map.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
@@ -567,6 +568,21 @@ describe('the skill still puts the round before the push', () => {
     // push — so this pins the narrowed claim rather than the phrase it replaced.
     expect(skill).toMatch(/before the pull request exists/i);
     expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('never dispatches a reviewer on the open pull request', () => {
+    // HARNESS-074's own test plan. Round B once dispatched `pr-review-reviewer` on the OPEN pull
+    // request — a second review of what CI had already reviewed, without the comment history, so it
+    // could not see which findings an earlier round had answered. Correcting the prose is not the
+    // guard; this is, and it must not fire on the sentence in Round B that MENTIONS the agent while
+    // describing what the local round does, which is why it reads dispatch language rather than the
+    // name. `dispatchedAgents` is the same reading the orchestration map's own drift check uses.
+    const roundB = skill.slice(skill.indexOf('### Round B'));
+
+    expect(
+      dispatchedAgents(roundB, ['pr-review-reviewer', 'architecture-auditor', 'proposal-reviewer']),
+      'the loop dispatches a reviewer on an open pull request, which is the duplication it exists to prevent',
+    ).toEqual([]);
   });
 
   it('says the round stops once the pull request is open, as the hook does', () => {

@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-074: the review machinery performs a second review instead of resolving the first'
-status: todo
+status: done
 created: 2026-08-03
+completed: 2026-08-03
 priority: high
 urgency: now
 area: .agents/skills, .claude/hooks, scripts/harness
@@ -127,6 +128,20 @@ push. Its readers were enumerated mechanically rather than assumed — `pre-push
 gate that reads a record; `merge-gate.sh` reads a pull-request label and `review-gate.yml` reads
 code-scanning results and labels. That enumeration is written into `.agents/local-reviews/README.md`
 so the next reader need not re-derive it.
+
+**Step 3's guard was missing when the first pull request merged, and this is the correction.** Round B
+had been rewritten in #1615 to read the review rather than dispatch one — but nothing checked it, and
+this item's own test plan asks for exactly that check. Prose that used to be wrong, corrected, with no
+mechanism behind it, is the state this repository files items about; leaving it that way while marking
+the item done would have been the claim without the evidence.
+
+The guard reads DISPATCH language, not the agent's name: Round B legitimately mentions
+`pr-review-reviewer` once while describing what the local round does, and a check that banned the name
+would have forced that sentence out. It uses `dispatchedAgents` — the same reading the orchestration
+map's own drift check uses — so there is one definition of "this skill dispatches that agent".
+
+Red-proved against the Round B that shipped before #1615: `dispatchedAgents` returns
+`['pr-review-reviewer']` there and `[]` now.
 
 **Step 5 — `pr-review-reviewer` keeps both of its uses,** unchanged: the local diff before a pull
 request exists, and the tree diff in `delegated-refactor-green-gate`. Neither is a second opinion on
