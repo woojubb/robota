@@ -208,7 +208,7 @@ can pass while the other fails, which is why neither substitutes for the other.
 It does not decide severity and does not make "architectural" a way to defer work. It DOES reach the
 merge, in one direction only: `re-plan` is published to the pull request as the `disposition-re-plan`
 label when it is recorded, and `review-gate` and `merge-gate.sh` read it there by PR number, so a
-withdrawn change cannot be merged (PROC-007). A `containment` hold still lands — that is what makes it
+withdrawn change cannot be merged. A `containment` hold still lands — that is what makes it
 the resolution. Calling a finding foundational is a claim that costs someone work: it must state
 the cause and what it has already cost. A repeat of the same finding on an earlier PR is the evidence
 that carries it; a feeling is not.
