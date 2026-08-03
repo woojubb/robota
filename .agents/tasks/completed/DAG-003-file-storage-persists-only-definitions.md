@@ -227,6 +227,22 @@ The gate moved to `storage-hydration.ts` — its own module because single-fligh
 not an implementation detail of the port — which also brought the port back under its ceiling. The
 NIT (a `encodeSegment` import left dead by the earlier extraction) is gone too.
 
+### Review round 4 (PR #1613)
+
+One MUST, and it is a defect my own round-3 fix introduced. `this.hydration ??= this.run()` caches a
+REJECTED promise too, so one transient `EACCES`/`ENOSPC`/`EMFILE` would make every later call on the
+instance re-throw the same stale rejection until the process restarted — on the long-running servers
+this whole item exists to make durable. A regression from the boolean it replaced, which stayed
+`false` on a failed `mkdir` and so retried.
+
+Three rounds, three variants of one lesson: single-flight without clearing on failure is a store that
+stops working and keeps saying so. The gate now clears itself, red-proved by removing the `.catch` —
+and a third case pins that clearing the cache is not swallowing the error, since a second failure must
+still reject.
+
+The SHOULD — four `node:fs/promises` imports left dead by the extractions — is gone, verified by
+counting uses rather than by reading.
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even

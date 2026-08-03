@@ -32,7 +32,15 @@ export class HydrationGate {
   public constructor(private readonly targets: IHydrationTargets) {}
 
   public async ensure(): Promise<void> {
-    this.hydration ??= this.run();
+    // A FAILED hydration must not be cached. `??=` alone kept a rejected promise forever, so one
+    // transient `EACCES`/`ENOSPC`/`EMFILE` would break every later call on the instance until the
+    // process restarted — silently, and on the very servers this durability work exists for. That is
+    // a regression from the boolean this replaced, which stayed `false` on a failed `mkdir` and so
+    // retried. Caught in review; the guard now clears itself so the next caller tries again.
+    this.hydration ??= this.run().catch((error: unknown) => {
+      this.hydration = undefined;
+      throw error;
+    });
     await this.hydration;
   }
 
