@@ -113,6 +113,33 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     expect(result.stderr).toMatch(/drift FELL/);
   });
 
+  it('(RED) a clean COUNT does not print a clean summary when the verdict failed', () => {
+    // One run must not answer the same question two ways. A tree with nothing to find still fails the
+    // ratchet when a frozen count fell without a re-freeze, and the reassuring sentence on stdout is
+    // the one a reader skims.
+    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-clean-'));
+    dirs.push(root);
+    mkdirSync(path.join(root, 'packages'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
+    writeFileSync(path.join(root, '.agents/skills/index.md'), '# Skills\n');
+    const baseline = path.join(root, 'b.json');
+    writeFileSync(baseline, JSON.stringify({ 'blind-assertion-any': 3 }));
+
+    const result = spawnSync('node', [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs')], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/drift FELL/);
+    // Against the defect: stdout said "no drift detected." while the run failed.
+    expect(result.stdout).toMatch(/verdict FAILED/);
+    expect(result.stdout).not.toMatch(/^no drift detected\.$/m);
+  });
+
   it('the frozen baseline is the one the script actually measures', () => {
     // A number nobody can reproduce is not a baseline. The pass above already proves agreement;
     // this pins that the file is non-empty, so an emptied one cannot masquerade as a clean tree.

@@ -357,7 +357,15 @@ async function main() {
   const verdict = options.writeBaseline ? undefined : publishVerdict(typeGroups);
 
   if (driftCount === 0) {
-    process.stdout.write('no drift detected.\n');
+    // The count and the VERDICT are different questions, and a run can answer them differently: zero
+    // findings today still fails the ratchet when a frozen count fell without a re-freeze. Printing
+    // "no drift detected" there put a clean sentence on stdout while stderr failed the run — one run,
+    // two answers, and the reassuring one is the one a reader skims.
+    process.stdout.write(
+      verdict === undefined || verdict.ok
+        ? 'no drift detected.\n'
+        : 'no drift found in this run — but the verdict FAILED against the frozen baseline (see above).\n',
+    );
   } else {
     process.stdout.write('\nsummary:\n');
     for (const [type, count] of typeGroups) {
