@@ -40,8 +40,18 @@ describe('scan-runner-wait', () => {
     expect(findRunnerWaits('            sleep 5')).toEqual([]);
   });
 
-  it('does NOT flag a bounded loop, which cannot spin', () => {
+  it('does NOT flag a COUNTED loop, whose iterations are bounded by construction', () => {
     expect(findRunnerWaits('          for i in 1 2 3; do')).toEqual([]);
+  });
+
+  it('flags every `until` loop WITHOUT reading its condition — including a bounded one', () => {
+    // Stated as it behaves, not as one might wish. A shell `until` in a workflow step is a poll
+    // predicate by construction, and deciding from the condition text whether a given one terminates
+    // promptly is not reliable. A bounded retry that belongs in a job is written as a counted loop
+    // and passes above; one written this way carries the suppression.
+    //
+    // The first version of this case was titled "does NOT flag a bounded loop" and then asserted
+    // that it IS flagged — a test whose title contradicted its own assertion.
     expect(findRunnerWaits('          until [ "$n" -ge 3 ]; do')).toHaveLength(1);
   });
 

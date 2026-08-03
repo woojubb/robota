@@ -16,9 +16,17 @@
  * nothing is happening. A gate that cannot yet decide reports that it cannot decide — which must
  * BLOCK, never pass — and is re-run once the thing it needs has completed.
  *
- * WHAT IT DOES NOT FLAG: a short settle (a few seconds), a retry with a bounded attempt count that
- * does not spin, and any step carrying a reasoned suppression. A build that legitimately takes a long
- * time is not a wait — this looks for loops, not for duration.
+ * WHAT IT DOES NOT FLAG: a short settle (a few seconds); a COUNTED loop (`for i in 1 2 3; do`),
+ * whose iterations are bounded by construction; and any step carrying a reasoned suppression. A build
+ * that legitimately takes a long time is not a wait — this looks for loops, not for duration.
+ *
+ * WHAT IT FLAGS WITHOUT READING THE CONDITION, stated because the distinction is not free: EVERY
+ * `until … ; do` is flagged, and so is every `while :` / `while true`. A shell `until` in a workflow
+ * step is a poll predicate by construction — "keep going until the thing I am waiting for is true" —
+ * and deciding from the condition text whether a particular one terminates promptly is not something
+ * this can do reliably. A bounded retry that genuinely belongs in a job is written as a counted loop
+ * and passes; one written as `until` carries the suppression, whose honest reason is that the author
+ * checked the bound, not that the scan is wrong.
  *
  * Exit code 0 = no unsuppressed waits, 1 = findings.
  */
