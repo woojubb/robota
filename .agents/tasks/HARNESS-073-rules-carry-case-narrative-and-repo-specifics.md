@@ -88,6 +88,37 @@ Two constraints that are not negotiable in the rewrite:
 The cross-file duplications the audits found are the same defect one level up and are in scope here:
 one invariant stated in two rule files is what diverges later.
 
+## Progress — the floor is in, the sweep is not
+
+`scan-rule-case-narrative.mjs` is registered and frozen. It measures the CITABLE class: a work-item
+identifier, a pull-request or issue number, a calendar date, anywhere in a rule document. **128
+citations across 17 of 24 documents** — the number the sweep now has to bring down, and the number
+that makes a fall visible.
+
+Three exemptions, each because it is not a case:
+
+- **A resolving link.** `[SOME-123](../tasks/SOME-123-….md)` IS the relocation the form asks for — the
+  invariant here, the incident in the record that owns it, and a way for the reader to get there. The
+  target must exist, so this exemption doubles as the check for the unresolvable-identifier defect the
+  audits found. A link counts once however many times the identifier appears inside it, since naming
+  the record in both the text and the path is how a link is written.
+- **A fenced block**, where an identifier is a slot in a format being shown.
+- **`<!-- allow-citation: <reason> -->`**, and the reason has to be one: `allow-citation: -->` reads as
+  a reason to a naive check, which is how an exception nobody had to justify spreads.
+
+**What it cannot see, stated in its own output so the pass cannot be mistaken for completion:**
+narrative whose citation has worn off. The audit found a file with zero identifier matches and the
+highest narrative count. This item is NOT closed by the scan going green.
+
+Two defects in the scan were found by its own cases before it was trusted: an unresolved link counted
+twice, and the empty reason above. Both fixed, and the ratchet red-proved in both directions at the
+command line — a citation added to a document in the target form exits 1 as `unfrozen`, and a lowered
+count exits 1 as `fell` demanding a re-freeze.
+
+Reference form confirmed mechanically rather than by reading: `tdd-and-planning.md` and
+`naming-style.md` report zero, and a case pins that so the two documents cannot quietly drift out of
+the form they are held up as.
+
 ## Test Plan
 
 - **Required red-first regression:** a mechanical check that a rule document contains no case

@@ -261,6 +261,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-runner-wait.mjs'],
   },
   {
+    name: 'rule-case-narrative',
+    command: ['node', 'scripts/harness/scan-rule-case-narrative.mjs'],
+  },
+  {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
   },
