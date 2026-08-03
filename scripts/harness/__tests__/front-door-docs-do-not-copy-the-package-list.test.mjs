@@ -23,8 +23,9 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * completed Tasks, archived audits, closed spec-docs — where a listing is history and correct as
  * written. (Measured with THIS detector after it was widened to ordered lists. The first figure, 171,
  * was taken before that change and shipped in the same commit as the change — a measurement that no
- * longer described its own code.) What
- * distinguishes these four is ROLE, not content: they are read as the CURRENT description of the
+ * longer described its own code.)
+ *
+ * What distinguishes these four is ROLE, not content: they are read as the CURRENT description of the
  * repository, by someone who has no way to know a fresher owner exists. A copy in a dated record
  * cannot mislead that reader; a copy here is the only kind that can.
  */
@@ -169,21 +170,30 @@ function resolves(token, known) {
   return false;
 }
 
+/**
+ * Every token that names a real workspace member — the ONE construction, so a case can guard it.
+ *
+ * `relativeDir` and `workspaceName` only. The first version also mapped every scope to
+ * `packages/<shortName>`, which made 30 nonexistent paths resolve under a case named "every package
+ * named in a front-door document resolves": 10 apps (`packages/www`, `packages/agent-app`, …) and —
+ * the dangerous half, which the first correction of this comment left out — 20 nested
+ * `packages/dag-nodes/*` scopes flattened to generic one-word paths like `packages/tool`,
+ * `packages/skill`, `packages/input`. A front-door document is far likelier to write `packages/tool`
+ * by mistake than `packages/www`.
+ */
+async function knownPackageTokens() {
+  const scopes = await listWorkspaceScopes();
+  // The check's own vacuity guard: an empty or tiny workspace listing would pass everything.
+  expect(scopes.length).toBeGreaterThan(10);
+  return new Set([
+    ...scopes.map((scope) => scope.workspaceName),
+    ...scopes.map((scope) => scope.relativeDir),
+  ]);
+}
+
 describe('a front-door document may not name a package that does not exist (HARNESS-068)', () => {
   it('every package named in a front-door document resolves', async () => {
-    const scopes = await listWorkspaceScopes();
-    // `relativeDir` only. The first version also mapped every scope to `packages/<shortName>`, which
-    // made 30 nonexistent paths resolve under a case named "every package named in a front-door
-    // document resolves": 10 apps (`packages/www`, `packages/agent-app`, …) and — the dangerous half,
-    // which the first correction of this comment left out — 20 nested `packages/dag-nodes/*` scopes
-    // flattened to generic one-word paths like `packages/tool`, `packages/skill`, `packages/input`.
-    // A front-door document is far likelier to write `packages/tool` by mistake than `packages/www`.
-    const known = new Set([
-      ...scopes.map((scope) => scope.workspaceName),
-      ...scopes.map((scope) => scope.relativeDir),
-    ]);
-    // The check's own vacuity guard: an empty or tiny workspace listing would pass everything.
-    expect(scopes.length).toBeGreaterThan(10);
+    const known = await knownPackageTokens();
 
     for (const doc of FRONT_DOOR_DOCS) {
       const unresolved = [...namedPackages(readFileSync(path.join(ROOT, doc), 'utf8'))].filter(
@@ -203,19 +213,21 @@ describe('a front-door document may not name a package that does not exist (HARN
     );
   });
 
-  it('a nested or app-only package does not resolve as a top-level package path', () => {
-    // The two halves of the hole, in the form production can actually reach: `namedPackages` emits
-    // only `@robota-sdk/…` and `packages/…` tokens, so `packages/tool` (a `packages/dag-nodes/tool`
-    // scope flattened by shortName) and `packages/agent-app` (an app) are what a document could
-    // wrongly name and the old known-set would have waved through.
-    const known = new Set([
-      '@robota-sdk/agent-app',
-      'apps/agent-app',
-      '@robota-sdk/dag-node-tool',
-      'packages/dag-nodes/tool',
-    ]);
+  it('a nested or app-only package does not resolve as a top-level package path', async () => {
+    // Built the way the production case builds it, from the LIVE workspace listing. Round 6 found
+    // the first version constructing its own `known` literal, so re-adding the deleted
+    // `packages/<shortName>` mapping reopened all 30 phantoms and this case still passed — it
+    // exercised `resolves()` and left the actual defect site, the known-set construction, unguarded.
+    const known = await knownPackageTokens();
+    // The two halves of the hole, in the form production can reach: `namedPackages` emits only
+    // `@robota-sdk/…` and `packages/…` tokens, so `packages/tool` (a `packages/dag-nodes/tool` scope
+    // flattened by shortName) and `packages/agent-app` (an app) are what a document could wrongly
+    // name and the old known-set would have waved through.
     expect(resolves('packages/agent-app', known)).toBe(false);
     expect(resolves('packages/tool', known)).toBe(false);
+    // The other direction, so this is not passing because the set is empty.
+    expect(resolves('packages/agent-core', known)).toBe(true);
+    expect(resolves('apps/agent-app', known)).toBe(true);
   });
 
   it('a grouping directory of a real package resolves', () => {

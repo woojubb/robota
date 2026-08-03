@@ -174,8 +174,9 @@ describe('a measurement that failed is an error, not a clean result (HARNESS-069
 /**
  * A baseline may hold only numbers another checkout can reproduce.
  *
- * `stale-tmp-doc` counts `.design/tmp/` files older than 14 days BY MTIME, so a fresh CI checkout can
- * never fire it while a tree that sat over a weekend can. It is excluded from the comparison — and
+ * `stale-tmp-doc` counts `.design/tmp/` files older than 14 days BY MTIME, so a fresh CI checkout
+ * resets every mtime and can never reach that threshold, while a working copy whose tmp documents
+ * have sat past it always will. It is excluded from the comparison — and
  * from the freeze, which is what this case pins: round 3 asked whether a `--write-baseline` run could
  * bake that number in, and the docstring's answer needed to be more than a sentence.
  */
@@ -192,6 +193,15 @@ describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
     writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
     mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
     writeFileSync(path.join(root, '.agents/skills/index.md'), '# Skills\n');
+
+    // A package with a stub SPEC.md, so the freeze has a NON-clock finding to write. Round 6 found
+    // the first version asserting "stale-tmp-doc is absent" against a baseline that was literally
+    // `{}` — a claim that cannot tell "the filter dropped it" from "the freeze wrote nothing", so a
+    // regression emptying `writeDriftBaseline` would have stayed green. Same vacuity this PR guards
+    // against elsewhere, in the case written to close it.
+    mkdirSync(path.join(root, 'packages/x/docs'), { recursive: true });
+    writeFileSync(path.join(root, 'packages/x/package.json'), '{"name":"x","version":"0.0.0"}\n');
+    writeFileSync(path.join(root, 'packages/x/docs/SPEC.md'), '# SPEC\n');
 
     // Aged past the 14-day threshold. Written and aged rather than mocked: the rule reads mtime.
     mkdirSync(path.join(root, '.design/tmp'), { recursive: true });
@@ -214,8 +224,12 @@ describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
 
     // It is REPORTED — the finding is real and hiding it would be its own defect.
     expect(frozenRun.stdout).toMatch(/stale-tmp-doc/);
-    // And it is not frozen.
-    expect(Object.keys(JSON.parse(readFileSync(baseline, 'utf8')))).not.toContain('stale-tmp-doc');
+
+    const frozen = Object.keys(JSON.parse(readFileSync(baseline, 'utf8')));
+    // The freeze DID write — otherwise the assertion below is true of an empty file.
+    expect(frozen).toContain('spec-missing-sections');
+    // And the clock-derived type is not in it.
+    expect(frozen).not.toContain('stale-tmp-doc');
     // The freeze names the file it wrote, since this path skips the override notice.
     expect(frozenRun.stdout).toMatch(/drift baseline frozen in /);
   });

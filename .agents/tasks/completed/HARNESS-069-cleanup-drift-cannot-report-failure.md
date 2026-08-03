@@ -137,10 +137,13 @@ still reported and still counted. And a `--write-baseline` run now writes `verdi
 instead of `passed: true`: a freeze measures, it does not judge, and claiming a pass nothing checked
 is the same defect one field over.
 
-**Round 4 replaced a docstring promise with a case.** Round 3 excluded `stale-tmp-doc` from the
-ratchet AND from the freeze, and said so in two docstrings — with nothing exercising either. There is
-now a case that seeds an aged `.design/tmp` document and asserts the finding IS reported and is NOT
-frozen. Its first version aged that fixture inside the repository's own tree and restored it in a
+**Round 4 replaced a docstring promise with a case.** Round 2 excluded `stale-tmp-doc` from the
+ratchet, round 3 from the freeze as well, and each said so in a docstring with nothing exercising
+either. (The first version of this paragraph credited both halves to round 3, contradicting a
+sentence eight lines above it in this same file — the "record contradicts itself in one paragraph"
+defect that this file records as round 3's own finding, committed again by the paragraph recording
+round 4. Round 6 caught it.) There is now a case that seeds an aged `.design/tmp` document and asserts
+the finding IS reported and is NOT frozen. Its first version aged that fixture inside the repository's own tree and restored it in a
 `finally`, which is the pattern the same file's header rejects three paragraphs above ("a restore that
 a timeout or a SIGKILL never runs") — round 5 caught the file contradicting itself, and it now runs
 against a seeded temp root.

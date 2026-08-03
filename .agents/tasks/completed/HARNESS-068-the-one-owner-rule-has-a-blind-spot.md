@@ -91,14 +91,18 @@ removing.
 
 **Measured with the SHIPPED detector** — 174 of 2707 tracked markdown files, and 145 of 1768
 root+`.agents` files, enumerate three or more package paths; the owner yields 7, not 3. (Round 3
-reported 142 and 171. Those were taken before the same commit widened the detector to ordered lists,
-so a corrected figure shipped alongside the change that made it wrong — round 5's finding, and the
-third time in this PR that a number outlived the code it described.)
+reported 171 and 142 for the same two populations. Those were taken before the same commit widened
+the detector to ordered lists, so a corrected figure shipped alongside the change that made it wrong
+— round 5's finding, and the third time in this PR that a number outlived the code it described.)
 
 What the measurement supports: 134 of the 145 are dated records — completed Tasks, archived audits,
-closed spec-docs — where a listing is history and correct as written. Of the eleven
-that are not, one is the owner, one is `CHANGELOG.md`, and the rest name several packages because those packages are the
-SUBJECT of the document (an open Task's affected areas, a rule's examples). None is a second copy of
+closed spec-docs — where a listing is history and correct as written. Of the eleven that are not, one
+is the owner and one is `CHANGELOG.md`. Eight name several packages because those packages are the
+SUBJECT of the document (an open Task's affected areas, a rule's examples). The ninth,
+`worktree-parallel-orchestration/SKILL.md`, reaches the threshold on `packages/foo`, `packages/bar`
+and `packages/baz` — placeholders in a worked example, which the ENUMERATION detector counts and the
+EXISTENCE detector deliberately does not. Two detectors, two questions; the difference is a real one
+and is stated rather than smoothed over. None is a second copy of
 the repository's structure, which is what the one-owner rule is about — and `README.md`, which does
 list packages, lists them as an npm catalogue of `@robota-sdk/*` names with links and descriptions:
 a published-package index, a different document kind from the internal path layout, and deliberately

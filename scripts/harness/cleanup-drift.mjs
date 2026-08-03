@@ -434,9 +434,10 @@ async function main() {
  * Types whose count comes from the CLOCK rather than from the tree, and so cannot be ratcheted.
  *
  * `stale-tmp-doc` counts files in `.design/tmp/` older than 14 days by mtime. Two different runs of
- * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never fire there,
- * while a local tree that sat over a weekend turns `pnpm harness:test` red with no code change. A
- * ratchet is a claim about a COMMIT; a number that changes while the commit does not is not one.
+ * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never reach the
+ * threshold there, while a working copy whose `.design/tmp/` files have sat past 14 days turns
+ * `pnpm harness:test` red with no code change. A ratchet is a claim about a COMMIT; a number that
+ * changes while the commit does not is not one.
  *
  * Excluded from the comparison, not from the report — the finding is still printed and still counted
  * in `findingCount`. If this row ever needs enforcing, derive the age from git rather than mtime.
