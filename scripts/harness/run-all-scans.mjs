@@ -253,6 +253,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
   },
   {
+    name: 'runner-wait',
+    command: ['node', 'scripts/harness/scan-runner-wait.mjs'],
+  },
+  {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
   },
