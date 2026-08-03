@@ -108,6 +108,27 @@ describe('scan-harness-scope-literal', () => {
       expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
     });
 
+    it('a block-comment SHAPE inside a string does not hide the rest', () => {
+      // Review round 3. Block comments were stripped by a separate, string-unaware pass that ran
+      // first, so `"/* … */"` as DATA deleted everything between the delimiters — the same invisible
+      // zero as the `//` case, left open for the other delimiter.
+      const { dir } = scriptDir({ 'a.mjs': `const d = "/* @acme/x */";` });
+      expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
+    });
+
+    it('a MULTI-LINE template literal keeps its quote state across lines', () => {
+      // Per-line quote tracking lost the state at a line boundary, so a continuation line starting
+      // with `//`-like text read as a comment.
+      const source = ['const t = `line one', '// @acme/y', 'line three`;'].join('\n');
+      const { dir } = scriptDir({ 'a.mjs': source });
+      expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
+    });
+
+    it('a REAL block comment is still removed', () => {
+      const { dir } = scriptDir({ 'a.mjs': `/* @acme/z */ const a = 1;` });
+      expect(countScopeLiterals(dir, SCOPE)).toEqual({});
+    });
+
     it('codeOnly leaves code and removes only comments', () => {
       expect(codeOnly(`const a = 1; // @acme/x\nconst b = '@acme/y';`)).toContain('@acme/y');
       expect(codeOnly(`const a = 1; // @acme/x`)).not.toContain('@acme/x');

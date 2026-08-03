@@ -44,6 +44,8 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { ScriptTarget, SyntaxKind, createSourceFile, forEachChild } from './lib/ts-ast.mjs';
+
 import { loadHarnessConfig } from './harness-config.mjs';
 import { harnessScripts } from './shared.mjs';
 
@@ -58,45 +60,50 @@ const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/scope-literal-b
  * be able to name it when explaining itself. Strings are NOT removed: an allowlist keyed by package
  * name is code, and is exactly what should be composed from the configured prefix.
  */
-export function codeOnly(source) {
-  return (
-    source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .split('\n')
-      .map(stripLineComment)
-      .join('\n')
-      // Inside a REGEX literal the scope is written `@scope\/…`, and a plain substring test misses
-      // it. That is precisely the form the audit isolated — `/export \* from ['"](@scope\/…)/` — so a
-      // counter that could not see it would have failed to catch the instance it exists for. Found by
-      // this scan's own test, not by reading.
-      .replace(/\\\//g, '/')
-  );
-}
-
 /**
- * Remove a line comment, without mistaking a `//` INSIDE a string for one.
+ * The scope occurrences that are CODE, counted by parsing.
  *
- * The first version tested `[^:]\/\/` — enough for `https://`, and wrong for a protocol-relative
- * `'//host/@scope/pkg'`, where everything from the first `//` was stripped and a real hardcoded
- * literal vanished from the count. Review caught it, and it is the ratchet's own failure mode: not a
- * wrong answer but an invisible zero. Quoted spans are walked so a `//` inside one is left alone.
+ * Three hand-rolled versions of this got it wrong, each the same way and each found by review rather
+ * than by reading:
+ *
+ * 1. `[^:]\/\/` treated the `//` inside `'//host/@scope/pkg'` as a comment and deleted the rest of
+ *    the line.
+ * 2. Walking quotes per LINE fixed that, but a `/*`-shaped substring inside a string was still
+ *    stripped first by a separate, string-unaware pass.
+ * 3. A single-pass scanner carrying quote state across lines fixed both — and then desynchronised on
+ *    this repository's own `shared.mjs`, leaving a whole line comment in the count.
+ *
+ * None produced a wrong number. Each produced an INVISIBLE ZERO or a phantom one, which is precisely
+ * the failure mode this ratchet exists to prevent. The repository already made this decision once:
+ * `scan-contract-cast-ratchet` replaced a hand-rolled scanner with the native-AST adapter after three
+ * silent under-counts, and the same answer applies here. A parser has no such ambiguities — comments
+ * are not nodes, and a delimiter inside a string is just text.
+ *
+ * What counts: the text of string, template and regex literals. That is what "code, not prose" means
+ * for this rule — an allowlist keyed by package name is code; a docstring naming the scope a rule
+ * governs is not. An identifier cannot contain `@`, so nothing else can carry the literal.
  */
-function stripLineComment(line) {
-  let quote;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (quote !== undefined) {
-      if (ch === '\\') i += 1;
-      else if (ch === quote) quote = undefined;
-      continue;
+export function codeOnly(source) {
+  const ast = createSourceFile('scan.mjs', source, ScriptTarget.Latest, true);
+  const parts = [];
+  const visit = (node) => {
+    const kind = node.kind;
+    if (
+      kind === SyntaxKind.StringLiteral ||
+      kind === SyntaxKind.NoSubstitutionTemplateLiteral ||
+      kind === SyntaxKind.TemplateHead ||
+      kind === SyntaxKind.TemplateMiddle ||
+      kind === SyntaxKind.TemplateTail ||
+      kind === SyntaxKind.RegularExpressionLiteral
+    ) {
+      parts.push(node.getText(ast));
     }
-    if (ch === "'" || ch === '"' || ch === '`') {
-      quote = ch;
-      continue;
-    }
-    if (ch === '/' && line[i + 1] === '/') return line.slice(0, i);
-  }
-  return line;
+    forEachChild(node, visit);
+  };
+  visit(ast);
+  // Inside a REGEX literal the scope is written `@scope\/…` — the form the audit isolated. A counter
+  // that could not see it would have missed the instance it exists for.
+  return parts.join('\n').replace(/\\\//g, '/');
 }
 
 /** Occurrences of the scope literal in each script's code, by file name. */

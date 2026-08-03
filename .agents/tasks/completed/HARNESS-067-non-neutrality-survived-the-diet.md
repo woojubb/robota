@@ -162,6 +162,31 @@ One test fixture was wrong rather than the code: a `String.raw` template swallow
 produced an unterminated string, so the escaped-quote case was not testing the shape it named. Built
 by concatenation instead.
 
+### Review round 3 (PR #1612) — and the decision to stop hand-rolling
+
+One SHOULD, and it was the third instance of one bug: block comments were stripped by a separate,
+string-unaware pass that ran BEFORE the string-aware line-comment pass, so a `/*`-shaped substring
+inside a string deleted everything to the next `*/`. The reviewer named it as "the same bug class
+already fixed in this PR for `//`, just left open for `/* */`" — which was exactly right.
+
+The fix for that revealed a fourth: a single-pass scanner carrying quote state across lines
+desynchronised on this repository's own `shared.mjs` and left a whole line comment in the count.
+
+Four attempts, four wrong answers, none of them a wrong NUMBER — each was an invisible zero or a
+phantom one, which is the failure mode this ratchet exists to prevent. The repository had already made
+this decision once: `scan-contract-cast-ratchet` replaced a hand-rolled scanner with the native-AST
+adapter after three silent under-counts, and its docstring says so. The same answer applies here, and
+should have been the first answer.
+
+`codeOnly` now parses. Comments are not nodes; a delimiter inside a string is just text. What counts
+is the text of string, template and regex literals — an identifier cannot contain `@`, so nothing else
+can carry the literal.
+
+The measured count moved each time the counter got better: **77 → 88 → 96**. The last step was not a
+new hardcoding; it was `check-workspace-refs.mjs` (4) becoming visible at all, plus three more in
+`check-agent-server-boundary.mjs` and one in `check-doc-examples.mjs`. Seven cases pin the parser's
+behaviour, including the three shapes that fooled the hand-rolled versions.
+
 ### Remaining
 
 - 88 occurrences across 14 scripts are frozen, not removed. `check-agent-server-boundary.mjs` alone
