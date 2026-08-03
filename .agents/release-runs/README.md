@@ -37,7 +37,7 @@ the tree was checked. What the tree actually says:
 - 16 artefacts, `3.0.0-beta.62.md` … `3.0.0-beta.79.md`, and `3.0.0-beta.79` is the CURRENT
   `agent-cli` version — the last release produced its run file, so nothing lapsed.
 - `.agents/rules/publish.md` makes it mandatory: a version-specific release-run file MUST exist here.
-- `scripts/publish/publish-packages.sh` runs `pnpm harness:release:check -- --publish` on every
+- `scripts/publish/publish-packages.sh` runs `pnpm harness:release:check -- --version "$VERSION" --publish` on every
   publish, and `scripts/harness/check-release-governance.mjs` (registered in `run-all-scans.mjs`)
   enforces the machinery — including one rule that reads THIS file.
 

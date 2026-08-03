@@ -82,16 +82,40 @@ does not exist — and the owning document says so in as many words ("There is *
 mistake in the owning document's prose, and its scope stopped there. The blind spot is not adjacent to
 the mechanism; it is the one place the name could rot unnoticed.
 
-The sweep the task asked for was run: of every root and `.agents/` markdown file, only
-`CONTRIBUTING.md` (8 entries) and `.agents/project-structure.md` (3, the owner) carried a list. No
-third copy. The three `apps/` entries in the deleted block were verified to exist before removal, so
-nothing correct was lost with the incorrect entry.
+**The sweep, restated with the measurement it was actually based on.** The first version of this
+section said "of every root and `.agents/` markdown file, only `CONTRIBUTING.md` (8 entries) and
+`.agents/project-structure.md` (3, the owner) carried a list. No third copy." Review round 3 measured
+it with this change's own detector and got different numbers: 142 of 1768 root+`.agents` markdown
+files enumerate three or more package paths, and the owner yields 7, not 3. The claim was a judgement
+about document KIND stated as if it were a count, which is the same species of error as the drifted
+list it justified removing.
+
+What the measurement actually supports: 131 of those 142 are dated records — completed Tasks,
+archived audits, closed spec-docs — where a listing is history and correct as written. Of the eleven
+that are not, one is the owner and the rest name several packages because those packages are the
+SUBJECT of the document (an open Task's affected areas, a rule's examples). None is a second copy of
+the repository's structure, which is what the one-owner rule is about — and `README.md`, which does
+list packages, lists them as an npm catalogue of `@robota-sdk/*` names with links and descriptions:
+a published-package index, a different document kind from the internal path layout, and deliberately
+not governed by the enumeration rule.
+
+The three `apps/` entries in the deleted block were verified to exist before removal, so nothing
+correct was lost with the incorrect entry.
 
 **The declared regression is delivered** —
 `scripts/harness/__tests__/front-door-docs-do-not-copy-the-package-list.test.mjs`. The first version of
 this change deleted the list and stopped there, which leaves nothing to stop it coming back: this
 task's own thesis, unlearned. Red-proved at the merge-base, where the case fails naming all eight
 entries.
+
+**And the rule that mattered is extended, not just the ban.** Deleting the copy is half the task; the
+reason the copy was worth deleting is that it named a package that does not exist, and Rule 9 reaches
+only the owning document. Banning enumerations moves that blind spot rather than closing it — so the
+EXISTENCE check now runs over every package name a front-door document uses, enumeration or not.
+Round 3 proved that was not hypothetical: `README.md`'s architecture diagram still said
+`agent-provider`, contradicting a table twenty lines below it that lists the per-vendor packages which
+replaced it. Fixed by hand, because a bare name inside a fenced diagram carries no `@scope/` or
+`packages/` prefix to recognise it by — a limit the test states rather than implies.
 
 Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
 `README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed. 171 tracked markdown

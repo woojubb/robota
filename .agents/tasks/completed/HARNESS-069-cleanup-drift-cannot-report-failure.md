@@ -84,12 +84,19 @@ while the pass case still passes.
 is not registered as a gate, and the first version of the fix repeated that in a docstring and pinned
 it with a case asserting `run-all-scans.mjs` does not mention the script. Review measured the actual
 path: `scripts/harness/__tests__/cleanup-drift.test.mjs` asserts the script's exit code **against the
-live tree**, `pnpm harness:test` runs that whole directory, and CI runs `harness:test` unconditionally
-in the `scans` job. So it IS a required check on every PR — through the test suite rather than the
-scan registry. A comment asserting the opposite, in a change about a script that could not report
-failure, is this repository's most-measured defect class; one grep of `ci.yml` disproved it. The
-docstring, the test file's header and `scripts/harness/README.md` now say where the enforcement
-actually is.
+live tree**, `pnpm harness:test` runs that whole directory, and CI reaches it on both sides: the
+`scans` job (`if: github.base_ref != 'main'`) runs it as a step, and a promotion to `main` runs it
+inside `harness:verify:release`. So it IS a required check on every PR — through the test suite
+rather than the scan registry. A comment asserting the opposite, in a change about a script that
+could not report failure, is this repository's most-measured defect class; one grep of `ci.yml`
+disproved it. The docstring, the test file's header and `scripts/harness/README.md` now say where the
+enforcement actually is.
+
+That sentence took three passes to get right, and the third correction is the instructive one: the
+second version said "unconditionally in the `scans` job" and was corrected in the code and the README
+— but not here, so this record contradicted itself in a single paragraph while claiming the
+correction had been applied everywhere. Round 3 caught it. The claim "I fixed it in all N places" is
+the same defect as the original claim, one level up.
 
 **Three further defects review found in the fix itself:**
 

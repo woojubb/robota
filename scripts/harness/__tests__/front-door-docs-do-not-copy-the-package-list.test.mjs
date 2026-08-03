@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { listWorkspaceScopes } from '../shared.mjs';
+
 /**
  * HARNESS-068 — the package listing has one owner, and the front door kept a copy.
  *
@@ -47,16 +49,26 @@ export function enumeratedPackages(markdown) {
   return names;
 }
 
-/** Three is a listing; one or two is an example. */
+/**
+ * Three is a listing; one or two is an example.
+ *
+ * It governs the SELF-CHECKS below — that the owner still enumerates, and that the detector fires on
+ * the block that was deleted. The rule on a front-door document is stricter and is stated as itself:
+ * ZERO path enumerations, because the point is to link rather than to list a little.
+ */
 const ENUMERATION_THRESHOLD = 3;
 
 describe('the package list has one owner (HARNESS-068)', () => {
   for (const doc of FRONT_DOOR_DOCS) {
-    it(`${doc} links to the owner instead of copying the list`, () => {
+    // Named for what it checks, not for the wider idea behind it. The first version was called
+    // "links to the owner instead of copying the list" and ran over README.md — which DOES list
+    // packages, as an npm catalogue of `@robota-sdk/*` names the detector structurally cannot see.
+    // A green case under a name broader than its rule is a claim nothing checks.
+    it(`${doc} enumerates no packages/<name> paths`, () => {
       const names = enumeratedPackages(readFileSync(path.join(ROOT, doc), 'utf8'));
       expect(
         [...names],
-        `${doc} enumerates ${names.size} package paths. Link to ${OWNER} instead — a second copy ` +
+        `${doc} enumerates ${names.size} package path(s). Link to ${OWNER} instead — a second copy ` +
           'drifts, and the rule that catches a bad package name reaches only the owning document.',
       ).toHaveLength(0);
     });
@@ -86,5 +98,84 @@ describe('the package list has one owner (HARNESS-068)', () => {
   it('prose that names a package or two is not an enumeration', () => {
     const prose = '- see `packages/agent-core` for the runtime, which `packages/agent-cli` drives';
     expect(enumeratedPackages(prose).size).toBeLessThan(ENUMERATION_THRESHOLD);
+  });
+});
+
+/**
+ * The rule that mattered, at the edge where it was missing.
+ *
+ * Deleting the copy is only half of HARNESS-068. The reason the copy was worth deleting is that it
+ * named a package that does not exist, and `check-dependency-direction.mjs` Rule 9 — which fails the
+ * build for exactly that — reaches only the owning document. Banning enumerations does not extend
+ * that rule; it just moves the ground it cannot see.
+ *
+ * So the existence check itself is extended here, to every package name a front-door document uses,
+ * enumeration or not. Review round 3 proved this is not hypothetical twice over: `CONTRIBUTING.md`
+ * had `packages/agent-provider`, and `README.md`'s architecture diagram STILL said `agent-provider`
+ * — contradicting a table twenty lines below it that lists the per-vendor packages that replaced it.
+ *
+ * WHAT IT CANNOT SEE, stated rather than implied: bare names inside a fenced diagram, which carry no
+ * `@scope/` or `packages/` prefix to recognise them by. The README entry above was found by a human
+ * reading, and fixed by hand. A rule that matched bare lowercase words in code fences would match
+ * most of a shell transcript.
+ */
+const SCOPE_PREFIX = '@robota-sdk/';
+
+/**
+ * Package names a document actually asserts, as `<prefix><name>` tokens.
+ *
+ * Two forms are dropped, each because it names no package: a token ending in `*` or `-` is a GLOB
+ * (`packages/dag-*`), and the placeholder words below stand in for "a package" in a command
+ * template (`--scope <packages/foo|apps/bar>`).
+ */
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'name', 'your-package']);
+
+export function namedPackages(markdown) {
+  const named = new Set();
+  for (const [prefix, pattern] of [
+    [SCOPE_PREFIX, new RegExp(`${SCOPE_PREFIX}([a-z0-9][a-z0-9-]*)(.?)`, 'g')],
+    ['packages/', /\bpackages\/([a-z0-9][a-z0-9-]*)(.?)/g],
+  ]) {
+    for (const [, name, next] of markdown.matchAll(pattern)) {
+      if (next === '*' || name.endsWith('-')) continue;
+      if (PLACEHOLDER_NAMES.has(name)) continue;
+      named.add(`${prefix}${name}`);
+    }
+  }
+  return named;
+}
+
+describe('a front-door document may not name a package that does not exist (HARNESS-068)', () => {
+  it('every package named in a front-door document resolves', async () => {
+    const scopes = await listWorkspaceScopes();
+    const known = new Set([
+      ...scopes.map((scope) => scope.workspaceName),
+      ...scopes.map((scope) => `packages/${scope.shortName}`),
+      ...scopes.map((scope) => scope.relativeDir),
+    ]);
+    // The check's own vacuity guard: an empty or tiny workspace listing would pass everything.
+    expect(scopes.length).toBeGreaterThan(10);
+
+    for (const doc of FRONT_DOOR_DOCS) {
+      const unresolved = [...namedPackages(readFileSync(path.join(ROOT, doc), 'utf8'))].filter(
+        (token) => !known.has(token),
+      );
+      expect(unresolved, `${doc} names package(s) that do not exist in this workspace`).toEqual([]);
+    }
+  });
+
+  it('(RED) the detector sees the name that was actually wrong', () => {
+    // `packages/agent-provider` — the entry that justified deleting the CONTRIBUTING copy.
+    expect(namedPackages('- `packages/agent-provider` — providers')).toContain(
+      'packages/agent-provider',
+    );
+    expect(namedPackages('install `@robota-sdk/agent-provider`')).toContain(
+      '@robota-sdk/agent-provider',
+    );
+  });
+
+  it('a glob or a placeholder is not a package name', () => {
+    expect(namedPackages('- `packages/dag-*` are the DAG packages').size).toBe(0);
+    expect(namedPackages('`--scope <packages/foo|apps/bar>`').size).toBe(0);
   });
 });

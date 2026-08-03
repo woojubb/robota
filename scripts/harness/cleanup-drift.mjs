@@ -491,7 +491,8 @@ function publishVerdict(typeGroups) {
  * never runs, leaving the repository's frozen counts corrupted. Same shape as `GUARD_LEDGER_CEILINGS`
  * in `scan-guard-scope-fail-closed.mjs`, for the same reason — INCLUDING its loud notice, because a
  * silent override is the failure this file is being fixed for: a run against an untracked baseline
- * would otherwise print a verdict indistinguishable from the real one.
+ * would otherwise print a verdict indistinguishable from the real one. `--write-baseline` never
+ * reaches `publishVerdict` and so never reaches that notice — it prints the resolved path instead.
  */
 function driftBaselinePath() {
   const override = process.env['CLEANUP_DRIFT_BASELINE'];
@@ -500,9 +501,16 @@ function driftBaselinePath() {
     : path.join(WORKSPACE_ROOT, 'scripts/harness/cleanup-drift-baseline.json');
 }
 
-/** Say so, on pass and on fail, whenever the run was not judged against the tracked baseline. */
+/**
+ * Say so, on pass and on fail, whenever the run was not judged against the tracked baseline.
+ *
+ * The emptiness test matches `driftBaselinePath` exactly. With `CLEANUP_DRIFT_BASELINE=` set empty,
+ * a `!== undefined` check here would announce "this run did NOT check the frozen counts" about a run
+ * that checked them — a notice asserting the opposite of what happened.
+ */
 function announceBaselineOverride() {
-  if (process.env['CLEANUP_DRIFT_BASELINE'] === undefined) return;
+  const override = process.env['CLEANUP_DRIFT_BASELINE'];
+  if (override === undefined || override === '') return;
   process.stderr.write(
     `cleanup-drift: baseline OVERRIDDEN via CLEANUP_DRIFT_BASELINE=${driftBaselinePath()} — this ` +
       'run did NOT check the frozen counts, and its verdict says nothing about the repository.\n',
@@ -520,11 +528,26 @@ function loadDriftBaseline() {
   }
 }
 
-/** Freeze the current per-type drift counts. The set may fall and must never rise. */
+/**
+ * Freeze the current per-type drift counts. The set may fall and must never rise.
+ *
+ * Clock-derived types are filtered here too, not only in the comparison: a freeze run on a machine
+ * with an aged `.design/tmp/` would otherwise write a number into the tracked baseline that no other
+ * checkout can reproduce, which is exactly what `CLOCK_DERIVED_TYPES` says a baseline must not hold.
+ *
+ * The resolved PATH is printed, because this is the one route that skips `publishVerdict` and so
+ * skips its override notice — without the path, `CLEANUP_DRIFT_BASELINE=/tmp/x --write-baseline`
+ * would report a freeze while the tracked file sat untouched.
+ */
 function writeDriftBaseline(typeGroups) {
-  const next = Object.fromEntries([...typeGroups.entries()].sort());
-  fsSync.writeFileSync(driftBaselinePath(), `${JSON.stringify(next, null, 2)}\n`);
-  process.stdout.write(`drift baseline frozen: ${JSON.stringify(next)}\n`);
+  const next = Object.fromEntries(
+    [...typeGroups.entries()].filter(([type]) => !CLOCK_DERIVED_TYPES.has(type)).sort(),
+  );
+  const target = driftBaselinePath();
+  fsSync.writeFileSync(target, `${JSON.stringify(next, null, 2)}\n`);
+  process.stdout.write(
+    `drift baseline frozen in ${path.relative(WORKSPACE_ROOT, target) || target}: ${JSON.stringify(next)}\n`,
+  );
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

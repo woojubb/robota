@@ -32,7 +32,7 @@ here.
 rather than edited away.** `3.0.0-beta.79` is the CURRENT `agent-cli` version and there are 16
 artefacts, not one — the last release produced its run file, so nothing lapsed. `.agents/rules/publish.md`
 requires a version-specific file here; `scripts/publish/publish-packages.sh` runs
-`pnpm harness:release:check -- --publish` on every publish; `check-release-governance.mjs`
+`pnpm harness:release:check -- --version "$VERSION" --publish` on every publish; `check-release-governance.mjs`
 (registered in `run-all-scans.mjs`) enforces the machinery and reads that directory's README. The
 investigation asserted "moved to changesets" from a report rather than from the tree — the exact
 failure this Task is about, committed by the Task itself.

@@ -96,7 +96,7 @@ agent-framework        ← Assembly layer: InteractiveSession, createQuery(), co
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-tools            ← Tool infrastructure + 9 built-in tools
-agent-provider         ← Protocol clients (sub-paths: /anthropic, /openai, /gemini, …)
+agent-provider-{anthropic,openai,gemini,…} ← Protocol clients, one package per vendor
 agent-plugin           ← 8 consolidated lifecycle plugins
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugin contracts
