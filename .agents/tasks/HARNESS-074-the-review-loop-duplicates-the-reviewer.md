@@ -98,6 +98,40 @@ Bring each piece to the policy, as one orchestrated unit rather than file by fil
 Order matters: settle 1 before 2, and 4 only after 1 and 3, because the record's readers change with
 them.
 
+## Implementation — step 1 and 2
+
+**The direction above said "lose the review demand". What shipped is narrower, and the narrowing is
+the finding.** Removing the demand outright would have thrown away a measured saving that is not
+duplication: before a pull request exists, NOTHING has reviewed the diff, so a round there adds a
+reviewer rather than a second one, and the 38-round measurement in the hook's own comment is about
+exactly that window.
+
+The damage was never "a local review happened". It was that a local round on an OPEN pull request
+ends in a push, and every push buys another remote review of the same change — so each local round
+MULTIPLIED the remote ones instead of replacing them. That is why the demand is waived precisely when
+a pull request is open, and kept when one is not.
+
+- `pre-push-check.sh` asks `gh pr view <branch> --json state` only on the path that would otherwise
+  block, so a recorded review still touches no network and the lookup is spent only where the
+  alternative was a refusal. Unknown is not open: no `gh`, no authentication, no network or no pull
+  request all reach the refusal the gate gave before the exemption existed. The waiver announces
+  itself, because a demand dropped in silence is a bypass.
+- Round A of `pr-finding-resolution-loop` says the same thing, and a case asserts it does — two
+  statements of one gate drift, and a skill still calling the round unconditional would send an agent
+  to review what CI is already reviewing.
+- Red-proved: an open pull request refused the push before this change (exit 2 on the named
+  assertion), and the skill did not say where Round A stops.
+
+**Step 4 — the local review record STAYS,** because step 1 left it a reader: the pre-pull-request
+push. Its readers were enumerated mechanically rather than assumed — `pre-push-check.sh` is the only
+gate that reads a record; `merge-gate.sh` reads a pull-request label and `review-gate.yml` reads
+code-scanning results and labels. That enumeration is written into `.agents/local-reviews/README.md`
+so the next reader need not re-derive it.
+
+**Step 5 — `pr-review-reviewer` keeps both of its uses,** unchanged: the local diff before a pull
+request exists, and the tree diff in `delegated-refactor-green-gate`. Neither is a second opinion on
+something already reviewed, so no registration, map row or reachability test moves.
+
 ## Test Plan
 
 - **Required red-first regression:** a check that the pull-request loop does not dispatch a reviewer

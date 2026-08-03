@@ -263,6 +263,34 @@ if ! command -v node >/dev/null 2>&1 || [[ ! -f "$RECORDER" ]]; then
 fi
 
 if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
+  # --- but only one reviewer owns a diff at a time (HARNESS-074) --------------------------------
+  #
+  # Once a pull request is OPEN, its review automation reviews every push and carries the history of
+  # the rounds before it. That is the reviewer this repository delegates to. Demanding a second,
+  # local, subjective review before each of those pushes did not add a reviewer — it multiplied the
+  # remote ones, because the loop pushed once per local round and every push bought another remote
+  # review of the same change. The cost argument above is what makes that damage visible rather than
+  # contradicting it: a round is cheap HERE, and expensive when it causes a push.
+  #
+  # Before the pull request exists nothing has reviewed this diff, so the argument stands untouched
+  # and the demand stays.
+  #
+  # Asked only on the path that would otherwise block, so a recorded review still touches no network,
+  # and one lookup is spent only where the alternative is a refusal. Unknown is not open: no `gh`,
+  # no authentication, no network, or no pull request all reach the same refusal the gate gave before
+  # this exemption existed — an exemption that opens on a failed measurement is a vacuous green.
+  #
+  # `gh pr list --head` and not `gh pr view "$CUR_BRANCH"`: `pr view` takes a number, a URL or a
+  # branch and decides which by shape, so a branch named `42` would be answered with pull request
+  # #42's state — a waiver granted on some other change's evidence. `--head` only ever means a branch.
+  if command -v gh >/dev/null 2>&1 &&
+    [[ "$(cd "$PROJECT_DIR" &&
+      gh pr list --head "$CUR_BRANCH" --state open --json number --jq 'length' 2>/dev/null)" =~ ^[1-9] ]]; then
+    echo "[pre-push-check] Open pull request on '$CUR_BRANCH': its review automation owns the review" >&2
+    echo "[pre-push-check] of this push. Resolve what that review reports; do not review it again." >&2
+    exit 0
+  fi
+
   echo "[pre-push-check] Blocked: ${REVIEW_STATE:-no local review recorded}." >&2
   # The base depends on the branch. This file's own hygiene section documents `release/*` and
   # `hotfix/*` as based on main, and those branches are deliberately NOT exempt from this gate — so
