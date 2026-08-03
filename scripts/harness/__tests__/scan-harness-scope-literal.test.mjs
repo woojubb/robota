@@ -86,6 +86,28 @@ describe('scan-harness-scope-literal', () => {
       expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
     });
 
+    it('a `//` inside a STRING does not hide the rest of the line', () => {
+      // Review caught this: the first stripper treated any `//` not preceded by `:` as a comment, so
+      // a protocol-relative `'//host/@acme/pkg'` had everything from the first `//` removed and a
+      // real hardcoded literal vanished from the count. Not a wrong answer — an invisible zero, which
+      // is this ratchet's own failure mode.
+      const { dir } = scriptDir({ 'a.mjs': `const u = '//host/@acme/pkg';` });
+      expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
+    });
+
+    it('a `//` inside a template literal does not hide the rest either', () => {
+      const { dir } = scriptDir({ 'a.mjs': 'const u = `//host/@acme/pkg`;' });
+      expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
+    });
+
+    it('an escaped quote does not end the string early', () => {
+      // Built by concatenation: a template literal swallowed the backslash and produced an
+      // unterminated string, so the fixture was not the shape the case is about.
+      const source = "const s = 'it" + String.fromCharCode(92) + "'s //x'; const p = '@acme/c';";
+      const { dir } = scriptDir({ 'a.mjs': source });
+      expect(countScopeLiterals(dir, SCOPE)['a.mjs']).toBe(1);
+    });
+
     it('codeOnly leaves code and removes only comments', () => {
       expect(codeOnly(`const a = 1; // @acme/x\nconst b = '@acme/y';`)).toContain('@acme/y');
       expect(codeOnly(`const a = 1; // @acme/x`)).not.toContain('@acme/x');

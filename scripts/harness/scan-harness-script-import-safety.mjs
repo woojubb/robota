@@ -49,6 +49,8 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { harnessScripts } from './shared.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SCRIPT_DIR = 'scripts/harness';
 const IMPORT_TIMEOUT_MS = 30_000;
@@ -133,30 +135,6 @@ export function findImportSafetyFindings(root = WORKSPACE_ROOT) {
   }
 
   return { findings, examined: files.length, untested };
-}
-
-/**
- * Scripts with no test file named after them.
- *
- * The third rule, and the point of the other two: once every script can be imported, "every harness
- * script has a test" becomes a statement a machine can hold. The count is frozen rather than driven
- * to zero — 27 of 131 is not closable in one change, and a ban would be suppressed rather than obeyed.
- *
- * Matching is by BASENAME, so `lib/ts-ast.mjs` is covered by `__tests__/ts-ast.test.mjs` and the walk
- * being recursive does not change what counts as covered. The three `lib/` modules are in the frozen
- * set because no test is NAMED after them — they are exercised through the scans that import them
- * (`scan-legacy-typescript`, `check-regression-red-proof`), which is coverage the name-matching rule
- * cannot see. That is a stated limit of the rule, not a claim that they are untested.
- */
-export function harnessScripts(dir, prefix = '') {
-  const found = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
-    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...harnessScripts(path.join(dir, entry.name), relative));
-    else if (entry.name.endsWith('.mjs')) found.push(relative);
-  }
-  return found;
 }
 
 export function untestedScripts(dir, files) {

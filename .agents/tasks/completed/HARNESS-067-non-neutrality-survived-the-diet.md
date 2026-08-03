@@ -140,6 +140,28 @@ the rule's docstring now states that limit rather than implying they are unteste
 basename, so a nested module IS credited by a test named after it — pinned by a case, because
 otherwise the recursion would have silently reclassified already-covered modules.
 
+### Review round 2 (PR #1612)
+
+Two SHOULDs, both upheld.
+
+**The line-comment stripper hid literals inside strings.** It treated any `//` not preceded by `:` as
+a comment start — enough for `https://`, wrong for a protocol-relative `'//host/@scope/pkg'`, where
+everything from the first `//` was removed and a real hardcoded literal vanished from the count.
+Demonstrated before fixing: `codeOnly` returned `const u = '`. Not a wrong answer but an invisible
+zero, which is this ratchet's own failure mode — the second time in this change that the counter could
+not see a form it exists for. Quoted spans are now walked, with cases for single, template and
+escaped-quote strings.
+
+**`harnessScripts` was defined identically in both scans.** This same change argues, for
+`escapeForRegExp`, that a second caller is when a private helper becomes a shared one rather than a
+copy — and then did not apply it to its own new code. It now lives in `shared.mjs`, which matters
+concretely here: this diff already had to fix the identical `lib/` blind spot in both scans, and two
+ratchets that must agree on what a harness script IS will otherwise diverge silently.
+
+One test fixture was wrong rather than the code: a `String.raw` template swallowed the backslash and
+produced an unterminated string, so the escaped-quote case was not testing the shape it named. Built
+by concatenation instead.
+
 ### Remaining
 
 - 88 occurrences across 14 scripts are frozen, not removed. `check-agent-server-boundary.mjs` alone

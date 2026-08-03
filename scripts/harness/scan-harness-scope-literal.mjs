@@ -45,6 +45,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { harnessScripts } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SCRIPT_DIR = 'scripts/harness';
@@ -62,7 +63,7 @@ export function codeOnly(source) {
     source
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .split('\n')
-      .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1'))
+      .map(stripLineComment)
       .join('\n')
       // Inside a REGEX literal the scope is written `@scope\/…`, and a plain substring test misses
       // it. That is precisely the form the audit isolated — `/export \* from ['"](@scope\/…)/` — so a
@@ -72,26 +73,33 @@ export function codeOnly(source) {
   );
 }
 
-/** Occurrences of the scope literal in each script's code, by file name. */
 /**
- * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
+ * Remove a line comment, without mistaking a `//` INSIDE a string for one.
  *
- * `scripts/harness/lib/` holds three shared modules, and a non-recursive read left them outside this
- * ratchet entirely — a hardcoded scope added there would have been uncounted and unfrozen. Review
- * caught it, and it is the same blind spot this scan's own docstring describes, one directory over.
- * `__tests__` is excluded: a test may name the scope it is testing.
+ * The first version tested `[^:]\/\/` — enough for `https://`, and wrong for a protocol-relative
+ * `'//host/@scope/pkg'`, where everything from the first `//` was stripped and a real hardcoded
+ * literal vanished from the count. Review caught it, and it is the ratchet's own failure mode: not a
+ * wrong answer but an invisible zero. Quoted spans are walked so a `//` inside one is left alone.
  */
-export function harnessScripts(dir, prefix = '') {
-  const found = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
-    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...harnessScripts(path.join(dir, entry.name), relative));
-    else if (entry.name.endsWith('.mjs')) found.push(relative);
+function stripLineComment(line) {
+  let quote;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quote !== undefined) {
+      if (ch === '\\') i += 1;
+      else if (ch === quote) quote = undefined;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '/' && line[i + 1] === '/') return line.slice(0, i);
   }
-  return found;
+  return line;
 }
 
+/** Occurrences of the scope literal in each script's code, by file name. */
 export function countScopeLiterals(dir, scope, files = harnessScripts(dir)) {
   const counts = {};
   for (const name of files.filter((file) => file.endsWith('.mjs'))) {
