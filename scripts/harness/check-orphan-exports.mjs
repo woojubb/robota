@@ -143,8 +143,7 @@ function extractRuntimeExports(content) {
 export async function findOrphanExportFindings(root = WORKSPACE_ROOT, options = {}) {
   requireGovernedTree(root, ['packages'], {
     scan: 'orphan-exports',
-    why:
-      'An orphan verdict is quantified over the workspace reference corpus; an empty corpus makes every export an orphan and reports none.',
+    why: 'An orphan verdict is quantified over the workspace reference corpus; an empty corpus makes every export an orphan and reports none.',
   });
   const allowlist = options.allowlist ?? ORPHAN_EXPORT_ALLOWLIST;
   const findings = [];
@@ -228,6 +227,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

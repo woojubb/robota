@@ -249,6 +249,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-product-identity.mjs'],
   },
   {
+    name: 'harness-script-import-safety',
+    command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },
@@ -489,6 +493,6 @@ export async function main() {
   process.exitCode = await runScans(scans);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

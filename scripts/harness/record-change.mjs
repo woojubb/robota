@@ -1,4 +1,5 @@
 import { resolveScenarioRecord } from './scenario-owner-map.mjs';
+import path from 'node:path';
 import {
   detectChangedFiles,
   listWorkspaceScopes,
@@ -20,13 +21,16 @@ async function main() {
   const scopes = await listWorkspaceScopes();
   const changedFiles = detectChangedFiles(options.baseRef);
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
-  const selectedScopes = options.scopeTokens.length > 0
-    ? resolveRequestedScopes(options.scopeTokens, scopes)
-    : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
+  const selectedScopes =
+    options.scopeTokens.length > 0
+      ? resolveRequestedScopes(options.scopeTokens, scopes)
+      : scopes.filter((scope) => (scopeFiles.get(scope.relativeDir) ?? []).length > 0);
 
   if (selectedScopes.length === 0) {
     process.stdout.write('No package or app scope detected from changed files.\n');
-    process.stdout.write('Use --scope <packages/foo|apps/bar> to run explicit scenario recording.\n');
+    process.stdout.write(
+      'Use --scope <packages/foo|apps/bar> to run explicit scenario recording.\n',
+    );
     return;
   }
 
@@ -60,11 +64,15 @@ async function main() {
 
   process.stdout.write('\nRecording summary:\n');
   for (const item of summary) {
-    process.stdout.write(`- ${item.scope}: ${item.records.join(', ') || 'no runnable record commands'}\n`);
+    process.stdout.write(
+      `- ${item.scope}: ${item.records.join(', ') || 'no runnable record commands'}\n`,
+    );
     for (const note of item.notes) {
       process.stdout.write(`  note: ${note}\n`);
     }
   }
 }
 
-void main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  void main();
+}

@@ -70,8 +70,8 @@
  */
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { extname, join, relative, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 
@@ -370,6 +370,6 @@ export async function main() {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

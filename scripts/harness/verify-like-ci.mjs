@@ -793,6 +793,6 @@ export async function main(argv = process.argv.slice(2)) {
   process.exitCode = exitCode;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

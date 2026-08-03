@@ -88,6 +88,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
 export const MANDATORY_TREE_GUARDS = [
   {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist`.
+    file: 'scan-harness-script-import-safety.mjs',
+    finder: 'findImportSafetyFindings',
+    tree: 'scripts/harness itself',
+    why: 'it imports every harness script to prove that importing one does nothing; over a root with no scripts there is nothing to import and every script is vacuously safe — and the ten scripts it found doing work at import, one of which WROTE FILES, were invisible to a source heuristic that reported zero',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `packages/agent-core/src does not exist`.
     file: 'scan-product-identity.mjs',
     finder: 'findProductIdentity',

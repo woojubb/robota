@@ -774,7 +774,7 @@ function extractJson(text) {
 
 // ── CLI entry ───────────────────────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   runRegressionRedProof()
     .then(({ verdict }) => {
       const enforce = process.env.REGRESSION_RED_PROOF_ENFORCE === '1';

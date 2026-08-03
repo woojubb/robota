@@ -21,7 +21,7 @@ const WORKSPACE_ROOT = process.cwd();
 function parseArgs(argv) {
   const options = { scope: null, reportFile: null };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--' ) continue;
+    if (argv[i] === '--') continue;
     if (argv[i] === '--scope') {
       options.scope = argv[++i];
     } else if (argv[i] === '--report-file') {
@@ -32,38 +32,55 @@ function parseArgs(argv) {
 }
 
 async function collectStrictPolicyErrors() {
-  const result = spawnSync('grep', [
-    '-rn', '--include=*.ts',
-    '--exclude-dir=node_modules', '--exclude-dir=dist',
-    '-E', '\\[STRICT.POLICY\\]|\\[EMITTER.CONTRACT\\]|\\[APPLY.LAYER\\]',
-    'packages/',
-  ], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'grep',
+    [
+      '-rn',
+      '--include=*.ts',
+      '--exclude-dir=node_modules',
+      '--exclude-dir=dist',
+      '-E',
+      '\\[STRICT.POLICY\\]|\\[EMITTER.CONTRACT\\]|\\[APPLY.LAYER\\]',
+      'packages/',
+    ],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0 || !result.stdout.trim()) {
     return [];
   }
 
-  return result.stdout.trim().split(/\r?\n/).map(line => {
-    const [file, ...rest] = line.split(':');
-    const lineNum = rest[0];
-    const content = rest.slice(1).join(':').trim();
-    return { file, line: parseInt(lineNum, 10), content };
-  });
+  return result.stdout
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => {
+      const [file, ...rest] = line.split(':');
+      const lineNum = rest[0];
+      const content = rest.slice(1).join(':').trim();
+      return { file, line: parseInt(lineNum, 10), content };
+    });
 }
 
 async function collectOwnerPathUsage() {
-  const result = spawnSync('grep', [
-    '-rn', '--include=*.ts',
-    '--exclude-dir=node_modules', '--exclude-dir=dist',
-    '-l', 'ownerPath',
-    'packages/',
-  ], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'grep',
+    [
+      '-rn',
+      '--include=*.ts',
+      '--exclude-dir=node_modules',
+      '--exclude-dir=dist',
+      '-l',
+      'ownerPath',
+      'packages/',
+    ],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0 || !result.stdout.trim()) {
     return [];
@@ -87,7 +104,7 @@ async function collectScenarioArtifacts(scopeFilter) {
     }
 
     const entries = await fs.readdir(scenarioDir);
-    const records = entries.filter(e => e.endsWith('.record.json'));
+    const records = entries.filter((e) => e.endsWith('.record.json'));
 
     for (const record of records) {
       const recordPath = path.join(scenarioDir, record);
@@ -114,24 +131,34 @@ async function collectScenarioArtifacts(scopeFilter) {
 }
 
 async function collectEventPrefixes() {
-  const result = spawnSync('grep', [
-    '-rn', '--include=*.ts',
-    '--exclude-dir=node_modules', '--exclude-dir=dist',
-    '-E', "EVENT_PREFIX\\s*=\\s*['\"]",
-    'packages/',
-  ], {
-    cwd: WORKSPACE_ROOT,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'grep',
+    [
+      '-rn',
+      '--include=*.ts',
+      '--exclude-dir=node_modules',
+      '--exclude-dir=dist',
+      '-E',
+      'EVENT_PREFIX\\s*=\\s*[\'"]',
+      'packages/',
+    ],
+    {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    },
+  );
 
   if (result.status !== 0 || !result.stdout.trim()) {
     return [];
   }
 
-  return result.stdout.trim().split(/\r?\n/).map(line => {
-    const [file, ...rest] = line.split(':');
-    return { file, definition: rest.slice(1).join(':').trim() };
-  });
+  return result.stdout
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => {
+      const [file, ...rest] = line.split(':');
+      return { file, definition: rest.slice(1).join(':').trim() };
+    });
 }
 
 async function main() {
@@ -170,4 +197,6 @@ async function main() {
   }
 }
 
-void main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  void main();
+}

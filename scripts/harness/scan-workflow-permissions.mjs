@@ -200,6 +200,6 @@ export function main(argv = process.argv.slice(2)) {
   );
 }
 
-if (process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

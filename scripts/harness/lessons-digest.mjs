@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { runLessonsDigest } from './lessons-lib.mjs';
 
 async function main() {
@@ -8,4 +10,6 @@ async function main() {
   process.stdout.write(`patterns: ${result.groups.length}\n`);
 }
 
-void main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  void main();
+}

@@ -50,7 +50,6 @@ import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
-import { pathToFileURL } from 'node:url';
 
 import { loadHarnessConfig } from './harness-config.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
@@ -279,7 +278,7 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
   return 1;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main().then((code) => {
     process.exitCode = code;
   });
