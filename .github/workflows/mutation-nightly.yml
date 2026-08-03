@@ -1,9 +1,9 @@
-name: Nightly mutation testing
+name: Mutation testing (on demand)
 
 # INFRA-042: mutation testing (Stryker) is the deepest defence against weak / accidental-green tests
 # (the class that recurred as ARCH-004 RUNTIME-14 and CORE-026 RUNTIME-12; common-mistakes #82).
 # Coverage proves a line RAN; mutation proves its behaviour is ASSERTED. It runs the suite once per
-# mutant, so it is far too expensive for per-PR CI — it runs NIGHTLY over a bounded set of the
+# mutant, so it is far too expensive for per-PR CI — it runs ON DEMAND over a bounded set of the
 # highest-value CORE packages, one package per matrix leg. See stryker.conf.mjs for scope + config.
 #
 # ADVISORY (v1): the mutation score is REPORT-ONLY (stryker.conf.mjs sets thresholds.break=null, so
@@ -23,9 +23,6 @@ name: Nightly mutation testing
 # exits 1 with `ConfigError: No tests were executed`, because perTest coverage finds no related tests.
 
 on:
-  schedule:
-    # Daily 03:17 UTC — off-peak, and distinct from the security cron (Mon 04:47) and CodeQL (04:27).
-    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:

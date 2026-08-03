@@ -7,14 +7,11 @@ name: Ruleset drift
 # something that is no longer true.
 #
 # This job closes that half, deliberately OUT of the merge path. It gates nothing: a GitHub API
-# outage costs a red cron, never a blocked promotion — which is why the scan's `--live` half is
+# outage costs a red manual run, never a blocked promotion — which is why the scan's `--live` half is
 # opt-in rather than part of `harness:scan`. It also surfaces drift BEFORE a promotion PR is opened
 # rather than while one is waiting.
 
 on:
-  schedule:
-    # Daily. Promotion cadence is far slower than this, so drift is always caught before it matters.
-    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:

@@ -8,6 +8,12 @@ area: .github/workflows, packages
 depends_on: ['INFRA-041']
 ---
 
+> **Cadence removed 2026-08-04 (owner directive: "크론은 다 꺼").** Every `schedule:` trigger in this
+> repository is gone; the workflow this item concerns now runs on `workflow_dispatch` only, and its
+> name no longer claims a cadence. Read every mention of "nightly"/"weekly"/"scheduled" below as
+> describing the design at the time of writing, not a cadence that exists. Whatever this item still
+> asks for must be satisfied by an on-demand run.
+
 # Nightly mutation testing (Stryker) over core packages
 
 ## Problem
