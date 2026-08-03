@@ -15,7 +15,7 @@ app built from these same libraries**, not the product itself.
 
 ## Quick Start — Embed the Library
 
-The minimal set is three packages: `agent-core` + `agent-provider` + `agent-tools`.
+The minimal set is three packages: `agent-core` + one `agent-provider-<vendor>` + `agent-tools`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -90,7 +90,7 @@ the reference CLI are opinionated assemblies OF the libraries.
 
 ```
 agent-cli                       ← Reference product: terminal AI coding assistant
-agent-transport-{tui,http,ws,mcp} ← Standalone transports; agent-transport = lean core
+agent-transport-{tui,http,ws,mcp,webrtc,…} ← Standalone transports; agent-transport = lean core
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓

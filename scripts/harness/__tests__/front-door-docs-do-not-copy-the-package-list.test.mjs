@@ -18,7 +18,7 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * `packages/*` enumeration, which fails today"), and deleting the list without it would leave nothing
  * to stop the list coming back — the Task's own thesis, unlearned.
  *
- * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 171 tracked
+ * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 171 of 2707 tracked
  * markdown files enumerate three or more package paths, nearly all of them dated records — completed
  * Tasks, archived audits, design documents — where a listing is history and correct as written. What
  * distinguishes these four is ROLE, not content: they are read as the CURRENT description of the
@@ -43,7 +43,9 @@ const OWNER = '.agents/project-structure.md';
 export function enumeratedPackages(markdown) {
   const names = new Set();
   for (const line of markdown.split('\n')) {
-    if (!/^\s*[-*|]/.test(line)) continue;
+    // Bullets, table rows AND ordered lists. The first version matched only `-`, `*` and `|`, so the
+    // deleted block could have come back as `1. \`packages/agent-core\` — …` and passed.
+    if (!/^\s*([-*|]|\d+[.)])/.test(line)) continue;
     for (const match of line.matchAll(/\bpackages\/([a-z0-9][a-z0-9-]*)\b/g)) names.add(match[1]);
   }
   return names;
@@ -52,9 +54,10 @@ export function enumeratedPackages(markdown) {
 /**
  * Three is a listing; one or two is an example.
  *
- * It governs the SELF-CHECKS below — that the owner still enumerates, and that the detector fires on
- * the block that was deleted. The rule on a front-door document is stricter and is stated as itself:
- * ZERO path enumerations, because the point is to link rather than to list a little.
+ * It governs every case that reasons about SIZE — the owner still enumerates, the detector fires on
+ * the deleted block, and prose naming one or two packages does not count as a listing. The rule on a
+ * front-door document is stricter and is stated as itself: ZERO path enumerations, because the point
+ * is to link rather than to list a little.
  */
 const ENUMERATION_THRESHOLD = 3;
 
@@ -114,10 +117,14 @@ describe('the package list has one owner (HARNESS-068)', () => {
  * had `packages/agent-provider`, and `README.md`'s architecture diagram STILL said `agent-provider`
  * — contradicting a table twenty lines below it that lists the per-vendor packages that replaced it.
  *
- * WHAT IT CANNOT SEE, stated rather than implied: bare names inside a fenced diagram, which carry no
- * `@scope/` or `packages/` prefix to recognise them by. The README entry above was found by a human
- * reading, and fixed by hand. A rule that matched bare lowercase words in code fences would match
- * most of a shell transcript.
+ * WHAT IT CANNOT SEE — stated at its real width, because the first version of this paragraph said
+ * "bare names inside a fenced diagram" and that framing steered a hand-fix straight past a second
+ * one. It cannot see ANY package name carrying no `@robota-sdk/` or `packages/` prefix, anywhere in
+ * the document, fence or prose: round 4 found `agent-provider` still in README's Quick Start line, in
+ * inline backticks, four lines above a snippet importing `@robota-sdk/agent-provider-anthropic`.
+ * A rule matching bare lowercase words would match most of a shell transcript, so the compensating
+ * control is not a wider regex but a wider sweep: when a package is renamed or split, grep the
+ * front-door documents for the OLD bare name — this check will not do it for you.
  */
 const SCOPE_PREFIX = '@robota-sdk/';
 
@@ -145,12 +152,28 @@ export function namedPackages(markdown) {
   return named;
 }
 
+/**
+ * A token resolves if it IS a package, or if it is the directory GROUP one lives under.
+ *
+ * `packages/dag-nodes/tool` is a real package and the extractor stops at `packages/dag-nodes`, which
+ * is a grouping directory rather than a package — reporting it as nonexistent would be a false
+ * accusation about a correct reference.
+ */
+function resolves(token, known) {
+  if (known.has(token)) return true;
+  const prefix = `${token}/`;
+  for (const entry of known) if (entry.startsWith(prefix)) return true;
+  return false;
+}
+
 describe('a front-door document may not name a package that does not exist (HARNESS-068)', () => {
   it('every package named in a front-door document resolves', async () => {
     const scopes = await listWorkspaceScopes();
+    // `relativeDir` only — the first version also mapped every scope to `packages/<shortName>`,
+    // which made `packages/agent-app`, `packages/www` and four other APPS resolve to paths that do
+    // not exist, under a case named "every package named in a front-door document resolves".
     const known = new Set([
       ...scopes.map((scope) => scope.workspaceName),
-      ...scopes.map((scope) => `packages/${scope.shortName}`),
       ...scopes.map((scope) => scope.relativeDir),
     ]);
     // The check's own vacuity guard: an empty or tiny workspace listing would pass everything.
@@ -158,7 +181,7 @@ describe('a front-door document may not name a package that does not exist (HARN
 
     for (const doc of FRONT_DOOR_DOCS) {
       const unresolved = [...namedPackages(readFileSync(path.join(ROOT, doc), 'utf8'))].filter(
-        (token) => !known.has(token),
+        (token) => !resolves(token, known),
       );
       expect(unresolved, `${doc} names package(s) that do not exist in this workspace`).toEqual([]);
     }
@@ -172,6 +195,20 @@ describe('a front-door document may not name a package that does not exist (HARN
     expect(namedPackages('install `@robota-sdk/agent-provider`')).toContain(
       '@robota-sdk/agent-provider',
     );
+  });
+
+  it('an APP does not resolve as a package path — it is not one', () => {
+    // The hole review found: mapping every scope to `packages/<shortName>` made six apps resolve to
+    // paths that do not exist, inside the case that says every named package exists.
+    const known = new Set(['@robota-sdk/agent-app', 'apps/agent-app']);
+    expect(resolves('packages/agent-app', known)).toBe(false);
+    expect(resolves('apps/agent-app', known)).toBe(true);
+  });
+
+  it('a grouping directory of a real package resolves', () => {
+    const known = new Set(['packages/dag-nodes/tool']);
+    expect(resolves('packages/dag-nodes', known)).toBe(true);
+    expect(resolves('packages/dag-nodesx', known)).toBe(false);
   });
 
   it('a glob or a placeholder is not a package name', () => {

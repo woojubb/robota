@@ -1,5 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -160,6 +169,57 @@ describe('a measurement that failed is an error, not a clean result (HARNESS-069
     // deliberately, rather than the hard measurement error above.
     expect(result.stderr).toMatch(/drift FELL/);
     expect(result.stderr).not.toMatch(/grep` exited/);
+  });
+});
+
+/**
+ * A baseline may hold only numbers another checkout can reproduce.
+ *
+ * `stale-tmp-doc` counts `.design/tmp/` files older than 14 days BY MTIME, so a fresh CI checkout can
+ * never fire it while a tree that sat over a weekend can. It is excluded from the comparison — and
+ * from the freeze, which is what this case pins: round 3 asked whether a `--write-baseline` run could
+ * bake that number in, and the docstring's answer needed to be more than a sentence.
+ */
+describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
+  it('an aged .design/tmp document is reported but never frozen', () => {
+    const baseline = path.join(mkdtempSync(path.join(tmpdir(), 'cleanup-drift-freeze-')), 'b.json');
+    dirs.push(path.dirname(baseline));
+
+    // Aged past the 14-day threshold, in the live tree's own `.design/tmp` — the only place the
+    // check looks — then removed. Written and aged rather than mocked: the rule reads mtime.
+    const tmpDocDir = path.join(ROOT, '.design/tmp');
+    const dirExisted = existsSync(tmpDocDir);
+    mkdirSync(tmpDocDir, { recursive: true });
+    const doc = path.join(tmpDocDir, 'harness-069-freeze-fixture.md');
+    writeFileSync(doc, '# fixture\n');
+    const longAgo = new Date(Date.parse('2020-01-01T00:00:00Z'));
+    utimesSync(doc, longAgo, longAgo);
+
+    try {
+      const frozenRun = spawnSync(
+        'node',
+        ['scripts/harness/cleanup-drift.mjs', '--write-baseline'],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          timeout: 180_000,
+          env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+        },
+      );
+      // It is REPORTED — the finding is real and hiding it would be its own defect.
+      expect(frozenRun.stdout).toMatch(/stale-tmp-doc/);
+      // And it is not frozen.
+      expect(Object.keys(JSON.parse(readFileSync(baseline, 'utf8')))).not.toContain(
+        'stale-tmp-doc',
+      );
+      // The freeze names the file it wrote, since this path skips the override notice.
+      expect(frozenRun.stdout).toMatch(/drift baseline frozen in /);
+    } finally {
+      // The tree is left exactly as it was found, directory included: a test that judges a scan of
+      // the working tree must not become part of what the next one measures.
+      rmSync(doc, { force: true });
+      if (!dirExisted) rmSync(tmpDocDir, { recursive: true, force: true });
+    }
   });
 });
 

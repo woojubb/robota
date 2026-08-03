@@ -112,13 +112,19 @@ entries.
 reason the copy was worth deleting is that it named a package that does not exist, and Rule 9 reaches
 only the owning document. Banning enumerations moves that blind spot rather than closing it — so the
 EXISTENCE check now runs over every package name a front-door document uses, enumeration or not.
-Round 3 proved that was not hypothetical: `README.md`'s architecture diagram still said
-`agent-provider`, contradicting a table twenty lines below it that lists the per-vendor packages which
-replaced it. Fixed by hand, because a bare name inside a fenced diagram carries no `@scope/` or
-`packages/` prefix to recognise it by — a limit the test states rather than implies.
+Rounds 3 and 4 proved that was not hypothetical, and the second instance is the instructive one.
+Round 3 found `README.md`'s architecture diagram still saying `agent-provider`, contradicting a table
+twenty lines below it that lists the per-vendor packages which replaced it — fixed by hand, and the
+test recorded the limit as "bare names inside a fenced diagram". Round 4 then found `agent-provider`
+in README's Quick Start line, in inline backticks in prose, four lines above a snippet importing
+`@robota-sdk/agent-provider-anthropic`. The limit was never about fences: the check cannot see any
+name carrying no `@robota-sdk/` or `packages/` prefix, anywhere. Stating it too narrowly is what
+steered the round-3 hand-fix past the second instance, so it is now stated at its real width together
+with the compensating control — when a package is renamed or split, grep the front-door documents for
+the OLD bare name, because this check will not.
 
 Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
-`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed. 171 tracked markdown
+`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed. 171 of 2707 TRACKED markdown
 files enumerate three or more package paths, nearly all of them dated records where a listing is
 history and correct as written. What separates these four is ROLE: a reader of a completed Task knows
 they are reading a record, and a reader of `CONTRIBUTING.md` has no way to know a fresher owner
