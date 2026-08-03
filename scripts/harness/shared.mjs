@@ -23,14 +23,6 @@ export async function readText(targetPath) {
 }
 
 /**
- * Escape a value for literal use inside a `RegExp`.
- *
- * HARNESS-067 needs this in more than one place: a pattern built from the CONFIGURED npm scope is the
- * fix for a hardcoded one, and the scope contains `/`, which is inert here but `.` and `-` in other
- * configured values are not. It lived privately in `check-agent-server-boundary.mjs`; a second caller
- * is when a private helper becomes a shared one rather than a copy.
- */
-/**
  * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
  *
  * HARNESS-067: `scripts/harness/lib/` holds shared modules that a top-level read left outside both
@@ -50,6 +42,14 @@ export function harnessScripts(dir, prefix = '') {
   return found;
 }
 
+/**
+ * Escape a value for literal use inside a `RegExp`.
+ *
+ * HARNESS-067 needs this in more than one place: a pattern built from the CONFIGURED npm scope is the
+ * fix for a hardcoded one, and the scope contains `/`, which is inert here but `.` and `-` in other
+ * configured values are not. It lived privately in `check-agent-server-boundary.mjs`; a second caller
+ * is when a private helper becomes a shared one rather than a copy.
+ */
 export function escapeForRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
