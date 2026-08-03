@@ -253,6 +253,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
   },
   {
+    name: 'ci-concurrency-footprint',
+    command: ['node', 'scripts/harness/scan-ci-concurrency-footprint.mjs'],
+  },
+  {
     name: 'runner-wait',
     command: ['node', 'scripts/harness/scan-runner-wait.mjs'],
   },
