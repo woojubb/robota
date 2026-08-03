@@ -80,14 +80,14 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
   the evidence for it.
 
-  > **Contained — [HARNESS-071](../tasks/HARNESS-071-three-convergence-loops-have-no-escape.md).**
-  > Measured 2026-08-03: of the auto-re-drive pipelines in
-  > [orchestration-map.md](../specs/orchestration-map.md), only `pr-review-orchestration` and
-  > `delegated-refactor-green-gate` satisfy the paragraph above. The other six —
-  > `architecture-refresh` (which is also the shape named as the exemplar), `documentation-refresh`,
-  > `capability-extraction`, `backlog-execution-orchestrator`, `post-merge-cycle` and
-  > `release-orchestration` — bound on a count or on nothing. The rule is stated at its intended
-  > strength and the gap is filed rather than deferred in silence; none of the six is exempt.
+  > **Contained — [HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md).**
+  > Measured 2026-08-03 by grepping every `.agents/skills/*/SKILL.md` for re-drive language: exactly
+  > **two** skills carry the escape — `pr-review-orchestration` and `delegated-refactor-green-gate` —
+  > and **eleven** others describe a bounded re-drive without one, including `architecture-refresh`,
+  > the shape this bullet names as its exemplar. Treat that as a lower bound rather than a census: a
+  > hand-kept list of non-compliant loops would rot, so establishing the exact set mechanically is
+  > HARNESS-071's Test Plan. The rule is stated at its intended strength and the gap is filed rather
+  > than deferred in silence; nothing outside the two is exempt.
 
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.

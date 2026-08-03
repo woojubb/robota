@@ -98,7 +98,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
   emits the findings verdict (re-review is the reviewer's job).
 - **Orchestrator (new thin skill), synchronous for now.** Route-only: REVIEWER → if `ACTIONABLE FINDINGS: 0` →
   merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded by **progress detection** alone
-  (a finding's identity = `file:line + rule/category`; if the same identity recurs unchanged across rounds ⇒ stuck)
+  (a finding's identity = `file:line + severity`, the form `pr-review-orchestration` and the reviewer agent use; if the same identity recurs unchanged across rounds ⇒ stuck)
   → escalate to the user. The design shipped with a `max 3 iterations` cap as well; the owner removed
   it on 2026-08-03 — see the prior-art note above and
   [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
@@ -122,7 +122,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | --------------- | --------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | INFRA-018a (P0) | async/background firing primitive for a PR-triggered orchestrator (or confirm synchronous-only)           | High     | —          |
 | INFRA-018b (P1) | read-only REVIEWER agent (`/code-review` logic → `ACTIONABLE FINDINGS: n`) + REVIEW-WRITER + FIXER agents | Critical | —          |
-| INFRA-018c (P2) | synchronous orchestrator skill: reviewer→writer→fixer loop, max-3 + progress detection                    | Critical | 018b       |
+| INFRA-018c (P2) | synchronous orchestrator skill: reviewer→writer→fixer loop, progress detection (no round cap)             | Critical | 018b       |
 | INFRA-018d (P3) | merge path: MUST/SHOULD gate (per git-branch.md) + develop admin-merge + merge-verifier; main→user        | High     | 018c       |
 | INFRA-018e (P4) | scan floor + extend `ci.yml` pull_request check                                                           | Medium   | 018b       |
 
@@ -145,7 +145,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 - [ ] TC-01: The orchestrator runs the reviewer→(writer→fixer)→re-review loop synchronously to a terminal state on a fixture PR (async/non-blocking is explicitly OUT of scope until P0 — TC-01 does not assert non-blocking).
 - [ ] TC-02: The REVIEWER agent ends with a well-formed `ACTIONABLE FINDINGS: <n>` line; `scan-review-findings.mjs` FAILs a run whose reviewer output omits or malforms it. No new signal token is introduced (`agent-def-convention` still passes).
 - [ ] TC-03: With unresolved MUST+SHOULD > 0 the loop drives writer→fixer→re-review; with `ACTIONABLE FINDINGS: 0` it proceeds to the merge path.
-- [ ] TC-04: The loop halts and escalates after 3 iterations OR when a finding of identity `file:line+rule` recurs unchanged — verified by a non-converging fixture.
+- [ ] TC-04: The loop halts and escalates when a finding of identity `file:line + severity` recurs unchanged — verified by a non-converging fixture. No round cap: the owner removed it on 2026-08-03, and `enforcement-architecture.md` forbids a count as the ONLY bound, so a count may be added as a second bound but must not replace this.
 - [ ] TC-05: The merge path allows a `develop` merge only when no unresolved MUST and every SHOULD is fixed-or-linked-backlog AND required checks green, then runs `merge-verifier`; a `main`-targeted PR is NOT merged (handed to the user) — asserting no weakening of git-branch.md's gate.
 - [ ] TC-06: REVIEWER is read-only (no Edit/Write in its tool-scope) and FIXER never emits the findings verdict — verified by `agent-def-convention` + a role scan.
 - [ ] TC-07: The `pull_request` review check lives in `ci.yml` (extended), uses the plain `pull_request` event (no `pull_request_target`) — verified by grep/scan; no parallel workflow added.
@@ -157,7 +157,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | TC-01 | fixture PR → synchronous loop reaches terminal state                            | orchestrator fixture                                      |
 | TC-02 | reviewer output missing/malformed token → scan FAIL; agent-def-convention green | `scan-review-findings.mjs` + `check-agent-def-convention` |
 | TC-03 | findings>0 drives fix loop; ==0 → merge path                                    | orchestrator fixture                                      |
-| TC-04 | non-converging fixture (recurring file:line+rule) → halt+escalate at cap        | orchestrator fixture                                      |
+| TC-04 | non-converging fixture (recurring `file:line + severity`) → halt+escalate       | orchestrator fixture                                      |
 | TC-05 | develop merge gated on MUST/SHOULD rule + merge-verifier; main not merged       | merge-path fixture                                        |
 | TC-06 | reviewer tool-scope read-only; fixer no-verdict                                 | `agent-def-convention` + role scan                        |
 | TC-07 | ci.yml pull_request job, no pull_request_target, no parallel workflow           | grep/scan                                                 |
