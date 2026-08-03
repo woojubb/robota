@@ -1,6 +1,17 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  decodeSegment,
+  definitionDirectoryPath,
+  definitionFilePath,
+  encodeSegment,
+  listDefinitionsForDagId,
+  readDefinitionFromFile,
+  saveDefinitionAtomically,
+} from './definition-files.js';
+import { hydrateCollection, persistCollection } from './json-collection-file.js';
+
 import { applyTaskRunLease, selectStaleRunningTaskRuns } from './task-run-recovery.js';
 import type {
   IDagDefinition,
@@ -16,69 +27,64 @@ function buildTaskRunKey(dagRunId: string, taskRunId: string): string {
   return `${dagRunId}:${taskRunId}`;
 }
 
-function encodeSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function decodeSegment(value: string): string {
-  return decodeURIComponent(value);
-}
-
 export class FileStoragePort implements IStoragePort {
   private readonly definitionsRootPath: string;
+  private readonly runsRootPath: string;
+  private readonly dagRunsFilePath: string;
+  private readonly taskRunsFilePath: string;
   private isInitialized = false;
   private readonly dagRuns = new Map<string, IDagRun>();
   private readonly taskRuns = new Map<string, ITaskRun>();
 
   public constructor(private readonly storageRootPath: string) {
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
+    this.runsRootPath = path.join(this.storageRootPath, 'runs');
+    this.dagRunsFilePath = path.join(this.runsRootPath, 'dag-runs.json');
+    this.taskRunsFilePath = path.join(this.runsRootPath, 'task-runs.json');
   }
 
+  /**
+   * DAG-003: hydrate runs and task runs from disk on first use.
+   *
+   * They used to live only in these `Map`s. This is the DEFAULT storage in `createDagFramework`, so
+   * `dag-runtime-server` and `dag-mcp-server` both used it unoverridden and lost every run on
+   * restart — from a store whose name is `File`. The cost landed on DAG-001's idle sweep, which
+   * recovers an abandoned task by reading its `status` and `leaseUntil`: a real crash lost exactly
+   * those, leaving a recovery path with no durable state under it.
+   *
+   * The Maps stay as the working set, so every existing query — `listStaleRunningTaskRuns`,
+   * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
+   */
   private async ensureInitialized(): Promise<void> {
     if (this.isInitialized) {
       return;
     }
     await mkdir(this.definitionsRootPath, { recursive: true });
+    await mkdir(this.runsRootPath, { recursive: true });
+    await hydrateCollection(this.dagRunsFilePath, this.dagRuns, (run) => run.dagRunId);
+    await hydrateCollection(this.taskRunsFilePath, this.taskRuns, (task) =>
+      buildTaskRunKey(task.dagRunId, task.taskRunId),
+    );
     this.isInitialized = true;
   }
 
-  private resolveDefinitionDirectoryPath(dagId: string): string {
-    return path.join(this.definitionsRootPath, encodeSegment(dagId));
+  private async persistDagRuns(): Promise<void> {
+    await persistCollection(this.dagRunsFilePath, this.dagRuns.values());
   }
 
-  private resolveDefinitionFilePath(dagId: string, version: number): string {
-    return path.join(this.resolveDefinitionDirectoryPath(dagId), `${version}.json`);
-  }
-
-  private async saveDefinitionAtomically(definition: IDagDefinition): Promise<void> {
-    const definitionDirectoryPath = this.resolveDefinitionDirectoryPath(definition.dagId);
-    await mkdir(definitionDirectoryPath, { recursive: true });
-    const definitionFilePath = this.resolveDefinitionFilePath(definition.dagId, definition.version);
-    const temporaryFilePath = `${definitionFilePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const serializedDefinition = JSON.stringify(definition, null, 2);
-    await writeFile(temporaryFilePath, serializedDefinition, 'utf-8');
-    await rename(temporaryFilePath, definitionFilePath);
-  }
-
-  private async readDefinitionFromFile(filePath: string): Promise<IDagDefinition | undefined> {
-    try {
-      const content = await readFile(filePath, 'utf-8');
-      return JSON.parse(content) as IDagDefinition;
-    } catch {
-      // allow-fallback: an absent/unreadable definition file means there is no definition to return
-      return undefined;
-    }
+  private async persistTaskRuns(): Promise<void> {
+    await persistCollection(this.taskRunsFilePath, this.taskRuns.values());
   }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {
     await this.ensureInitialized();
-    await this.saveDefinitionAtomically(definition);
+    await saveDefinitionAtomically(this.definitionsRootPath, definition);
   }
 
   public async getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined> {
     await this.ensureInitialized();
-    const definitionFilePath = this.resolveDefinitionFilePath(dagId, version);
-    return this.readDefinitionFromFile(definitionFilePath);
+    const filePath = definitionFilePath(this.definitionsRootPath, dagId, version);
+    return readDefinitionFromFile(filePath);
   }
 
   public async listDefinitions(): Promise<IDagDefinition[]> {
@@ -98,31 +104,7 @@ export class FileStoragePort implements IStoragePort {
 
   public async listDefinitionsByDagId(dagId: string): Promise<IDagDefinition[]> {
     await this.ensureInitialized();
-    const definitionDirectoryPath = this.resolveDefinitionDirectoryPath(dagId);
-    let entries;
-    try {
-      entries = await readdir(definitionDirectoryPath, { withFileTypes: true });
-    } catch {
-      // allow-fallback: an absent definition directory means no definitions are listed for this dag
-      return [];
-    }
-    const definitions: IDagDefinition[] = [];
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.json')) {
-        continue;
-      }
-      const rawVersion = entry.name.replace('.json', '').trim();
-      if (!/^\d+$/.test(rawVersion)) {
-        continue;
-      }
-      const definition = await this.readDefinitionFromFile(
-        path.join(definitionDirectoryPath, entry.name),
-      );
-      if (definition) {
-        definitions.push(definition);
-      }
-    }
-    return definitions.sort((a, b) => a.version - b.version);
+    return listDefinitionsForDagId(this.definitionsRootPath, dagId);
   }
 
   public async getLatestPublishedDefinition(dagId: string): Promise<IDagDefinition | undefined> {
@@ -137,18 +119,23 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async createDagRun(dagRun: IDagRun): Promise<void> {
+    await this.ensureInitialized();
     this.dagRuns.set(dagRun.dagRunId, dagRun);
+    await this.persistDagRuns();
   }
 
   public async getDagRun(dagRunId: string): Promise<IDagRun | undefined> {
+    await this.ensureInitialized();
     return this.dagRuns.get(dagRunId);
   }
 
   public async listDagRuns(): Promise<IDagRun[]> {
+    await this.ensureInitialized();
     return [...this.dagRuns.values()].sort((a, b) => a.dagRunId.localeCompare(b.dagRunId));
   }
 
   public async getDagRunByRunKey(runKey: string): Promise<IDagRun | undefined> {
+    await this.ensureInitialized();
     for (const dagRun of this.dagRuns.values()) {
       if (dagRun.runKey === runKey) {
         return dagRun;
@@ -162,6 +149,7 @@ export class FileStoragePort implements IStoragePort {
     status: TDagRunStatus,
     endedAt?: string,
   ): Promise<void> {
+    await this.ensureInitialized();
     const currentDagRun = this.dagRuns.get(dagRunId);
     if (!currentDagRun) {
       return;
@@ -171,17 +159,23 @@ export class FileStoragePort implements IStoragePort {
       status,
       endedAt,
     });
+    await this.persistDagRuns();
   }
 
   public async deleteDagRun(dagRunId: string): Promise<void> {
+    await this.ensureInitialized();
     this.dagRuns.delete(dagRunId);
+    await this.persistDagRuns();
   }
 
   public async createTaskRun(taskRun: ITaskRun): Promise<void> {
+    await this.ensureInitialized();
     this.taskRuns.set(buildTaskRunKey(taskRun.dagRunId, taskRun.taskRunId), taskRun);
+    await this.persistTaskRuns();
   }
 
   public async getTaskRun(taskRunId: string): Promise<ITaskRun | undefined> {
+    await this.ensureInitialized();
     for (const taskRun of this.taskRuns.values()) {
       if (taskRun.taskRunId === taskRunId) {
         return taskRun;
@@ -191,6 +185,7 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async listTaskRunsByDagRunId(dagRunId: string): Promise<ITaskRun[]> {
+    await this.ensureInitialized();
     const taskRuns: ITaskRun[] = [];
     for (const taskRun of this.taskRuns.values()) {
       if (taskRun.dagRunId === dagRunId) {
@@ -201,11 +196,13 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async deleteTaskRunsByDagRunId(dagRunId: string): Promise<void> {
+    await this.ensureInitialized();
     for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
       if (taskRun.dagRunId === dagRunId) {
         this.taskRuns.delete(taskRunKey);
       }
     }
+    await this.persistTaskRuns();
   }
 
   public async updateTaskRunStatus(
@@ -213,6 +210,7 @@ export class FileStoragePort implements IStoragePort {
     status: TTaskRunStatus,
     error?: IDagError,
   ): Promise<void> {
+    await this.ensureInitialized();
     for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
       if (taskRun.taskRunId !== taskRunId) {
         continue;
@@ -223,6 +221,7 @@ export class FileStoragePort implements IStoragePort {
         errorCode: error?.code,
         errorMessage: error?.message,
       });
+      await this.persistTaskRuns();
       return;
     }
   }
@@ -232,10 +231,15 @@ export class FileStoragePort implements IStoragePort {
     leaseOwner?: string,
     leaseUntil?: string,
   ): Promise<void> {
+    await this.ensureInitialized();
     applyTaskRunLease(this.taskRuns, taskRunId, leaseOwner, leaseUntil);
+    // The lease is half of what the DAG-001 sweep reads after a crash; persisting the status without
+    // it would leave the sweeper unable to tell an abandoned task from a live one.
+    await this.persistTaskRuns();
   }
 
   public async listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]> {
+    await this.ensureInitialized();
     return selectStaleRunningTaskRuns(this.taskRuns, asOfIso);
   }
 
@@ -278,13 +282,13 @@ export class FileStoragePort implements IStoragePort {
 
   public async deleteDefinition(dagId: string, version: number): Promise<void> {
     await this.ensureInitialized();
-    const definitionFilePath = this.resolveDefinitionFilePath(dagId, version);
-    await rm(definitionFilePath, { force: true });
-    const definitionDirectoryPath = this.resolveDefinitionDirectoryPath(dagId);
+    const filePath = definitionFilePath(this.definitionsRootPath, dagId, version);
+    await rm(filePath, { force: true });
+    const directoryPath = definitionDirectoryPath(this.definitionsRootPath, dagId);
     try {
-      const entries = await readdir(definitionDirectoryPath);
+      const entries = await readdir(directoryPath);
       if (entries.length === 0) {
-        await rm(definitionDirectoryPath, { recursive: true, force: true });
+        await rm(directoryPath, { recursive: true, force: true });
       }
     } catch {
       // Directory cleanup is best-effort only.
