@@ -8,6 +8,7 @@
 
 import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
+import { decideApproval } from './abortable-approval.js';
 import { PERMISSION_DENIED_RESULT } from './permission-types.js';
 import {
   truncateToolResult,
@@ -128,7 +129,12 @@ export class PermissionEnforcer {
           return preResult;
         }
 
-        const allowed = await enforcer.checkPermission(toolName, parameters as TToolArgs);
+        // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
+        const allowed = await enforcer.checkPermission(
+          toolName,
+          parameters as TToolArgs,
+          context?.signal,
+        );
         if (!allowed) {
           enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
           enforcer.onToolExecution?.({
@@ -210,8 +216,13 @@ export class PermissionEnforcer {
     return wrappedTool;
   }
 
-  /** Evaluate permission for a tool call using the current mode and config */
-  async checkPermission(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
+  /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a
+   * cancelled approval denies. */
+  async checkPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
     // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
     // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
     // `evaluatePermission`'s `auto` branch never runs for a policy-gated call — that was the bypass hole.
@@ -226,7 +237,7 @@ export class PermissionEnforcer {
       if (policyDecision === 'allow') return true;
       if (policyDecision === 'deny') return false;
       // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
-      return this.promptForApproval(toolName, toolArgs);
+      return this.promptForApproval(toolName, toolArgs, signal);
     }
 
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
@@ -242,7 +253,7 @@ export class PermissionEnforcer {
     if (decision === 'deny') return false;
 
     // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs);
+    return this.promptForApproval(toolName, toolArgs, signal);
   }
 
   /**
@@ -250,38 +261,24 @@ export class PermissionEnforcer {
    * deny. Shared by the session-mode `approve` decision and the CORE-025 `prompt` policy so both fail closed
    * identically when no approver is attached (e.g. a detached background task).
    */
-  private async promptForApproval(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
-    // Check session-scoped allow list before prompting
-    if (this.sessionAllowedTools.has(toolName)) return true;
-
-    if (this.permissionHandler) {
-      const result = await this.permissionHandler(toolName, toolArgs);
-      if (result === 'allow-session') {
-        this.sessionAllowedTools.add(toolName);
-        return true;
-      }
-      if (result === 'allow-project') {
-        this.sessionAllowedTools.add(toolName);
-        this.onProjectAllowTool?.(toolName);
-        return true;
-      }
-      return result;
-    }
-    if (this.promptForApprovalFn) {
-      const result = await this.promptForApprovalFn(this.terminal, toolName, toolArgs);
-      if (result === 'allow-session') {
-        this.sessionAllowedTools.add(toolName);
-        return true;
-      }
-      if (result === 'allow-project') {
-        this.sessionAllowedTools.add(toolName);
-        this.onProjectAllowTool?.(toolName);
-        return true;
-      }
-      return result;
-    }
-    // No approval mechanism available — deny by default
-    return false;
+  private async promptForApproval(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const outcome = await decideApproval({
+      toolName,
+      alreadyAllowed: this.sessionAllowedTools.has(toolName),
+      ...(this.permissionHandler ? { handler: this.permissionHandler } : {}),
+      ...(this.promptForApprovalFn
+        ? { injectedPrompt: this.promptForApprovalFn, terminal: this.terminal }
+        : {}),
+      toolArgs,
+      ...(signal ? { signal } : {}),
+    });
+    if (outcome.rememberForSession) this.sessionAllowedTools.add(toolName);
+    if (outcome.rememberForProject) this.onProjectAllowTool?.(toolName);
+    return outcome.allowed;
   }
 
   /**
