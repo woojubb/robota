@@ -29,13 +29,9 @@ Robota is a pnpm monorepo. The package and app listing lives in
 [`.agents/project-structure.md`](.agents/project-structure.md), which owns it — see that document for
 the current set and the dependency-direction rules.
 
-This section used to carry a second copy, and it had already drifted: it listed
-`packages/agent-provider`, which does not exist (the repo's own SSOT says so in as many words —
-"There is **NO** bare `agent-provider` package"). `check-dependency-direction.mjs` Rule 9 fails the
-build for a non-existent package named in the owning document's prose, and that rule reached only the
-owning document — so the copy here was the one place the name could rot unnoticed. HARNESS-068: where
-a rule has a mechanism, the mechanism's edge is the blind spot. Linking obeys the one-owner rule
-rather than asking a scan to keep two copies agreeing.
+A second copy used to live here and had already drifted, naming a package that does not exist; it was
+removed rather than re-synchronised, because one owner beats two copies a scan has to keep agreeing.
+The reasoning is recorded in `.agents/tasks/completed/HARNESS-068-the-one-owner-rule-has-a-blind-spot.md`.
 
 ## Developing New Features
 

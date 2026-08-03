@@ -80,10 +80,39 @@ Red-proved both directions and at the CLI: lowering a frozen count exits 1 with 
 one exits 1 with `drift FELL`, and removing the single `publishVerdict` call makes both cases fail
 while the pass case still passes.
 
-**The correction the task itself recorded is preserved and pinned.** This is not registered as a gate
-— `pnpm harness:cleanup`, run by hand, absent from `run-all-scans` and every workflow — so the finding
-was smaller than it read. A case now asserts that absence, so a later registration has to come past it
-and reckon with the ratchet first rather than inheriting a green.
+**Where the ratchet is enforced — and the claim I got wrong about it.** The task recorded that this
+is not registered as a gate, and the first version of the fix repeated that in a docstring and pinned
+it with a case asserting `run-all-scans.mjs` does not mention the script. Review measured the actual
+path: `scripts/harness/__tests__/cleanup-drift.test.mjs` asserts the script's exit code **against the
+live tree**, `pnpm harness:test` runs that whole directory, and CI runs `harness:test` unconditionally
+in the `scans` job. So it IS a required check on every PR — through the test suite rather than the
+scan registry. A comment asserting the opposite, in a change about a script that could not report
+failure, is this repository's most-measured defect class; one grep of `ci.yml` disproved it. The
+docstring, the test file's header and `scripts/harness/README.md` now say where the enforcement
+actually is.
+
+**Three further defects review found in the fix itself:**
+
+- **A failed measurement read as progress.** Every `grep` call site tested `status !== 0` and
+  continued. grep has three outcomes — 0 matched, 1 did not, **2+ grep failed** — and conflating the
+  third with the second turned an unreadable tree into a clean bill of health. Demonstrated with a
+  stub exiting 2: findings 71 → 32, nothing printed, and the ratchet said `drift FELL` and told the
+  operator to re-freeze, which would have baked zeros in and disabled three of its four rows
+  permanently. Now a hard error carrying grep's own stderr, red-proved (pre-fix: exit 0).
+- **Nothing required the tree it judges.** Over a root with no `packages/`, three of four rows count
+  zero and the verdict is "drift FELL" — a scan reporting on ground it never examined. Now fail-closed
+  and red-proved against a seeded bare root (pre-fix: exit 0; the first version of that case was a
+  weak red, passing only because the unfixed script died on a missing `pnpm-workspace.yaml`).
+- **Two verdicts for one run.** The JSON report's `passed` field read `driftCount === 0` while the
+  exit code read the ratchet, so a run at baseline wrote `passed: false` and exited 0. One verdict now
+  feeds both.
+
+Also: the test file was named `cleanup-drift-verdict.test.mjs`, and the harness's own untested-script
+ratchet matches a test to its subject by the `<base>.` prefix — so it went on counting
+`cleanup-drift.mjs` as untested. Renamed and the baseline re-frozen 27 → 26, which is the same
+discipline this change applies to its own baseline. The fixture cases now point at a temp baseline via
+`CLEANUP_DRIFT_BASELINE` instead of editing the tracked file and restoring it in `afterEach` — a
+restore a timeout never runs.
 
 One measurement error worth recording: my first check read `node … | tail -2; echo $?` and reported
 exit 0. `$?` after a pipe is the LAST command's status, so I was reading `tail`. Measured again

@@ -175,6 +175,53 @@ async function checkForbiddenTerms(findings) {
   }
 }
 
+/**
+ * `grep`, with a FAILED measurement told apart from a clean one.
+ *
+ * Review found the hole: every call site read `result.status !== 0` as "no matches" and moved on,
+ * discarding `result.stderr` and `result.error` with it. grep's contract has three outcomes, not two
+ * — 0 matched, 1 did not match, **2 or more means grep itself failed**. Conflating the third with the
+ * second turns an unreadable directory, a bad regex or a missing binary into a clean bill of health.
+ *
+ * That is worse here than an ordinary swallowed error, because of what this script now does with the
+ * number. Demonstrated with a `grep` stub exiting 2: findings fell 71 → 32 with nothing printed about
+ * the failure, and the ratchet reported `drift FELL` and told the operator to re-freeze — so obeying
+ * the instruction would have baked zeros into the baseline and permanently disabled three of its four
+ * rows. A measurement that failed must never be published as progress.
+ */
+function grepLines(args, what) {
+  const result = spawnSync('grep', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
+  if (result.error !== undefined) {
+    throw new Error(
+      `cleanup-drift: could not run \`grep\` while measuring ${what}: ${result.error}`,
+    );
+  }
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(
+      `cleanup-drift: \`grep\` exited ${result.status} while measuring ${what} — the measurement ` +
+        `FAILED, so no drift figure can be reported from it.\n${result.stderr ?? ''}`,
+    );
+  }
+  const output = result.stdout.trim();
+  return result.status === 1 || output === '' ? [] : output.split(/\r?\n/);
+}
+
+/**
+ * The tree this script judges must be there.
+ *
+ * Three of the four ratchet rows are counted by grepping `packages/`. Over a root without it, grep
+ * exits 1 for every pattern, the count is zero, and the verdict reads "drift FELL" — a scan reporting
+ * on ground it never examined, which this harness treats as an error and never as a pass.
+ */
+function requireGovernedTree() {
+  if (!fsSync.existsSync(path.join(WORKSPACE_ROOT, 'packages'))) {
+    throw new Error(
+      `cleanup-drift: packages/ does not exist under ${WORKSPACE_ROOT} — three of the four drift ` +
+        'types are counted there, so nothing could be measured.',
+    );
+  }
+}
+
 async function checkBoundaryValidation(findings) {
   // Scan for blind type assertions in production code (not tests)
   const patterns = [
@@ -191,8 +238,7 @@ async function checkBoundaryValidation(findings) {
   ];
 
   for (const { regex, type, detail } of patterns) {
-    const result = spawnSync(
-      'grep',
+    const files = grepLines(
       [
         '-rn',
         '--include=*.ts',
@@ -202,17 +248,9 @@ async function checkBoundaryValidation(findings) {
         regex,
         'packages/',
       ],
-      {
-        cwd: WORKSPACE_ROOT,
-        encoding: 'utf8',
-      },
+      `\`${regex}\` under packages/`,
     );
 
-    if (result.status !== 0 || !result.stdout.trim()) {
-      continue;
-    }
-
-    const files = result.stdout.trim().split(/\r?\n/);
     for (const file of files) {
       if (
         file.includes('.test.') ||
@@ -231,41 +269,19 @@ async function checkBoundaryValidation(findings) {
     }
   }
 
-  // Scan for silent fallback patterns in production code
-  const fallbackResult = spawnSync(
-    'grep',
-    [
-      '-rn',
-      '--include=*.ts',
-      '-l',
-      '-E',
-      'catch\\s*\\{[^}]*\\}\\s*$|\\|\\|\\s*fallback|\\|\\|\\s*default',
-      'packages/',
-    ],
-    {
-      cwd: WORKSPACE_ROOT,
-      encoding: 'utf8',
-    },
-  );
-
-  // Note: fallback detection is advisory since grep patterns are coarse
+  // A third grep ran here — a coarse "silent fallback" pattern whose result was assigned to a
+  // variable and never read, under a comment calling the detection advisory. It spawned a full
+  // recursive search of `packages/` on every run and reported nothing to anybody, which is the
+  // silence this file is being fixed for wearing its own uniform. Deleted rather than wired up:
+  // `scan-no-fallback.mjs` (HARNESS-028) owns that rule with a real gate behind it.
 }
 
 async function checkDynamicImports(findings) {
-  const result = spawnSync(
-    'grep',
+  const lines = grepLines(
     ['-rn', '--include=*.ts', '-E', 'await import\\(|= import\\(', 'packages/'],
-    {
-      cwd: WORKSPACE_ROOT,
-      encoding: 'utf8',
-    },
+    'dynamic imports under packages/',
   );
 
-  if (result.status !== 0 || !result.stdout.trim()) {
-    return;
-  }
-
-  const lines = result.stdout.trim().split(/\r?\n/);
   for (const line of lines) {
     if (line.includes('.test.') || line.includes('.spec.') || line.includes('__tests__')) {
       continue;
@@ -283,6 +299,7 @@ function parseCleanupArgs(argv) {
   const options = {
     reportFile: null,
     reportFormat: null,
+    writeBaseline: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -311,6 +328,12 @@ function parseCleanupArgs(argv) {
         index += 1;
         break;
       }
+      // Read here rather than straight off `process.argv`, so every flag this script honours is
+      // owned by one function: the first version tested it inline in `main` and returned early, so
+      // `--write-baseline --report-file X` silently wrote no report.
+      case '--write-baseline':
+        options.writeBaseline = true;
+        break;
       default:
         break;
     }
@@ -321,6 +344,7 @@ function parseCleanupArgs(argv) {
 
 async function main() {
   const options = parseCleanupArgs(process.argv.slice(2));
+  requireGovernedTree();
   const findings = [];
 
   await Promise.all([
@@ -342,11 +366,9 @@ async function main() {
   }
 
   process.stdout.write(`harness cleanup drift scan: ${driftCount} finding(s)\n`);
-  if (process.argv.includes('--write-baseline')) {
-    writeDriftBaseline(typeGroups);
-    return;
-  }
-  publishVerdict(driftCount, typeGroups);
+  const verdict = options.writeBaseline
+    ? { ok: true, grown: [], shrunk: [] }
+    : publishVerdict(typeGroups);
 
   if (driftCount === 0) {
     process.stdout.write('no drift detected.\n');
@@ -372,7 +394,10 @@ async function main() {
         type: finding.type,
         detail: finding.detail,
       })),
-      passed: driftCount === 0,
+      // ONE verdict per run. This field used to read `driftCount === 0` while the exit code read the
+      // ratchet, so a run at baseline wrote `passed: false` into a report and exited 0 — two answers
+      // to one question, from the same run, disagreeing.
+      passed: verdict.ok,
     };
 
     const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
@@ -384,6 +409,9 @@ async function main() {
       `\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`,
     );
   }
+
+  // Last, so whoever freezes a baseline has just seen the details and the report they are freezing.
+  if (options.writeBaseline) writeDriftBaseline(typeGroups);
 }
 
 /**
@@ -399,19 +427,26 @@ async function main() {
  * baseline), and a check that is red on arrival is suppressed rather than obeyed. The per-type counts
  * may fall and must never rise.
  *
- * NOT registered as a gate, and that is deliberate. This is `pnpm harness:cleanup`, run by hand; it
- * appears in no workflow and in `run-all-scans` nowhere. The finding as filed said it was vacuous
- * "if it is registered as a gate" — it is not, which makes this smaller than it read, and worth
- * recording in both directions.
+ * WHERE IT IS ENFORCED, stated exactly, because the first version of this comment got it wrong. It is
+ * not in `run-all-scans.mjs` and it is in no workflow directly — from which that version concluded
+ * "not registered as a gate, and that is deliberate". Review measured the actual path: the ratchet's
+ * test asserts this script's exit code against the live tree, `pnpm harness:test` runs the whole
+ * `scripts/harness/__tests__` suite, and CI runs `harness:test` unconditionally in the `scans` job.
+ * So it IS a required check on every PR — through the test suite rather than the scan registry. A
+ * comment asserting the opposite is the defect class this repository measures most often in its own
+ * work, and it took one grep of `ci.yml` to disprove.
+ *
+ * A rise therefore fails CI, and the only ways out are the two a ratchet allows: remove the drift, or
+ * change the rule and say so. There is no re-freeze upward.
  */
-function publishVerdict(driftCount, typeGroups) {
+function publishVerdict(typeGroups) {
   const baseline = loadDriftBaseline();
   if (baseline === undefined) {
     process.stderr.write(
       `no frozen drift baseline — run \`node ${path.relative(WORKSPACE_ROOT, import.meta.filename)} --write-baseline\`.\n`,
     );
     process.exitCode = 1;
-    return;
+    return { ok: false, grown: [], shrunk: [] };
   }
 
   const grown = [];
@@ -428,7 +463,7 @@ function publishVerdict(driftCount, typeGroups) {
   if (grown.length > 0) {
     process.stderr.write(`\ndrift GREW: ${grown.join(', ')}\n`);
     process.exitCode = 1;
-    return;
+    return { ok: false, grown, shrunk };
   }
   if (shrunk.length > 0) {
     process.stderr.write(
@@ -436,17 +471,29 @@ function publishVerdict(driftCount, typeGroups) {
         `--write-baseline — or the gain is a licence to grow back.\n`,
     );
     process.exitCode = 1;
+    return { ok: false, grown, shrunk };
   }
+  return { ok: true, grown, shrunk };
 }
 
-const DRIFT_BASELINE_PATH = path.join(
-  WORKSPACE_ROOT,
-  'scripts/harness/cleanup-drift-baseline.json',
-);
+/**
+ * The frozen baseline, overridable for tests.
+ *
+ * `CLEANUP_DRIFT_BASELINE` exists so the ratchet's own cases can point at a temp file instead of
+ * editing the tracked baseline and restoring it in `afterEach` — a restore a timeout or a SIGKILL
+ * never runs, leaving the repository's frozen counts corrupted. Same shape as `GUARD_LEDGER_CEILINGS`
+ * in `scan-guard-scope-fail-closed.mjs`, for the same reason.
+ */
+function driftBaselinePath() {
+  const override = process.env['CLEANUP_DRIFT_BASELINE'];
+  return override !== undefined && override !== ''
+    ? path.resolve(WORKSPACE_ROOT, override)
+    : path.join(WORKSPACE_ROOT, 'scripts/harness/cleanup-drift-baseline.json');
+}
 
 function loadDriftBaseline() {
   try {
-    return JSON.parse(fsSync.readFileSync(DRIFT_BASELINE_PATH, 'utf8'));
+    return JSON.parse(fsSync.readFileSync(driftBaselinePath(), 'utf8'));
   } catch (error) {
     // Absent is "never frozen", which the caller reports. Anything else is a real read failure and
     // must not be mistaken for it.
@@ -458,7 +505,7 @@ function loadDriftBaseline() {
 /** Freeze the current per-type drift counts. The set may fall and must never rise. */
 function writeDriftBaseline(typeGroups) {
   const next = Object.fromEntries([...typeGroups.entries()].sort());
-  fsSync.writeFileSync(DRIFT_BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  fsSync.writeFileSync(driftBaselinePath(), `${JSON.stringify(next, null, 2)}\n`);
   process.stdout.write(`drift baseline frozen: ${JSON.stringify(next)}\n`);
 }
 

@@ -1,16 +1,4 @@
-# Release Runs — RETIRED 2026-08-03
-
-**This directory is residue of a retired workflow (HARNESS-066).** Releases moved to changesets; the
-single artefact here (`3.0.0-beta.79.md`) is the last run recorded under the old scheme.
-
-Kept rather than deleted, and labelled rather than left ambiguous: the distinction between "retired"
-and "stalled" is the thing HARNESS-066 exists to preserve, and deleting the directory would erase the
-evidence along with the confusion. `scripts/harness/release-run.mjs` still runs if invoked; nothing
-invokes it.
-
----
-
-## What it was
+# Release Runs — LIVE
 
 This directory stores live release-run state artifacts created by:
 
@@ -38,3 +26,21 @@ Rules:
   ```
 
 - Keep active watchers as `none` and cleanup status as `clear` before switching tasks or publishing.
+
+## Why this heading says LIVE
+
+HARNESS-066 investigated three `.agents/` trees for the shape "a mechanism whose output stopped while
+its registration did not", and its evidence table listed this one as "residue of a retired workflow —
+moved to changesets". **That premise was wrong**, and a RETIRED label was briefly written here before
+the tree was checked. What the tree actually says:
+
+- 16 artefacts, `3.0.0-beta.62.md` … `3.0.0-beta.79.md`, and `3.0.0-beta.79` is the CURRENT
+  `agent-cli` version — the last release produced its run file, so nothing lapsed.
+- `.agents/rules/publish.md` makes it mandatory: a version-specific release-run file MUST exist here.
+- `scripts/publish/publish-packages.sh` runs `pnpm harness:release:check -- --publish` on every
+  publish, and `scripts/harness/check-release-governance.mjs` (registered in `run-all-scans.mjs`)
+  enforces the machinery — including one rule that reads THIS file.
+
+The heading is kept because the question will be asked again. The mistake worth recording is that
+"retired" was asserted from a report rather than from the tree, in a change whose entire subject is
+that the tree must be the thing that says so.

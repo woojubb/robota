@@ -135,11 +135,21 @@ These scripts are the executable layer of the Robota harness.
 
 - scans for stale `.design/tmp/` documents (older than 14 days)
 - checks SPEC.md quality against the Spec Quality Gate (8 required sections)
-- detects unregistered skills (exist on disk but not in AGENTS.md)
-- detects stale skill references (in AGENTS.md but no directory on disk)
+- detects unregistered skills (exist on disk but not in `.agents/skills/index.md`)
+- detects stale skill references (in the index but no directory on disk)
 - scans for forbidden agent hierarchy terms in production code
 - flags dynamic imports in production code for manual review
 - reports findings grouped by type with summary counts
+- **publishes a verdict** (HARNESS-069): per-type counts are frozen in
+  `cleanup-drift-baseline.json` and may fall but never rise. Exit 1 when a type grew, and also when
+  one FELL without a re-freeze — `node scripts/harness/cleanup-drift.mjs --write-baseline` records
+  the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no
+  `process.exitCode`, so whatever it found, a caller heard success.
+- the ratchet is enforced by `scripts/harness/__tests__/cleanup-drift.test.mjs`, which CI runs in the
+  `scans` job via `pnpm harness:test` — it is not in `run-all-scans.mjs`, so that test file is where
+  a rise fails.
+- a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
+  no `packages/`, stops the run rather than reporting less drift.
 
 ## Design Notes
 

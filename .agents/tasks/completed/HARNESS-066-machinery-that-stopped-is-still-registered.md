@@ -22,13 +22,25 @@ reader cannot tell a decision from a lapse, and neither can a scan.
 From an external read-only investigation (2026-08-02); the dates and file listings were re-verified
 here.
 
-| Asset                    | Last output           | Repo activity        | State                           |
-| ------------------------ | --------------------- | -------------------- | ------------------------------- |
-| `.agents/daily-reports/` | **2026-07-19**        | active through 08-02 | ran 3 days, stopped 14 days ago |
-| `.agents/release-runs/`  | `3.0.0-beta.79.md`    | moved to changesets  | residue of a retired workflow   |
-| `.agents/local-reviews/` | 32 files (gitignored) | —                    | see below                       |
+| Asset                    | Last output           | Repo activity        | State                                           |
+| ------------------------ | --------------------- | -------------------- | ----------------------------------------------- |
+| `.agents/daily-reports/` | **2026-07-19**        | active through 08-02 | ran 3 days, stopped 14 days ago                 |
+| `.agents/release-runs/`  | `3.0.0-beta.79.md`    | moved to changesets  | ~~residue of a retired workflow~~ — WRONG, LIVE |
+| `.agents/local-reviews/` | 32 files (gitignored) | —                    | see below                                       |
 
-Both scripts are still present: `scripts/harness/daily-report.mjs`, `scripts/harness/release-run.mjs`.
+**The release-runs row is struck through because it is false, and the correction is left visible
+rather than edited away.** `3.0.0-beta.79` is the CURRENT `agent-cli` version and there are 16
+artefacts, not one — the last release produced its run file, so nothing lapsed. `.agents/rules/publish.md`
+requires a version-specific file here; `scripts/publish/publish-packages.sh` runs
+`pnpm harness:release:check -- --publish` on every publish; `check-release-governance.mjs`
+(registered in `run-all-scans.mjs`) enforces the machinery and reads that directory's README. The
+investigation asserted "moved to changesets" from a report rather than from the tree — the exact
+failure this Task is about, committed by the Task itself.
+
+<!-- evidence-superseded: daily-report.mjs was deleted by this Task's own resolution — retiring the directory while leaving the generator and its registered skill in place was the contradiction review caught. release-run.mjs remains, because that asset turned out to be live. -->
+
+Both scripts were present when this was filed: `scripts/harness/daily-report.mjs`,
+`scripts/harness/release-run.mjs`.
 
 **A natural experiment already ran here.** `daily-reports`' README says the script fills the facts
 and an **agent writes the `## Summary` prose** and commits it. A clock-driven cadence plus a prose
@@ -89,11 +101,19 @@ this generator is CLOCK-driven and needs an agent to write prose before the arte
 anything, and it lapsed after three days; `.agents/archive/audits/` is EVENT-driven and has output
 dated 2026-08-02. Same repository, same authors, two cadences, opposite lifespans. A clock-plus-prose
 cadence has no recovery pressure — nothing goes wrong when it stops, which is why it stopped without
-anyone noticing. The existing reports stay as a record of the days they cover; the script remains
-runnable by hand and scheduled by nothing.
+anyone noticing. The existing reports stay as a record of the days they cover.
 
-**`release-runs/` — RETIRED.** Residue of the pre-changesets workflow, labelled as such, kept so the
-evidence of what happened survives alongside the explanation.
+Retired means the REGISTRATION is gone, not just the output. The first attempt left the script and
+the `daily-report` skill in place "runnable by hand" — while that skill was still listed in
+`.agents/skills/index.md` and still said generation "**MUST** run as a background worker",
+"self-scheduled … near a UTC hour boundary during active work". A RETIRED directory that a registered
+skill orders an agent to write to on a cadence is a live contradiction: this Task's own defect,
+re-created by its own fix, and caught by review. The skill, its index row,
+`scripts/harness/daily-report.mjs` and that script's test are deleted; git history keeps them.
+
+**`release-runs/` — LIVE, and the Task's premise was wrong.** See the struck-through Evidence row.
+A RETIRED label was written here before the tree was checked and is now reverted; the directory's
+README carries the correction so the question is not re-opened by the next reader.
 
 **`local-reviews/` — DEMOTED**, and this one needed more than a sentence. The directory is gitignored,
 so a README explaining the demotion would have been invisible to the next reader — the exact failure

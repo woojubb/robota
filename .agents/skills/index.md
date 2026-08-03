@@ -124,7 +124,6 @@ The **agent-definition convention** they follow is a document-type contract in
 | [harness-governance](harness-governance/SKILL.md)   | Rule-skill consistency, undefined terminology, mechanical checks                                |
 | [lesson-to-harness](lesson-to-harness/SKILL.md)     | Mine repeated user corrections → approve → institutionalize as neutral repo rules + enforcement |
 | [branch-guard](branch-guard/SKILL.md)               | Pointer: protected-branch policy lives in git-branch.md; hook + husky are the mechanical SSOT   |
-| [daily-report](daily-report/SKILL.md)               | Generate the committed daily work report (OBSERVABILITY-001) — one summary per UTC work day     |
 
 ## Package-Specific
 
