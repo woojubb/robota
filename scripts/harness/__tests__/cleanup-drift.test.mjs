@@ -1,7 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -182,44 +181,43 @@ describe('a measurement that failed is an error, not a clean result (HARNESS-069
  */
 describe('a freeze cannot bake in a clock-derived number (HARNESS-069)', () => {
   it('an aged .design/tmp document is reported but never frozen', () => {
-    const baseline = path.join(mkdtempSync(path.join(tmpdir(), 'cleanup-drift-freeze-')), 'b.json');
-    dirs.push(path.dirname(baseline));
+    // A seeded TEMP root, not the live tree. The first version aged a fixture inside the repository's
+    // own `.design/tmp` and removed it in a `finally` — the exact pattern this file's header rejects
+    // three paragraphs up, since a timeout or a SIGKILL never runs the restore and leaves an aged
+    // untracked file in a tracked directory. Review caught the file contradicting itself.
+    const root = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-freeze-'));
+    dirs.push(root);
+    // The three things the script's other checks need, so the run reaches the freeze.
+    mkdirSync(path.join(root, 'packages'), { recursive: true });
+    writeFileSync(path.join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
+    writeFileSync(path.join(root, '.agents/skills/index.md'), '# Skills\n');
 
-    // Aged past the 14-day threshold, in the live tree's own `.design/tmp` — the only place the
-    // check looks — then removed. Written and aged rather than mocked: the rule reads mtime.
-    const tmpDocDir = path.join(ROOT, '.design/tmp');
-    const dirExisted = existsSync(tmpDocDir);
-    mkdirSync(tmpDocDir, { recursive: true });
-    const doc = path.join(tmpDocDir, 'harness-069-freeze-fixture.md');
+    // Aged past the 14-day threshold. Written and aged rather than mocked: the rule reads mtime.
+    mkdirSync(path.join(root, '.design/tmp'), { recursive: true });
+    const doc = path.join(root, '.design/tmp/fixture.md');
     writeFileSync(doc, '# fixture\n');
     const longAgo = new Date(Date.parse('2020-01-01T00:00:00Z'));
     utimesSync(doc, longAgo, longAgo);
 
-    try {
-      const frozenRun = spawnSync(
-        'node',
-        ['scripts/harness/cleanup-drift.mjs', '--write-baseline'],
-        {
-          cwd: ROOT,
-          encoding: 'utf8',
-          timeout: 180_000,
-          env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
-        },
-      );
-      // It is REPORTED — the finding is real and hiding it would be its own defect.
-      expect(frozenRun.stdout).toMatch(/stale-tmp-doc/);
-      // And it is not frozen.
-      expect(Object.keys(JSON.parse(readFileSync(baseline, 'utf8')))).not.toContain(
-        'stale-tmp-doc',
-      );
-      // The freeze names the file it wrote, since this path skips the override notice.
-      expect(frozenRun.stdout).toMatch(/drift baseline frozen in /);
-    } finally {
-      // The tree is left exactly as it was found, directory included: a test that judges a scan of
-      // the working tree must not become part of what the next one measures.
-      rmSync(doc, { force: true });
-      if (!dirExisted) rmSync(tmpDocDir, { recursive: true, force: true });
-    }
+    const baseline = path.join(root, 'baseline.json');
+    const frozenRun = spawnSync(
+      'node',
+      [path.join(ROOT, 'scripts/harness/cleanup-drift.mjs'), '--write-baseline'],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 180_000,
+        env: { ...process.env, CLEANUP_DRIFT_BASELINE: baseline },
+      },
+    );
+
+    // It is REPORTED — the finding is real and hiding it would be its own defect.
+    expect(frozenRun.stdout).toMatch(/stale-tmp-doc/);
+    // And it is not frozen.
+    expect(Object.keys(JSON.parse(readFileSync(baseline, 'utf8')))).not.toContain('stale-tmp-doc');
+    // The freeze names the file it wrote, since this path skips the override notice.
+    expect(frozenRun.stdout).toMatch(/drift baseline frozen in /);
   });
 });
 

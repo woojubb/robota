@@ -137,6 +137,20 @@ still reported and still counted. And a `--write-baseline` run now writes `verdi
 instead of `passed: true`: a freeze measures, it does not judge, and claiming a pass nothing checked
 is the same defect one field over.
 
+**Round 4 replaced a docstring promise with a case.** Round 3 excluded `stale-tmp-doc` from the
+ratchet AND from the freeze, and said so in two docstrings — with nothing exercising either. There is
+now a case that seeds an aged `.design/tmp` document and asserts the finding IS reported and is NOT
+frozen. Its first version aged that fixture inside the repository's own tree and restored it in a
+`finally`, which is the pattern the same file's header rejects three paragraphs above ("a restore that
+a timeout or a SIGKILL never runs") — round 5 caught the file contradicting itself, and it now runs
+against a seeded temp root.
+
+One correction to the record rather than the code: the round-4 commit message says that case was
+"red-proved against the previous commit". It was not — the previous commit already carried round 3's
+freeze filter, and the case passes there. The genuine pre-fix state is `38b41cc84`, two commits back,
+where it fails on the exact assertion. The red-proof is real; the commit named the wrong state, which
+would have sent the next reader to a green and left them concluding the case guards nothing.
+
 Also: the test file was named `cleanup-drift-verdict.test.mjs`, and the harness's own untested-script
 ratchet matches a test to its subject by the `<base>.` prefix — so it went on counting
 `cleanup-drift.mjs` as untested. Renamed and the baseline re-frozen 27 → 26, which is the same

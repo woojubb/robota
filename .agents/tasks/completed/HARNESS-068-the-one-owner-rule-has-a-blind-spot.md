@@ -85,14 +85,19 @@ the mechanism; it is the one place the name could rot unnoticed.
 **The sweep, restated with the measurement it was actually based on.** The first version of this
 section said "of every root and `.agents/` markdown file, only `CONTRIBUTING.md` (8 entries) and
 `.agents/project-structure.md` (3, the owner) carried a list. No third copy." Review round 3 measured
-it with this change's own detector and got different numbers: 142 of 1768 root+`.agents` markdown
-files enumerate three or more package paths, and the owner yields 7, not 3. The claim was a judgement
-about document KIND stated as if it were a count, which is the same species of error as the drifted
-list it justified removing.
+it with this change's own detector and got different numbers. The claim was a judgement about document
+KIND stated as if it were a count, which is the same species of error as the drifted list it justified
+removing.
 
-What the measurement actually supports: 131 of those 142 are dated records — completed Tasks,
-archived audits, closed spec-docs — where a listing is history and correct as written. Of the eleven
-that are not, one is the owner and the rest name several packages because those packages are the
+**Measured with the SHIPPED detector** — 174 of 2707 tracked markdown files, and 145 of 1768
+root+`.agents` files, enumerate three or more package paths; the owner yields 7, not 3. (Round 3
+reported 142 and 171. Those were taken before the same commit widened the detector to ordered lists,
+so a corrected figure shipped alongside the change that made it wrong — round 5's finding, and the
+third time in this PR that a number outlived the code it described.)
+
+What the measurement supports: 134 of the 145 are dated records — completed Tasks, archived audits,
+closed spec-docs — where a listing is history and correct as written. Of the eleven
+that are not, one is the owner, one is `CHANGELOG.md`, and the rest name several packages because those packages are the
 SUBJECT of the document (an open Task's affected areas, a rule's examples). None is a second copy of
 the repository's structure, which is what the one-owner rule is about — and `README.md`, which does
 list packages, lists them as an npm catalogue of `@robota-sdk/*` names with links and descriptions:
@@ -124,9 +129,8 @@ with the compensating control — when a package is renamed or split, grep the f
 the OLD bare name, because this check will not.
 
 Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
-`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed. 171 of 2707 TRACKED markdown
-files enumerate three or more package paths, nearly all of them dated records where a listing is
-history and correct as written. What separates these four is ROLE: a reader of a completed Task knows
+`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed: the 174-of-2707
+figure above, nearly all of them dated records where a listing is history and correct as written. What separates these four is ROLE: a reader of a completed Task knows
 they are reading a record, and a reader of `CONTRIBUTING.md` has no way to know a fresher owner
 exists. The check also asserts that the OWNER still enumerates, so if the listing ever moves, the rule
 fails loudly instead of passing over nothing.

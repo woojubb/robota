@@ -18,9 +18,12 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * `packages/*` enumeration, which fails today"), and deleting the list without it would leave nothing
  * to stop the list coming back — the Task's own thesis, unlearned.
  *
- * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 171 of 2707 tracked
- * markdown files enumerate three or more package paths, nearly all of them dated records — completed
- * Tasks, archived audits, design documents — where a listing is history and correct as written. What
+ * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 174 of 2707
+ * tracked markdown files enumerate three or more package paths, nearly all of them dated records —
+ * completed Tasks, archived audits, closed spec-docs — where a listing is history and correct as
+ * written. (Measured with THIS detector after it was widened to ordered lists. The first figure, 171,
+ * was taken before that change and shipped in the same commit as the change — a measurement that no
+ * longer described its own code.) What
  * distinguishes these four is ROLE, not content: they are read as the CURRENT description of the
  * repository, by someone who has no way to know a fresher owner exists. A copy in a dated record
  * cannot mislead that reader; a copy here is the only kind that can.
@@ -169,9 +172,12 @@ function resolves(token, known) {
 describe('a front-door document may not name a package that does not exist (HARNESS-068)', () => {
   it('every package named in a front-door document resolves', async () => {
     const scopes = await listWorkspaceScopes();
-    // `relativeDir` only — the first version also mapped every scope to `packages/<shortName>`,
-    // which made `packages/agent-app`, `packages/www` and four other APPS resolve to paths that do
-    // not exist, under a case named "every package named in a front-door document resolves".
+    // `relativeDir` only. The first version also mapped every scope to `packages/<shortName>`, which
+    // made 30 nonexistent paths resolve under a case named "every package named in a front-door
+    // document resolves": 10 apps (`packages/www`, `packages/agent-app`, …) and — the dangerous half,
+    // which the first correction of this comment left out — 20 nested `packages/dag-nodes/*` scopes
+    // flattened to generic one-word paths like `packages/tool`, `packages/skill`, `packages/input`.
+    // A front-door document is far likelier to write `packages/tool` by mistake than `packages/www`.
     const known = new Set([
       ...scopes.map((scope) => scope.workspaceName),
       ...scopes.map((scope) => scope.relativeDir),
@@ -197,12 +203,19 @@ describe('a front-door document may not name a package that does not exist (HARN
     );
   });
 
-  it('an APP does not resolve as a package path — it is not one', () => {
-    // The hole review found: mapping every scope to `packages/<shortName>` made six apps resolve to
-    // paths that do not exist, inside the case that says every named package exists.
-    const known = new Set(['@robota-sdk/agent-app', 'apps/agent-app']);
+  it('a nested or app-only package does not resolve as a top-level package path', () => {
+    // The two halves of the hole, in the form production can actually reach: `namedPackages` emits
+    // only `@robota-sdk/…` and `packages/…` tokens, so `packages/tool` (a `packages/dag-nodes/tool`
+    // scope flattened by shortName) and `packages/agent-app` (an app) are what a document could
+    // wrongly name and the old known-set would have waved through.
+    const known = new Set([
+      '@robota-sdk/agent-app',
+      'apps/agent-app',
+      '@robota-sdk/dag-node-tool',
+      'packages/dag-nodes/tool',
+    ]);
     expect(resolves('packages/agent-app', known)).toBe(false);
-    expect(resolves('apps/agent-app', known)).toBe(true);
+    expect(resolves('packages/tool', known)).toBe(false);
   });
 
   it('a grouping directory of a real package resolves', () => {

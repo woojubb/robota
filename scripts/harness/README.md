@@ -141,7 +141,10 @@ These scripts are the executable layer of the Robota harness.
 - flags dynamic imports in production code for manual review
 - reports findings grouped by type with summary counts
 - **publishes a verdict** (HARNESS-069): per-type counts are frozen in
-  `cleanup-drift-baseline.json` and may fall but never rise. Exit 1 when a type grew, and also when
+  `cleanup-drift-baseline.json` and may fall but never rise — except `stale-tmp-doc`, which is
+  counted from file MTIME and so is reported but never ratcheted or frozen: a fresh checkout can
+  never fire it and a tree that sat over a weekend always would, and a baseline may hold only numbers
+  another checkout can reproduce. Exit 1 when a type grew, and also when
   one FELL without a re-freeze — `node scripts/harness/cleanup-drift.mjs --write-baseline` records
   the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no
   `process.exitCode`, so whatever it found, a caller heard success.
