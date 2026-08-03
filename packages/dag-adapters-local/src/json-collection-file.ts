@@ -69,19 +69,51 @@ export async function persistCollection<T>(filePath: string, values: Iterable<T>
   const inFlight = pendingWrites.get(filePath);
   if (inFlight !== undefined) return inFlight;
 
-  const run = (async () => {
-    try {
-      while (queuedSources.has(filePath)) {
-        const serialise = queuedSources.get(filePath);
-        queuedSources.delete(filePath);
-        await writeAtomically(filePath, serialise!());
-      }
-    } finally {
-      pendingWrites.delete(filePath);
-    }
-  })();
+  const run = drainQueue(filePath, queuedSources, writeAtomically).finally(() => {
+    pendingWrites.delete(filePath);
+  });
   pendingWrites.set(filePath, run);
   return run;
+}
+
+/**
+ * Write queued states until none is left, and report by what is ON DISK at the end.
+ *
+ * Review round 6 found the first version abandoning the queue on the first failure. Two things went
+ * wrong with that, and both are about the signal rather than the data:
+ *
+ * - Callers share one promise, so a LATE write failing rejected for callers whose own state had
+ *   already landed. "Your write failed" when it did not.
+ * - Whatever was still queued when it threw stayed unwritten until some later, unrelated mutation
+ *   happened to call in again.
+ *
+ * Draining fully fixes both, and makes the verdict meaningful: every write publishes the LATEST
+ * state, so a later success supersedes an earlier failure and disk is current. Only a failure of the
+ * FINAL attempt leaves disk stale, and only that rejects. A caller is told "your state is durable"
+ * exactly when it is.
+ *
+ * The queue is a PARAMETER rather than the module's own map, so this is a pure function over an
+ * explicit input and its tests need no seam in shipped code.
+ */
+export async function drainQueue(
+  filePath: string,
+  queue: Map<string, () => string>,
+  write: (path: string, serialized: string) => Promise<void>,
+): Promise<void> {
+  let lastError: unknown;
+  while (queue.has(filePath)) {
+    const serialise = queue.get(filePath);
+    queue.delete(filePath);
+    try {
+      await write(filePath, serialise!());
+      // A success supersedes any earlier failure: this write published the newest state, so disk is
+      // current regardless of what an earlier attempt did.
+      lastError = undefined;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError !== undefined) throw lastError;
 }
 
 /**

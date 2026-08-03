@@ -259,6 +259,24 @@ across the two collections; `code-quality.md` keeps `unknown` for trust boundari
 this was neither. The queue now holds a thunk returning the serialised string — the value is only ever
 `JSON.stringify`d, so nothing downstream needed the element type at all.
 
+### Review round 6 (PR #1613)
+
+One SHOULD, on the failure SIGNAL rather than the data. The coalescing loop abandoned the queue on the
+first write failure, and two things followed:
+
+- Callers share one promise, so a LATE write failing rejected for callers whose own state had already
+  landed — "your write failed" when it had not.
+- Whatever was still queued when it threw stayed unwritten until some later, unrelated mutation
+  happened to call in again.
+
+Draining fully fixes both and makes the verdict mean something: every write publishes the LATEST
+state, so a later success supersedes an earlier failure and disk is current. Only a failure of the
+FINAL attempt leaves disk stale, and only that rejects.
+
+The queue is now a PARAMETER rather than the module's own map, so the loop is a pure function over an
+explicit input — its four cases need no test seam in shipped code, which is what the first draft of
+them reached for. Red-proved by restoring the abandon-on-failure form: two cases fail.
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even

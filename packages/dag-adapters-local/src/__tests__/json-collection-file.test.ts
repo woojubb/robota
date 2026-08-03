@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { hydrateCollection, persistCollection } from '../json-collection-file.js';
+import { drainQueue, hydrateCollection, persistCollection } from '../json-collection-file.js';
 
 /**
  * DAG-003, review round 2 — the ordering hole the first version left.
@@ -93,5 +93,77 @@ describe('file permissions', () => {
     const file = collectionFile();
     await persistCollection(file, [{ id: 'a' }]);
     expect(statSync(file).mode & 0o777).toBe(0o600);
+  });
+});
+
+/**
+ * Review round 6 — the failure SIGNAL, not the data.
+ *
+ * The first coalescing loop abandoned the queue on the first failure, so a late write failing
+ * rejected for callers whose own state had already landed, and whatever was still queued stayed
+ * unwritten until some later unrelated mutation called in again. Draining fully fixes both, and makes
+ * the verdict mean something: only a stale disk rejects.
+ */
+describe('drainQueue', () => {
+  const FILE = '/does/not/matter';
+
+  function queueOf(...states: string[]): Map<string, () => string> {
+    const queue = new Map<string, () => string>();
+    let next = 0;
+    // One entry per key by design — the coalescing cache holds only the latest. `states` is consumed
+    // in order as the loop re-queues.
+    queue.set(FILE, () => states[next++] ?? 'last');
+    return queue;
+  }
+
+  it('a later SUCCESS supersedes an earlier failure', async () => {
+    // Disk ends current, so nobody should be told their write failed.
+    const queue = queueOf('s1', 's2');
+    let calls = 0;
+    const write = async (_path: string, serialized: string): Promise<void> => {
+      calls += 1;
+      if (calls === 1) {
+        queue.set(FILE, () => 's2');
+        throw new Error('transient');
+      }
+      expect(serialized).toBe('s2');
+    };
+
+    await expect(drainQueue(FILE, queue, write)).resolves.toBeUndefined();
+    expect(calls).toBe(2);
+  });
+
+  it('a failure of the FINAL attempt rejects — disk is stale', async () => {
+    const queue = queueOf('s1');
+    const write = async (): Promise<void> => {
+      throw new Error('persistent');
+    };
+    await expect(drainQueue(FILE, queue, write)).rejects.toThrow(/persistent/);
+  });
+
+  it('keeps draining what is queued rather than stopping at a failure', async () => {
+    const queue = queueOf('s1');
+    const seen: string[] = [];
+    let calls = 0;
+    const write = async (_path: string, serialized: string): Promise<void> => {
+      seen.push(serialized);
+      calls += 1;
+      if (calls === 1) {
+        queue.set(FILE, () => 's2');
+        throw new Error('transient');
+      }
+      if (calls === 2) queue.set(FILE, () => 's3');
+    };
+
+    await drainQueue(FILE, queue, write);
+    expect(seen).toEqual(['s1', 's2', 's3']);
+  });
+
+  it('an empty queue is a no-op, not a write', async () => {
+    let called = false;
+    await drainQueue(FILE, new Map(), async () => {
+      called = true;
+    });
+    expect(called).toBe(false);
   });
 });
