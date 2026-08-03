@@ -48,12 +48,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { loadHarnessConfig } from './harness-config.mjs';
+import { escapeForRegExp } from './shared.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /** Test globs are approximated by a directory walk filtered to *.test.ts / *.test.tsx. */
 const SCAN_ROOTS = ['packages', 'apps'];
 
-const MOCK_PATTERN = /vi\.mock\(\s*(['"])(@robota-sdk\/[^'"]+)\1\s*,/g;
+// HARNESS-067: built from the configured scope. This was the SECOND instance of the exact shape the
+// audit isolated, and it was invisible until the scope-literal ratchet learned to see `\/` inside a
+// regex literal — which is how it is written here.
+const MOCK_PATTERN = new RegExp(
+  `vi\\.mock\\(\\s*(['"])(${escapeForRegExp(loadHarnessConfig().npmScopePrefix)}[^'"]+)\\1\\s*,`,
+  'g',
+);
 const ESCAPE_PATTERN = /\/\/\s*allow-module-mock:\s*\S/;
 
 /** Either spelling of "load the real module": the `importOriginal` param, or `vi.importActual`. */

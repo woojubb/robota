@@ -1,0 +1,16 @@
+{
+  "check-agent-server-boundary.mjs": 38,
+  "check-background-workspace-conformance.mjs": 1,
+  "check-capability-placement.mjs": 11,
+  "check-command-layering.mjs": 8,
+  "check-dep-kind.mjs": 4,
+  "check-dependency-direction.mjs": 4,
+  "check-doc-examples.mjs": 5,
+  "check-ghost-package-refs.mjs": 1,
+  "check-interface-imports.mjs": 3,
+  "check-publish-safety.mjs": 3,
+  "check-sdk-public-surface.mjs": 4,
+  "live-provider-smoke.mjs": 3,
+  "scan-agent-tools-neutrality.mjs": 1,
+  "verify-like-ci.mjs": 2
+}
