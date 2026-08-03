@@ -26,14 +26,17 @@ count is deliberately out of this document's title for that reason.
 
 ## Evidence
 
-Measured 2026-08-03. The command is quoted so the result can be reproduced rather than trusted —
-round 10 stated a method whose patterns matched nothing in the tree (`recurs unchanged` for text that
-reads `recur unchanged`), so it produced numbers no reader could re-derive. Verified identical under
-both the session `grep` shim and `/usr/bin/grep`:
+Measured 2026-08-03. The command is quoted so the result can be reproduced rather than trusted:
+round 10 stated a method whose ESCAPE patterns matched nothing in the tree (`recurs unchanged` for
+text that reads `recur unchanged`), so following it exactly returned zero compliant skills — the
+opposite of what its own table said. Round 11 then quietly dropped `re-drive` from the gate patterns,
+which is the whole of the eleven-to-ten movement it reported, and `re-drive` is the term the rule's
+bullet is named after; round 12 restored it. Verified identical under both the session `grep` shim and
+`/usr/bin/grep`:
 
 ```sh
 for f in .agents/skills/*/SKILL.md; do
-  grep -qiE 'Bounded:|bounded at|bounded to|bounded by|round cap|\*\*Loop\*\*|loop until|repeat until|repeat phase' "$f" || continue
+  grep -qiE 'Bounded:|bounded at|bounded to|bounded by|round cap|\*\*Loop\*\*|loop until|repeat until|repeat phase|re-drive' "$f" || continue
   if grep -qiE 'recur[a-z]* unchanged|no-progress' "$f"; then verdict=ESCAPE; else verdict=NONE; fi
   printf '%-8s %s\n' "$verdict" "$(basename "$(dirname "$f")")"
 done
@@ -54,22 +57,28 @@ NONE     post-merge-cycle
 ESCAPE   pr-review-orchestration
 NONE     release-orchestration
 NONE     user-execution-scenario
+NONE     user-request-gate
 ```
 
-**Two of twelve.** Spot-checked cites for the shape of what is missing:
+**Two of thirteen.** The eleven divide into two kinds, and the worse one is not the one the rule's
+wording anticipates. FOUR are unbounded outright — `architecture-refresh`, `capability-extraction`,
+`automated-review-convergence`, `post-implementation-checklist` contain no bound, cap or limit
+language at all — and the rest bound on a COUNT, which the rule permits only as a second bound.
+
+Spot-checked cites for the shape of what is missing:
 `architecture-refresh:58` "**Loop** 1–5 until step 2 says converged" — no escape and no bound at all;
 `capability-extraction:36` "Never stop on a round count" — likewise unbounded;
 `documentation-refresh:28` a "**round cap** … only a safety checkpoint" — count-only, which the rule
 says must never be the only bound; `backlog-execution-orchestrator:59,93` "Bounded: 2 revisions" /
 "Bounded: 2 rounds"; `post-merge-cycle:87` "bounded at 2 attempts"; `user-execution-scenario:63,85,96`
 per-round caps on a guardian verdict. Note the two kinds: a count-only bound is non-compliant, and an
-unbounded loop is worse, so "bounded re-drive" is the wrong label for the column and is not used.
+unbounded loop is worse, so "bounded re-drive" is the wrong description for the NONE set and is not used.
 
-**Treat the NONE column as a LOWER BOUND, not a census**, in both directions. A keyword grep misses a
+**Treat the NONE set as a LOWER BOUND, not a census**, in both directions. A keyword grep misses a
 loop phrased differently — and it sweeps in at least one step that is not a finding-set loop at all:
 `npm-otp-publish:54` bounds how many times it may ask a human for a fresh OTP, where there is no
 finding set for a no-progress rule to compare. Four successive review rounds each corrected a
-hand-kept count here — three, then six, then eleven, then this — which is the argument for a machine
+hand-kept count here — three, six, eleven, ten, this — which is the argument for a machine
 establishing the set. That is the Test Plan's job.
 
 `architecture-refresh` is the loop the rule cites as the exemplar of the shape ("the
@@ -110,14 +119,14 @@ bound, so a second definition is a second stuck-detection.
 
 - **Required red-first regression:** a mechanical check that every skill file describing an
   auto-re-drive loop over a FINDING SET states a no-progress escape — proven to FAIL against the
-  NONE-column loops that are finding-set loops before it is trusted, and to PASS on the two that
+  NONE loops that are finding-set loops before it is trusted, and to PASS on the two that
   comply. Without it this closes by editing prose and nothing keeps it closed, and the count in this
-  file goes stale a fifth time.
+  file goes stale a sixth time.
 - Deciding which loops are in scope is part of the work, not a precondition: `npm-otp-publish` bounds
   requests to a human and has no finding set, so a check that demands an escape there would be wrong
   in the other direction.
-- The check defines the population; this file's table does not. If the check finds a loop the table
-  misses, the table was wrong, not the check.
+- The check defines the population; this file's output block does not. If the check finds a loop the
+  block misses, the block was wrong, not the check.
 - `pnpm harness:scan` and `pnpm harness:test` green.
 
 ## User Execution Test Scenarios
