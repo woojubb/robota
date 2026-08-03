@@ -69,6 +69,18 @@ describe('what counts as a case', () => {
     expect(found[0].kind).toBe('unresolved-link');
   });
 
+  it('counts two different records named by one broken link, not just the first', () => {
+    // Deduping on the link alone swallowed the second: the first identifier claimed the link and
+    // every later citation inside it was dropped, so a line naming two dead records reported one. The
+    // key is the record, not the link — which still collapses the identifier that a link repeats in
+    // its text and its path by construction.
+    const twoRecords = findCaseNarrative('[SOME-100 and SOME-200](../gone.md)', nothingResolves);
+    const oneRecordTwice = findCaseNarrative('[SOME-100](../SOME-100-x.md)', nothingResolves);
+
+    expect(twoRecords.map((f) => f.citation)).toEqual(['SOME-100', 'SOME-200']);
+    expect(oneRecordTwice).toHaveLength(1);
+  });
+
   it('treats an identifier inside a fenced block as a specimen', () => {
     // A format being shown needs a slot filled in, and the filling is not a claim that it happened.
     const found = findCaseNarrative(

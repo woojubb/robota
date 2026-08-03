@@ -93,10 +93,13 @@ export function findCaseNarrative(source, { resolves }) {
     if (inFence || hasDeclaredReason(line)) return;
 
     const links = linkSpans(line);
-    // A link is ONE citation, however many times the identifier appears inside it. `[SOME-123](…/
-    // SOME-123-the-thing.md)` names the same record twice by construction — in the text and in the
-    // path — and counting both would make a correctly-relocated case look twice as bad as a bare one.
-    const countedLinks = new Set();
+    // A link names each record ONCE, however many times that record's identifier appears inside it.
+    // `[SOME-123](…/SOME-123-the-thing.md)` names the same record twice by construction — in the text
+    // and in the path — and counting both would make a correctly-relocated case look twice as bad as
+    // a bare one. Keyed on the identifier as well as the link, because one link can name two
+    // different records: deduping on the link alone dropped the second, which is a citation the
+    // ratchet then cannot see.
+    const countedInLink = new Set();
     CITATION.lastIndex = 0;
     let match;
     while ((match = CITATION.exec(line)) !== null) {
@@ -104,8 +107,9 @@ export function findCaseNarrative(source, { resolves }) {
       const link = links.find((span) => at >= span.start && at < span.end);
       if (link && resolves(link.target)) continue;
       if (link) {
-        if (countedLinks.has(link.start)) continue;
-        countedLinks.add(link.start);
+        const key = `${link.start}:${match[0]}`;
+        if (countedInLink.has(key)) continue;
+        countedInLink.add(key);
       }
       findings.push({
         line: index + 1,
