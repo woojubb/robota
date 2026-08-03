@@ -253,6 +253,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
   },
   {
+    name: 'harness-scope-literal',
+    command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },

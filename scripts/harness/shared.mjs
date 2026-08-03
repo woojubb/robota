@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, promises as fs } from 'node:fs';
+import { appendFileSync, readdirSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 
 export const WORKSPACE_ROOT = process.cwd();
@@ -20,6 +20,38 @@ export async function readJson(targetPath) {
 
 export async function readText(targetPath) {
   return fs.readFile(targetPath, 'utf8');
+}
+
+/**
+ * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
+ *
+ * HARNESS-067: `scripts/harness/lib/` holds shared modules that a top-level read left outside both
+ * harness floors — a hardcoded scope or a module doing work on import would have gone uncounted
+ * there. Shared rather than copied for the same reason `escapeForRegExp` is: two ratchets that must
+ * agree on what a harness script IS will otherwise diverge silently, and this diff already had to fix
+ * the identical blind spot in both. `__tests__` is excluded — a test may name what it tests.
+ */
+export function harnessScripts(dir, prefix = '') {
+  const found = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...harnessScripts(path.join(dir, entry.name), relative));
+    else if (entry.name.endsWith('.mjs')) found.push(relative);
+  }
+  return found;
+}
+
+/**
+ * Escape a value for literal use inside a `RegExp`.
+ *
+ * HARNESS-067 needs this in more than one place: a pattern built from the CONFIGURED npm scope is the
+ * fix for a hardcoded one, and the scope contains `/`, which is inert here but `.` and `-` in other
+ * configured values are not. It lived privately in `check-agent-server-boundary.mjs`; a second caller
+ * is when a private helper becomes a shared one rather than a copy.
+ */
+export function escapeForRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function hasCanonicalSpecReference(content) {

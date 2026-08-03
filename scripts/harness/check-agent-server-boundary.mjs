@@ -28,6 +28,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { escapeForRegExp } from './shared.mjs';
+
 const WORKSPACE_ROOT = process.cwd();
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
 
@@ -438,10 +440,6 @@ export function collectReachableModules(contentsByFile, entryPattern, moduleAlia
   }
 
   return reachable;
-}
-
-function escapeForRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

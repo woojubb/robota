@@ -89,6 +89,14 @@ export const MANDATORY_TREE_GUARDS = [
   {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `scripts/harness does not exist`.
+    file: 'scan-harness-scope-literal.mjs',
+    finder: 'findScopeLiteralFindings',
+    tree: 'scripts/harness itself',
+    why: 'it counts the configured npm scope hardcoded into the harness; over a root with no scripts nothing hardcodes anything, and this defect is invisible by nature — a hardcoded scope does not fail when the scope changes, it matches NOTHING and reports a pass, which is why a completed audit named it the dominant finding and it survived anyway',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist`.
     file: 'scan-harness-script-import-safety.mjs',
     finder: 'findImportSafetyFindings',
     tree: 'scripts/harness itself',
