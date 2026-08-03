@@ -211,6 +211,22 @@ removing the serialisation.
 The mode is set on the temp file, so it is in force before any content is written rather than widened
 by a later chmod. Red-proved: 0644 without it.
 
+### Review round 3 (PR #1613)
+
+One MUST: the same lost-update class round 2 fixed, one layer up. `ensureInitialized` had no
+single-flight guard, so two calls on a fresh instance both saw an uninitialised store and hydrated
+concurrently. `hydrateCollection` only `.set()`s what it read and never clears, so a stale read
+landing after another call had written a newer value for the same key silently reverted it — and the
+next persist wrote the reverted value back to disk.
+
+A restarted server handling its first two concurrent requests is this change's own target scenario,
+which is what makes it a case rather than a note. Red-proved: removing the guard reads back
+`attempt: 2` where 3 was written.
+
+The gate moved to `storage-hydration.ts` — its own module because single-flight IS the responsibility,
+not an implementation detail of the port — which also brought the port back under its ceiling. The
+NIT (a `encodeSegment` import left dead by the earlier extraction) is gone too.
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even

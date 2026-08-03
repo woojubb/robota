@@ -5,12 +5,12 @@ import {
   decodeSegment,
   definitionDirectoryPath,
   definitionFilePath,
-  encodeSegment,
   listDefinitionsForDagId,
   readDefinitionFromFile,
   saveDefinitionAtomically,
 } from './definition-files.js';
-import { hydrateCollection, persistCollection } from './json-collection-file.js';
+import { persistCollection } from './json-collection-file.js';
+import { HydrationGate } from './storage-hydration.js';
 
 import {
   applyTaskAttemptIncrement,
@@ -37,7 +37,7 @@ export class FileStoragePort implements IStoragePort {
   private readonly runsRootPath: string;
   private readonly dagRunsFilePath: string;
   private readonly taskRunsFilePath: string;
-  private isInitialized = false;
+  private readonly hydration: HydrationGate;
   private readonly dagRuns = new Map<string, IDagRun>();
   private readonly taskRuns = new Map<string, ITaskRun>();
 
@@ -46,6 +46,15 @@ export class FileStoragePort implements IStoragePort {
     this.runsRootPath = path.join(this.storageRootPath, 'runs');
     this.dagRunsFilePath = path.join(this.runsRootPath, 'dag-runs.json');
     this.taskRunsFilePath = path.join(this.runsRootPath, 'task-runs.json');
+    this.hydration = new HydrationGate({
+      definitionsRootPath: this.definitionsRootPath,
+      runsRootPath: this.runsRootPath,
+      dagRunsFilePath: this.dagRunsFilePath,
+      taskRunsFilePath: this.taskRunsFilePath,
+      dagRuns: this.dagRuns,
+      taskRuns: this.taskRuns,
+      taskRunKeyOf: (taskRun) => buildTaskRunKey(taskRun.dagRunId, taskRun.taskRunId),
+    });
   }
 
   /**
@@ -61,16 +70,7 @@ export class FileStoragePort implements IStoragePort {
    * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
    */
   private async ensureInitialized(): Promise<void> {
-    if (this.isInitialized) {
-      return;
-    }
-    await mkdir(this.definitionsRootPath, { recursive: true });
-    await mkdir(this.runsRootPath, { recursive: true });
-    await hydrateCollection(this.dagRunsFilePath, this.dagRuns, (run) => run.dagRunId);
-    await hydrateCollection(this.taskRunsFilePath, this.taskRuns, (task) =>
-      buildTaskRunKey(task.dagRunId, task.taskRunId),
-    );
-    this.isInitialized = true;
+    await this.hydration.ensure();
   }
 
   private async persistDagRuns(): Promise<void> {

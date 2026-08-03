@@ -206,3 +206,49 @@ describe('every task-run mutator reaches the disk (DAG-003)', () => {
     expect(restarted?.totalCredits).toBe(7);
   });
 });
+
+/**
+ * Review round 3 — the same lost-update class, one layer up.
+ *
+ * `ensureInitialized` had no single-flight guard, so two calls on a fresh instance both saw
+ * `isInitialized === false` and hydrated concurrently. `hydrateCollection` only `.set()`s what it
+ * read and never clears, so a stale read landing after another call had already written a newer
+ * value for the same key silently reverted it — and the next persist wrote the reverted value back.
+ *
+ * A restarted server handling its first two concurrent requests is exactly this change's own target
+ * scenario, which is what makes it worth a case rather than a note.
+ */
+describe('concurrent first access does not revert a write (DAG-003)', () => {
+  it('a value written during hydration survives', async () => {
+    const root = storageRoot();
+    // Something already on disk, so hydration has real work to do and a stale read is possible.
+    await new FileStoragePort(root).createTaskRun(taskRun({ taskRunId: 't1', attempt: 1 }));
+
+    // A fresh instance, driven concurrently from its very first call.
+    const restarted = new FileStoragePort(root);
+    await Promise.all([
+      restarted.incrementTaskAttempt('t1'),
+      restarted.getTaskRun('t1'),
+      restarted.listTaskRunsByDagRunId('run-1'),
+      restarted.incrementTaskAttempt('t1'),
+    ]);
+
+    expect((await restarted.getTaskRun('t1'))?.attempt).toBe(3);
+    // And the disk agrees — a revert would be written back by the next persist.
+    expect((await new FileStoragePort(root).getTaskRun('t1'))?.attempt).toBe(3);
+  });
+
+  it('hydrates once, not once per concurrent caller', async () => {
+    const root = storageRoot();
+    await new FileStoragePort(root).createDagRun(dagRun());
+
+    const restarted = new FileStoragePort(root);
+    const results = await Promise.all([
+      restarted.getDagRun('run-1'),
+      restarted.getDagRun('run-1'),
+      restarted.listDagRuns(),
+    ]);
+    expect((results[0] as { dagRunId: string } | undefined)?.dagRunId).toBe('run-1');
+    expect(results[2]).toHaveLength(1);
+  });
+});
