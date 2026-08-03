@@ -19,10 +19,12 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * to stop the list coming back — the Task's own thesis, unlearned.
  *
  * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 174 tracked
- * markdown files (of roughly 2.7k) enumerate three or more package paths, nearly all of them dated records —
- * completed Tasks, archived audits, closed spec-docs — where a listing is history and correct as
- * written. (Measured with THIS detector after it was widened to ordered lists. The first figure, 171,
- * was taken before that change and shipped in the same commit as the change — a measurement that no
+ * markdown files enumerate three or more package paths. Of the 145 in the root+`.agents` subset —
+ * the population whose composition was actually MEASURED — 134 are dated records: completed Tasks,
+ * archived audits, closed spec-docs, where a listing is history and correct as written.
+ *
+ * (Measured with THIS detector, after it was widened to ordered lists. The first figure, 171, was
+ * taken before that change and shipped in the same commit as the change — a measurement that no
  * longer described its own code.)
  *
  * What distinguishes these four is ROLE, not content: they are read as the CURRENT description of the

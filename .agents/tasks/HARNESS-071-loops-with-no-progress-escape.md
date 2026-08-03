@@ -1,5 +1,5 @@
 ---
-title: 'HARNESS-071: two skills carry a no-progress escape and eleven do not, and the rule that now requires one was landed over them'
+title: 'HARNESS-071: almost no convergence loop can notice it is stuck, and the rule that now requires one was landed over them'
 status: todo
 issue: https://github.com/woojubb/robota/issues/1616
 created: 2026-08-03
@@ -19,32 +19,58 @@ loop:
 > Every such loop MUST have an escape, and the escape MUST be **no-progress detection**: if a round
 > returns the same finding set unchanged, stop and escalate to the user.
 
-Almost nothing satisfies it. The rule was landed in PR #1615 (the PR-review round cap removal); review
-round 8 found it violated at landing by its own subjects — including the exemplar the rule's own
-sentence names — and rounds 9 and 10 each found the count of those subjects too low again.
+Almost nothing satisfies it. The rule was landed in PR #1615 (the PR-review round cap removal);
+review round 8 found it violated at landing by its own subjects — including the exemplar the rule's
+own sentence names — and rounds 9, 10 and 11 each found the count of those subjects wrong again. The
+count is deliberately out of this document's title for that reason.
 
 ## Evidence
 
-Measured 2026-08-03 by grepping every `.agents/skills/*/SKILL.md` for re-drive language
-(`Bounded:`, `bounded at/to/by`, `round cap`, `**Loop**`, `loop until`, `re-drive`, `repeat phase`)
-and then for an escape (`recurs unchanged`, `no-progress`):
+Measured 2026-08-03. The command is quoted so the result can be reproduced rather than trusted —
+round 10 stated a method whose patterns matched nothing in the tree (`recurs unchanged` for text that
+reads `recur unchanged`), so it produced numbers no reader could re-derive. Verified identical under
+both the session `grep` shim and `/usr/bin/grep`:
 
-| Carries the escape                                                                    | Describes a bounded re-drive without one                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pr-review-orchestration` (Round B step 4), `delegated-refactor-green-gate` (line 86) | `architecture-refresh`, `automated-review-convergence`, `backlog-execution-orchestrator`, `capability-extraction`, `documentation-refresh`, `npm-otp-publish`, `post-implementation-checklist`, `post-merge-cycle`, `release-orchestration`, `user-execution-scenario`, `user-request-gate` |
+```sh
+for f in .agents/skills/*/SKILL.md; do
+  grep -qiE 'Bounded:|bounded at|bounded to|bounded by|round cap|\*\*Loop\*\*|loop until|repeat until|repeat phase' "$f" || continue
+  if grep -qiE 'recur[a-z]* unchanged|no-progress' "$f"; then verdict=ESCAPE; else verdict=NONE; fi
+  printf '%-8s %s\n' "$verdict" "$(basename "$(dirname "$f")")"
+done
+```
 
-Two carry it; eleven do not. Spot-checked cites for the shape of what is missing:
-`architecture-refresh:58` "**Loop** 1–5 until step 2 says converged" — no escape of any kind;
+Its output, verbatim:
+
+```
+NONE     architecture-refresh
+NONE     automated-review-convergence
+NONE     backlog-execution-orchestrator
+NONE     capability-extraction
+ESCAPE   delegated-refactor-green-gate
+NONE     documentation-refresh
+NONE     npm-otp-publish
+NONE     post-implementation-checklist
+NONE     post-merge-cycle
+ESCAPE   pr-review-orchestration
+NONE     release-orchestration
+NONE     user-execution-scenario
+```
+
+**Two of twelve.** Spot-checked cites for the shape of what is missing:
+`architecture-refresh:58` "**Loop** 1–5 until step 2 says converged" — no escape and no bound at all;
+`capability-extraction:36` "Never stop on a round count" — likewise unbounded;
 `documentation-refresh:28` a "**round cap** … only a safety checkpoint" — count-only, which the rule
 says must never be the only bound; `backlog-execution-orchestrator:59,93` "Bounded: 2 revisions" /
 "Bounded: 2 rounds"; `post-merge-cycle:87` "bounded at 2 attempts"; `user-execution-scenario:63,85,96`
-per-round caps on a guardian verdict.
+per-round caps on a guardian verdict. Note the two kinds: a count-only bound is non-compliant, and an
+unbounded loop is worse, so "bounded re-drive" is the wrong label for the column and is not used.
 
-**Treat the right-hand column as a LOWER BOUND, not a census.** It comes from a keyword grep, which
-will miss a loop phrased differently and may include a bounded step that is not a re-drive. That is
-deliberate: three successive review rounds each corrected a hand-kept count here — three, then six,
-then eleven — which is the argument for not keeping one by hand. Establishing the exact set is the
-Test Plan's job.
+**Treat the NONE column as a LOWER BOUND, not a census**, in both directions. A keyword grep misses a
+loop phrased differently — and it sweeps in at least one step that is not a finding-set loop at all:
+`npm-otp-publish:54` bounds how many times it may ask a human for a fresh OTP, where there is no
+finding set for a no-progress rule to compare. Four successive review rounds each corrected a
+hand-kept count here — three, then six, then eleven, then this — which is the argument for a machine
+establishing the set. That is the Test Plan's job.
 
 `architecture-refresh` is the loop the rule cites as the exemplar of the shape ("the
 `architecture-refresh` shape: converge on `ACTIONABLE FINDINGS: 0`"), so the rule names as its model
@@ -75,17 +101,21 @@ The identity-set comparison is ONE rule, so a dozen restatements of it is what H
 Prefer a single owner — a rule section, or a shared skill fragment the loops route to — over a
 paragraph pasted into each. Decide that before editing the first skill.
 
-Note that the identity is itself defined three different ways today (`file:line + severity` in
-`pr-review-orchestration`, `file:line + rule/category` and `file:line+rule` in the HARNESS-018 draft).
-With no round cap, the identity is the sole bound of the PR-review loop, so two definitions mean two
-different stuck-detections. Settle it as part of this item.
+The finding IDENTITY that comparison runs on is `file:line + severity`, and it is settled: the
+HARNESS-018 draft defined it two other ways (`file:line + rule/category`, `file:line+rule`) and #1615
+unified all of them. Keep it that way — with no round cap the identity is the PR-review loop's sole
+bound, so a second definition is a second stuck-detection.
 
 ## Test Plan
 
 - **Required red-first regression:** a mechanical check that every skill file describing an
-  auto-re-drive loop states a no-progress escape — proven to FAIL against the eleven above before it
-  is trusted, and proven to PASS on the two that comply. Without it this closes by editing prose and
-  nothing keeps it closed, and the count in this file goes stale a fourth time.
+  auto-re-drive loop over a FINDING SET states a no-progress escape — proven to FAIL against the
+  NONE-column loops that are finding-set loops before it is trusted, and to PASS on the two that
+  comply. Without it this closes by editing prose and nothing keeps it closed, and the count in this
+  file goes stale a fifth time.
+- Deciding which loops are in scope is part of the work, not a precondition: `npm-otp-publish` bounds
+  requests to a human and has no finding set, so a check that demands an escape there would be wrong
+  in the other direction.
 - The check defines the population; this file's table does not. If the check finds a loop the table
   misses, the table was wrong, not the check.
 - `pnpm harness:scan` and `pnpm harness:test` green.
