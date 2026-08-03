@@ -80,7 +80,7 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 ## Mandatory Rules
 
-All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md) — which also states what "non-negotiable" does and does not mean: it governs obedience while a rule stands, not the rule's authority. **No rule here is final**; an argument from a universal principle can beat one, and then the rule is what changes.
+All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply.
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 

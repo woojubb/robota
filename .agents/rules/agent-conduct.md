@@ -23,7 +23,10 @@ same holds for engineering, and was never written down.
 for this repository; the intent is the universal principle, and the rule is one local encoding of it.
 So when an outside reviewer — the review action, an audit agent, a contributor — argues from a
 universal principle and a harness rule says otherwise, the conflict is EVIDENCE THE ENCODING IS WRONG
-until shown otherwise. Weigh the argument on its merits. If it holds, **the rule is what changes.**
+until shown otherwise. Weigh the argument on its merits. If it holds, **the rule is what changes** —
+by amendment, on the terms [rules/index.md](index.md) sets: the rule binds until amended, and a
+filed backlog item is the minimum evidence that an amendment was attempted at all. A finding you
+believe outranks a rule but do not file has not outranked anything.
 
 Three constraints, because this must not become a bypass:
 
@@ -34,9 +37,10 @@ Three constraints, because this must not become a bypass:
   publish/OTP protocol, the branch flow, licensing, the language policy — a general principle does not
   override these by argument, because they are not a local encoding of it. They still earn a written
   reason rather than a citation.
-- **Never silently, either way.** If the principle wins, amend the rule in the same change or file a
-  linked root item and say so on the PR. If the rule wins, record why the principle does not reach
-  this case. An unrecorded resolution is indistinguishable from an ignored finding.
+- **Never silently, either way.** If the principle wins, amend the rule in the same change or file the
+  backlog item and say so on the PR — the item is the bar, not the intention. If the rule wins, record
+  why the principle does not reach this case. An unrecorded resolution is indistinguishable from an
+  ignored finding, and an unfiled amendment is indistinguishable from having deviated.
 
 Owner directive, 2026-08-03: 보편적인 규칙이 더 중요합니다 — a universal rule matters more than one we
 wrote; where a review argues from one, it can take priority and our rule may need amending. This is a

@@ -22,6 +22,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   close it.** When one document's normative claim negates another's, fix the losing text AND ask what
   let the pair diverge — almost always a fact written in two places. Prefer deleting the restatement
   to keeping both and checking them.
+- **A rule you believe is wrong is still in force until amended**, and the minimum evidence of an
+  amendment attempt is a filed backlog item — [rules/index.md](index.md) § "Amendable by amendment"
+  owns that bar. Recording a contradiction without filing anything leaves the rule set exactly as
+  contradictory as it was.
 - **The precedence chain resolves a conflict for a reader; it does not license one.** `agent-conduct.md`
   ordering (user instructions > RCP conduct > other rules > default) says which side wins when two
   texts disagree. It is not a reason to leave them disagreeing: a rule a reader must override to obey
