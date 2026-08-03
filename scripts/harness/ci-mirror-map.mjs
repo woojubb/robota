@@ -125,11 +125,13 @@ export const CI_STAGES = [
       },
       {
         job: 'tui-e2e',
-        steps: ['Build packages (provides the built robota binary the PTY suite drives)'],
+        steps: [
+          'Build packages (only when the artifact was not restored — provides the robota binary)',
+        ],
       },
       {
         job: 'examples-typecheck',
-        steps: ['Build packages (so examples typecheck against local source)'],
+        steps: ['Build packages (only when the artifact was not restored)'],
       },
     ],
     why: 'CI builds before every job that reads dist; locally a STALE dist passes the presence-only freshness scan',
@@ -260,11 +262,21 @@ export const CI_SETUP_STEPS = {
   ],
   'examples-typecheck': [
     {
+      step: 'Restore package build output',
+      reason:
+        'artifact transport between jobs in one CI run; a local run builds in place and has nothing to restore',
+    },
+    {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
     },
   ],
   'tui-e2e': [
+    {
+      step: 'Restore package build output',
+      reason:
+        'artifact transport between jobs in one CI run; a local run builds in place and has nothing to restore',
+    },
     {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
