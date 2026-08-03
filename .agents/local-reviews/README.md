@@ -16,3 +16,11 @@ the evidence a gate runs on. This file is that missing sentence.
 
 `pnpm harness:review:record` still writes here, and `pre-push-check.sh` still reads it to catch an
 unreviewed push locally. Both are useful; neither is authoritative for anyone but this machine.
+
+**And the window it covers is narrow (HARNESS-074).** The hook asks for a record only while no pull
+request is open on the branch — the stretch during which nothing else has reviewed the diff. Once the
+pull request exists, its own review automation reviews every push, so the hook waives the demand and
+this directory stops being consulted for that branch. Enumerated when the window was narrowed, so a
+later reader need not re-derive it: `pre-push-check.sh` is the only gate that reads these records;
+`merge-gate.sh` reads a pull-request label, and `review-gate.yml` reads code-scanning results and
+labels. Nothing else.

@@ -53,14 +53,48 @@ function record(dir, branch, sha, findings = 0) {
   writeFileSync(file, JSON.stringify({ branch, headSha: sha, findings }));
 }
 
-function push(dir, command = 'git push -u origin feat/probe') {
+function push(dir, command = 'git push -u origin feat/probe', { openPrs } = {}) {
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
+  if (openPrs !== undefined) env.PATH = `${stubGh(openPrs)}${path.delimiter}${process.env.PATH}`;
+
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+    env,
     timeout: 120_000,
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+/**
+ * A `gh` on PATH that answers the one question the hook asks it.
+ *
+ * `openPrs` is what `gh pr list --head <branch> --state open --json number --jq length` prints: how
+ * many open pull requests that branch heads. `''` with a non-zero exit is the unauthenticated /
+ * offline / no-such-repository case. Every case that does not pass `openPrs` runs against the real
+ * environment, where a scratch repository has no remote and the lookup fails — which is that same
+ * unknown case, and must still refuse.
+ */
+function stubGh(openPrs) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+  scratch.push(dir);
+  // It answers by ARGUMENTS, not by invocation count, so a case can tell the two lookups apart.
+  // `pr list --head <branch>` gets the branch's open-pull-request count; a bare `pr view <thing>`
+  // gets `OPEN`, which is what real gh returns when it reads the argument as a pull-request NUMBER.
+  // A stub that printed one answer to every call would pass whichever lookup the hook used, and the
+  // number-collision case below would assert nothing.
+  const body =
+    openPrs === ''
+      ? '#!/bin/bash\nexit 1\n'
+      : `#!/bin/bash
+for arg in "$@"; do
+  if [ "$arg" = "--head" ]; then printf '%s\\n' ${JSON.stringify(String(openPrs))}; exit 0; fi
+done
+printf 'OPEN\\n'
+`;
+  const file = path.join(dir, 'gh');
+  writeFileSync(file, body, { mode: 0o755 });
+  return dir;
 }
 
 describe('a feature-branch push carries a reviewed diff', () => {
@@ -210,6 +244,47 @@ describe('a feature-branch push carries a reviewed diff', () => {
 
     const feature = scratchRepo('feat/probe');
     expect(push(feature).output).toMatch(/origin\/develop\.\.\.HEAD/);
+  });
+
+  it('stops demanding a local review once the pull request is open', () => {
+    // HARNESS-074. Two reviewers is one too many. An OPEN pull request runs its own review on every
+    // push and carries the history of the rounds before it; demanding a second, local, subjective
+    // review before each of those pushes did not add a reviewer, it multiplied CI rounds — the loop
+    // pushed once per local round, and every push bought another remote review of the same change.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'git push origin feat/probe', { openPrs: 1 });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'a waived demand that says nothing is a silent bypass').toMatch(
+      /open pull request/i,
+    );
+  });
+
+  it('still demands one before the pull request exists', () => {
+    // The cost argument that put this gate here survives untouched for the first push: no pull
+    // request means no reviewer has seen this diff, so the round belongs here, where it is free.
+    // A merged or closed pull request counts as none — `--state open` is what the hook asks for, so
+    // the branch's earlier, finished pull request must not go on waiving reviews of new work.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'git push origin feat/probe', { openPrs: 0 });
+    expect(verdict.status, verdict.output).toBe(2);
+  });
+
+  it('treats an unanswerable pull-request lookup as no pull request', () => {
+    // Unknown is not open. Offline, unauthenticated, or with no `gh` at all, the gate gives the
+    // refusal it gave before the exemption existed — an exemption that opens on a failed measurement
+    // is the vacuous green this harness keeps finding.
+    const dir = scratchRepo('feat/probe');
+    expect(push(dir, 'git push origin feat/probe', { openPrs: '' }).status).toBe(2);
+  });
+
+  it('does not read a branch named like a number as that pull request', () => {
+    // `gh pr view <branch>` decides between a number, a URL and a branch by shape, so a branch named
+    // `42` is answered with pull request #42's state — a waiver granted on another change's
+    // evidence. The lookup asks `--head`, which only ever means a branch, and the stub below answers
+    // "no open pull request heads this branch" the way the real one would.
+    const dir = scratchRepo('42');
+    expect(push(dir, 'git push origin 42', { openPrs: 0 }).status).toBe(2);
   });
 
   it('exempts the integration branches and a promotion branch', () => {
@@ -480,8 +555,22 @@ describe('the skill still puts the round before the push', () => {
 
   it('describes the local-diff round and the command that records it', () => {
     // The measured reason this changed, kept where the next reader of the skill will meet it.
-    expect(skill).toMatch(/before any push/i);
+    // The window narrowed with HARNESS-074 — the round is before the PULL REQUEST, not before every
+    // push — so this pins the narrowed claim rather than the phrase it replaced.
+    expect(skill).toMatch(/before the pull request exists/i);
     expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('says the round stops once the pull request is open, as the hook does', () => {
+    // Two statements of one gate drift; the hook waives its demand on an open PR, and a skill that
+    // still called the round unconditional would send an agent to review what CI is already
+    // reviewing — the duplication HARNESS-074 is about, re-created in the document that describes
+    // the fix.
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(roundA, 'the skill does not say where Round A stops').toMatch(
+      /stops the moment one is open/i,
+    );
   });
 
   it('keeps the CI-green precondition out of the first round', () => {

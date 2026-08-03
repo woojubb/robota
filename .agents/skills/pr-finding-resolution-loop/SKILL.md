@@ -1,6 +1,6 @@
 ---
 name: pr-finding-resolution-loop
-description: Drives a pull request to convergence by RESOLVING the findings its review automation produces — it does not review. Round A reviews the LOCAL diff before a push, where a round costs a minute instead of a CI cycle; Round B reads what the pull request's automation reported, routes each finding to a verdict and a fix, pushes, and re-reads, looping until zero remain — no round cap (owner directive 2026-08-03); the only escape is progress detection. Then hands to the gated merge path. It routes only: it does not review, write, fix, or judge. Dispatching a reviewer on an OPEN pull request is the duplication this skill exists to prevent.
+description: Drives a pull request to convergence by RESOLVING the findings its review automation produces — it does not review. Round A reviews the LOCAL diff once, before the pull request exists and while no reviewer has seen it, where a round costs a minute instead of a CI cycle; Round B reads what the pull request's automation reported, routes each finding to a verdict and a fix, pushes, and re-reads, looping until zero remain — no round cap (owner directive 2026-08-03); the only escape is progress detection. Then hands to the gated merge path. It routes only: it does not review, write, fix, or judge. Dispatching a reviewer on an OPEN pull request is the duplication this skill exists to prevent.
 ---
 
 # PR Finding Resolution Loop
@@ -8,10 +8,11 @@ description: Drives a pull request to convergence by RESOLVING the findings its 
 Route-only orchestrator for driving a PR to convergence. This skill manages ONLY the loop — it does not review,
 post, fix, or judge; it routes on the reviewer's machine signal.
 
-**Who reviews depends on where the change is.** Before the push (Round A) the reviewer is
-`pr-review-reviewer` on the local diff, because a round there costs a minute and the same round after a
-push costs a CI cycle. On an open pull request (Round B) the reviewer is the review automation the PR
-runs, and this loop's job is to RESOLVE what it reports — never to review it again. All fixing lives in
+**Exactly one reviewer owns a diff at a time.** Before the pull request exists (Round A) the reviewer is
+`pr-review-reviewer` on the local diff, because nothing else has seen it and a round there costs a minute
+where the same round after a push costs a CI cycle. Once the pull request is open (Round B) the reviewer
+is the automation the PR runs, and this loop's job is to RESOLVE what it reports — never to review it
+again. All fixing lives in
 `pr-review-fixer`; all posting lives in `pr-review-writer`.
 
 ## Rule Anchor
@@ -42,7 +43,15 @@ rejects). Two modes:
 
 The loop runs in TWO places, and which one comes first is the whole point.
 
-### Round A — on the LOCAL DIFF, before any push (required)
+### Round A — on the LOCAL DIFF, before the pull request exists (required, once)
+
+**Round A runs before there is a pull request, and stops the moment one is open.** From then on the
+reviewer is the automation the pull request runs, Round B is the only round, and a push exists to
+deliver resolutions rather than to buy another opinion. Running A on an open pull request is the
+duplication this skill exists to prevent — it does not add a reviewer, it multiplies the remote ones,
+because each local round ends in a push and each push buys another remote review of the same change.
+`pre-push-check` decides this the same way and waives its demand for exactly that case; the two must
+keep saying one thing.
 
 Measured across one session (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 review rounds, 24 of them
 carrying a blocking finding, at 6–10 minutes of CI each. Not one of those findings needed CI to be visible —
@@ -92,7 +101,9 @@ A3. **Zero?** Record it — `pnpm harness:review:record -- --findings 0` — and
 `PRE_PUSH_ALLOW_UNREVIEWED=1` for a deliberate exception. The record says a review RAN at this commit and
 reported zero gating findings; it does not claim the review was good, which is the reviewer's job and not a
 hook's. Integration branches and `release/promote-*` are exempt — a promotion carries develop's
-already-reviewed content and no diff of its own.
+already-reviewed content and no diff of its own. **A branch with an open pull request is exempt too**, for
+the reason at the top of this round: the demand would be for a second review, and the hook says so on the
+way through rather than waiving it silently.
 
 ### Round B — on the open PR, before merge
 
