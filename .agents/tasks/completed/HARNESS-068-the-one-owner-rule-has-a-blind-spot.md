@@ -78,9 +78,21 @@ to avoid.
 
 **The drift was already real, not hypothetical.** The copy listed `packages/agent-provider`, which
 does not exist — and the owning document says so in as many words ("There is **NO** bare
-`agent-provider` package"). `check-dependency-direction.mjs` Rule 9 fails the build for exactly that
-mistake in the owning document's prose, and its scope stopped there. The blind spot is not adjacent to
-the mechanism; it is the one place the name could rot unnoticed.
+`agent-provider` package").
+
+**And the diagnosis this item was filed on was wrong**, which review round 13 established with one
+command. The Task said the name could rot because `check-dependency-direction.mjs` Rule 9 reaches only
+the owning document. But `check-ghost-package-refs.mjs` already read EVERY live markdown file,
+`CONTRIBUTING.md` included; it was silent because it strips inline code SPANS, and the stale name sat
+in backticks. Un-backtick that one line at the merge-base and it fires:
+`[ghost-package-path] CONTRIBUTING.md: packages/agent-provider does not resolve to any packages/ directory.`
+
+So the blind spot was never the file list — it was the exemption, and it is repo-wide. The fix went
+where the fact is owned: `check-ghost-package-refs.mjs` now scans the four front-door documents
+span-inclusive, red-proved at the merge-base. An earlier version of this change instead grew a SECOND
+existence check inside a test file, with its own workspace-name set and its own placeholder allowlist
+— two mechanisms answering one question from two sources of truth, in the change whose subject is one
+owner. That check is deleted.
 
 **The sweep, restated with the measurement it was actually based on.** The first version of this
 section said "of every root and `.agents/` markdown file, only `CONTRIBUTING.md` (8 entries) and
@@ -124,20 +136,22 @@ this change deleted the list and stopped there, which leaves nothing to stop it 
 task's own thesis, unlearned. Red-proved at the merge-base, where the case fails naming all eight
 entries.
 
-**And the rule that mattered is extended, not just the ban.** Deleting the copy is half the task; the
-reason the copy was worth deleting is that it named a package that does not exist, and Rule 9 reaches
-only the owning document. Banning enumerations moves that blind spot rather than closing it — so the
-EXISTENCE check now runs over every package name a front-door document uses, enumeration or not.
+**And the rule that mattered is extended, not just the ban.** Banning enumerations moves the blind
+spot rather than closing it, so the EXISTENCE check now covers every package name a front-door
+document uses, enumeration or not — inside `check-ghost-package-refs.mjs`, which already owned that
+question for every other document.
+
 Rounds 3 and 4 proved that was not hypothetical, and the second instance is the instructive one.
 Round 3 found `README.md`'s architecture diagram still saying `agent-provider`, contradicting a table
 twenty lines below it that lists the per-vendor packages which replaced it — fixed by hand, and the
 test recorded the limit as "bare names inside a fenced diagram". Round 4 then found `agent-provider`
 in README's Quick Start line, in inline backticks in prose, four lines above a snippet importing
 `@robota-sdk/agent-provider-anthropic`. The limit was never about fences: the check cannot see any
-name carrying no `@robota-sdk/` or `packages/` prefix, anywhere. Stating it too narrowly is what
-steered the round-3 hand-fix past the second instance, so it is now stated at its real width together
-with the compensating control — when a package is renamed or split, grep the front-door documents for
-the OLD bare name, because this check will not.
+name carrying no `@robota-sdk/` or `packages/` prefix, anywhere — and it skips fenced blocks, where a
+rule matching bare lowercase words would match most of a shell transcript. Stating that limit too
+narrowly is what steered the round-3 hand-fix past the second instance. The compensating control is a
+wider sweep, not a wider regex: when a package is renamed or split, grep the front-door documents for
+the OLD bare name, because no check will do it for you.
 
 Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
 `README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed: of the 145

@@ -22,12 +22,11 @@ import { afterEach, describe, expect, it } from 'vitest';
  * published. "Silence is not success" is a rule of this harness, and this was the one script that
  * could not break it.
  *
- * WHERE THE RATCHET IS ENFORCED. Not in `run-all-scans.mjs` — but THIS FILE is the enforcement, and
- * the first version of it claimed the opposite in a comment. `pnpm harness:test` runs the whole
- * `scripts/harness/__tests__` suite, and CI reaches that on both sides: the `scans` job
- * (`base_ref != 'main'`) runs it as a step, and a promotion to `main` runs it inside
- * `harness:verify:release`. So the case below asserting exit 0 against the live tree makes the
- * ratchet a required check on every PR. Named `cleanup-drift.test.mjs` rather than `…-verdict…` for
+ * WHERE THE RATCHET IS ENFORCED: THIS FILE is the enforcement — the case below asserting exit 0
+ * against the live tree is what makes the ratchet a required check. Which CI paths reach it is
+ * recorded once, in `scripts/harness/README.md` under `pnpm harness:cleanup`; two earlier copies of
+ * that answer here and in the script were each wrong at some point and were corrected out of step.
+ * Named `cleanup-drift.test.mjs` rather than `…-verdict…` for
  * the same reason: the harness's own untested-script ratchet matches a test to its subject by the
  * `<base>.` prefix, so the old name left `cleanup-drift.mjs` frozen as untested even after it had a
  * test.

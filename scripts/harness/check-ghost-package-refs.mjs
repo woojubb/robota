@@ -56,6 +56,15 @@ export const GHOST_PACKAGE_ALLOWLIST = new Set([
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
 ]);
 
+/**
+ * The documents a newcomer reads as the CURRENT description of the repository.
+ *
+ * These four are read by someone with no way to know a fresher owner exists, so a stale package name
+ * in one misleads in a way the same name in a dated record cannot. They are the only docs where an
+ * inline code span is scanned rather than exempted.
+ */
+const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
+
 /** Doc trees that are immutable historical records — a defunct name there is history, not drift. */
 function isExcludedDoc(rel) {
   if (path.basename(rel) === 'CHANGELOG.md') return true; // append-only release history (changesets)
@@ -156,7 +165,13 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       }
       if (inFence) continue;
       if (ABSENCE_VOCABULARY.test(rawLine)) continue;
-      const line = rawLine.replace(/`[^`]*`/g, ' '); // strip inline code spans
+      // Inline code spans are stripped everywhere EXCEPT the front door, where a package name in
+      // backticks is the normal way to write one and the reader has no way to know it is stale.
+      // HARNESS-068 measured the cost: `CONTRIBUTING.md` carried `` `packages/agent-provider` `` —
+      // a package the owning document says does not exist — and this scan was silent, not because
+      // its scope stopped one file short (it reads every live markdown file) but because the name
+      // was in a code span. The exemption was the blind spot, not the file list.
+      const line = FRONT_DOOR_DOCS.has(rel) ? rawLine : rawLine.replace(/`[^`]*`/g, ' ');
 
       for (const match of line.matchAll(TOKEN_PATTERN)) {
         const token = match[0];

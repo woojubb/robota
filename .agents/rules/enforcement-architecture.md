@@ -87,7 +87,10 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   > shape this bullet names as its exemplar, and it has no bound at all rather than a count-only one.
   > The Task carries the command and its verbatim output; treat the result as a lower bound rather
   > than a census, because a keyword grep both misses loops and sweeps in steps that are not
-  > finding-set loops. Establishing the set mechanically is HARNESS-071's Test Plan. The rule is
+  > finding-set loops, and it reads only `.agents/skills/`. The `.agents/rules/` tree was swept
+  > separately and is clean: `research.md` stated a count as its loop's only bound and was corrected
+  > in the same change rather than contained. Establishing the set mechanically is HARNESS-071's
+  > Test Plan. The rule is
   > stated at its intended strength and the gap is filed rather than deferred in silence; nothing
   > outside the two is exempt.
 

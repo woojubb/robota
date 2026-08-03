@@ -429,17 +429,11 @@ const CLOCK_DERIVED_TYPES = new Set(['stale-tmp-doc']);
  * baseline), and a check that is red on arrival is suppressed rather than obeyed. The per-type counts
  * may fall and must never rise.
  *
- * WHERE IT IS ENFORCED, stated exactly, because the first version of this comment got it wrong. It is
- * not in `run-all-scans.mjs` and it is in no workflow directly — from which that version concluded
- * "not registered as a gate, and that is deliberate". Review measured the actual path: the ratchet's
- * test asserts this script's exit code against the live tree, and `pnpm harness:test` runs the whole
- * `scripts/harness/__tests__` suite. CI reaches it on BOTH sides — the `scans` job
- * (`if: github.base_ref != 'main'`) runs `harness:test` as a step, and a promotion to `main` runs
- * `release-grade-verify` (`if: github.base_ref == 'main'`), whose `harness:verify:release` includes
- * `pnpm harness:test`. So it IS a required check on every PR, through the test suite rather than the
- * scan registry. A comment asserting the opposite is the defect class this repository measures most
- * often in its own work, and it took one grep of `ci.yml` to disprove — twice, since the first
- * correction said "unconditionally in the `scans` job" and that job is itself conditional.
+ * WHERE IT IS ENFORCED: `scripts/harness/README.md`, under `pnpm harness:cleanup`, owns that answer,
+ * and it is not repeated here. It is not in `run-all-scans.mjs`, from which the first version of this
+ * comment concluded "not registered as a gate, and that is deliberate" — false. The second version
+ * said "unconditionally in the `scans` job" — also false; that job is itself conditional. Three
+ * copies of one fact, and the correction reached two of them. That is why there is now one.
  *
  * A rise therefore fails CI. Going up is not mechanically impossible — `--write-baseline` freezes
  * whatever it measures — it is visible: the raised number lands in a tracked file, in the diff, under

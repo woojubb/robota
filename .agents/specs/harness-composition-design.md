@@ -181,8 +181,11 @@ skill). Manufacturing a skill to match a prediction, or to hit a line-reduction 
 
 - Is there a natural depth limit for nesting, or does it stay work-shaped? (No evidence yet either way —
   revisit once several nested pipelines exist.)
-- When a pipeline can loop, what bounds it? A max-iteration count, a convergence predicate, or per-step
-  discretion? Unresolved — but a loop with no stated termination condition is a defect either way.
+- ~~When a pipeline can loop, what bounds it?~~ **Answered 2026-08-03** by
+  [enforcement-architecture.md](../rules/enforcement-architecture.md), which owns it: the escape MUST
+  be no-progress detection — the same finding set recurring unchanged stops the loop and escalates —
+  and a max-iteration count is permitted only as a second bound, never the only one. A loop with no
+  stated termination condition remains a defect.
 
 ## Revision log
 

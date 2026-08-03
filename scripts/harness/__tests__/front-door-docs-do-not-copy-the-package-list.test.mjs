@@ -3,8 +3,6 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { listWorkspaceScopes } from '../shared.mjs';
-
 /**
  * HARNESS-068 — the package listing has one owner, and the front door kept a copy.
  *
@@ -111,139 +109,20 @@ describe('the package list has one owner (HARNESS-068)', () => {
 });
 
 /**
- * The rule that mattered, at the edge where it was missing.
+ * THE OTHER HALF OF HARNESS-068 LIVES ELSEWHERE, DELIBERATELY.
  *
- * Deleting the copy is only half of HARNESS-068. The reason the copy was worth deleting is that it
- * named a package that does not exist, and `check-dependency-direction.mjs` Rule 9 — which fails the
- * build for exactly that — reaches only the owning document. Banning enumerations does not extend
- * that rule; it just moves the ground it cannot see.
+ * Deleting the copy is only half the task: the reason the copy was worth deleting is that it named a
+ * package that does not exist. This file does NOT check that — `check-ghost-package-refs.mjs` does,
+ * and it already read every live markdown file including `CONTRIBUTING.md`.
  *
- * So the existence check itself is extended here, to every package name a front-door document uses,
- * enumeration or not. Review round 3 proved this is not hypothetical twice over: `CONTRIBUTING.md`
- * had `packages/agent-provider`, and `README.md`'s architecture diagram STILL said `agent-provider`
- * — contradicting a table twenty lines below it that lists the per-vendor packages that replaced it.
+ * The diagnosis in the Task's first draft was wrong, and review round 13 measured it: that scan was
+ * silent not because its scope stopped one file short, but because it strips inline code SPANS, and
+ * the stale name sat in backticks. So the fix belongs in the scan, and it is there — the four
+ * front-door documents are now scanned span-inclusive, red-proved at the merge-base where it reports
+ * `packages/agent-provider does not resolve to any packages/ directory`.
  *
- * WHAT IT CANNOT SEE — stated at its real width, because the first version of this paragraph said
- * "bare names inside a fenced diagram" and that framing steered a hand-fix straight past a second
- * one. It cannot see ANY package name carrying no `@robota-sdk/` or `packages/` prefix, anywhere in
- * the document, fence or prose: round 4 found `agent-provider` still in README's Quick Start line, in
- * inline backticks, four lines above a snippet importing `@robota-sdk/agent-provider-anthropic`.
- * A rule matching bare lowercase words would match most of a shell transcript, so the compensating
- * control is not a wider regex but a wider sweep: when a package is renamed or split, grep the
- * front-door documents for the OLD bare name — this check will not do it for you.
+ * An earlier version of this file carried its own existence check with its own workspace-name set and
+ * its own placeholder allowlist. Two mechanisms answering one question with two sources of truth, in
+ * the change whose subject is one owner. It is gone; this file owns the enumeration rule and nothing
+ * else.
  */
-const SCOPE_PREFIX = '@robota-sdk/';
-
-/**
- * Package names a document actually asserts, as `<prefix><name>` tokens.
- *
- * Two forms are dropped, each because it names no package: a token ending in `*` or `-` is a GLOB
- * (`packages/dag-*`), and the placeholder words below stand in for "a package" in a command
- * template (`--scope <packages/foo|apps/bar>`).
- */
-const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
-
-export function namedPackages(markdown) {
-  const named = new Set();
-  for (const [prefix, pattern] of [
-    [SCOPE_PREFIX, new RegExp(`${SCOPE_PREFIX}([a-z0-9][a-z0-9-]*)(.?)`, 'g')],
-    ['packages/', /\bpackages\/([a-z0-9][a-z0-9-]*)(.?)/g],
-  ]) {
-    for (const [, name, next] of markdown.matchAll(pattern)) {
-      if (next === '*' || name.endsWith('-')) continue;
-      if (PLACEHOLDER_NAMES.has(name)) continue;
-      named.add(`${prefix}${name}`);
-    }
-  }
-  return named;
-}
-
-/**
- * A token resolves if it IS a package, or if it is the directory GROUP one lives under.
- *
- * `packages/dag-nodes/tool` is a real package and the extractor stops at `packages/dag-nodes`, which
- * is a grouping directory rather than a package — reporting it as nonexistent would be a false
- * accusation about a correct reference.
- */
-function resolves(token, known) {
-  if (known.has(token)) return true;
-  const prefix = `${token}/`;
-  for (const entry of known) if (entry.startsWith(prefix)) return true;
-  return false;
-}
-
-/**
- * Every token that names a real workspace member — the ONE construction, so a case can guard it.
- *
- * `relativeDir` and `workspaceName` only. The first version also mapped every scope to
- * `packages/<shortName>`, which made 30 nonexistent paths resolve under a case named "every package
- * named in a front-door document resolves": 10 apps (`packages/www`, `packages/agent-app`, …) and —
- * the dangerous half, which the first correction of this comment left out — 20 nested
- * `packages/dag-nodes/*` scopes flattened to generic one-word paths like `packages/tool`,
- * `packages/skill`, `packages/input`. A front-door document is far likelier to write `packages/tool`
- * by mistake than `packages/www`.
- */
-async function knownPackageTokens() {
-  const scopes = await listWorkspaceScopes();
-  // The check's own vacuity guard: an empty or tiny workspace listing would pass everything.
-  expect(scopes.length).toBeGreaterThan(10);
-  return new Set([
-    ...scopes.map((scope) => scope.workspaceName),
-    ...scopes.map((scope) => scope.relativeDir),
-  ]);
-}
-
-describe('a front-door document may not name a package that does not exist (HARNESS-068)', () => {
-  it('every package named in a front-door document resolves', async () => {
-    const known = await knownPackageTokens();
-
-    for (const doc of FRONT_DOOR_DOCS) {
-      const unresolved = [...namedPackages(readFileSync(path.join(ROOT, doc), 'utf8'))].filter(
-        (token) => !resolves(token, known),
-      );
-      expect(unresolved, `${doc} names package(s) that do not exist in this workspace`).toEqual([]);
-    }
-  });
-
-  it('(RED) the detector sees the name that was actually wrong', () => {
-    // `packages/agent-provider` — the entry that justified deleting the CONTRIBUTING copy.
-    expect(namedPackages('- `packages/agent-provider` — providers')).toContain(
-      'packages/agent-provider',
-    );
-    expect(namedPackages('install `@robota-sdk/agent-provider`')).toContain(
-      '@robota-sdk/agent-provider',
-    );
-  });
-
-  it('a nested or app-only package does not resolve as a top-level package path', async () => {
-    // Built the way the production case builds it, from the LIVE workspace listing. Round 6 found
-    // the first version constructing its own `known` literal, so re-adding the deleted
-    // `packages/<shortName>` mapping reopened all 30 phantoms and this case still passed — it
-    // exercised `resolves()` and left the actual defect site, the known-set construction, unguarded.
-    const known = await knownPackageTokens();
-    // The two halves of the hole, in the form production can reach: `namedPackages` emits only
-    // `@robota-sdk/…` and `packages/…` tokens, so `packages/tool` (a `packages/dag-nodes/tool` scope
-    // flattened by shortName) and `packages/agent-app` (an app) are what a document could wrongly
-    // name and the old known-set would have waved through.
-    expect(resolves('packages/agent-app', known)).toBe(false);
-    expect(resolves('packages/tool', known)).toBe(false);
-    // The other direction, so this is not passing because the set is empty.
-    expect(resolves('packages/agent-core', known)).toBe(true);
-    expect(resolves('apps/agent-app', known)).toBe(true);
-  });
-
-  it('a grouping directory of a real package resolves', () => {
-    const known = new Set(['packages/dag-nodes/tool']);
-    expect(resolves('packages/dag-nodes', known)).toBe(true);
-    expect(resolves('packages/dag-nodesx', known)).toBe(false);
-  });
-
-  it('a glob or a placeholder is not a package name', () => {
-    expect(namedPackages('- `packages/dag-*` are the DAG packages').size).toBe(0);
-    expect(namedPackages('`--scope <packages/foo|apps/bar>`').size).toBe(0);
-    // The repo's own worked-example triple. `baz` was missing from the set, so two thirds of a
-    // placeholder trio were excluded and the third would have been reported as a nonexistent
-    // package — found by review checking a task-file sentence that claimed all three were excluded.
-    expect(namedPackages('`packages/foo`, `packages/bar`, `packages/baz`').size).toBe(0);
-  });
-});

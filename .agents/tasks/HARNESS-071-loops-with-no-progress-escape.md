@@ -21,7 +21,7 @@ loop:
 
 Almost nothing satisfies it. The rule was landed in PR #1615 (the PR-review round cap removal);
 review round 8 found it violated at landing by its own subjects — including the exemplar the rule's
-own sentence names — and rounds 9, 10 and 11 each found the count of those subjects wrong again. The
+own sentence names — and rounds 9 through 12 each found the count of those subjects wrong again. The
 count is deliberately out of this document's title for that reason.
 
 ## Evidence
@@ -63,7 +63,9 @@ NONE     user-request-gate
 **Two of thirteen.** The eleven divide into two kinds, and the worse one is not the one the rule's
 wording anticipates. FOUR are unbounded outright — `architecture-refresh`, `capability-extraction`,
 `automated-review-convergence`, `post-implementation-checklist` contain no bound, cap or limit
-language at all — and the rest bound on a COUNT, which the rule permits only as a second bound.
+language at all — and six of the remaining seven bound on a COUNT, which the rule permits only as a second bound. The
+seventh, `user-request-gate:70`, is a third kind — "re-drive the researcher (bounded)" with no number
+at all, bounded of unstated size.
 
 Spot-checked cites for the shape of what is missing:
 `architecture-refresh:58` "**Loop** 1–5 until step 2 says converged" — no escape and no bound at all;
@@ -74,11 +76,19 @@ says must never be the only bound; `backlog-execution-orchestrator:59,93` "Bound
 per-round caps on a guardian verdict. Note the two kinds: a count-only bound is non-compliant, and an
 unbounded loop is worse, so "bounded re-drive" is the wrong description for the NONE set and is not used.
 
+`.agents/rules/` was measured too, because the population above greps only `.agents/skills/` and a
+rule can state a loop just as a skill can. Two rules describe one: `enforcement-architecture.md`
+(which states the requirement) and `research.md`, which said the research loop is bounded by
+"bounded iterations, then escalate" — a count as the ONLY bound, in normative text, describing the
+very loop `user-request-gate:70` drives. That conflict was created by this PR and is fixed in it
+rather than contained: `research.md` now requires the escape and permits a count as a second bound.
+The `.agents/rules/` sweep is clean at HEAD.
+
 **Treat the NONE set as a LOWER BOUND, not a census**, in both directions. A keyword grep misses a
 loop phrased differently — and it sweeps in at least one step that is not a finding-set loop at all:
 `npm-otp-publish:54` bounds how many times it may ask a human for a fresh OTP, where there is no
-finding set for a no-progress rule to compare. Four successive review rounds each corrected a
-hand-kept count here — three, six, eleven, ten, this — which is the argument for a machine
+finding set for a no-progress rule to compare. Rounds 9 through 13 each corrected a hand-kept count
+here — the original three, then six, eleven, ten, this — which is the argument for a machine
 establishing the set. That is the Test Plan's job.
 
 `architecture-refresh` is the loop the rule cites as the exemplar of the shape ("the

@@ -44,6 +44,43 @@ describe('check-ghost-package-refs', () => {
     expect(findings[0].detail).toContain('packages/ghostpkg');
   });
 
+  /**
+   * HARNESS-068: a package name in backticks is how the front door writes one.
+   *
+   * The stale `packages/agent-provider` in `CONTRIBUTING.md` sat in an inline code span, and this
+   * scan strips those — so it read the file, found nothing, and passed. Review round 13 measured it:
+   * un-backtick that one line at the merge-base and the scan fires. The blind spot was the
+   * exemption, not the file list, so the exemption is lifted for the four documents a newcomer reads
+   * as the CURRENT description of the repository, and kept everywhere else.
+   */
+  it('(RED) scans inline code spans in a front-door document', async () => {
+    const root = await createFixture({
+      'packages/foo/package.json': pkg('@robota-sdk/foo'),
+      'CONTRIBUTING.md': '- `packages/ghostpkg` — the runtime\n',
+    });
+    const findings = await findGhostPackageRefFindings(root);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toContain('packages/ghostpkg');
+  });
+
+  it('still exempts inline code spans everywhere else', async () => {
+    // The other direction, and the reason the exemption exists: an ordinary document quoting a
+    // command or a defunct name in backticks is not asserting that the package exists.
+    const root = await createFixture({
+      'packages/foo/package.json': pkg('@robota-sdk/foo'),
+      'docs/guide.md': 'Run `pnpm --filter packages/ghostpkg build` for the old layout.\n',
+    });
+    expect(await findGhostPackageRefFindings(root)).toHaveLength(0);
+  });
+
+  it('a front-door FENCE is still exempt — a transcript is not a claim', async () => {
+    const root = await createFixture({
+      'packages/foo/package.json': pkg('@robota-sdk/foo'),
+      'README.md': '```sh\ncd packages/ghostpkg\n```\n',
+    });
+    expect(await findGhostPackageRefFindings(root)).toHaveLength(0);
+  });
+
   it('does not double-cover packages/<name> tokens inside docs/SPEC.md', async () => {
     const root = await createFixture({
       'packages/foo/package.json': pkg('@robota-sdk/foo'),

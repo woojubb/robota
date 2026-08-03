@@ -40,5 +40,7 @@ Research is not optional guidance — it is a **default-on, mechanically-guarded
   `backlog-gate-guard` GATE-WRITE criterion (guardian) judges its adequacy; `scan-spec-research.mjs`
   (mechanical floor, in `pnpm harness:scan`) fails any in-flight spec lacking a substantiated section or waiver.
 - **Loop-back is hybrid.** On the research guardian's FAIL the orchestrator AUTO-re-drives the researcher toward
-  convergence (bounded iterations, then escalate to the user) — the completeness-gate shape of
-  `architecture-refresh`. Human-decision gates (GATE-APPROVAL) HALT for the user instead.
+  convergence — the completeness-gate shape of `architecture-refresh`. As every auto-re-drive loop, it
+  escapes on no-progress detection: if the same finding set recurs unchanged, stop and escalate to the
+  user ([enforcement-architecture.md](enforcement-architecture.md)). A count of iterations may bound it
+  as well and must not be the only bound. Human-decision gates (GATE-APPROVAL) HALT for the user instead.
