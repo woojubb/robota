@@ -25,9 +25,14 @@
  * String literals ARE code here — an allowlist keyed by package name is exactly the thing that should
  * be built from the configured scope.
  *
- * A RATCHET, NOT A BAN. 77 occurrences across 13 scripts cannot be removed in one change. The
- * per-file count is frozen: it may fall and must never rise. Every script already at zero — 114 of
- * 127 — is protected outright by the same rule.
+ * A RATCHET, NOT A BAN. 96 occurrences across 15 scripts cannot be removed in one change. The
+ * per-file count is frozen: it may fall and must never rise, and every script already at zero is
+ * protected outright by the same rule.
+ *
+ * That number moved three times during review — 77 → 88 → 96 — never because anything was added, but
+ * because each hand-rolled version of the counter could not see a form the literal takes. Written
+ * from the frozen file rather than from memory, which is the mistake this docstring made once: a scan
+ * whose subject is silent drift had drifted.
  *
  * IT KNOWS ITS OWN SCOPE FROM CONFIG. Hardcoding the literal here would make this scan an instance of
  * what it checks; it reads `.agents/harness.config.json` like the scripts it governs, so a repository
