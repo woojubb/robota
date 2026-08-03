@@ -189,9 +189,12 @@ behaviour, including the three shapes that fooled the hand-rolled versions.
 
 ### Remaining
 
-- 88 occurrences across 14 scripts are frozen, not removed. `check-agent-server-boundary.mjs` alone
-  holds 38; most are package names in allowlists that should be composed from the prefix, and each is
-  a one-line change the ratchet now makes visible.
+- 96 occurrences across 15 scripts are frozen, not removed. `check-agent-server-boundary.mjs`
+  alone holds 41; most are package names in allowlists that should be composed from the prefix, and
+  each is a one-line change the ratchet now makes visible. (These figures are read from
+  `scope-literal-baseline.json`. An earlier revision of this section carried the round-2 snapshot and
+  contradicted the paragraph above it — review caught that, in the item about values drifting
+  unnoticed.)
 - The scan counts a LITERAL, not coupling. A script that reads the scope from config and then assumes
   this repository's package layout scores zero and is no more portable. Falling to zero would be
   evidence, not proof.
