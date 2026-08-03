@@ -30,7 +30,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
 - Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
-- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — it runs the same `harness:verify` over the affected scopes, plus the build, the scan suite, the e2e suites and commitlint (INFRA-056). If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
+- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — it runs the same `harness:verify` over the affected scopes, plus the build, the scan suite, the e2e suites and commitlint. If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
@@ -101,7 +101,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Run the CI-equivalent verification entry point named in [git-branch.md](git-branch.md) → Clean
   Working Tree Before Every Commit and Push. It runs the build, the affected packages' tests, the
   scan suite and typecheck as ordered stages, and reports which required contexts it could not run.
-  Do not substitute a hand-written list of those commands: a second list is what drifts (INFRA-056).
+  Do not substitute a hand-written list of those commands: a second list is what drifts.
 - For release prep — a promotion to `main` — run `pnpm harness:verify:release`, which is what the
   `release-grade verification` required check executes.
 - If any stage fails, fix the issue before proceeding.

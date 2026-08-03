@@ -1,19 +1,6 @@
 {
-  "agent-conduct.md": 1,
-  "api-boundary.md": 1,
   "backlog-execution.md": 13,
-  "code-quality.md": 2,
   "common-mistakes.md": 52,
-  "documentation-sync.md": 1,
   "enforcement-architecture.md": 12,
-  "finding-depth.md": 4,
-  "git-branch.md": 27,
-  "helper-limits.md": 1,
-  "learning-loop.md": 1,
-  "operational.md": 6,
-  "process.md": 1,
-  "publish.md": 1,
-  "release-operations.md": 1,
-  "spec-workflow.md": 2,
-  "verification.md": 2
+  "git-branch.md": 27
 }

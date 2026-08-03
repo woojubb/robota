@@ -119,6 +119,41 @@ Reference form confirmed mechanically rather than by reading: `tdd-and-planning.
 `naming-style.md` report zero, and a case pins that so the two documents cannot quietly drift out of
 the form they are held up as.
 
+### Sweep 1 — the thirteen low-density documents
+
+**128 → 104**, and thirteen documents now report zero. Four remain: `common-mistakes.md` (52),
+`git-branch.md` (27), `backlog-execution.md` (13), `enforcement-architecture.md` (12).
+
+The audit's observation that concentration is not proportional to size held: most of what came out was
+a single parenthesis. `(HARNESS-DIET-004)` in three pointer stubs, `(INFRA-056)` and `(REL-022)` and
+`(HARNESS-032)` appended to instructions that were already complete, `(added at owner request, <date>)`
+on a rule that stands without knowing who asked for it. In every one of those, the invariant is
+unchanged by the deletion — which is the strict test the direction names.
+
+Three needed the invariant written properly rather than the story deleted, and each is a case of the
+audit's "load-bearing passage means the invariant is under-stated":
+
+- **Where a root item lives** retold how two floors disagreed. The rule is that ONE document owns
+  which place; the consequence — a writer and a verifier looking in different directories, so an item
+  filed on the designed path fails the check that confirms it was filed — is now stated as the
+  mechanism it is, and holds for any two consumers, not for the two it happened to.
+- **The status-agreement exception** named a particular document and what it shipped. The rule is that
+  a document whose correct status is not derivable without re-running the gate is a recorded exception
+  under anti-rot, rather than a guess written into the tree.
+- **The ID format** illustrated itself with five real identifiers, and the file-naming rule with a real
+  path. The format is `{DOMAIN}-{NNN}`; it needs no examples of itself. The naming example is a
+  specimen, so it is a fenced block — which is what the fence exemption is for, and it needs no
+  suppression.
+
+No case was lost rather than relocated: each removed citation was a pointer to a completed item whose
+own record already holds the account, and none of the removed sentences was the only place a fact
+lived.
+
+**The two documents that carry two-thirds of what is left are next**, and they are a different job:
+`common-mistakes.md` is entry-numbered and must be rewritten in place, and `git-branch.md`'s citations
+are mostly attached to `**Why:**` clauses where the case IS the justification, so each needs the
+invariant restated before the citation can go.
+
 ## Test Plan
 
 - **Required red-first regression:** a mechanical check that a rule document contains no case

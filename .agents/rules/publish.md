@@ -77,7 +77,7 @@ regardless of how the pipeline is driven:
 - Create a release bump branch from the latest `origin/main`, never from a stale local branch.
 - Never edit `pnpm-lock.yaml` manually. Run `pnpm install` when package manifests changed.
 - The version bump PR MUST carry a regenerated changelog, produced by
-  `node scripts/release/generate-release-notes.mjs --write-changelog` (REL-022) — never hand-written.
+  `node scripts/release/generate-release-notes.mjs --write-changelog` — never hand-written.
 - Do not mix unrelated process fixes into a version bump PR. If a process defect is found during release,
   isolate it on a separate branch unless it directly blocks the current release gate.
 - Wait for release-grade and compatibility CI on the **exact** SHA under merge; a green result on an

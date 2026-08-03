@@ -170,10 +170,9 @@ folder for its status is treated as NON-COMPLIANCE **on its next gate run**. A d
 already reached `done/` has no next gate run, which is why that force alone was never enough;
 `scripts/harness/scan-doc-folder-status-agreement.mjs` checks the agreement over the whole tree
 instead, deriving this table as its criteria rather than copying it, and it runs in
-`pnpm harness:scan`. The tree agrees today: five documents that predated the rule were corrected
-from their own recorded `[GATE-COMPLETE] — ✅ PASS`, and `DATA-002` — shipped in all three phases
-with no GATE-COMPLETE entry at all — is a recorded exception in the scan under anti-rot, because
-neither available correction is derivable without running that gate. Each status transition is a gate, and every gate must leave an
+`pnpm harness:scan`. A document whose correct status is not derivable without re-running the gate
+itself is a recorded exception in the scan, under anti-rot, rather than a guess written into the
+tree. Each status transition is a gate, and every gate must leave an
 Evidence Log entry (PASS / FAIL / NON-COMPLIANCE) in the format the
 [gate catalogue](../specs/gate-catalogue.md) defines.
 
@@ -269,7 +268,7 @@ Content promotion rules:
   doc-vs-code drift that the per-spec `Architecture Review` section self-asserts but does not validate).
 - **Mechanical core (deterministic, non-prose):** `pnpm harness:conformance` — an alias for
   `check-dependency-direction.mjs --conformance-json` (the dependency rules incl. the
-  workspace-package-name guard, folded in by HARNESS-DIET-003) — emits a machine-readable JSON summary.
+  workspace-package-name guard) — emits a machine-readable JSON summary.
   Exit 0 = conformant, 1 = violations.
 - **Analytic layer:** the [`architecture-refresh`](../skills/architecture-refresh/SKILL.md) agent
   pipeline (`architecture-conformance-auditor` / `architecture-auditor` → fixer/implementer) produces

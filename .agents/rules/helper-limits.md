@@ -16,7 +16,7 @@ Two instances, measured in one session:
   gate's mutation step threw for its entire life — twelve CI runs, zero verdicts, no error anyone saw.
 - `testExecutesHook` was a grep-level relation for an ADVISORY coverage floor whose own docstring
   called it "structural rather than exact". Reused to pick which tests may set a red-proof VERDICT,
-  the same imprecision can hand a verdict to a test that never ran the hook (INFRA-074).
+  the same imprecision can hand a verdict to a test that never ran the hook.
 
 ## The rule
 

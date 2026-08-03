@@ -113,7 +113,7 @@ the harness compounds instead of forgetting:
 4. If the trial surfaces problems, report them to the owner and adjust rather than silently promoting.
 
 Do not let process feedback live only in one session's context — either it is being trialed toward a rule
-or it is already a rule. This routine is itself a rule (added at owner request, 2026-07-17): the act of
+or it is already a rule. This routine is itself a rule: the act of
 turning validated feedback into durable governance is not optional.
 
 ## Epistemic Discipline & Verification
