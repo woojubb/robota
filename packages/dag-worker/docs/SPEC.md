@@ -78,12 +78,12 @@ live owner's duplicate delivery is nacked before it gets there. Acquiring means 
 released the lease or died and let it expire — the definition of abandoned.
 
 **Which adapters this actually protects.** The sweep recovers state it can still READ after a
-restart, so it is crash-durable only where the store is. `SqliteStorageAdapter` persists task runs
-and their leases and gets the full guarantee. `FileStoragePort` persists only DAG **definitions** —
-its runs and task runs are in-memory — so a real process crash there loses the `status`/`leaseUntil`
-the sweep reads and there is nothing left to recover. That is pre-existing and tracked as DAG-003;
-it is named here rather than left implied, because this section would otherwise promise a guarantee
-one of its two named adapters cannot give.
+restart, so it is crash-durable only where the store is. `SqliteStorageAdapter` and `FileStoragePort`
+both persist task runs and their leases and get the full guarantee — the file adapter did not until
+DAG-003, which is what made this section's earlier caveat necessary. An adapter that keeps runs in
+memory (`InMemoryStoragePort`) still gets a recovery path with nothing durable under it, and the sweep
+against it can only reclaim within a single process lifetime — named here rather than left implied,
+because this section would otherwise promise a guarantee one of its adapters cannot give.
 
 **On idle.** Only the in-memory queue redelivers. On a queue without it there is no message left to
 arrive, so `processOnce` calls `sweepStaleTaskRuns` on its idle branch — the one point every loop
