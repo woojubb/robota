@@ -164,16 +164,18 @@ describe('over the tree it governs', () => {
     );
   });
 
-  it('finds the citable narrative the tree actually carries', () => {
-    // The red half of this check's own proof: it is trusted because it FAILS against the tree as it
-    // stands. If this ever reaches zero the assertion should be replaced by "is zero", not deleted.
+  it('reports the tree at zero, over a tree it actually read', () => {
+    // This case was written asserting the opposite — the check was trusted because it FAILED against
+    // a tree carrying 128 citations — and it said that when the count reached zero the assertion
+    // should become "is zero" rather than be deleted. It has, so it is.
+    //
+    // The count alone would pass over a tree the scan never opened, so the document count is asserted
+    // beside it. The detector's ability to see a citation is proved by the cases above, against
+    // sources that carry one; this case is about the tree.
     const { findings, examined } = scanRules();
 
-    expect(examined, 'the scan examined no rule documents').toBeGreaterThan(10);
-    expect(
-      findings.length,
-      'the tree reports no citations, which the audit measured otherwise',
-    ).toBeGreaterThan(0);
+    expect(examined, 'the scan examined almost no rule documents').toBeGreaterThan(10);
+    expect(findings, 'a citation is back in the rules tree').toEqual([]);
   });
 
   it('reports zero for the documents already written in the target form', () => {
