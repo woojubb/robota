@@ -176,6 +176,12 @@ export function findUnpaginatedQueries(source, file = 'fixture.sh') {
  * fails too. Unlike the primary budget, it is not reported by the rate-limit endpoint, which keeps
  * showing a healthy remaining count while every call is refused.
  *
+ * ITS OWN SUPPRESSION, because a hatch that names a different rule is a hatch nobody can read:
+ * `allow-parallel-fan-out: <reason>`. The pagination rule keeps `allow-unpaginated:`. Suppressing a
+ * burst with a token that says "unpaginated" would leave the next reader unable to tell which rule
+ * was waived or why, and the reason is the only thing that makes a hatch evidence rather than a
+ * switch.
+ *
  * Serial pagination is not the problem and is not flagged: a paginating read walks one page at a
  * time. What earns a finding is a loop that dispatches many independent calls at once — the shape
  * that turns one expensive question into thousands of requests. Ask a coarser endpoint first, or
@@ -203,6 +209,8 @@ function fanOutDegree(line) {
   return BACKGROUND_JOB.test(line) ? Number.NaN : null;
 }
 
+const FAN_OUT_ANNOTATION_WITH_REASON = /allow-parallel-fan-out:\s*\S/;
+
 export function findParallelFanOut(source, file = 'fixture.sh') {
   const findings = [];
   const lines = source.split('\n');
@@ -214,9 +222,9 @@ export function findParallelFanOut(source, file = 'fixture.sh') {
     // business. The call may be in the same line or in the function the loop invokes, so the file is
     // searched rather than the line.
     if (!/gh\s+api|api\.github\.com/.test(source)) continue;
-    let suppressed = ANNOTATION_WITH_REASON.test(line);
+    let suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(line);
     for (let above = i - 1; !suppressed && above >= 0 && isCommentLine(lines[above]); above -= 1) {
-      suppressed = ANNOTATION_WITH_REASON.test(lines[above]);
+      suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(lines[above]);
     }
     if (suppressed) continue;
     findings.push({

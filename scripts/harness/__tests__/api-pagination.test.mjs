@@ -358,11 +358,22 @@ describe('a parallel fan-out of API calls is flagged (api-pagination)', () => {
     expect(findParallelFanOut(script, 'build.sh')).toEqual([]);
   });
 
-  it('honours a reasoned suppression, and a reason-less one does not count', () => {
+  it('honours its OWN reasoned suppression', () => {
     const withReason = [
-      '# allow-unpaginated: one call per id, bounded to 3 ids by the caller',
+      '# allow-parallel-fan-out: one call per id, bounded to 3 ids by the caller',
       'cat ids | xargs -P 4 -I{} gh api repos/o/r/x/{}',
     ].join('\n');
     expect(findParallelFanOut(withReason, 'ok.sh')).toEqual([]);
+  });
+
+  it("does NOT accept the PAGINATION rule's token — a hatch must name the rule it waives", () => {
+    // Two rules, two reasons: `allow-unpaginated:` says "this read need not paginate", which says
+    // nothing about whether a burst of calls is safe. A hatch that names a different rule leaves the
+    // next reader unable to tell which one was waived.
+    const wrongToken = [
+      '# allow-unpaginated: this read is a single record',
+      'cat ids | xargs -P 4 -I{} gh api repos/o/r/x/{}',
+    ].join('\n');
+    expect(findParallelFanOut(wrongToken, 'x.sh')).toHaveLength(1);
   });
 });
