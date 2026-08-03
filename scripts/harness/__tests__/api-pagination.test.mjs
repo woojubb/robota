@@ -353,6 +353,33 @@ describe('a parallel fan-out of API calls is flagged (api-pagination)', () => {
     );
   });
 
+  it('(RED) does NOT flag an unrelated parallel loop merely because the FILE calls an API', () => {
+    // The check tested the whole file, so any script containing one API call anywhere turned every
+    // parallel loop in it into a finding — the false positive that gets a check suppressed rather
+    // than obeyed.
+    const mixed = [
+      '#!/usr/bin/env bash',
+      'gh api repos/o/r/actions/runs --paginate --slurp > runs.json',
+      'ls src | xargs -P 8 -I{} node build.mjs {}',
+    ].join('\n');
+    expect(findParallelFanOut(mixed, 'mixed.sh')).toEqual([]);
+  });
+
+  it('DOES flag the call one indirection away, which is the shape that caused this', () => {
+    const indirect = [
+      'fetch_one() { gh api "repos/o/r/actions/runs/$1/jobs" --paginate; }',
+      "cat ids | xargs -P 12 -I{} bash -c 'fetch_one {}'",
+    ].join('\n');
+    expect(findParallelFanOut(indirect, 'burst.sh')).toHaveLength(1);
+  });
+
+  it('does NOT treat a single backgrounded command as a fan-out', () => {
+    // It has no degree, and a check that cannot say how parallel something is cannot say it is too
+    // parallel. The first version returned NaN here, which passed a `!== null` test as "detected".
+    const bg = ['gh api repos/o/r/x > out.json &'].join('\n');
+    expect(findParallelFanOut(bg, 'bg.sh')).toEqual([]);
+  });
+
   it('does NOT flag a parallel job that touches no API', () => {
     const script = ['ls src | xargs -P 8 -I{} node build.mjs {}'].join('\n');
     expect(findParallelFanOut(script, 'build.sh')).toEqual([]);

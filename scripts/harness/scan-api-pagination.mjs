@@ -198,15 +198,75 @@ export function findUnpaginatedQueries(source, file = 'fixture.sh') {
  * 0 means unbounded and 1 means serial, so the rule is `n === 0 || n >= 2`.
  */
 const FAN_OUT_DEGREE = /(?:xargs[^\n]*?-P|parallel[^\n]*?-j)\s*(\d+)/;
-const BACKGROUND_JOB = /&\s*$/;
 
+/**
+ * A fan-out has a DEGREE. A line ending in `&` does not.
+ *
+ * The first version also treated any trailing `&` as a fan-out, which made a single backgrounded
+ * command indistinguishable from a burst and returned `NaN` — a value that then passed a
+ * `!== null` test and read as "detected". One backgrounded call is not the thing this rule is about,
+ * and a check that cannot say how parallel something is cannot say it is too parallel.
+ */
 function fanOutDegree(line) {
   const match = FAN_OUT_DEGREE.exec(line);
-  if (match) {
-    const degree = Number(match[1]);
-    return degree === 0 || degree >= 2 ? degree : null;
+  if (!match) return null;
+  const degree = Number(match[1]);
+  // 0 means unbounded, 1 means serial.
+  return degree === 0 || degree >= 2 ? degree : null;
+}
+
+const API_CALL = /gh\s+api|api\.github\.com/;
+
+/**
+ * Does THIS loop dispatch API calls — not, does the file contain one somewhere.
+ *
+ * Testing the whole file made an unrelated parallel loop a finding whenever any API call existed
+ * elsewhere in the same script, which is the false positive that gets a check suppressed rather than
+ * obeyed. The call is usually one indirection away, though: the burst that motivated this rule read
+ * `xargs -P 12 -I{} bash -c 'fetch_one {}'`, with `gh api` inside `fetch_one`. So the line is checked
+ * first, and then only the bodies of the shell functions that line actually names.
+ */
+export function loopDispatchesApiCalls(line, source) {
+  if (API_CALL.test(line)) return true;
+  for (const name of apiCallingFunctions(source)) {
+    if (new RegExp(`\\b${name}\\b`).test(line)) return true;
   }
-  return BACKGROUND_JOB.test(line) ? Number.NaN : null;
+  return false;
+}
+
+/**
+ * Names of shell functions whose body calls the API.
+ *
+ * Read line by line rather than by one regex, because both forms occur and a body legitimately
+ * contains `}` — `${VAR}` alone defeats a non-greedy match to the first brace. A single-line
+ * definition closes on its own line; a multi-line one closes on a line that is only `}`.
+ */
+function apiCallingFunctions(source) {
+  const names = new Set();
+  let open = null;
+  let body = '';
+  for (const line of source.split('\n')) {
+    if (open === null) {
+      const start = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{(.*)$/.exec(line);
+      if (!start) continue;
+      const [, name, rest] = start;
+      if (/\}\s*$/.test(rest)) {
+        if (API_CALL.test(rest)) names.add(name);
+        continue;
+      }
+      open = name;
+      body = rest;
+      continue;
+    }
+    if (/^\s*\}\s*$/.test(line)) {
+      if (API_CALL.test(body)) names.add(open);
+      open = null;
+      body = '';
+      continue;
+    }
+    body += `\n${line}`;
+  }
+  return names;
 }
 
 const FAN_OUT_ANNOTATION_WITH_REASON = /allow-parallel-fan-out:\s*\S/;
@@ -219,9 +279,8 @@ export function findParallelFanOut(source, file = 'fixture.sh') {
     if (isCommentLine(line)) continue;
     if (fanOutDegree(line) === null) continue;
     // Only when the thing being fanned out is an API call — a parallel build is not this rule's
-    // business. The call may be in the same line or in the function the loop invokes, so the file is
-    // searched rather than the line.
-    if (!/gh\s+api|api\.github\.com/.test(source)) continue;
+    // business.
+    if (!loopDispatchesApiCalls(line, source)) continue;
     let suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(line);
     for (let above = i - 1; !suppressed && above >= 0 && isCommentLine(lines[above]); above -= 1) {
       suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(lines[above]);

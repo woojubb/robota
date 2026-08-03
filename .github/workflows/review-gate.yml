@@ -145,6 +145,18 @@ jobs:
           # So the wait moved to the agent side: an incomplete read blocks, exactly as before, and
           # the observation loop re-runs this check once the analysis completes. The verdict semantics
           # are unchanged — what changed is who holds the clock.
+          #
+          # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
+          # self-recovering: most pull requests resolved inside a single run without anyone acting.
+          # Now the first read almost always finds the analysis still running — the two workflows are
+          # triggered by the same event — so this check goes red and STAYS red until it is re-run.
+          # Nothing in this repository re-runs it automatically; recovery is the watcher's job, and on
+          # a pull request nobody is watching, a required check sits red until a human notices.
+          #
+          # That is the accepted shape, not an oversight. The alternative that removes both the wait
+          # and the dependency on a watcher is a `workflow_run` trigger keyed to the analysis
+          # completing, which is a larger change to a required check than this one and is not made
+          # here.
           runs="$(node scripts/harness/github-api.mjs \
                     "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
                     --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
