@@ -42,7 +42,7 @@ Comparable products, from product documentation (not source):
   escalate). Prior art also recommends a hard max-iteration cap; this loop shipped one and the owner removed
   it on 2026-08-03, when a pause to ask after round 5 — two rounds past the cap, both of which had
   found gating items — drew the directive to keep going — see
-  [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
+  [pr-finding-resolution-loop](../../skills/pr-finding-resolution-loop/SKILL.md), which owns the decision.
   [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
 
 **Constraint for Robota / reuse vs add.** Robota already has: `/code-review` (REVIEWER logic, MUST/SHOULD vocab);
@@ -98,10 +98,10 @@ orchestrator shape. No `packages/`/`apps/` source change.
   emits the findings verdict (re-review is the reviewer's job).
 - **Orchestrator (new thin skill), synchronous for now.** Route-only: REVIEWER → if `ACTIONABLE FINDINGS: 0` →
   merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded by **progress detection** alone
-  (a finding's identity = `file:line + severity`, the form `pr-review-orchestration` and the reviewer agent use; if the same identity recurs unchanged across rounds ⇒ stuck)
+  (a finding's identity = `file:line + severity`, the form `pr-finding-resolution-loop` and the reviewer agent use; if the same identity recurs unchanged across rounds ⇒ stuck)
   → escalate to the user. The design shipped with a `max 3 iterations` cap as well; the owner removed
   it on 2026-08-03 — see the prior-art note above and
-  [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
+  [pr-finding-resolution-loop](../../skills/pr-finding-resolution-loop/SKILL.md), which owns the decision.
   Never merges `main`.
 - **Merge gate — respects [git-branch.md](../../rules/git-branch.md), does not weaken it.** Merge is allowed only
   when the Pre-Merge Code-Review Gate is satisfied: **no unresolved MUST finding, and every SHOULD finding is fixed
@@ -135,7 +135,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | `.claude/agents/pr-review-reviewer.md` (new)                           | read-only REVIEWER, emits `ACTIONABLE FINDINGS: <n>`             |
 | `.claude/agents/pr-review-fixer.md` (new)                              | FIXER worker                                                     |
 | `.claude/agents/pr-review-writer.md` (new)                             | REVIEW-WRITER worker — posts the review to the PR                |
-| `.agents/skills/pr-review-orchestration/SKILL.md` (new)                | route-only synchronous orchestrator                              |
+| `.agents/skills/pr-finding-resolution-loop/SKILL.md` (new)             | route-only synchronous orchestrator                              |
 | `scripts/harness/scan-review-findings.mjs` (new) + `run-all-scans.mjs` | token presence/format floor                                      |
 | `.github/workflows/ci.yml`                                             | extend the existing `pull_request` job (no new workflow)         |
 | `.agents/skills/index.md`                                              | register orchestrator + the three agents (reviewer/writer/fixer) |
@@ -190,7 +190,7 @@ INFRA-018a..e above.
   INFRA-018a..e. (One trivial doc-count nit — skills/index.md registration row — fixed here.)
 - 2026-07-16 — **GATE-IMPLEMENT (018b + 018c).** Landed the three agents (`pr-review-reviewer` [read-only guardian,
   emits `ACTIONABLE FINDINGS: <n>`], `pr-review-writer` [worker, posts to PR], `pr-review-fixer` [edit-capable worker])
-  and the route-only `pr-review-orchestration` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
+  and the route-only `pr-finding-resolution-loop` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
   → gated merge path). All conform to `agent-def-convention`; all 51 harness scans pass. Remaining: 018d (merge-gate
   wiring + merge-verifier), 018e (scan floor + ci.yml extension), 018a (async firing, prerequisite for non-blocking).
 - 2026-07-16 — **GATE-IMPLEMENT (018e + 018d + 018a) — epic implementation complete.** 018e: `scan-review-findings.mjs`

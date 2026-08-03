@@ -1,9 +1,9 @@
 ---
-name: pr-review-orchestration
-description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr-review-reviewer (guardian) → pr-review-writer → pr-review-fixer agents on a PR, loops until the reviewer reports ACTIONABLE FINDINGS 0 — no round cap (owner directive 2026-08-03); the only escape is progress detection — then hands to the gated merge path. It manages ONLY the pipeline flow — it does not review, write, fix, or judge quality itself. Synchronous today (async firing is HARNESS-018a).
+name: pr-finding-resolution-loop
+description: Drives a pull request to convergence by RESOLVING the findings its review automation produces — it does not review. Round A reviews the LOCAL diff before a push, where a round costs a minute instead of a CI cycle; Round B reads what the pull request's automation reported, routes each finding to a verdict and a fix, pushes, and re-reads, looping until zero remain — no round cap (owner directive 2026-08-03); the only escape is progress detection. Then hands to the gated merge path. It routes only: it does not review, write, fix, or judge. Dispatching a reviewer on an OPEN pull request is the duplication this skill exists to prevent.
 ---
 
-# PR Review Orchestration
+# PR Finding Resolution Loop
 
 Route-only orchestrator for driving a PR to convergence. This skill manages ONLY the loop — it does not review,
 post, fix, or judge; it routes on the reviewer's machine signal.

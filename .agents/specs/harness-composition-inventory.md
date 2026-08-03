@@ -133,7 +133,7 @@ not only what it drops.
 | Post-Merge Branch Cycle                     | procedure | phase | new sub-orchestration `post-merge-cycle`                              |       | Four ordered steps ending in a base verification — a pipeline phase.                                           |
 | Stash hygiene                               | invariant | —     | stays                                                                 |       | Never bare-stash known churn; pop by explicit ref.                                                             |
 | Feature Branch Workflow                     | procedure | phase | `branch-guard` promoted from pointer stub to a branch-lifecycle skill |       | Two ordered flows (from `main`, from a release branch) with a user-decision gate.                              |
-| Pre-Merge Code-Review Gate                  | procedure | phase | `pr-review-orchestration` (**existing skill**)                        | ⚖     | The four-step sequence and its resolution routing already have an owning pipeline; the mandate and scope stay. |
+| Pre-Merge Code-Review Gate                  | procedure | phase | `pr-finding-resolution-loop` (**existing skill**)                     | ⚖     | The four-step sequence and its resolution routing already have an owning pipeline; the mandate and scope stay. |
 | Deployment                                  | invariant | —     | stays, but **ownership is questionable** — see §9                     |       | Deployment topology facts; not a git or branch constraint.                                                     |
 
 ### 1.3 `spec-workflow.md` — 253 lines, 14 sections
@@ -329,7 +329,7 @@ Two roles are inlined:
   re-run the gates** is _guardian_ work being asked of the orchestrator, which the design forbids.
   **Should dispatch:** a guardian that re-runs the gates and emits a verdict. `pr-review-reviewer`
   already re-runs tests against a base to judge accidental-green, which is the same shape; the
-  cleanest resolution is for this skill to hand the branch to `pr-review-orchestration` rather than
+  cleanest resolution is for this skill to hand the branch to `pr-finding-resolution-loop` rather than
   hand-rolling a verification pass.
 
 What remains of the skill is genuinely pipeline: partition → dispatch → verify → review diff →
@@ -391,7 +391,7 @@ with three unrelated gate vocabularies.
 > and its only genuinely ordered part — the base reset — is `post-merge-cycle`'s own last phase, so a
 > `branch-creation` skill would have duplicated it. The `Pre-Merge Code-Review Gate` row was also
 > narrowed: only steps 1–2 (wait-for-green, scope the review to the diff) moved to
-> `pr-review-orchestration`; the taxonomy, the merge gate, and the scope table are invariants and stayed.
+> `pr-finding-resolution-loop`; the taxonomy, the merge gate, and the scope table are invariants and stayed.
 > The tree actually built:
 >
 > ```
@@ -399,7 +399,7 @@ with three unrelated gate vocabularies.
 >  ├─ merge-verifier                         (existing agent, reused unchanged)
 >  ├─ branch deletion                        (step)
 >  └─ next-branch base reset                 (step)
-> dispatched by: pr-review-orchestration (merge path) + worktree-parallel-orchestration (step 5)
+> dispatched by: pr-finding-resolution-loop (merge path) + worktree-parallel-orchestration (step 5)
 > ```
 >
 > The original hypothesis is preserved below for the record.
@@ -409,7 +409,7 @@ branch-guard                               (existing pointer stub → promote to
 ├─ branch-creation                         (phase)                 ← Feature Branch Workflow,
 │                                                                     One-Branch-At-A-Time check,
 │                                                                     base verification
-├─ pr-review-orchestration                 (existing sub-orch)     ← Pre-Merge Code-Review Gate
+├─ pr-finding-resolution-loop              (existing sub-orch)     ← Pre-Merge Code-Review Gate
 │    ├─ pr-review-reviewer                 (existing agent)
 │    ├─ pr-review-writer                   (existing agent)
 │    └─ pr-review-fixer                    (existing agent)
@@ -603,43 +603,43 @@ statement pointing at a skill or agent must be _referenced_ from the rule, never
 > extracting.** Increment 3's full 77-row ledger, with each statement's post-change home, is recorded in
 > the `HARNESS-049` backlog item.
 
-| ID    | Invariant                                                                                                   | Post-change home                                      |
-| ----- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| GB-01 | One working tree per session — never edit or commit another tree from this one                              | stays                                                 |
-| GB-02 | Worktrees only in the managed/isolated path, never nested in the tracked tree                               | stays                                                 |
-| GB-03 | Each worktree gets its own branch cut from a freshly-fetched `origin/develop`                               | stays                                                 |
-| GB-04 | Clean up worktrees when done                                                                                | stays; steps in `worktree-parallel-orchestration`     |
-| GB-05 | Every modified/new file must be staged, ignored, or explicitly discarded before commit                      | stays                                                 |
-| GB-06 | The working tree must be clean before push                                                                  | stays                                                 |
-| GB-07 | Run the CI-equivalent verification entry point on a built tree before pushing or merging                    | stays                                                 |
-| GB-08 | No commit or push without explicit user approval                                                            | stays                                                 |
-| GB-09 | Conventional commit format, max 72 chars, from the valid type list                                          | stays                                                 |
-| GB-10 | Commit at logical boundaries as work progresses; never batch, never defer, never fragment                   | stays                                                 |
-| GB-11 | Never pass `--delete-branch` to `gh pr merge` — zero exceptions                                             | stays                                                 |
-| GB-12 | Deleting a confirmed-merged branch is the agent's own call and must not be left undone                      | `post-merge-cycle` (ordering) + stays (the mandate)   |
-| GB-13 | Do not delete a branch with unmerged commits, one checked out/locked, or an integration/release branch      | stays (judgement checklist)                           |
-| GB-14 | Confirm the PR is `MERGED` before deleting a remote branch — zero exceptions                                | stays                                                 |
-| GB-15 | `main` is protected; a PR to `main` may only come from `develop` or a release/hotfix branch                 | stays                                                 |
-| GB-16 | `develop` is protected; branch first, then PR                                                               | stays                                                 |
-| GB-17 | Feature branches come from freshly-fetched `origin/develop`; zero merge commits in the PR range             | stays                                                 |
-| GB-18 | Merging `develop` into `main` requires explicit user approval                                               | stays                                                 |
-| GB-19 | Always merge back to the fork origin; verify the fork point; never assume `main`                            | stays                                                 |
-| GB-20 | A different merge target requires an explicit recommendation and user approval                              | stays                                                 |
-| GB-21 | Before creating a branch, check for unmerged branches; if one is open, stop and ask                         | stays; check step in `branch-guard`                   |
-| GB-22 | The only exceptions are explicit user instruction or worktree-parallel disjoint-file subagents              | stays                                                 |
-| GB-23 | Bundle by coherence AND the soft ceiling; unrelated backlogs stay separate; bundling never waives a gate    | stays                                                 |
-| GB-24 | Never delete `develop` or `main`; verify ancestry before remote deletion                                    | stays                                                 |
-| GB-25 | A merge must be independently verified as landed on the target's remote head, per hop                       | stays (mandate); criteria → `merge-verifier`          |
-| GB-26 | Discard transient churn with a scoped checkout, then pull, branch, and verify the base                      | `post-merge-cycle`                                    |
-| GB-27 | Never commit the auto-generated evals lessons; stage explicit paths, not a broad directory add              | stays                                                 |
-| GB-28 | Never bare-`git stash` known churn; pop by explicit ref                                                     | stays                                                 |
-| GB-29 | Never commit directly to `main` or a release branch; always create a feature branch                         | stays                                                 |
-| GB-30 | On a release branch, propose integration option A or B; never merge without proposing                       | stays (mandate); flow → `branch-guard`                |
-| GB-31 | Branch naming is `<type>/<topic>`                                                                           | stays                                                 |
-| GB-32 | Every PR the agent opens must pass `/code-review` with all findings resolved before merge — zero exceptions | stays (mandate); sequence → `pr-review-orchestration` |
-| GB-33 | A finding is resolved only by fix, written refutation, or a linked deferral — none left silent              | stays                                                 |
-| GB-34 | Scope: code-changing PRs; doc-only exempt; mixed PRs in scope                                               | stays                                                 |
-| GB-35 | Release-branch changes are not deployed until merged to `main`                                              | stays (ownership questioned — §9)                     |
+| ID    | Invariant                                                                                                   | Post-change home                                         |
+| ----- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| GB-01 | One working tree per session — never edit or commit another tree from this one                              | stays                                                    |
+| GB-02 | Worktrees only in the managed/isolated path, never nested in the tracked tree                               | stays                                                    |
+| GB-03 | Each worktree gets its own branch cut from a freshly-fetched `origin/develop`                               | stays                                                    |
+| GB-04 | Clean up worktrees when done                                                                                | stays; steps in `worktree-parallel-orchestration`        |
+| GB-05 | Every modified/new file must be staged, ignored, or explicitly discarded before commit                      | stays                                                    |
+| GB-06 | The working tree must be clean before push                                                                  | stays                                                    |
+| GB-07 | Run the CI-equivalent verification entry point on a built tree before pushing or merging                    | stays                                                    |
+| GB-08 | No commit or push without explicit user approval                                                            | stays                                                    |
+| GB-09 | Conventional commit format, max 72 chars, from the valid type list                                          | stays                                                    |
+| GB-10 | Commit at logical boundaries as work progresses; never batch, never defer, never fragment                   | stays                                                    |
+| GB-11 | Never pass `--delete-branch` to `gh pr merge` — zero exceptions                                             | stays                                                    |
+| GB-12 | Deleting a confirmed-merged branch is the agent's own call and must not be left undone                      | `post-merge-cycle` (ordering) + stays (the mandate)      |
+| GB-13 | Do not delete a branch with unmerged commits, one checked out/locked, or an integration/release branch      | stays (judgement checklist)                              |
+| GB-14 | Confirm the PR is `MERGED` before deleting a remote branch — zero exceptions                                | stays                                                    |
+| GB-15 | `main` is protected; a PR to `main` may only come from `develop` or a release/hotfix branch                 | stays                                                    |
+| GB-16 | `develop` is protected; branch first, then PR                                                               | stays                                                    |
+| GB-17 | Feature branches come from freshly-fetched `origin/develop`; zero merge commits in the PR range             | stays                                                    |
+| GB-18 | Merging `develop` into `main` requires explicit user approval                                               | stays                                                    |
+| GB-19 | Always merge back to the fork origin; verify the fork point; never assume `main`                            | stays                                                    |
+| GB-20 | A different merge target requires an explicit recommendation and user approval                              | stays                                                    |
+| GB-21 | Before creating a branch, check for unmerged branches; if one is open, stop and ask                         | stays; check step in `branch-guard`                      |
+| GB-22 | The only exceptions are explicit user instruction or worktree-parallel disjoint-file subagents              | stays                                                    |
+| GB-23 | Bundle by coherence AND the soft ceiling; unrelated backlogs stay separate; bundling never waives a gate    | stays                                                    |
+| GB-24 | Never delete `develop` or `main`; verify ancestry before remote deletion                                    | stays                                                    |
+| GB-25 | A merge must be independently verified as landed on the target's remote head, per hop                       | stays (mandate); criteria → `merge-verifier`             |
+| GB-26 | Discard transient churn with a scoped checkout, then pull, branch, and verify the base                      | `post-merge-cycle`                                       |
+| GB-27 | Never commit the auto-generated evals lessons; stage explicit paths, not a broad directory add              | stays                                                    |
+| GB-28 | Never bare-`git stash` known churn; pop by explicit ref                                                     | stays                                                    |
+| GB-29 | Never commit directly to `main` or a release branch; always create a feature branch                         | stays                                                    |
+| GB-30 | On a release branch, propose integration option A or B; never merge without proposing                       | stays (mandate); flow → `branch-guard`                   |
+| GB-31 | Branch naming is `<type>/<topic>`                                                                           | stays                                                    |
+| GB-32 | Every PR the agent opens must pass `/code-review` with all findings resolved before merge — zero exceptions | stays (mandate); sequence → `pr-finding-resolution-loop` |
+| GB-33 | A finding is resolved only by fix, written refutation, or a linked deferral — none left silent              | stays                                                    |
+| GB-34 | Scope: code-changing PRs; doc-only exempt; mixed PRs in scope                                               | stays                                                    |
+| GB-35 | Release-branch changes are not deployed until merged to `main`                                              | stays (ownership questioned — §9)                        |
 
 ### 7.3 `spec-workflow.md` — 35 invariants (**re-derived 2026-07-26: 91**)
 
@@ -779,7 +779,7 @@ Four reasons, in order of weight:
 2. **Its procedure has no existing owner to negotiate with.** There is no release orchestration skill
    today, so the extraction _creates_ structure instead of reconciling with it. Every other candidate
    must merge into a skill that already exists and already has opinions
-   (`backlog-execution-orchestrator`, `branch-guard`, `pr-review-orchestration`, `user-request-gate`,
+   (`backlog-execution-orchestrator`, `branch-guard`, `pr-finding-resolution-loop`, `user-request-gate`,
    `backlog-pipeline`).
 3. **It has the highest procedure density and the clearest nesting.** 21 of its 27 numbered steps sit
    in three sections that are unambiguously procedure, and they decompose into three phases that are
@@ -803,7 +803,7 @@ be sequenced as a cleanup, not as the demonstration.
 **Recommended order:** `publish.md` → `backlog-execution.md` → `git-branch.md` → `spec-workflow.md`.
 `backlog-execution` second because it introduces the `backlog-gate-guard` agent extraction that
 `spec-workflow`'s cleanup then depends on; `git-branch` third because by then
-`pr-review-orchestration` and `post-merge-cycle` are the only unresolved pieces; `spec-workflow` last
+`pr-finding-resolution-loop` and `post-merge-cycle` are the only unresolved pieces; `spec-workflow` last
 because it is mostly deletion and benefits from every earlier increment having settled its
 destinations.
 

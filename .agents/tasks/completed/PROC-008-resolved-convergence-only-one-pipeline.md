@@ -56,13 +56,13 @@ The item names `architecture-refresh`. Asking the question mechanically — whic
 findings count AND carry a depth verdict, derived from the orchestration map rather than remembered —
 found a third:
 
-| Pipeline                  | Converged on RESOLVED | Guardians reading the containment label                             |
-| ------------------------- | --------------------- | ------------------------------------------------------------------- |
-| `documentation-refresh`   | yes                   | `doc-auditor` — yes                                                 |
-| `architecture-refresh`    | **no** (`auto → 0`)   | `architecture-auditor`, `architecture-conformance-auditor` — **no** |
-| `pr-review-orchestration` | **no** (`auto → 0`)   | `pr-review-reviewer` — **no**                                       |
+| Pipeline                     | Converged on RESOLVED | Guardians reading the containment label                             |
+| ---------------------------- | --------------------- | ------------------------------------------------------------------- |
+| `documentation-refresh`      | yes                   | `doc-auditor` — yes                                                 |
+| `architecture-refresh`       | **no** (`auto → 0`)   | `architecture-auditor`, `architecture-conformance-auditor` — **no** |
+| `pr-finding-resolution-loop` | **no** (`auto → 0`)   | `pr-review-reviewer` — **no**                                       |
 
-**1 of 3 pipelines and 1 of 4 counting guardians before; 3 of 3 and 4 of 4 after.** `pr-review-orchestration`
+**1 of 3 pipelines and 1 of 4 counting guardians before; 3 of 3 and 4 of 4 after.** `pr-finding-resolution-loop`
 was not in the item's statement and is the same defect: it routes a foundational finding to a labelled
 containment and then converges on a count produced by a reviewer that does not know what the label is, so
 the only way that round reaches zero is by patching the wrong layer. Fixing the two the item named and

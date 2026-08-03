@@ -77,7 +77,7 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   OPTIONAL second bound and must never be the only one — a stuck loop and a productive one look
   identical to a counter and different to the finding set, so the counter is the weaker test. The
   PR-review loop runs with no count at all by owner directive (2026-08-03); see
-  [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
+  [pr-finding-resolution-loop](../skills/pr-finding-resolution-loop/SKILL.md), which owns that decision and
   the evidence for it.
 
   > **Contained — [HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md).** Most

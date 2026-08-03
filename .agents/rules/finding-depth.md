@@ -174,7 +174,7 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
   filed it. `pre-push-check` already refuses a push with no record, so the field is reached by the
   real invocation on every push rather than when remembered.
 - `pr-review-fixer` TAKES the verdict rather than producing it, and stops on a foundational one;
-  `pr-review-orchestration` routes that verdict to the root item rather than back into the fix loop.
+  `pr-finding-resolution-loop` routes that verdict to the root item rather than back into the fix loop.
 - `depth-verdict-reachable.test.mjs` refuses a worker that is told to take a `DEPTH:` verdict when no
   pipeline produces one for it. That is this repository's dominant defect stated at this rule's layer:
   the instruction reads as enforced, the worker carries no `Agent` tool so it cannot obtain the verdict

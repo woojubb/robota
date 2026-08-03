@@ -284,7 +284,7 @@ post-merge-cycle                      (NEW top-level, shared sub-orchestration)
 └─ next-branch base reset             (step)  ← Post-Merge Branch Cycle steps 1–4
 
 dispatched by:
-  pr-review-orchestration  (merge path)   — absorbed its inline restatement
+  pr-finding-resolution-loop  (merge path)   — absorbed its inline restatement
   worktree-parallel-orchestration (step 5) — absorbed its inline restatement
 ```
 
@@ -292,7 +292,7 @@ dispatched by:
 three prose blocks — and the rule's own section ORDER (delete, then verify) contradicted its own text
 (verify before deleting). Two existing orchestrations already carried divergent partial copies of the
 sequence: `worktree-parallel-orchestration` §5 paraphrased the four don't-delete-when conditions in the
-same paragraph that said "do not restate them", and `pr-review-orchestration`'s merge path restated the
+same paragraph that said "do not restate them", and `pr-finding-resolution-loop`'s merge path restated the
 `merge-verifier` + delete-after-confirm steps. This is increment 1's `ci-gate-watch` shape exactly — two
 callers, so leaving the sequence in either would duplicate it. Both callers now dispatch and lost their
 copies.
@@ -358,7 +358,7 @@ churn/stash hygiene, and the whole Pre-Merge Code-Review Gate taxonomy are invar
 not "do this in order". Only three statements' ORDERING or CRITERIA moved, and each keeps its mandate in
 the rule: Merge Landing Verification's four checks (already `merge-verifier`'s criteria verbatim), Delete
 Merged Branches' and Post-Merge Branch Cycle's step order (→ `post-merge-cycle`), and the code-review
-gate's waiting/looping (→ `pr-review-orchestration`, which now dispatches `ci-gate-watch` for the wait).
+gate's waiting/looping (→ `pr-finding-resolution-loop`, which now dispatches `ci-gate-watch` for the wait).
 The gate's two _preconditions_ — required checks green, review scoped to the branch-versus-base diff —
 were briefly relocated into the skill and the review round correctly ruled that a loss of force: a
 precondition of a zero-exceptions gate binds every PR, whereas a skill binds only its invokers. Both are
@@ -402,7 +402,7 @@ only in this file — that heading is unchanged. All 15 section headings are pre
 named by title in skill Rule Anchors and four are quoted as completed-spec evidence. `INFRA-015`'s TC-01
 claim ("Post-Merge Branch Cycle / `checkout develop`", 4 hits) is intact at 4 — the ordered command block
 moved but the heading and all three prose mentions stayed. `scan-review-findings`' four required literals
-in `pr-review-orchestration` (`git-branch.md`, `unresolved MUST`, never-merge-`main`,
+in `pr-finding-resolution-loop` (`git-branch.md`, `unresolved MUST`, never-merge-`main`,
 `merge-verifier`/`MERGE VERIFIED`) all survive the merge-path rewrite.
 
 **Deferred, deliberately:** § Deployment stays put. §9.5 flagged its owner should be

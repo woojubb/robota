@@ -13,7 +13,8 @@ name: CodeQL
 #     filed for the owner, not taken here.
 #   - A green tick on a PULL REQUEST is not a repo-clean signal. Every `refs/pull/*/merge` analysis reports
 #     0 results because CodeQL runs diff-informed on PRs: it reports alerts in the CHANGED code, not the
-#     standing inventory. The push/schedule runs on develop are what cover the rest.
+#     standing inventory. The push runs on develop are what cover the rest — and they are the only
+#     thing that does, now that the weekly scan is gone.
 #   - The alert COUNT must be read with `--paginate`. The alerts endpoint sorts by `created` descending and
 #     pages at 100, so a burst of low-severity alerts pushes every high-severity one onto page two and a
 #     single-page query answers `0 high` on any ref — indistinguishable from a clean repository. That false
@@ -24,17 +25,14 @@ on:
   pull_request:
     branches: [main, develop]
     # Proportional CI: skip SAST for documentation-only PRs (no analyzable JS/TS changed). CodeQL is advisory
-    # (not a required check), so not triggering it on a docs-only PR is safe for branch protection. The weekly
-    # schedule + push-to-branch runs still give full coverage.
+    # (not a required check), so not triggering it on a docs-only PR is safe for branch protection. The
+    # push-to-branch runs still give coverage — and they are what produces the base alert set the
+    # required `review-gate` compares a pull request against.
     paths-ignore:
       - '**/*.md'
       - '**/*.mdx'
       - 'docs/**'
       - 'content/**'
-  schedule:
-    # Weekly full scan (catches issues in code that a given PR didn't touch).
-    - cron: '27 4 * * 1'
-
 permissions:
   contents: read
   security-events: write

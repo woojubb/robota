@@ -182,7 +182,7 @@ fi
 # it has nothing to say is one people learn to scroll past, and then its refusals scroll past too.
 # --- the review round belongs BEFORE this push -------------------------------------------------
 #
-# `pr-review-orchestration` used to wait for required checks to go green before its FIRST review
+# `pr-finding-resolution-loop` used to wait for required checks to go green before its FIRST review
 # round, so the reviewer only ever saw a diff that had already been pushed, opened as a PR and run
 # through CI. Every finding therefore cost a push → CI round trip before anyone could look at it.
 #
