@@ -77,12 +77,18 @@ per-round caps on a guardian verdict. Note the two kinds: a count-only bound is 
 unbounded loop is worse, so "bounded re-drive" is the wrong description for the NONE set and is not used.
 
 `.agents/rules/` was measured too, because the population above greps only `.agents/skills/` and a
-rule can state a loop just as a skill can. Two rules describe one: `enforcement-architecture.md`
-(which states the requirement) and `research.md`, which said the research loop is bounded by
-"bounded iterations, then escalate" — a count as the ONLY bound, in normative text, describing the
-very loop `user-request-gate:70` drives. That conflict was created by this PR and is fixed in it
-rather than contained: `research.md` now requires the escape and permits a count as a second bound.
-The `.agents/rules/` sweep is clean at HEAD.
+rule can state a loop just as a skill can. THREE rules do: `enforcement-architecture.md` (which states
+the requirement), `research.md` — "bounded iterations, then escalate", a count as the ONLY bound in
+normative text, describing the very loop `user-request-gate:70` drives — and `spec-workflow.md`, "the
+loop repeats until zero discrepancies remain", with no escape and no bound at all.
+
+Both are corrected in this change rather than contained, since a MANDATORY rule contradicting a
+MANDATORY rule is not a gap to schedule. The instructive part is HOW the second was found: the first
+sweep's pattern list did not contain `repeats until`, so it reported clean and review caught the
+miss. A method with a hole reports the absence of what it cannot see — which is this item's whole
+subject, committed by its own evidence-gathering. The widened sweep
+(`auto-re-drive|re-drives|bounded iterations|round cap|repeat[s]? until|loop repeats`) now returns
+ESCAPE for all three.
 
 **Treat the NONE set as a LOWER BOUND, not a census**, in both directions. A keyword grep misses a
 loop phrased differently — and it sweeps in at least one step that is not a finding-set loop at all:

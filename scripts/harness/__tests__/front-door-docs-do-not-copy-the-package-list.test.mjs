@@ -3,14 +3,20 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { FRONT_DOOR_DOCS } from '../check-ghost-package-refs.mjs';
+
 /**
  * HARNESS-068 — the package listing has one owner, and the front door kept a copy.
  *
  * `CONTRIBUTING.md` carried a second copy of the package list and it had already drifted: it named a
  * package that does not exist, and that the owning document says does not exist in as many words.
- * `check-dependency-direction.mjs` Rule 9 fails the build for exactly that mistake — in the OWNING
- * document. Its scope stopped there, so the copy was the one place the name could rot unnoticed:
- * where a rule has a mechanism, the mechanism's edge is the blind spot.
+ *
+ * The Task's first diagnosis — that the copy was the one place the name could rot, because
+ * `check-dependency-direction.mjs` Rule 9 reaches only the OWNING document — was wrong, and review
+ * round 13 disproved it with one command: `check-ghost-package-refs.mjs` already read every live
+ * markdown file, and was silent only because the name sat in an inline code SPAN. That scan now
+ * covers the front door span-inclusively and owns the existence question; this file owns only the
+ * rule that the LIST must not be copied here at all.
  *
  * The Task's Test Plan named this regression explicitly ("assert `CONTRIBUTING.md` contains no
  * `packages/*` enumeration, which fails today"), and deleting the list without it would leave nothing
@@ -30,9 +36,6 @@ import { describe, expect, it } from 'vitest';
  * cannot mislead that reader; a copy here is the only kind that can.
  */
 const ROOT = path.resolve(import.meta.dirname, '../../..');
-
-/** The documents a newcomer reads as "what this repository is right now". */
-const FRONT_DOOR_DOCS = ['CONTRIBUTING.md', 'README.md', 'AGENTS.md', 'CLAUDE.md'];
 
 /** The one document that owns the listing. */
 const OWNER = '.agents/project-structure.md';

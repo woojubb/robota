@@ -88,9 +88,11 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   > The Task carries the command and its verbatim output; treat the result as a lower bound rather
   > than a census, because a keyword grep both misses loops and sweeps in steps that are not
   > finding-set loops, and it reads only `.agents/skills/`. The `.agents/rules/` tree was swept
-  > separately and is clean: `research.md` stated a count as its loop's only bound and was corrected
-  > in the same change rather than contained. Establishing the set mechanically is HARNESS-071's
-  > Test Plan. The rule is
+  > separately, TWICE: the first sweep's patterns missed `spec-workflow.md`'s "the loop repeats until
+  > zero discrepancies remain" (`repeats until` ≠ `repeat until`), which review found. Both it and
+  > `research.md` are corrected in this change rather than contained, and the widened sweep now
+  > returns only ESCAPE. That a method's own gap was the finding is the argument for the Test Plan:
+  > establishing the set mechanically is HARNESS-071's. The rule is
   > stated at its intended strength and the gap is filed rather than deferred in silence; nothing
   > outside the two is exempt.
 

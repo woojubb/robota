@@ -3,6 +3,35 @@
 All rules are mandatory and non-negotiable. Domain-specific rules live in
 [skills index](../skills/index.md) and [package specs](../../packages/*/docs/SPEC.md).
 
+## This rule set is not the end of the argument
+
+**Mandatory and revisable are different axes, and both hold.** "Non-negotiable" governs OBEDIENCE: while
+a rule stands you follow it, and you do not quietly deviate, reinterpret it into non-existence, or
+treat it as advisory because it is inconvenient here. It does not govern AUTHORITY: no rule here is
+final, correct by virtue of being written down, or beyond being shown wrong.
+
+A rule in this tree is the **current best encoding** of an engineering intent — usually a universal
+principle, sometimes a decision about this repository specifically. An encoding can be wrong, can be
+right when written and wrong later, and can be narrower or broader than the intent it serves. When
+that is demonstrated, the rule changes. The path is: argue it, amend it, record why — never ignore it
+and never leave the contradiction standing.
+
+Three consequences worth stating, because each was learned by getting it wrong:
+
+- **An outside argument from a universal principle can beat a rule here**, and then this rule set is
+  what changes. Precedence and the narrow exceptions:
+  [agent-conduct.md](agent-conduct.md) § "A local rule is an encoding, not the ground truth".
+- **A contradiction between two rules is a defect of the rule set**, closed continuously rather than
+  when someone notices: [learning-loop.md](learning-loop.md) § "Contradiction Between Rules".
+- **A rule nothing can check is a wish.** Preferring a mechanical floor over more prose is itself a
+  rule ([learning-loop.md](learning-loop.md) § Enforcement Preference) — and a rule whose subjects
+  violate it at landing is filed, not assumed
+  ([HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md) is the live example).
+
+A rule set that treats itself as terminal stops being a description of how to build well and becomes
+a thing to be satisfied. That failure is silent, which is why the principle is written here rather
+than assumed.
+
 ## Top-Level Rules
 
 | Group             | Document                                                   | Scope                                                                                             |

@@ -52,6 +52,12 @@ guarantees. Then record it as **fixed**, **refuted**, or **deferred** (the rules
 as those rules require). A refutation needs a specific written reason naming **why the rule's premise fails at
 this call site**; "looks fine" or "false positive" alone is not a reason and resolves nothing.
 
+**A finding may outrank a harness rule, and then the rule is what changes.** When the reviewer argues from a
+universal engineering principle and a rule in this repo says otherwise, "our rule says X" is not a
+refutation — see [agent-conduct.md](../../rules/agent-conduct.md) § "A local rule is an encoding, not the
+ground truth", which owns the precedence, the narrow exceptions, and the requirement to record the outcome
+either way. This loop's job is to surface that case honestly rather than resolve it by citation.
+
 ### 3. A finding on a line you touched may be pre-existing
 
 Diff-scoped analysis attributes any finding on a changed line to the change. Before judging, check the

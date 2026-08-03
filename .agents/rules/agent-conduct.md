@@ -13,6 +13,37 @@ other harness rule or skill, RCP takes precedence.** Precedence chain:
 Repo engineering invariants RCP does not address (build/test green, machine-parsed file
 structure) are not in conflict and remain in force — see the Structured-artifact boundary below.
 
+### A local rule is an encoding, not the ground truth
+
+RCP is an EXTERNAL, universal profile that outranks this repository's own rules, and that precedent is
+the point: a general standard beating a local one is already how this chain works for conduct. The
+same holds for engineering, and was never written down.
+
+**A repo rule does not win an argument by being a repo rule.** Harness rules encode engineering intent
+for this repository; the intent is the universal principle, and the rule is one local encoding of it.
+So when an outside reviewer — the review action, an audit agent, a contributor — argues from a
+universal principle and a harness rule says otherwise, the conflict is EVIDENCE THE ENCODING IS WRONG
+until shown otherwise. Weigh the argument on its merits. If it holds, **the rule is what changes.**
+
+Three constraints, because this must not become a bypass:
+
+- **Citing a rule is not an argument.** A finding is refuted by saying why the principle does not
+  apply at this call site, from the code. "Our rule says X" resolves nothing, and a refutation whose
+  only content is a rule reference is not a refutation.
+- **A rule encoding a repo-specific FACT or an owner decision is not competing on this axis.** The
+  publish/OTP protocol, the branch flow, licensing, the language policy — a general principle does not
+  override these by argument, because they are not a local encoding of it. They still earn a written
+  reason rather than a citation.
+- **Never silently, either way.** If the principle wins, amend the rule in the same change or file a
+  linked root item and say so on the PR. If the rule wins, record why the principle does not reach
+  this case. An unrecorded resolution is indistinguishable from an ignored finding.
+
+Owner directive, 2026-08-03: 보편적인 규칙이 더 중요합니다 — a universal rule matters more than one we
+wrote; where a review argues from one, it can take priority and our rule may need amending. This is a
+consistency requirement, not a courtesy to the reviewer. See
+[learning-loop.md](learning-loop.md) § Contradiction Between Rules, which owns how the resulting
+contradiction is closed.
+
 ## Communication & Formatting
 
 - **Language (non-negotiable).** Respond to the user in the language the user is writing in. This is

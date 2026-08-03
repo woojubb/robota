@@ -117,11 +117,12 @@ is the owner and one is `CHANGELOG.md`. Eight name several packages because thos
 SUBJECT of the document (an open Task's affected areas, a rule's examples). The ninth,
 `worktree-parallel-orchestration/SKILL.md`, reaches the threshold on `packages/foo`, `packages/bar`
 and `packages/baz` — placeholders in a worked example, which the ENUMERATION detector counts and the
-EXISTENCE detector deliberately does not. Two detectors, two questions; the difference is real and is
-stated rather than smoothed over. (The first version of this sentence claimed all three were excluded
-and only `foo` and `bar` were — round 7 measured it. `baz` is now in the set, with a case, so the
-sentence is true and a front-door document using the repo's own placeholder triple is no longer
-reported as naming a package that does not exist.) None is a second copy of
+EXISTENCE check does not. Two questions, two answers; the difference is real and is stated rather than
+smoothed over. (That placeholder set moved house twice: round 7 found it missing `baz`, and round 13
+deleted the whole duplicated existence check, so round 14 found this sentence describing a mechanism
+that no longer existed — and measured the consequence, that a front-door document containing the
+repo's own placeholder triple would now be reported. The set lives in `check-ghost-package-refs.mjs`
+with a case, which is the one place it belongs.) None is a second copy of
 the repository's structure, which is what the one-owner rule is about — and `README.md`, which does
 list packages, lists them as an npm catalogue of `@robota-sdk/*` names with descriptions: a curated
 index of packages you might install, a different document kind from the internal path layout, and
@@ -137,9 +138,15 @@ task's own thesis, unlearned. Red-proved at the merge-base, where the case fails
 entries.
 
 **And the rule that mattered is extended, not just the ban.** Banning enumerations moves the blind
-spot rather than closing it, so the EXISTENCE check now covers every package name a front-door
-document uses, enumeration or not — inside `check-ghost-package-refs.mjs`, which already owned that
-question for every other document.
+spot rather than closing it, so the EXISTENCE check now covers every prefixed package name a
+front-door document uses OUTSIDE a fence — inside `check-ghost-package-refs.mjs`, which already owned
+that question for every other document.
+
+Two limits, stated because the change narrowed coverage in one of them. Fences stay exempt everywhere,
+so `npx @robota-sdk/agent-cli` in a README code block is checked by nothing; the deleted test-side
+check did read fences, and that is a real loss, accepted because the alternative is a rule that
+flags every shell transcript. And a BARE name — no `@robota-sdk/` or `packages/` prefix — is invisible
+to both, which is how round 4's instance survived round 3.
 
 Rounds 3 and 4 proved that was not hypothetical, and the second instance is the instructive one.
 Round 3 found `README.md`'s architecture diagram still saying `agent-provider`, contradicting a table

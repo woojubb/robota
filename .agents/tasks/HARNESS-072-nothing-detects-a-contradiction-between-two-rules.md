@@ -52,6 +52,41 @@ one that did was caught by a human reading two documents side by side. The map's
 "mechanically kept current"; `scan-orchestration-map.mjs` checks only that every agent file appears in
 it, so the LOOP-BACK column has never been compared to anything.
 
+## A third axis: a rule contradicting a universal principle
+
+Owner directive, same day: **"보편적인 규칙이 더 중요합니다"** — a universal rule matters more than one we
+wrote. If the review action argues from a universal engineering principle, that argument can take
+priority and OUR rule may be the thing to amend.
+
+The rule set had no clause admitting this. `AGENTS.md` called rules "mandatory, non-negotiable" and
+the precedence chain ran `user instructions > RCP conduct > other harness rules > default behaviour` —
+a well-founded universal principle appears nowhere in it, so by the letter, citing a harness rule was
+always a valid refutation of a review finding. That is the same defect one level up: the rule set
+treating itself as terminal.
+
+Fixed in #1615 at the authority level — `agent-conduct.md` § "A local rule is an encoding, not the
+ground truth" (with the narrow exceptions: rules encoding a repo-specific fact or an owner decision),
+`rules/index.md` § "This rule set is not the end of the argument", and the judging step of
+`automated-review-convergence`. What remains for this item is the MECHANISM, because the failure is
+silent by nature:
+
+- A refutation whose only content is a rule reference is detectable. The review ledger records a
+  reason per finding; a reason that cites a rule and nothing about the call site is the shape to flag.
+- The precedent this rests on is real and worth reusing: RCP is an external universal profile that
+  already outranks harness rules for conduct. The chain has always admitted a general standard beating
+  a local one; it was never extended to engineering.
+
+## A live instance, left standing on purpose
+
+`orchestration-map.md`'s Loop-back column states a count-only bound for four pipelines, and one of
+them — `delegated-refactor-green-gate` — carries the no-progress escape in its own skill. So the map
+contradicts its own skill TODAY, in the direction of understating compliance.
+
+It is recorded here rather than patched, because patching those rows would state compliance the other
+three skills do not have, and would contradict what HARNESS-071 contains. The map row and the skill
+must be reconciled together, by whichever item lands first — which is precisely the coupling check 1
+of the Direction is meant to make mechanical.
+
 ## Why this is foundational (or not)
 
 **FOUNDATIONAL.** Every rule in the tree is weakened by the possibility that another rule says the

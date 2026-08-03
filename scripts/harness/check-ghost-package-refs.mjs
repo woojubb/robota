@@ -19,7 +19,9 @@
  * the non-`.md` corpus (package.json scripts + helper .mjs); this guard owns the `.md`
  * corpus — same SSOT, disjoint inputs.
  *
- * Exemptions (must not fire): fenced code blocks and inline code spans; lines carrying
+ * Exemptions (must not fire): fenced code blocks everywhere; inline code spans everywhere EXCEPT the
+ * four front-door documents, where a package name in backticks is the normal way to write one (see
+ * FRONT_DOOR_DOCS); documented placeholder names; lines carrying
  * "deliberately absent" vocab; the documented GHOST_PACKAGE_ALLOWLIST; and immutable
  * historical records (CHANGELOGs, closed spec/task/backlog items, frozen versioned
  * content, dated design/plan archives) that faithfully cite now-defunct names.
@@ -51,6 +53,15 @@ const PACKAGE_DIR_PATTERN = /(?<![\w/-])packages\/([a-z0-9]+(?:-[a-z0-9]+)*)(?![
  * check-orphan-exports.mjs's ORPHAN_EXPORT_ALLOWLIST. Each entry keeps a reason. Only
  * genuine intentional/false-positive tokens belong here — never a real ghost we should fix.
  */
+/**
+ * Names that stand in for "a package" in a command template, not for a package.
+ *
+ * Needed only since the front-door span exemption was lifted: `--scope <packages/foo|apps/bar>` is a
+ * usage string, and reporting it as a name that does not resolve would be a false accusation about
+ * correct prose. Kept tiny and documented, like the allowlist below.
+ */
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
+
 export const GHOST_PACKAGE_ALLOWLIST = new Set([
   '@robota-sdk/dag-nodes', // group-container README title (packages/dag-nodes holds nested dag-node-* packages); the container itself ships no package
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
@@ -63,7 +74,7 @@ export const GHOST_PACKAGE_ALLOWLIST = new Set([
  * in one misleads in a way the same name in a dated record cannot. They are the only docs where an
  * inline code span is scanned rather than exempted.
  */
-const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
+export const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
 
 /** Doc trees that are immutable historical records — a defunct name there is history, not drift. */
 function isExcludedDoc(rel) {
@@ -176,6 +187,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       for (const match of line.matchAll(TOKEN_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(token.slice(token.lastIndexOf('/') + 1))) continue;
         if (!workspaceNames.has(token)) {
           findings.push({
             file: rel,
@@ -189,6 +201,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       for (const match of line.matchAll(PACKAGE_DIR_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(match[1])) continue;
         if (!packageDirNames.has(match[1])) {
           findings.push({
             file: rel,

@@ -63,6 +63,17 @@ describe('check-ghost-package-refs', () => {
     expect(findings[0].detail).toContain('packages/ghostpkg');
   });
 
+  it('a placeholder in a command template is not a package name', async () => {
+    // Needed only because the span exemption is lifted at the front door: `--scope <packages/foo>` is
+    // a usage string. Reporting it would be a false accusation about correct prose, and a check that
+    // cries wolf on the four most-read documents gets suppressed rather than obeyed.
+    const root = await createFixture({
+      'packages/foo2/package.json': pkg('@robota-sdk/foo2'),
+      'AGENTS.md': '- `--scope <packages/foo|apps/bar>` selects a scope; `packages/baz` too\n',
+    });
+    expect(await findGhostPackageRefFindings(root)).toHaveLength(0);
+  });
+
   it('still exempts inline code spans everywhere else', async () => {
     // The other direction, and the reason the exemption exists: an ordinary document quoting a
     // command or a defunct name in backticks is not asserting that the package exists.
