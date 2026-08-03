@@ -53,9 +53,17 @@ function record(dir, branch, sha, findings = 0) {
   writeFileSync(file, JSON.stringify({ branch, headSha: sha, findings }));
 }
 
-function push(dir, command = 'git push -u origin feat/probe', { openPrs } = {}) {
-  const env = { ...process.env, CLAUDE_PROJECT_DIR: dir };
-  if (openPrs !== undefined) env.PATH = `${stubGh(openPrs)}${path.delimiter}${process.env.PATH}`;
+// Every push gets the stub, and the default is "no open pull request" — the world every case here
+// was written for. Left to the real `gh` on PATH, a case would ask GitHub over the network for a
+// branch that exists only in a temp directory: slow, one API call per case, and answered differently
+// depending on whether the machine running the suite happens to be authenticated or has `GH_REPO`
+// set. A case's verdict must come from what it set up, not from the environment it ran in.
+function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = {}) {
+  const env = {
+    ...process.env,
+    CLAUDE_PROJECT_DIR: dir,
+    PATH: `${stubGh(openPrs)}${path.delimiter}${process.env.PATH}`,
+  };
 
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
@@ -70,10 +78,10 @@ function push(dir, command = 'git push -u origin feat/probe', { openPrs } = {}) 
  * A `gh` on PATH that answers the one question the hook asks it.
  *
  * `openPrs` is what `gh pr list --head <branch> --state open --json number --jq length` prints: how
- * many open pull requests that branch heads. `''` with a non-zero exit is the unauthenticated /
- * offline / no-such-repository case. Every case that does not pass `openPrs` runs against the real
- * environment, where a scratch repository has no remote and the lookup fails — which is that same
- * unknown case, and must still refuse.
+ * many open pull requests that branch heads. `''` makes it exit non-zero instead — the
+ * unauthenticated / offline / no-such-repository case, which reaches the same refusal as `gh` being
+ * absent altogether, because `command -v gh` and the lookup sit in one condition and either half
+ * failing leaves the demand in place.
  */
 function stubGh(openPrs) {
   const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
