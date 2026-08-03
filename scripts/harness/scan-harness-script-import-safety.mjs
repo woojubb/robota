@@ -90,7 +90,10 @@ export function findImportSafetyFindings(root = WORKSPACE_ROOT) {
       `harness-script-import-safety: ${SCRIPT_DIR} does not exist under ${root} — nothing could be imported.`,
     );
   }
-  const files = readdirSync(dir).filter((name) => name.endsWith('.mjs'));
+  // Recursive: `scripts/harness/lib/` holds three shared modules that a top-level read left outside
+  // this floor entirely. Review found the same blind spot in the scope-literal ratchet; both are
+  // fixed together, because a module under `lib/` can run work on import exactly as one above it can.
+  const files = harnessScripts(dir);
   if (files.length === 0) {
     throw new Error(
       `harness-script-import-safety: no .mjs scripts under ${SCRIPT_DIR} in ${root} — nothing could be imported.`,
@@ -137,14 +140,31 @@ export function findImportSafetyFindings(root = WORKSPACE_ROOT) {
  *
  * The third rule, and the point of the other two: once every script can be imported, "every harness
  * script has a test" becomes a statement a machine can hold. The count is frozen rather than driven
- * to zero — 24 of 127 is not closable in one change, and a ban would be suppressed rather than obeyed.
+ * to zero — 27 of 131 is not closable in one change, and a ban would be suppressed rather than obeyed.
+ *
+ * Matching is by BASENAME, so `lib/ts-ast.mjs` is covered by `__tests__/ts-ast.test.mjs` and the walk
+ * being recursive does not change what counts as covered. The three `lib/` modules are in the frozen
+ * set because no test is NAMED after them — they are exercised through the scans that import them
+ * (`scan-legacy-typescript`, `check-regression-red-proof`), which is coverage the name-matching rule
+ * cannot see. That is a stated limit of the rule, not a claim that they are untested.
  */
+export function harnessScripts(dir, prefix = '') {
+  const found = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...harnessScripts(path.join(dir, entry.name), relative));
+    else if (entry.name.endsWith('.mjs')) found.push(relative);
+  }
+  return found;
+}
+
 export function untestedScripts(dir, files) {
   const testDir = path.join(dir, '__tests__');
   if (!existsSync(testDir)) return [...files];
   const tests = readdirSync(testDir);
   return files.filter((name) => {
-    const base = name.replace(/\.mjs$/, '');
+    const base = path.basename(name).replace(/\.mjs$/, '');
     return !tests.some((test) => test.startsWith(`${base}.`));
   });
 }

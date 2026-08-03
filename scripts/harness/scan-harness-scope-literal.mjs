@@ -73,7 +73,26 @@ export function codeOnly(source) {
 }
 
 /** Occurrences of the scope literal in each script's code, by file name. */
-export function countScopeLiterals(dir, scope, files = readdirSync(dir)) {
+/**
+ * Every `.mjs` under a directory, RECURSIVELY, as paths relative to it.
+ *
+ * `scripts/harness/lib/` holds three shared modules, and a non-recursive read left them outside this
+ * ratchet entirely — a hardcoded scope added there would have been uncounted and unfrozen. Review
+ * caught it, and it is the same blind spot this scan's own docstring describes, one directory over.
+ * `__tests__` is excluded: a test may name the scope it is testing.
+ */
+export function harnessScripts(dir, prefix = '') {
+  const found = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...harnessScripts(path.join(dir, entry.name), relative));
+    else if (entry.name.endsWith('.mjs')) found.push(relative);
+  }
+  return found;
+}
+
+export function countScopeLiterals(dir, scope, files = harnessScripts(dir)) {
   const counts = {};
   for (const name of files.filter((file) => file.endsWith('.mjs'))) {
     const occurrences =

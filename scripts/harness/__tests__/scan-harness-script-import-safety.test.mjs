@@ -178,6 +178,30 @@ describe('scan-harness-script-import-safety', () => {
     });
   });
 
+  it('imports scripts in SUBDIRECTORIES too', () => {
+    // `scripts/harness/lib/` holds three shared modules a top-level read left outside this floor.
+    // A module under `lib/` can run work on import exactly as one above it can.
+    const { root, dir } = (() => {
+      const r = scriptDir({ 'top.mjs': 'export const x = 1;' });
+      return { root: r, dir: path.join(r, 'scripts/harness') };
+    })();
+    mkdirSync(path.join(dir, 'lib'), { recursive: true });
+    writeFileSync(path.join(dir, 'lib/noisy.mjs'), `console.log('work');`);
+    expect(importFindings(root)[0]?.script).toBe('lib/noisy.mjs');
+  });
+
+  it('a nested script is covered by a test named after its BASENAME', () => {
+    // `lib/ts-ast.mjs` is covered by `__tests__/ts-ast.test.mjs`; making the walk recursive must not
+    // silently reclassify already-covered modules as untested.
+    const root = scriptDir({});
+    const dir = path.join(root, 'scripts/harness');
+    mkdirSync(path.join(dir, 'lib'), { recursive: true });
+    mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+    writeFileSync(path.join(dir, 'lib/thing.mjs'), 'export const x = 1;');
+    writeFileSync(path.join(dir, '__tests__/thing.test.mjs'), '');
+    expect(untestedScripts(dir, ['lib/thing.mjs'])).toEqual([]);
+  });
+
   it('is registered and passes on the live repository', () => {
     const root = path.resolve(import.meta.dirname, '../../..');
     expect(readFileSync(path.join(root, 'scripts/harness/run-all-scans.mjs'), 'utf8')).toContain(

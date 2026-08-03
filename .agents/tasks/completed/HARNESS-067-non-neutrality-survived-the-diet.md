@@ -122,6 +122,24 @@ Red-proved four ways: a new hardcoded literal fails, a fall without re-freezing 
 hardcoding its own scope fails, and reading the scope from config passes — the last one because a
 blanket ban would be suppressed rather than obeyed.
 
+### Review round 1 (PR #1612)
+
+One SHOULD, upheld, and it is the same blind spot this change's own docstring describes — one
+directory over. `countScopeLiterals` read only the top level of `scripts/harness`, so
+`scripts/harness/lib/`'s three shared modules were outside the ratchet entirely: a hardcoded scope
+added there would have been uncounted and unfrozen.
+
+Both scans are fixed together, because `scan-harness-script-import-safety` (HARNESS-065, merged an
+hour earlier) had the identical non-recursive read — a module under `lib/` can run work on import
+exactly as one above it can. The import floor now covers 131 scripts rather than 127.
+
+Making that walk recursive surfaced three modules as "untested" whose coverage the name-matching rule
+cannot see: `lib/ts-ast.mjs`, `lib/execution-witness.mjs` and `lib/spawn-call-graph.mjs` are exercised
+through the scans that import them, but no test is NAMED after them. They are in the frozen set and
+the rule's docstring now states that limit rather than implying they are untested. Matching is by
+basename, so a nested module IS credited by a test named after it — pinned by a case, because
+otherwise the recursion would have silently reclassified already-covered modules.
+
 ### Remaining
 
 - 88 occurrences across 14 scripts are frozen, not removed. `check-agent-server-boundary.mjs` alone

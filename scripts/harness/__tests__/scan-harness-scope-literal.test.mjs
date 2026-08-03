@@ -123,6 +123,23 @@ describe('scan-harness-scope-literal', () => {
     });
   });
 
+  it('reads SUBDIRECTORIES — `lib/` was outside the ratchet entirely', () => {
+    // Review caught this: a non-recursive read left `scripts/harness/lib/`'s three shared modules
+    // uncounted and unfrozen, so a hardcoded scope added there would have passed. The same blind spot
+    // this scan's docstring describes, one directory over.
+    const { dir } = scriptDir({ 'top.mjs': '' });
+    mkdirSync(path.join(dir, 'lib'), { recursive: true });
+    writeFileSync(path.join(dir, 'lib/deep.mjs'), `const P = '@acme/core';`);
+    expect(countScopeLiterals(dir, SCOPE)).toEqual({ 'lib/deep.mjs': 1 });
+  });
+
+  it('does not read __tests__ — a test may name the scope it is testing', () => {
+    const { dir } = scriptDir({ 'top.mjs': '' });
+    mkdirSync(path.join(dir, '__tests__'), { recursive: true });
+    writeFileSync(path.join(dir, '__tests__/a.test.mjs'), `const P = '@acme/core';`);
+    expect(countScopeLiterals(dir, SCOPE)).toEqual({});
+  });
+
   it('is registered, and the live baseline matches what it counts', () => {
     const root = path.resolve(import.meta.dirname, '../../..');
     expect(readFileSync(path.join(root, 'scripts/harness/run-all-scans.mjs'), 'utf8')).toContain(
