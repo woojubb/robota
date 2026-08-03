@@ -1,13 +1,18 @@
 import type { ITaskRun } from '@robota-sdk/dag-core';
 
 /**
- * The two task-run operations a crash-recovery path needs, over an in-memory task map. DAG-001.
+ * The task-run operations a crash-recovery path needs, as pure edits to a task map. DAG-001.
  *
- * Shared by the in-memory and file adapters, which hold their task runs the same way — in memory.
- * For the FILE adapter that is a durability gap, not a detail: it persists definitions only, so the
- * crash recovery built on these functions has nothing to read after a real restart (DAG-003). Two copies of
- * "which task counts as abandoned" could disagree, and a task nobody agrees is stuck is a task nobody
- * recovers — which is the defect this closes.
+ * Shared by the in-memory and file adapters, which both work through this map — one copy of "which
+ * task counts as abandoned", because two could disagree and a task nobody agrees is stuck is a task
+ * nobody recovers.
+ *
+ * DAG-003 changed what that map's LIFETIME is for the file adapter. This docblock used to say it
+ * "persists definitions only, so the crash recovery built on these functions has nothing to read
+ * after a real restart" — true when written, false since, and left standing for a review round after
+ * the change that falsified it. `FileStoragePort` now hydrates this map from disk and persists it
+ * after every mutation, so the recovery path has state under it. These functions do not know or care:
+ * they edit the map, and the port owns when the result reaches disk.
  */
 
 /** Record or clear which worker holds a task, and until when. */

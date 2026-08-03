@@ -51,22 +51,30 @@ export async function hydrateCollection<T>(
  * snapshot is taken when the write starts rather than when it was asked for, so the final file
  * reflects the final Map.
  */
+/**
+ * The coalescing cache, keyed by file path.
+ *
+ * The queued value is a THUNK returning the already-serialisable snapshot, not the collection: it is
+ * only ever spread into `JSON.stringify`, so nothing downstream needs its element type. Storing
+ * `Iterable<unknown>` here would type-erase across the two collections for no gain, and
+ * `code-quality.md` keeps `unknown` for trust boundaries with narrowing — this is neither.
+ */
 const pendingWrites = new Map<string, Promise<void>>();
-const queuedSources = new Map<string, () => Iterable<unknown>>();
+const queuedSources = new Map<string, () => string>();
 
 export async function persistCollection<T>(filePath: string, values: Iterable<T>): Promise<void> {
-  // Snapshot lazily: whoever runs the next write should publish the newest state, not the one its
+  // Serialised lazily: whoever runs the next write should publish the newest state, not the one its
   // own caller happened to hold.
-  queuedSources.set(filePath, () => values as Iterable<unknown>);
+  queuedSources.set(filePath, () => JSON.stringify([...values], null, 2));
   const inFlight = pendingWrites.get(filePath);
   if (inFlight !== undefined) return inFlight;
 
   const run = (async () => {
     try {
       while (queuedSources.has(filePath)) {
-        const source = queuedSources.get(filePath);
+        const serialise = queuedSources.get(filePath);
         queuedSources.delete(filePath);
-        await writeAtomically(filePath, source!());
+        await writeAtomically(filePath, serialise!());
       }
     } finally {
       pendingWrites.delete(filePath);
@@ -82,9 +90,9 @@ export async function persistCollection<T>(filePath: string, values: Iterable<T>
  * A partial write is worse than no write here: the file is read back as the whole truth on restart,
  * so a truncated one would present as a smaller, plausible set of runs rather than as a failure.
  */
-async function writeAtomically(filePath: string, values: Iterable<unknown>): Promise<void> {
+async function writeAtomically(filePath: string, serialized: string): Promise<void> {
   const temporaryFilePath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  await writeFile(temporaryFilePath, JSON.stringify([...values], null, 2), {
+  await writeFile(temporaryFilePath, serialized, {
     encoding: 'utf-8',
     // Owner-only, not the process umask. Task runs carry `inputSnapshot`/`outputSnapshot` payloads,
     // and `storageRoot` can resolve under `XDG_DATA_HOME`; this package already pins `cost-meta.json`

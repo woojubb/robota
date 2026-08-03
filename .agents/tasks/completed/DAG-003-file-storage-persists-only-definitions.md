@@ -243,6 +243,22 @@ still reject.
 The SHOULD — four `node:fs/promises` imports left dead by the extractions — is gone, verified by
 counting uses rather than by reading.
 
+### Review round 5 (PR #1613)
+
+One SHOULD, and it stings: `task-run-recovery.ts`'s docblock still said the file adapter "persists
+definitions only, so the crash recovery built on these functions has nothing to read after a real
+restart (DAG-003)". That sentence is one of this task's own pieces of EVIDENCE — quoted in the Evidence
+section above — and this change falsified it while leaving it standing for four review rounds. The
+repository's own concern, exactly: a stale claim is what stops the next reader from checking, and here
+it could have led someone to remove the persistence calls as unnecessary.
+
+Corrected, and the correction says what changed rather than quietly deleting the old text.
+
+The CONSIDER is taken too. The coalescing cache typed its queued value as `Iterable<unknown>` to erase
+across the two collections; `code-quality.md` keeps `unknown` for trust boundaries with narrowing, and
+this was neither. The queue now holds a thunk returning the serialised string — the value is only ever
+`JSON.stringify`d, so nothing downstream needed the element type at all.
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even
