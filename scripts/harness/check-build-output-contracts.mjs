@@ -10,7 +10,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
@@ -276,6 +275,6 @@ async function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   void main();
 }

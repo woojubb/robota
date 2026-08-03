@@ -111,8 +111,7 @@ export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'workspace-refs',
-    why:
-      'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
+    why: 'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
   });
   const findings = [];
   const packageJsonFiles = listPackageJsonFiles(root);
@@ -172,6 +171,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

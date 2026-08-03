@@ -61,7 +61,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
 
 /** Rule severities that may block. CodeQL severities are: none | note | warning | error. */
 export const BLOCKING_RULE_SEVERITIES = new Set(['error']);
@@ -321,6 +321,6 @@ export function main(argv = process.argv.slice(2)) {
   process.exitCode = decision.blocked ? 1 : 0;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

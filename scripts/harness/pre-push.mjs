@@ -288,6 +288,6 @@ function createPrePushSteps() {
 }
 
 // Guarded so a test can import `runPrePushGate` without running the gate against its own checkout.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   runPrePushGate(createPrePushSteps());
 }

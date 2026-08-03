@@ -184,8 +184,7 @@ function walkFiles(target, root = WORKSPACE_ROOT) {
 export function findUnpaginatedApiQueries(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'api-pagination',
-    why:
-      'The pagination floor governs shipped source; reading no source is not finding it paginated.',
+    why: 'The pagination floor governs shipped source; reading no source is not finding it paginated.',
   });
   const findings = [];
   for (const scanRoot of SCAN_ROOTS) {
@@ -223,6 +222,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

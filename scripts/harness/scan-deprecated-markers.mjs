@@ -17,7 +17,6 @@
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 import { listManifestPackageDirs, listSourceFiles } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
@@ -69,6 +68,6 @@ export function main() {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

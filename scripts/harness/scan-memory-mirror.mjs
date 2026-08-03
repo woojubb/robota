@@ -21,7 +21,6 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -29,8 +28,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.agents/memory'], {
     scan: 'memory-mirror',
-    why:
-      'memory-mirroring.md makes the in-repo memory corpus mandatory here, so its absence is a broken checkout rather than a repository that has not started one.',
+    why: 'memory-mirroring.md makes the in-repo memory corpus mandatory here, so its absence is a broken checkout rather than a repository that has not started one.',
   });
   const memDir = path.join(root, '.agents/memory');
   const index = path.join(memDir, 'MEMORY.md');
@@ -102,6 +100,6 @@ export function main() {
   process.exit(0);
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

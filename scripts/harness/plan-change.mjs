@@ -70,4 +70,6 @@ async function main() {
   }
 }
 
-void main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  void main();
+}

@@ -491,6 +491,6 @@ export async function main(argv = process.argv.slice(2)) {
   if (unverified !== null) write(unverified);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

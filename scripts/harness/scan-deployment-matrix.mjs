@@ -84,8 +84,7 @@ function transportSourceFiles(dir) {
 export function findTransportNames(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'deployment-matrix',
-    why:
-      'Transport names are enumerated FROM the package tree; over an absent one the matrix would read as entirely phantom or entirely complete depending on the caller, neither of which is a measurement.',
+    why: 'Transport names are enumerated FROM the package tree; over an absent one the matrix would read as entirely phantom or entirely complete depending on the caller, neither of which is a measurement.',
   });
   const names = new Set();
   const packagesDir = path.join(root, 'packages');
@@ -166,6 +165,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

@@ -43,6 +43,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 /** GitHub's maximum for `per_page` on the endpoints harness code reads. */
 export const DEFAULT_PER_PAGE = 100;
@@ -191,6 +192,6 @@ function main(argv) {
   process.stdout.write(jq.stdout);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main(process.argv.slice(2));
 }

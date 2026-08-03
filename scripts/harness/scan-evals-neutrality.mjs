@@ -145,8 +145,7 @@ export function findEvalsContentInSource(source, file = 'fixture.ts') {
 export function findEvalsNeutralityFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [LIBRARY_PACKAGES_DIR], {
     scan: 'evals-neutrality',
-    why:
-      'A library-neutrality floor that found no library has not found it neutral (the same repair as scan-memory-neutrality).',
+    why: 'A library-neutrality floor that found no library has not found it neutral (the same repair as scan-memory-neutrality).',
   });
   const findings = [];
   const packagesDir = path.join(root, LIBRARY_PACKAGES_DIR);
@@ -220,6 +219,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

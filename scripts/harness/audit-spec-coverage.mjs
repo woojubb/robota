@@ -34,11 +34,14 @@ async function main() {
     }
   }
 
-  const specCoverage = scopes.length === 0 ? 100 : ((scopes.length - missingSpec.length) / scopes.length) * 100;
-  const indexCoverage = scopes.length === 0 ? 100 : ((scopes.length - missingIndex.length) / scopes.length) * 100;
-  const indexReferenceCoverage = scopes.length === 0
-    ? 100
-    : ((scopes.length - missingIndexReference.length) / scopes.length) * 100;
+  const specCoverage =
+    scopes.length === 0 ? 100 : ((scopes.length - missingSpec.length) / scopes.length) * 100;
+  const indexCoverage =
+    scopes.length === 0 ? 100 : ((scopes.length - missingIndex.length) / scopes.length) * 100;
+  const indexReferenceCoverage =
+    scopes.length === 0
+      ? 100
+      : ((scopes.length - missingIndexReference.length) / scopes.length) * 100;
 
   process.stdout.write(`workspace_scopes=${scopes.length}\n`);
   process.stdout.write(`with_spec=${scopes.length - missingSpec.length}\n`);
@@ -47,7 +50,9 @@ async function main() {
   process.stdout.write(`with_docs_index=${scopes.length - missingIndex.length}\n`);
   process.stdout.write(`without_docs_index=${missingIndex.length}\n`);
   process.stdout.write(`docs_index_coverage=${indexCoverage.toFixed(1)}%\n`);
-  process.stdout.write(`with_spec_reference_in_index=${scopes.length - missingIndexReference.length}\n`);
+  process.stdout.write(
+    `with_spec_reference_in_index=${scopes.length - missingIndexReference.length}\n`,
+  );
   process.stdout.write(`without_spec_reference_in_index=${missingIndexReference.length}\n`);
   process.stdout.write(`index_spec_reference_coverage=${indexReferenceCoverage.toFixed(1)}%\n`);
 
@@ -79,4 +84,6 @@ async function main() {
   process.exitCode = 1;
 }
 
-void main();
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  void main();
+}

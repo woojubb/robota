@@ -16,7 +16,6 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 // HARNESS-046: frontmatter is read by the harness's ONE parser. The hand-rolled `/^name:/m` this
 // replaced was not anchored to the `---` block, so a `name:` inside a body example could become the
@@ -196,6 +195,6 @@ export function main() {
   process.exit(0);
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

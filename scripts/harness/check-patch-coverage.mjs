@@ -385,7 +385,7 @@ function fixtureIo(dir) {
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   const args = process.argv.slice(2);
   if (args[0] === '--detect') {
     // FAIL-CLOSED (HARNESS-052). This used to catch ANY detect error — most reachably an
