@@ -409,7 +409,7 @@ branch-guard                               (existing pointer stub → promote to
 ├─ branch-creation                         (phase)                 ← Feature Branch Workflow,
 │                                                                     One-Branch-At-A-Time check,
 │                                                                     base verification
-├─ pr-finding-resolution-loop                 (existing sub-orch)     ← Pre-Merge Code-Review Gate
+├─ pr-finding-resolution-loop              (existing sub-orch)     ← Pre-Merge Code-Review Gate
 │    ├─ pr-review-reviewer                 (existing agent)
 │    ├─ pr-review-writer                   (existing agent)
 │    └─ pr-review-fixer                    (existing agent)

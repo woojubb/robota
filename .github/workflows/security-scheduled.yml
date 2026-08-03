@@ -2,8 +2,9 @@ name: Security scan (on demand)
 
 # INFRA-044 (part 2): the PR-time `security audit` job runs osv-scanner ONLY when a PR changes
 # package.json / pnpm-lock.yaml, so advisories published against dependencies ALREADY in the lockfile
-# accumulate invisibly (18 did exactly that before INFRA-044 part 1). This scheduled run scans the
-# lockfile on demand so new advisories surface when someone looks, not at the next manifest edit.
+# accumulate invisibly (18 did exactly that before INFRA-044 part 1). This run scans the whole
+# lockfile, so those advisories surface when someone asks — not at the next manifest edit. Nothing
+# asks on a clock any more: it is dispatch-only, so surfacing them is now a deliberate act.
 # Same scanner, same config SSOT (osv-scanner.toml) as ci.yml — one source of accepted-risk truth.
 #
 # INFRA-061: the run used to check out `develop` ONLY, so the branch that is actually released and

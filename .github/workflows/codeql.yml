@@ -13,7 +13,8 @@ name: CodeQL
 #     filed for the owner, not taken here.
 #   - A green tick on a PULL REQUEST is not a repo-clean signal. Every `refs/pull/*/merge` analysis reports
 #     0 results because CodeQL runs diff-informed on PRs: it reports alerts in the CHANGED code, not the
-#     standing inventory. The push/schedule runs on develop are what cover the rest.
+#     standing inventory. The push runs on develop are what cover the rest — and they are the only
+#     thing that does, now that the weekly scan is gone.
 #   - The alert COUNT must be read with `--paginate`. The alerts endpoint sorts by `created` descending and
 #     pages at 100, so a burst of low-severity alerts pushes every high-severity one onto page two and a
 #     single-page query answers `0 high` on any ref — indistinguishable from a clean repository. That false
