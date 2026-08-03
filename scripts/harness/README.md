@@ -144,7 +144,7 @@ These scripts are the executable layer of the Robota harness.
   `cleanup-drift-baseline.json` and may fall but never rise — except `stale-tmp-doc`, which is
   counted from file MTIME and so is reported but never ratcheted or frozen: a fresh checkout resets
   every mtime and can never reach the 14-day threshold, while a working copy whose `.design/tmp/`
-  files have sat that long always will — and a baseline may hold only numbers another checkout can
+  files have sat that long always would — and a baseline may hold only numbers another checkout can
   reproduce. Exit 1 when a type grew, and also when
   one FELL without a re-freeze — `node scripts/harness/cleanup-drift.mjs --write-baseline` records
   the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no

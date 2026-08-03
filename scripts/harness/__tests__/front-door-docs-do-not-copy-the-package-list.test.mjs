@@ -18,8 +18,8 @@ import { listWorkspaceScopes } from '../shared.mjs';
  * `packages/*` enumeration, which fails today"), and deleting the list without it would leave nothing
  * to stop the list coming back — the Task's own thesis, unlearned.
  *
- * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: at `07d1f46c0`, 174 of 2707
- * tracked markdown files enumerate three or more package paths, nearly all of them dated records —
+ * WHY ONLY THESE FOUR DOCUMENTS. A blanket rule is unworkable and measuring says so: 174 tracked
+ * markdown files (of roughly 2.7k) enumerate three or more package paths, nearly all of them dated records —
  * completed Tasks, archived audits, closed spec-docs — where a listing is history and correct as
  * written. (Measured with THIS detector after it was widened to ordered lists. The first figure, 171,
  * was taken before that change and shipped in the same commit as the change — a measurement that no

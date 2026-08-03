@@ -40,7 +40,8 @@ Comparable products, from product documentation (not source):
   [Preventing pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/)
 - **Loop bounding.** Progress detection (identify each finding; if it recurs unchanged, declare stuck and
   escalate). Prior art also recommends a hard max-iteration cap; this loop shipped one and the owner removed
-  it on 2026-08-03 after four consecutive rounds past the cap each found gating items — see
+  it on 2026-08-03, when a pause to ask after round 5 — two rounds past the cap, both of which had
+  found gating items — drew the directive to keep going — see
   [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
   [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
 

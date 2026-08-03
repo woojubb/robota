@@ -89,14 +89,15 @@ it with this change's own detector and got different numbers. The claim was a ju
 KIND stated as if it were a count, which is the same species of error as the drifted list it justified
 removing.
 
-**Measured with the SHIPPED detector, at `07d1f46c0`** — 174 of 2707 tracked markdown files, and 145
-of 1768 root+`.agents` files, enumerate three or more package paths; the owner yields 7, not 3.
+**Measured with the SHIPPED detector** — 174 tracked markdown files, and 145 of the root+`.agents`
+subset, enumerate three or more package paths; the owner yields 7, not 3.
 
-Both the detector version and the commit are named, because this figure has now gone stale twice.
-Round 3 reported 171 and 142 for the same two populations; those were taken before the same commit
-widened the detector to ordered lists, so a corrected figure shipped alongside the change that made it
-wrong (round 5's finding). Round 7 then caught the denominators one behind, because the PR had added
-a file since. A measurement is only as durable as the state it names.
+The DENOMINATORS are deliberately not quoted. This figure went stale three times: round 3 measured
+with a detector the same commit then widened (round 5's finding); round 7 attached a commit name to
+numbers taken at an earlier one (round 8's finding); and any commit this PR adds moves the totals
+again. The numerators are what the argument rests on — a total that changes whenever a file is added
+is a hostage, and quoting one precisely is how a record becomes checkably false rather than merely
+approximate.
 
 What the measurement supports: 134 of the 145 are dated records — completed Tasks, archived audits,
 closed spec-docs — where a listing is history and correct as written. Of the eleven that are not, one

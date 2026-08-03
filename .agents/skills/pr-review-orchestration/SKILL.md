@@ -131,14 +131,26 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    round or merge?" is not a step of this loop: the stopping condition is zero.
 
    Owner directive, 2026-08-03: _"라운드는 계속 돌려. 앞으로도"_ — keep running the rounds, from now on too.
-   It replaced an `iteration >= 3` cap, and the evidence is the PR that was open when it was given
-   (#1615): rounds 4, 5, 6 and 7 each found gating items, so under the cap that PR would have merged
-   with a README linking to three npm packages that do not exist, two new test cases that could not
-   fail, and a record contradicting itself in one paragraph. A stuck loop and a productive one look
-   the same from a counter and different from the finding SET, which is why that is the test kept.
+   It replaced an `iteration >= 3` cap whose action was **STOP and escalate**, so what the cap bought
+   was not a merge but a question, and the directive is that the question is the wrong move.
 
-   The cost is real and is the point: rounds are not free, and the owner has priced them. Do not
-   reintroduce a cap without the owner.
+   The evidence is the PR open when it was given (#1615), stated as the counterfactual it actually is:
+   the cap would have halted the loop after round 3 and handed back an unconverged PR whose state then
+   still contained round 4's findings — among them `README.md`'s Quick Start naming `agent-provider`,
+   a package that does not exist and that the owning document says does not exist, in a front-door
+   document, in the very PR whose HARNESS-068 is about a front-door document naming a package that
+   does not exist. Verified rather than asserted: that line is unchanged from the merge-base through
+   round 3's head.
+
+   (The first version of this paragraph said the PR "would have merged" with three defects it named.
+   Both halves were false — the cap escalates rather than merges, and all three were introduced at
+   round 5, after the cap would have fired, so under the cap they would not exist. A rationale for
+   removing a bound, inverted, in the paragraph telling the next reader not to restore it. Round 8
+   caught it.)
+
+   A stuck loop and a productive one look the same to a counter and different to the finding SET,
+   which is why that is the test kept. The cost is real and is the point: rounds are not free, and the
+   owner has priced them. Do not reintroduce a cap without the owner.
 
 5. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
    MUST/SHOULD fixes). Each fix returns to **Round A** — review the new local diff and record it before pushing

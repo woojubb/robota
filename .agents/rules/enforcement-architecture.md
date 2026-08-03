@@ -69,14 +69,22 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
 
 - **Auto-re-drive (completeness/quality gates)** — the orchestrator automatically re-runs the worker and
   re-checks, converging on a machine signal (the `architecture-refresh` shape: converge on
-  `ACTIONABLE FINDINGS: 0`). Every such loop MUST have an escape, and the escape MUST be **no-progress
-  detection**: if a round returns the same finding set unchanged, stop and escalate to the user. A
-  max-iteration count is an OPTIONAL second bound, not a requirement — a stuck loop and a productive one
-  look identical to a counter and different to the finding set, so the counter is the weaker test and must
-  never be the only one. The PR-review loop runs with no count at all by owner directive (2026-08-03);
-  see [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
-  the evidence for it. Use for gates like prior-art research, spec completeness, and conformance, where
-  "just make it complete" is unambiguous.
+  `ACTIONABLE FINDINGS: 0`). Use for gates like prior-art research, spec completeness, and conformance,
+  where "just make it complete" is unambiguous.
+
+  Every such loop MUST have an escape, and the escape MUST be **no-progress detection**: if a round
+  returns the same finding set unchanged, stop and escalate to the user. A max-iteration count is an
+  OPTIONAL second bound and must never be the only one — a stuck loop and a productive one look
+  identical to a counter and different to the finding set, so the counter is the weaker test. The
+  PR-review loop runs with no count at all by owner directive (2026-08-03); see
+  [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
+  the evidence for it.
+
+  **Contained — HARNESS-071.** Three of the loops this governs do not satisfy the paragraph above
+  today — `architecture-refresh` (which is also the shape named as the exemplar), `documentation-refresh`
+  (count-only) and `capability-extraction`. The rule is stated at its intended strength and the gap is
+  filed rather than deferred in silence; the three are not exempt.
+
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.
 
