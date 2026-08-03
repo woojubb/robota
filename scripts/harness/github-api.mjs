@@ -158,6 +158,11 @@ export function readWithBackoff(
   endpoint,
   { attempts = 3, sleep = sleepSeconds } = {},
 ) {
+  if (!Number.isInteger(attempts) || attempts < 1) {
+    // A loop that never runs would fall through to the trailing throw and report a TypeError about
+    // an undefined response — an error about the error, which tells the caller nothing.
+    throw new Error(`${endpoint}: attempts must be a positive integer, got ${attempts}`);
+  }
   let response;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     response = runner(args);

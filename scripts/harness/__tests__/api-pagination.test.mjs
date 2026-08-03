@@ -291,6 +291,14 @@ describe('a rate-limited read waits and retries (github-api)', () => {
     ).toThrow(/still limited after 2 attempts/);
   });
 
+  it('rejects a non-positive attempt count instead of reporting a TypeError', () => {
+    // A loop that never runs falls through to the trailing throw and dereferences an undefined
+    // response — an error about the error.
+    expect(() =>
+      readWithBackoff(() => ({ status: 0 }), ['api', 'x'], 'x', { attempts: 0 }),
+    ).toThrow(/attempts must be a positive integer/);
+  });
+
   it('does NOT retry an ordinary failure — that would hide a real error behind a wait', () => {
     let calls = 0;
     const runner = () => {
@@ -327,6 +335,22 @@ describe('a parallel fan-out of API calls is flagged (api-pagination)', () => {
   it('does NOT flag a serial page walk — that is the correct shape', () => {
     const script = ['gh api "repos/o/r/actions/runs?per_page=100" --paginate --slurp'].join('\n');
     expect(findParallelFanOut(script, 'ok.sh')).toEqual([]);
+  });
+
+  it('(RED) flags a two-digit `parallel -j` and an UNBOUNDED `-P0`', () => {
+    // The first version alternated digit patterns asymmetrically: `xargs -P` matched two digits and
+    // `parallel -j` did not, so the bigger the fan-out the likelier it passed. And `-P0` — "as many
+    // as possible" — matched nothing at all, so the most aggressive case was the one that slipped.
+    const twoDigit = 'cat ids | parallel -j 16 gh api repos/o/r/x/{}';
+    const unbounded = 'cat ids | xargs -P0 -I{} gh api repos/o/r/x/{}';
+    expect(findParallelFanOut(twoDigit, 'a.sh')).toHaveLength(1);
+    expect(findParallelFanOut(unbounded, 'b.sh')).toHaveLength(1);
+  });
+
+  it('does NOT flag `-P1`, which is serial', () => {
+    expect(findParallelFanOut('cat ids | xargs -P1 -I{} gh api repos/o/r/x/{}', 'c.sh')).toEqual(
+      [],
+    );
   });
 
   it('does NOT flag a parallel job that touches no API', () => {

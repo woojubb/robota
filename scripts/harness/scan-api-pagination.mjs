@@ -182,7 +182,26 @@ export function findUnpaginatedQueries(source, file = 'fixture.sh') {
  * accept it serially, or route the read through the shared helper, which waits out a limit instead
  * of amplifying it.
  */
-const PARALLEL_FAN_OUT = /xargs[^\n]*-P\s*[2-9]|xargs[^\n]*-P\s*\d\d|parallel\s+-j\s*[2-9]|&\s*$/;
+/**
+ * The degree is read as a NUMBER, not matched as a digit.
+ *
+ * The first version alternated digit patterns and was asymmetric between the two tools — one matched
+ * two-digit counts and the other did not — so the larger the fan-out, the likelier it passed. Worse,
+ * the unbounded form (`-P0`, which means "as many as possible") matched nothing at all: the most
+ * aggressive case was the one case that slipped through. Parsing the count removes that whole class:
+ * 0 means unbounded and 1 means serial, so the rule is `n === 0 || n >= 2`.
+ */
+const FAN_OUT_DEGREE = /(?:xargs[^\n]*?-P|parallel[^\n]*?-j)\s*(\d+)/;
+const BACKGROUND_JOB = /&\s*$/;
+
+function fanOutDegree(line) {
+  const match = FAN_OUT_DEGREE.exec(line);
+  if (match) {
+    const degree = Number(match[1]);
+    return degree === 0 || degree >= 2 ? degree : null;
+  }
+  return BACKGROUND_JOB.test(line) ? Number.NaN : null;
+}
 
 export function findParallelFanOut(source, file = 'fixture.sh') {
   const findings = [];
@@ -190,7 +209,7 @@ export function findParallelFanOut(source, file = 'fixture.sh') {
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     if (isCommentLine(line)) continue;
-    if (!PARALLEL_FAN_OUT.test(line)) continue;
+    if (fanOutDegree(line) === null) continue;
     // Only when the thing being fanned out is an API call — a parallel build is not this rule's
     // business. The call may be in the same line or in the function the loop invokes, so the file is
     // searched rather than the line.
