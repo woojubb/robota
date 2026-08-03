@@ -150,6 +150,17 @@ one out. Comments and string literals are now stripped before the test — a gua
 written inside a string, so that is not a narrowing. It is the same counting-prose trap the
 product-identity ratchet hit an hour earlier, met twice in one file.
 
+### Review round 1 (PR #1611)
+
+Two SHOULDs, both leftovers from my own mechanical edit — the sweep removed the now-unused
+`pathToFileURL` import from every file it touched EXCEPT the two that had been using a different
+guard shape, and merged the `node:path` import everywhere except two files that already had a named
+import from it.
+
+Both were fixed by re-running the sweep over the whole directory rather than editing the four files
+review named: the check found exactly those four and nothing else, which is the only way to know the
+list was complete. All four re-run clean.
+
 ### Remaining
 
 - The 24 untested scripts are frozen, not tested. The list is in

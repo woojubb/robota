@@ -7,7 +7,6 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = process.cwd();

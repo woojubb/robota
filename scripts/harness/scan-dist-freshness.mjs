@@ -70,8 +70,7 @@
  */
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import path from 'node:path';
-import { extname, join, relative, sep } from 'node:path';
+import path, { extname, join, relative, sep } from 'node:path';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson } from './shared.mjs';
 

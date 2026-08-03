@@ -17,8 +17,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import path from 'node:path';
-import { join, relative } from 'node:path';
+import path, { join, relative } from 'node:path';
 
 import { listManifestPackageDirs, listSpecPackageDirs } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';

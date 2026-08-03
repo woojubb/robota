@@ -10,7 +10,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { listWorkspaceScopes, readJson, WORKSPACE_ROOT } from './shared.mjs';
 
