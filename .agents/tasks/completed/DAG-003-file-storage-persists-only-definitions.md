@@ -186,6 +186,31 @@ the port back under its size ceiling. (The first attempt at that cut too far and
 `deleteDefinition` with them; typecheck caught it, and the size scan had gone green for the wrong
 reason.)
 
+### Review round 2 (PR #1613)
+
+One MUST and one CONSIDER, both taken.
+
+**A lost-update race under concurrency.** `persistCollection` captured its snapshot synchronously and
+wrote asynchronously with no ordering between calls, so two concurrent mutations could have their
+renames land out of call order and the file regress to a stale snapshot while the Maps stayed
+correct — the exact class of bug this item exists to close, reintroduced one level down.
+
+Forty concurrent writes did NOT reproduce it, which is scheduling luck rather than safety. Delaying
+one write made it deterministic: an older `["a"]` overwrote `["a","b","c"]`.
+
+The reviewer also named the reasoning error precisely. My comment said "there is no concurrent writer
+to lose", conflating a single OS **process** with a single async **caller** — and `dag-worker`'s own
+suite drives concurrent calls into one storage instance via `Promise.all`. Writes are now serialised
+per file and COALESCED: a write in flight means later requests are served by one more write of
+whatever the state is when that write begins, so the final file reflects the final Map. Red-proved by
+removing the serialisation.
+
+**File permissions.** The new run files inherited the umask while this same package already pins
+`cost-meta.json` to `0600` for the same reason (SEC-003 / CWE-377) — and task runs carry
+`inputSnapshot`/`outputSnapshot` payloads, with `storageRoot` able to resolve under `XDG_DATA_HOME`.
+The mode is set on the temp file, so it is in force before any content is written rather than widened
+by a later chmod. Red-proved: 0644 without it.
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even
