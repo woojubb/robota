@@ -1,6 +1,7 @@
 ---
-title: 'HARNESS-071: three convergence loops have no escape, and the rule that now requires one was landed over them'
+title: 'HARNESS-071: six of eight convergence loops have no escape, and the rule that now requires one was landed over them'
 status: todo
+issue: https://github.com/woojubb/robota/issues/1616
 created: 2026-08-03
 priority: medium
 urgency: next
@@ -18,22 +19,32 @@ loop:
 > Every such loop MUST have an escape, and the escape MUST be **no-progress detection**: if a round
 > returns the same finding set unchanged, stop and escalate to the user.
 
-Three of the loops it governs do not have it. The rule was landed in PR #1615 (the PR-review round
-cap removal) and review round 8 found it violated at landing by its own subjects — including the
-exemplar the rule's own sentence names.
+Six of the eight auto-re-drive loops it governs do not have it. The rule was landed in PR #1615 (the
+PR-review round cap removal); review round 8 found it violated at landing by its own subjects —
+including the exemplar the rule's own sentence names — and round 9 found the first count of those
+subjects too low.
 
 ## Evidence
 
 Measured 2026-08-03 at `676265488`:
 
-| Loop                                            | Line   | What it has                                                                                                           |
-| ----------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| `.agents/skills/architecture-refresh/SKILL.md`  | 58     | "**Loop** 1–5 until step 2 says converged" — no escape of any kind                                                    |
-| `.agents/skills/documentation-refresh/SKILL.md` | 28     | a "**round cap** … only a safety checkpoint" — a COUNT-only bound, which the new rule says must never be the only one |
-| `.agents/skills/capability-extraction/SKILL.md` | 28, 36 | "loop until ENDORSE", "Never stop on a round count" — no escape                                                       |
+Of the auto-re-drive pipelines listed in `.agents/specs/orchestration-map.md`, **two of eight satisfy
+the rule**:
 
-Compliant today: `pr-review-orchestration` (Round B step 4) and
-`delegated-refactor-green-gate` (line 86).
+| Loop                                            | Bound today                                                                                                 |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pr-review-orchestration` (Round B step 4)      | **compliant** — finding-identity set comparison                                                             |
+| `delegated-refactor-green-gate` (line 86)       | **compliant** — "if the same findings recur unchanged … terminate"                                          |
+| `architecture-refresh` (line 58)                | "**Loop** 1–5 until step 2 says converged" — no escape of any kind                                          |
+| `documentation-refresh` (line 28)               | a "**round cap** … only a safety checkpoint" — COUNT-only, which the rule says must never be the only bound |
+| `capability-extraction` (lines 28, 36)          | "loop until ENDORSE", "Never stop on a round count" — no escape                                             |
+| `backlog-execution-orchestrator` (lines 59, 93) | "Bounded: 2 revisions" / "Bounded: 2 rounds" — count-only                                                   |
+| `post-merge-cycle` (line 87)                    | "bounded at 2 attempts" — count-only                                                                        |
+| `release-orchestration`                         | count-only per phase (2 re-runs, 2 triages, 3 OTP requests)                                                 |
+
+The first version of this table named three and said the rest were compliant. Review round 9 measured
+the whole set and found six — a containment label that under-scopes its own hold tells the reader the
+unnamed ones are fine, which is the failure the label exists to prevent.
 
 `architecture-refresh` is the loop the rule cites as the exemplar of the shape ("the
 `architecture-refresh` shape: converge on `ACTIONABLE FINDINGS: 0`"), so the rule names as its model

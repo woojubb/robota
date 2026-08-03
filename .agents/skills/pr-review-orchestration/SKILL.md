@@ -142,11 +142,14 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    does not exist. Verified rather than asserted: that line is unchanged from the merge-base through
    round 3's head.
 
-   (The first version of this paragraph said the PR "would have merged" with three defects it named.
-   Both halves were false — the cap escalates rather than merges, and all three were introduced at
-   round 5, after the cap would have fired, so under the cap they would not exist. A rationale for
-   removing a bound, inverted, in the paragraph telling the next reader not to restore it. Round 8
-   caught it.)
+   (Two earlier versions of this paragraph were wrong. The first said the PR "would have merged" with
+   three defects it named: the cap escalates rather than merges, and two of the three — the
+   `agent-transport-webrtc` and `-protocol` npm links — were introduced at round 5, after the cap
+   would have fired. The second said all three postdated the cap; the third, `agent-provider-bytedance`,
+   is PRE-EXISTING — a 404 npm link in the "start here — the minimal set" table, unchanged from the
+   merge-base through round 3's head — which strengthens the counterfactual rather than weakening it.
+   A rationale for removing a bound, wrong twice, in the paragraph telling the next reader not to
+   restore it. Rounds 8 and 9 caught them.)
 
    A stuck loop and a productive one look the same to a counter and different to the finding SET,
    which is why that is the test kept. The cost is real and is the point: rounds are not free, and the

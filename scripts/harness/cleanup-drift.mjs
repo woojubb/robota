@@ -402,6 +402,21 @@ async function main() {
 }
 
 /**
+ * Types whose count comes from the CLOCK rather than from the tree, and so cannot be ratcheted.
+ *
+ * `stale-tmp-doc` counts files in `.design/tmp/` older than 14 days by mtime. Two different runs of
+ * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never reach the
+ * threshold there, while a working copy whose `.design/tmp/` files have sat past 14 days WOULD turn
+ * `pnpm harness:test` red with no code change — the state this exclusion exists to prevent, not one
+ * the tree is in. A ratchet is a claim about a COMMIT; a number that
+ * changes while the commit does not is not one.
+ *
+ * Excluded from the comparison, not from the report — the finding is still printed and still counted
+ * in `findingCount`. If this row ever needs enforcing, derive the age from git rather than mtime.
+ */
+const CLOCK_DERIVED_TYPES = new Set(['stale-tmp-doc']);
+
+/**
  * HARNESS-069: publish the verdict this script already computes.
  *
  * It reported findings and exited 0 — no `process.exit`, no `process.exitCode`, zero matches for
@@ -430,21 +445,6 @@ async function main() {
  * whatever it measures — it is visible: the raised number lands in a tracked file, in the diff, under
  * review. That is the same discipline every other ratchet in this harness runs on.
  */
-/**
- * Types whose count comes from the CLOCK rather than from the tree, and so cannot be ratcheted.
- *
- * `stale-tmp-doc` counts files in `.design/tmp/` older than 14 days by mtime. Two different runs of
- * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never reach the
- * threshold there, while a working copy whose `.design/tmp/` files have sat past 14 days WOULD turn
- * `pnpm harness:test` red with no code change — the state this exclusion exists to prevent, not one
- * the tree is in. A ratchet is a claim about a COMMIT; a number that
- * changes while the commit does not is not one.
- *
- * Excluded from the comparison, not from the report — the finding is still printed and still counted
- * in `findingCount`. If this row ever needs enforcing, derive the age from git rather than mtime.
- */
-const CLOCK_DERIVED_TYPES = new Set(['stale-tmp-doc']);
-
 function publishVerdict(typeGroups) {
   announceBaselineOverride();
   const baseline = loadDriftBaseline();

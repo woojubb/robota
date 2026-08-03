@@ -140,7 +140,7 @@ with the compensating control — when a package is renamed or split, grep the f
 the OLD bare name, because this check will not.
 
 Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
-`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed: the 174-of-2707
+`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed: the 174-file
 figure above, nearly all of them dated records where a listing is history and correct as written. What separates these four is ROLE: a reader of a completed Task knows
 they are reading a record, and a reader of `CONTRIBUTING.md` has no way to know a fresher owner
 exists. The check also asserts that the OWNER still enumerates, so if the listing ever moves, the rule

@@ -80,10 +80,14 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
   the evidence for it.
 
-  **Contained — HARNESS-071.** Three of the loops this governs do not satisfy the paragraph above
-  today — `architecture-refresh` (which is also the shape named as the exemplar), `documentation-refresh`
-  (count-only) and `capability-extraction`. The rule is stated at its intended strength and the gap is
-  filed rather than deferred in silence; the three are not exempt.
+  > **Contained — [HARNESS-071](../tasks/HARNESS-071-three-convergence-loops-have-no-escape.md).**
+  > Measured 2026-08-03: of the auto-re-drive pipelines in
+  > [orchestration-map.md](../specs/orchestration-map.md), only `pr-review-orchestration` and
+  > `delegated-refactor-green-gate` satisfy the paragraph above. The other six —
+  > `architecture-refresh` (which is also the shape named as the exemplar), `documentation-refresh`,
+  > `capability-extraction`, `backlog-execution-orchestrator`, `post-merge-cycle` and
+  > `release-orchestration` — bound on a count or on nothing. The rule is stated at its intended
+  > strength and the gap is filed rather than deferred in silence; none of the six is exempt.
 
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.

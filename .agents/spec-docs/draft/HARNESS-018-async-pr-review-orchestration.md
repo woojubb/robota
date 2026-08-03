@@ -97,9 +97,12 @@ orchestrator shape. No `packages/`/`apps/` source change.
 - **FIXER (worker).** New `.claude/agents/pr-review-fixer.md` (edit-capable): applies fixes on the PR branch; never
   emits the findings verdict (re-review is the reviewer's job).
 - **Orchestrator (new thin skill), synchronous for now.** Route-only: REVIEWER → if `ACTIONABLE FINDINGS: 0` →
-  merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded at **max 3 iterations** + **progress detection**
+  merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded by **progress detection** alone
   (a finding's identity = `file:line + rule/category`; if the same identity recurs unchanged across rounds ⇒ stuck)
-  → escalate to the user. Never merges `main`.
+  → escalate to the user. The design shipped with a `max 3 iterations` cap as well; the owner removed
+  it on 2026-08-03 — see the prior-art note above and
+  [pr-review-orchestration](../../skills/pr-review-orchestration/SKILL.md), which owns the decision.
+  Never merges `main`.
 - **Merge gate — respects [git-branch.md](../../rules/git-branch.md), does not weaken it.** Merge is allowed only
   when the Pre-Merge Code-Review Gate is satisfied: **no unresolved MUST finding, and every SHOULD finding is fixed
   OR filed-and-linked as a justified backlog item** (never silently deferred). `develop`: gated admin-merge after
