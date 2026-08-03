@@ -25,19 +25,17 @@ pnpm dev
 
 ## Project Structure
 
-Robota is a pnpm monorepo. The main packages are:
+Robota is a pnpm monorepo. The package and app listing lives in
+[`.agents/project-structure.md`](.agents/project-structure.md), which owns it — see that document for
+the current set and the dependency-direction rules.
 
-- `packages/agent-core` — Core agent runtime, abstractions, and plugin system
-- `packages/agent-framework` — Assembly layer: `InteractiveSession`, `createQuery()`, config/context loading
-- `packages/agent-session` — Session lifecycle: permissions, hooks, context-window compaction
-- `packages/agent-tools` — Tool infrastructure + 9 built-in tools (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion)
-- `packages/agent-provider` — Consolidated AI providers (Anthropic, OpenAI, Gemini, DeepSeek, Gemma, Qwen, ByteDance)
-- `packages/agent-cli` — Interactive terminal AI coding assistant
-- `packages/agent-command` — Slash command modules (/agent, /help, /provider, /skills, /plugin, …)
-- `packages/agent-transport` — Transport core (headless, testing); TUI, HTTP, WebSocket, and MCP are standalone `agent-transport-{tui,http,ws,mcp}` packages
-- `apps/docs` — Next.js documentation site
-- `apps/www` — Marketing website
-- `apps/agent-web` — Web playground
+This section used to carry a second copy, and it had already drifted: it listed
+`packages/agent-provider`, which does not exist (the repo's own SSOT says so in as many words —
+"There is **NO** bare `agent-provider` package"). `check-dependency-direction.mjs` Rule 9 fails the
+build for a non-existent package named in the owning document's prose, and that rule reached only the
+owning document — so the copy here was the one place the name could rot unnoticed. HARNESS-068: where
+a rule has a mechanism, the mechanism's edge is the blind spot. Linking obeys the one-owner rule
+rather than asking a scan to keep two copies agreeing.
 
 ## Developing New Features
 

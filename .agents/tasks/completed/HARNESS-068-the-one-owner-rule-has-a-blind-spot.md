@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-068: the one-owner rule is enforced by a scan, and the second copy of the list sits just outside its reach'
-status: todo
+status: done
+completed: 2026-08-03
 created: 2026-08-02
 priority: medium
 urgency: next
@@ -67,3 +68,21 @@ found by reading, not by a sweep, so the count of copies is unknown.
 ## User Execution Test Scenarios
 
 **Does not apply.** Documentation and repo tooling only.
+
+## Implementation
+
+Option **2**, as the task judged: the copy is deleted and `CONTRIBUTING.md` links to
+`.agents/project-structure.md`, which owns the list. Extending the scan to a second copy would keep
+two copies and make a scan responsible for their agreement — the arrangement the one-owner rule exists
+to avoid.
+
+**The drift was already real, not hypothetical.** The copy listed `packages/agent-provider`, which
+does not exist — and the owning document says so in as many words ("There is **NO** bare
+`agent-provider` package"). `check-dependency-direction.mjs` Rule 9 fails the build for exactly that
+mistake in the owning document's prose, and its scope stopped there. The blind spot is not adjacent to
+the mechanism; it is the one place the name could rot unnoticed.
+
+The sweep the task asked for was run: of every root and `.agents/` markdown file, only
+`CONTRIBUTING.md` (8 entries) and `.agents/project-structure.md` (3, the owner) carried a list. No
+third copy. The three `apps/` entries in the deleted block were verified to exist before removal, so
+nothing correct was lost with the incorrect entry.

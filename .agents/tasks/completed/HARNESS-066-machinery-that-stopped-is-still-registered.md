@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-066: machinery that stopped producing is still registered, and nothing distinguishes "retired" from "stalled"'
-status: todo
+status: done
+completed: 2026-08-03
 created: 2026-08-02
 priority: medium
 urgency: next
@@ -75,3 +76,31 @@ is the artefact this Task is about; deleting both erases it.
 ## User Execution Test Scenarios
 
 **Does not apply.** No user-facing surface.
+
+## Implementation
+
+Three assets, three decisions, each written where the tree shows it — which is the artefact this task
+is about. Nothing was deleted quietly: the distinction between retired and stalled is what would have
+been erased.
+
+**`daily-reports/` — RETIRED.** Last output `2026-07-19.md` against a repository active through 08-02.
+Retired rather than resumed, on the natural experiment already in the tree rather than on preference:
+this generator is CLOCK-driven and needs an agent to write prose before the artefact is worth
+anything, and it lapsed after three days; `.agents/archive/audits/` is EVENT-driven and has output
+dated 2026-08-02. Same repository, same authors, two cadences, opposite lifespans. A clock-plus-prose
+cadence has no recovery pressure — nothing goes wrong when it stops, which is why it stopped without
+anyone noticing. The existing reports stay as a record of the days they cover; the script remains
+runnable by hand and scheduled by nothing.
+
+**`release-runs/` — RETIRED.** Residue of the pre-changesets workflow, labelled as such, kept so the
+evidence of what happened survives alongside the explanation.
+
+**`local-reviews/` — DEMOTED**, and this one needed more than a sentence. The directory is gitignored,
+so a README explaining the demotion would have been invisible to the next reader — the exact failure
+the demotion is about. `.gitignore` now excludes the directory's CONTENTS rather than the directory,
+because git cannot re-include a file whose parent directory is excluded: the first attempt at the
+negation silently kept ignoring the README, and `git check-ignore` said so. Records stay ignored; the
+explanation is tracked.
+
+No behavioural regression to red-prove, and the task says so itself. Inventing an assertion here would
+pin nothing.

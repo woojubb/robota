@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import fsSync, { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -342,6 +342,11 @@ async function main() {
   }
 
   process.stdout.write(`harness cleanup drift scan: ${driftCount} finding(s)\n`);
+  if (process.argv.includes('--write-baseline')) {
+    writeDriftBaseline(typeGroups);
+    return;
+  }
+  publishVerdict(driftCount, typeGroups);
 
   if (driftCount === 0) {
     process.stdout.write('no drift detected.\n');
@@ -379,6 +384,82 @@ async function main() {
       `\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`,
     );
   }
+}
+
+/**
+ * HARNESS-069: publish the verdict this script already computes.
+ *
+ * It reported findings and exited 0 — no `process.exit`, no `process.exitCode`, zero matches for
+ * either. Whatever it found, a caller heard success. The intent was never ambiguous: the JSON report
+ * it writes carries `passed: driftCount === 0`, so the verdict existed and simply was not published.
+ * "Silence is not success" is a rule of this harness, and this was the one script that could only
+ * succeed.
+ *
+ * A RATCHET rather than a flat gate, for the usual reason: there are findings today (see the frozen
+ * baseline), and a check that is red on arrival is suppressed rather than obeyed. The per-type counts
+ * may fall and must never rise.
+ *
+ * NOT registered as a gate, and that is deliberate. This is `pnpm harness:cleanup`, run by hand; it
+ * appears in no workflow and in `run-all-scans` nowhere. The finding as filed said it was vacuous
+ * "if it is registered as a gate" — it is not, which makes this smaller than it read, and worth
+ * recording in both directions.
+ */
+function publishVerdict(driftCount, typeGroups) {
+  const baseline = loadDriftBaseline();
+  if (baseline === undefined) {
+    process.stderr.write(
+      `no frozen drift baseline — run \`node ${path.relative(WORKSPACE_ROOT, import.meta.filename)} --write-baseline\`.\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const grown = [];
+  const shrunk = [];
+  for (const [type, count] of typeGroups) {
+    const frozen = baseline[type] ?? 0;
+    if (count > frozen) grown.push(`${type}: ${count} (frozen ${frozen})`);
+  }
+  for (const [type, frozen] of Object.entries(baseline)) {
+    const count = typeGroups.get(type) ?? 0;
+    if (count < frozen) shrunk.push(`${type}: ${frozen} → ${count}`);
+  }
+
+  if (grown.length > 0) {
+    process.stderr.write(`\ndrift GREW: ${grown.join(', ')}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  if (shrunk.length > 0) {
+    process.stderr.write(
+      `\ndrift FELL (${shrunk.join(', ')}). Re-freeze it in the SAME change — ` +
+        `--write-baseline — or the gain is a licence to grow back.\n`,
+    );
+    process.exitCode = 1;
+  }
+}
+
+const DRIFT_BASELINE_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/cleanup-drift-baseline.json',
+);
+
+function loadDriftBaseline() {
+  try {
+    return JSON.parse(fsSync.readFileSync(DRIFT_BASELINE_PATH, 'utf8'));
+  } catch (error) {
+    // Absent is "never frozen", which the caller reports. Anything else is a real read failure and
+    // must not be mistaken for it.
+    if (error.code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
+/** Freeze the current per-type drift counts. The set may fall and must never rise. */
+function writeDriftBaseline(typeGroups) {
+  const next = Object.fromEntries([...typeGroups.entries()].sort());
+  fsSync.writeFileSync(DRIFT_BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  process.stdout.write(`drift baseline frozen: ${JSON.stringify(next)}\n`);
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

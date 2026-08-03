@@ -1,4 +1,16 @@
-# Release Runs
+# Release Runs — RETIRED 2026-08-03
+
+**This directory is residue of a retired workflow (HARNESS-066).** Releases moved to changesets; the
+single artefact here (`3.0.0-beta.79.md`) is the last run recorded under the old scheme.
+
+Kept rather than deleted, and labelled rather than left ambiguous: the distinction between "retired"
+and "stalled" is the thing HARNESS-066 exists to preserve, and deleting the directory would erase the
+evidence along with the confusion. `scripts/harness/release-run.mjs` still runs if invoked; nothing
+invokes it.
+
+---
+
+## What it was
 
 This directory stores live release-run state artifacts created by:
 

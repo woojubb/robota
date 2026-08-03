@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-069: `cleanup-drift` has no non-zero exit path at all — it cannot report a failure to anything that runs it'
-status: todo
+status: done
+completed: 2026-08-03
 created: 2026-08-02
 priority: low
 urgency: later
@@ -63,3 +64,27 @@ not reach it. A script with **no** exit path is invisible to a check that looks 
 ## User Execution Test Scenarios
 
 **Does not apply.** Repo tooling only.
+
+## Implementation
+
+The decision the task asks for: **it should fail**, and the evidence for that is inside the script.
+Its JSON report already carries `passed: driftCount === 0` — the verdict existed and was simply never
+published. This was the one script in the harness that could not break "silence is not success".
+
+A RATCHET rather than a flat gate, for the reason every other one in this session used: there are 71
+findings today, and a check that is red on arrival is suppressed rather than obeyed. Per-type counts
+are frozen in `cleanup-drift-baseline.json`; they may fall and must never rise, and a fall demands a
+re-freeze in the same change.
+
+Red-proved both directions and at the CLI: lowering a frozen count exits 1 with `drift GREW`, raising
+one exits 1 with `drift FELL`, and removing the single `publishVerdict` call makes both cases fail
+while the pass case still passes.
+
+**The correction the task itself recorded is preserved and pinned.** This is not registered as a gate
+— `pnpm harness:cleanup`, run by hand, absent from `run-all-scans` and every workflow — so the finding
+was smaller than it read. A case now asserts that absence, so a later registration has to come past it
+and reckon with the ratchet first rather than inheriting a green.
+
+One measurement error worth recording: my first check read `node … | tail -2; echo $?` and reported
+exit 0. `$?` after a pipe is the LAST command's status, so I was reading `tail`. Measured again
+without the pipe: exit 1, correct all along.

@@ -1,0 +1,6 @@
+{
+  "blind-assertion-any": 1,
+  "blind-assertion-unknown": 30,
+  "dynamic-import": 8,
+  "spec-missing-sections": 32
+}

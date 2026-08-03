@@ -1,4 +1,25 @@
-# Daily work reports (OBSERVABILITY-001)
+# Daily work reports (OBSERVABILITY-001) — RETIRED 2026-08-03
+
+**This generator is retired. It is not stalled, and the difference is the point (HARNESS-066).**
+
+Last output: `2026-07-19.md`, while the repository stayed active through 08-02 — three days of
+reports, then fourteen days of silence that nothing reported. A reader could not tell a decision from
+a lapse, and neither could a scan.
+
+Retired rather than resumed, on evidence rather than preference. A natural experiment already ran in
+this tree: this generator is CLOCK-driven and needs an agent to write prose before the artefact is
+worth anything, and it lapsed. `.agents/archive/audits/` is EVENT-driven and has output dated
+2026-08-02. Same repository, same authors, two cadences, opposite lifespans. A clock-plus-prose
+cadence has no recovery pressure — nothing goes wrong when it stops, which is exactly why it stopped
+without anyone noticing.
+
+The existing reports stay: they are a record of the days they cover. `scripts/harness/daily-report.mjs`
+and the `daily-report` skill remain runnable by hand for anyone who wants a day filled in; nothing
+schedules them.
+
+---
+
+## What it was
 
 One **committed** markdown report per **UTC day that had work** (git commits), named `YYYY-MM-DD.md`. This is
 a durable, reviewable record of what was done each day. No-work days have no report. (Note: this lives at
