@@ -80,21 +80,11 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   [pr-review-orchestration](../skills/pr-review-orchestration/SKILL.md), which owns that decision and
   the evidence for it.
 
-  > **Contained — [HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md).**
-  > Measured 2026-08-03: of the thirteen `.agents/skills/*/SKILL.md` a keyword grep for re-drive
-  > language matches, **two** carry the escape — `pr-review-orchestration` and
-  > `delegated-refactor-green-gate`. The rest do not, `architecture-refresh` among them, which is the
-  > shape this bullet names as its exemplar, and it has no bound at all rather than a count-only one.
-  > The Task carries the command and its verbatim output; treat the result as a lower bound rather
-  > than a census, because a keyword grep both misses loops and sweeps in steps that are not
-  > finding-set loops, and it reads only `.agents/skills/`. The `.agents/rules/` tree was swept
-  > separately, TWICE: the first sweep's patterns missed `spec-workflow.md`'s "the loop repeats until
-  > zero discrepancies remain" (`repeats until` ≠ `repeat until`), which review found. Both it and
-  > `research.md` are corrected in this change rather than contained, and the widened sweep now
-  > returns only ESCAPE. That a method's own gap was the finding is the argument for the Test Plan:
-  > establishing the set mechanically is HARNESS-071's. The rule is
-  > stated at its intended strength and the gap is filed rather than deferred in silence; nothing
-  > outside the two is exempt.
+  > **Contained — [HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md).** Most
+  > auto-re-drive loops in this repository do not satisfy the paragraph above, including the shape
+  > named as its exemplar. The rule is stated at its intended strength and the gap is filed rather
+  > than deferred in silence; the Task carries the measurement, its method and its limits, and nothing
+  > outside the loops it names is exempt.
 
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.

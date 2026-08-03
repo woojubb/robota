@@ -19,24 +19,19 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Contradiction Between Rules
 
 - **A contradiction between two rules is a defect of the rule set, and closing the instance does not
-  close it.** When one document's normative claim negates another's, fix the losing text AND ask what
-  let the pair diverge — almost always a fact written in two places. Prefer deleting the restatement
+  close it.** When one document's normative claim negates another's, correct the losing text AND ask
+  what let the pair diverge — usually one fact written in two places. Prefer deleting the restatement
   to keeping both and checking them.
-- **A rule you believe is wrong is still in force until amended**, and the minimum evidence of an
-  amendment attempt is a filed backlog item — [rules/index.md](index.md) § "Amendable by amendment"
-  owns that bar. Recording a contradiction without filing anything leaves the rule set exactly as
-  contradictory as it was.
-- **The precedence chain resolves a conflict for a reader; it does not license one.** `agent-conduct.md`
-  ordering (user instructions > RCP conduct > other rules > default) says which side wins when two
-  texts disagree. It is not a reason to leave them disagreeing: a rule a reader must override to obey
-  another rule has already failed at the only job a rule has.
-- **When landing a rule, sweep the tree for what it now contradicts** — including drafts, specs, the
-  orchestration map and `.agents/memory/`, not only `.agents/rules/`. A MUST is not in force while
-  another document permits its negation; record the sweep and its result in the change that lands it.
-- Owner directive, 2026-08-03: contradictions are improved CONTINUOUSLY, not once when noticed. The
-  standing gap — nothing detects a contradiction between two documents, only forbidden phrases inside
-  one — is [HARNESS-072](../tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md),
-  which carries the measured evidence and the tractable first checks.
+- **A rule believed wrong is still in force until amended**, and a filed backlog item is the minimum
+  evidence of an amendment attempt — [rules/index.md](index.md) § "Amendable by amendment" owns that
+  bar. Recording a contradiction without filing anything leaves the rule set as contradictory as it
+  was.
+- **The precedence chain resolves a conflict for a reader; it does not license one.** Precedence says
+  which side wins when two texts disagree. It is not a reason to leave them disagreeing: a rule a
+  reader must override to obey another rule has failed at the only job a rule has.
+- **When landing a rule, sweep for what it now contradicts** — skills, drafts, specs, registries and
+  in-repo memory, not only the rules tree — and record the sweep and its result in the same change. A
+  MUST is not in force while another document permits its negation.
 
 ### Enforcement Preference
 

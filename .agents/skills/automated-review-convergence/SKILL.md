@@ -57,9 +57,9 @@ reviewer argues from a universal engineering principle and a rule in this repo s
 X" is not a refutation; neither is agreeing with the reviewer and quietly departing from the rule. The rule
 binds until amended, and the minimum evidence of an amendment attempt is a filed backlog item — so the honest
 resolutions here are **fixed** (comply and file the amendment) or **deferred** (file it, say so on the PR),
-never a fourth thing. See [agent-conduct.md](../../rules/agent-conduct.md) § "A local rule is an encoding, not
-the ground truth" and [rules/index.md](../../rules/index.md) § "Amendable by amendment", which own the
-precedence, the narrow exceptions and the bar. This loop's job is to surface the case, not to settle it by
+never a fourth thing. See [agent-conduct.md](../../rules/agent-conduct.md) § "A local rule is an encoding"
+and [rules/index.md](../../rules/index.md) § "Amendable by amendment", which own the precedence, the
+narrow exceptions and the bar. This loop's job is to surface the case, not to settle it by
 citation in either direction.
 
 ### 3. A finding on a line you touched may be pre-existing

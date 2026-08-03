@@ -3,51 +3,59 @@
 All rules are mandatory and non-negotiable. Domain-specific rules live in
 [skills index](../skills/index.md) and [package specs](../../packages/*/docs/SPEC.md).
 
-## Amendable by amendment — and mandatory until then
+## Amendable by amendment
 
 Read this section as a constitution reads: **every rule here is MANDATORY, and the only thing that
 changes one is an amendment.** Both halves are load-bearing, and the second must never be heard as
 softening the first.
 
 **While a rule stands, it binds.** Disagreeing with it does not suspend it. Neither does judging it
-mis-encoded, inconvenient, inapplicable here, or wrong. You do not quietly deviate, reinterpret it
-into non-existence, or downgrade it to a recommendation because you have an argument against it — an
+mis-encoded, inconvenient, inapplicable here, or wrong. Do not quietly deviate, reinterpret it into
+non-existence, or downgrade it to a recommendation on the strength of an argument against it: an
 argument is the input to an amendment, not an exemption from the rule.
 
-**It changes only by amendment**, because a rule in this tree is the current best ENCODING of an
-engineering intent — usually a universal principle, sometimes a decision about this repository — and
-an encoding can be wrong, or right when written and wrong later. When that is demonstrated the rule
-changes, through the procedure and not around it.
+**A rule changes only by amendment**, because a rule is the current best encoding of an engineering
+intent — usually a universal principle, sometimes a decision about this repository. An encoding can be
+wrong, or right when written and wrong later. When that is shown, the rule changes through the
+procedure and not around it.
 
-**The minimum evidence that an amendment was ATTEMPTED is a filed backlog item.** Below that bar
-nothing has been attempted: an objection in a PR comment, a paragraph in a commit message, a
-disagreement stated and then acted on is not an amendment, it is non-compliance wearing an argument.
-So the standing instruction is exact:
+**A filed backlog item is the minimum evidence that an amendment was attempted.** Below that bar
+nothing has been attempted: an objection in a review comment, a paragraph in a commit message, or a
+disagreement stated and then acted on is non-compliance, not amendment. Therefore:
 
-- **If you are not going to file it, the rule is mandatory and you comply.** That is the honest
-  description of that state, and saying "mandatory" of it is correct.
-- **If you believe the rule is wrong, file the item** — root cause, the principle it fails, the text
-  you would change — and comply meanwhile. Amending and obeying are not alternatives; the change that
-  proposes the amendment still lands under the current rule unless the owner decides otherwise.
-- **An amendment that lands must leave nothing contradicting it**, or the amendment is only partial:
+- Not filing it means the rule is mandatory and is complied with. "Mandatory" is the accurate
+  description of that state.
+- Believing a rule is wrong means filing the item — the intent it fails, and the text to change — and
+  complying meanwhile. Amending and obeying are not alternatives; a change that proposes an amendment
+  still lands under the current rule unless the owner decides otherwise.
+- An amendment that lands must leave nothing contradicting it, or it is only partial:
   [learning-loop.md](learning-loop.md) § "Contradiction Between Rules".
 
-Three consequences worth stating, because each was learned by getting it wrong:
+An argument from a universal principle outranks a rule here by carrying an amendment, not by being
+persuasive when raised — [agent-conduct.md](agent-conduct.md) § "A local rule is an encoding" states
+the precedence and its exceptions.
 
-- **An outside argument from a universal principle can beat a rule here** — by carrying an amendment,
-  not by being persuasive at the moment it is raised. Precedence and the narrow exceptions:
-  [agent-conduct.md](agent-conduct.md) § "A local rule is an encoding, not the ground truth".
-- **A contradiction between two rules is a defect of the rule set**, closed continuously rather than
-  when someone notices: [learning-loop.md](learning-loop.md) § "Contradiction Between Rules".
-- **A rule nothing can check is a wish.** Preferring a mechanical floor over more prose is itself a
-  rule ([learning-loop.md](learning-loop.md) § Enforcement Preference) — and a rule whose subjects
-  violate it at landing is filed, not assumed
-  ([HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md) is the live example).
+## How a rule is written
 
-A rule set that treats itself as terminal stops being a description of how to build well and becomes
-a thing to be satisfied. A rule set whose "revisability" is a disposition rather than a procedure
-decays the other way, into advice. Neither failure announces itself, which is why the amendment bar
-is written here as a bar and not as an attitude.
+**A rule states an invariant, universally and neutrally.** A reader must be able to obey it without
+knowing any history, and it must hold for a repository that shares none of this one's incidents.
+
+- **No case narrative.** Numbers of pull requests, issues or review rounds; dates; task identifiers;
+  "this happened when…", "measured on…", named past failures — none of these belong in a rule. The
+  incident that prompted a rule is evidence for adopting it, not part of it, and it belongs in the
+  record that owns it: a task, a lesson, a spec document, or a commit message.
+- **Two reasons, and the second is the stronger.** Every line of a rule is loaded before any work
+  begins, so narrative costs attention on every task forever. And a rule justified by an incident
+  invites the reader to judge whether their case resembles it — which is exactly the discretion a rule
+  exists to remove.
+- **No repository specifics where a general statement does the same work.** Package names, product
+  names and vendor details make a rule that applies here and nowhere else; put them in the package
+  specification or the skill that owns the domain.
+- **The test.** Delete every proper noun, number and date from a rule and read what remains. If the
+  invariant survives, the deleted matter was not carrying it. If it does not survive, the rule was a
+  story, and the invariant behind it has not been written yet.
+- Adding a rule replaces prose only when nothing mechanical can carry it — see
+  [learning-loop.md](learning-loop.md) § Enforcement Preference.
 
 ## Top-Level Rules
 

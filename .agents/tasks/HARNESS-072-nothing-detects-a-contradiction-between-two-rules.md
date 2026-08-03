@@ -64,8 +64,7 @@ a well-founded universal principle appears nowhere in it, so by the letter, citi
 always a valid refutation of a review finding. That is the same defect one level up: the rule set
 treating itself as terminal.
 
-Fixed in #1615 at the authority level — `agent-conduct.md` § "A local rule is an encoding, not the
-ground truth" (with the narrow exceptions: rules encoding a repo-specific fact or an owner decision),
+Fixed in #1615 at the authority level — `agent-conduct.md` § "A local rule is an encoding" (with the narrow exceptions: rules encoding a repo-specific fact or an owner decision),
 `rules/index.md` § "This rule set is not the end of the argument", and the judging step of
 `automated-review-convergence`. What remains for this item is the MECHANISM, because the failure is
 silent by nature:
