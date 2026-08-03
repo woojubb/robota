@@ -37,9 +37,9 @@ An orchestration skill may coordinate other skills as a pipeline, but it must st
 boundaries these bullets apply — which content is a rule, an orchestration skill, an agent, or a fact
 catalogue.
 
-Relocated from `backlog-execution.md` (HARNESS-049): the rule governs how skills are written, not how a
-backlog item is executed. The `or packages` clause is that section's fourth Layering-Rule bullet, folded
-in here because it constrains skills; the other three were package-ownership statements and moved to
+This governs how skills are WRITTEN, not how a backlog item is executed, which is why it lives here.
+The `or packages` clause belongs with it because it constrains skills; package-ownership statements
+belong with the packages, in
 [`.agents/project-structure.md`](../project-structure.md) § Implementation Owner Boundaries.
 
 ## Reliability comes from (verdict + a script), not from skill-tree depth
@@ -76,7 +76,7 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   returns the same finding set unchanged, stop and escalate to the user. A max-iteration count is an
   OPTIONAL second bound and must never be the only one — a stuck loop and a productive one look
   identical to a counter and different to the finding set, so the counter is the weaker test. The
-  PR-review loop runs with no count at all by owner directive (2026-08-03); see
+  PR-review loop runs with no count at all by owner directive; see
   [pr-finding-resolution-loop](../skills/pr-finding-resolution-loop/SKILL.md), which owns that decision and
   the evidence for it.
 
@@ -99,12 +99,12 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
    that only produces, a guardian that only judges. Add a tier only when a phase owns its own ordering
    (see the nesting note above) — never to make a step more likely to run.
 
-## Three questions a guard must answer (PROC-003)
+## Three questions a guard must answer
 
 In this order. The first two were already asked here; the third is what four independent audits added.
 
 1. **Can it fail?** — a check with no failing input is a check that has never been run.
-   (`scan-main-required-checks`, INFRA-055.)
+   (`scan-main-required-checks`.)
 2. **Does it check the right thing?** — a check that fires on the wrong subject is not a weaker check,
    it is a different one. (`.agents/memory/check-validity-two-axes.md`.)
 3. **Is it REACHED — by the real invocation, in the real environment?**
@@ -112,16 +112,16 @@ In this order. The first two were already asked here; the third is what four ind
 A test that supplies the condition itself, an entry point nothing calls, and a matcher no real command
 hits all pass 1 and 2 and fail 3. Each has been measured here:
 
-- `pre-push-check` matched with a `^` anchor while every command begins `cd <repo> && …`, so every push
-  in a long session bypassed it silently (#1510).
-- `worktree-cwd-guard` gated on `ROBOTA_AGENT_WORKTREE`, exported by nothing but its own tests, so it
-  exited on its first line in every real session while ten tests stayed green (INFRA-068).
-- `verify-like-ci` named itself the CI-equivalent entry point and was invoked by nothing (INFRA-069).
+- A guard anchored its match to the start of the command while every real command begins by changing
+  directory first, so every invocation in a long session bypassed it silently.
+- A guard gated itself on an environment variable exported by nothing but its own tests, so it exited
+  on its first line in every real session while ten tests stayed green.
+- An entry point named itself the CI-equivalent gate and was invoked by nothing.
 
 So a guard lands with a case that RUNS it as a real invocation would, supplying only what a real
 session supplies.
 
-## Two more properties, measured (2026-08-01)
+## Two more properties, measured
 
 Both are about what a guard does when it is NOT blocking, which is almost all of the time, and
 neither is visible in a suite of negative cases.
@@ -154,8 +154,8 @@ violated. Which kind a hook is, is read from the hook itself.
 
 ### Silence is not success — the rule, for every layer
 
-**Owner directive, 2026-08-02. This binds every skill, every hook, and every GitHub Action step, not
-only the shell guards above.**
+**Owner directive. This binds every skill, every hook, and every GitHub Action step, not only the
+shell guards above.**
 
 > When something goes wrong, do not complete quietly. Say what went wrong, and stop the flow.
 
@@ -166,10 +166,10 @@ Three states must stay distinguishable, and collapsing the third into the first 
 3. **I could not check.** → **refuse, naming what could not be read.** Never a pass, and never a
    refusal wearing the wrong reason.
 
-**The price of getting this wrong is on the record.** INFRA-048 measured
-`claude-code-review` at **100 of 100 green runs, 13–21 s each, reviewing nothing**: the action could
-not mint a token, printed a skip line, and exited 0. A hundred pull requests merged past a check that
-reported success without asking anything. Nothing announced either edge of the window.
+**The price of getting this wrong has been measured.** A review action that could not mint a token
+printed a skip line and exited 0: **100 of 100 green runs, 13–21 s each, reviewing nothing**. A
+hundred pull requests merged past a check that reported success without asking anything, and nothing
+announced either edge of the window.
 
 Concretely, in each layer:
 
@@ -184,12 +184,12 @@ Concretely, in each layer:
 - **A skill** that cannot complete a step reports the step it could not complete and halts, rather
   than converging on a count it never earned.
 
-**The reason must be the real one.** "The push was stopped for a reason that was not the reason"
-(INFRA-077) costs the next reader the whole debugging trail: they fix what the message named, re-run,
+**The reason must be the real one.** A push stopped for a reason that was not the reason costs the
+next reader the whole debugging trail: they fix what the message named, re-run,
 and get the same refusal. A guard that cannot read its input says so, in those words.
 
 Floors: `guards-fail-closed.test.mjs` covers the hook layer, including a `gh` that cannot
-authenticate — the token condition INFRA-048 was about. An Action step is not mechanically covered
+authenticate — the token condition above. An Action step is not mechanically covered
 yet; when one is added, its `|| echo` fallbacks are the first thing to read.
 
 The two pull against each other on purpose. Property 5 alone produces a guard that refuses

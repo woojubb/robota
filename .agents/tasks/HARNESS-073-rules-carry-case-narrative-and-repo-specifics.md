@@ -154,6 +154,36 @@ lived.
 are mostly attached to `**Why:**` clauses where the case IS the justification, so each needs the
 invariant restated before the citation can go.
 
+### Sweep 2 — `enforcement-architecture.md` and `backlog-execution.md`, then `git-branch.md`
+
+**104 → 52**, and one document holds everything that is left: `common-mistakes.md`.
+
+These three were the class the audit called load-bearing, and they came out the same way each time —
+the citation was doing work the invariant should have been doing, so the invariant got written and the
+citation stopped being needed:
+
+- Three bullets naming three particular guards that were unreachable became three MECHANISMS: a guard
+  anchored to the start of a command every caller prefixes; a guard gated on an environment variable
+  exported by nothing but its own tests; an entry point that named itself the gate and was invoked by
+  nothing. The names were this repository's; the shapes are anyone's, and the shapes are the warning.
+- "A check that reported success without asking anything" kept its measurement — a hundred consecutive
+  green runs of 13–21 seconds, reviewing nothing — and lost the identifier and the product name. The
+  number is the force; the name of the action it happened to be is not.
+- The deletion hazard was told as one branch's story. Restated as the condition it is: a branch name
+  reused across several pull requests carries their merges, so a count of merged pull requests reads
+  greater than zero while the CURRENT one is open — and the deletion proceeds and closes it.
+- Two dated "measured on" openings became plain measurements. A finding does not become truer for
+  having a date on it, and it does become easier to dismiss as belonging to a past that has moved on.
+
+Refactor history came out wholesale: which document a section was relocated FROM is not a rule, and
+three pointer stubs each spent a line on the identifier of the change that created them.
+
+Baseline re-frozen at 52 in the same change.
+
+**What remains is one document and one constraint.** `common-mistakes.md` is entry-numbered and its
+numbering is referenced by a hook, a scan, another rule and a skill checklist — so every entry is
+rewritten in place, never renumbered and never deleted, and that is a separate pass.
+
 ## Test Plan
 
 - **Required red-first regression:** a mechanical check that a rule document contains no case
