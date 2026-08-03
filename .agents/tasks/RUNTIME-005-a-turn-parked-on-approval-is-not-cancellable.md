@@ -1,6 +1,6 @@
 ---
 title: 'RUNTIME-005: a turn parked on a human-approval prompt cannot be cancelled, and the framework flag that hides it has no owner'
-status: todo
+status: in-progress
 created: 2026-08-02
 priority: high
 urgency: next
@@ -88,3 +88,54 @@ lets a live turn interleave with its successor, which is the defect, not the rem
   the next prompt until it is discarded.
 - **Cleanup:** none.
 - **Evidence (fill in after implementation):** transcript excerpt.
+
+## Implementation — stage 1 of 2
+
+### The approval wait, closed
+
+`promptForApproval` awaited a consumer-supplied handler with no signal and no timeout, exactly as the
+finding says. The turn's signal already reaches the tool wrapper as `context.signal` (CORE-018) and
+stopped there, so the fix is a thread, not a new channel: wrapper → `checkPermission` → the wait.
+
+Cancelling **denies**. That is the load-bearing choice, not a detail: if a cancelled approval read as
+approval, aborting a turn would become a way to run an unapproved tool. Denial is also the answer the
+enforcer already gives when no approver is attached, so the fail-closed path is one path rather than
+two.
+
+Red-proved eight ways, and every case RACES against a timer. The task asks for that explicitly and it
+matters: the first draft of the deny case awaited outright and took the suite's 10-second timeout with
+it, which proves only that something was slow. Two of the eight go through the tool wrapper, because
+wiring `checkPermission` alone would have left the defect exactly as it was — removing the wrapper's
+one argument still fails that case while every enforcer-level case passes.
+
+### One correction to the finding
+
+**A running tool IS given the signal.** `tool-execution-batch.ts` checks `signal.aborted` before
+starting, as the finding says — but it also passes `createExecutionContext(request,
+batchContext.signal)`, so a tool that honours its `context.signal` is cut mid-flight. CORE-018 makes
+that the tool's obligation in as many words: "Long-running tools MUST honor it … Completing silently
+after an abort is a contract violation."
+
+So the gap is not a missing channel; it is that nothing verifies tools honour it. That is a different
+item with a different shape (a conformance check over tool implementations), and it is not folded in
+here.
+
+### The size ceiling, and where it put the seam
+
+The enforcer passed its frozen size, so the approval path moved to `abortable-approval.ts`. The seam
+is real rather than convenient: that module decides whether a human said yes; the enforcer decides
+whether a human is asked at all. Side effects come back as flags, so the enforcer keeps ownership of
+its own allow lists.
+
+It also removed a duplication that was there before this change: both prompt paths interpreted
+`allow-session` / `allow-project` in their own copy. Two readings of "does this answer grant
+permission" that can drift, now one.
+
+### Remaining — stage 2
+
+- **The `executing` flag has three writers and no owner**
+  (`interactive-session-execution-controller.ts:274/385/423`), which is the LOCAL half of this item
+  and untouched. Verified still true.
+- **Tool cooperation with the signal is unverified.** The channel exists; nothing checks that
+  long-running tools use it, and the CORE-018 contract is prose. Worth its own item rather than a
+  sentence here.
