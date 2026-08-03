@@ -168,3 +168,41 @@ describe("DAG-001's sweep has something to recover after a restart (DAG-003)", (
     expect(stale).toEqual([]);
   });
 });
+
+/**
+ * The two mutators the first pass missed.
+ *
+ * Review round 1 found them: `saveTaskRunSnapshots` and `incrementTaskAttempt` mutated the Map and
+ * never persisted, while every other task-run mutator was migrated. The SPEC row this change wrote
+ * — "definitions, runs and task runs — all three survive a restart" — was therefore false for these
+ * fields, and no case covered them, so the suite was accidental-green against its own claim.
+ *
+ * `attempt` is the load-bearing one: `worker-failure-handler` increments it on each retry and the
+ * retry LIMIT is counted from it, so a crash mid-retry-loop reset the count and let a task retry past
+ * its configured maximum.
+ */
+describe('every task-run mutator reaches the disk (DAG-003)', () => {
+  it('the retry attempt count survives — a reset lets a task exceed its limit', async () => {
+    const root = storageRoot();
+    const before = new FileStoragePort(root);
+    await before.createTaskRun(taskRun({ taskRunId: 'retried' }));
+    await before.incrementTaskAttempt('retried');
+    await before.incrementTaskAttempt('retried');
+
+    // Against the defect this is 1 — the creation persisted, the increments did not.
+    expect((await new FileStoragePort(root).getTaskRun('retried'))?.attempt).toBe(3);
+  });
+
+  it('snapshots and credits survive', async () => {
+    const root = storageRoot();
+    const before = new FileStoragePort(root);
+    await before.createTaskRun(taskRun({ taskRunId: 'snapshotted' }));
+    await before.saveTaskRunSnapshots('snapshotted', '{"in":1}', '{"out":2}', 5, 7);
+
+    const restarted = await new FileStoragePort(root).getTaskRun('snapshotted');
+    expect(restarted?.inputSnapshot).toBe('{"in":1}');
+    expect(restarted?.outputSnapshot).toBe('{"out":2}');
+    expect(restarted?.estimatedCredits).toBe(5);
+    expect(restarted?.totalCredits).toBe(7);
+  });
+});

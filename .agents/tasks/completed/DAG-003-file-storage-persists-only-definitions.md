@@ -164,6 +164,28 @@ were already in the data:
 Moving the definition directory walk there was the last step, because knowing that a version is a
 `<number>.json` is the layout module's subject, not the port's.
 
+### Review round 1 (PR #1613)
+
+One MUST, upheld, and it made the suite accidental-green against its own claim: `saveTaskRunSnapshots`
+and `incrementTaskAttempt` mutated the Map and never persisted, while every other task-run mutator was
+migrated. The SPEC row this change wrote — "all three survive a restart" — was therefore false for
+those fields, and no case covered them.
+
+`attempt` is the load-bearing one. `worker-failure-handler` increments it on each retry and the retry
+LIMIT is counted from it, so a crash mid-retry-loop reset the count and a task could retry past its
+configured maximum. That is worse than losing a value: the store then actively reports a wrong one.
+Red-proved — two increments then a restart read back `1`.
+
+Fixing the two review named would have been the same mistake, so a mechanical sweep checked every
+public method: each that mutates the Maps must hydrate first and persist after, and each that reads
+them must hydrate. Result: none missing. The two were the whole set.
+
+Both moved into `task-run-recovery.ts` beside `applyTaskRunLease`, which already owned pure edits to
+the task-run Map — the port keeps only WHEN they happen and when they reach disk. That also brought
+the port back under its size ceiling. (The first attempt at that cut too far and removed
+`deleteDefinition` with them; typecheck caught it, and the size scan had gone green for the wrong
+reason.)
+
 ### Remaining
 
 - The default `queue` and `lease` ports are still in-memory, so a restart loses queued messages even

@@ -43,3 +43,52 @@ export function selectStaleRunningTaskRuns(
       (taskRun.leaseUntil === undefined || taskRun.leaseUntil <= asOfIso),
   );
 }
+
+/**
+ * Merge the snapshot/credit fields onto a task run, leaving absent arguments untouched.
+ *
+ * Beside `applyTaskRunLease` because it is the same kind of thing — a pure edit to the task-run Map,
+ * with the port owning only when it happens and when it reaches disk. Moved here when the port passed
+ * its size ceiling; the boundary was already drawn by the module that held the other two.
+ */
+export function applyTaskRunSnapshots(
+  taskRuns: Map<string, ITaskRun>,
+  taskRunId: string,
+  inputSnapshot?: string,
+  outputSnapshot?: string,
+  estimatedCredits?: number,
+  totalCredits?: number,
+): boolean {
+  for (const [key, taskRun] of taskRuns.entries()) {
+    if (taskRun.taskRunId !== taskRunId) continue;
+    taskRuns.set(key, {
+      ...taskRun,
+      inputSnapshot: typeof inputSnapshot === 'string' ? inputSnapshot : taskRun.inputSnapshot,
+      outputSnapshot: typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot,
+      estimatedCredits:
+        typeof estimatedCredits === 'number' ? estimatedCredits : taskRun.estimatedCredits,
+      totalCredits: typeof totalCredits === 'number' ? totalCredits : taskRun.totalCredits,
+    });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Advance a task run's attempt counter.
+ *
+ * The retry LIMIT is counted from this value, so the caller must persist the result — leaving it in
+ * memory let a crash mid-retry-loop reset the count and a task retry past its configured maximum.
+ * Returns whether anything changed, so the caller does not write on a miss.
+ */
+export function applyTaskAttemptIncrement(
+  taskRuns: Map<string, ITaskRun>,
+  taskRunId: string,
+): boolean {
+  for (const [key, taskRun] of taskRuns.entries()) {
+    if (taskRun.taskRunId !== taskRunId) continue;
+    taskRuns.set(key, { ...taskRun, attempt: taskRun.attempt + 1 });
+    return true;
+  }
+  return false;
+}

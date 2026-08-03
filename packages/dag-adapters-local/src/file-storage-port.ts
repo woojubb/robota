@@ -12,7 +12,12 @@ import {
 } from './definition-files.js';
 import { hydrateCollection, persistCollection } from './json-collection-file.js';
 
-import { applyTaskRunLease, selectStaleRunningTaskRuns } from './task-run-recovery.js';
+import {
+  applyTaskAttemptIncrement,
+  applyTaskRunLease,
+  applyTaskRunSnapshots,
+  selectStaleRunningTaskRuns,
+} from './task-run-recovery.js';
 import type {
   IDagDefinition,
   IDagRun,
@@ -250,34 +255,24 @@ export class FileStoragePort implements IStoragePort {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<void> {
-    for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
-      if (taskRun.taskRunId !== taskRunId) {
-        continue;
-      }
-      this.taskRuns.set(taskRunKey, {
-        ...taskRun,
-        inputSnapshot: typeof inputSnapshot === 'string' ? inputSnapshot : taskRun.inputSnapshot,
-        outputSnapshot:
-          typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot,
-        estimatedCredits:
-          typeof estimatedCredits === 'number' ? estimatedCredits : taskRun.estimatedCredits,
-        totalCredits: typeof totalCredits === 'number' ? totalCredits : taskRun.totalCredits,
-      });
-      return;
-    }
+    await this.ensureInitialized();
+    const changed = applyTaskRunSnapshots(
+      this.taskRuns,
+      taskRunId,
+      inputSnapshot,
+      outputSnapshot,
+      estimatedCredits,
+      totalCredits,
+    );
+    if (changed) await this.persistTaskRuns();
   }
 
   public async incrementTaskAttempt(taskRunId: string): Promise<void> {
-    for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
-      if (taskRun.taskRunId !== taskRunId) {
-        continue;
-      }
-      this.taskRuns.set(taskRunKey, {
-        ...taskRun,
-        attempt: taskRun.attempt + 1,
-      });
-      return;
-    }
+    await this.ensureInitialized();
+    // The retry LIMIT is counted from this. Left unpersisted, a crash mid-retry-loop reset the count
+    // on restart and a task could retry past its configured maximum — worse than losing the value,
+    // because the store then actively reports a wrong one.
+    if (applyTaskAttemptIncrement(this.taskRuns, taskRunId)) await this.persistTaskRuns();
   }
 
   public async deleteDefinition(dagId: string, version: number): Promise<void> {
