@@ -1,0 +1,101 @@
+---
+title: 'HARNESS-072: nothing detects a contradiction between two rules, only forbidden phrases inside one'
+status: todo
+issue: https://github.com/woojubb/robota/issues/1617
+created: 2026-08-03
+priority: high
+urgency: next
+area: .agents/rules, .agents/specs, scripts/harness
+depends_on: []
+---
+
+# HARNESS-072: the conflict scan reads words, not claims
+
+## Problem
+
+Owner directive, 2026-08-03: **"규칙의 모순은 지속적으로 개선해 나가야 합니다"** — contradictions between
+rules must be improved continuously, not fixed once when someone notices.
+
+Nothing in the harness detects one. `scan-conflict-markers.mjs` — registered, named for exactly this —
+searches harness prose for forbidden PHRASES (`fallback to`, `temporary workaround`, `sub-agent`). It
+cannot see the case where document A states a normative claim and document B states its negation,
+because both are written in permitted words.
+
+That gap is not theoretical. PR #1615 produced **five** instances in one change, every one found by a
+review round and none by a machine:
+
+| Round     | Contradiction                                                   | Between                                                                                                |
+| --------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 7         | the stopping condition of the PR-review loop                    | `.agents/memory/review-rounds-until-zero.md` vs the owning skill                                       |
+| 8         | `bounded (max 3 + progress detection)`                          | `.agents/specs/orchestration-map.md` vs the same skill, after the cap was removed                      |
+| 9, 10, 12 | `max 3 iterations` in three separate places                     | `.agents/spec-docs/draft/HARNESS-018-*.md` vs the same skill                                           |
+| 13        | "bounded iterations, then escalate" — a count as the ONLY bound | `.agents/rules/research.md` vs `.agents/rules/enforcement-architecture.md`, which forbids exactly that |
+
+The last is the sharpest: one MANDATORY rule contradicting another, in normative text, created by the
+change that landed the second one. Rules outrank skills, so a reader following `research.md` would
+have been correct to ignore the newer rule.
+
+## Evidence
+
+The structural cause is measurable. `.agents/specs/orchestration-map.md` states a loop-back bound for
+every pipeline in its own words, and each owning skill states the same bound again:
+
+```
+| **Post-merge cycle**   | auto → bounded (2 base re-cuts); halt on a FAIL landing verdict …
+| **Backlog execution**  | auto → bounded (2 recommendation revisions, 2 redesigns, 2 defect rounds) …
+| **Delegated refactor** | auto → bounded (2 re-specifications, 2 re-verify rounds, 2 review rounds) …
+| **Release**            | auto → bounded (2 re-runs/phase, 2 triages/signature, 3 OTP requests) …
+```
+
+Seven pipelines, two independent statements each — fourteen places a contradiction can open, and the
+one that did was caught by a human reading two documents side by side. The map's header claims it is
+"mechanically kept current"; `scan-orchestration-map.mjs` checks only that every agent file appears in
+it, so the LOOP-BACK column has never been compared to anything.
+
+## Why this is foundational (or not)
+
+**FOUNDATIONAL.** Every rule in the tree is weakened by the possibility that another rule says the
+opposite, and the harness's whole premise is that a rule read is a rule in force. It is filed rather
+than fixed inside #1615 because its subject is three unrelated cleanup items; that PR fixed its own
+five instances and this item exists so the sixth is caught by a machine.
+
+Related and NOT duplicated: [HARNESS-071](HARNESS-071-loops-with-no-progress-escape.md) is about loops
+that lack an escape. This is about documents that disagree. They met in round 13 — a rule contradicted
+the rule HARNESS-071 contains — which is why both exist.
+
+## Direction
+
+Do not attempt general semantic contradiction detection. Take the tractable subset first, in this
+order:
+
+1. **A claim restated is a claim that can diverge.** The one-owner rule already says a fact has one
+   owner; the missing half is a check. Start where the restatement is structured and machine-readable:
+   compare `orchestration-map.md`'s Loop-back cell for each pipeline against the bound its owning
+   skill states, and fail on disagreement. That alone would have caught round 8 mechanically and it
+   extends `scan-orchestration-map.mjs`, which already parses that table.
+2. **A quantified bound outside its owner is a copy.** `max N`, `bounded (N …)`, `N iterations`,
+   `round cap` naming a pipeline should appear in the owning skill and nowhere else; elsewhere, a
+   link. This is the shape rounds 9, 10 and 12 kept re-finding in one draft spec.
+3. **Rule-to-rule.** Hardest and most valuable. A first cut: when a rule states a MUST about a named
+   subject (`every auto-re-drive loop`, `every guardian`), collect the other rules mentioning that
+   subject and require they not state a weaker bound. Expect false positives; design the suppression
+   before writing the check, or it will be suppressed rather than obeyed.
+
+Prefer removing the restatement to checking it. Every one of the five instances above existed because
+a fact was written twice; the check is the fallback for facts that genuinely must appear in two
+places.
+
+## Test Plan
+
+- **Required red-first regression:** each check proven to FAIL against the actual historical
+  contradiction it targets — the map at `4cc72938f` said `max 3 + progress detection` while the skill
+  said none; `research.md` at `feffbbc1d` said "bounded iterations" while
+  `enforcement-architecture.md` forbade a count-only bound. Reverting either must turn the check red
+  before it is trusted.
+- The check must report what it examined, not merely pass — a contradiction scan that compared zero
+  pairs is the vacuity `HARNESS-064` is about.
+- `pnpm harness:scan` and `pnpm harness:test` green.
+
+## User Execution Test Scenarios
+
+**Does not apply.** Agent-process documents and their guard; no user-facing surface.

@@ -5,7 +5,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Lesson Capture
 
-- The procedural "how" for turning repeated lessons into enforced repo rules is the [lesson-to-harness](../skills/lesson-to-harness/SKILL.md) skill (mine → approve → normalize → wire every touchpoint → enforce → ship). Invoke it on **either** a repeated user correction / an explicit "from now on …" principle, **or** a recurring agent/technical failure class — the same *kind* of failure hit 2×+ in a session even with no user correction (e.g. fixing the same category of CI/scan failure twice). A recurring agent mistake is a first-class lesson trigger, not only user corrections; when you find yourself fixing the same *class* of failure a second time, invoke the loop.
+- The procedural "how" for turning repeated lessons into enforced repo rules is the [lesson-to-harness](../skills/lesson-to-harness/SKILL.md) skill (mine → approve → normalize → wire every touchpoint → enforce → ship). Invoke it on **either** a repeated user correction / an explicit "from now on …" principle, **or** a recurring agent/technical failure class — the same _kind_ of failure hit 2×+ in a session even with no user correction (e.g. fixing the same category of CI/scan failure twice). A recurring agent mistake is a first-class lesson trigger, not only user corrections; when you find yourself fixing the same _class_ of failure a second time, invoke the loop.
 - **Fixing an instance never closes a recurring mistake.** For any recurring failure, the only terminal state is a mechanical PREVENTION that stops the cause from recurring (steps 8–9 of the skill: mechanize, or infeasible-now + tracked backlog, then prove it fails pre-fix). Correcting the current occurrence without analyzing the cause and preventing recurrence leaves the lesson open.
 - When a problem, review comment, CI failure, user correction, or debugging pattern repeats, do not leave it only in chat, PR notes, or a task file.
 - Extract the general invariant behind the event. The rule must be domain-neutral unless the invariant belongs to a package SPEC.
@@ -15,6 +15,24 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   - `packages/*/docs/SPEC.md` for package contracts;
   - harness or hook code when the invariant can be checked mechanically.
 - **The repo is the single source of truth for persistent lessons, preferences, and project facts; memory-only recording is prohibited.** Session/agent memory may hold a copy, but any persistent item MUST also live in the repo (`.agents/`, `AGENTS.md`, package SPECs) — these load as session context, so the lesson applies without memory. If the agent records a lesson/preference in memory, it must record it in the repo in the same change.
+
+### Contradiction Between Rules
+
+- **A contradiction between two rules is a defect of the rule set, and closing the instance does not
+  close it.** When one document's normative claim negates another's, fix the losing text AND ask what
+  let the pair diverge — almost always a fact written in two places. Prefer deleting the restatement
+  to keeping both and checking them.
+- **The precedence chain resolves a conflict for a reader; it does not license one.** `agent-conduct.md`
+  ordering (user instructions > RCP conduct > other rules > default) says which side wins when two
+  texts disagree. It is not a reason to leave them disagreeing: a rule a reader must override to obey
+  another rule has already failed at the only job a rule has.
+- **When landing a rule, sweep the tree for what it now contradicts** — including drafts, specs, the
+  orchestration map and `.agents/memory/`, not only `.agents/rules/`. A MUST is not in force while
+  another document permits its negation; record the sweep and its result in the change that lands it.
+- Owner directive, 2026-08-03: contradictions are improved CONTINUOUSLY, not once when noticed. The
+  standing gap — nothing detects a contradiction between two documents, only forbidden phrases inside
+  one — is [HARNESS-072](../tasks/HARNESS-072-nothing-detects-a-contradiction-between-two-rules.md),
+  which carries the measured evidence and the tractable first checks.
 
 ### Enforcement Preference
 
