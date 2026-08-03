@@ -1,6 +1,6 @@
 # Review rounds run until a round returns zero
 
-**Owner: [`../skills/pr-review-orchestration/SKILL.md`](../skills/pr-review-orchestration/SKILL.md)**,
+**Owner: [`../skills/pr-finding-resolution-loop/SKILL.md`](../skills/pr-finding-resolution-loop/SKILL.md)**,
 Round B step 4 — the rule, the owner directive of 2026-08-03 behind it, and the evidence.
 General form: [`../rules/enforcement-architecture.md`](../rules/enforcement-architecture.md), the
 auto-re-drive bullet.

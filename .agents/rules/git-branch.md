@@ -452,7 +452,7 @@ orchestration skill and its three agents all in place, two PRs were merged past 
 single session — #1503, whose MUST needed #1507, and #1510, whose High needed #1517.
 
 The loop that drives a PR to that state is owned by
-[`pr-review-orchestration`](../skills/pr-review-orchestration/SKILL.md) (review → record → fix, to
+[`pr-finding-resolution-loop`](../skills/pr-finding-resolution-loop/SKILL.md) (review → record → fix, to
 convergence) and [`automated-review-convergence`](../skills/automated-review-convergence/SKILL.md) (the
 automated-feedback rounds). Both consume the taxonomy above rather than defining one.
 

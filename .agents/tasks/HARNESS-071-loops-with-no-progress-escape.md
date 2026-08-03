@@ -54,7 +54,7 @@ NONE     documentation-refresh
 NONE     npm-otp-publish
 NONE     post-implementation-checklist
 NONE     post-merge-cycle
-ESCAPE   pr-review-orchestration
+ESCAPE   pr-finding-resolution-loop
 NONE     release-orchestration
 NONE     user-execution-scenario
 NONE     user-request-gate
@@ -114,7 +114,7 @@ expensive to verify reachable.** A rule stating a MUST is not the same as the MU
 
 ## Direction
 
-Add to each loop the escape `pr-review-orchestration` Round B step 4 uses: identify each finding
+Add to each loop the escape `pr-finding-resolution-loop` Round B step 4 uses: identify each finding
 (`file:line + severity`), compare the round's finding-identity SET to the previous round's, and on an
 unchanged set STOP and escalate rather than spin. A count is permitted as a second bound and must not
 be the only one.

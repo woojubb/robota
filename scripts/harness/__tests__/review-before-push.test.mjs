@@ -9,12 +9,12 @@ import { isReviewed, recordPathFor } from '../record-local-review.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
-const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-review-orchestration/SKILL.md');
+const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
 
 /**
  * The review round happens BEFORE the push, and something makes it happen.
  *
- * `pr-review-orchestration` used to wait for required checks to go green before its first review round, so
+ * `pr-finding-resolution-loop` used to wait for required checks to go green before its first review round, so
  * the reviewer only ever saw a diff that had already been pushed, opened as a PR and run through CI. Every
  * finding therefore cost a push → CI round trip before anyone could look at it. Measured across one session
  * (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 rounds, 24 carrying a blocking finding, at 6–10 minutes
@@ -459,7 +459,7 @@ describe('the depth verdict is wired into the pipeline that must act on it', () 
   });
 
   it('the orchestrator routes a foundational finding out of the fix loop', () => {
-    const skill = read('.agents/skills/pr-review-orchestration/SKILL.md');
+    const skill = read('.agents/skills/pr-finding-resolution-loop/SKILL.md');
     const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
 
     expect(roundA, 'depth is not asked before the fix').toMatch(/FOUNDATIONAL/);

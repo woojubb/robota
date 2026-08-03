@@ -4,7 +4,7 @@
 #
 # `git-branch.md` § Pre-Merge Code-Review Gate says it plainly: "No CONFIRMED/PLAUSIBLE finding may
 # be left silently unaddressed. **Only after all findings are resolved** may the PR be merged."
-# `pr-review-orchestration` owns the loop that drives a PR to that state, and three agents implement
+# `pr-finding-resolution-loop` owns the loop that drives a PR to that state, and three agents implement
 # it. All of that existed on 2026-07-28 — and it did not stop two merges past unread findings in one
 # session (#1503, whose MUST needed #1507 to fix; #1510, whose High needed #1517).
 #

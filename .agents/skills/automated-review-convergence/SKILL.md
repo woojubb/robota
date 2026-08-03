@@ -121,12 +121,12 @@ observed the round-2 push and returned nothing.
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                       | Owner                                                          |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| Define what "resolved" means / gate merges | `.agents/rules/git-branch.md`                                  |
-| Define build / test / scan verification    | `.agents/rules/verification.md`                                |
-| Judge the PR's overall quality             | the code-review gate the rules own                             |
-| Drive the reviewer→fixer agent pipeline    | [pr-review-orchestration](../pr-review-orchestration/SKILL.md) |
-| Merge, or decide when to arm the merge     | the merge procedure the git rules own                          |
+| Not this skill's job                       | Owner                                                                |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| Define what "resolved" means / gate merges | `.agents/rules/git-branch.md`                                        |
+| Define build / test / scan verification    | `.agents/rules/verification.md`                                      |
+| Judge the PR's overall quality             | the code-review gate the rules own                                   |
+| Drive the reviewer→fixer agent pipeline    | [pr-finding-resolution-loop](../pr-finding-resolution-loop/SKILL.md) |
+| Merge, or decide when to arm the merge     | the merge procedure the git rules own                                |
 
 If you find yourself restating a rule here, stop — link the rule instead.

@@ -18,7 +18,7 @@ issue: https://github.com/woojubb/robota/issues/1569
 A FOUNDATIONAL verdict must cause a filed root item ([finding-depth.md](../rules/finding-depth.md)).
 Two documents say where that item goes, and they do not agree:
 
-- `backlog-writer` — the skill both `pr-review-orchestration` and `documentation-refresh` route a
+- `backlog-writer` — the skill both `pr-finding-resolution-loop` and `documentation-refresh` route a
   foundational verdict to — creates `.agents/spec-docs/draft/<ID>.md`.
 - `record-local-review.mjs` — the floor that refuses a `--foundational <ID>` naming nothing — resolves
   against `.agents/tasks/` and `.agents/tasks/completed/` only.

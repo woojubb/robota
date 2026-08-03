@@ -100,9 +100,9 @@ const SKILLS = readdirSync(SKILLS_DIR, { withFileTypes: true })
  *
  * The imperative is required instead, and it costs nothing in false positives because all four wired
  * pipelines already write it verbatim: `documentation-refresh`, `architecture-refresh`,
- * `pr-review-orchestration` and `backlog-execution-orchestrator`. It stays a plain
+ * `pr-finding-resolution-loop` and `backlog-execution-orchestrator`. It stays a plain
  * `Dispatch <name>` rather than `scan-orchestration-map`'s sentence reader, whose skip list drops any
- * sentence containing "is the" and therefore cannot see `pr-review-orchestration`'s own dispatch — a
+ * sentence containing "is the" and therefore cannot see `pr-finding-resolution-loop`'s own dispatch — a
  * floor that fails a correctly-wired site is one somebody switches off.
  *
  * The WORKER side stays a plain mention, deliberately and asymmetrically: `architecture-refresh`
@@ -539,7 +539,7 @@ describe('a root item has one place to live, and one reader of it', () => {
       expect.arrayContaining([
         '.agents/skills/architecture-refresh/SKILL.md',
         '.agents/skills/documentation-refresh/SKILL.md',
-        '.agents/skills/pr-review-orchestration/SKILL.md',
+        '.agents/skills/pr-finding-resolution-loop/SKILL.md',
       ]),
     );
     expect(
@@ -558,7 +558,7 @@ describe('a root item has one place to live, and one reader of it', () => {
  * `finding-depth.md` states two things as general properties: a loop converges on RESOLVED (fixed /
  * contained / INVALID) rather than on FIXED, and containment in a document is a note at the site,
  * "one convention rather than one per pipeline". PROC-005 brought `documentation-refresh` onto both
- * and left `architecture-refresh` and `pr-review-orchestration` on neither, which is worse than an
+ * and left `architecture-refresh` and `pr-finding-resolution-loop` on neither, which is worse than an
  * un-adopted rule: two loops over the same tree then disagree about the same claim, because the one
  * that does not read the label re-raises what the other has already answered (PROC-008).
  *
@@ -655,7 +655,7 @@ describe('every findings-count loop converges on RESOLVED, and its guardians rea
     expect(
       pipelines.map((p) => p.orchestrator).sort(),
       'a findings-count pipeline with a depth verdict dropped out of the derivation',
-    ).toEqual(['architecture-refresh', 'documentation-refresh', 'pr-review-orchestration']);
+    ).toEqual(['architecture-refresh', 'documentation-refresh', 'pr-finding-resolution-loop']);
   });
 
   it('takes its columns from the header, so an inserted column moves the reader', () => {

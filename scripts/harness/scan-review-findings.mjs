@@ -23,7 +23,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
-  const orch = path.join(root, '.agents/skills/pr-review-orchestration/SKILL.md');
+  const orch = path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
 
   const findings = [];
 
@@ -48,25 +48,25 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   // (2) Orchestrator merge-gate contracts.
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /unresolved MUST/i,
     'merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /never merges? `?main`?|do NOT merge/i,
     'no longer states the agent never merges `main`.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /merge-verifier|MERGE VERIFIED/i,
     'no longer requires the `merge-verifier` post-merge check on develop.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /git-branch\.md/i,
     'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
   );

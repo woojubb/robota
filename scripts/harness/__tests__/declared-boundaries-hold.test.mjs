@@ -13,7 +13,7 @@ const SKILLS_DIR = path.join(WORKSPACE_ROOT, '.agents/skills');
  * "What This Skill Does NOT Do" table naming an action and its owner. Nothing checked that the body
  * agreed with the table, and the body is what an agent follows.
  *
- * Measured 2026-08-01 in #1546: `pr-review-orchestration` told itself to post replies to the PR while
+ * Measured 2026-08-01 in #1546: `pr-finding-resolution-loop` told itself to post replies to the PR while
  * its own table said posting belongs to `pr-review-writer`, its header said it "does not review,
  * write, fix, or judge", and its closing line said to stop if you find yourself doing any of them.
  * Three statements of the boundary in one file, and the procedure between them crossed it.
@@ -156,7 +156,7 @@ describe('a skill does not instruct itself to do what it disowned', () => {
     // a POLICY. Only a performable action can be crossed by a procedure, so only those are scanned —
     // and the number is asserted so a narrowing that quietly emptied the set would fail here.
     expect(declaring.length).toBeGreaterThanOrEqual(5);
-    expect(declaring.map((s) => s.name)).toContain('pr-review-orchestration');
+    expect(declaring.map((s) => s.name)).toContain('pr-finding-resolution-loop');
   });
 
   for (const skill of SKILLS) {

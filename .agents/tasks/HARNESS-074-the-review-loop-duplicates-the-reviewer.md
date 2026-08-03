@@ -33,10 +33,10 @@ Each piece of the machinery, judged against the policy:
 
 | Piece                                                               | What it does                                                            | Verdict              |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------- |
-| `pr-review-orchestration` Round B step 1                            | Dispatched a reviewer agent on the OPEN pull request                    | Fails — corrected    |
+| `pr-finding-resolution-loop` Round B step 1                         | Dispatched a reviewer agent on the OPEN pull request                    | Fails — corrected    |
 | `.claude/hooks/pre-push-check.sh`                                   | Refuses a push without a recorded LOCAL review of the diff              | Fails                |
 | `scripts/harness/record-local-review.mjs`, `.agents/local-reviews/` | Stores that local review, per working tree                              | Follows the above    |
-| `pr-review-orchestration` Round A                                   | The skill form of the same pre-push local review                        | Fails                |
+| `pr-finding-resolution-loop` Round A                                | The skill form of the same pre-push local review                        | Fails                |
 | `.claude/hooks/merge-gate.sh`                                       | Reads the disposition from the pull request LABEL, not the local record | Conforms — precedent |
 | `.github/workflows/review-gate.yml`                                 | Reads code-scanning alerts and labels                                   | Conforms             |
 | `automated-review-convergence`                                      | Fetch, judge, resolve, push, re-read                                    | Is the policy        |
@@ -61,6 +61,18 @@ hook.
 assert their reachability, and every piece encodes the same wrong premise about who reviews. Correcting
 one file leaves the premise intact everywhere else — which is what happened when Round B was corrected
 on its own.
+
+## Settled before the work starts
+
+The loop is named `pr-finding-resolution-loop`. The old name said "review orchestration", which reads
+as "orchestrate the reviewing" and is precisely how a reviewer came to be dispatched on an open pull
+request. `loop` stays in the name deliberately: the failure was treating it as one round to perform
+rather than a cycle that runs until nothing is left, and the name should carry that.
+
+Its description now states what it is not — "it does not review" — because a description is what an
+agent reads when choosing a skill, so a wrong one misleads before the body is ever opened.
+
+Naming is therefore not open in this item. What remains is the machinery.
 
 ## Direction
 
