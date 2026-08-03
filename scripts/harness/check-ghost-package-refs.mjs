@@ -19,7 +19,9 @@
  * the non-`.md` corpus (package.json scripts + helper .mjs); this guard owns the `.md`
  * corpus — same SSOT, disjoint inputs.
  *
- * Exemptions (must not fire): fenced code blocks and inline code spans; lines carrying
+ * Exemptions (must not fire): fenced code blocks everywhere; inline code spans everywhere EXCEPT the
+ * four front-door documents, where a package name in backticks is the normal way to write one (see
+ * FRONT_DOOR_DOCS); documented placeholder names; lines carrying
  * "deliberately absent" vocab; the documented GHOST_PACKAGE_ALLOWLIST; and immutable
  * historical records (CHANGELOGs, closed spec/task/backlog items, frozen versioned
  * content, dated design/plan archives) that faithfully cite now-defunct names.
@@ -51,10 +53,28 @@ const PACKAGE_DIR_PATTERN = /(?<![\w/-])packages\/([a-z0-9]+(?:-[a-z0-9]+)*)(?![
  * check-orphan-exports.mjs's ORPHAN_EXPORT_ALLOWLIST. Each entry keeps a reason. Only
  * genuine intentional/false-positive tokens belong here — never a real ghost we should fix.
  */
+/**
+ * Names that stand in for "a package" in a command template, not for a package.
+ *
+ * Needed only since the front-door span exemption was lifted: `--scope <packages/foo|apps/bar>` is a
+ * usage string, and reporting it as a name that does not resolve would be a false accusation about
+ * correct prose. Kept tiny and documented, like the allowlist below.
+ */
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
+
 export const GHOST_PACKAGE_ALLOWLIST = new Set([
   '@robota-sdk/dag-nodes', // group-container README title (packages/dag-nodes holds nested dag-node-* packages); the container itself ships no package
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
 ]);
+
+/**
+ * The documents a newcomer reads as the CURRENT description of the repository.
+ *
+ * These four are read by someone with no way to know a fresher owner exists, so a stale package name
+ * in one misleads in a way the same name in a dated record cannot. They are the only docs where an
+ * inline code span is scanned rather than exempted.
+ */
+export const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
 
 /** Doc trees that are immutable historical records — a defunct name there is history, not drift. */
 function isExcludedDoc(rel) {
@@ -156,11 +176,18 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       }
       if (inFence) continue;
       if (ABSENCE_VOCABULARY.test(rawLine)) continue;
-      const line = rawLine.replace(/`[^`]*`/g, ' '); // strip inline code spans
+      // Inline code spans are stripped everywhere EXCEPT the front door, where a package name in
+      // backticks is the normal way to write one and the reader has no way to know it is stale.
+      // HARNESS-068 measured the cost: `CONTRIBUTING.md` carried `` `packages/agent-provider` `` —
+      // a package the owning document says does not exist — and this scan was silent, not because
+      // its scope stopped one file short (it reads every live markdown file) but because the name
+      // was in a code span. The exemption was the blind spot, not the file list.
+      const line = FRONT_DOOR_DOCS.has(rel) ? rawLine : rawLine.replace(/`[^`]*`/g, ' ');
 
       for (const match of line.matchAll(TOKEN_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(token.slice(token.lastIndexOf('/') + 1))) continue;
         if (!workspaceNames.has(token)) {
           findings.push({
             file: rel,
@@ -174,6 +201,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       for (const match of line.matchAll(PACKAGE_DIR_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(match[1])) continue;
         if (!packageDirNames.has(match[1])) {
           findings.push({
             file: rel,

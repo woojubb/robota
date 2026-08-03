@@ -29,6 +29,13 @@ permissions:
   contents: read
   pull-requests: write
 
+# A superseded push should not keep a runner. Without this, every rapid re-push leaves the
+# previous run to finish work whose answer is already stale, and it is billed in full.
+# Scoped to the pull request, so runs on different PRs never cancel each other.
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   dependency-review:
     name: Dependency review

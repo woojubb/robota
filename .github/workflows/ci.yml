@@ -656,7 +656,10 @@ jobs:
   examples-typecheck:
     name: examples-typecheck
     runs-on: ubuntu-latest
-    needs: changes
+    # `build` joins `changes` so the built packages can be reused. The `if:` below already carries
+    # `!cancelled()`, which disables the implicit `success()` over `needs` — so a failed `build` does
+    # NOT turn this required check into a skip; the job runs and falls back to building.
+    needs: [changes, build]
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -683,7 +686,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages (so examples typecheck against local source)
+      # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
+      # Measured: this job spent about 80% of its runtime rebuilding what another job had just built,
+      # and billing counts that wall clock. `quality` already consumes this artifact, so this is the
+      # existing pattern rather than a new mechanism.
+      #
+      # The fallback is not optional: `build` uploads only when the run needs package dist, and a
+      # required check that assumes an artifact is present would go from "slow" to "broken" the first
+      # time it is absent. `continue-on-error` keeps a missing artifact on the fallback path rather
+      # than failing the gate.
+      - name: Download package build output
+        id: dist
+        if: needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore package build output
+        id: restore
+        if: steps.dist.outcome == 'success'
+        run: |
+          tar -xzf .artifacts/package-dist/package-dist.tgz
+          echo "restored=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build packages (only when the artifact was not restored)
+        if: steps.restore.outputs.restored != 'true'
         run: pnpm build:deps
 
       - name: Typecheck examples
@@ -751,7 +780,8 @@ jobs:
   tui-e2e:
     name: tui-e2e
     runs-on: ubuntu-latest
-    needs: changes
+    # See examples-typecheck: `!cancelled()` keeps a failed `build` from skipping this required check.
+    needs: [changes, build]
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
@@ -778,7 +808,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages (provides the built robota binary the PTY suite drives)
+      # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
+      # Measured: this job spent about 80% of its runtime rebuilding what another job had just built,
+      # and billing counts that wall clock. `quality` already consumes this artifact, so this is the
+      # existing pattern rather than a new mechanism.
+      #
+      # The fallback is not optional: `build` uploads only when the run needs package dist, and a
+      # required check that assumes an artifact is present would go from "slow" to "broken" the first
+      # time it is absent. `continue-on-error` keeps a missing artifact on the fallback path rather
+      # than failing the gate.
+      - name: Download package build output
+        id: dist
+        if: needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: package-dist
+          path: .artifacts/package-dist
+
+      - name: Restore package build output
+        id: restore
+        if: steps.dist.outcome == 'success'
+        run: |
+          tar -xzf .artifacts/package-dist/package-dist.tgz
+          echo "restored=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build packages (only when the artifact was not restored — provides the robota binary)
+        if: steps.restore.outputs.restored != 'true'
         run: pnpm build:deps
 
       - name: Run the TUI PTY E2E suite against the real binary

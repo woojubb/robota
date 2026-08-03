@@ -1,13 +1,18 @@
 ---
 name: pr-review-orchestration
-description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr-review-reviewer (guardian) → pr-review-writer → pr-review-fixer agents on a PR, loops until the reviewer reports ACTIONABLE FINDINGS 0, bounded by a max-iteration cap + progress detection, then hands to the gated merge path. It manages ONLY the pipeline flow — it does not review, write, fix, or judge quality itself. Synchronous today (async firing is HARNESS-018a).
+description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr-review-reviewer (guardian) → pr-review-writer → pr-review-fixer agents on a PR, loops until the reviewer reports ACTIONABLE FINDINGS 0 — no round cap (owner directive 2026-08-03); the only escape is progress detection — then hands to the gated merge path. It manages ONLY the pipeline flow — it does not review, write, fix, or judge quality itself. Synchronous today (async firing is HARNESS-018a).
 ---
 
 # PR Review Orchestration
 
-Route-only orchestrator for reviewing a PR to convergence. This skill manages ONLY the loop — it does not review,
-post, fix, or judge; it routes on the reviewer's machine signal. All judgment lives in `pr-review-reviewer`; all
-work lives in `pr-review-writer` / `pr-review-fixer`.
+Route-only orchestrator for driving a PR to convergence. This skill manages ONLY the loop — it does not review,
+post, fix, or judge; it routes on the reviewer's machine signal.
+
+**Who reviews depends on where the change is.** Before the push (Round A) the reviewer is
+`pr-review-reviewer` on the local diff, because a round there costs a minute and the same round after a
+push costs a CI cycle. On an open pull request (Round B) the reviewer is the review automation the PR
+runs, and this loop's job is to RESOLVE what it reports — never to review it again. All fixing lives in
+`pr-review-fixer`; all posting lives in `pr-review-writer`.
 
 ## Rule Anchor
 
@@ -91,16 +96,24 @@ already-reviewed content and no diff of its own.
 
 ### Round B — on the open PR, before merge
 
-Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identities `file:line + severity`).
+Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 
 0. **Wait for the gate precondition** the rule sets (required checks green): dispatch
    [ci-gate-watch](../ci-gate-watch/SKILL.md) on the PR's checks. `GREEN` → step 1. `RED` or `STALLED` →
    **leave the loop** and route it as a build/test failure under the verification rules, not as a review
    finding; re-enter here once the head is green. This precondition belongs HERE and only here: the merge
    round must judge what will actually merge, and `merge-gate` requires a review newer than the head commit.
-1. **Review.** Dispatch `pr-review-reviewer` on the PR at the diff scope the rule's gate preconditions
-   define. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its finding set. (Do NOT judge the
-   findings yourself — take the count as given.)
+1. **Read the review CI produced. Do not perform one.** The reviewer on an open PR is the review
+   automation the pull request runs; this loop RESOLVES what it reports. Fetch its findings —
+   [automated-review-convergence](../automated-review-convergence/SKILL.md) owns that procedure,
+   including the trap that a green check is not an absence of findings — and count the actionable ones.
+   (Do NOT judge them yourself at this step — take the set as given; judging is step 2.)
+
+   **Dispatching a reviewer agent here is the defect this step exists to prevent.** It pays for the
+   review twice, and the second opinion is the one without the PR's comment history, so it cannot see
+   which findings a previous round already answered. A local reviewer belongs in Round A, BEFORE the
+   push, where its whole purpose is to spend a minute instead of a CI cycle.
+
 2. **Take each comment one at a time, judging before replying.** CI posts a summary comment and inline
    comments; each carries a finding and each is judged on its own — `finding-depth-triager` returns one
    verdict per finding, not one per round, because a PR routinely mixes a LOCAL defect with a FOUNDATIONAL
@@ -125,12 +138,39 @@ Track: `iteration = 0` (cap 3), and `last_findings = {}` (set of finding identit
    to get there — the whole reason the label is a condition and not a courtesy
    ([finding-depth.md](../../rules/finding-depth.md)). Re-plan is not a resolution: it withdraws or
    reduces the change, so it **halts** this loop rather than counting toward zero.
-4. **Progress detection.** If the current finding-identity set equals `last_findings` (the same findings recurred
-   unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin). Else set `last_findings` to it.
-5. **Cap.** If `iteration >= 3` → **STOP and escalate to the user** (bounded; do not exceed the cap).
-6. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
+4. **Progress detection — the only escape.** If the current finding-identity set equals `last_findings` (the
+   same findings recurred unchanged) → **STOP and escalate to the user** (the loop is stuck; do not spin).
+   Else set `last_findings` to it and continue. There is **no round cap**, and asking the user "another
+   round or merge?" is not a step of this loop: the stopping condition is zero.
+
+   Owner directive, 2026-08-03: _"라운드는 계속 돌려. 앞으로도"_ — keep running the rounds, from now on too.
+   It replaced an `iteration >= 3` cap whose action was **STOP and escalate**, so what the cap bought
+   was not a merge but a question, and the directive is that the question is the wrong move.
+
+   The evidence is the PR open when it was given (#1615), stated as the counterfactual it actually is:
+   the cap would have halted the loop after round 3 and handed back an unconverged PR whose state then
+   still contained round 4's findings — among them `README.md`'s Quick Start naming `agent-provider`,
+   a package that does not exist and that the owning document says does not exist, in a front-door
+   document, in the very PR whose HARNESS-068 is about a front-door document naming a package that
+   does not exist. Verified rather than asserted: that line is unchanged from the merge-base through
+   round 3's head.
+
+   (Two earlier versions of this paragraph were wrong. The first said the PR "would have merged" with
+   three defects it named: the cap escalates rather than merges, and two of the three — the
+   `agent-transport-webrtc` and `-protocol` npm links — were introduced at round 5, after the cap
+   would have fired. The second said all three postdated the cap; the third, `agent-provider-bytedance`,
+   is PRE-EXISTING — a 404 npm link in the "start here — the minimal set" table, unchanged from the
+   merge-base through round 3's head — which strengthens the counterfactual rather than weakening it.
+   A rationale for removing a bound, wrong twice, in the paragraph telling the next reader not to
+   restore it. Rounds 8 and 9 caught them.)
+
+   A stuck loop and a productive one look the same to a counter and different to the finding SET,
+   which is why that is the test kept. The cost is real and is the point: rounds are not free, and the
+   owner has priced them. Do not reintroduce a cap without the owner.
+
+5. **Record + fix.** Dispatch `pr-review-writer` (posts the review to the PR), then `pr-review-fixer` (applies the
    MUST/SHOULD fixes). Each fix returns to **Round A** — review the new local diff and record it before pushing
-   again — then increment `iteration` and go to step 1.
+   again — then go to step 1.
 
 ## Merge path (on `ACTIONABLE FINDINGS: 0`)
 

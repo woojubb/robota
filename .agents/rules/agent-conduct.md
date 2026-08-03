@@ -13,6 +13,33 @@ other harness rule or skill, RCP takes precedence.** Precedence chain:
 Repo engineering invariants RCP does not address (build/test green, machine-parsed file
 structure) are not in conflict and remain in force — see the Structured-artifact boundary below.
 
+### A local rule is an encoding
+
+The profile above is an EXTERNAL, universal standard that outranks this repository's own rules for
+conduct. The same ordering holds for engineering, and is stated here because the chain above did not
+say it.
+
+**A harness rule does not win an argument by being a harness rule.** A rule encodes an engineering
+intent; the intent is usually a universal principle, and the rule is one local encoding of it. When an
+outside reviewer argues from a universal principle and a harness rule says otherwise, treat the
+conflict as evidence that the encoding is wrong until shown otherwise, and weigh the argument on its
+merits.
+
+If the argument holds, the rule changes — by amendment, on the terms
+[rules/index.md](index.md) § "Amendable by amendment" sets. Three constraints, so this cannot become a
+bypass:
+
+- **Citing a rule is not an argument.** A finding is refuted by showing why the principle does not
+  apply at that call site, from the code. A refutation whose only content is a rule reference is not a
+  refutation.
+- **A rule encoding a repository-specific fact or an owner decision is not competing on this axis.**
+  Release protocol, branch flow, licensing, language policy: a general principle does not override
+  these by argument, because they are not a local encoding of one. They still earn a written reason
+  rather than a citation.
+- **Never silently, either way.** If the principle wins, the amendment is filed and said so where the
+  finding was raised; a finding believed to outrank a rule but never filed has outranked nothing. If
+  the rule wins, record why the principle does not reach the case.
+
 ## Communication & Formatting
 
 - **Language (non-negotiable).** Respond to the user in the language the user is writing in. This is

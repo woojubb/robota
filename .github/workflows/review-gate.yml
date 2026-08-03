@@ -125,7 +125,7 @@ jobs:
           # construction: no merge base, a failed diff or an empty file list all answer `code=true`.
           node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
-      - name: Wait for the code-scanning analysis of this PR
+      - name: Read the code-scanning analysis of this PR (single read, no wait)
         # Skipped entirely when no code changed: there is nothing to wait for, and waiting is what
         # cost #1436 fifteen minutes before it was blocked.
         if: steps.classify.outputs.code == 'true'
@@ -133,55 +133,47 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # The gate must read a COMPLETED analysis. Polling here (rather than assuming) is what
-          # keeps "the analysis has not run yet" from being read as "the analysis found nothing".
+          # The gate must read a COMPLETED analysis: "the analysis has not run yet" must never be
+          # read as "the analysis found nothing". It reads ONCE and does not wait.
           #
-          # Two deadlines, because there are two different things being waited for:
-          #   - GRACE (5 min): no `Analyze` check run has been created AT ALL. CodeQL's check runs
-          #     appear within seconds of the PR event, so after five minutes the honest conclusion
-          #     is that no analysis was scheduled for a PR that does contain code. Concluding early
-          #     is NOT assuming success — this exit writes `analysis_complete=false` exactly like
-          #     the long timeout, and the gate blocks. It only stops the job from spending another
-          #     ten minutes to reach the same answer.
-          #   - DEADLINE (15 min): an analysis exists and is still running. That one is worth
-          #     waiting for, and the loop breaks the moment it completes.
-          start=$(date +%s)
-          grace=$(( start + 300 ))
-          deadline=$(( start + 900 ))
-          while :; do
-            # SEC-007: `/check-runs` is PAGINATED (30 per page by default) and this commit already
-            # carries 21 check runs. Read one page at a time, the `Analyze` runs could sit on page two
-            # — and then `total` is 0 and the grace branch below concludes "nothing analysed", or
-            # worse, a partial page makes `total == done_count` and the gate reports COMPLETE while an
-            # analysis is still running. Both read exactly like a legitimate answer.
-            #
-            # `github-api.mjs` paginates AND asserts the record count against the envelope's
-            # `total_count`, so a truncated read throws instead of returning a smaller number.
-            runs="$(node scripts/harness/github-api.mjs \
-                      "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-                      --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
-            total="$(printf '%s' "$runs" | jq 'length')"
-            done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
-            echo "code-scanning analyses: ${done_count}/${total} completed"
-            if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
-              echo "analysis_complete=true" >> "$GITHUB_ENV"
-              break
-            fi
-            now=$(date +%s)
-            if [ "$total" -eq 0 ] && [ "$now" -ge "$grace" ]; then
-              # Deliberately NOT a pass: this PR changes code, and nothing analysed it.
-              echo "::error::review-gate: no code-scanning analysis was scheduled for ${HEAD_SHA} within 5 minutes, and this PR changes code. Nothing has been analysed, so nothing has been cleared."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              break
-            fi
-            if [ "$now" -ge "$deadline" ]; then
-              # Deliberately NOT a pass: an analysis that never completed has cleared nothing.
-              echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} did not complete within 15 minutes."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              break
-            fi
-            sleep 20
-          done
+          # Waiting used to happen here — up to 15 minutes of polling, on a held runner, for an
+          # analysis that runs in parallel with this job. Billing is per job rounded up, so that wait
+          # was charged in full, and it was measured as this workflow's entire runtime: the job took
+          # about as long as the analysis it was watching. A runner is the most expensive place to
+          # wait, because it is the one place that bills while doing nothing.
+          #
+          # So the wait moved to the agent side: an incomplete read blocks, exactly as before, and
+          # the observation loop re-runs this check once the analysis completes. The verdict semantics
+          # are unchanged — what changed is who holds the clock.
+          #
+          # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
+          # self-recovering: most pull requests resolved inside a single run without anyone acting.
+          # Now the first read almost always finds the analysis still running — the two workflows are
+          # triggered by the same event — so this check goes red and STAYS red until it is re-run.
+          # Nothing in this repository re-runs it automatically; recovery is the watcher's job, and on
+          # a pull request nobody is watching, a required check sits red until a human notices.
+          #
+          # That is the accepted shape, not an oversight. The alternative that removes both the wait
+          # and the dependency on a watcher is a `workflow_run` trigger keyed to the analysis
+          # completing, which is a larger change to a required check than this one and is not made
+          # here.
+          runs="$(node scripts/harness/github-api.mjs \
+                    "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                    --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
+          total="$(printf '%s' "$runs" | jq 'length')"
+          done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
+          echo "code-scanning analyses: ${done_count}/${total} completed"
+          if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
+            echo "analysis_complete=true" >> "$GITHUB_ENV"
+          elif [ "$total" -eq 0 ]; then
+            # Deliberately NOT a pass: this PR changes code, and nothing has analysed it yet.
+            echo "::error::review-gate: no completed code-scanning analysis for ${HEAD_SHA}. This is not a defect if the analysis is still running — re-run this check once it completes. Nothing has been analysed, so nothing has been cleared."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+          else
+            # Deliberately NOT a pass: an analysis still running has cleared nothing.
+            echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} is still running (${done_count}/${total} complete). Re-run this check once it completes."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Collect the review output
         if: steps.classify.outputs.code == 'true'

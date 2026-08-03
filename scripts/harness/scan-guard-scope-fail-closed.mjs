@@ -88,6 +88,22 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
 export const MANDATORY_TREE_GUARDS = [
   {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`.
+    file: 'scan-ci-concurrency-footprint.mjs',
+    finder: 'findFootprint',
+    tree: '.github/workflows',
+    why: "it measures how many of the ACCOUNT's shared job slots one push takes; over a root with no workflows the footprint is zero, which reads exactly like a thrifty repository and would freeze a baseline that permits any growth",
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`.
+    file: 'scan-runner-wait.mjs',
+    finder: 'findAllRunnerWaits',
+    tree: '.github/workflows',
+    why: 'it looks for waits held on a billed runner; over a root with no workflows there is nothing to hold and every workflow is vacuously thrifty, and this cost is invisible by nature — a polling job reads as ordinary work whose duration merely varies',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `scripts/harness does not exist`.
     file: 'scan-harness-scope-literal.mjs',
     finder: 'findScopeLiteralFindings',

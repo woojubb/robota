@@ -32,8 +32,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Plan Documentation Requirement
 
-- Every implementation plan MUST be saved as a design document in `docs/plans/YYYY-MM-DD-<topic>-design.md` before execution begins.
-- The document must include: goal, architecture, data flow, and affected files.
-- Plans that exist only in conversation context are not considered finalized. The document is the SSOT for the plan.
-- After implementation is complete, the relevant `packages/*/docs/SPEC.md` files MUST be updated to reflect the changes.
-- A plan without a saved design document must not be executed. A completed implementation without updated SPEC.md is incomplete.
+- Every implementation plan MUST be a saved document before execution begins. A plan that exists only
+  in conversation context is not finalized, and a plan without a saved document must not be executed.
+  The document is the SSOT for the plan.
+- The document must state goal, architecture, data flow, and affected files.
+- **Where it is saved, and when the governing specification is updated, are owned by
+  [spec-workflow.md](spec-workflow.md)** — the plan-document location and the same-PR spec-update
+  mandate both live there. Do not restate either here.

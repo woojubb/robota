@@ -1,7 +1,6 @@
 [
   "audit-spec-coverage.mjs",
   "check-interface-imports.mjs",
-  "cleanup-drift.mjs",
   "collect-run-context.mjs",
   "frontmatter.mjs",
   "github-api.mjs",

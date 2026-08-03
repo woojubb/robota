@@ -147,6 +147,9 @@ jobs:
           set -euo pipefail
           deadline=$(( $(date +%s) + 300 ))   # 5 minutes; a push trigger dispatches within seconds
           want="release-bun-binaries.yml release-desktop-app.yml"
+          # allow-runner-wait: a release runs with a human or agent already driving it, and this
+          # poll watches an EXTERNAL event (asset propagation) that no re-run can observe sooner.
+          # Per-push gates do not qualify — see scan-runner-wait.mjs.
           while :; do
             missing=""
             for wf in $want; do
@@ -164,5 +167,6 @@ jobs:
               exit 1
             fi
             echo "waiting for:$missing"
+            # allow-runner-wait: the interval of the release poll suppressed above.
             sleep 15
           done

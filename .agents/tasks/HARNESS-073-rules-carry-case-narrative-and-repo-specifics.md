@@ -1,0 +1,104 @@
+---
+title: 'HARNESS-073: the rules tree carries case narrative and repository specifics that belong elsewhere'
+status: todo
+issue: https://github.com/woojubb/robota/issues/1618
+created: 2026-08-03
+priority: high
+urgency: next
+area: .agents/rules
+depends_on: []
+---
+
+# HARNESS-073: a rule that tells a story asks the reader to judge whether their case resembles it
+
+## Problem
+
+`.agents/rules/index.md` § "How a rule is written" states the form: a rule states an invariant,
+universally and neutrally, and the incident that prompted it belongs in the record that owns it. The
+tree does not yet meet that form. Roughly 160 lines across it are case narrative — task identifiers,
+dates, pull-request numbers, retellings of how a failure was found — and a further 15 name this
+repository's packages, products or site where a universal noun would carry the same constraint.
+
+Two costs, and the second is the one that matters. Every line of a rule is loaded before any work
+begins, so narrative is paid for on every task forever. And a rule justified by an incident invites
+the reader to decide whether their situation resembles that incident — which is the discretion a rule
+exists to remove.
+
+## Evidence
+
+Measured 2026-08-03 by four parallel read-only audits partitioning the tree. Each reported per-file
+line counts, the passage-level classification, and whether removal would leave the rule ambiguous.
+
+| Partition                                                                                                       | Lines   | Case narrative                | Also found                                          |
+| --------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------- | --------------------------------------------------- |
+| `common-mistakes.md`                                                                                            | 83 rows | 26 rows; 21.6% of entry prose | ~33% of prose removable with no loss of obeyability |
+| git-branch, publish, release-operations, verification, testing-layering                                         | 851     | 44 lines (39 in git-branch)   | 5 cross-file duplications, one self-refuting        |
+| backlog-execution, spec-workflow, tdd-and-planning, finding-depth, helper-limits, process                       | 1033    | 43 lines                      | 2 direct rule conflicts, 1 unresolvable identifier  |
+| operational, code-quality, naming-style, documentation-sync, research, api-boundary, frontend, memory-mirroring | 447     | 49 lines                      | 15 lines of repository-specific naming              |
+
+Findings worth carrying into the work:
+
+- **Two files are already in the target form** — `tdd-and-planning.md` and `naming-style.md` carry no
+  case material at all, and the first states the longest technical invariant in the tree without one.
+  The form is achievable, not aspirational.
+- **Concentration is not proportional to size.** The largest file has among the lowest density;
+  `helper-limits.md` spends 14% of itself on two cases, and an 11-line pointer stub spends a line on
+  refactor history.
+- **Undated narrative is the harder class.** One file has zero identifier matches and the highest
+  narrative count, because its history has lost its citation and now reads as invariant. A marker
+  grep cannot find that; only a line-by-line pass can.
+- **Some passages must stay and are not narrative.** A `Worked example:` path and a `Mechanized:`
+  pointer with its suppression syntax are instruction. A format specimen needs an identifier slot. A
+  failure MECHANISM stated universally — the reason a wrong command reports success — is the rule's
+  force, not decoration.
+- **The dominant defect in one partition was not narrative at all** but repository-specific naming: a
+  rule that names a package or a product applies here and nowhere else.
+
+Three defects found by the audits were contradictions rather than narrative, and are corrected
+already rather than scheduled, because a rule contradicting a rule is not a gap to plan: two mandatory
+rules named different homes for the same document and different timing for the same specification
+update, and one rule cited an identifier resolving to nothing — the condition that rule itself
+refuses.
+
+## Why this is foundational (or not)
+
+**FOUNDATIONAL to the rule set, LOCAL to each file.** Each file is independently correctable, and none
+blocks another. It is filed rather than done inline because it rewrites most of a 2,900-line corpus
+that every task loads, and because a sweep that large is exactly where an invariant gets dropped
+alongside the story that illustrated it.
+
+## Direction
+
+Per file, per passage: keep the invariant, move the case to the record that owns it, and delete
+nothing whose removal changes what a reader must do. The strict test is already written down — delete
+every proper noun, number and date, then read what remains.
+
+Order the work by density rather than by size, and take the two clean files as the reference form.
+Where an audit found a passage load-bearing, treat that as a signal the invariant is
+under-stated: write the invariant properly instead of keeping the story that stood in for it.
+
+Two constraints that are not negotiable in the rewrite:
+
+- Entry numbering in `common-mistakes.md` is stable and gapless — a hook, a scan, another rule and a
+  skill checklist reference entries by number, and one scan requires two entry texts to survive
+  literally. Rewrite in place; never renumber or delete.
+- Where a case is removed from a rule, it lands in the record that owns it in the SAME change, or the
+  evidence for the rule is lost rather than relocated.
+
+The cross-file duplications the audits found are the same defect one level up and are in scope here:
+one invariant stated in two rule files is what diverges later.
+
+## Test Plan
+
+- **Required red-first regression:** a mechanical check that a rule document contains no case
+  narrative — identifiers, dates, pull-request numbers — with the documented exceptions (format
+  specimens, mechanized-check names, worked-example paths). Proven to FAIL against the tree as it
+  stands before it is trusted, and to PASS on the two files already in the form.
+- The check reports how many documents it examined, so a pass over nothing is not a pass.
+- Undated narrative is out of a checker's reach by construction; the check bounds the citable class
+  only, and the item is not closed by the check alone.
+- `pnpm harness:scan` and `pnpm harness:test` green.
+
+## User Execution Test Scenarios
+
+**Does not apply.** Agent-process documents and their guard; no user-facing surface.
