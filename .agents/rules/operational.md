@@ -43,12 +43,15 @@ Parent: [rules index](index.md)
 
 All backlog, spec-doc, and task files use an uppercase prefix ID in both the filename and the `title` frontmatter.
 
-**Format:** `{DOMAIN}-{NNN}` — an uppercase domain prefix plus a zero-padded number
-(e.g. `CLI-061`, `CORE-025`, `HARNESS-030`, `GUI-001`, `INFRA-044`). The domain names the owning
-area (package, app, or cross-cutting concern); new domains may be introduced when a new area
-appears. There is no separate `BL`/`TK` type segment.
+**Format:** `{DOMAIN}-{NNN}` — an uppercase domain prefix plus a zero-padded number. The domain
+names the owning area (package, app, or cross-cutting concern); new domains may be introduced when
+a new area appears. There is no separate `BL`/`TK` type segment.
 
-**File naming:** `{ID}-{slug}.md`, e.g. `.agents/tasks/CLI-061-ime-last-character-drop.md`.
+**File naming:** `{ID}-{slug}.md`. The slug says what the item is about, in words:
+
+```
+.agents/tasks/CORE-014-shutdown-drops-in-flight-work.md
+```
 
 ### Document Size Rule
 

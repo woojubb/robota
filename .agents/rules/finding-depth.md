@@ -58,12 +58,10 @@ PR afterwards.
 
 ## Where a root item lives
 
-"File the root item" names a place, and nothing owned WHICH one — so every consumer picked its own and
-there were two answers. The review loops routed the filing to `backlog-writer`, which creates
-`.agents/spec-docs/draft/<ID>.md`; the floor that verifies the filing resolved the Task tree only (then named `.agents/backlog/`; renamed by PROC-006).
-An item filed on the designed path therefore failed the check that exists to confirm it was filed, with
-the message "file the root item first" about an item that is filed (PROC-009; measured 2026-08-01 —
-125 IDs then existed only under `.agents/spec-docs/`). Owned here, once, so both floors read one list:
+"File the root item" names a place. Unless one document owns WHICH place, each consumer picks its own,
+and the writer that creates the item and the floor that verifies it was created end up looking in
+different directories — so an item filed on the designed path fails the check that exists to confirm
+it was filed. Owned here, once, so every reader resolves against one list:
 
 - `.agents/tasks/` — an open root item.
 - `.agents/tasks/completed/` — an archived one. A finding contained under an item that has since
@@ -154,7 +152,7 @@ distinction is the reason containment is worth a convention at all.
 This holds for **every** loop that converges on a findings count, not for the one that adopted it first.
 A convergence condition only one consumer implements reads as governing while the others keep stopping at
 "nothing left to edit" — and two loops over the same tree then disagree about the same claim, because the
-one that does not read the label re-raises what the other has already answered (PROC-008). Which loops
+one that does not read the label re-raises what the other has already answered. Which loops
 those are is not enumerated here: the prose would go stale the first time a pipeline is added.
 `depth-verdict-reachable.test.mjs` enumerates them from the orchestration map and fails the ones that
 have not adopted it, so the set is derived rather than remembered.

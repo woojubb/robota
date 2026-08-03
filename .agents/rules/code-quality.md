@@ -13,7 +13,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
 - **No cross-package type duplication.** Defining structurally identical interfaces or types independently in multiple packages is prohibited. One package owns the SSOT; others import or re-export. If importing would create a circular dependency, move the type to a lower-level package (e.g., agent-core).
-- **Place a shared contract at the lowest layer reachable by every consumer — including dependent or planned consumers, not just current ones.** Before placing a shared type, interface, or injected port, check the dependency graph of all its intended consumers; a port that a lower-layer consumer must call (e.g. a tool that sees only agent-core) cannot live in a higher package, or that consumer can never reach it. Verify reachability for current AND committed-future consumers up front — discovering it after placement forces a second breaking move. (Worked failure: an "ask the user" port placed in a transport package was unreachable by tools that depend only on agent-core — CMD-004 review.)
+- **Place a shared contract at the lowest layer reachable by every consumer — including dependent or planned consumers, not just current ones.** Before placing a shared type, interface, or injected port, check the dependency graph of all its intended consumers; a port that a lower-layer consumer must call (e.g. a tool that sees only agent-core) cannot live in a higher package, or that consumer can never reach it. Verify reachability for current AND committed-future consumers up front — discovering it after placement forces a second breaking move.
 - To use another package's type: import and use it directly, or re-export it (`export type { X } from`). Do not create a wrapper alias.
 - A new type that structurally overlaps with an existing type is allowed only when the package cannot expose the original (e.g., exposing only a subset of fields, decoupling from an internal dependency). The new type must have a distinct name that reflects its narrowed purpose.
 - Trivial 1:1 type aliases (`type X = Y`) are prohibited. Union, intersection, mapped, and conditional types are valid uses of type aliases.
@@ -34,7 +34,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
   `Manual…`, `Recording…`, `Scripted…`), not "fake/mock". A genuine test-support double that other packages'
   tests reuse belongs under a `testing/` subpath exported via a `./testing` package entry (the
   `@robota-sdk/agent-core/testing` `scripted-provider` precedent), never the package main entry. Mechanically
-  enforced by `scan-no-fake-in-src.mjs` (HARNESS-032) — a sanctioned occurrence carries `// allow-fake: <reason>`.
+  enforced by `scan-no-fake-in-src.mjs` — a sanctioned occurrence carries `// allow-fake: <reason>`.
   (Sibling of the No-Fallback floor; both keep test-only constructs out of shipped code.)
 - NEVER use `console.*` directly in production code.
 - ALWAYS use dependency injection for logging and side concerns.
