@@ -90,6 +90,17 @@ describe('what counts as a case', () => {
     expect(found.map((f) => f.citation)).toEqual(['SOME-222']);
   });
 
+  it('still sees a citation wrapped in an inline code span', () => {
+    // Review proposed exempting inline spans by the same argument that exempts fenced blocks. It does
+    // not hold here, on two counts measured over the real tree: of the citations inside single
+    // backticks, some are format specimens and at least one is a plain retelling of a particular
+    // case, so the exemption would not separate them — and it would make evasion two backticks wide.
+    // An inline example that must name a real identifier declares itself instead, which is one line.
+    const found = findCaseNarrative('Shipped in all three phases: `SOME-123`.', nothingResolves);
+
+    expect(found.map((f) => f.citation)).toEqual(['SOME-123']);
+  });
+
   it('honours a declared exception that carries its reason, and not one that does not', () => {
     const withReason =
       'The identifier is the format. <!-- allow-citation: names the wire field -->';

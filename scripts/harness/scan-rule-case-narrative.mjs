@@ -25,6 +25,13 @@
  *    the rules themselves refuse — so this exemption doubles as the check for that.
  *  - **A specimen.** Inside a fenced code block, an identifier is a slot in a format being shown, not
  *    a claim about something that happened.
+ *
+ *    An INLINE code span is deliberately not exempt, though the same argument seems to apply to it.
+ *    Measured over this tree: of the citations inside single backticks, some are specimens and at
+ *    least one is a plain retelling of a particular case. So the exemption would not separate the two
+ *    — and worse, it would make evasion a matter of typing two backticks around the citation. An
+ *    inline example that must name a real identifier declares itself below, which costs one line and
+ *    is read once by a reviewer.
  *  - **A declared exception**, carrying its reason: `<!-- allow-citation: … -->` on the line.
  *
  * A RATCHET, not a flat gate. The tree has a history and the count is not zero today; a check that is
@@ -207,7 +214,9 @@ function main() {
   for (const { name, count, frozen } of verdict.grew) {
     console.error(
       `- [grew] ${RULES_DIR}/${name}: ${count} citation(s), up from a frozen ${frozen}. ` +
-        'State the invariant and leave the case in the record that owns it, or link to that record.',
+        'Three ways out: state the invariant and leave the case in the record that owns it; link to ' +
+        'that record so the citation resolves; or, when the identifier IS the instruction — a format ' +
+        'specimen, a worked-example path — declare it with `<!-- allow-citation: <reason> -->`.',
     );
     for (const f of findings.filter((f) => f.file === name)) {
       console.error(`    ${name}:${f.line}  ${f.citation}  ${f.text}`);
