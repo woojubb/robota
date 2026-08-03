@@ -164,6 +164,49 @@ export function findUnpaginatedQueries(source, file = 'fixture.sh') {
     });
   }
 
+  findings.push(...findParallelFanOut(source, file));
+  return findings;
+}
+
+/**
+ * A parallel fan-out of API calls is a rate limit waiting to happen.
+ *
+ * The API answers a burst with a SECONDARY limit — a 403 carrying a rate-limit message rather than
+ * the 429 a caller would look for — and that limit outlives the burst, so the next unrelated read
+ * fails too. Unlike the primary budget, it is not reported by the rate-limit endpoint, which keeps
+ * showing a healthy remaining count while every call is refused.
+ *
+ * Serial pagination is not the problem and is not flagged: a paginating read walks one page at a
+ * time. What earns a finding is a loop that dispatches many independent calls at once — the shape
+ * that turns one expensive question into thousands of requests. Ask a coarser endpoint first, or
+ * accept it serially, or route the read through the shared helper, which waits out a limit instead
+ * of amplifying it.
+ */
+const PARALLEL_FAN_OUT = /xargs[^\n]*-P\s*[2-9]|xargs[^\n]*-P\s*\d\d|parallel\s+-j\s*[2-9]|&\s*$/;
+
+export function findParallelFanOut(source, file = 'fixture.sh') {
+  const findings = [];
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (isCommentLine(line)) continue;
+    if (!PARALLEL_FAN_OUT.test(line)) continue;
+    // Only when the thing being fanned out is an API call — a parallel build is not this rule's
+    // business. The call may be in the same line or in the function the loop invokes, so the file is
+    // searched rather than the line.
+    if (!/gh\s+api|api\.github\.com/.test(source)) continue;
+    let suppressed = ANNOTATION_WITH_REASON.test(line);
+    for (let above = i - 1; !suppressed && above >= 0 && isCommentLine(lines[above]); above -= 1) {
+      suppressed = ANNOTATION_WITH_REASON.test(lines[above]);
+    }
+    if (suppressed) continue;
+    findings.push({
+      file,
+      line: i + 1,
+      kind: 'parallel-api-fan-out',
+      text: line.trim().slice(0, 140),
+    });
+  }
   return findings;
 }
 

@@ -12,7 +12,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { assertComplete, fetchAllPages, mergePages } from '../github-api.mjs';
+import {
+  assertComplete,
+  fetchAllPages,
+  isRateLimited,
+  mergePages,
+  readWithBackoff,
+  retryDelaySeconds,
+} from '../github-api.mjs';
+import { findParallelFanOut } from '../scan-api-pagination.mjs';
 import { findUnpaginatedQueries } from '../scan-api-pagination.mjs';
 
 const PER_PAGE = 100;
@@ -234,5 +242,103 @@ describe('scan-api-pagination — red against the query that caused the false al
       '  > out.json',
     ].join('\n');
     expect(findUnpaginatedQueries(source, 'workflow.yml')).toEqual([]);
+  });
+});
+
+/**
+ * A rate limit is a budget to wait out, not a defect to work around.
+ *
+ * A burst of a few thousand requests trips the API's secondary limit, and it answers with 403 — the
+ * same status as a permission error — carrying a rate-limit signature in the message. Two wrong
+ * responses follow from reading that as an ordinary failure: aborting a read that would have
+ * succeeded shortly, or retrying immediately, which keeps a secondary limit alive.
+ */
+describe('a rate-limited read waits and retries (github-api)', () => {
+  it('recognises the limit signature and not an ordinary permission error', () => {
+    expect(isRateLimited('API rate limit exceeded for user ID 1')).toBe(true);
+    expect(isRateLimited('You have exceeded a secondary rate limit')).toBe(true);
+    expect(isRateLimited('Resource not accessible by integration')).toBe(false);
+    expect(isRateLimited('')).toBe(false);
+  });
+
+  it('waits the time the API names, preferring Retry-After over the reset header', () => {
+    expect(retryDelaySeconds('retry-after: 42')).toBe(42);
+    const now = 1_000_000_000_000;
+    expect(retryDelaySeconds('x-ratelimit-reset: 1000000090', { now })).toBe(90);
+    // No header at all: a documented floor, because guessing shorter is how a retry loop becomes
+    // the thing keeping the limit alive.
+    expect(retryDelaySeconds('API rate limit exceeded')).toBe(60);
+  });
+
+  it('(RED) retries after the wait instead of failing the read', () => {
+    const slept = [];
+    let call = 0;
+    const runner = () => {
+      call += 1;
+      return call === 1
+        ? { status: 1, stdout: '', stderr: 'API rate limit exceeded\nretry-after: 3' }
+        : { status: 0, stdout: '[]', stderr: '' };
+    };
+    const response = readWithBackoff(runner, ['api', 'x'], 'x', { sleep: (s) => slept.push(s) });
+    expect(response.status).toBe(0);
+    expect(slept).toEqual([3]);
+  });
+
+  it('gives up with the budget named, rather than looping forever', () => {
+    const runner = () => ({ status: 1, stdout: '', stderr: 'API rate limit exceeded' });
+    expect(() =>
+      readWithBackoff(runner, ['api', 'x'], 'x', { attempts: 2, sleep: () => {} }),
+    ).toThrow(/still limited after 2 attempts/);
+  });
+
+  it('does NOT retry an ordinary failure — that would hide a real error behind a wait', () => {
+    let calls = 0;
+    const runner = () => {
+      calls += 1;
+      return { status: 1, stdout: '', stderr: 'Not Found' };
+    };
+    expect(() => readWithBackoff(runner, ['api', 'x'], 'x', { sleep: () => {} })).toThrow(
+      /Not Found/,
+    );
+    expect(calls).toBe(1);
+  });
+});
+
+/**
+ * The burst, not the page walk.
+ *
+ * A read that walks pages one at a time is the correct shape and must not be flagged. What earns a
+ * finding is many independent calls dispatched at once, because the API answers a burst with a
+ * SECONDARY limit — a 403 carrying a rate-limit message, which the rate-limit endpoint does not
+ * report, so the budget looks healthy while every call is refused.
+ */
+describe('a parallel fan-out of API calls is flagged (api-pagination)', () => {
+  it('(RED) flags an xargs -P fan-out of gh api calls', () => {
+    const script = [
+      '#!/usr/bin/env bash',
+      'fetch_one() { gh api "repos/o/r/actions/runs/$1/jobs?per_page=100" --paginate; }',
+      "cat run_ids.txt | xargs -P 12 -I{} bash -c 'fetch_one {}'",
+    ].join('\n');
+    const found = findParallelFanOut(script, 'burst.sh');
+    expect(found).toHaveLength(1);
+    expect(found[0].kind).toBe('parallel-api-fan-out');
+  });
+
+  it('does NOT flag a serial page walk — that is the correct shape', () => {
+    const script = ['gh api "repos/o/r/actions/runs?per_page=100" --paginate --slurp'].join('\n');
+    expect(findParallelFanOut(script, 'ok.sh')).toEqual([]);
+  });
+
+  it('does NOT flag a parallel job that touches no API', () => {
+    const script = ['ls src | xargs -P 8 -I{} node build.mjs {}'].join('\n');
+    expect(findParallelFanOut(script, 'build.sh')).toEqual([]);
+  });
+
+  it('honours a reasoned suppression, and a reason-less one does not count', () => {
+    const withReason = [
+      '# allow-unpaginated: one call per id, bounded to 3 ids by the caller',
+      'cat ids | xargs -P 4 -I{} gh api repos/o/r/x/{}',
+    ].join('\n');
+    expect(findParallelFanOut(withReason, 'ok.sh')).toEqual([]);
   });
 });
