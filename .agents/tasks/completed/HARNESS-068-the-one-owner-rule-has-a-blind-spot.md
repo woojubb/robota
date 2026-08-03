@@ -86,3 +86,17 @@ The sweep the task asked for was run: of every root and `.agents/` markdown file
 `CONTRIBUTING.md` (8 entries) and `.agents/project-structure.md` (3, the owner) carried a list. No
 third copy. The three `apps/` entries in the deleted block were verified to exist before removal, so
 nothing correct was lost with the incorrect entry.
+
+**The declared regression is delivered** —
+`scripts/harness/__tests__/front-door-docs-do-not-copy-the-package-list.test.mjs`. The first version of
+this change deleted the list and stopped there, which leaves nothing to stop it coming back: this
+task's own thesis, unlearned. Red-proved at the merge-base, where the case fails naming all eight
+entries.
+
+Scoped to the four documents read as the CURRENT description of the repository — `CONTRIBUTING.md`,
+`README.md`, `AGENTS.md`, `CLAUDE.md` — and that scope is measured, not assumed. 171 tracked markdown
+files enumerate three or more package paths, nearly all of them dated records where a listing is
+history and correct as written. What separates these four is ROLE: a reader of a completed Task knows
+they are reading a record, and a reader of `CONTRIBUTING.md` has no way to know a fresher owner
+exists. The check also asserts that the OWNER still enumerates, so if the listing ever moves, the rule
+fails loudly instead of passing over nothing.

@@ -16,11 +16,13 @@ import { afterEach, describe, expect, it } from 'vitest';
  *
  * WHERE THE RATCHET IS ENFORCED. Not in `run-all-scans.mjs` — but THIS FILE is the enforcement, and
  * the first version of it claimed the opposite in a comment. `pnpm harness:test` runs the whole
- * `scripts/harness/__tests__` suite and CI runs `harness:test` unconditionally in the `scans` job, so
- * the case below asserting exit 0 against the live tree makes the ratchet a required check on every
- * PR. Named `cleanup-drift.test.mjs` rather than `…-verdict…` for the same reason: the harness's own
- * untested-script ratchet matches a test to its subject by the `<base>.` prefix, so the old name left
- * `cleanup-drift.mjs` frozen as untested even after it had a test.
+ * `scripts/harness/__tests__` suite, and CI reaches that on both sides: the `scans` job
+ * (`base_ref != 'main'`) runs it as a step, and a promotion to `main` runs it inside
+ * `harness:verify:release`. So the case below asserting exit 0 against the live tree makes the
+ * ratchet a required check on every PR. Named `cleanup-drift.test.mjs` rather than `…-verdict…` for
+ * the same reason: the harness's own untested-script ratchet matches a test to its subject by the
+ * `<base>.` prefix, so the old name left `cleanup-drift.mjs` frozen as untested even after it had a
+ * test.
  *
  * The fixture cases point the script at a TEMP baseline via `CLEANUP_DRIFT_BASELINE` rather than
  * editing the tracked one and restoring it afterwards — a restore that a timeout or a SIGKILL never
@@ -73,6 +75,9 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     const result = run({ baseline });
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/drift GREW/);
+    // And the run says out loud that it was not judged against the tracked baseline. A silent
+    // override would let a verdict about a temp file read exactly like a verdict about the repo.
+    expect(result.stderr).toMatch(/baseline OVERRIDDEN via CLEANUP_DRIFT_BASELINE=/);
   });
 
   it('(RED) exits NON-ZERO when drift fell without a re-freeze', () => {
@@ -126,6 +131,27 @@ describe('a measurement that failed is an error, not a clean result (HARNESS-069
     expect(result.stderr).not.toMatch(/drift FELL/);
   });
 
+  it('(RED) EVERY call site is covered — including the forbidden-terms one', () => {
+    // Review round 2 found the fourth grep site still reading `status === 0` after the other three
+    // were converted, and reproduced the original defect on the fixed tree: with a grep that fails
+    // only for `<package>/src`, every forbidden-term measurement failed, nothing was printed, and the
+    // script exited 0. A stub that breaks ALL greps could not have caught it — the first thrown error
+    // would have come from one of the converted sites.
+    const dir = mkdtempSync(path.join(tmpdir(), 'cleanup-drift-grep-src-'));
+    dirs.push(dir);
+    const realGrep = spawnSync('sh', ['-c', 'command -v grep'], { encoding: 'utf8' }).stdout.trim();
+    const stub = path.join(dir, 'grep');
+    writeFileSync(
+      stub,
+      `#!/bin/sh\nfor a in "$@"; do case "$a" in */src) echo "grep: $a: Permission denied" >&2; exit 2;; esac; done\nexec ${realGrep} "$@"\n`,
+    );
+    chmodSync(stub, 0o755);
+
+    const result = run({ pathPrefix: dir });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/grep` exited 2 while measuring forbidden agent terms/);
+  });
+
   it('grep exiting 1 still means "no matches", not an error', () => {
     // The other direction. A rule that treated 1 as a failure would fail every clean repository.
     const dir = brokenGrepDir(1);
@@ -164,6 +190,8 @@ describe('fail-closed over a root it cannot judge (HARNESS-069)', () => {
     // Against the defect: exit 0, "no drift detected" — a clean bill of health for a tree with no
     // code in it at all.
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/packages\/ does not exist/);
+    // The SHARED `requireGovernedTree` message (HARNESS-052), not a private copy of the rule — a
+    // same-named local twin would have broken the property that helper exists for.
+    expect(result.stderr).toMatch(/cleanup-drift: packages missing from/);
   });
 });

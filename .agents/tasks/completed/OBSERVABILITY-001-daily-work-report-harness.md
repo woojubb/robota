@@ -11,6 +11,12 @@ depends_on: []
 
 ## Completion (2026-07-18)
 
+> **RETIRED 2026-08-03 (HARNESS-066).** Everything below shipped and is described as it was. The
+> generator ran for three days and stopped while the repository stayed active — a clock-driven cadence
+> with a prose step has no recovery pressure. `scripts/harness/daily-report.mjs`, the `daily-report`
+> skill and its index row are deleted; `.agents/daily-reports/README.md` carries the reasoning and the
+> reports themselves remain as a record of the days they cover.
+
 Implemented as a harness generator + an orchestrator skill:
 
 - **Harness** `scripts/harness/daily-report.mjs` — per-UTC-day work report from git history: work-day

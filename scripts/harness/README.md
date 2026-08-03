@@ -145,9 +145,10 @@ These scripts are the executable layer of the Robota harness.
   one FELL without a re-freeze — `node scripts/harness/cleanup-drift.mjs --write-baseline` records
   the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no
   `process.exitCode`, so whatever it found, a caller heard success.
-- the ratchet is enforced by `scripts/harness/__tests__/cleanup-drift.test.mjs`, which CI runs in the
-  `scans` job via `pnpm harness:test` — it is not in `run-all-scans.mjs`, so that test file is where
-  a rise fails.
+- the ratchet is enforced by `scripts/harness/__tests__/cleanup-drift.test.mjs` — not by
+  `run-all-scans.mjs`, so that test file is where a rise fails. CI reaches it on both sides: the
+  `scans` job (`base_ref != 'main'`) runs `pnpm harness:test` as a step, and a promotion to `main`
+  runs it inside `harness:verify:release`.
 - a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
   no `packages/`, stops the run rather than reporting less drift.
 

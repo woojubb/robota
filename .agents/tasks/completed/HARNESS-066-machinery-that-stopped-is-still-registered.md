@@ -22,11 +22,11 @@ reader cannot tell a decision from a lapse, and neither can a scan.
 From an external read-only investigation (2026-08-02); the dates and file listings were re-verified
 here.
 
-| Asset                    | Last output           | Repo activity        | State                                           |
-| ------------------------ | --------------------- | -------------------- | ----------------------------------------------- |
-| `.agents/daily-reports/` | **2026-07-19**        | active through 08-02 | ran 3 days, stopped 14 days ago                 |
-| `.agents/release-runs/`  | `3.0.0-beta.79.md`    | moved to changesets  | ~~residue of a retired workflow~~ — WRONG, LIVE |
-| `.agents/local-reviews/` | 32 files (gitignored) | —                    | see below                                       |
+| Asset                    | Last output           | Repo activity           | State                                           |
+| ------------------------ | --------------------- | ----------------------- | ----------------------------------------------- |
+| `.agents/daily-reports/` | **2026-07-19**        | active through 08-02    | ran 3 days, stopped 14 days ago                 |
+| `.agents/release-runs/`  | `3.0.0-beta.79.md`    | ~~moved to changesets~~ | ~~residue of a retired workflow~~ — WRONG, LIVE |
+| `.agents/local-reviews/` | 32 files (gitignored) | —                       | see below                                       |
 
 **The release-runs row is struck through because it is false, and the correction is left visible
 rather than edited away.** `3.0.0-beta.79` is the CURRENT `agent-cli` version and there are 16

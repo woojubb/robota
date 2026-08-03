@@ -2,6 +2,7 @@ import fsSync, { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+import { requireGovernedTree } from './governed-tree.mjs';
 import { listWorkspaceScopes, pathExists, readText } from './shared.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
@@ -147,28 +148,21 @@ async function checkForbiddenTerms(findings) {
       continue;
     }
 
-    const result = spawnSync(
-      'grep',
+    const files = grepLines(
       ['-rl', '-E', 'main agent|sub-agent|parent-agent|child-agent', '--include=*.ts', srcDir],
-      {
-        cwd: WORKSPACE_ROOT,
-        encoding: 'utf8',
-      },
+      `forbidden agent terms under ${scope.relativeDir}/src`,
     );
 
-    if (result.status === 0 && result.stdout.trim().length > 0) {
-      const files = result.stdout.trim().split(/\r?\n/);
-      for (const file of files) {
-        const content = await readText(file);
-        for (const term of FORBIDDEN_AGENT_TERMS) {
-          if (term.test(content)) {
-            findings.push({
-              file: relativePath(file),
-              type: 'forbidden-agent-term',
-              detail: `Contains forbidden agent hierarchy term matching: ${term.source}`,
-            });
-            break;
-          }
+    for (const file of files) {
+      const content = await readText(file);
+      for (const term of FORBIDDEN_AGENT_TERMS) {
+        if (term.test(content)) {
+          findings.push({
+            file: relativePath(file),
+            type: 'forbidden-agent-term',
+            detail: `Contains forbidden agent hierarchy term matching: ${term.source}`,
+          });
+          break;
         }
       }
     }
@@ -204,22 +198,6 @@ function grepLines(args, what) {
   }
   const output = result.stdout.trim();
   return result.status === 1 || output === '' ? [] : output.split(/\r?\n/);
-}
-
-/**
- * The tree this script judges must be there.
- *
- * Three of the four ratchet rows are counted by grepping `packages/`. Over a root without it, grep
- * exits 1 for every pattern, the count is zero, and the verdict reads "drift FELL" — a scan reporting
- * on ground it never examined, which this harness treats as an error and never as a pass.
- */
-function requireGovernedTree() {
-  if (!fsSync.existsSync(path.join(WORKSPACE_ROOT, 'packages'))) {
-    throw new Error(
-      `cleanup-drift: packages/ does not exist under ${WORKSPACE_ROOT} — three of the four drift ` +
-        'types are counted there, so nothing could be measured.',
-    );
-  }
 }
 
 async function checkBoundaryValidation(findings) {
@@ -344,7 +322,14 @@ function parseCleanupArgs(argv) {
 
 async function main() {
   const options = parseCleanupArgs(process.argv.slice(2));
-  requireGovernedTree();
+  // The shared helper, not a local one. A same-named copy here would break the property that module
+  // is FOR: `requireGovernedTree` greps to "which scans have been through the HARNESS-052 sweep", and
+  // a private twin makes that answer wrong — the one-owner violation HARNESS-068 is about, in the
+  // same change.
+  requireGovernedTree(WORKSPACE_ROOT, 'packages', {
+    scan: 'cleanup-drift',
+    why: 'Three of the four ratchet rows are counted by grepping packages/, so without it every pattern matches nothing and the verdict reads "drift FELL".',
+  });
   const findings = [];
 
   await Promise.all([
@@ -366,9 +351,10 @@ async function main() {
   }
 
   process.stdout.write(`harness cleanup drift scan: ${driftCount} finding(s)\n`);
-  const verdict = options.writeBaseline
-    ? { ok: true, grown: [], shrunk: [] }
-    : publishVerdict(typeGroups);
+  // Under --write-baseline there IS no verdict: the run exists to record what it measured, not to
+  // judge it against what was recorded before. Saying `passed: true` there would publish a pass
+  // nothing checked.
+  const verdict = options.writeBaseline ? undefined : publishVerdict(typeGroups);
 
   if (driftCount === 0) {
     process.stdout.write('no drift detected.\n');
@@ -396,8 +382,9 @@ async function main() {
       })),
       // ONE verdict per run. This field used to read `driftCount === 0` while the exit code read the
       // ratchet, so a run at baseline wrote `passed: false` into a report and exited 0 — two answers
-      // to one question, from the same run, disagreeing.
-      passed: verdict.ok,
+      // to one question, from the same run, disagreeing. A freeze run has no verdict to report and
+      // says so, rather than claiming a pass it never measured.
+      ...(verdict === undefined ? { verdict: 'baseline-frozen' } : { passed: verdict.ok }),
     };
 
     const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
@@ -430,16 +417,34 @@ async function main() {
  * WHERE IT IS ENFORCED, stated exactly, because the first version of this comment got it wrong. It is
  * not in `run-all-scans.mjs` and it is in no workflow directly — from which that version concluded
  * "not registered as a gate, and that is deliberate". Review measured the actual path: the ratchet's
- * test asserts this script's exit code against the live tree, `pnpm harness:test` runs the whole
- * `scripts/harness/__tests__` suite, and CI runs `harness:test` unconditionally in the `scans` job.
- * So it IS a required check on every PR — through the test suite rather than the scan registry. A
- * comment asserting the opposite is the defect class this repository measures most often in its own
- * work, and it took one grep of `ci.yml` to disprove.
+ * test asserts this script's exit code against the live tree, and `pnpm harness:test` runs the whole
+ * `scripts/harness/__tests__` suite. CI reaches it on BOTH sides — the `scans` job
+ * (`if: github.base_ref != 'main'`) runs `harness:test` as a step, and a promotion to `main` runs
+ * `release-grade-verify` (`if: github.base_ref == 'main'`), whose `harness:verify:release` includes
+ * `pnpm harness:test`. So it IS a required check on every PR, through the test suite rather than the
+ * scan registry. A comment asserting the opposite is the defect class this repository measures most
+ * often in its own work, and it took one grep of `ci.yml` to disprove — twice, since the first
+ * correction said "unconditionally in the `scans` job" and that job is itself conditional.
  *
- * A rise therefore fails CI, and the only ways out are the two a ratchet allows: remove the drift, or
- * change the rule and say so. There is no re-freeze upward.
+ * A rise therefore fails CI. Going up is not mechanically impossible — `--write-baseline` freezes
+ * whatever it measures — it is visible: the raised number lands in a tracked file, in the diff, under
+ * review. That is the same discipline every other ratchet in this harness runs on.
  */
+/**
+ * Types whose count comes from the CLOCK rather than from the tree, and so cannot be ratcheted.
+ *
+ * `stale-tmp-doc` counts files in `.design/tmp/` older than 14 days by mtime. Two different runs of
+ * the same commit disagree: a fresh CI checkout resets every mtime, so the row can never fire there,
+ * while a local tree that sat over a weekend turns `pnpm harness:test` red with no code change. A
+ * ratchet is a claim about a COMMIT; a number that changes while the commit does not is not one.
+ *
+ * Excluded from the comparison, not from the report — the finding is still printed and still counted
+ * in `findingCount`. If this row ever needs enforcing, derive the age from git rather than mtime.
+ */
+const CLOCK_DERIVED_TYPES = new Set(['stale-tmp-doc']);
+
 function publishVerdict(typeGroups) {
+  announceBaselineOverride();
   const baseline = loadDriftBaseline();
   if (baseline === undefined) {
     process.stderr.write(
@@ -452,10 +457,12 @@ function publishVerdict(typeGroups) {
   const grown = [];
   const shrunk = [];
   for (const [type, count] of typeGroups) {
+    if (CLOCK_DERIVED_TYPES.has(type)) continue;
     const frozen = baseline[type] ?? 0;
     if (count > frozen) grown.push(`${type}: ${count} (frozen ${frozen})`);
   }
   for (const [type, frozen] of Object.entries(baseline)) {
+    if (CLOCK_DERIVED_TYPES.has(type)) continue;
     const count = typeGroups.get(type) ?? 0;
     if (count < frozen) shrunk.push(`${type}: ${frozen} → ${count}`);
   }
@@ -482,13 +489,24 @@ function publishVerdict(typeGroups) {
  * `CLEANUP_DRIFT_BASELINE` exists so the ratchet's own cases can point at a temp file instead of
  * editing the tracked baseline and restoring it in `afterEach` — a restore a timeout or a SIGKILL
  * never runs, leaving the repository's frozen counts corrupted. Same shape as `GUARD_LEDGER_CEILINGS`
- * in `scan-guard-scope-fail-closed.mjs`, for the same reason.
+ * in `scan-guard-scope-fail-closed.mjs`, for the same reason — INCLUDING its loud notice, because a
+ * silent override is the failure this file is being fixed for: a run against an untracked baseline
+ * would otherwise print a verdict indistinguishable from the real one.
  */
 function driftBaselinePath() {
   const override = process.env['CLEANUP_DRIFT_BASELINE'];
   return override !== undefined && override !== ''
     ? path.resolve(WORKSPACE_ROOT, override)
     : path.join(WORKSPACE_ROOT, 'scripts/harness/cleanup-drift-baseline.json');
+}
+
+/** Say so, on pass and on fail, whenever the run was not judged against the tracked baseline. */
+function announceBaselineOverride() {
+  if (process.env['CLEANUP_DRIFT_BASELINE'] === undefined) return;
+  process.stderr.write(
+    `cleanup-drift: baseline OVERRIDDEN via CLEANUP_DRIFT_BASELINE=${driftBaselinePath()} — this ` +
+      'run did NOT check the frozen counts, and its verdict says nothing about the repository.\n',
+  );
 }
 
 function loadDriftBaseline() {

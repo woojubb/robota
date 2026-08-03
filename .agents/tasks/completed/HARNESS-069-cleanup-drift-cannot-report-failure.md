@@ -107,6 +107,29 @@ actually is.
   exit code read the ratchet, so a run at baseline wrote `passed: false` and exited 0. One verdict now
   feeds both.
 
+**Round 2 found the fix incomplete in the way the fix was about.** Three of the four grep call sites
+were converted; `checkForbiddenTerms` was not — and with a stub failing only for `<package>/src`,
+every forbidden-term measurement failed, nothing was printed, and the script exited 0. Meanwhile the
+docstring, the task file and `scripts/harness/README.md` all said "every grep call site". A claim of
+completeness that was three-quarters true, in a change whose subject is a script that could not report
+failure. Converted and red-proved against the previous commit, with a stub scoped to that one site —
+a stub that broke every grep could not have caught it, because the first thrown error would have come
+from an already-converted site.
+
+Two more from the same round: the local `requireGovernedTree` was a private twin of the shared
+HARNESS-052 helper, which breaks the property that helper exists for ("`requireGovernedTree` greps to
+which scans have been through the sweep") — the one-owner violation HARNESS-068 is about, in the same
+PR; and the `CLEANUP_DRIFT_BASELINE` override was silent, so a run against an untracked baseline
+printed a verdict indistinguishable from a real one. Both fixed; the override now announces itself the
+way `GUARD_LEDGER_CEILINGS` does.
+
+Also from round 2: `stale-tmp-doc` is excluded from the ratchet because it is derived from mtime
+rather than from the tree — a fresh CI checkout can never fire it and a local tree that sat over a
+weekend turns `harness:test` red with no code change, and a ratchet is a claim about a COMMIT. It is
+still reported and still counted. And a `--write-baseline` run now writes `verdict: "baseline-frozen"`
+instead of `passed: true`: a freeze measures, it does not judge, and claiming a pass nothing checked
+is the same defect one field over.
+
 Also: the test file was named `cleanup-drift-verdict.test.mjs`, and the harness's own untested-script
 ratchet matches a test to its subject by the `<base>.` prefix — so it went on counting
 `cleanup-drift.mjs` as untested. Renamed and the baseline re-frozen 27 → 26, which is the same
