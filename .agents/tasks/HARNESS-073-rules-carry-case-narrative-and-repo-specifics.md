@@ -184,6 +184,44 @@ Baseline re-frozen at 52 in the same change.
 numbering is referenced by a hook, a scan, another rule and a skill checklist — so every entry is
 rewritten in place, never renumbered and never deleted, and that is a separate pass.
 
+### Sweep 3 — `common-mistakes.md`, and the citable class reaches zero
+
+**52 → 0.** The frozen baseline is now `{}`, which is what a ratchet becomes when it arrives: any
+citation added to any rule document fails the scan unless it links to a record that exists, sits in a
+fenced specimen, or declares its reason.
+
+The file turned out to be the most uniform of the four rather than the hardest. Twenty-five entries
+ended in a trailing `Incident: …` clause carrying the identifier and the date, and in every one the
+invariant and the `Worked example:` / `Mechanized:` pointers sat in front of it, complete — the header
+of that very file already said the incident does not belong there. Three carried a citation inside the
+instruction itself, and those were restated: a phase note on a multi-phase item routinely keeps an
+item open, which is the general form of the one that did; the blind spot a no-`needs` split creates is
+the general form of the gate that had it.
+
+**The numbering constraint was checked mechanically, not trusted.** The sequence of entry numbers
+before and after the sweep is IDENTICAL — 83 rows, no duplicate, nothing missing from 1..83 — so every
+external reference of the form "common-mistakes #N" still resolves. Rewriting in place was the whole
+method: no row was reordered, merged or dropped.
+
+The reference case that asserted the tree carries citations was replaced with one asserting it carries
+none, which is what that case said should happen when the count reached zero rather than deleting it.
+
+## What is NOT done
+
+The citable class is closed and held. Two classes named in the evidence above are not, and this item
+stays open for them:
+
+- **Undated narrative.** Out of the checker's reach by construction — a paragraph retelling an
+  incident with every proper noun removed reads as an invariant. The audit measured one file with zero
+  identifier matches and the highest narrative count. Only a line-by-line pass finds these, and this
+  sweep did not do one; it followed the citations.
+- **Repository-specific naming.** ~15 lines name this repository's packages, products or site where a
+  universal noun would carry the same constraint — the dominant defect in one audit partition, and a
+  different check from this one. Several were removed incidentally with their surrounding sentences;
+  none were sought.
+- **The cross-file duplications** the audits found: one invariant stated in two rule files is what
+  diverges later, and they are still stated twice.
+
 ## Test Plan
 
 - **Required red-first regression:** a mechanical check that a rule document contains no case
