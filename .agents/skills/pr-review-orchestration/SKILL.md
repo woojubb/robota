@@ -5,9 +5,14 @@ description: Orchestrator for the PR-review loop (HARNESS-018). Sequences the pr
 
 # PR Review Orchestration
 
-Route-only orchestrator for reviewing a PR to convergence. This skill manages ONLY the loop — it does not review,
-post, fix, or judge; it routes on the reviewer's machine signal. All judgment lives in `pr-review-reviewer`; all
-work lives in `pr-review-writer` / `pr-review-fixer`.
+Route-only orchestrator for driving a PR to convergence. This skill manages ONLY the loop — it does not review,
+post, fix, or judge; it routes on the reviewer's machine signal.
+
+**Who reviews depends on where the change is.** Before the push (Round A) the reviewer is
+`pr-review-reviewer` on the local diff, because a round there costs a minute and the same round after a
+push costs a CI cycle. On an open pull request (Round B) the reviewer is the review automation the PR
+runs, and this loop's job is to RESOLVE what it reports — never to review it again. All fixing lives in
+`pr-review-fixer`; all posting lives in `pr-review-writer`.
 
 ## Rule Anchor
 
@@ -98,9 +103,17 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    **leave the loop** and route it as a build/test failure under the verification rules, not as a review
    finding; re-enter here once the head is green. This precondition belongs HERE and only here: the merge
    round must judge what will actually merge, and `merge-gate` requires a review newer than the head commit.
-1. **Review.** Dispatch `pr-review-reviewer` on the PR at the diff scope the rule's gate preconditions
-   define. Read its terminal line `ACTIONABLE FINDINGS: <n>` and its finding set. (Do NOT judge the
-   findings yourself — take the count as given.)
+1. **Read the review CI produced. Do not perform one.** The reviewer on an open PR is the review
+   automation the pull request runs; this loop RESOLVES what it reports. Fetch its findings —
+   [automated-review-convergence](../automated-review-convergence/SKILL.md) owns that procedure,
+   including the trap that a green check is not an absence of findings — and count the actionable ones.
+   (Do NOT judge them yourself at this step — take the set as given; judging is step 2.)
+
+   **Dispatching a reviewer agent here is the defect this step exists to prevent.** It pays for the
+   review twice, and the second opinion is the one without the PR's comment history, so it cannot see
+   which findings a previous round already answered. A local reviewer belongs in Round A, BEFORE the
+   push, where its whole purpose is to spend a minute instead of a CI cycle.
+
 2. **Take each comment one at a time, judging before replying.** CI posts a summary comment and inline
    comments; each carries a finding and each is judged on its own — `finding-depth-triager` returns one
    verdict per finding, not one per round, because a PR routinely mixes a LOCAL defect with a FOUNDATIONAL

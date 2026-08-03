@@ -98,6 +98,21 @@ describe('cleanup-drift publishes its verdict (HARNESS-069)', () => {
     expect(result.stderr).toMatch(/drift FELL/);
   });
 
+  it('(RED) reports BOTH when one type grew and another shrank', () => {
+    // The remote review found this: the first version returned after the growth, so a run that grew
+    // one type and shrank another printed half of what it knew, and the operator met the re-freeze
+    // demand as a surprise on the next run.
+    const baseline = temporaryBaseline((frozen) => {
+      const [first, second] = Object.keys(frozen);
+      frozen[first] = 0; // grew relative to a lowered floor
+      frozen[second] = 9999; // fell relative to a raised floor
+    });
+    const result = run({ baseline });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/drift GREW/);
+    expect(result.stderr).toMatch(/drift FELL/);
+  });
+
   it('the frozen baseline is the one the script actually measures', () => {
     // A number nobody can reproduce is not a baseline. The pass above already proves agreement;
     // this pins that the file is non-empty, so an emptied one cannot masquerade as a clean tree.

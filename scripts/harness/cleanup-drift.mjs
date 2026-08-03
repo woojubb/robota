@@ -463,16 +463,20 @@ function publishVerdict(typeGroups) {
     if (count < frozen) shrunk.push(`${type}: ${frozen} → ${count}`);
   }
 
+  // BOTH are reported when both happened. The first version returned after the growth, so a run that
+  // grew one type and shrank another printed only half of what it knew and the operator fixed the
+  // growth, re-ran, and met the re-freeze demand as a surprise. A verdict that withholds what it
+  // measured is the same defect as one that never measured it.
   if (grown.length > 0) {
     process.stderr.write(`\ndrift GREW: ${grown.join(', ')}\n`);
-    process.exitCode = 1;
-    return { ok: false, grown, shrunk };
   }
   if (shrunk.length > 0) {
     process.stderr.write(
       `\ndrift FELL (${shrunk.join(', ')}). Re-freeze it in the SAME change — ` +
         `--write-baseline — or the gain is a licence to grow back.\n`,
     );
+  }
+  if (grown.length > 0 || shrunk.length > 0) {
     process.exitCode = 1;
     return { ok: false, grown, shrunk };
   }

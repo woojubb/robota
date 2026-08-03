@@ -40,10 +40,16 @@ the precedence and its exceptions.
 **A rule states an invariant, universally and neutrally.** A reader must be able to obey it without
 knowing any history, and it must hold for a repository that shares none of this one's incidents.
 
-- **No case narrative.** Numbers of pull requests, issues or review rounds; dates; task identifiers;
-  "this happened when…", "measured on…", named past failures — none of these belong in a rule. The
-  incident that prompted a rule is evidence for adopting it, not part of it, and it belongs in the
-  record that owns it: a task, a lesson, a spec document, or a commit message.
+- **No case narrative.** Numbers of pull requests, issues or review rounds; dates; "this happened
+  when…", "measured on…", named past failures — none of these belong in a rule. The incident that
+  prompted a rule is evidence for adopting it, not part of it, and it belongs in the record that owns
+  it: a task, a lesson, a spec document, or a commit message.
+- **A reference is not a narrative.** The ban is on retelling, not on pointing. An identifier that a
+  reader or a check must RESOLVE stays: a containment note naming the item that holds an accepted
+  gap, a format specimen's identifier slot, the name of the check that enforces the rule and its
+  suppression syntax, a path showing what obeying looks like. The test is whether removing it changes
+  what someone does. An identifier that only says where a rule came from fails that test; one that
+  says where to go does not.
 - **Two reasons, and the second is the stronger.** Every line of a rule is loaded before any work
   begins, so narrative costs attention on every task forever. And a rule justified by an incident
   invites the reader to judge whether their case resembles it — which is exactly the discretion a rule
@@ -52,10 +58,16 @@ knowing any history, and it must hold for a repository that shares none of this 
   names and vendor details make a rule that applies here and nowhere else; put them in the package
   specification or the skill that owns the domain.
 - **The test.** Delete every proper noun, number and date from a rule and read what remains. If the
-  invariant survives, the deleted matter was not carrying it. If it does not survive, the rule was a
-  story, and the invariant behind it has not been written yet.
+  invariant survives, the deleted matter was not carrying it. If it does not survive, either the
+  deleted matter was a reference the reader acts on, or the rule was a story whose invariant has not
+  been written yet — and those are told apart by asking what a reader would do differently.
 - Adding a rule replaces prose only when nothing mechanical can carry it — see
   [learning-loop.md](learning-loop.md) § Enforcement Preference.
+
+> **Contained — [HARNESS-073](../tasks/HARNESS-073-rules-carry-case-narrative-and-repo-specifics.md).**
+> Most documents in this tree do not yet meet the form above; the measurement, its method and its
+> limits live in that item. The form is stated at its intended strength and the gap is filed rather
+> than deferred in silence — a document not yet corrected is behind, not exempt.
 
 ## Top-Level Rules
 
