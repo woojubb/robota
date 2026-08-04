@@ -14,6 +14,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  examinedWriteScopeCount,
   findWorkflowPermissionFindings,
   JUSTIFIED_WRITE_SCOPES,
   parsePermissions,
@@ -129,5 +130,53 @@ describe('the real repository', () => {
       0,
     );
     expect(total).toBeGreaterThan(0);
+  });
+});
+
+describe('the examined count is what was read, not what was declared', () => {
+  /**
+   * The declaration table keeps an entry for a workflow that has since been deleted, and the
+   * anti-rot loop skips those. Reporting the table's size as the examined count therefore claims a
+   * number larger than what was examined — the exact defect the `::examined::` line exists to
+   * expose, committed by the change that introduced the line. Review caught it.
+   */
+  it('counts only the write scopes present on disk', () => {
+    const root = makeRoot({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(root);
+
+    expect(examinedWriteScopeCount(), 'a scope on disk was not counted').toBe(1);
+  });
+
+  it('reports zero when the governed tree holds no write scope at all', () => {
+    // And zero is exactly what the runner refuses to accept as a silent pass.
+    const root = makeRoot({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(root);
+
+    expect(examinedWriteScopeCount()).toBe(0);
+  });
+
+  it("does not carry a previous run's count into the next", () => {
+    // A module-level holder that is never reset reports the largest run it ever saw.
+    const withScope = makeRoot({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+    const without = makeRoot({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(withScope);
+    findWorkflowPermissionFindings(without);
+
+    expect(examinedWriteScopeCount(), 'the count survived into a run that read nothing').toBe(0);
   });
 });

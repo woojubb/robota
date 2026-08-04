@@ -70,6 +70,21 @@ export const JUSTIFIED_WRITE_SCOPES = {
 };
 
 /** Parse the top-level `permissions:` block of a workflow into `{scope: level}`. */
+/**
+ * How many write scopes the last run actually READ from workflows on disk.
+ *
+ * Deliberately not the size of the declaration table below. That table keeps an entry for a workflow
+ * that has since been deleted, and the anti-rot loop skips those — so reporting its size would claim
+ * an examined count larger than what was examined, which is the exact defect the `::examined::` line
+ * exists to expose. Found by review, in the change that introduced the line.
+ */
+let examinedWriteScopes = 0;
+
+/** What the last `findWorkflowPermissionFindings` run actually read — exported so it can be asserted. */
+export function examinedWriteScopeCount() {
+  return examinedWriteScopes;
+}
+
 export function parsePermissions(source) {
   const lines = source.split('\n');
   const start = lines.findIndex((line) => /^permissions:\s*$/.test(line));
@@ -108,6 +123,7 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
     return [{ workflow: WORKFLOW_DIR, detail: 'no workflows found — this scan examined nothing' }];
   }
 
+  examinedWriteScopes = 0;
   const requested = new Set();
   for (const name of workflows) {
     const scopes = parsePermissions(fs.readFileSync(path.join(dir, name), 'utf8'));
@@ -115,6 +131,7 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
     for (const [scope, level] of Object.entries(scopes)) {
       if (level !== 'write') continue;
       requested.add(`${name}:${scope}`);
+      examinedWriteScopes = requested.size;
       const justification = JUSTIFIED_WRITE_SCOPES[name]?.[scope];
       if (justification === undefined) {
         findings.push({
@@ -191,7 +208,9 @@ export function main(argv = process.argv.slice(2)) {
     (total, scopes) => total + Object.keys(scopes).length,
     0,
   );
-  process.stdout.write(`::examined:: ${count} declared write scopes\n`);
+  process.stdout.write(
+    `::examined:: ${examinedWriteScopes} write scopes read from workflows on disk\n`,
+  );
   process.stdout.write(
     `workflow-permissions scan passed: ${count} declared write scope(s), each justified.` +
       (argv.includes('--live')
