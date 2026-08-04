@@ -1,6 +1,7 @@
 ---
 name: spec-code-conformance
 description: Mandatory verification loop after any SPEC.md or contract document change. Compares spec against implementation code, fixes code to match spec, repeats until zero discrepancies, then runs regression tests. Spec is always the source of truth — never modify the spec within this workflow.
+loop: over=finding-set; escape=no-progress
 ---
 
 ## Rule Anchor
@@ -56,6 +57,11 @@ This skill is **mandatory** whenever:
                │
                └──────► Back to Step 2 (repeat)
 ```
+
+**The loop's escape.** Repeat until step 2 finds no discrepancy, or until the same discrepancy set
+recurs unchanged — then STOP and escalate to the user rather than spin. A round that changes nothing
+is a round that will change nothing again, and a spec-versus-code disagreement neither side resolves
+is a decision, not a defect. [no-progress escape](../../rules/enforcement-architecture.md) owns what that comparison means.
 
 ### Step 1: Collect affected specs
 

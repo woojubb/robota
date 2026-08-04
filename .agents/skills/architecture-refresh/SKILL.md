@@ -1,6 +1,7 @@
 ---
 name: architecture-refresh
 description: Thin orchestration for the recurring architecture audit→depth→apply→re-audit loop. It holds NO architecture policy — it only sequences five predefined subagents (two auditors, the depth guardian, two appliers), reads their convergence signal, routes each finding on its depth verdict to the applier the auditor named, and re-calls them until every finding of a round is RESOLVED. Every judgement lives in the agents. Use to keep architecture and implementation in sync when a single pass won't finish it.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Architecture Refresh — pipeline only
@@ -55,7 +56,7 @@ The five predefined agents (spawn by `agentType`):
 
 5. **Re-audit.** Re-run the auditors on the changed areas. A contained claim comes back `CONTAINED`, not
    as a finding, which is what lets a round holding a foundational verdict still converge.
-6. **Loop** 1–5 until step 2 says converged.
+6. **Loop** 1–5 until step 2 says converged, or until the same finding set recurs unchanged — then STOP and escalate to the user ([no-progress escape](../../rules/enforcement-architecture.md), which owns what that means).
 7. **Land** the applied changes through the repo's normal flow; pass any escalations the appliers return
    into the repo's gated backlog.
 

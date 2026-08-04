@@ -72,19 +72,34 @@ On a guardian FAIL the orchestrator rewinds. Two shapes, both already in the rep
   `ACTIONABLE FINDINGS: 0`). Use for gates like prior-art research, spec completeness, and conformance,
   where "just make it complete" is unambiguous.
 
-  Every such loop MUST have an escape, and the escape MUST be **no-progress detection**: if a round
-  returns the same finding set unchanged, stop and escalate to the user. A max-iteration count is an
-  OPTIONAL second bound and must never be the only one — a stuck loop and a productive one look
-  identical to a counter and different to the finding set, so the counter is the weaker test. The
-  PR-review loop runs with no count at all by owner directive; see
+  **Two kinds of loop, and the bound that fits each.** What a round produces decides which bound can
+  see it stuck, so the kind is declared rather than inferred.
+
+  - **A loop over a FINDING SET** re-drives until the findings are gone. Its escape MUST be
+    **no-progress detection**: if a round returns the same finding set unchanged, stop and escalate to
+    the user. A max-iteration count is an OPTIONAL second bound and must never be the only one — a
+    stuck loop and a productive one look identical to a counter and different to the finding set, so
+    the counter is the weaker test.
+  - **A loop over ATTEMPTS** retries one action that either succeeds or does not — re-cutting a base,
+    re-running a phase, asking a person for a fresh credential. There is no finding set for a
+    no-progress rule to compare, so a COUNT is the right bound and the only one available, and it MUST
+    be stated as a number. Demanding an escape here would be a rule firing on a correct state.
+
+  Every loop DECLARES its kind, in one line of its skill's frontmatter, so the population is
+  established by a machine and not by a hand-kept list:
+
+  ```yaml
+  loop: over=finding-set; escape=no-progress; bound=2 rounds
+  loop: over=attempt; bound=3 requests
+  ```
+
+  Enforced by `scan-loop-contract.mjs`, which reads that declaration, requires the skill's BODY to
+  state the escape it declares — a declaration nothing implements is the dodge this repository has a
+  separate floor about — and requires the orchestration map's Loop-back cell to agree with it.
+
+  The PR-review loop runs with no count at all by owner directive; see
   [pr-finding-resolution-loop](../skills/pr-finding-resolution-loop/SKILL.md), which owns that decision and
   the evidence for it.
-
-  > **Contained — [HARNESS-071](../tasks/HARNESS-071-loops-with-no-progress-escape.md).** Most
-  > auto-re-drive loops in this repository do not satisfy the paragraph above, including the shape
-  > named as its exemplar. The rule is stated at its intended strength and the gap is filed rather
-  > than deferred in silence; the Task carries the measurement, its method and its limits, and nothing
-  > outside the loops it names is exempt.
 
 - **Halt-for-user (human-decision gates)** — the orchestrator stops and surfaces the verdict for the user to
   decide (the current GATE-APPROVAL shape). Use where a human sign-off is the point.

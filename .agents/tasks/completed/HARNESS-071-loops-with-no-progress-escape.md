@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-071: almost no convergence loop can notice it is stuck, and the rule that now requires one was landed over them'
-status: todo
+status: done
+completed: 2026-08-04
 issue: https://github.com/woojubb/robota/issues/1616
 created: 2026-08-03
 priority: medium
@@ -130,6 +131,48 @@ The finding IDENTITY that comparison runs on is `file:line + severity`, and it i
 HARNESS-018 draft defined it two other ways (`file:line + rule/category`, `file:line+rule`) and #1615
 unified all of them. Keep it that way — with no round cap the identity is the PR-review loop's sole
 bound, so a second definition is a second stuck-detection.
+
+## Implementation
+
+**The rule was the first thing that had to change, and that is not a concession.** It said "every
+auto-re-drive loop" and required a no-progress escape from all of them — which is why this item's own
+evidence swept in `npm-otp-publish`, a loop that bounds how many times it may ask a person for a fresh
+credential and has no finding set for a no-progress rule to compare. A check enforcing the rule as
+written would have demanded an escape there and been wrong; a check enforcing what the rule MEANT
+would have contradicted the rule. So the rule now names the two kinds:
+
+- **over a FINDING SET** — a round returns findings. A counter cannot see it stuck; the escape MUST be
+  no-progress, and a count is an optional second bound.
+- **over ATTEMPTS** — a round retries one action that either succeeds or does not. There is nothing to
+  compare, so a COUNT is the right bound and the only one available, and it must state a NUMBER.
+
+**The population is established by a machine now.** That is the part this item kept getting wrong: the
+count in this file was corrected in rounds 9, 10, 11, 12 and 13, and each correction was another hand
+count. `scan-loop-contract.mjs` sweeps every skill body for loop language — deliberately broadly,
+because a sweep that misses a phrasing reports the absence of what it cannot see, which is this item's
+own subject — and requires each match to declare its kind in one frontmatter line.
+
+The machine immediately found what the hand count had missed: **fifteen** loops, not thirteen or
+fourteen. `spec-code-conformance` was absent from the block above, and `spec-first-development` turned
+out to REFER to loops it does not drive. The second produced the third declaration kind —
+`over=delegated; owner=<skill>` — because the honest answer to a broad sweep catching a reference is
+to make the reference explicit, not to narrow the sweep until it starts missing real loops again. The
+named owner must resolve to a skill that declares a loop, for the same reason a citation must link to
+a record that exists.
+
+**And a declaration is not an escape.** A frontmatter key is cheap, and this repository already has a
+floor about declaring a capability and then dodging it. So the check reads two axes: the declaration,
+and whether the BODY says what happens when a round returns the same findings. `escape-declared-not-stated`
+is its own finding for that reason.
+
+**One owner for the escape itself.** The Direction warned that a dozen restatements of the identity-set
+comparison is the defect a sibling item is about. The rule owns what the comparison means; each skill
+states the escape as one clause applied to its own loop and links to the rule. No skill restates the
+definition.
+
+Red-proved against the tree as it stood: **15 `undeclared-loop` findings, exit 1**; after, exit 0. The
+map axis was red on the real tree too — reconciling the orchestration map came after the scan was
+written, and it reported **7 `map-understates-the-escape`** findings first.
 
 ## Test Plan
 

@@ -1,6 +1,7 @@
 ---
 name: documentation-refresh
 description: Thin orchestration for the recurring documentation audit→depth→fix→re-audit loop. It holds NO documentation policy — it only sequences three subagents (doc-auditor, finding-depth-triager, doc-fixer), routes each finding on its depth verdict, and re-calls them until every finding of a round is RESOLVED. All judgement (what to audit, what "good" means, where the defect is, how to fix) lives in the agents. Use when docs must be brought current with the code and a single pass won't finish it.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Documentation Refresh — pipeline only
@@ -25,7 +26,7 @@ Do not restate the agents' policy here.
    - **UNDETERMINED** → not a pass. Obtain the specific thing the verdict names as missing, then re-judge that finding at step 3.
 
 5. **Re-audit.** Run `doc-auditor` again on the areas that changed — confirming both that each applied fix is correct AND that it introduced no new inconsistency (a fix can create fresh drift). A contained claim comes back `CONTAINED`, not as a finding, which is what lets a round with a foundational verdict in it still reach zero.
-6. **Loop** the audit → depth → fix → re-audit cycle until step 2 reports convergence. Do **not** stop after one or two passes because "it looks done" — a large surface rarely converges that fast; keep going while any round still finds unresolved material drift. A **round cap** is only a safety checkpoint, never a finish line: on reaching it with material findings still open, pause and report the itemized residuals for a human decision — do not silently stop, and do not claim "docs current". Only a final, materially-resolved audit round licenses the "docs current" claim.
+6. **Loop** the audit → depth → fix → re-audit cycle until step 2 reports convergence, or until the same finding set recurs unchanged — then STOP and escalate to the user ([no-progress escape](../../rules/enforcement-architecture.md), which owns what that means). Do **not** stop after one or two passes because "it looks done" — a large surface rarely converges that fast; keep going while any round still finds unresolved material drift. A **round cap** is only a safety checkpoint, never a finish line: on reaching it with material findings still open, pause and report the itemized residuals for a human decision — do not silently stop, and do not claim "docs current". Only a final, materially-resolved audit round licenses the "docs current" claim.
 7. **Land** the result through the repo's normal review/CI/merge flow, and pass any root items filed at step 4 into the repo's gated backlog.
 
 That is the whole skill. Everything else is the agents'.
