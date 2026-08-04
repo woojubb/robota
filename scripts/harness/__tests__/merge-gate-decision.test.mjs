@@ -37,6 +37,7 @@ function stubbedPath({
   headAt,
   labels = [],
   unresolved = 0,
+  totalThreads,
   threadsUnreadable = false,
 }) {
   const dir = mkdtempSync(path.join(tmpdir(), 'merge-gate-'));
@@ -45,7 +46,15 @@ function stubbedPath({
   const fixture = path.join(dir, 'fixture.json');
   writeFileSync(
     fixture,
-    JSON.stringify({ state, comments, headAt, labels, unresolved, threadsUnreadable }),
+    JSON.stringify({
+      state,
+      comments,
+      headAt,
+      labels,
+      unresolved,
+      totalThreads,
+      threadsUnreadable,
+    }),
   );
 
   const gh = path.join(dir, 'gh');
@@ -93,7 +102,10 @@ function stubbedPath({
       'if (args.includes("repo view")) { console.log("woojubb/robota"); process.exit(0); }',
       'if (args.includes("reviewThreads")) {',
       '  if (f.threadsUnreadable) process.exit(1);',
-      '  console.log(String(f.unresolved ?? 0));',
+      '  // The hook asks for TWO numbers in one read: how many threads came back, and how many of',
+      "  // those are the reviewer's and still open. A stub answering only the second would let a",
+      '  // truncated page read as a short one.',
+      '  console.log(`${f.totalThreads ?? f.unresolved ?? 0} ${f.unresolved ?? 0}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("pr checks")) { process.exit(0); }',
@@ -335,7 +347,7 @@ describe('every inline finding is answered where it was raised', () => {
     const verdict = judge(world(2));
 
     expect(verdict.status).toBe(2);
-    expect(verdict.output).toMatch(/2 unresolved review thread\(s\)/);
+    expect(verdict.output).toMatch(/2 unresolved REVIEW finding thread\(s\)/);
     expect(verdict.output, 'the refusal does not say what answering means').toMatch(
       /Reply on the thread/,
     );
@@ -343,6 +355,30 @@ describe('every inline finding is answered where it was raised', () => {
 
   it('lets it through when every thread is answered', () => {
     expect(judge(world(0)).status, judge(world(0)).output).toBe(0);
+  });
+
+  it('refuses a FULL page, because the rest can no longer be proven resolved', () => {
+    // The same reasoning the label read one section up spells out, and the same check. Without it a
+    // pull request with more than a page of threads could carry an open finding on a page this never
+    // read and merge on a count of zero — the "unknown is not zero" this block is built on.
+    const verdict = judge({ ...world(0), totalThreads: 100 });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/full page of 100 review threads/);
+  });
+
+  it('does not refuse a short page', () => {
+    expect(judge({ ...world(0), totalThreads: 99 }).status).toBe(0);
+  });
+
+  it("counts only the REVIEWER's threads, not a human's aside", () => {
+    // A human's inline question is a conversation, not a finding. Blocking a merge on one would make
+    // the override routine, which is how a gate stops being read at all — a failure this hook warns
+    // about elsewhere and would otherwise have re-created here. The hook passes its own reviewer
+    // pattern into the query, so the stub applies THAT pattern rather than a copy written here.
+    const asideOnly = judge({ ...world(0), totalThreads: 3 });
+
+    expect(asideOnly.status, asideOnly.output).toBe(0);
   });
 
   it('refuses when it cannot read the thread state at all', () => {

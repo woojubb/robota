@@ -226,18 +226,42 @@ fi
 # So: reply on the thread and resolve it. The reply is where the decision lives — accepted and how,
 # or refuted and on what evidence.
 #
+# Scoped to threads the REVIEWER opened, by the same pattern this gate already uses to find the
+# review. A human's inline question or aside is a conversation, not a finding, and blocking a merge on
+# one would make the override routine — which is how a gate stops being read at all, a failure this
+# file warns about a hundred lines down and would otherwise have re-created here.
+#
 # Unknown is not zero. If the thread state cannot be read, the gate refuses, the same way it refuses
 # an unreadable head date below.
 # Only GraphQL exposes thread resolution — `gh pr view --json` has no such field. The repository is
 # READ from the checkout rather than reconstructed: a hook that guessed an owner or a name would ask
 # about the wrong repository and answer confidently.
 REPO_NWO=$(bounded_gh repo view --json nameWithOwner --jq '.nameWithOwner' || echo "")
-UNRESOLVED=""
+THREADS=""
 if [[ -n "$REPO_NWO" ]]; then
-  UNRESOLVED=$(bounded_gh api graphql -f query="
+  # One read, two numbers: how many threads came back, and how many of THOSE are the reviewer's and
+  # still open. Asking twice would let the page shift between the questions.
+  THREADS=$(bounded_gh api graphql -f query="
 { repository(owner: \"${REPO_NWO%%/*}\", name: \"${REPO_NWO##*/}\") {
-    pullRequest(number: $PR) { reviewThreads(first: 100) { nodes { isResolved } } }
-} }" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' || echo "")
+    pullRequest(number: $PR) {
+      reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } }
+    }
+} }" --jq '.data.repository.pullRequest.reviewThreads.nodes
+      | "\(length) \([.[] | select(.isResolved == false)
+          | select(.comments.nodes[0].author.login | test("'"$REVIEWER_RE"'"))] | length)"' || echo "")
+fi
+TOTAL_THREADS="${THREADS%% *}"
+UNRESOLVED="${THREADS##* }"
+
+# A FULL page is the one state where "the rest are resolved" stops being provable — the same
+# reasoning the label read above spells out, and the same check. Without it a pull request with more
+# than 100 threads could carry an open finding on a page this never read and merge on a count of 0,
+# which is precisely the "unknown is not zero" this block is built on.
+if [[ -n "$TOTAL_THREADS" ]] && (( TOTAL_THREADS >= 100 )); then
+  echo "[merge-gate] Blocked: #$PR returned a full page of $TOTAL_THREADS review threads, so this" >&2
+  echo "[merge-gate] read may be truncated and an unanswered finding beyond it would be invisible." >&2
+  echo "[merge-gate] Check by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
 fi
 
 if [[ -z "$UNRESOLVED" ]]; then
@@ -248,7 +272,7 @@ if [[ -z "$UNRESOLVED" ]]; then
 fi
 
 if [[ "$UNRESOLVED" != "0" ]]; then
-  echo "[merge-gate] Blocked: PR #$PR has $UNRESOLVED unresolved review thread(s)." >&2
+  echo "[merge-gate] Blocked: PR #$PR has $UNRESOLVED unresolved REVIEW finding thread(s)." >&2
   echo "[merge-gate] Fixing a finding is not answering it. Reply on the thread with the decision —" >&2
   echo "[merge-gate] accepted and how, or refuted and on what evidence — then resolve it, so the" >&2
   echo "[merge-gate] next reader can tell a finding that was handled from one that was ignored." >&2
