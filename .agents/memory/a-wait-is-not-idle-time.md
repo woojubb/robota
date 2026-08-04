@@ -41,3 +41,24 @@ adoption ratchet, edit the same registry, or touch the same rule document are ON
 collide at the baseline even when their subjects are unrelated. See
 [`check-validity-two-axes.md`](check-validity-two-axes.md) for the neighbouring lesson about harness
 changes overlapping more than they appear to.
+
+## Two frictions the first parallel run actually hit
+
+Recorded because both are silent, both cost a CI round trip, and neither is visible until the work is
+already in a worktree.
+
+**1. Committing from inside the worktree is refused; committing with `git -C` skips the hooks.**
+`branch-guard` resolves the repository from `git -C <path>` before the project dir — but it reads the
+command as TEXT, so `git -C "$WT" commit` hands it an unexpanded variable, falls back to the project
+dir, and refuses the commit for being on whatever branch the MAIN checkout sits on. Passing the
+literal path works. But a `git -C` commit run from outside the worktree does not fire the repository's
+`lint-staged` pre-commit, so `prettier` never runs and the required `format-check` job goes red on
+files the local flow would have fixed silently.
+
+Until the shell-aware extraction lands (HARNESS-061), the working combination is: **literal path in
+`git -C`, and run `prettier --write` over the changed files yourself before committing.**
+
+**2. A fresh worktree has no `node_modules`.** Every scan and test fails in ways that look like real
+findings — eleven scans "failed" on the first run purely for that. `pnpm install --frozen-lockfile
+--ignore-scripts` first, in the background while something else proceeds, and remember that the
+`dist`-dependent scans still need a build (CI's own `scans` job skips them for the same reason).

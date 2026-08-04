@@ -61,16 +61,16 @@ the platform as an ARGUMENT, reads no `process.platform` and spawns nothing, so 
 **The number the done-gate demanded refutes the reason the item gave.** Measured on a real run of the
 job:
 
-| Step | Time |
-| --- | --- |
-| Set up job, checkout | 9 s |
-| Install pnpm, Node | 9 s |
-| `pnpm install --frozen-lockfile` | **42 s** |
-| Build agent-core + agent-process | 7 s |
-| **`platform-shell` (removed)** | **2 s** |
-| `shell-tool` (kept — genuinely win32) | 3 s |
-| Teardown | 20 s |
-| **Total** | **~103 s** |
+| Step                                  | Time       |
+| ------------------------------------- | ---------- |
+| Set up job, checkout                  | 9 s        |
+| Install pnpm, Node                    | 9 s        |
+| `pnpm install --frozen-lockfile`      | **42 s**   |
+| Build agent-core + agent-process      | 7 s        |
+| **`platform-shell` (removed)**        | **2 s**    |
+| `shell-tool` (kept — genuinely win32) | 3 s        |
+| Teardown                              | 20 s       |
+| **Total**                             | **~103 s** |
 
 The item said it "buys the matrix's most expensive runner to re-run something `quality` already
 covers". The runner is bought by the step that stays; this one was **2 % of one job**, about two
