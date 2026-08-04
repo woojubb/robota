@@ -86,20 +86,32 @@ function bodyOf(text) {
   return splitFrontmatter(text).body;
 }
 
-/** The Loop-back cell of `orchestration-map.md`, per skill named in the row's orchestrator column. */
+/**
+ * The Loop-back cell of `orchestration-map.md`, per skill named in the row's orchestrator column.
+ *
+ * A row is OWNED by the first skill its orchestrator cell names; the others are collaborators it
+ * hands to, and they inherit the row's bound only when they have no row of their own. Reading it
+ * "first mention across the whole table wins" attributed a shared sub-orchestration to whichever row
+ * happened to mention it first — measured here: a skill was judged against the PR-review row's cell
+ * rather than its own, and a substring comparison hid the mismatch because that cell contained a
+ * date whose digits matched.
+ */
 export function readMapBounds(source) {
-  const bounds = new Map();
+  const owned = new Map();
+  const inherited = new Map();
   for (const line of source.split('\n')) {
     if (!line.startsWith('| **')) continue;
     const cells = line.split('|').map((c) => c.trim());
     if (cells.length < 7) continue;
     const [, , orchestrator, , , loopBack] = cells;
-    for (const skill of orchestrator.matchAll(/`([a-z0-9-]+)`/g)) {
-      // First mention wins: a row names its orchestrator first and its collaborators after.
-      if (!bounds.has(skill[1])) bounds.set(skill[1], loopBack);
+    const named = [...orchestrator.matchAll(/`([a-z0-9-]+)`/g)].map((m) => m[1]);
+    if (named.length === 0) continue;
+    if (!owned.has(named[0])) owned.set(named[0], loopBack);
+    for (const collaborator of named.slice(1)) {
+      if (!inherited.has(collaborator)) inherited.set(collaborator, loopBack);
     }
   }
-  return bounds;
+  return new Map([...inherited, ...owned]);
 }
 
 export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
@@ -184,7 +196,10 @@ export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
       });
     }
     const declaredNumber = /(\d+)/.exec(declared.bound ?? '')?.[1];
-    if (declaredNumber && !mapBound.includes(declaredNumber)) {
+    // Matched on a WORD BOUNDARY, not as a substring. `'12'.includes('1')` is true, so a skill
+    // declaring 1 round would have agreed with a map cell saying 12 — a silent disagreement, which is
+    // the one thing this check exists to make impossible.
+    if (declaredNumber && !new RegExp(`\\b${declaredNumber}\\b`).test(mapBound)) {
       findings.push({
         skill: name,
         kind: 'map-disagrees-on-the-bound',

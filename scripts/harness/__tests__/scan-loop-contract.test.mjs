@@ -115,9 +115,27 @@ describe('the map and the skill state one bound', () => {
     ].join('\n');
 
     const bounds = readMapBounds(table);
-    // First mention wins: a row names its orchestrator first and its collaborators after.
+    // A row is owned by the first skill it names; the rest are collaborators it hands to.
     expect(bounds.get('alpha')).toBe('auto → escape: no-progress');
     expect(bounds.get('beta')).toBe('auto → escape: no-progress');
+  });
+
+  it('gives a shared sub-orchestration its OWN row, not the row that hands to it', () => {
+    // Measured on the real map: a shared skill was mentioned in an earlier row's orchestrator cell
+    // and judged against THAT row's bound instead of its own. A substring comparison hid the
+    // mismatch because the borrowed cell carried a date whose digits matched the declared number.
+    const table = [
+      '| Pipeline | Orchestrator | Workers | Guardians | Loop-back | Floor |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| **Caller** | `caller` (hands off to `shared`) | `w` | `g` | auto → no cap (2026-08-03) | `s` |',
+      '| **Shared** | `shared` (called by `caller`) | `w` | `g` | auto → bounded (2 attempts) | `s` |',
+    ].join('\n');
+
+    const bounds = readMapBounds(table);
+    expect(bounds.get('shared'), "the shared skill borrowed its caller's bound").toBe(
+      'auto → bounded (2 attempts)',
+    );
+    expect(bounds.get('caller')).toBe('auto → no cap (2026-08-03)');
   });
 
   it('fails when the map understates an escape the skill declares', () => {
@@ -133,6 +151,22 @@ describe('the map and the skill state one bound', () => {
     });
 
     expect(found.map((f) => f.kind)).toEqual(['map-understates-the-escape']);
+  });
+
+  it('does not accept a map number that merely CONTAINS the declared one', () => {
+    // `'12'.includes('1')` is true, so a substring comparison let a skill declaring 1 round agree
+    // with a map cell saying 12 — a silent disagreement, which is the one thing this check exists to
+    // make impossible.
+    const found = judgeSkill({
+      name: 'probe',
+      text: skill(
+        'loop: over=finding-set; escape=no-progress; bound=1 round',
+        'Repeat until clean; if the same findings recur unchanged, stop.',
+      ),
+      mapBound: 'auto → escape: no-progress, plus 12 rounds',
+    });
+
+    expect(found.map((f) => f.kind)).toEqual(['map-disagrees-on-the-bound']);
   });
 
   it('fails when the map carries a different number from the skill', () => {

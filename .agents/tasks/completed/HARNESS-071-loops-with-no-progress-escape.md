@@ -179,6 +179,16 @@ floor's named-key branch consults an ALLOWLIST of frontmatter key names, and the
 hole in its detector arrived in the same change. Both fixed, and the floor now pins the two keys added
 with it, red-proved by removing them.
 
+**A second review round found a loose comparison, and tightening it uncovered a real one.** The
+map-agreement check compared the declared number to the map cell by SUBSTRING, so a skill declaring
+`1 round` would have agreed with a cell saying `12 rounds`. Changed to a word-boundary match — and the
+strict form immediately failed on the real tree, because a shared sub-orchestration was being judged
+against ANOTHER row's cell: rows were attributed by first-mention across the whole table, so a skill
+named as a collaborator in an earlier row took that row's bound instead of its own. The substring
+comparison had hidden it, because the borrowed cell carried a date whose digits matched. A row is
+owned by the first skill its orchestrator cell names now; collaborators inherit only when they have no
+row of their own. Both red-proved.
+
 Red-proved against the tree as it stood: **15 `undeclared-loop` findings, exit 1**; after, exit 0. The
 map axis was red on the real tree too — reconciling the orchestration map came after the scan was
 written, and it reported **7 `map-understates-the-escape`** findings first.
