@@ -233,6 +233,38 @@ documents changes which document a reader is bound by, and doing it silently at 
 unrelated sweep is the opposite of how this repository handles ownership. It is also coupled to the
 third leftover below.
 
+### The policy move — decided by the owner, split by kind (2026-08-04)
+
+The classification above left one thing open, because relocating policy between governing documents
+changes which document binds a reader and that is not an agent's call to make quietly. The owner chose
+**split by kind** over moving wholesale or leaving it.
+
+**`testing-layering.md` keeps the rule and loses the names.** Its six rules now read "a surface owns no
+feature logic", "feature behaviour MUST have a functional test at the owning layer" — statements that
+bind any repository. The map of which package is the surface, which is the owning layer, and which
+modules provide the harness and the scripted provider moved to
+[`project-structure.md`](../project-structure.md) § Testing Layers, under a heading that says the rule
+lives elsewhere and this is the map.
+
+**Entry 13 is rewritten in place, never renumbered.** It states the universal form — the lowest layer
+every consumer can reach depends on nothing above it, and a dependency from the foundation to a
+package built on it is a cycle through the foundation — and points at the document that owns which
+package that is. The entry sequence is unchanged: 83 rows, identical before and after.
+
+**The evidence for the destination was already in the destination.**
+`project-structure.md` § Implementation Owner Boundaries records that it was itself relocated out of a
+rules file "which is not the owner of package ownership". Same reasoning, same direction, second time.
+
+**Measured: 44 → 37 distinctive package references in the rules tree.** What remains is not the class:
+`agent-run` and `agent-conduct` are ordinary words that happen to look like packages, one is a scope
+pattern (`@robota-sdk/*`), one is a subpath-export precedent cited as an example, and one is a
+one-line summary of the layer diagram in the file that says it owns nothing but the invariant.
+
+**And the change broke this item's own rule on the first run**, which both new floors caught: the
+sentence explaining the split cited `HARNESS-073` by number, inside a rule document — the exact
+citable narrative this item exists to remove. The rules cannot carry the reason for their own
+cleanup; the reason lives here.
+
 ## What is NOT done
 
 The citable class is closed and held. Two classes named in the evidence above are not, and this item
@@ -242,9 +274,10 @@ stays open for them:
   incident with every proper noun removed reads as an invariant. The audit measured one file with zero
   identifier matches and the highest narrative count. Only a line-by-line pass finds these, and this
   sweep did not do one; it followed the citations.
-- **Repository-specific naming.** Now classified above rather than estimated. The illustrative kind is
-  done; the worked-example kind is correct as it stands; what remains is the MOVE of two pieces of
-  genuinely repository-specific policy to the document that already owns that kind of rule.
+- **Repository-specific naming.** DONE. The illustrative kind was genericised, the worked-example kind
+  is correct as it stands, and the two pieces of genuinely repository-specific policy moved to the
+  document that owns that kind of rule, by owner decision. 44 → 37 references, and the remainder is
+  not the class.
 - **The cross-file duplications** the audits found: one invariant stated in two rule files is what
   diverges later, and they are still stated twice.
 

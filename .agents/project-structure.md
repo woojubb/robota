@@ -153,6 +153,34 @@ once, in the document that owns it, instead of twice with one copy artificially 
 The fourth bullet of that section governed **skills**, not packages, and moved to
 [rules/enforcement-architecture.md](rules/enforcement-architecture.md) instead.
 
+### Testing Layers — which package is which
+
+[`rules/testing-layering.md`](rules/testing-layering.md) states the rule: feature behaviour is proven
+at the layer that OWNS it, never at the surface that exposes it. That rule binds any repository. This
+is the map for THIS one, and it lives here for the same reason the boundaries above do — the rule
+tree states invariants, and package names are this document's subject.
+
+| Role in the rule           | Package here                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| the surface                | `agent-cli` — args, transport wiring, TUI rendering                                    |
+| the owning layer           | `agent-framework` (`InteractiveSession`)                                               |
+| the functional harness     | `@robota-sdk/agent-framework/testing` — `scriptedSession()` / `ScriptedSessionHarness` |
+| the deterministic provider | `@robota-sdk/agent-core/testing`                                                       |
+
+The harness drives a real `InteractiveSession` — real loop, builtin tools, persistence, events —
+without a CLI, a network or a live model.
+
+### Dependency direction — the foundation depends on nothing above it
+
+`agent-core` MUST NOT depend on any `@robota-sdk/agent-*` package. It is the bottom of the layer
+diagram above, and a dependency from it to a package that sits on top of it is a cycle through the
+foundation. Enforced by the `dep-kind` scan.
+
+Stated here rather than in the mistakes catalogue: that catalogue now carries the
+universal form — a shared contract belongs at the lowest layer every consumer can reach — and this
+document, which `AGENTS.md` names as the owner of the package listing and the dependency rules,
+carries the package that form resolves to.
+
 ## Library Neutrality Rule (packages/ vs apps/)
 
 Everything under `packages/` is a **library and must be universal and neutral** — usable by any
