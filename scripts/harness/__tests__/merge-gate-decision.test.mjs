@@ -468,6 +468,21 @@ describe('the jq program the hook actually sends', () => {
     expect(run([thread('someone', false, 1)])).toBe('1 0');
   });
 
+  it('survives a comment whose author is gone', () => {
+    // GraphQL returns a null author for a deleted or ghost account. `test()` on null does not
+    // return false — it THROWS, which fails the whole `gh api` call, which the gate reads as
+    // could-not-read-threads and refuses. So one deleted account anywhere in a PR's threads would
+    // block that PR's merges permanently, on an otherwise clean tree, with a message naming the
+    // wrong cause. Fail-closed is right when the state is genuinely unreadable; this state is
+    // readable and the thread simply is not the reviewer's.
+    const ghost = { isResolved: false, comments: { totalCount: 1, nodes: [{ author: null }] } };
+
+    expect(run([ghost])).toBe('1 0');
+    // And it still counts the reviewer's thread standing beside it, rather than taking the whole
+    // filter down — the property that makes this a guard instead of a switch.
+    expect(run([ghost, thread('github-actions', false, 1)])).toBe('2 1');
+  });
+
   it('reports the TOTAL separately from the unsatisfied count', () => {
     // The total is what the full-page check reads; conflating the two would hide truncation.
     const threads = [

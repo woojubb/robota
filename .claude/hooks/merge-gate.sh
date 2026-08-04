@@ -255,7 +255,7 @@ if [[ -n "$REPO_NWO" ]]; then
     }
 } }" --jq '.data.repository.pullRequest.reviewThreads.nodes
       | "\(length) \([.[]
-          | select(.comments.nodes[0].author.login | test("'"$REVIEWER_RE"'"))
+          | select((.comments.nodes[0].author.login // "") | test("'"$REVIEWER_RE"'"))
           | select(.isResolved == false or .comments.totalCount < 2)] | length)"' || echo "")
 fi
 TOTAL_THREADS="${THREADS%% *}"
