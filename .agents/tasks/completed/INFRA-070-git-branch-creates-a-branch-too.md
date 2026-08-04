@@ -84,3 +84,22 @@ widening did not simply start refusing everything.
 Ten listing/deleting/renaming forms are each proven to exit 0 **with no output at all**, not merely
 permitted: a guard that narrates on the happy path is one people learn to scroll past, after which
 its refusals scroll past too.
+
+### Met while doing this, and worth its own item: a worktree commit is judged by the wrong checkout
+
+`branch-guard` resolves the repository a statement will run in with the precedence `git -C <path>` >
+hook-input `cwd` > project dir, exactly so a worktree agent's commit is not judged against the main
+clone's branch. It works — for a LITERAL path. The hook reads the command as TEXT, so
+`git -C "$WT" commit` hands it the eight characters `"$WT"`, which name no repository, and the
+resolution falls back to the project dir. With the main checkout sitting on `develop`, every commit
+made in a worktree through a shell variable is refused for being "on protected branch develop".
+
+That is the HARNESS-061 class — the hook sees the text, not the expansion — and it just became
+load-bearing, because the new operational rule "A Wait Is Not Idle Time" makes worktree-parallel work
+the prescribed way to spend a blocking wait. A guard that refuses the prescribed workflow whenever
+the main checkout happens to be on an integration branch is the property-4 failure that gets guards
+overridden by reflex.
+
+Not fixed here: it is a different subject from branch-creation spellings, and the shell-aware
+extraction it needs is already filed as HARNESS-061. Recorded so the next person meets a written
+cause instead of a confusing refusal, and so the item that fixes it knows this is now on a hot path.
