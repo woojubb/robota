@@ -37,6 +37,7 @@ function stubbedPath({
   headAt,
   labels = [],
   unresolved = 0,
+  resolvedWithoutReply = 0,
   totalThreads,
   threadsUnreadable = false,
 }) {
@@ -52,6 +53,7 @@ function stubbedPath({
       headAt,
       labels,
       unresolved,
+      resolvedWithoutReply,
       totalThreads,
       threadsUnreadable,
     }),
@@ -105,7 +107,13 @@ function stubbedPath({
       '  // The hook asks for TWO numbers in one read: how many threads came back, and how many of',
       "  // those are the reviewer's and still open. A stub answering only the second would let a",
       '  // truncated page read as a short one.',
-      '  console.log(`${f.totalThreads ?? f.unresolved ?? 0} ${f.unresolved ?? 0}`);',
+      '  // Answer the QUERY the hook sent, not a number computed here. A stub that summed the two',
+      '  // states itself reported the same total whichever filter the hook used, so changing the',
+      '  // filter changed nothing and the case proved nothing — measured, and the reason this reads',
+      '  // the jq expression instead.',
+      '  const wantsReplyCount = args.includes("totalCount < 2");',
+      '  const unsatisfied = (f.unresolved ?? 0) + (wantsReplyCount ? (f.resolvedWithoutReply ?? 0) : 0);',
+      '  console.log(`${f.totalThreads ?? f.unresolved ?? 0} ${unsatisfied}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("pr checks")) { process.exit(0); }',
@@ -355,6 +363,17 @@ describe('every inline finding is answered where it was raised', () => {
 
   it('lets it through when every thread is answered', () => {
     expect(judge(world(0)).status, judge(world(0)).output).toBe(0);
+  });
+
+  it('refuses a thread resolved with no reply under it', () => {
+    // Anyone can click "Resolve conversation" on a thread with no answer. A gate reading only
+    // `isResolved` would accept exactly the state it was built to end — a finding with no reply,
+    // indistinguishable from one that was handled. Review caught this in the change that added the
+    // check, which had made resolution alone sufficient.
+    const verdict = judge({ ...world(0), resolvedWithoutReply: 1 });
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/1 unresolved REVIEW finding thread/);
   });
 
   it('refuses a FULL page, because the rest can no longer be proven resolved', () => {

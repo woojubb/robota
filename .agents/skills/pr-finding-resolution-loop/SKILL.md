@@ -204,7 +204,9 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 Hand to the gated merge path (detailed wiring is HARNESS-018d). The gate is mechanical:
 `.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and a review newer than the
 head commit exists, and refuses outright while `ACTIONABLE FINDINGS: <n>` is non-zero — so a step of
-this pipeline cannot be skipped by merging directly. It MUST honor [git-branch.md](../../rules/git-branch.md):
+this pipeline cannot be skipped by merging directly. It MUST honor [git-branch.md](../../rules/git-branch.md): It also refuses while any of the reviewer's inline
+finding threads is unanswered — resolved with no reply under it counts as unanswered, because anyone
+can resolve a thread and a finding with no reply is the state this loop exists to make visible.
 
 - Merge allowed only when there is **no unresolved MUST** and **every SHOULD is fixed or filed-and-linked** as a
   justified backlog item (never silently deferred), AND required CI checks are green.

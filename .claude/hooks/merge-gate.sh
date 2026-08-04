@@ -223,8 +223,13 @@ fi
 # pull request afterwards, a finding answered in a commit and a finding ignored look identical, and
 # the skill this loop follows says so in as many words.
 #
-# So: reply on the thread and resolve it. The reply is where the decision lives — accepted and how,
-# or refuted and on what evidence.
+# So: reply on the thread AND resolve it — both, and the count below requires both. Anyone can click
+# "Resolve conversation" on a thread with no reply under it, and a gate reading only `isResolved`
+# would accept exactly the state it was built to end: a finding with no answer, indistinguishable
+# from one that was handled. A thread satisfies this gate when it is resolved and carries more than
+# the reviewer's own opening comment.
+#
+# The reply is where the decision lives — accepted and how, or refuted and on what evidence.
 #
 # Scoped to threads the REVIEWER opened, by the same pattern this gate already uses to find the
 # review. A human's inline question or aside is a conversation, not a finding, and blocking a merge on
@@ -244,11 +249,14 @@ if [[ -n "$REPO_NWO" ]]; then
   THREADS=$(bounded_gh api graphql -f query="
 { repository(owner: \"${REPO_NWO%%/*}\", name: \"${REPO_NWO##*/}\") {
     pullRequest(number: $PR) {
-      reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } }
+      reviewThreads(first: 100) {
+        nodes { isResolved comments(first: 1) { totalCount nodes { author { login } } } }
+      }
     }
 } }" --jq '.data.repository.pullRequest.reviewThreads.nodes
-      | "\(length) \([.[] | select(.isResolved == false)
-          | select(.comments.nodes[0].author.login | test("'"$REVIEWER_RE"'"))] | length)"' || echo "")
+      | "\(length) \([.[]
+          | select(.comments.nodes[0].author.login | test("'"$REVIEWER_RE"'"))
+          | select(.isResolved == false or .comments.totalCount < 2)] | length)"' || echo "")
 fi
 TOTAL_THREADS="${THREADS%% *}"
 UNRESOLVED="${THREADS##* }"
