@@ -19,6 +19,28 @@ import {
 } from './pre-push-updates.mjs';
 import { checkTreePrerequisites } from './tree-prerequisites.mjs';
 
+/**
+ * The commands the REQUIRED `scans` context runs, mirrored locally.
+ *
+ * INFRA-069. `scans` is required on `protect-develop`, and this gate ran none of it: measured, a
+ * change under a package's `src` selected ZERO scans, so the first thing that ever examined it was CI.
+ * (The item counts 81 and the suite counts 99 today; the number the argument rests on is the zero.) The declared local mirror, `verify-like-ci`, was invoked by nothing at all.
+ *
+ * The item framed the open question as what the local gate should COST, on the reasoning that a slow
+ * pre-push gets bypassed with `--no-verify`. Measured instead of debated: the scan suite is 6s and
+ * the harness test suite 54s, against a CI round trip of five to six minutes. At a minute there is
+ * nothing to trade off, so the whole suite runs and no subset had to be invented.
+ *
+ * FLAGS INCLUDED DELIBERATELY. `--skip dist --skip build-contracts` is what the workflow passes;
+ * running MORE here than CI does would refuse pushes CI would accept, which is property 4 —
+ * firing on correct work — and the fastest way to have a gate turned off. `pre-push-mirrors-ci-scans.test.mjs`
+ * reads both sides so the two cannot drift silently.
+ */
+export const CI_SCANS_JOB_MIRROR = [
+  ['pnpm', ['harness:test']],
+  ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+];
+
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
   process.stdout.write(`> ${rendered}\n`);
@@ -276,6 +298,9 @@ function createPrePushSteps() {
         ...scopeExpansionArgs,
         '--skip-record-check',
       ]);
+
+      process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
+      for (const [command, args] of CI_SCANS_JOB_MIRROR) run(command, args);
 
       process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
       run('pnpm', ['cli:dev', '--version']);
