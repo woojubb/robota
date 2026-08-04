@@ -102,6 +102,16 @@ evidence: a case here shows it would drop a genuine finding from `작업 4/6 완
 A false positive with two cheap escapes — the arrow form, or the percentage the rule asks for — is a
 better trade than a class of false negatives with none.
 
+**The declaration must not depend on the host — review found it did.** The SKIP branch printed no
+`::examined::` line, so this was the one scan in the suite whose declaration appeared on a machine that
+had run agent sessions and vanished on a fresh checkout. The adoption ratchet counts that line, and
+the promotion-to-`main` gate runs the suite UNSKIPPED on a fresh runner, so a baseline that was correct
+on this laptop would have turned that required check red. The local `all 97 scans passed` could not
+have shown it. Verified by recomputing the count with no transcript directory: 20, the same number.
+
+That is also the invariant working as intended one level up — a skip reporting nothing is exactly the
+shape the declaration exists to make visible.
+
 **The CI vacuity is in the scan's own header**, so a reader of the suite summary is not led to believe
 this scan gates anything on a pull request. It also declares `::examined::` now, which brought the
 adoption ratchet from 19 to 20.

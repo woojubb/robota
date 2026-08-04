@@ -418,16 +418,47 @@ describe('a finding in append-only history can be acknowledged, and the ledger c
     );
   });
 
+  it('refuses an UNREADABLE ledger, which is a different claim from an absent one', () => {
+    // A permission error or a corrupt read would otherwise become "no acknowledgments" — the same
+    // file, a different claim. Absent is a valid state; unreadable is not.
+    expect(() =>
+      loadAcknowledgments(() => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      }),
+    ).toThrow(/could not be read/);
+  });
+
   it('treats a missing ledger as an empty one, not as an error', () => {
     // The ledger is optional: a repository with nothing to acknowledge should not have to carry a file.
     expect(
       loadAcknowledgments(() => {
-        throw new Error('ENOENT');
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' });
       }),
     ).toEqual([]);
   });
 
   it('reads the SHIPPED ledger, so a malformed one fails here rather than in CI', () => {
     expect(() => loadAcknowledgments()).not.toThrow();
+  });
+});
+
+describe('what it declares does not depend on the host it runs on', () => {
+  it('declares a zero WITH its reason when there is no transcript at all', async () => {
+    // The skip branch printed no declaration, so this was the one scan in the suite whose
+    // `::examined::` line appeared on a machine that had run agent sessions and vanished on a fresh
+    // checkout. The adoption ratchet counts that line, and the promotion-to-main gate runs the suite
+    // unskipped on a fresh runner — so a count that was correct on the author's laptop would have
+    // turned that gate red. Review traced it; the local green could not have shown it.
+    const lines = [];
+    const code = await main((line) => lines.push(line), {
+      root: '/home/dev/repo',
+      home: makeTempDir(),
+    });
+
+    const printed = lines.join('\n');
+    expect(code, 'a host without transcripts must still skip cleanly').toBe(0);
+    expect(printed, 'the skip declared nothing, so its adoption depends on the host').toMatch(
+      /::examined:: 0 transcripts ::expected-empty::/,
+    );
   });
 });

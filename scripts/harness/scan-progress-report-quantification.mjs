@@ -97,7 +97,16 @@ export function loadAcknowledgments(readFile = () => readFileSync(ACKNOWLEDGMENT
   let raw;
   try {
     raw = readFile();
-  } catch {
+  } catch (error) {
+    // ABSENT is a valid state — a repository with nothing to acknowledge should not have to carry
+    // the file. UNREADABLE is not: a permission error or a corrupt read would otherwise become "no
+    // acknowledgments", which is a different claim about the same file.
+    if (error?.code && error.code !== 'ENOENT') {
+      throw new Error(
+        `progress-report acknowledgments: ${ACKNOWLEDGMENTS_PATH} could not be read (${error.code}). ` +
+          'An unreadable ledger is not an empty one.',
+      );
+    }
     return [];
   }
   const parsed = JSON.parse(raw);
@@ -316,6 +325,16 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
       `${ADVISORY_MARKER} progress-report quantification examined 0 transcript(s) — no session ` +
         `transcript for this workspace at ${dir}; the agent-narrative channel does not exist on ` +
         'this host (e.g. CI or a fresh checkout), so nothing was judged.',
+    );
+    // The SKIP declares its zero too, with the reason. Without this the scan is the only one in the
+    // suite whose declaration depends on the HOST: present on a machine that has run agent sessions,
+    // absent on a fresh checkout — so the adoption count fell by one wherever it actually matters,
+    // and the promotion-to-main gate, which runs the suite unskipped on a fresh runner, would have
+    // gone red for a count that was correct on the author's laptop. A skip reporting nothing is
+    // precisely the shape this declaration exists to make visible.
+    write(
+      '::examined:: 0 transcripts ::expected-empty:: no session transcript exists on this host, ' +
+        'which is every CI runner and every fresh checkout — this scan gates nothing there',
     );
     write(
       `progress-report quantification scan skipped (0 transcript(s), 0 narrative message(s) examined): ` +
