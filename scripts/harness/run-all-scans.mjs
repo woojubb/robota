@@ -140,6 +140,10 @@ export function extractExamined(output) {
 export function judgeExamined(name, output) {
   const declarations = extractExamined(output);
   const problems = [];
+  // A scan that declared a zero AND said why is a SKIP, not a pass. It ran, found no subject, and
+  // said so — which is a different fact from "examined the subject and found it clean", and the
+  // summary is the line people actually read.
+  const skipped = declarations.some((d) => d.size === 0 && Boolean(d.expectedEmpty));
   for (const d of declarations) {
     if (d.size === null) {
       problems.push(
@@ -154,7 +158,7 @@ export function judgeExamined(name, output) {
       );
     }
   }
-  return { declared: declarations.length > 0, problems };
+  return { declared: declarations.length > 0, skipped, problems };
 }
 
 /**
@@ -591,10 +595,21 @@ export async function runScans(
     }
   }
 
+  // Judged BEFORE the summary is printed, because the mark a scan gets depends on what it declared.
+  const examined = results.map((result) => ({
+    name: result.name,
+    ...judgeExamined(result.name, result.output),
+  }));
+  const skippedNames = new Set(examined.filter((e) => e.skipped).map((e) => e.name));
+
   write('');
   write('harness scan summary:');
   for (const result of results) {
-    write(`${result.code === 0 ? '✓' : '✗'} ${result.name}`);
+    // Three marks, not two. A skip that renders as a tick is counted in "all N scans passed" and is
+    // indistinguishable from a scan that examined its whole subject — the output above it may be
+    // honest while the summary line is not, and the summary is the line people read.
+    const mark = result.code !== 0 ? '✗' : skippedNames.has(result.name) ? '↩' : '✓';
+    write(`${mark} ${result.name}`);
   }
 
   // ADVISORIES from EVERY scan, passing or failing (HARNESS-053). Deliberately placed after the
@@ -615,10 +630,6 @@ export async function runScans(
   // HOW MUCH DID EACH ONE LOOK AT (HARNESS-057). An unearned zero fails the suite outright; the
   // ADOPTION count is a ratchet, because 79 of 97 declare nothing today and a check that is red on
   // arrival gets suppressed rather than obeyed.
-  const examined = results.map((result) => ({
-    name: result.name,
-    ...judgeExamined(result.name, result.output),
-  }));
   const unearnedZeros = examined.flatMap((e) => e.problems);
   const declaring = examined.filter((e) => e.declared).length;
   const adoption = checkAdoption
@@ -637,10 +648,14 @@ export async function runScans(
 
   const failed = results.filter((result) => result.code !== 0);
   if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
+    // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
+    // stronger claim than the run supports.
+    const ran = results.length - skippedNames.size;
+    const tail = skippedNames.size > 0 ? `, ${skippedNames.size} skipped` : '';
     write(
       checkAdoption
-        ? `all ${results.length} scans passed (${declaring} declared what they examined)`
-        : `all ${results.length} scans passed`,
+        ? `${ran} scans passed${tail} (${declaring} declared what they examined)`
+        : `${ran} scans passed${tail}`,
     );
     return 0;
   }
