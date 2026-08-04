@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectMemoryMirrorFindings } from '../scan-memory-mirror.mjs';
+import { collectMemoryMirrorFindings, examinedFactFileCount } from '../scan-memory-mirror.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-memory-mirror.mjs', import.meta.url));
 // HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
@@ -97,10 +97,7 @@ describe('scan-memory-mirror CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-memory-mirror.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
-    copyFileSync(
-      GOVERNED_TREE_MODULE,
-      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
-    );
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     return { root, scriptCopy };
   }
 
@@ -137,5 +134,51 @@ describe('scan-memory-mirror CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('memory-mirror scan: FINDINGS');
     expect(result.stderr).toContain('MEMORY.md links a missing memory file: fact-one.md');
+  });
+});
+
+describe('what the mirror scan says it examined', () => {
+  it('declares the fact files it walked', async () => {
+    const root = await createFixture({
+      '.agents/memory/MEMORY.md': GREEN_INDEX,
+      '.agents/memory/fact-one.md': '# Fact one\n',
+    });
+
+    collectMemoryMirrorFindings(root);
+
+    expect(examinedFactFileCount()).toBe(1);
+  });
+
+  it("reports zero after a run that returned early, not the previous run's count", () => {
+    // The same correction the sibling scan needed in this change: a holder reset late reports the
+    // previous number for a run that examined nothing, and the early returns are exactly those runs.
+    return (async () => {
+      const withFacts = await createFixture({
+        '.agents/memory/MEMORY.md': GREEN_INDEX,
+        '.agents/memory/fact-one.md': '# Fact one\n',
+      });
+      // A root whose memory directory exists but carries NO index: the governed-tree check passes,
+      // the missing-index branch returns immediately, and nothing walks a fact file. The first
+      // version of this case used an index with no facts beside it, which reaches the walk and sets
+      // the count to 0 on its own — it passed with the reset removed, and proved nothing.
+      const noIndex = await createFixture({ '.agents/memory/placeholder.txt': 'x\n' });
+
+      collectMemoryMirrorFindings(withFacts);
+      collectMemoryMirrorFindings(noIndex);
+
+      expect(
+        examinedFactFileCount(),
+        'a run that walked no fact file kept the previous count',
+      ).toBe(0);
+    })();
+  });
+
+  it('treats an index with no fact files as clean, which is why the zero must be declared', async () => {
+    // The scan itself calls this state correct, so an UNDECLARED zero would redden the whole suite
+    // for a tree the scan has no complaint about. That is why `main` attaches a reason.
+    const root = await createFixture({ '.agents/memory/MEMORY.md': '# Memory Index\n' });
+
+    expect(collectMemoryMirrorFindings(root)).toEqual([]);
+    expect(examinedFactFileCount()).toBe(0);
   });
 });

@@ -33,7 +33,16 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  */
 let examinedFactFiles = 0;
 
+/** What the last `collectMemoryMirrorFindings` run walked — exported so it can be asserted. */
+export function examinedFactFileCount() {
+  return examinedFactFiles;
+}
+
 export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
+  // Reset FIRST, before anything can return. The same correction was made in the workflow-permissions
+  // scan in this change and not mirrored here: a holder reset late reports the previous run's number
+  // for a run that examined nothing, and the early returns below are exactly those runs.
+  examinedFactFiles = 0;
   requireGovernedTree(root, ['.agents/memory'], {
     scan: 'memory-mirror',
     why: 'memory-mirroring.md makes the in-repo memory corpus mandatory here, so its absence is a broken checkout rather than a repository that has not started one.',
@@ -105,7 +114,16 @@ export function main() {
     process.exit(1);
   }
 
-  console.log(`::examined:: ${examinedFactFiles} memory fact files`);
+  // A legitimate zero, declared. The index may exist with no fact files beside it yet — a bootstrap
+  // or post-cleanup state the scan itself considers clean — and an undeclared zero is a hard failure
+  // in the runner. Saying why is the whole contract; staying silent would redden the suite for a
+  // state this scan calls correct.
+  console.log(
+    examinedFactFiles === 0
+      ? '::examined:: 0 memory fact files ::expected-empty:: the index may exist before any fact ' +
+          'file does, and the mirroring rule only bites once memory exists'
+      : `::examined:: ${examinedFactFiles} memory fact files`,
+  );
   console.log('memory-mirror scan passed.');
   process.exit(0);
 }
