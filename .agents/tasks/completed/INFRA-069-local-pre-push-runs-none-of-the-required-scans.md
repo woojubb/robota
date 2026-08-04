@@ -93,6 +93,24 @@ GATE EXIT = 1
 The push was refused locally, naming the violation, without a CI round trip. Standalone, the scan
 step refuses the same change with `[link-names-nothing] … -> ./this-file-does-not-exist-infra-069.md`.
 
+### One claim in the self-review was wrong, and the push disproved it
+
+The recorded local review said `harness:test` here is "not a duplicate of the scope-selected package
+tests `harness:verify` already runs". Then the real push printed `Tests 2672 passed` TWICE — once
+under `harness:verify`, once under the mirror. For a change inside `scripts/harness` the scope
+selection picks the harness suite, so the two overlap exactly and 54 s of the 119 s push was spent
+running it a second time.
+
+The claim is right for the case the item was filed about — a change under a package's `src` selects
+that package's tests and never the harness suite — and wrong for the case I was actually pushing. It
+is kept rather than quietly corrected because the shape recurs: a property checked against the
+scenario in the argument rather than the one in front of me.
+
+Left as measured, not fixed. Deduplicating means the local gate stops being a literal mirror of the
+required job, and the mirror being literal is what the drift test enforces. 54 s on harness-scoped
+pushes is the price; if it becomes the reason someone reaches for `--no-verify`, that is the signal
+to revisit, and this paragraph is the record that it was a choice.
+
 Not closed by this item: `verify-like-ci` still has no caller. It is no longer the ONLY declared
 mirror — the gate now runs the required job directly — but the name-with-no-caller half of the
 problem stands, and belongs with INFRA-066 where required-check runnability is owned.
