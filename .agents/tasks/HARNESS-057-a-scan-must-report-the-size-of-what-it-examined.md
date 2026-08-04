@@ -152,6 +152,26 @@ Where the count did not reach `main`, the module-level holder the memory-mirror 
 used, RESET at the top of the walk so a run that reads nothing cannot report the previous run's
 number.
 
+### The same defect, a second time, in batch 2 — and this is the migration's most useful datum
+
+`document-authority`'s marker declared `changedFiles.length`: every path in the diff, while the scan
+examines only the markdown among them that exists on disk. On the batch's own fifteen-file diff
+carrying one document it declared **fifteen**. Review caught it.
+
+The lesson it violates — _the number must come from the walk, never from the configuration the walk
+consults_ — was already written in this document, three sections above, by the change that learned it
+the first time. Writing it down did not prevent the recurrence; the review did.
+
+It also broke the legitimate zero it had been added for: a diff with no markdown but some other file
+never reaches the zero branch, so it declares a healthy count over a walk that read nothing — the
+state this invariant exists to make impossible, wearing the number that hides it.
+
+**What the remaining 64 should take from it.** The trap is not carelessness about which variable to
+print; it is that the plausible variable is usually in scope and the real one usually is not. The
+input is at hand at the top of the function. The subject is only known after the filtering, the
+existence checks and the skips — which is to say, after the walk. Every remaining scan should be
+marked from a counter incremented at the point of examination, never from the collection handed in.
+
 ### What remains
 
 **64 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
