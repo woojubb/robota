@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-078: a hook can be wired to no event, or a matcher can name a deleted file, and everything stays green'
-status: in-progress
+status: done
+completed: 2026-07-31
 priority: high
 urgency: now
 type: INFRA
@@ -63,3 +64,10 @@ the verified declaration to `revert-detect.sh` turned it green.
   `registers \`deleted.sh\` for PreToolUse, but .claude/hooks/deleted.sh does not exist`.
 - Neither is accidentally green: reverse-applying rule A fails 4 tests, rule B fails its own test,
   and the correctly-registered fixture plus the real tree pass with an empty findings list.
+
+## Completion (2026-07-31)
+
+Resolved by PR #1560. `scan-hook-registration.mjs` is registered in `run-all-scans.mjs` and was red-proved on the real tree — `revert-detect.sh` was genuinely unregistered when the scan first ran. Verified today: 12 hook files, 6 matchers, 12 registrations, every hook reached.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.

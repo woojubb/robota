@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-076: branch-guard honours an override token wherever it appears, not where it is given'
-status: todo
+status: done
+completed: 2026-07-31
 priority: high
 urgency: soon
 type: INFRA
@@ -57,3 +58,10 @@ should be taken deliberately rather than as a side effect of fixing a sibling.
 
 - One convention is chosen for override tokens across `.claude/hooks/`, and every hook follows it.
 - A case per hook proves a bare mention does NOT disarm it, and the real prefix still does.
+
+## Completion (2026-07-31)
+
+Resolved by PR #1559 — with one half deliberately held and filed as #1563 (INFRA-079, since resolved by #1583). An override token is no longer honoured wherever it appears: it must prefix a statement, and that statement must carry the action it excuses. `branch-guard.sh` reads all four through `stmt_override`.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.

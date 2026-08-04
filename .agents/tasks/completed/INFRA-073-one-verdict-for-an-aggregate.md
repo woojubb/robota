@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-073: the red-proof gate reports one verdict for an aggregate, so a pass hides inside a fail'
-status: in-progress
+status: done
+completed: 2026-07-31
 priority: high
 urgency: soon
 type: INFRA
@@ -96,3 +97,10 @@ because at that point an aggregate verdict starts deciding merges.
   `ACCIDENTAL_GREEN`, proven by replaying `2ac10f251..b1f46acf3`.~~ **Retracted on measurement — that
   range has no accidental-green source.** Replaced by a fixture that fails on the unfixed gate.
 - Decided jointly with INFRA-072, or with a written reason for deciding them apart.
+
+## Completion (2026-07-31)
+
+Resolved on `develop`: `check-regression-red-proof.mjs` judges per source pair (`decidePairVerdict`, `qualifyingPairs`, both exported and unit-tested) instead of reporting one verdict for the aggregate, so a pass no longer hides inside a fail.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.

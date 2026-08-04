@@ -1,5 +1,5 @@
 ---
-title: 'INFRA-079: two hooks block a command on a network call with no deadline'
+title: 'INFRA-087: two hooks block a command on a network call with no deadline'
 status: done
 created: 2026-08-03
 completed: 2026-08-03
@@ -9,7 +9,7 @@ area: .claude/hooks
 depends_on: []
 ---
 
-# INFRA-079: a gate that can hang instead of refusing
+# INFRA-087: a gate that can hang instead of refusing
 
 ## Problem
 
@@ -24,7 +24,14 @@ the property that removal was about, arriving through a different door.
 
 ## Evidence
 
-Registered as [#1622](https://github.com/woojubb/robota/issues/1622). Raised as a CONSIDER on PR #1621, and correct on both counts: the call is unbounded, and it matches
+Registered as [#1622](https://github.com/woojubb/robota/issues/1622).
+
+**Filed first as INFRA-079, which was already taken.** Issue [#1563](https://github.com/woojubb/robota/issues/1563)
+claimed that ID on 2026-07-31 for a different item, and `branch-guard.sh` and `command-scan.sh` cite it
+by that number in five places. The ID was picked here by reading the task tree, where the earlier
+item left no file — so the tree said 079 was next and GitHub said otherwise. Renumbered to 087, above
+every ID used in either place, and the lesson is that the ID space spans BOTH: a new ID has to be
+checked against the issue titles as well as the files. Raised as a CONSIDER on PR #1621, and correct on both counts: the call is unbounded, and it matches
 what `branch-guard.sh` already does rather than introducing a new pattern. That is what makes it a
 shared property rather than a defect in the change that surfaced it — one hook is a habit, two is a
 convention, and a convention is fixed in one place or not at all.

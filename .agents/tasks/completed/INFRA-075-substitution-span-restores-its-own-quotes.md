@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-075: restoring a command-substitution span un-masks the quotes inside it'
-status: in-progress
+status: done
+completed: 2026-07-31
 priority: high
 urgency: now
 type: INFRA
@@ -109,3 +110,10 @@ That needs the tokenizer this item asks for; masking cannot reach it. The corpus
   string is still ignored.
 - The differential corpus runs in `pnpm harness:scan` or the harness suite, so the next spelling is
   found by the machine rather than by someone being blocked.
+
+## Completion (2026-07-31)
+
+Resolved by PR #1565. The two-pass mask/restore is replaced by a stack-based tokenizer over explicit contexts (SQ / ANSI / TOK / HD / PARAM / ARITH / DQ / CMD), with a differential corpus executed against real bash as the oracle.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.

@@ -1,6 +1,7 @@
 ---
 title: 'PROC-006: two tracking systems, two lifecycles, one job — unify them and name the result for what it is'
-status: todo
+status: done
+completed: 2026-08-01
 priority: high
 urgency: soon
 type: PROC
@@ -81,3 +82,10 @@ in-repo systems and then moving state out of them would be two migrations where 
   `check-task-archival` reads a tree that is no longer empty.
 - The chosen name appears in AGENTS.md's document tree, and no document calls the same thing by the
   old name.
+
+## Completion (2026-08-01)
+
+Resolved by PR #1586. `.agents/backlog/` is gone, `.agents/tasks/` holds the open Tasks and the archive, and nothing in the repository resolves the old path. What was NOT done, and why, is recorded on the issue.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.
