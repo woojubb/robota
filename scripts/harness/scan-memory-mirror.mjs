@@ -98,11 +98,12 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
 }
 
 export function main() {
-  if (!existsSync(path.join(WORKSPACE_ROOT, '.agents/memory'))) {
-    // No in-repo memory yet is allowed; the rule only bites once memory exists.
-    process.exit(0);
-  }
-
+  // No early return for an absent `.agents/memory`. One stood here saying "no in-repo memory yet is
+  // allowed", which contradicted this file's own finder — `requireGovernedTree` declares the corpus
+  // MANDATORY and an absent one a broken checkout. Two answers in one file, and the CLI took the
+  // wrong one: it exited 0 without reaching the throw its own test pins, and without printing the
+  // examined line every other path here prints. A guard that can exit silently over ground it never
+  // read is the defect this scan's declaration was added to expose.
   const findings = collectMemoryMirrorFindings();
 
   if (findings.length > 0) {

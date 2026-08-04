@@ -182,3 +182,30 @@ describe('what the mirror scan says it examined', () => {
     expect(examinedFactFileCount()).toBe(0);
   });
 });
+
+describe('the CLI cannot exit quietly over a memory tree that is not there', () => {
+  it('fails instead of exiting 0, and says which tree was missing', async () => {
+    // `main()` carried an early return saying "no in-repo memory yet is allowed", contradicting this
+    // file's own finder, which declares the corpus mandatory. The CLI took the wrong answer: it
+    // exited 0 without reaching the throw the case above pins, and without printing the examined
+    // line every other path prints. Review caught it in the change that added that line.
+    const root = await createFixture({ 'placeholder.txt': 'x\n' });
+    copyFileSync(SCAN_SCRIPT, path.join(root, 'scan-memory-mirror.mjs'));
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(root, 'governed-tree.mjs'));
+
+    let status = 0;
+    let stderr = '';
+    try {
+      execFileSync('node', [path.join(root, 'scan-memory-mirror.mjs')], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+    } catch (error) {
+      status = error.status;
+      stderr = String(error.stderr ?? '');
+    }
+
+    expect(status, 'the CLI exited 0 over a memory tree it never read').not.toBe(0);
+    expect(stderr).toMatch(/\.agents\/memory/);
+  });
+});
