@@ -141,35 +141,54 @@ describe('the examined count is what was read, not what was declared', () => {
    * expose, committed by the change that introduced the line. Review caught it.
    */
   it('counts only the write scopes present on disk', () => {
-    const root = makeRoot({
+    const tree = root({
       'a.yml':
         'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
     });
 
-    findWorkflowPermissionFindings(root);
+    findWorkflowPermissionFindings(tree);
 
     expect(examinedWriteScopeCount(), 'a scope on disk was not counted').toBe(1);
   });
 
   it('reports zero when the governed tree holds no write scope at all', () => {
     // And zero is exactly what the runner refuses to accept as a silent pass.
-    const root = makeRoot({
+    const tree = root({
       'a.yml':
         'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
     });
 
-    findWorkflowPermissionFindings(root);
+    findWorkflowPermissionFindings(tree);
 
     expect(examinedWriteScopeCount()).toBe(0);
   });
 
-  it("does not carry a previous run's count into the next", () => {
-    // A module-level holder that is never reset reports the largest run it ever saw.
-    const withScope = makeRoot({
+  it('reports zero after a run that bailed on an absent workflow directory', () => {
+    // The reset must run BEFORE the early returns, not after them: those paths are exactly the ones
+    // that examined nothing, so a holder reset after them reports the previous run's number for the
+    // very case that looked at zero. Review caught this in the change that added the property.
+    const withScope = root({
       'a.yml':
         'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
     });
-    const without = makeRoot({
+    const noWorkflowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-perms-bare-'));
+    roots.push(noWorkflowDir);
+
+    findWorkflowPermissionFindings(withScope);
+    findWorkflowPermissionFindings(noWorkflowDir);
+
+    expect(examinedWriteScopeCount(), 'a run that read no directory kept the previous count').toBe(
+      0,
+    );
+  });
+
+  it("does not carry a previous run's count into the next", () => {
+    // A module-level holder that is never reset reports the largest run it ever saw.
+    const withScope = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+    const without = root({
       'a.yml':
         'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
     });

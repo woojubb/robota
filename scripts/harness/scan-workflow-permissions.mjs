@@ -106,6 +106,10 @@ export function parsePermissions(source) {
 }
 
 export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
+  // Reset FIRST, before the early returns. Placed after them, a run that bailed on an absent or
+  // empty workflow directory reported the PREVIOUS run's count — a holder that is not reset reports
+  // the largest run it ever saw, and the early-return paths are exactly where it examined nothing.
+  examinedWriteScopes = 0;
   const findings = [];
   const dir = path.join(root, WORKFLOW_DIR);
   if (!fs.existsSync(dir)) {
@@ -123,7 +127,6 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
     return [{ workflow: WORKFLOW_DIR, detail: 'no workflows found — this scan examined nothing' }];
   }
 
-  examinedWriteScopes = 0;
   const requested = new Set();
   for (const name of workflows) {
     const scopes = parsePermissions(fs.readFileSync(path.join(dir, name), 'utf8'));
