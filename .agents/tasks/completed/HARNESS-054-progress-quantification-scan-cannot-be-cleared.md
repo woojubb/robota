@@ -1,7 +1,8 @@
 ---
 id: HARNESS-054
 title: 'HARNESS-054: the progress-quantification scan skips in CI and its local red can never be cleared'
-status: todo
+status: done
+completed: 2026-08-04
 priority: medium
 urgency: soon
 type: INFRA
@@ -65,3 +66,42 @@ sound; what is missing is a clearing mechanism.
   flagged — stated deliberately rather than falling out of a lookbehind width.
 - The CI-vacuity is stated in the scan's own header, so a reader of `run-all-scans` output is not
   led to believe this scan gates anything in CI.
+
+## Implementation (2026-08-04)
+
+**The suite is green for the first time in this session.** `pnpm harness:scan` reported
+`1 of 97 scans failed` on every run for days, and this was the one — a guard that fires and cannot be
+cleared, which the memory file it cites names as the shape that gets suppressed.
+
+**A per-finding acknowledgment ledger**, `scripts/harness/progress-report-acknowledgments.json`. A
+finding is identified by transcript basename + timestamp + ratio — deliberately NOT the excerpt, which
+is prose a later reader may requote, and an identity that changes when the quotation is reformatted
+goes stale for the wrong reason. An entry with no reason is refused: a waiver nobody had to justify is
+the shape this repository rejects wherever it allows one at all.
+
+**Anti-rot, scoped to what was actually read.** An entry whose finding no longer appears FAILS — but
+only when this run read the transcript the entry names. On a host without it (CI, a fresh checkout,
+another developer's machine) the entry is not judged, because an anti-rot firing over ground it never
+covered is the vacuity this harness spends its time removing. That trap has been sprung twice before
+in this repository and is pinned by a case here.
+
+**One defect on the first run, and it was the identity.** A finding calls the field `file` and a ledger
+entry calls it `transcript`, so every entry read as STALE — two keys for one thing. The key reads both
+now, with a case pinning that they agree.
+
+**Four findings acknowledged, all of them mine.** Three from 2026-08-01/02, and a FOURTH committed
+while building this very path — a report of the migration progress written as a bare ratio. It is
+recorded rather than argued away: that it happened during the fix is the clearest possible evidence
+that the rule needs a mechanism rather than an intention.
+
+**The version-migration verdict, stated rather than inherited.** `X → Y/Z` with a NUMBER before the
+arrow is already suppressed as a version transition, and that suppression is deliberate and
+documented; a WORD before the arrow stays a violation. The prose form `from v5 to 6/7` remains
+FLAGGED, and the item's proposal to widen the version-noun suppression to sentence scope is REFUSED on
+evidence: a case here shows it would drop a genuine finding from `작업 4/6 완료. 버전 5도 확인했습니다.`
+A false positive with two cheap escapes — the arrow form, or the percentage the rule asks for — is a
+better trade than a class of false negatives with none.
+
+**The CI vacuity is in the scan's own header**, so a reader of the suite summary is not led to believe
+this scan gates anything on a pull request. It also declares `::examined::` now, which brought the
+adoption ratchet from 19 to 20.

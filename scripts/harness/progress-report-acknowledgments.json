@@ -1,0 +1,29 @@
+{
+  "why": "A transcript is append-only history: a finding here cannot be fixed, only recorded. Each entry names a real violation of the quantified-progress rule that has already happened, so the scan can return to green without being disarmed. An entry whose finding no longer appears in a transcript this run READ fails the scan — see the header of scan-progress-report-quantification.mjs.",
+  "acknowledgments": [
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-01T19:39:25.576Z",
+      "ratio": "4/6",
+      "reason": "A real violation, committed by me: a mid-work audit status reported 4/6 with no percentage. History cannot be edited, so it is recorded rather than fixed."
+    },
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-01T19:39:52.985Z",
+      "ratio": "5/6",
+      "reason": "The same violation seventeen seconds later in the same session — which is the argument for a mechanism rather than an intention, and why the rule is enforced by a scan at all."
+    },
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-02T12:42:07.310Z",
+      "ratio": "13/16",
+      "reason": "A third instance the next day, reporting 13/16 without the percentage. Recorded for the same reason: the transcript is immutable and the alternative is a permanently red scan that gets suppressed."
+    },
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-04T06:58:15.776Z",
+      "ratio": "78/97",
+      "reason": "A fourth instance, committed while building the acknowledgment path for the first three — reporting 78/97 of the scans still undeclared, with no percentage. Recorded rather than argued away: it is the same violation, and the fact that it happened during the fix is the clearest evidence that the rule needs a mechanism and not an intention."
+    }
+  ]
+}

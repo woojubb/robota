@@ -43,10 +43,29 @@
  * Policy DATA (transcript root, cutoff, keyword/suppression vocabulary) lives under the
  * `progressReportQuantification` key of `.agents/harness.config.json`; this file is the engine.
  *
- * Exit code 0 = clean or skipped, 1 = violations found.
+ * ## It gates nothing in CI, and says so
+ *
+ * No CI runner has a session transcript, so this scan SKIPS on every CI run. A reader of the suite
+ * summary must not take its tick as evidence about a pull request: the only host where it can fail is
+ * a developer's own machine. That is stated here rather than left to be rediscovered.
+ *
+ * ## Why a finding can be acknowledged
+ *
+ * A transcript is append-only history. A finding cannot be edited away, so without a clearing path
+ * the scan is red on that host FOREVER, for every unrelated change — and a guard that fires and
+ * cannot be cleared is one that gets suppressed, which costs more than what it catches. So a finding
+ * may be acknowledged, with a reason, in a checked-in ledger beside this file.
+ *
+ * The acknowledgment is anti-rotted: an entry naming a finding that no longer appears FAILS. But
+ * only for a transcript this run actually READ — on a host without that transcript the entry is not
+ * judged at all, because an anti-rot that fires over ground it never covered is the vacuity this
+ * harness spends its time removing.
+ *
+ * Exit code 0 = clean, skipped, or wholly acknowledged; 1 = unacknowledged violations or a stale
+ * acknowledgment.
  */
 
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -55,6 +74,67 @@ import { loadHarnessConfig } from './harness-config.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const ACKNOWLEDGMENTS_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/progress-report-acknowledgments.json',
+);
+
+/**
+ * A finding's identity: which transcript, when, and which ratio.
+ *
+ * Not the excerpt. The excerpt is prose that a later reader may want to quote differently, and an
+ * identity that changes when the quotation is reformatted is an identity that goes stale for the
+ * wrong reason.
+ */
+export function findingKey({ file, transcript, timestamp, ratio }) {
+  // A finding calls it `file`, a ledger entry calls it `transcript`. One key reads both, so the two
+  // sides cannot drift into producing different identities for the same thing — which they did on
+  // first run: every entry read as stale because the key saw an empty filename on one side.
+  return `${path.basename(String(file ?? transcript ?? ''))}|${timestamp ?? ''}|${ratio ?? ''}`;
+}
+
+export function loadAcknowledgments(readFile = () => readFileSync(ACKNOWLEDGMENTS_PATH, 'utf8')) {
+  let raw;
+  try {
+    raw = readFile();
+  } catch {
+    return [];
+  }
+  const parsed = JSON.parse(raw);
+  const entries = Array.isArray(parsed) ? parsed : (parsed.acknowledgments ?? []);
+  for (const entry of entries) {
+    // A waiver with no reason is a waiver nobody had to justify — the shape this repository refuses
+    // wherever it allows a suppression at all.
+    if (!entry.reason || String(entry.reason).trim().length === 0) {
+      throw new Error(
+        `progress-report acknowledgments: ${findingKey(entry)} carries no reason. An acknowledgment ` +
+          'without one is a silent waiver.',
+      );
+    }
+  }
+  return entries;
+}
+
+/**
+ * Split findings into those an acknowledgment covers and those it does not, and report entries that
+ * no longer match anything — but only for transcripts this run actually read.
+ */
+export function applyAcknowledgments(findings, acknowledgments, transcriptsRead) {
+  const acknowledged = new Map(acknowledgments.map((entry) => [findingKey(entry), entry]));
+  const matched = new Set();
+  const open = [];
+  for (const finding of findings) {
+    const key = findingKey(finding);
+    if (acknowledged.has(key)) matched.add(key);
+    else open.push(finding);
+  }
+  const readable = new Set(transcriptsRead.map((file) => path.basename(file)));
+  const stale = acknowledgments.filter(
+    (entry) =>
+      !matched.has(findingKey(entry)) && readable.has(path.basename(entry.transcript ?? '')),
+  );
+  return { open, stale, cleared: matched.size };
+}
 
 /** Fenced code blocks and inline code spans are quoted material, not narrative prose. */
 function stripCode(text) {
@@ -252,6 +332,33 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
     findings.push(...(await scanTranscriptFile(file, policy, sinceMs, stats)));
   }
   const subject = `${files.length} transcript(s), ${stats.messages} narrative message(s) examined`;
+  write(
+    stats.messages === 0
+      ? `::examined:: 0 narrative messages ::expected-empty:: ${files.length} transcript(s) were read ` +
+          'and every record fell outside the enforcement ratchet or carried no assistant narrative'
+      : `::examined:: ${stats.messages} narrative messages`,
+  );
+
+  const { open, stale, cleared } = applyAcknowledgments(findings, loadAcknowledgments(), files);
+  if (stale.length > 0) {
+    write('progress-report quantification scan failed — stale acknowledgment(s):');
+    for (const entry of stale) {
+      write(`  ${findingKey(entry)} no longer matches any finding in a transcript this run read.`);
+    }
+    write(
+      '\nRemove the entry. An acknowledgment that outlives its finding is a waiver nobody is using, ' +
+        'and a ledger that only grows stops being read.',
+    );
+    return 1;
+  }
+  findings.length = 0;
+  findings.push(...open);
+  if (cleared > 0) {
+    write(
+      `${ADVISORY_MARKER} progress-report quantification: ${cleared} finding(s) acknowledged in ` +
+        `${path.relative(WORKSPACE_ROOT, ACKNOWLEDGMENTS_PATH)} — recorded, not cleared by editing history.`,
+    );
+  }
 
   if (findings.length === 0) {
     if (stats.messages === 0) {
