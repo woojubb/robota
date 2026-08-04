@@ -390,11 +390,16 @@ describe('every inline finding is answered where it was raised', () => {
     expect(judge({ ...world(0), totalThreads: 99 }).status).toBe(0);
   });
 
-  it("counts only the REVIEWER's threads, not a human's aside", () => {
-    // A human's inline question is a conversation, not a finding. Blocking a merge on one would make
-    // the override routine, which is how a gate stops being read at all — a failure this hook warns
-    // about elsewhere and would otherwise have re-created here. The hook passes its own reviewer
-    // pattern into the query, so the stub applies THAT pattern rather than a copy written here.
+  it("lets threads through when none of them are the reviewer's to answer", () => {
+    // Named for what it actually decides. The stub answers from the two NUMBERS the query returns,
+    // so the authorship filter that produced the zero is not exercised here whatever the name says —
+    // this case proves the hook does not refuse on the mere EXISTENCE of threads, which is a
+    // different property and worth its own case.
+    //
+    // Where the filtering itself is proven is the jq block below, which runs the hook's own program
+    // over payloads carrying real authors. The split is deliberate: a stub cannot test a filter it
+    // is standing in for, and a name claiming otherwise is the comment-asserted-invariant defect
+    // this repository keeps measuring in its own work — caught here by review, on this file.
     const asideOnly = judge({ ...world(0), totalThreads: 3 });
 
     expect(asideOnly.status, asideOnly.output).toBe(0);
