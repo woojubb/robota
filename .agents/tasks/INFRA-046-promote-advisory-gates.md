@@ -211,9 +211,26 @@ put an untested refusal in the merge path. One observed firing is the evidence t
 **A crash in the checker no longer reports success.** Its `.catch` exited 0, justified by a comment
 saying the job is advisory — a justification that stopped being true the moment it began enforcing. A
 crash that reports green is indistinguishable from "ran and found nothing wrong", which is the vacuity
-this harness spends its time removing. It exits non-zero now, and that is safe precisely BECAUSE the
-job is not required: the red is visible and blocks nothing. Promoting it to required means deciding
-this again — whether a crash in the checker should stop a merge — and that is the owner's call, not a
-side effect of the promotion.
+this harness spends its time removing.
+
+The first fix made the crash exit non-zero unconditionally, on the reasoning that a red here "blocks
+nothing" because the job is not required. **That reasoning was false in this repository, and the
+correction is the part worth recording.** `merge-gate.sh` refuses on any `mergeStateStatus` other than
+CLEAN, and GitHub reports `UNSTABLE` precisely when a NON-required check fails — so a non-required red
+blocks every merge just as thoroughly, through a door required-check membership does not guard. Held
+membership bought nothing against it. Review caught it; the local tests did not, because none of them
+knew what the merge gate does with the exit code.
+
+What survives the correction is the RULE, not the convenience: enforcement-architecture.md § "Silence
+is not success" says the three states must stay distinguishable, and "I could not check" is a refusal,
+never a pass. So the crash exit reads the same `enforce` switch the verdicts are judged by, and while
+enforcing it refuses — deliberately, with the merge-blocking consequence understood and stated rather
+than denied. The cost is real: a transient infrastructure failure stops merges until it is fixed. That
+is the price of the rule, and the alternative — merging past a checker that could not run — is the
+hundred-green-runs-reviewing-nothing failure the same rule was written after.
+
+Two cases pin it, each red-proved on its own assertion, and one of them asserts the merge gate still
+refuses a non-CLEAN state, so this decision returns for review if that ever changes instead of quietly
+becoming wrong a second time.
 
 **`patch-coverage` is NOT promoted** and this item stays open for it.
