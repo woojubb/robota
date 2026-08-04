@@ -75,9 +75,38 @@ from the main checkout — the same code, two answers, and only one of them dest
 also explains `core.bare`: a fixture that means to create its own bare repository, handed the parent
 clone as its target.
 
-Reproduce it that way first: run a single suspect file in a worktree of a THROWAWAY clone and diff
-the parent's refs, config and worktree list. The bisect is over files, and the worktree is the
-condition — not the other way round.
+That was the hypothesis. It was then TESTED, on a throwaway clone, and it did not survive.
+
+### Four eliminations, each measured on a throwaway clone
+
+A `--no-hardlinks` clone with one or two worktrees, snapshotting `refs/heads/*`, `core.bare` and the
+worktree list before and after:
+
+| Run                                                                                                                      | Result        |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| the three obvious suspects (`branch-guard-unmerged`, `scan-promotion-ancestry`, `branch-base-at-creation`) in a worktree | **no change** |
+| the FULL `scripts/harness/__tests__` suite in a worktree (2688 tests)                                                    | **no change** |
+| the full suite in TWO worktrees CONCURRENTLY                                                                             | **no change** |
+| the full suite from the main checkout                                                                                    | **no change** |
+
+So it is not the scripts/harness suite, in a worktree, concurrently, or otherwise. Every shape that
+looked obvious has been ruled out by running it.
+
+### What that leaves
+
+The incident ran under the whole `harness:pre-push` gate, which is more than `harness:test`:
+
+```
+pnpm harness:plan  →  pnpm harness:verify  →  pnpm harness:test  →  pnpm harness:scan  →  pnpm cli:dev --version
+```
+
+`harness:verify` runs the affected PACKAGES' own suites, and those have not been looked at here at
+all. The suspect set is now **the package test suites and the non-test steps**, not
+`scripts/harness/__tests__` — the opposite of where this investigation started, and the reason the
+eliminations are worth more than the original hypothesis.
+
+Next: snapshot a throwaway clone, run `pnpm harness:pre-push` in a worktree of it with a real staged
+change, and diff. If that reproduces, bisect the gate's five steps before bisecting any file.
 
 ## Done when
 
