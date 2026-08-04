@@ -768,10 +768,26 @@ jobs:
       # value ... received [true, false]"), so the script indirection is bypassed instead. Invoking
       # vitest directly resolves the same per-package config and exits 1 when the filter matches
       # nothing — the whole point of selecting tests by name here.
-      - name: Verify the cross-platform shell resolver on Windows
-        run: pnpm --filter @robota-sdk/agent-core exec vitest run platform-shell
-
+      # INFRA-064: the `platform-shell` step is GONE, and the reason is what it claimed rather than
+      # what it cost. `resolvePlatformShell(env, platform)` takes the platform as an ARGUMENT — it
+      # reads no `process.platform` and spawns nothing — so its verdict on windows-latest is
+      # identical to its verdict anywhere else. A step on this runner asserts, by being here, that
+      # something about it needs Windows. That one did not, and a job whose stated coverage is wider
+      # than its real coverage is the defect, independent of runtime.
+      #
+      # THE COST ARGUMENT IN THE ITEM DOES NOT HOLD, and the measurement is why this comment says so:
+      # the step took 2s of a ~103s job (checkout 8s, pnpm install 42s, build 7s, teardown 20s). The
+      # expensive part is standing the runner up, and the step below still needs it. Removing this
+      # saves about 2% of one job — worth doing for the claim it was making, not for the seconds.
+      #
+      # NO COVERAGE IS LOST, and the argument is stronger than "it runs somewhere else too". A pure
+      # function's verdict cannot change unless its subject or its test changes; both live in
+      # `agent-core`, and a change to `agent-core` is exactly what puts it in `harness:verify`'s
+      # scope. Measured: touching `platform-shell.ts` selects `packages/agent-core: build, test,
+      # lint, typecheck`, which the REQUIRED `quality` job runs.
       - name: Verify the Shell tool actually spawns PowerShell on Windows
+        # The genuinely win32-only half: it SPAWNS a real shell and asserts PowerShell answers. No
+        # Linux or macOS runner can execute this, which is what buys the runner the job runs on.
         run: pnpm --filter @robota-sdk/agent-tools exec vitest run shell-tool
 
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,

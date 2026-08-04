@@ -1,7 +1,8 @@
 ---
 id: INFRA-064
 title: 'INFRA-064: the windows-shell job pays for the most expensive runner to re-run a pure function'
-status: todo
+status: done
+completed: 2026-08-05
 priority: low
 urgency: later
 type: INFRA
@@ -50,3 +51,46 @@ does the test take the platform as an argument, or read it from the process?
   by the argument above.
 - No coverage is lost: the removed test still runs somewhere on every PR, proven by pointing at the
   job that runs it.
+
+## Resolution — and the item's own cost argument does not survive its measurement
+
+The `platform-shell` step is gone from `windows-shell`. `resolvePlatformShell(env, platform)` takes
+the platform as an ARGUMENT, reads no `process.platform` and spawns nothing, so its verdict on
+`windows-latest` is identical to its verdict anywhere else.
+
+**The number the done-gate demanded refutes the reason the item gave.** Measured on a real run of the
+job:
+
+| Step | Time |
+| --- | --- |
+| Set up job, checkout | 9 s |
+| Install pnpm, Node | 9 s |
+| `pnpm install --frozen-lockfile` | **42 s** |
+| Build agent-core + agent-process | 7 s |
+| **`platform-shell` (removed)** | **2 s** |
+| `shell-tool` (kept — genuinely win32) | 3 s |
+| Teardown | 20 s |
+| **Total** | **~103 s** |
+
+The item said it "buys the matrix's most expensive runner to re-run something `quality` already
+covers". The runner is bought by the step that stays; this one was **2 % of one job**, about two
+seconds, on a public repository where standard runners are not billed by the minute. As a cost
+argument it is worth nothing, and the done-gate asking for the number is what surfaced that.
+
+**Removed for what it CLAIMED, not for what it cost.** A step on a Windows runner asserts, by being
+there, that something about it needs Windows — and the job's own stated reason said so in those
+words. It did not. A job whose stated coverage is wider than its real coverage is the defect,
+independent of runtime; the same comment-asserted-invariant class this session kept finding
+elsewhere.
+
+**No coverage lost, and the argument is stronger than "it runs somewhere else too."** A pure
+function's verdict cannot change unless its subject or its test changes; both live in `agent-core`,
+and a change to `agent-core` is exactly what puts it in scope. Measured, not assumed: a content
+change to `platform-shell.ts` makes `plan-change` select
+`packages/agent-core: build, test, lint, typecheck`, which the REQUIRED `quality` job runs. When
+`agent-core` is untouched, the test could not have changed its answer — so running it bought nothing
+on those PRs either.
+
+Both remaining halves of the job now state their platform-dependence in the workflow, which is the
+first done-gate criterion: the `shell-tool` step spawns a real shell and asserts PowerShell answers,
+which no Linux or macOS runner can execute.
