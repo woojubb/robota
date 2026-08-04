@@ -52,6 +52,33 @@ testing, in order:
 3. **`core.bare = true` is the loudest clue.** No ordinary test needs it. Whatever set it was
    operating on a repository it believed was its own bare fixture, and that repository was ours.
 
+## The strongest lead, obtained by observation rather than argument
+
+Immediately after the incident the SAME suite was run again from the **main checkout** — the full
+`harness:test` under `harness:pre-push`, 2688 tests — and the clone was inspected before and after:
+
+| Subject                | After a main-checkout run                |
+| ---------------------- | ---------------------------------------- |
+| branch refs            | unchanged                                |
+| `core.bare`            | unset                                    |
+| worktree registrations | 3 (the two real worktrees and the clone) |
+| GitHub `develop`       | unchanged                                |
+
+**Nothing.** The suite is safe in the main checkout and destructive in a worktree, which moves
+candidate 2 — worktree-relative git resolution — from "worth testing" to the leading hypothesis and
+demotes the others.
+
+The mechanism it points at: a worktree's `.git` is a FILE containing `gitdir: <parent>/.git/worktrees/<name>`,
+not a directory. A fixture that walks upward looking for a repository root, or that resolves `.git`
+expecting a directory, lands on the PARENT clone from a worktree while landing on its own temp root
+from the main checkout — the same code, two answers, and only one of them destroys anything. That
+also explains `core.bare`: a fixture that means to create its own bare repository, handed the parent
+clone as its target.
+
+Reproduce it that way first: run a single suspect file in a worktree of a THROWAWAY clone and diff
+the parent's refs, config and worktree list. The bisect is over files, and the worktree is the
+condition — not the other way round.
+
 ## Done when
 
 - The write path is identified by REPRODUCTION — a run that damages a throwaway clone, not an
