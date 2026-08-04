@@ -123,6 +123,13 @@ it was never one — and a path a document is ABOUT, which declares itself with
 - A finished checklist item was reported as unfinished because a case-insensitive `TODO` matched the
   directory name `todo/` in its own path. Case-sensitive, and never before a slash.
 
+**Two more false positives review found, both in the "must not fire on correct data" class this scan
+argues from:** a repository-root-relative target (`/AGENTS.md`, the ordinary markdown convention)
+handed to `path.resolve` beside the document becomes an OS absolute path, so a correct link read as
+naming nothing; and the declared exemption was scoped to the LINE, so a line carrying two links would
+excuse a genuinely broken one on its neighbour's reason. Root-relative targets resolve from the
+repository now, and the exemption covers only the links before the declaration. Both red-proved.
+
 **Done-when, each exercised:** a `FILED` naming a nonexistent ID fails and one naming a real ID
 passes; a ticked box saying the work is filed elsewhere fails and a plain one passes; the current tree
 passes at 346 documents; archived trees are exempt and the exemption is asserted by a case rather than

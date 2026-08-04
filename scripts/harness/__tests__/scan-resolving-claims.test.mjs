@@ -51,6 +51,30 @@ describe('a link that names nothing', () => {
     ).toHaveLength(1);
   });
 
+  it('reads a repository-root-relative target from the repository, not the filesystem', () => {
+    // `/AGENTS.md` is the ordinary markdown convention. Handed to `path.resolve` beside the document
+    // it becomes an OS absolute path and a correct link is reported as naming nothing — the scan
+    // firing on correct data, which is the very thing its archive exemption exists to avoid.
+    const resolves = (t) => t === 'ROOT/AGENTS.md';
+    const fromRoot = { resolves: (t) => resolves(t.startsWith('/') ? `ROOT${t}` : t) };
+
+    expect(findUnresolvedLinks('[a](/AGENTS.md)', fromRoot)).toEqual([]);
+    expect(findUnresolvedLinks('[a](/NOPE.md)', fromRoot).map((f) => f.target)).toEqual([
+      '/NOPE.md',
+    ]);
+  });
+
+  it("does not let one link's declared reason excuse another on the same line", () => {
+    // A line carrying two links where only one is deliberately unresolvable would otherwise wave the
+    // other through on its neighbour's reason.
+    expect(
+      findUnresolvedLinks(
+        '[a](../gone.md) <!-- allow-unresolved: on purpose --> and [b](../also-gone.md)',
+        nothingResolves,
+      ).map((f) => f.target),
+    ).toEqual(['../also-gone.md']);
+  });
+
   it('does not fire on a template slot, which names a form rather than a file', () => {
     // A template whose paths resolved would be a template of one package.
     expect(isTemplateSlot('packages/<pkg>/docs/SPEC.md')).toBe(true);

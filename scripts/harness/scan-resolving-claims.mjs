@@ -68,12 +68,17 @@ export function findUnresolvedLinks(source, { resolves }) {
       inFence = !inFence;
       return;
     }
-    if (inFence || hasAllowedReason(line)) return;
+    if (inFence) return;
+    // Scoped to the SEGMENT the declaration follows, not the whole line: a line carrying two links
+    // where only one is deliberately unresolvable would otherwise excuse the other, which is a real
+    // broken link waved through by its neighbour's reason.
+    const declaredFrom = line.search(ALLOW);
 
     for (const match of line.matchAll(/\[[^\]]*\]\((?!https?:|mailto:|#)([^)\s]+)\)/g)) {
       const target = match[1].split('#')[0];
       if (target === '' || isTemplateSlot(target)) continue;
       if (resolves(target)) continue;
+      if (declaredFrom !== -1 && match.index < declaredFrom && hasAllowedReason(line)) continue;
       findings.push({ line: index + 1, target, text: line.trim().slice(0, 120) });
     }
   });
@@ -214,7 +219,14 @@ export function scanResolvingClaims(root = WORKSPACE_ROOT) {
     const source = readFileSync(file, 'utf8');
     const found = [
       ...findUnresolvedLinks(source, {
-        resolves: (target) => existsSync(path.resolve(dir, target)),
+        // A target beginning `/` is REPOSITORY-root-relative, the ordinary markdown convention.
+        // Handed to `path.resolve` beside the document it becomes an OS absolute path — `/AGENTS.md`
+        // — and a correct link is reported as naming nothing. This scan's own argument for exempting
+        // the archives is that a check must not fire on correct data.
+        resolves: (target) =>
+          existsSync(
+            target.startsWith('/') ? path.join(root, target.slice(1)) : path.resolve(dir, target),
+          ),
       }).map((f) => ({ kind: 'link-names-nothing', ...f })),
       ...findClaimFindings(source, { idExists: (id) => ids.has(id) }),
     ];
