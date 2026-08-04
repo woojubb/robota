@@ -1,6 +1,7 @@
 ---
 title: 'PROC-004: GitHub Issues as the tracker, backlog files as the implementation document'
-status: todo
+status: wontfix
+completed: 2026-08-01
 priority: high
 urgency: soon
 type: PROC
@@ -62,3 +63,26 @@ without committing to the migration. First three: INFRA-073 (#1536), INFRA-072 (
   the choice spelled out.
 - If migrating: every floor that reads backlog frontmatter has a named new subject, and no field
   exists in two places without one of them being generated.
+
+## Closed by owner decision (2026-08-01) — NOT done, decided otherwise
+
+This item asked whether GitHub Issues should become the tracker, with the in-repo tree demoted to an
+implementation-detail document. The owner decided otherwise, and more precisely:
+
+> 이제부터는 이슈와 백로그를 구별하겠습니다. 이슈는 좀더 간단하고 이슈를 기반으로 백로그를 만들수 있습니다.
+> 이슈가 꼭 있어야 백로그를 만들수 있는건 아닙니다. 지금처럼 백로그부터 만들수도 있습니다. 이슈는 그 앞단에
+> 새로 생기는 옵셔널한 절차입니다.
+
+So the shape is settled, and it is not this item's proposal:
+
+- **An Issue is an OPTIONAL front stage.** Simpler, and a Task may be created from one.
+- **A Task does not require an Issue.** Creating the Task directly stays valid.
+- **The in-repo record stays.** It is not demoted to an implementation detail.
+
+Recorded as `wontfix` rather than `done`, because nothing was built — a decision was taken. Marking it
+done would claim a change that never happened, which is the class this repository measures most.
+
+The sequencing warning it raised is discharged: state is not moving out of the repository, so there is
+no second migration pending, and [PROC-006](completed/PROC-006-one-document-kind-for-a-unit-of-work.md)
+was safe to perform. Reconciled 2026-08-04, when the Task file was found still open behind a closed
+issue ([#1538](https://github.com/woojubb/robota/issues/1538)).

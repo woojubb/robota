@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-062: five implementations of "a cited repo path must resolve", giving three verdicts on one sentence'
-status: in-progress
+status: done
+completed: 2026-07-31
 priority: medium
 urgency: soon
 type: HARNESS
@@ -135,3 +136,10 @@ recorded at the function.
 
 Not applicable — a harness-internal refactor with no runnable user-facing behavior. The verification
 is the scan suite in the Test Plan.
+
+## Completion (2026-07-31)
+
+Resolved by PR #1564. `scripts/harness/cited-paths.mjs` owns the one cited-path rule and `listSourceFiles` owns the one exclusion set; six walkers route through it with a measured 0-finding delta on every one. What was deliberately NOT flattened is recorded on the issue.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.

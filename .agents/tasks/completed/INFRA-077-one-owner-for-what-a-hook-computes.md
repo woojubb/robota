@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-077: five facts computed separately in four hooks, and the copies disagree'
-status: in-progress
+status: done
+completed: 2026-07-31
 priority: high
 urgency: now
 type: INFRA
@@ -141,3 +142,10 @@ Not applicable — this changes agent-harness hooks only. The hooks are invoked 
 around the agent's own tool calls and deliver no runnable user-facing behaviour, so there is no
 product surface to execute. Verification lives in `## Test Plan`, where every case runs the real
 hook against a scratch repository rather than inspecting its source.
+
+## Completion (2026-07-31)
+
+Resolved by PR #1566. Five facts have one owner in `.claude/hooks/lib/hook-facts.sh` — file path, payload JSON, effective repository (three NAMED modes), current branch, and the scrubbed command.
+
+Reconciled 2026-08-04: the work had landed and the issue was closed with its evidence, but the Task
+file was never moved. Verified against the tree before moving, not taken from the closed issue.
