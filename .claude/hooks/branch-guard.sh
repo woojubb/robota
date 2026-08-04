@@ -122,6 +122,20 @@ RE_MERGE="${GITPFX}merge${GITEND}"
 # inspection into a refusal — property 4, the failure that gets a guard turned off. Only flags that
 # still leave the command a creation are admitted, and the next token must not itself be a flag.
 RE_BRANCH_CREATE_FLAGS='(-f|--force|-q|--quiet|-t|--track|--no-track)'
+# `git branch -c|-C|--copy|--force-copy` creates a branch too, and is handled SEPARATELY because its
+# arguments are in the other order: `-c <new>` names the branch in the first position, `-c <old>
+# <new>` in the SECOND, with the base first. Every other spelling here puts the name first and the
+# base second. Parsing both arities through the same positional extraction is a place to get a
+# verdict silently backwards — judging the new branch's name against the source branch, or its base
+# against itself — and this guard has twice shipped a parser defect that refused the creation of the
+# branch its own fix lived on.
+#
+# So the copy forms are REFUSED rather than parsed. Copying a branch is not a spelling any workflow
+# here prescribes (`git-branch.md` prescribes `git fetch origin && git checkout -b <type>/<slug>
+# origin/develop`), the message says which form to use instead, and the same override that excuses a
+# deliberate exception everywhere else excuses this one. A clear refusal on a form nobody uses beats
+# a confident wrong answer on it.
+RE_BRANCH_COPY="${GITPFX}branch\s+((-f|--force|-q|--quiet)\s+)*(-[cC]|--copy|--force-copy)${GITEND}"
 # Each alternative carries its OWN ending. Hanging one `${GITEND}` off the whole group was the first
 # attempt and it silently dropped the boundary from the two existing spellings — `-bogus` would have
 # read as `-b`. The `branch` alternative ends by consuming the first character of the name, which is
@@ -209,6 +223,7 @@ while read -r STMT_START STMT_LEN; do
   IS_PUSH=false
   IS_MERGE=false
   IS_BRANCH_CREATE=false
+  IS_BRANCH_COPY=false
   IS_GH_DELETE_BRANCH=false
   # GITPFX tolerates global git flags before the subcommand — `git -C <path> commit`, `git -c k=v push` —
   # which previously slipped past every action regex (worktree-blindness, parallel-wave lesson).
@@ -239,6 +254,7 @@ while read -r STMT_START STMT_LEN; do
   printf '%s' "$STMT_MASK" | grep -qE "$RE_PUSH" && IS_PUSH=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_MERGE" && IS_MERGE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
+  printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_COPY" && IS_BRANCH_COPY=true
   # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
   # develop integration branch. Match ONLY when --delete-branch is an actual argument
   # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -651,6 +667,20 @@ while read -r STMT_START STMT_LEN; do
       exit 2
     fi
     # A merged PR exists AND nothing is open on the branch → deletion is safe. Fall through.
+  fi
+
+  # Judged here rather than below, because the checks below read a NAME and a BASE out of positions
+  # this form does not use (see RE_BRANCH_COPY). Refusing before that point is the whole reason the
+  # copy forms are a separate verb: nothing downstream gets the chance to answer about the wrong
+  # token.
+  if [[ "$IS_BRANCH_COPY" == "true" ]] && ! stmt_override BRANCH_GUARD_ALLOW_BRANCH_COPY; then
+    echo "[branch-guard] Blocked: 'git branch -c/-C' copies a branch, which creates one." >&2
+    echo "[branch-guard] Its arguments are in the other order — '-c <old> <new>' names the branch" >&2
+    echo "[branch-guard] SECOND — so the base and name checks would read the wrong token and answer" >&2
+    echo "[branch-guard] confidently backwards. Create it the prescribed way instead:" >&2
+    echo "[branch-guard]   git fetch origin && git checkout -b <type>/<slug> origin/develop" >&2
+    echo "[branch-guard] Deliberate exception: BRANCH_GUARD_ALLOW_BRANCH_COPY=1 inline." >&2
+    exit 2
   fi
 
   if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then

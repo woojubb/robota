@@ -216,7 +216,11 @@ so an `export` in an earlier statement does not reach it.
   detected by nothing while the rule named only the first two, so `git branch x main && git checkout x`
   reached neither the base check nor the name check: a rule true on paper and reachable around in
   practice. Listing, deleting and renaming (`git branch`, `-a`, `-r`, `-v`, `--list`, `-d`/`-D`,
-  `-m`/`-M`) are not creations and pass silently. A creation whose base is not
+  `-m`/`-M`) are not creations and pass silently. The copy forms — `git branch -c`/`-C`/`--copy`/
+  `--force-copy` — DO create a branch and are **refused**, not judged: their arguments run the other
+  way round (`-c <old> <new>` names the new branch SECOND), so reading a name and a base out of the
+  usual positions would answer confidently backwards. Create the prescribed way instead, or take the
+  deliberate exception `BRANCH_GUARD_ALLOW_BRANCH_COPY=1` inline. A creation whose base is not
   `origin/develop` is refused, naming the base it found and the base it wanted. The start point is read from the
   command when one is given, and is the current HEAD when it is not — which is how the promotion-ancestry break
   happened, with nobody naming `main` and everyone simply standing on a promotion branch. `hotfix/*` and

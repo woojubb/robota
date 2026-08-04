@@ -136,6 +136,49 @@ describe('`git branch <name>` is a creation, and is judged as one', () => {
   });
 });
 
+describe('the copy forms create a branch too, and are refused rather than parsed', () => {
+  // Found by review on the first version of this change, which widened `git branch <name>` and then
+  // claimed in `git-branch.md` to cover "every spelling that CREATES a branch". `git branch -c` was
+  // a fourth one, and it slipped through the same allowlist that makes the widening safe.
+  //
+  // Refused, not parsed, and the reason is the argument ORDER: `-c <new>` names the branch first,
+  // `-c <old> <new>` names it SECOND with the base first — the reverse of every other spelling here.
+  // Running both arities through the same positional extraction is where a verdict goes silently
+  // backwards: the new branch's name judged against the source branch, or its base against itself.
+  // This guard has twice shipped a parser defect that refused the creation of the branch its own fix
+  // lived on, so a clear refusal on a form no workflow prescribes beats a confident wrong answer.
+  const COPY_SPELLINGS = [
+    ['short copy, one argument', 'git branch -c BAD_NAME'],
+    ['short copy, two arguments', 'git branch -c main feat/ok'],
+    ['force copy', 'git branch -C feat/x'],
+    ['long copy', 'git branch --copy a b'],
+    ['long force copy', 'git branch --force-copy a b'],
+    ['copy behind a flag', 'git branch -q -c a b'],
+  ];
+
+  for (const [what, command] of COPY_SPELLINGS) {
+    it(`refuses ${what}`, () => {
+      const { status, said } = run(command);
+
+      expect(status, said).toBe(2);
+      // The message must name the prescribed form. A refusal that does not say what to do instead is
+      // one the reader satisfies by reaching for the override.
+      expect(said).toMatch(/git checkout -b/);
+    });
+  }
+
+  it('takes its own deliberate exception', () => {
+    expect(run('BRANCH_GUARD_ALLOW_BRANCH_COPY=1 git branch -c a b').status).toBe(0);
+  });
+
+  it('does not refuse the spellings that merely start with the same word', () => {
+    // The copy matcher must not swallow the form this whole change exists to judge, nor the listing
+    // forms it must leave alone.
+    expect(run('git branch feat/ok origin/develop').status).toBe(0);
+    expect(run('git branch --contains HEAD').status).toBe(0);
+  });
+});
+
 describe('listing, deleting and renaming are not creations', () => {
   // Each proven SILENT, not merely permitted: a guard that narrates on the happy path is one people
   // learn to scroll past, after which its refusals scroll past too.
