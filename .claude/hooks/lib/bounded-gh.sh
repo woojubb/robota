@@ -14,7 +14,7 @@
 # BUT IT MUST NOT LOOK LIKE THE OTHER ONE. "No merged pull request" and "we could not ask" both come
 # back empty, and reporting the first when the second happened costs the reader the whole debugging
 # trail — they fix what the message named, re-run, and get the same refusal. So the deadline
-# announces itself here, once, rather than being re-derived at eleven call sites. Exit codes:
+# announces itself here, once, rather than being re-derived at every call site. Exit codes:
 #
 #   0 — answered; stdout carries the answer
 #   1 — `gh` is absent, or it ran and failed
@@ -40,7 +40,10 @@ bounded_gh() {
   # below rejects for polling: a process that has exited and not yet been reaped can still answer
   # "alive", so a deadline that HAD expired would be reported as an ordinary `gh` failure, which is
   # the wrong-reason defect this helper is built to avoid.
-  expired=$(mktemp) || return 1
+  if ! expired=$(mktemp); then
+    rm -f "$out"
+    return 1
+  fi
   rm -f "$expired"
 
   (gh "$@" >"$out" 2>/dev/null) &
