@@ -136,6 +136,24 @@ describe('scan-memory-mirror CLI', () => {
     }
   }
 
+  it('fails instead of exiting 0 over a memory tree that is not there', async () => {
+    // `main()` carried an early return calling an absent corpus acceptable, contradicting this
+    // file's own finder. It exited 0 without reaching the throw, and without printing the examined
+    // line every other path prints.
+    //
+    // The first version of this case copied the script to the FIXTURE ROOT. The script anchors its
+    // workspace at `<script dir>/../..`, so from there it judged two directories ABOVE the fixture
+    // and passed only because that place has no `.agents/memory` either — an accidental green over
+    // a tree it never opened, and the same mistake this pull request had just fixed in the sibling
+    // suite. `createCliFixture` already places the copy correctly; using it is the whole fix.
+    const { root, scriptCopy } = await createCliFixture({ 'placeholder.txt': 'x\n' });
+
+    const result = runScan(scriptCopy, root);
+
+    expect(result.status, 'the CLI exited 0 over a memory tree it never read').not.toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toMatch(/\.agents\/memory/);
+  });
+
   it('exits 0 with a pass message on a consistent fixture', async () => {
     const { root, scriptCopy } = await createCliFixture({
       '.agents/memory/MEMORY.md': GREEN_INDEX,
@@ -202,32 +220,5 @@ describe('what the mirror scan says it examined', () => {
 
     expect(collectMemoryMirrorFindings(root)).toEqual([]);
     expect(examinedFactFileCount()).toBe(0);
-  });
-});
-
-describe('the CLI cannot exit quietly over a memory tree that is not there', () => {
-  it('fails instead of exiting 0, and says which tree was missing', async () => {
-    // `main()` carried an early return saying "no in-repo memory yet is allowed", contradicting this
-    // file's own finder, which declares the corpus mandatory. The CLI took the wrong answer: it
-    // exited 0 without reaching the throw the case above pins, and without printing the examined
-    // line every other path prints. Review caught it in the change that added that line.
-    const root = await createFixture({ 'placeholder.txt': 'x\n' });
-    copyFileSync(SCAN_SCRIPT, path.join(root, 'scan-memory-mirror.mjs'));
-    copyFileSync(GOVERNED_TREE_MODULE, path.join(root, 'governed-tree.mjs'));
-
-    let status = 0;
-    let stderr = '';
-    try {
-      execFileSync('node', [path.join(root, 'scan-memory-mirror.mjs')], {
-        cwd: root,
-        encoding: 'utf8',
-      });
-    } catch (error) {
-      status = error.status;
-      stderr = String(error.stderr ?? '');
-    }
-
-    expect(status, 'the CLI exited 0 over a memory tree it never read').not.toBe(0);
-    expect(stderr).toMatch(/\.agents\/memory/);
   });
 });
