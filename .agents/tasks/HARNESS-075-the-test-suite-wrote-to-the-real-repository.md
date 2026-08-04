@@ -6,6 +6,7 @@ urgency: now
 type: INFRA
 area: scripts/harness/__tests__, .claude/hooks
 created: 2026-08-05
+depends_on: []
 ---
 
 # HARNESS-075 — the suite that guards the repository damaged it
@@ -31,7 +32,38 @@ the working trees on disk were intact. `develop` was restored to `b18dd4526` (th
 force-push with the owner's confirmation, the fixture branches and worktree registrations were
 removed, and `core.bare` was unset.
 
-## What is NOT yet known — and why this is filed rather than fixed
+## REPRODUCED — the trigger is the pre-push GATE, and pushing from a worktree is enough
+
+Stated first because the sections below were written before it and read, in order, as though the
+defect had resisted reproduction. It did not.
+
+Confirmed by doing it a second time, unintentionally: a `git push` from a worktree fires
+`harness:pre-push`, and it produced the identical signature within minutes of the first restore.
+
+| Subject                      | State after                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| local `develop`              | moved to a fixture commit                                                                                                 |
+| local branches               | `feat/a`, `feat/b`, `feat/open`, `feat/probe`, `feat/assigned`, `nested-*`, `release/promote`, `sibling-branch` recreated |
+| `core.bare`                  | `true` again                                                                                                              |
+| worktree registrations       | 3 → **20**                                                                                                                |
+| the worktree's own `HEAD`    | repointed at a fixture branch; index showing `AD kept.ts`, `D pnpm-lock.yaml`                                             |
+| **GitHub `develop`, `main`** | **untouched**                                                                                                             |
+
+Two things this pins down, and the eliminations below are what make them worth something.
+
+**The trigger is the GATE, not the suite.** `harness:test` alone was run four ways in a throwaway
+clone and changed nothing; the gate reproduces on the first attempt. The suspects are the steps the
+gate adds around it.
+
+**The remote damage is a SEPARATE and rarer step.** This reproduction did not touch GitHub at all.
+The first incident therefore had two parts: a reliable local clobber, and a push that escaped to the
+remote and has not recurred. Finding what pushed matters more — the local clobber is an annoyance,
+the remote one rewrote a shared branch.
+
+**Operationally, until this closes: do not `git push` from a worktree of this clone.** Pushing from
+the main checkout was tried immediately afterwards and left the clone untouched.
+
+## What was known before the reproduction — and why the eliminations still matter
 
 Which test did it. The obvious candidates are isolated correctly:
 
@@ -105,8 +137,9 @@ all. The suspect set is now **the package test suites and the non-test steps**, 
 `scripts/harness/__tests__` — the opposite of where this investigation started, and the reason the
 eliminations are worth more than the original hypothesis.
 
-Next: snapshot a throwaway clone, run `pnpm harness:pre-push` in a worktree of it with a real staged
-change, and diff. If that reproduces, bisect the gate's five steps before bisecting any file.
+Next: snapshot a throwaway clone, run `pnpm harness:pre-push` in a worktree of it — the reproduction
+above says it will fire — and bisect the gate's five steps before bisecting any file. `harness:verify`
+is the first to look at: it runs the affected packages' own suites, which nothing here has audited.
 
 ## Done when
 
