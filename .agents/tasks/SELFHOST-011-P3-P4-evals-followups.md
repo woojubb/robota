@@ -39,4 +39,4 @@ pattern — no neutral-library gap remains for v1):
 
 Follow the spec-gate for each slice. See the closed epic spec
 [`.agents/spec-docs/done/SELFHOST-011-evals-as-code.md`](../spec-docs/done/SELFHOST-011-evals-as-code.md) (Solution
-§ "Epic slices") and the TC-05 mechanical floor [`HARNESS-034`](./HARNESS-034-evals-content-neutrality-floor.md).
+§ "Epic slices") and the TC-05 mechanical floor [`HARNESS-034`](./completed/HARNESS-034-evals-content-neutrality-floor.md).

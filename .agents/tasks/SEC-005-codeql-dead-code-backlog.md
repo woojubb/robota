@@ -12,7 +12,7 @@ depends_on: []
 
 ## Problem
 
-This is not a tidiness item. [INFRA-048](INFRA-048-review-arrives-after-merge.md) designed the
+This is not a tidiness item. [INFRA-048](completed/INFRA-048-review-arrives-after-merge.md) designed the
 `review-gate` to block only on `error` / security-high findings, and its stated reason was
 **measured**: the repository's open CodeQL alerts are dominated by `note`-severity dead-code
 findings, so a gate that failed on any finding would be red on every PR from day one and would be

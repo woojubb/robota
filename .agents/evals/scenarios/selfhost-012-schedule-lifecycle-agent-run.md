@@ -5,7 +5,7 @@ list|pause|resume|edit` surface was driven end-to-end through the **real assembl
 `IAgentJobHostContext` → `BackgroundTaskManager` → **croner**), and the "a paused schedule does not fire, then
 fires again after resume" claim was observed **empirically on a live every-second cron**, not just at the unit
 level. Per [`.agents/rules/backlog-execution.md`](../../rules/backlog-execution.md) (Capability Reachability)
-and the [SELFHOST-012 spec](../../spec-docs/active/SELFHOST-012-scheduled-tasks.md) TC-05.
+and the [SELFHOST-012 spec](../../spec-docs/done/SELFHOST-012-scheduled-tasks.md) TC-05.
 
 Run by the agent on 2026-07-19 with a real `InteractiveSession` assembled via
 `createAgentRuntime({ commandModules: [createScheduleCommandModule()] }).createSession()` + the default croner

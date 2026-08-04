@@ -5,7 +5,7 @@ proving the **async, durable share → resume** path end-to-end — export a ses
 off, import it into a **second, independent store** (a different surface), and resume there, **with the source
 offline and with redaction**. This is the async complement to REMOTE-001's live channel; no live wire, no pairing.
 Per [`.agents/rules/backlog-execution.md`](../../rules/backlog-execution.md) and the
-[SELFHOST-014 spec](../../spec-docs/active/SELFHOST-014-shared-async-session-artifacts.md) TC-04/TC-08.
+[SELFHOST-014 spec](../../spec-docs/done/SELFHOST-014-shared-async-session-artifacts.md) TC-04/TC-08.
 
 Run by the agent on 2026-07-19: `pnpm --filter @robota-sdk/agent-session test` +
 `pnpm --filter @robota-sdk/agent-framework test`.
