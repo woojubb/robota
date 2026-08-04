@@ -842,11 +842,24 @@ jobs:
 
   # HARNESS-041: mechanical floor for accidental-green regression tests. For a `fix:` PR with a
   # same-package (source+test) pair, it reverse-applies the source hunks and requires the changed test
-  # to FAIL — proving the regression test actually exercises the fix. ADVISORY in v1 (not a required
-  # check): the job runs and prints the verdict but never blocks the merge (the script exits 0 unless
-  # REGRESSION_RED_PROOF_ENFORCE=1). Flip to required once it has proven stable across real PRs.
+  # to FAIL — proving the regression test actually exercises the fix. ENFORCING as of INFRA-046: the
+  # job fails the run on `accidental-green` and on nothing else. NOT YET REQUIRED, which buys less
+  # than it sounds like — `merge-gate.sh` refuses any non-CLEAN mergeStateStatus and GitHub reports
+  # UNSTABLE when a NON-required check fails, so a red here stops merges either way. Held membership
+  # is about the branch-protection ruleset, not about consequences; see required-status-checks.json.
+  #
+  # Promoted 2026-08-04 (INFRA-046) on measured evidence, not elapsed time. The 2026-07-25 audit
+  # found ZERO substantive verdicts across 40 pull requests — the gate's core path had never once
+  # executed, so promoting it then would have made a required check out of untested code. After
+  # INFRA-071 widened the subject to `.claude/hooks` and `scripts/harness`, 13 of the last 22 runs
+  # produced `red-proof-ok`: the reverse-apply-and-re-run path now runs on real changes, with no
+  # false positive in the window.
+  #
+  # Required-check membership is deliberately HELD. `accidental-green` has never fired on a real pull
+  # request, so its blocking path is unproven in production; making it required would put an untested
+  # refusal in the merge path. One observed firing is the evidence that promotion needs.
   regression-red-proof:
-    name: regression-red-proof (advisory)
+    name: 'regression-red-proof (enforcing: accidental-green only)'
     runs-on: ubuntu-latest
     needs: changes
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
@@ -880,6 +893,11 @@ jobs:
       - name: Prove regression tests are RED without the fix
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          # ENFORCING (INFRA-046, owner decision 2026-08-04). Only `accidental-green` exits 1: a test
+          # that still passes with the fix reversed guards nothing, and that is a defect whatever
+          # else the run found. `inconclusive`, `skipped` and `red-proof-unreached` still pass, so a
+          # verdict the checker could not reach never blocks a pull request.
+          REGRESSION_RED_PROOF_ENFORCE: '1'
         run: node scripts/harness/check-regression-red-proof.mjs
 
   # INFRA-041: PR patch (diff) coverage — the lines a PR adds/changes in package/app `src` must

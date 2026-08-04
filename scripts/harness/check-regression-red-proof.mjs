@@ -772,6 +772,30 @@ function extractJson(text) {
   return start >= 0 && end > start ? text.slice(start, end + 1) : text;
 }
 
+/**
+ * Which verdicts BLOCK, and which merely report.
+ *
+ * Extracted from the CLI block so the promotion this encodes is reachable by a test. It sat inline,
+ * where the one decision INFRA-046 changes could not be exercised at all — a policy nothing could
+ * check, which is the shape this repository files items about.
+ *
+ * Exactly one verdict blocks: `accidental-green`. A test that still passes with the fix reversed
+ * guards nothing, and that is a defect whatever else the run found. Every other verdict is a
+ * statement about what the checker COULD NOT establish — the test never imported the reversed file,
+ * the range carried no fix, vitest could not evaluate — and a conclusion never reached must not
+ * refuse a merge. That asymmetry is the whole of the promotion: it blocks on a proven defect and
+ * never on an absence of proof.
+ */
+/** Whether an orchestration CRASH may fail the job — the same switch the verdicts are judged by. */
+export function enforceOnCrash(env = process.env) {
+  return env['REGRESSION_RED_PROOF_ENFORCE'] === '1';
+}
+
+export function exitCodeFor(verdict, enforce) {
+  if (verdict === VERDICT.ACCIDENTAL_GREEN) return enforce ? 1 : 0;
+  return 0;
+}
+
 // ── CLI entry ───────────────────────────────────────────────────────────────────────────────────────
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
@@ -783,7 +807,7 @@ if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) 
           '\n❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.\n' +
             '   Rewrite it to FAIL on the pre-fix code, or opt out with `allow-green-at-base: <reason>`.',
         );
-        process.exit(enforce ? 1 : 0); // advisory in v1 (not a required check); flip via env once stable
+        process.exit(exitCodeFor(verdict, enforce));
       }
       if (verdict === VERDICT.PROOF_UNREACHED) {
         log(
@@ -798,7 +822,22 @@ if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) 
       process.exit(0);
     })
     .catch((err) => {
-      log(`regression-red-proof: orchestration error — ${err?.message ?? err}`);
-      process.exit(0); // never block the pipeline on the checker's own failure (advisory)
+      log(`\n❌ regression-red-proof: orchestration error — ${err?.message ?? err}`);
+      log('   The checker did not reach a verdict. That is not a pass, and it is not a defect in');
+      log(
+        '   the change either — it is this tool failing, and it says so instead of exiting green.',
+      );
+      // Non-zero ONLY when enforcing, and the reasoning that first made this unconditional was
+      // wrong in a way worth keeping: it said a red here "blocks nothing" because the job is not a
+      // required check. In THIS repository that is false — `merge-gate.sh` refuses on any
+      // `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE precisely when a
+      // NON-required check fails. So a transient crash would have forced every merge through the
+      // manual override until someone fixed it: the untested refusal in the merge path this
+      // promotion holds required-check membership specifically to avoid, arriving by another door.
+      //
+      // It still must not report success. A crash that exits green is indistinguishable from "ran
+      // and found nothing wrong", which is the vacuity this harness spends its time removing — so
+      // the failure is stated loudly above whichever way this exits.
+      process.exit(exitCodeFor(VERDICT.ACCIDENTAL_GREEN, enforceOnCrash()));
     });
 }

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -31,12 +31,33 @@ afterAll(() => {
  * The stub dispatches on the flags the hook actually passes, so a change in what the hook asks for
  * shows up here as an empty answer rather than as a silently different verdict.
  */
-function stubbedPath({ state, comments = [], headAt, labels = [] }) {
+function stubbedPath({
+  state,
+  comments = [],
+  headAt,
+  labels = [],
+  unresolved = 0,
+  resolvedWithoutReply = 0,
+  totalThreads,
+  threadsUnreadable = false,
+}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'merge-gate-'));
   scratch.push(dir);
 
   const fixture = path.join(dir, 'fixture.json');
-  writeFileSync(fixture, JSON.stringify({ state, comments, headAt, labels }));
+  writeFileSync(
+    fixture,
+    JSON.stringify({
+      state,
+      comments,
+      headAt,
+      labels,
+      unresolved,
+      resolvedWithoutReply,
+      totalThreads,
+      threadsUnreadable,
+    }),
+  );
 
   const gh = path.join(dir, 'gh');
   writeFileSync(
@@ -75,6 +96,24 @@ function stubbedPath({ state, comments = [], headAt, labels = [] }) {
       '  } else {',
       '    console.log(JSON.stringify(mine.at(-1) ?? {}));',
       '  }',
+      '  process.exit(0);',
+      '}',
+      '// The gate asks whether every inline finding was ANSWERED where it was raised. These cases',
+      '// are about other properties, so they answer "none open" — the state that lets the rest of',
+      '// the gate be judged. The thread check itself has its own cases below.',
+      'if (args.includes("repo view")) { console.log("woojubb/robota"); process.exit(0); }',
+      'if (args.includes("reviewThreads")) {',
+      '  if (f.threadsUnreadable) process.exit(1);',
+      '  // The hook asks for TWO numbers in one read: how many threads came back, and how many of',
+      "  // those are the reviewer's and still open. A stub answering only the second would let a",
+      '  // truncated page read as a short one.',
+      '  // Answer the QUERY the hook sent, not a number computed here. A stub that summed the two',
+      '  // states itself reported the same total whichever filter the hook used, so changing the',
+      '  // filter changed nothing and the case proved nothing — measured, and the reason this reads',
+      '  // the jq expression instead.',
+      '  const wantsReplyCount = args.includes("totalCount < 2");',
+      '  const unsatisfied = (f.unresolved ?? 0) + (wantsReplyCount ? (f.resolvedWithoutReply ?? 0) : 0);',
+      '  console.log(`${f.totalThreads ?? f.unresolved ?? 0} ${unsatisfied}`);',
       '  process.exit(0);',
       '}',
       'if (args.includes("pr checks")) { process.exit(0); }',
@@ -288,5 +327,174 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
+  });
+});
+
+describe('every inline finding is answered where it was raised', () => {
+  /**
+   * The gate already asked "has the review been read and resolved?" and answered it from the summary
+   * comment's findings count. That misses the half a reader actually sees. Measured across one
+   * session: 27 inline threads left OPEN on 18 merged pull requests — every finding genuinely fixed,
+   * with the reasoning in a commit message the thread does not link to. On the pull-request page a
+   * fixed finding and an ignored one are then the same thing: a comment with no answer under it.
+   */
+  const world = (unresolved) => ({
+    state: 'CLEAN',
+    headAt: '2020-01-01T00:00:00Z',
+    comments: [
+      {
+        author: { login: 'github-actions' },
+        createdAt: '2030-01-01T00:00:00Z',
+        body: 'ACTIONABLE FINDINGS: 0',
+      },
+    ],
+    unresolved,
+  });
+
+  it('refuses a merge while a thread is still open', () => {
+    const verdict = judge(world(2));
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/2 unresolved REVIEW finding thread\(s\)/);
+    expect(verdict.output, 'the refusal does not say what answering means').toMatch(
+      /Reply on the thread/,
+    );
+  });
+
+  it('lets it through when every thread is answered', () => {
+    expect(judge(world(0)).status, judge(world(0)).output).toBe(0);
+  });
+
+  it('refuses a thread resolved with no reply under it', () => {
+    // Anyone can click "Resolve conversation" on a thread with no answer. A gate reading only
+    // `isResolved` would accept exactly the state it was built to end — a finding with no reply,
+    // indistinguishable from one that was handled. Review caught this in the change that added the
+    // check, which had made resolution alone sufficient.
+    const verdict = judge({ ...world(0), resolvedWithoutReply: 1 });
+
+    expect(verdict.status, verdict.output).toBe(2);
+    expect(verdict.output).toMatch(/1 unresolved REVIEW finding thread/);
+  });
+
+  it('refuses a FULL page, because the rest can no longer be proven resolved', () => {
+    // The same reasoning the label read one section up spells out, and the same check. Without it a
+    // pull request with more than a page of threads could carry an open finding on a page this never
+    // read and merge on a count of zero — the "unknown is not zero" this block is built on.
+    const verdict = judge({ ...world(0), totalThreads: 100 });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/full page of 100 review threads/);
+  });
+
+  it('does not refuse a short page', () => {
+    expect(judge({ ...world(0), totalThreads: 99 }).status).toBe(0);
+  });
+
+  it("lets threads through when none of them are the reviewer's to answer", () => {
+    // Named for what it actually decides. The stub answers from the two NUMBERS the query returns,
+    // so the authorship filter that produced the zero is not exercised here whatever the name says —
+    // this case proves the hook does not refuse on the mere EXISTENCE of threads, which is a
+    // different property and worth its own case.
+    //
+    // Where the filtering itself is proven is the jq block below, which runs the hook's own program
+    // over payloads carrying real authors. The split is deliberate: a stub cannot test a filter it
+    // is standing in for, and a name claiming otherwise is the comment-asserted-invariant defect
+    // this repository keeps measuring in its own work — caught here by review, on this file.
+    const asideOnly = judge({ ...world(0), totalThreads: 3 });
+
+    expect(asideOnly.status, asideOnly.output).toBe(0);
+  });
+
+  it('refuses when it cannot read the thread state at all', () => {
+    // Unknown is not zero. The same fail-closed rule this gate applies to an unreadable head date.
+    const verdict = judge({ ...world(0), unresolved: undefined, threadsUnreadable: true });
+
+    expect(verdict.status).toBe(2);
+  });
+});
+
+describe('the jq program the hook actually sends', () => {
+  /**
+   * Every case above stubs `gh` at the process boundary and fabricates the two numbers, so none of
+   * them ever ran the filter. A typo in it fails closed at best — blocking every merge — and at
+   * worst matches nothing, which makes the whole enforcement a permanent no-op that looks green.
+   *
+   * So this reads the filter OUT OF THE HOOK and runs it over a realistic payload. A copy pasted
+   * here would drift from the hook the first time either changed, and then this case would prove
+   * something about a program nobody runs.
+   */
+  const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
+  // Read the pattern from the hook too. Restating it here is a second copy of a value the hook
+  // owns, and the first attempt got its escaping wrong — jq rejected the program, which looked
+  // like the hook was broken when it was the test that was.
+  const REVIEWER_RE = /^REVIEWER_RE='(.*)'$/m.exec(HOOK_SOURCE)?.[1] ?? '';
+
+  function filterFromHook() {
+    const start = HOOK_SOURCE.indexOf("--jq '.data.repository.pullRequest.reviewThreads.nodes");
+    expect(
+      start,
+      'the hook no longer contains the thread query — this case is reading nothing',
+    ).toBeGreaterThan(-1);
+    const end = HOOK_SOURCE.indexOf("' || echo", start);
+    // Shell splices the reviewer pattern in by closing and reopening the quote; undo exactly that.
+    return HOOK_SOURCE.slice(start + "--jq '".length, end).replace(
+      /'"\$REVIEWER_RE"'/g,
+      REVIEWER_RE,
+    );
+  }
+
+  function run(threads) {
+    const payload = JSON.stringify({
+      data: { repository: { pullRequest: { reviewThreads: { nodes: threads } } } },
+    });
+    const result = spawnSync('jq', ['-r', filterFromHook()], { input: payload, encoding: 'utf8' });
+    expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
+    return result.stdout.trim();
+  }
+
+  const thread = (login, isResolved, totalCount) => ({
+    isResolved,
+    comments: { totalCount, nodes: [{ author: { login } }] },
+  });
+
+  it('counts a reviewer thread that is unresolved', () => {
+    expect(run([thread('github-actions', false, 1)])).toBe('1 1');
+  });
+
+  it('counts a reviewer thread resolved with no reply', () => {
+    expect(run([thread('github-actions', true, 1)])).toBe('1 1');
+  });
+
+  it('does not count a reviewer thread that is resolved AND answered', () => {
+    expect(run([thread('github-actions', true, 2)])).toBe('1 0');
+  });
+
+  it("does not count a human's thread, however open", () => {
+    expect(run([thread('someone', false, 1)])).toBe('1 0');
+  });
+
+  it('survives a comment whose author is gone', () => {
+    // GraphQL returns a null author for a deleted or ghost account. `test()` on null does not
+    // return false — it THROWS, which fails the whole `gh api` call, which the gate reads as
+    // could-not-read-threads and refuses. So one deleted account anywhere in a PR's threads would
+    // block that PR's merges permanently, on an otherwise clean tree, with a message naming the
+    // wrong cause. Fail-closed is right when the state is genuinely unreadable; this state is
+    // readable and the thread simply is not the reviewer's.
+    const ghost = { isResolved: false, comments: { totalCount: 1, nodes: [{ author: null }] } };
+
+    expect(run([ghost])).toBe('1 0');
+    // And it still counts the reviewer's thread standing beside it, rather than taking the whole
+    // filter down — the property that makes this a guard instead of a switch.
+    expect(run([ghost, thread('github-actions', false, 1)])).toBe('2 1');
+  });
+
+  it('reports the TOTAL separately from the unsatisfied count', () => {
+    // The total is what the full-page check reads; conflating the two would hide truncation.
+    const threads = [
+      thread('github-actions', true, 2),
+      thread('someone', false, 1),
+      thread('github-actions', false, 1),
+    ];
+    expect(run(threads)).toBe('3 1');
   });
 });

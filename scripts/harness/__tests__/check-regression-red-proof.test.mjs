@@ -1,11 +1,18 @@
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { EXECUTION } from '../lib/spawn-call-graph.mjs';
 
+/** The checker as CI invokes it — a process, so the `.catch` path is the code under test. */
+const CHECKER = path.resolve(import.meta.dirname, '../check-regression-red-proof.mjs');
+
 import {
   VERDICT,
+  enforceOnCrash,
+  exitCodeFor,
   addedCaseTitleMatchers,
   classifyChanges,
   classifyVitestOutcome,
@@ -858,5 +865,86 @@ describe('HARNESS-041 orchestrator fixtures', () => {
       }),
     ).catch(() => {});
     expect(restored).toBe(true);
+  });
+});
+
+describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
+  /**
+   * Promoted on measured evidence, not elapsed time. The 2026-07-25 audit found ZERO substantive
+   * verdicts across 40 pull requests — the reverse-apply path had never once executed, so promoting
+   * it then would have made a required check out of untested code. After the subject widened to the
+   * hooks and the harness, 13 of the last 22 runs produced `red-proof-ok`.
+   */
+  it('blocks on a proven defect and on nothing else', () => {
+    // A test that still passes with the fix reversed guards nothing — a defect whatever else the run
+    // found. Every OTHER verdict says what the checker could not establish, and a conclusion never
+    // reached must not refuse a merge.
+    expect(exitCodeFor(VERDICT.ACCIDENTAL_GREEN, true)).toBe(1);
+
+    for (const verdict of Object.values(VERDICT)) {
+      if (verdict === VERDICT.ACCIDENTAL_GREEN) continue;
+      expect(exitCodeFor(verdict, true), `${verdict} blocked a merge it cannot judge`).toBe(0);
+    }
+  });
+
+  it('blocks nothing at all while advisory', () => {
+    for (const verdict of Object.values(VERDICT)) {
+      expect(exitCodeFor(verdict, false), `${verdict} blocked with enforcement off`).toBe(0);
+    }
+  });
+
+  it('does not turn its own crash into a merge refusal while advisory', () => {
+    // The reasoning this replaces was wrong in a way worth keeping: it said a red here "blocks
+    // nothing" because the job is not a required check. In THIS repository that is false. The
+    // merge gate refuses on any `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE
+    // precisely when a NON-required check fails — so an unconditional non-zero on a network
+    // hiccup, a bad worktree or a vitest infra failure would push EVERY merge through the manual
+    // override until someone fixed it. That is the untested refusal in the merge path this
+    // promotion holds required-check membership specifically to avoid, arriving by another door.
+    const gate = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.claude/hooks/merge-gate.sh'),
+      'utf8',
+    );
+    expect(gate, 'the merge gate no longer refuses a non-CLEAN state — re-decide this').toMatch(
+      /"\$STATE" != "CLEAN"/,
+    );
+
+    expect(enforceOnCrash({})).toBe(false);
+    expect(enforceOnCrash({ REGRESSION_RED_PROOF_ENFORCE: '1' })).toBe(true);
+  });
+
+  it('crashes loudly and exits by that switch, as a real invocation', () => {
+    // The unit above judges the mapping; this one runs the process, because the mapping is only a
+    // policy if the crash path actually reads it. Pointed at a git directory that is not there, the
+    // orchestration cannot start — the `.catch` is the code under test.
+    const run = (env) => {
+      const result = spawnSync(process.execPath, [CHECKER], {
+        env: { ...process.env, GIT_DIR: '/nonexistent-red-proof-probe', ...env },
+        encoding: 'utf8',
+      });
+      return { status: result.status, said: `${result.stdout}${result.stderr}` };
+    };
+
+    const advisory = run({});
+    expect(advisory.status, 'a crash blocked a merge the checker never judged').toBe(0);
+
+    const enforcing = run({ REGRESSION_RED_PROOF_ENFORCE: '1' });
+    expect(enforcing.status, 'a crash reported success while enforcing').toBe(1);
+
+    // Silence is not success: whichever way it exits, it must say it could not check. A crash that
+    // exits 0 quietly is indistinguishable from "ran and found nothing wrong".
+    expect(advisory.said).toMatch(/could not|failed|error/i);
+  });
+
+  it('is enforcing in the workflow that runs it', () => {
+    // The flag is the promotion. Without this the mapping above is a capability nothing switches on —
+    // and a policy that no run applies is the vacuity this harness spends its time removing.
+    const ci = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
+      'utf8',
+    );
+    const job = ci.slice(ci.indexOf('  regression-red-proof:'), ci.indexOf('  patch-coverage:'));
+
+    expect(job).toMatch(/REGRESSION_RED_PROOF_ENFORCE:\s*'1'/);
   });
 });

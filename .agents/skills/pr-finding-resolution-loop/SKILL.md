@@ -143,6 +143,21 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
    the PR later. It is the visible half of the containment label, which otherwise lives only in a code
    comment and a commit body the PR page never shows.
 
+   **EVERY finding gets a reply, and an ACCEPTED one most of all.** The natural pull is the opposite: a
+   refutation feels like it owes an argument, while a fix feels self-evident. It is not. The fix lands in a
+   commit the thread does not link to, so on the PR page an accepted finding and an ignored one are the same
+   thing — a comment with no answer under it. Measured once: 27 inline threads left open across 18 merged
+   pull requests, every finding genuinely fixed, not one of them answered where it was raised.
+
+   **Then RESOLVE the thread.** Replying is the answer; resolving is what tells the next reader the answer
+   is final. A thread left open says the conversation is still going. Resolve only after the reply is
+   posted and the fix is pushed — resolving first hides a finding instead of closing it, which is the one
+   direction this step must never trade in.
+
+   Mechanically enforced: `merge-gate` refuses a merge while any review thread is unresolved, and refuses
+   equally when it cannot read their state. That is the floor, not the rule — the rule is that a reader can
+   tell a handled finding from an ignored one without opening the commit log.
+
 3. **Converged?** If `n == 0` → go to **Merge path**. The count is a **resolved** count, not a fixed one:
    a finding is out of it when it is corrected, contained under a filed root item, or recorded INVALID.
    `pr-review-reviewer` does not raise a hold that already carries its `Contained — <ID>.` comment, which
@@ -189,7 +204,13 @@ Track: `last_findings = {}` (set of finding identities `file:line + severity`).
 Hand to the gated merge path (detailed wiring is HARNESS-018d). The gate is mechanical:
 `.claude/hooks/merge-gate.sh` refuses `gh pr merge` unless CI is `CLEAN` and a review newer than the
 head commit exists, and refuses outright while `ACTIONABLE FINDINGS: <n>` is non-zero — so a step of
-this pipeline cannot be skipped by merging directly. It MUST honor [git-branch.md](../../rules/git-branch.md):
+this pipeline cannot be skipped by merging directly.
+
+It also refuses while any of the reviewer's inline finding threads is unanswered. Resolved with no
+reply under it counts as unanswered: anyone can resolve a thread, and a finding with no reply is the
+state this loop exists to make visible.
+
+It MUST honor [git-branch.md](../../rules/git-branch.md):
 
 - Merge allowed only when there is **no unresolved MUST** and **every SHOULD is fixed or filed-and-linked** as a
   justified backlog item (never silently deferred), AND required CI checks are green.
@@ -204,6 +225,7 @@ this pipeline cannot be skipped by merging directly. It MUST honor [git-branch.m
 | -------------------------------------- | ------------------------------------------------ |
 | Judge findings / assign severity       | `pr-review-reviewer` (guardian)                  |
 | Post the review to the PR              | `pr-review-writer` (worker)                      |
+| Reply on each finding and RESOLVE it   | `pr-review-writer` (worker) — inline, per thread |
 | Edit/fix code                          | `pr-review-fixer` (worker)                       |
 | Decide the PR is "good"                | the reviewer's `ACTIONABLE FINDINGS` count       |
 | Merge `main`                           | the user (never the agent)                       |

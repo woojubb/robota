@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: todo
+status: in-progress
 created: 2026-07-25
 priority: high
 urgency: now
@@ -180,3 +180,57 @@ of zero verdicts would make a required check that is required to do nothing.
 
 **Blocked on:** INFRA-071 (widen the gate's subject to the harness and hook layer). Re-run this audit
 once verdicts exist.
+
+## Promotion Audit 2026-08-04 — `regression-red-proof` PROMOTED (owner decision)
+
+**The 2026-07-25 audit blocked on evidence, not on quality, and the evidence changed.** That audit
+found ZERO substantive verdicts across 40 pull requests: the reverse-apply-and-re-run path had never
+once executed, so promoting it then would have made a required check out of untested code.
+
+INFRA-071 widened the subject from `packages|apps/*/src` to include `.claude/hooks` and
+`scripts/harness`. Re-measured over the 22 most recent CI runs by reading each job's log directly, the
+way the previous audit did — the check-run conclusion remains worthless as evidence:
+
+**13 runs produced `red-proof-ok`.** Zero `accidental-green`. The remainder are honest skips
+(`range has no fix: commit`) and `inconclusive` verdicts on individual pairs.
+
+**What promotion does, exactly.** `REGRESSION_RED_PROOF_ENFORCE=1` makes exactly ONE verdict exit
+non-zero: `accidental-green`. `inconclusive`, `red-proof-unreached` and all three `skipped-*` values
+still pass. That asymmetry is the whole of it — the gate blocks on a proven defect and never on an
+absence of proof, so a pull request cannot be refused for a conclusion the checker could not reach.
+
+The mapping was inline in the CLI block, where the one decision this item changes could not be
+exercised. It is now `exitCodeFor(verdict, enforce)`, exported, with a case asserting all seven
+verdicts in both modes and a case asserting the workflow actually sets the flag — a policy no run
+applies is the vacuity this harness spends its time removing.
+
+**Required-check membership is deliberately HELD** (owner decision). `accidental-green` has never
+fired on a real pull request, so its blocking path is unproven in production; making it required would
+put an untested refusal in the merge path. One observed firing is the evidence the next step needs.
+
+**A crash in the checker no longer reports success.** Its `.catch` exited 0, justified by a comment
+saying the job is advisory — a justification that stopped being true the moment it began enforcing. A
+crash that reports green is indistinguishable from "ran and found nothing wrong", which is the vacuity
+this harness spends its time removing.
+
+The first fix made the crash exit non-zero unconditionally, on the reasoning that a red here "blocks
+nothing" because the job is not required. **That reasoning was false in this repository, and the
+correction is the part worth recording.** `merge-gate.sh` refuses on any `mergeStateStatus` other than
+CLEAN, and GitHub reports `UNSTABLE` precisely when a NON-required check fails — so a non-required red
+blocks every merge just as thoroughly, through a door required-check membership does not guard. Held
+membership bought nothing against it. Review caught it; the local tests did not, because none of them
+knew what the merge gate does with the exit code.
+
+What survives the correction is the RULE, not the convenience: enforcement-architecture.md § "Silence
+is not success" says the three states must stay distinguishable, and "I could not check" is a refusal,
+never a pass. So the crash exit reads the same `enforce` switch the verdicts are judged by, and while
+enforcing it refuses — deliberately, with the merge-blocking consequence understood and stated rather
+than denied. The cost is real: a transient infrastructure failure stops merges until it is fixed. That
+is the price of the rule, and the alternative — merging past a checker that could not run — is the
+hundred-green-runs-reviewing-nothing failure the same rule was written after.
+
+Two cases pin it, each red-proved on its own assertion, and one of them asserts the merge gate still
+refuses a non-CLEAN state, so this decision returns for review if that ever changes instead of quietly
+becoming wrong a second time.
+
+**`patch-coverage` is NOT promoted** and this item stays open for it.
