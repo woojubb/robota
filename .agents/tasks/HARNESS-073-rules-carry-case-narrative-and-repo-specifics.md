@@ -206,6 +206,33 @@ method: no row was reordered, merged or dropped.
 The reference case that asserted the tree carries citations was replaced with one asserting it carries
 none, which is what that case said should happen when the count reached zero rather than deleting it.
 
+### The repository-specific class, classified
+
+Measured over the rules tree: **35 mentions of a workspace package or app name**, and most of the
+apparent hits are the words `docs`, `action`, `blog` and `www`, which are directory names that are
+also ordinary English. The distinctive names — `agent-*`, `@robota-sdk/*` — fall into three kinds, and
+only one of them is a defect:
+
+- **A worked-example path** (`packages/<pkg>/src/__tests__/<file>.test.ts`). NOT a defect, and this
+  item's own evidence says so: a worked example is instruction, and an example that points at no real
+  file is not an example. These stay.
+- **An illustrative name inside a universal invariant** — the anti-pattern is general and the name is
+  there to show its shape. Genericised: the whole-package mock illustration now names a neutral scope,
+  and "web apps such as `apps/agent-web` or `packages/agent-playground`" is now "a web app or any
+  package whose output is rendered in a browser", which carries the same constraint and applies to a
+  surface added tomorrow.
+- **Genuinely repository-specific POLICY** — entry 13's dependency direction (`agent-core` must not
+  depend on `agent-*`), and `testing-layering.md`, which is entirely about which package proves what.
+  These are not illustrations that can be genericised; they are rules about THIS repository's layout,
+  and the fix is a MOVE, not a rewrite. `AGENTS.md` already names
+  [`.agents/project-structure.md`](../project-structure.md) as the owner of the dependency-direction
+  rules, so entry 13 is also the cross-file duplication this item lists separately.
+
+**The move is left for a decision rather than made here.** Relocating policy between governing
+documents changes which document a reader is bound by, and doing it silently at the end of an
+unrelated sweep is the opposite of how this repository handles ownership. It is also coupled to the
+third leftover below.
+
 ## What is NOT done
 
 The citable class is closed and held. Two classes named in the evidence above are not, and this item
@@ -215,10 +242,9 @@ stays open for them:
   incident with every proper noun removed reads as an invariant. The audit measured one file with zero
   identifier matches and the highest narrative count. Only a line-by-line pass finds these, and this
   sweep did not do one; it followed the citations.
-- **Repository-specific naming.** ~15 lines name this repository's packages, products or site where a
-  universal noun would carry the same constraint — the dominant defect in one audit partition, and a
-  different check from this one. Several were removed incidentally with their surrounding sentences;
-  none were sought.
+- **Repository-specific naming.** Now classified above rather than estimated. The illustrative kind is
+  done; the worked-example kind is correct as it stands; what remains is the MOVE of two pieces of
+  genuinely repository-specific policy to the document that already owns that kind of rule.
 - **The cross-file duplications** the audits found: one invariant stated in two rule files is what
   diverges later, and they are still stated twice.
 
