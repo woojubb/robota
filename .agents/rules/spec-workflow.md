@@ -183,7 +183,7 @@ This vocabulary governs **spec documents** under `.agents/spec-docs/`. Backlog i
 
 ### Spec-Code Conformance Verification
 
-- Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete.
+- Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete — bounded like every auto-re-drive loop, per [enforcement-architecture.md](enforcement-architecture.md).
 - The spec is the source of truth. The loop compares every spec assertion against implementation code, lists all gaps, and fixes the **code** (not the spec) to match.
 - Each code fix MUST include a corresponding contract test.
 - The loop repeats until zero discrepancies remain, then regression tests for all affected packages MUST pass. Like every auto-re-drive loop it escapes on no-progress detection — if the same discrepancy set recurs unchanged, stop and escalate to the user rather than spin ([enforcement-architecture.md](enforcement-architecture.md)).
