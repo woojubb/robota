@@ -52,6 +52,31 @@ one that did was caught by a human reading two documents side by side. The map's
 "mechanically kept current"; `scan-orchestration-map.mjs` checks only that every agent file appears in
 it, so the LOOP-BACK column has never been compared to anything.
 
+### The same class, measured again on #1640 — three sites, one change
+
+A single pull request flipped one flag, `REGRESSION_RED_PROOF_ENFORCE=1`, and left THREE separate
+documents asserting the property that flag removed:
+
+| Site                                  | The claim it kept making                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `.agents/tasks/INFRA-046-…md`         | a red here "blocks nothing" because the job is not required                               |
+| `.github/required-status-checks.json` | excluded because "a required context must be able to fail, and these deliberately cannot" |
+| `.github/workflows/ci.yml` header     | "ADVISORY in v1 … not yet in the required set"                                            |
+
+Every one was found by review, in three separate rounds, none by a machine — and two of them were
+written or edited by the same change that falsified them. Two further properties this item should
+carry into its design:
+
+- **The contradiction was with CODE, not with another rule.** The prose disagreed with a hook
+  (`merge-gate.sh` refuses any non-CLEAN state) and with a workflow env var. A checker that compares
+  rule text to rule text would have found none of the three.
+- **The claim's own source refuted it.** In each case the file itself, or one it links to, already
+  said the opposite. That is a narrower and much more tractable target than general contradiction
+  detection: a document asserting a property about a named artifact, where the artifact is readable.
+
+This is the same defect class as the `comment-asserted-invariants` memory entry, which is my
+dominant one, and its recurrence here is the argument that the remaining steps are worth the cost.
+
 ## A third axis: a rule contradicting a universal principle
 
 Owner directive, same day: **"보편적인 규칙이 더 중요합니다"** — a universal rule matters more than one we

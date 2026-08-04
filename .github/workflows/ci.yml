@@ -842,9 +842,11 @@ jobs:
 
   # HARNESS-041: mechanical floor for accidental-green regression tests. For a `fix:` PR with a
   # same-package (source+test) pair, it reverse-applies the source hunks and requires the changed test
-  # to FAIL — proving the regression test actually exercises the fix. ADVISORY in v1 (not a required
-  # check): the job BLOCKS on `accidental-green` and on nothing else, and is not yet in the required
-  # set — so it can fail the run it is part of, while a branch-protection rule does not yet demand it.
+  # to FAIL — proving the regression test actually exercises the fix. ENFORCING as of INFRA-046: the
+  # job fails the run on `accidental-green` and on nothing else. NOT YET REQUIRED, which buys less
+  # than it sounds like — `merge-gate.sh` refuses any non-CLEAN mergeStateStatus and GitHub reports
+  # UNSTABLE when a NON-required check fails, so a red here stops merges either way. Held membership
+  # is about the branch-protection ruleset, not about consequences; see required-status-checks.json.
   #
   # Promoted 2026-08-04 (INFRA-046) on measured evidence, not elapsed time. The 2026-07-25 audit
   # found ZERO substantive verdicts across 40 pull requests — the gate's core path had never once
