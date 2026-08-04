@@ -132,6 +132,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  console.log(`::examined:: ${examined} pull-request workflows`);
   console.log(
     `ci-footprint scan passed (${examined} workflow(s) examined; ${jobs} job(s) per pull request ` +
       `at baseline, across ${Object.keys(perWorkflow).length} triggered workflow(s)).`,

@@ -118,6 +118,10 @@ function main() {
   const contracts = loadHarnessConfig().contractCastRatchet?.contracts ?? [];
   if (contracts.length === 0) {
     console.log(
+      '::examined:: 0 files ::expected-empty:: no contracts are configured, so the ratchet governs ' +
+        'nothing — a declared-and-empty configuration, not an absent tree.',
+    );
+    console.log(
       'contract-cast ratchet: NO CONTRACTS CONFIGURED (.agents/harness.config.json) — nothing was checked.',
     );
     return;
@@ -170,6 +174,7 @@ function main() {
     return;
   }
   const total = [...counts.values()].reduce((sum, entry) => sum + entry.casts, 0);
+  console.log(`::examined:: ${files.length} files`);
   console.log(
     `contract-cast ratchet passed (${contracts.length} contract(s), ${total} cast(s) at baseline, ` +
       `${files.length} file(s) examined).`,

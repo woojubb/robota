@@ -242,6 +242,7 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${hooksExamined} hook files`);
   console.log(
     `hook-registration scan passed: ${hooksExamined} hook file(s), ${matchersExamined} matcher(s), ` +
       `${registrations} registration(s) — every hook is reached and every matcher resolves.`,

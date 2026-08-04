@@ -248,6 +248,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  console.log(`::examined:: ${examined} rule documents`);
   console.log(
     `rule-case-narrative scan passed (${examined} rule document(s) examined; ${total} citation(s) ` +
       'at baseline). It bounds the CITABLE class only — narrative whose citation has worn off is ' +

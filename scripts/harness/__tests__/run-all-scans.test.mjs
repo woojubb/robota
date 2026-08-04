@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { ADVISORY_MARKER, extractAdvisories, parseSkips, runScans } from '../run-all-scans.mjs';
+import {
+  ADVISORY_MARKER,
+  extractAdvisories,
+  extractExamined,
+  judgeExamined,
+  judgeExaminedAdoption,
+  parseSkips,
+  runScans,
+} from '../run-all-scans.mjs';
 
 function stubScan(name, exitCode) {
   return {
@@ -236,5 +244,72 @@ describe('parseSkips (INFRA-026)', () => {
 
   it('returns empty set without --skip', () => {
     expect(parseSkips([]).size).toBe(0);
+  });
+});
+
+describe('how much did you look at', () => {
+  /**
+   * The most-repeated defect here is a check reporting success over work it never did, and it
+   * arrives in three costumes — a fail-open over an absent tree, a SKIP rendered as a tick, and a
+   * shallow walk claiming "all" over a subset. Each was repaired one instance at a time, because
+   * nothing asked the question they share.
+   */
+  it('reads a declared size, and the reason a zero is allowed', () => {
+    expect(extractExamined('::examined:: 24 rule documents')).toEqual([
+      { size: 24, subject: 'rule documents', expectedEmpty: null },
+    ]);
+    expect(
+      extractExamined('::examined:: 0 plans ::expected-empty:: the pipeline is dormant'),
+    ).toEqual([{ size: 0, subject: 'plans', expectedEmpty: 'the pipeline is dormant' }]);
+  });
+
+  it('reads a thousands separator, so a big subject is not read as a small one', () => {
+    expect(extractExamined('::examined:: 2,747 files')[0].size).toBe(2747);
+  });
+
+  it('fails an unearned zero, and only an unearned one', () => {
+    expect(judgeExamined('probe', '::examined:: 0 workflows').problems).toHaveLength(1);
+    expect(
+      judgeExamined('probe', '::examined:: 0 workflows ::expected-empty:: none are configured')
+        .problems,
+    ).toEqual([]);
+    expect(judgeExamined('probe', '::examined:: 13 workflows').problems).toEqual([]);
+  });
+
+  it('refuses a size that is not a number', () => {
+    // A marker that says nothing measurable is the contentless-advisory shape one channel over: it
+    // looks like a declaration and declares nothing.
+    expect(judgeExamined('probe', '::examined:: several files').problems).toHaveLength(1);
+  });
+
+  it('does not demand a declaration from a scan that makes none', () => {
+    // Seventy-nine of ninety-seven declare nothing today. A check that turns the suite red on
+    // arrival is suppressed rather than obeyed; adoption is held by the ratchet instead.
+    expect(judgeExamined('probe', 'ordinary output').declared).toBe(false);
+    expect(judgeExamined('probe', 'ordinary output').problems).toEqual([]);
+  });
+
+  it('judges adoption only when the WHOLE registry ran', async () => {
+    // A ratchet over a subset counts a number that means nothing: a `--skip` run, or a caller
+    // passing three fixtures, would report a fall that is only a smaller list. Found by the runner's
+    // existing cases going red the moment the ratchet was added unconditionally.
+    const scan = { name: 'probe', run: async () => ({ code: 0, output: 'no declaration here' }) };
+    const lines = [];
+
+    expect(await runScans([scan], (l) => lines.push(l), 1)).toBe(0);
+    expect(lines.join('\n')).not.toMatch(/adoption/);
+  });
+
+  it('fails an unearned zero even on a subset run', () => {
+    // The condition above is about the RATCHET only. A scan claiming a pass over nothing is wrong
+    // however few of them ran, so that half carries no such exemption.
+    expect(judgeExamined('probe', '::examined:: 0 workflows').problems).toHaveLength(1);
+  });
+
+  it('holds adoption as a ratchet that may only rise, and must be re-frozen when it does', () => {
+    expect(judgeExaminedAdoption(10, 97, () => 10).ok).toBe(true);
+    expect(judgeExaminedAdoption(9, 97, () => 10).message).toMatch(/FELL/);
+    expect(judgeExaminedAdoption(11, 97, () => 10).message).toMatch(/ROSE/);
+    expect(judgeExaminedAdoption(10, 97, () => null).message).toMatch(/no frozen/);
   });
 });

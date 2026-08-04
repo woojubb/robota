@@ -185,6 +185,7 @@ function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${filesScanned} files`);
   console.log('✅ No interface-import rule violations found.');
   console.log(
     `interface-imports summary: violations=0 files=0 ` +

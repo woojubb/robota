@@ -154,6 +154,10 @@ function main() {
     // Declared-and-empty is a real configuration, but it must not read as a pass over governed
     // ground — that is the vacuity shape this repo has already measured across its own suite.
     console.log(
+      '::examined:: 0 governed files ::expected-empty:: no authority rules are configured, so there is ' +
+        'no governed ground to examine — a declared-and-empty configuration, not an absent tree.',
+    );
+    console.log(
       'authority-bypass scan: NO RULES CONFIGURED (.agents/harness.config.json) — nothing was checked.',
     );
     return;
@@ -170,6 +174,7 @@ function main() {
 
   const findings = findAuthorityBypasses(files, rules);
   if (findings.length === 0) {
+    console.log(`::examined:: ${files.length} governed files`);
     console.log(
       `authority-bypass scan passed (${files.length} file(s), ${rules.length} authority rule(s)).`,
     );

@@ -956,6 +956,7 @@ export async function main() {
     process.exitCode = 1;
     return;
   }
+  process.stdout.write(`::examined:: ${MANDATORY_TREE_GUARDS.length} pinned guards\n`);
   process.stdout.write(
     `guard-scope-fail-closed scan passed (${MANDATORY_TREE_GUARDS.length} guard(s) proven ` +
       `fail-closed by execution; ${measuredVacuous().length} measured VACUOUS and recorded unfixed ` +

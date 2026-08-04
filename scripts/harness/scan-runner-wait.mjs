@@ -90,6 +90,7 @@ export function findAllRunnerWaits(root = WORKSPACE_ROOT) {
 function main() {
   const { findings, examined } = findAllRunnerWaits();
   if (findings.length === 0) {
+    console.log(`::examined:: ${examined} workflows`);
     console.log(`runner-wait scan passed (${examined} workflow(s) examined).`);
     return;
   }
