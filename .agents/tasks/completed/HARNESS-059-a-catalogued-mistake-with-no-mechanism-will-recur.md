@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-059: 67 of 82 catalogued mistakes have no mechanism — the catalogue is a list of things that will happen again'
-status: todo
+status: done
+completed: 2026-08-04
 priority: medium
 urgency: soon
 type: INFRA
@@ -48,3 +49,42 @@ a failure mode this repository has already paid for.
   satisfied by a mention, which is the defect class this whole audit is about.
 - The count of `none — accepted as recurring` entries is visible somewhere a reader will see it. If
   that number is large, that is the finding.
+
+## Implementation (2026-08-04)
+
+`scan-mistake-mechanisms.mjs`, registered. Every one of the **83** entries now carries a
+`**Mechanism:**` value, and the scan judges it.
+
+**Two values, and the second is the point.** A registered mechanism, or `none — <reason>`. Written
+down, "we are choosing to let this recur" is a decision; omitted, it is the state that happens when
+nobody wrote one. The count is printed on EVERY passing run rather than only on failure, because a
+finding nobody sees is one nobody acts on:
+
+```
+mistake-mechanisms scan passed (83 entr(y/ies); 36 name a mechanism,
+47 are ACCEPTED AS RECURRING with a recorded reason). The second number is the debt.
+```
+
+**36 and 47 — and the 47 is the finding this item asked to surface.** It is also an honest number
+rather than a flattering one: a mechanism was named only where one demonstrably exists, and the rest
+say so.
+
+**A named mechanism must EXIST**, across the three namespaces something can be enforced in: a
+registered scan, a `lint:<rule>` in the ESLint configuration, a `ci:<job>` declared by a workflow. A
+field satisfied by a mention would be the very defect the catalogue is about.
+
+**The checker caught two of my own claims within a minute of being written** — `lint:no-console` and
+`lint:@typescript-eslint/no-explicit-any` reported as not existing. Both ARE configured; the rule
+reader matched single-quoted names and this repository's configuration is JSON, which double-quotes.
+The check firing on correct data, found by running it, and fixed rather than worked around.
+
+**What it deliberately does NOT claim:** that the named scan actually catches that entry. Only that it
+exists and runs. Proving the link needs a failing input per entry — real work, and not a reason to
+leave the field unchecked in the meantime.
+
+**Done-when, each red-proved against the REAL catalogue**, not a fixture: an added entry with no value
+fails as `no-answer`; changing a real mechanism name to one that was never written fails as
+`names-a-mechanism-that-does-not-exist`; and the accepted-as-recurring count is on the passing line.
+
+**Not required of every entry**, as the direction insisted: some mistakes are judgement, and forcing a
+mechanical claim would produce guards that fire on correct work — which is how guards get disabled.

@@ -416,6 +416,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
   },
   {
+    name: 'mistake-mechanisms',
+    command: ['node', 'scripts/harness/scan-mistake-mechanisms.mjs'],
+  },
+  {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
   },
