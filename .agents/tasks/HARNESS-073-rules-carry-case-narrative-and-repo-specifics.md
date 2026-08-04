@@ -260,6 +260,13 @@ rules file "which is not the owner of package ownership". Same reasoning, same d
 pattern (`@robota-sdk/*`), one is a subpath-export precedent cited as an example, and one is a
 one-line summary of the layer diagram in the file that says it owns nothing but the invariant.
 
+**The move also carried a wrong mechanism name into the new owner**, which is the drift a reorg is
+supposed to end rather than propagate. The entry cited `dep-kind`; the rule is enforced by rule 3 of
+`deps`, and `dep-kind` checks something else entirely. The mechanism scan passed it, because the name
+EXISTS — a right name and an existing name are different properties, and only the second is
+mechanical. Review caught it, both places are corrected, and the limit is now stated in that scan's
+own header so the next reader does not mistake its green for a claim it never makes.
+
 **And the change broke this item's own rule on the first run**, which both new floors caught: the
 sentence explaining the split cited `HARNESS-073` by number, inside a rule document — the exact
 citable narrative this item exists to remove. The rules cannot carry the reason for their own

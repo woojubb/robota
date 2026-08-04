@@ -29,6 +29,12 @@
  * and runs. Proving the link would need a failing input per entry, which is the next item's work,
  * not a reason to leave the field unchecked.
  *
+ * That limit is not theoretical: the first version of this catalogue named `dep-kind` for the
+ * foundation-dependency rule, and this scan passed it, because `dep-kind` is registered. It is a
+ * different rule — a runtime value import resolving to a devDependencies-only declaration — and the
+ * one that actually enforces the entry is `deps`. A human reviewer caught it. A RIGHT name and an
+ * EXISTING name are different properties, and only the second is checked here.
+ *
  * Exit 0 = every entry answers, and every named mechanism resolves.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
