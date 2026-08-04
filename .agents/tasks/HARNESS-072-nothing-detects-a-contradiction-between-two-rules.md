@@ -96,9 +96,49 @@ pipeline" without opening seven skills. So the fact has ONE owner (the declarati
 is a derived restatement a machine now holds to it — which is the fallback that line reserves for
 facts that genuinely must appear twice.
 
-**Steps 2 and 3 remain**, and they are the harder ones: a quantified bound appearing outside its owner
-(the shape rounds 9, 10 and 12 kept re-finding in one draft spec), and rule-to-rule contradiction,
-which needs its suppression designed before the check is written.
+### Step 2 — measured, and DELIBERATELY NOT SHIPPED
+
+A copy detector was written and then removed, on evidence. Over every normative harness document it
+produced **15 findings and 0 true positives**: `max 72 chars` (a commit-message length), a loop step
+mentioning its own escape, a table of contents, an eslint rule name, and — the largest class —
+NEGATIONS, where "there is no round cap" reads to a pattern exactly like a round cap.
+
+The class it targets is empty. The three instances this item cites were all in one draft document and
+were corrected in the change that filed this; that document now states the removed cap as history and
+links the skill that owns the decision, which is what the Direction asks for.
+
+So the choice was between shipping a check with a 15:0 noise ratio and not shipping one. The
+Direction's own warning about step 3 decides it — "expect false positives; design the suppression
+before writing the check, or it will be suppressed rather than obeyed" — and a check that arrives with
+nothing but false positives is suppressed on its first run. Recorded rather than silently dropped:
+**what would make step 2 viable is not a better regex but a machine-readable bound everywhere**, the
+way step 1's declaration made the map comparison exact. Until a bound outside a skill is structured,
+prose matching cannot tell a statement of a bound from a sentence about one.
+
+### Step 3 — the tractable core, shipped
+
+Not "detect any contradiction between two rules", which is the ambition the Direction rightly warns
+about. The contradiction that actually arrived had a shape: a RULE described a loop and stated a count
+as its only bound, while another rule forbade exactly that. Rules outrank skills, so a reader
+following the first was correct to ignore the second.
+
+`scan-loop-contract.mjs` now reads rule documents too. A rule paragraph describing a re-driven loop
+must state what a round that changes nothing does, or point at the rule that owns the answer. The
+owning rule is held to defining it once rather than restating it per paragraph — demanding otherwise
+would be the restatement defect this repository files items about.
+
+**Red-proved against the exact wording round 13 found.** Restoring "bounded iterations, then escalate
+to the user" in `research.md` exits 1; the current text exits 0.
+
+And the first version of that check was an accidental green worth recording: it asked whether the FILE
+anywhere linked the rule that owns the escape. Every rule links that rule for other reasons, so the
+restored bad wording passed. An exemption read from somewhere else in the document is an exemption
+granted by coincidence. Judged per paragraph now, and a case pins that.
+
+**What remains** is step 2, and it remains as a DECISION rather than as work not yet done: it is not
+viable as prose matching, and it becomes viable when a bound stated outside a skill is structured. The
+general form of step 3 — contradiction between any two rules on any subject — is also still open; what
+shipped is the one shape that has actually occurred.
 
 ## A live instance, RESOLVED by the above (kept for the record)
 

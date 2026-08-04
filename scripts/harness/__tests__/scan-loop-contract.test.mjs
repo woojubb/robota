@@ -4,7 +4,13 @@ import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { judgeSkill, parseDeclaration, readMapBounds, scanLoops } from '../scan-loop-contract.mjs';
+import {
+  judgeRule,
+  judgeSkill,
+  parseDeclaration,
+  readMapBounds,
+  scanLoops,
+} from '../scan-loop-contract.mjs';
 
 /**
  * A loop that cannot notice it is stuck, and a registry that disagrees with the loop it registers.
@@ -180,6 +186,70 @@ describe('the map and the skill state one bound', () => {
     });
 
     expect(found.map((f) => f.kind)).toEqual(['map-disagrees-on-the-bound']);
+  });
+});
+
+describe('a rule that states a loop is bound by the same contract', () => {
+  // This is where a rule-versus-rule contradiction actually arrived: one mandatory rule said
+  // "bounded iterations, then escalate" — a count as the only bound — while another forbade exactly
+  // that, in normative text, created by the change that landed the second. Rules outrank skills, so
+  // a reader following the first was correct to ignore the second.
+
+  it('flags a rule whose loop paragraph names no escape', () => {
+    const found = judgeRule({
+      name: 'research.md',
+      text: '- **Loop-back is hybrid.** The orchestrator AUTO-re-drives toward convergence:\n  bounded iterations, then escalate to the user.\n',
+    });
+
+    expect(found.map((f) => f.kind)).toEqual(['rule-states-a-loop-without-its-escape']);
+  });
+
+  it('does not accept a link that sits in some OTHER paragraph', () => {
+    // The first version asked whether the FILE anywhere linked the rule that owns the escape. Every
+    // rule links that rule for other reasons, so restoring the exact wording this check exists to
+    // catch left it green — an exemption granted by coincidence. Judged per paragraph now.
+    const found = judgeRule({
+      name: 'research.md',
+      text: [
+        'See [enforcement-architecture.md](enforcement-architecture.md) for the worker model.',
+        '- **Loop-back is hybrid.** The orchestrator AUTO-re-drives: bounded iterations, then escalate.',
+      ].join('\n\n'),
+    });
+
+    expect(found.map((f) => f.kind)).toEqual(['rule-states-a-loop-without-its-escape']);
+  });
+
+  it('accepts a loop paragraph that states the escape, or points at the rule that owns it', () => {
+    expect(
+      judgeRule({
+        name: 'research.md',
+        text: '- **Loop-back is hybrid.** It AUTO-re-drives; if the same finding set recurs unchanged, stop.\n',
+      }),
+    ).toEqual([]);
+
+    expect(
+      judgeRule({
+        name: 'research.md',
+        text: '- **Loop-back is hybrid.** It AUTO-re-drives, escaping per [x](enforcement-architecture.md).\n',
+      }),
+    ).toEqual([]);
+  });
+
+  it('holds the OWNING rule to defining the escape, not to restating it per paragraph', () => {
+    // Demanding every paragraph of the definition restate the definition is the restatement defect
+    // this harness files items about.
+    expect(
+      judgeRule({
+        name: '.agents/rules/enforcement-architecture.md',
+        text: '- **Auto-re-drive.** The orchestrator re-runs the worker.\n\nIts escape is no-progress detection.\n',
+      }),
+    ).toEqual([]);
+
+    const undefined_ = judgeRule({
+      name: '.agents/rules/enforcement-architecture.md',
+      text: '- **Auto-re-drive.** The orchestrator re-runs the worker until it converges.\n',
+    });
+    expect(undefined_.map((f) => f.kind)).toEqual(['the-escape-has-no-owner']);
   });
 });
 

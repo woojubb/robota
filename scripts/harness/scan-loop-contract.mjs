@@ -43,6 +43,9 @@ import { asScalar, splitFrontmatter } from './frontmatter.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SKILLS_DIR = '.agents/skills';
+const RULES_DIR = '.agents/rules';
+/** The rule that owns the no-progress escape; every other loop states it or points here. */
+const OWNER_RULE = 'enforcement-architecture.md';
 const MAP_PATH = '.agents/specs/orchestration-map.md';
 
 /**
@@ -211,6 +214,57 @@ export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
   return findings;
 }
 
+/**
+ * A RULE may describe a loop too, and then it is bound by the same contract.
+ *
+ * This is where a rule-versus-rule contradiction actually arrived: one mandatory rule said "bounded
+ * iterations, then escalate" — a count as the only bound — while another forbade exactly that, in
+ * normative text, created by the change that landed the second. Rules outrank skills, so a reader
+ * following the first was correct to ignore the second.
+ *
+ * A rule carries no frontmatter declaration, so the check is the one axis it can have: a rule that
+ * describes a re-driven loop must say what a round that changes nothing does, or point at the rule
+ * that owns the answer. That is narrower than "detect any contradiction between two rules", and it
+ * is the shape the contradiction took.
+ */
+export function judgeRule({ name, text }) {
+  const findings = [];
+  // The rule that OWNS the escape states it once; demanding every paragraph of it restate the
+  // definition would be the restatement defect this harness files items about. It is held to the one
+  // thing it must do: define the escape somewhere in itself.
+  if (name.endsWith(OWNER_RULE)) {
+    if (!ESCAPE_IN_BODY.test(text)) {
+      findings.push({
+        skill: name,
+        kind: 'the-escape-has-no-owner',
+        detail: 'the rule that every other loop points at for the escape no longer defines one.',
+      });
+    }
+    return findings;
+  }
+  // Judged PER PARAGRAPH, not per document. The first version asked whether the FILE anywhere stated
+  // the escape or linked the rule that owns it — and every rule links that rule for other reasons, so
+  // restoring the exact wording this check exists to catch left it green. An exemption read from
+  // somewhere else in the document is an exemption granted by coincidence.
+  for (const paragraph of text.split(/\n\s*\n/)) {
+    if (!LOOP_LANGUAGE.test(paragraph)) continue;
+    if (ESCAPE_IN_BODY.test(paragraph)) continue;
+    // A paragraph may DELEGATE: pointing at the rule that owns the escape answers the same question.
+    if (paragraph.includes(OWNER_RULE)) continue;
+    findings.push({
+      skill: name,
+      kind: 'rule-states-a-loop-without-its-escape',
+      detail:
+        'a mandatory rule describes a re-driven loop and never says what a round that changes nothing ' +
+        'does — "' +
+        paragraph.replace(/\s+/g, ' ').trim().slice(0, 90) +
+        '". A rule outranks a skill, so a loop stated here without its escape licenses every loop ' +
+        'that reads it. State the escape, or link the rule that owns it.',
+    });
+  }
+  return findings;
+}
+
 export function scanLoops(root = WORKSPACE_ROOT) {
   const skillsDir = path.join(root, SKILLS_DIR);
   const mapFile = path.join(root, MAP_PATH);
@@ -245,8 +299,22 @@ export function scanLoops(root = WORKSPACE_ROOT) {
       .map(([name]) => name),
   );
 
+  const rulesDir = path.join(root, RULES_DIR);
+  if (!existsSync(rulesDir))
+    throw new Error(`loop-contract: ${RULES_DIR} does not exist under ${root}.`);
+  const ruleNames = readdirSync(rulesDir)
+    .filter((n) => n.endsWith('.md'))
+    .sort();
+  if (ruleNames.length === 0)
+    throw new Error(`loop-contract: ${RULES_DIR} holds no rules to examine.`);
+
   const findings = [];
   let loops = 0;
+  for (const name of ruleNames) {
+    const text = readFileSync(path.join(rulesDir, name), 'utf8');
+    if (LOOP_LANGUAGE.test(text)) loops += 1;
+    findings.push(...judgeRule({ name: `${RULES_DIR}/${name}`, text }));
+  }
   for (const name of names) {
     const text = sources.get(name);
     if (parseDeclaration(text) || LOOP_LANGUAGE.test(bodyOf(text))) loops += 1;
@@ -265,15 +333,18 @@ export function scanLoops(root = WORKSPACE_ROOT) {
 function main() {
   const { findings, examined, loops } = scanLoops();
   for (const finding of findings) {
-    console.error(`- [${finding.kind}] ${SKILLS_DIR}/${finding.skill}/SKILL.md: ${finding.detail}`);
+    const where = finding.skill.includes('/')
+      ? finding.skill
+      : `${SKILLS_DIR}/${finding.skill}/SKILL.md`;
+    console.error(`- [${finding.kind}] ${where}: ${finding.detail}`);
   }
   if (findings.length > 0) {
     process.exitCode = 1;
     return;
   }
   console.log(
-    `loop-contract scan passed (${examined} skill(s) examined; ${loops} declare a loop, each ` +
-      'implementing the escape it declares and agreeing with the orchestration map).',
+    `loop-contract scan passed (${examined} skill(s) and every rule document examined; ${loops} ` +
+      'state a loop, each implementing the escape it declares and agreeing with the orchestration map).',
   );
 }
 
