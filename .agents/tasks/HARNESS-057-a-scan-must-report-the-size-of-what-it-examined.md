@@ -52,6 +52,52 @@ Two design constraints, both learned the expensive way here:
   once in `scan-workflow-permissions` and once in `scan-doc-folder-status-agreement`, both times
   fixed by scoping to the real subject.
 
+## Progress — the mechanism is in, the migration is not
+
+**Measured first, because the item's proposal needed a number: 18 of 97 registered scans state a size
+on success in prose; 79 state none.** That is what makes the invariant a migration rather than an
+edit, and it is why adoption is held as a ratchet.
+
+`run-all-scans.mjs` now owns two halves of the invariant, on the marker channel it already had for
+advisories:
+
+```
+::examined:: 24 rule documents
+::examined:: 0 live plans ::expected-empty:: the pipeline is dormant by design
+```
+
+- **An unearned zero FAILS the suite.** A scan declaring `0` without saying why zero is correct is a
+  pass over nothing, and the suite says so and exits 1. This half carries no exemption for a subset
+  run — a scan claiming a pass over nothing is wrong however few of them ran.
+- **Adoption is a RATCHET.** 11 scans declare today; the count may rise and must never fall, and a
+  rise must be re-frozen in the same change. Demanding a declaration from all 97 at once would turn
+  the suite red on arrival, and a suite that is red on arrival is skipped rather than fixed.
+
+**A marker, not prose**, for the reason the advisory channel already gives: a regex over prose both
+misses and invents. The eighteen sentences stay for humans; the marker is what the runner reads.
+
+**The expected-empty declaration is a reviewable line in the scan's own output**, where the next
+reader meets it — not a configuration file nobody opens. Both design constraints this item named are
+therefore satisfied, and the anti-rot concern is moot: there is no separate registry to go stale.
+
+### One defect its own tests caught
+
+The ratchet was applied to every `runScans` call, and the runner's existing cases went red instantly:
+a subset run — a `--skip`, or a caller passing three fixtures — reported a FALL that was only a
+shorter list. Adoption is judged only when the whole registry ran. A ratchet over a subset counts a
+number that means nothing.
+
+### Red-proved
+
+Changing one scan's declaration to `::examined:: 0 workflows` fails the suite with
+`1 scan(s) reported a pass over nothing`, naming the scan and the door.
+
+### What remains
+
+**86 of 97 scans still declare nothing**, and each is a one-line addition beside a number the scan
+already computes. The ratchet is what makes that migration visible and irreversible; this item stays
+open until it is done, and the number in the baseline is the progress bar.
+
 ## Done when
 
 - A scan that examines nothing fails the suite, proven RED by pointing a real scan at an empty root.

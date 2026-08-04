@@ -92,10 +92,7 @@ export function taggedFunctions(text) {
   // `export const` — invisible in the code, visible only in behaviour, which is the class this tool
   // exists to catch.
   const decl = String.raw`export\s+(?:async\s+)?(?:function\s+([A-Za-z0-9_$]+)|const\s+([A-Za-z0-9_$]+)\s*=)`;
-  const re = new RegExp(
-    String.raw`(?:^|\n)\/\*\*((?:(?!\*\/)[\s\S])*?)\*\/[ \t]*\n` + decl,
-    'g',
-  );
+  const re = new RegExp(String.raw`(?:^|\n)\/\*\*((?:(?!\*\/)[\s\S])*?)\*\/[ \t]*\n` + decl, 'g');
   for (const m of text.matchAll(re)) {
     const block = m[1];
     const name = m[2] ?? m[3];
@@ -118,7 +115,12 @@ export function localImports(text) {
   for (const m of text.matchAll(re)) {
     const names = m[1]
       .split(',')
-      .map((s) => s.trim().split(/\s+as\s+/)[0].trim())
+      .map((s) =>
+        s
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim(),
+      )
       .filter(Boolean);
     out.push({ specifier: m[2], names });
   }
@@ -245,6 +247,7 @@ function main() {
 
   // Measured, never silent: a run that examined nothing is reported as such rather than reading as
   // a clean sweep — the distinction between "examined and clean" and "examined nothing".
+  console.log(`::examined:: ${Object.keys(files).length} files`);
   console.log(
     `helper-limits: ${examined} @limits-tagged function(s) across ${Object.keys(files).length} file(s).`,
   );

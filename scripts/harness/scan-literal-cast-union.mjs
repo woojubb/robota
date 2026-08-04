@@ -226,6 +226,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  console.log(`::examined:: ${examined} files`);
   console.log(`literal-cast-union scan passed (${examined} file(s) examined).`);
 }
 

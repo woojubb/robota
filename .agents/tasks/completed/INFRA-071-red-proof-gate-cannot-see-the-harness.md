@@ -1,6 +1,7 @@
 ---
 title: 'INFRA-071: the accidental-green gate cannot see the layer where accidental greens keep happening'
-status: todo
+status: done
+completed: 2026-07-31
 priority: high
 urgency: now
 type: INFRA
@@ -134,3 +135,23 @@ reason for failing, which pass/fail output does not carry.
   misses are re-filed under the floor that can actually catch them.
 - The SKIP reasons remain distinguishable from a clean verdict in the log, so the next promotion
   audit can tell "examined and clean" from "examined nothing".
+
+## Completion (2026-07-31) — reconciled 2026-08-04
+
+Landed before this file was reconciled, and verified against the tree rather than assumed:
+`check-regression-red-proof.mjs` exports `HOOK_SUBJECT = '.claude/hooks'` and
+`HARNESS_SUBJECT = 'scripts/harness'`, and `pkgOf` returns them — `.claude/hooks/branch-guard.sh` →
+`.claude/hooks`, `scripts/harness/scan-x.mjs` → `scripts/harness`, `packages/agent-core/src/x.ts` →
+`packages/agent-core`. Its docstring cites this item by number, and `scripts/harness/__tests__/
+check-regression-red-proof.test.mjs` passes 51 cases.
+
+One decision the widening forced is recorded in the code: a `.md` under the harness subject returns
+`null`, because reversing a document and re-running a test proves nothing, and a docs-and-test range
+would otherwise manufacture a pair whose only possible verdict is noise. Under a `packages/*/src`
+scope that could not arise; under a whole directory it can.
+
+The follow-on it exposed — one verdict for an aggregate, so a genuine red proof in one pair excused an
+accidental green in another — was filed and resolved separately as
+[INFRA-073](completed/INFRA-073-one-verdict-for-an-aggregate.md).
+
+No GitHub issue was ever registered for this item; it predates that practice becoming routine.

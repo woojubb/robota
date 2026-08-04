@@ -13,6 +13,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -68,6 +69,144 @@ export function extractAdvisories(output) {
     if (text.length > 0) advisories.push(text);
   }
   return advisories;
+}
+
+/**
+ * HOW MUCH DID YOU LOOK AT? — the one question three recurring defects all answer wrongly.
+ *
+ * A check reporting success over work it never did is the most-repeated defect in this repository,
+ * and it arrives in three costumes: a fail-open over an absent tree (`dist/ present on all 0
+ * package(s)`, exit 0), a SKIP rendered as a tick and counted toward "all N scans passed", and a
+ * shallow walk claiming "all" over a subset. Each was repaired one instance at a time, because
+ * nothing asked the question they share.
+ *
+ * A scan declares the size of the subject it examined:
+ *
+ *   ::examined:: 24 rule documents
+ *   ::examined:: 0 live planning documents ::expected-empty:: the pipeline is dormant by design
+ *
+ * ZERO IS A FAILURE unless the scan says why zero is correct. That is the whole mechanism: an absent
+ * tree reports 0, a skip reports 0, and a subset walk reports a number a reader can compare against
+ * the workspace at a glance.
+ *
+ * The expected-empty declaration is a REVIEWABLE LINE, not a silent default — a scan that may
+ * legitimately find nothing says so in its own output, where the next reader meets it, rather than in
+ * a configuration file nobody opens.
+ *
+ * A MARKER RATHER THAN PROSE, for the reason the advisory channel already gives: prose is guessed at
+ * with a regex, and a regex over prose both misses and invents. Eighteen scans already state a size
+ * in a sentence; those sentences stay for humans, and the marker is what the runner reads.
+ */
+export const EXAMINED_MARKER = '::examined::';
+export const EXPECTED_EMPTY_MARKER = '::expected-empty::';
+
+/**
+ * Every examined-size declaration in a scan's output.
+ *
+ * Returns `{ size, subject, expectedEmpty }` per declaration. A declaration whose count is not a
+ * number is returned with `size: null` and treated as undeclared by the caller — a marker that says
+ * nothing measurable is the contentless-advisory shape one channel over.
+ */
+export function extractExamined(output) {
+  const found = [];
+  for (const rawLine of String(output ?? '').split('\n')) {
+    const line = rawLine.replace(ANSI_SGR_PATTERN, '');
+    const at = line.indexOf(EXAMINED_MARKER);
+    if (at === -1) continue;
+    let rest = line.slice(at + EXAMINED_MARKER.length).trim();
+    let expectedEmpty = null;
+    const emptyAt = rest.indexOf(EXPECTED_EMPTY_MARKER);
+    if (emptyAt !== -1) {
+      expectedEmpty = rest.slice(emptyAt + EXPECTED_EMPTY_MARKER.length).trim() || null;
+      rest = rest.slice(0, emptyAt).trim();
+    }
+    const match = /^(-?\d[\d,]*)\s*(.*)$/.exec(rest);
+    found.push({
+      size: match ? Number(match[1].replace(/,/g, '')) : null,
+      subject: match ? match[2].trim() : rest,
+      expectedEmpty,
+    });
+  }
+  return found;
+}
+
+/**
+ * The verdict on one scan's declarations: what it examined, and whether a zero was earned.
+ *
+ * A scan that declares nothing is NOT failed here. Seventy-nine of them declare nothing today, and a
+ * check that turns the whole suite red on arrival is suppressed rather than obeyed — adoption is held
+ * by the ratchet below instead, which can only move one way.
+ */
+export function judgeExamined(name, output) {
+  const declarations = extractExamined(output);
+  const problems = [];
+  for (const d of declarations) {
+    if (d.size === null) {
+      problems.push(
+        `${name}: declared an examined size that is not a number (\`${d.subject}\`), so it measures nothing.`,
+      );
+      continue;
+    }
+    if (d.size === 0 && !d.expectedEmpty) {
+      problems.push(
+        `${name}: examined 0 ${d.subject || 'subjects'} and did not say why zero is correct. ` +
+          `A pass over nothing is not a pass — declare it with \`${EXPECTED_EMPTY_MARKER} <reason>\` if it is.`,
+      );
+    }
+  }
+  return { declared: declarations.length > 0, problems };
+}
+
+/**
+ * How many scans declare what they examined — a ratchet, and the reason it is one.
+ *
+ * Seventy-nine of ninety-seven declare nothing today. Demanding a declaration from all of them at
+ * once turns the suite red on arrival, and a suite that is red on arrival is skipped rather than
+ * fixed. So the count is frozen: it may RISE, and it must never fall. A fall is re-frozen in the
+ * same change, or the gain is a licence to grow back.
+ *
+ * The baseline lives beside the runner rather than inside it, so raising it is a reviewable one-line
+ * diff and not an edit to the thing doing the judging.
+ */
+export const EXAMINED_ADOPTION_BASELINE_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/examined-adoption-baseline.json',
+);
+
+export function judgeExaminedAdoption(declaring, total, readBaseline = defaultReadAdoption) {
+  const frozen = readBaseline();
+  if (frozen === null) {
+    return {
+      ok: false,
+      message: `✗ no frozen examined-size adoption baseline — write ${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
+    };
+  }
+  if (declaring < frozen) {
+    return {
+      ok: false,
+      message:
+        `✗ examined-size adoption FELL: ${declaring} of ${total} scans declare what they examined, ` +
+        `down from a frozen ${frozen}. A scan that stopped saying how much it looked at is a scan ` +
+        'whose green stopped meaning anything measurable.',
+    };
+  }
+  if (declaring > frozen) {
+    return {
+      ok: false,
+      message:
+        `✗ examined-size adoption ROSE: ${declaring} of ${total} (frozen ${frozen}). Re-freeze it in ` +
+        'the SAME change, or the gain is a licence to slide back.',
+    };
+  }
+  return { ok: true, message: null };
+}
+
+function defaultReadAdoption() {
+  try {
+    return JSON.parse(readFileSync(EXAMINED_ADOPTION_BASELINE_PATH, 'utf8')).declaring ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -421,6 +560,11 @@ export async function runScans(
   scans,
   write = (line) => process.stdout.write(`${line}\n`),
   concurrency = DEFAULT_SCAN_CONCURRENCY,
+  // Adoption is judged only when the WHOLE registry ran. A ratchet over a subset counts a number
+  // that means nothing: a `--skip` run, or a caller passing three fixtures, would report a fall that
+  // is only a smaller list. The unearned-zero check below has no such condition — a scan claiming a
+  // pass over nothing is wrong however few of them ran.
+  { checkAdoption = false } = {},
 ) {
   const results = new Array(scans.length);
   let next = 0;
@@ -468,12 +612,39 @@ export async function runScans(
     write('');
   }
 
+  // HOW MUCH DID EACH ONE LOOK AT (HARNESS-057). An unearned zero fails the suite outright; the
+  // ADOPTION count is a ratchet, because 79 of 97 declare nothing today and a check that is red on
+  // arrival gets suppressed rather than obeyed.
+  const examined = results.map((result) => ({
+    name: result.name,
+    ...judgeExamined(result.name, result.output),
+  }));
+  const unearnedZeros = examined.flatMap((e) => e.problems);
+  const declaring = examined.filter((e) => e.declared).length;
+  const adoption = checkAdoption
+    ? judgeExaminedAdoption(declaring, results.length)
+    : { ok: true, message: null };
+
+  if (unearnedZeros.length > 0) {
+    write('');
+    write(`✗ ${unearnedZeros.length} scan(s) reported a pass over nothing:`);
+    for (const problem of unearnedZeros) write(`  ${problem}`);
+  }
+  if (adoption.message) {
+    write('');
+    write(adoption.message);
+  }
+
   const failed = results.filter((result) => result.code !== 0);
-  if (failed.length === 0) {
-    write(`all ${results.length} scans passed`);
+  if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
+    write(
+      checkAdoption
+        ? `all ${results.length} scans passed (${declaring} declared what they examined)`
+        : `all ${results.length} scans passed`,
+    );
     return 0;
   }
-  write(`${failed.length} of ${results.length} scans failed`);
+  if (failed.length > 0) write(`${failed.length} of ${results.length} scans failed`);
   return 1;
 }
 
@@ -510,7 +681,10 @@ export async function main() {
     name,
     run: () => spawnScan(command),
   }));
-  process.exitCode = await runScans(scans);
+  // The full registry ran only when nothing was skipped; adoption is judged just then.
+  process.exitCode = await runScans(scans, undefined, undefined, {
+    checkAdoption: scans.length === SCAN_COMMANDS.length,
+  });
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

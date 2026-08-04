@@ -44,6 +44,33 @@ removed the scripts that were dead; it did not remove the ones that were alive a
 its adoption is partial; which of the 30 originally-affected finders now call `requireGovernedTree`
 was not established and is part of the work.
 
+## The premise is out of date, and the correction is the finding (2026-08-04)
+
+This item says the 30/76 measurement "was written down once" and that "nothing re-measures it". Both
+were true when it was filed. Neither is true now, and it was checked rather than assumed:
+
+`scan-guard-scope-fail-closed` is REGISTERED and runs on every `pnpm harness:scan`. It does not read
+a recorded number — it points each pinned finder at a root without its governed tree and observes
+whether the finder throws or reports a pass. Today it reports **53 guards proven fail-closed BY
+EXECUTION, 4 measured vacuous and recorded with their reasons, 14 that fail closed but are not
+pinned**. So the engine this item asks for exists and is continuous.
+
+**What is actually missing is narrower, and it is the part the count hides.** The pinned set is a
+HAND-KEPT list. A guard outside it can be vacuous and nothing notices, which is the same defect one
+level up: the population is maintained by a person, so the measurement is only as complete as the last
+edit to the list. The 14 unpinned guards are the visible edge of that; the invisible edge is the next
+guard someone adds without a row.
+
+That is the same shape [HARNESS-071](completed/HARNESS-071-loops-with-no-progress-escape.md) fixed for
+loops, and the fix has the same form: derive the population from the registry rather than from a list,
+and hold the vacuous count as a ratchet so it can fall and never rise.
+
+**Landed here:** the engine now declares what it examined (`::examined:: 53 pinned guards`), which
+feeds the suite-wide invariant in
+[HARNESS-057](HARNESS-057-a-scan-must-report-the-size-of-what-it-examined.md) — an unearned zero from
+this scan would now fail the suite rather than pass quietly. That does not close this item; it makes
+the number this item is about visible to the runner every time it runs.
+
 ## Why this is foundational (or not)
 
 **FOUNDATIONAL.** Every other harness item is judged by whether a check catches it. If ~40% of the

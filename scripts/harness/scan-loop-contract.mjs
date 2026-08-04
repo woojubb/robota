@@ -372,6 +372,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  console.log(`::examined:: ${examined} skills, plus every rule document`);
   console.log(
     `loop-contract scan passed (${examined} skill(s) and every rule document examined; ${loops} ` +
       'state a loop, each implementing the escape it declares and agreeing with the orchestration map).',
