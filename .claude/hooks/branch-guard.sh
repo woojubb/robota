@@ -121,7 +121,36 @@ RE_MERGE="${GITPFX}merge${GITEND}"
 # `-d`/`-D` delete; `-m`/`-M` rename. Treating any of those as a creation would turn ordinary
 # inspection into a refusal — property 4, the failure that gets a guard turned off. Only flags that
 # still leave the command a creation are admitted, and the next token must not itself be a flag.
-RE_BRANCH_CREATE_FLAGS='(-f|--force|-q|--quiet|-t|--track|--no-track)'
+# ANY flag, by SHAPE — not a list of the ones we thought of. Third bypass in this one change, and
+# each was the allowlist missing a spelling: `--track -c` (a flag it did not list), then
+# `--track=direct` (the `=` form), then `-qf` (bundled shorts). A list of tokens cannot describe
+# git's flag grammar, and every gap in it is a SILENT pass — the failure direction that costs the
+# most, because nothing announces it.
+#
+# So the shape is matched instead, and the semantics are decided by a DENYLIST below. That inverts
+# the failure: a flag nobody anticipated now reads as a creation and gets JUDGED, so a mistake here
+# is a refusal someone sees and overrides, rather than a bypass nobody ever learns about. "Unknown
+# is not zero" is this repository's rule for exactly this choice.
+# `[^[:space:]]`, not `[^ \t]`. Inside a POSIX bracket expression `\t` is the two characters
+# BACKSLASH and t, so `[^ \t]` excludes the letter t — and `--track=direct` stopped matching at
+# `direc`, leaving the very bypass this line was written to close. Caught by probing the four
+# reported shapes rather than by reading the regex.
+RE_BRANCH_FLAG='(--[a-zA-Z][a-zA-Z0-9-]*(=[^[:space:]]*)?|-[a-zA-Z]+)'
+
+# The flags that make `git branch` something OTHER than a creation. This is the denylist the shape
+# matching above hands off to, and it is deliberately the only list left: a name missing from HERE
+# produces a refusal on correct work — loud, overridable, and fixed the next day — while a name
+# missing from an allowlist produced a silent bypass three times in this change alone.
+#
+# Two kinds, both taking a following argument that would otherwise read as a new branch name:
+#   - operating on an EXISTING branch: -d -D --delete -m -M --move --edit-description
+#     --set-upstream-to --unset-upstream -u
+#   - LISTING with a value: --list --contains --no-contains --merged --no-merged --points-at
+#     --sort --format --column
+# Listing flags that take no value (-a -r -v --all --remotes --verbose --show-current) need no entry:
+# with no non-flag token after them, nothing matches a creation anyway.
+RE_BRANCH_NOT_CREATE="${GITPFX}branch\s+(${RE_BRANCH_FLAG}\s+)*(-[dDmMu]|--delete|--move|--edit-description|--set-upstream-to|--unset-upstream|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--sort|--format|--column)([= ]|\s|$)"
+RE_BRANCH_CREATE_FLAGS="$RE_BRANCH_FLAG"
 # `git branch -c|-C|--copy|--force-copy` creates a branch too, and is handled SEPARATELY because its
 # arguments are in the other order: `-c <new>` names the branch in the first position, `-c <old>
 # <new>` in the SECOND, with the base first. Every other spelling here puts the name first and the
@@ -263,6 +292,23 @@ while read -r STMT_START STMT_LEN; do
   printf '%s' "$STMT_MASK" | grep -qE "$RE_MERGE" && IS_MERGE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_COPY" && IS_BRANCH_COPY=true
+  # …unless the statement is one of the `git branch` forms that operate on an existing branch or
+  # list with a value. Their argument sits exactly where a new branch's name would, so the shape
+  # matching above reads `git branch -d old` as creating `old` and `--contains HEAD` as creating
+  # `HEAD`. Both were measured refusing correct work before this line existed.
+  if printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_NOT_CREATE"; then
+    IS_BRANCH_CREATE=false
+    IS_BRANCH_COPY=false
+  fi
+  # A copy is NEVER also judged as a creation, and this holds even when the copy refusal is
+  # overridden. `-c` is flag-shaped, so `git branch -c a b` looks like a creation of `a` from `b` —
+  # with the arguments the wrong way round, which is the entire reason copies are refused instead of
+  # parsed. Taking the deliberate exception must not silently hand the statement to the parser it was
+  # exempted from: measured, `BRANCH_GUARD_ALLOW_BRANCH_COPY=1 git branch -c a b` was then refused by
+  # the creation path, for a name and a base read out of the wrong positions.
+  if [[ "$IS_BRANCH_COPY" == "true" ]]; then
+    IS_BRANCH_CREATE=false
+  fi
   # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
   # develop integration branch. Match ONLY when --delete-branch is an actual argument
   # of a `gh pr merge` invocation — strip shell comments first, then require the flag

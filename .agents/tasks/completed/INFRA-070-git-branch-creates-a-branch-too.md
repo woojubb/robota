@@ -125,3 +125,37 @@ copy fails three cases.
 weakened, and the weakening never announces itself: round one dropped a boundary from the two
 spellings that already worked, round two opened a hole in the spelling it had just closed. Both were
 caught by review, neither by a test I thought to write first, and both would have read as a pass.
+
+### Third bypass, same cause — so the approach was inverted
+
+Review again, on the fix for the fix. Two more flag SHAPES slipped both matchers:
+
+```
+git branch --track=direct feat/x main     -> exit 0, silent
+git branch -qf feat/x main                -> exit 0, silent
+git branch --track=direct -c a b          -> exit 0, silent
+git branch -qf -c a b                     -> exit 0, silent
+```
+
+The `=` form and bundled short options are not tokens any list would contain, because **a list of
+tokens cannot describe git's flag grammar**. Three bypasses in one change, each of them the allowlist
+missing a spelling, is enough evidence about the approach rather than about the entries.
+
+**Inverted.** Flags are matched by SHAPE — `--long`, `--long=value`, `-abc` — and the semantics are
+decided by a DENYLIST of the flags that make `git branch` something other than a creation. That
+changes the failure direction, which is the whole point: a flag nobody anticipated now reads as a
+creation and gets JUDGED, so a mistake is a refusal someone sees and overrides. Under the allowlist
+it was a silent pass nobody would ever learn about. "Unknown is not zero" is this repository's rule
+for exactly this choice, and the guard was on the wrong side of it three times.
+
+The denylist is now the only list left, and its cost is real and paid explicitly: `git branch -d old`
+and `git branch --contains HEAD` put their argument exactly where a new branch's name goes, and both
+were measured refusing correct work before the denylist existed. Five cases hold that line.
+
+**A leak the inversion exposed.** `-c` is flag-shaped, so a copy also looked like a creation — and
+`BRANCH_GUARD_ALLOW_BRANCH_COPY=1 git branch -c a b` was then refused by the CREATION path, reading a
+name and a base out of the reversed positions. Taking a deliberate exception must not hand the
+statement to the parser it was exempted from. A copy is never also judged as a creation now.
+
+Red-proved both halves: restoring the token allowlist fails 5 cases; removing the denylist fails 9,
+all of them ordinary work being refused.

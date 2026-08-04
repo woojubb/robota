@@ -171,6 +171,14 @@ describe('the copy forms create a branch too, and are refused rather than parsed
     ['tracking flag before the copy', 'git branch --track -c old new'],
     ['short tracking flag before the copy', 'git branch -t -c old new'],
     ['no-track before a force copy', 'git branch --no-track -C a b'],
+    // Third round of the same defect: the flag ALLOWLIST could not describe git's flag grammar.
+    // `--track=direct` is the `=` form and `-qf` is bundled shorts; neither is a token in any list
+    // anyone would think to write, and each was a silent pass. The matcher now works by SHAPE and
+    // hands the semantics to a denylist, which inverts the failure — an unanticipated flag reads as
+    // a creation and gets judged, so a mistake is a refusal someone sees rather than a hole nobody
+    // learns about.
+    ['the = form before a copy', 'git branch --track=direct -c a b'],
+    ['bundled shorts before a copy', 'git branch -qf -c a b'],
   ];
 
   for (const [what, command] of COPY_SPELLINGS) {
@@ -184,7 +192,7 @@ describe('the copy forms create a branch too, and are refused rather than parsed
     });
   }
 
-  it('reads ONE allowlist, so the two matchers cannot disagree', () => {
+  it('matches flags by SHAPE, so no list can be missing one', () => {
     // The structural half of the finding above. Detection and extraction each held their own typed
     // copy of the flag list; a flag added to one and not the others reopens the same gap silently.
     // The list is defined once and interpolated, and this asserts the file still holds exactly one
@@ -193,10 +201,14 @@ describe('the copy forms create a branch too, and are refused rather than parsed
       path.resolve(import.meta.dirname, '../../../.claude/hooks/branch-guard.sh'),
       'utf8',
     );
-    const literals = source.match(/-f\|--force\|-q\|--quiet\|-t\|--track\|--no-track/g) ?? [];
-
-    expect(literals.length, `${literals.length} copies of the flag allowlist`).toBe(1);
-    expect(source).toMatch(/RE_BRANCH_CREATE_FLAGS=/);
+    // The allowlist is GONE, and its absence is the property worth pinning: three separate bypasses
+    // were a list missing a spelling, so a list is the thing that must not come back. What remains
+    // is one shape pattern and one denylist, and the denylist's failure direction is a refusal.
+    expect(source, 'the flag allowlist is back').not.toMatch(
+      /-f\|--force\|-q\|--quiet\|-t\|--track\|--no-track/,
+    );
+    expect(source).toMatch(/RE_BRANCH_FLAG=/);
+    expect(source).toMatch(/RE_BRANCH_NOT_CREATE=/);
   });
 
   it('takes its own deliberate exception', () => {
@@ -214,6 +226,20 @@ describe('the copy forms create a branch too, and are refused rather than parsed
 describe('listing, deleting and renaming are not creations', () => {
   // Each proven SILENT, not merely permitted: a guard that narrates on the happy path is one people
   // learn to scroll past, after which its refusals scroll past too.
+  const CREATIONS_BEHIND_AWKWARD_FLAGS = [
+    ['the = form', 'git branch --track=direct feat/x main'],
+    ['bundled shorts', 'git branch -qf feat/x main'],
+  ];
+
+  for (const [what, command] of CREATIONS_BEHIND_AWKWARD_FLAGS) {
+    it(`judges a creation written with ${what}`, () => {
+      const { status, said } = run(command);
+
+      expect(status, said).toBe(2);
+      expect(said).toMatch(/wrong base/);
+    });
+  }
+
   const NOT_A_CREATION = [
     ['bare listing', 'git branch'],
     ['listing every ref', 'git branch -a'],
@@ -225,6 +251,15 @@ describe('listing, deleting and renaming are not creations', () => {
     ['a safe delete', 'git branch -d BAD_NAME'],
     ['a forced delete', 'git branch -D BAD_NAME'],
     ['a rename', 'git branch -m BAD_NAME other'],
+    // These take a VALUE, so their argument sits exactly where a new branch's name would. Shape
+    // matching alone read `-d old` as creating `old` and `--contains HEAD` as creating `HEAD` —
+    // both measured refusing correct work before the denylist existed. This is the cost of the
+    // fail-closed direction, and these cases are what keeps it paid.
+    ['a forced rename', 'git branch -M BAD_NAME other'],
+    ['listing by containment', 'git branch --contains HEAD'],
+    ['listing merged branches with a value', 'git branch --merged origin/develop'],
+    ['listing by pattern', 'git branch --list feat/*'],
+    ['pointing at a ref', 'git branch --points-at HEAD'],
   ];
 
   for (const [what, command] of NOT_A_CREATION) {
