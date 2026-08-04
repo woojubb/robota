@@ -786,6 +786,11 @@ function extractJson(text) {
  * refuse a merge. That asymmetry is the whole of the promotion: it blocks on a proven defect and
  * never on an absence of proof.
  */
+/** Whether an orchestration CRASH may fail the job — the same switch the verdicts are judged by. */
+export function enforceOnCrash(env = process.env) {
+  return env['REGRESSION_RED_PROOF_ENFORCE'] === '1';
+}
+
 export function exitCodeFor(verdict, enforce) {
   if (verdict === VERDICT.ACCIDENTAL_GREEN) return enforce ? 1 : 0;
   return 0;
@@ -822,14 +827,17 @@ if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) 
       log(
         '   the change either — it is this tool failing, and it says so instead of exiting green.',
       );
-      // Exits NON-ZERO, and the comment that used to justify exiting 0 — "advisory" — stopped being
-      // true when the job began enforcing. A crash reporting success is the vacuity this repository
-      // spends its time removing: green here would be indistinguishable from "ran and found nothing".
+      // Non-zero ONLY when enforcing, and the reasoning that first made this unconditional was
+      // wrong in a way worth keeping: it said a red here "blocks nothing" because the job is not a
+      // required check. In THIS repository that is false — `merge-gate.sh` refuses on any
+      // `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE precisely when a
+      // NON-required check fails. So a transient crash would have forced every merge through the
+      // manual override until someone fixed it: the untested refusal in the merge path this
+      // promotion holds required-check membership specifically to avoid, arriving by another door.
       //
-      // Safe precisely BECAUSE the job is not a required check (INFRA-046 holds that deliberately):
-      // the red is visible and blocks nothing. Promoting the job to required means deciding this
-      // again — whether a crash in the checker should stop a merge — and that decision is the
-      // owner's, not a side effect of a promotion.
-      process.exit(1);
+      // It still must not report success. A crash that exits green is indistinguishable from "ran
+      // and found nothing wrong", which is the vacuity this harness spends its time removing — so
+      // the failure is stated loudly above whichever way this exits.
+      process.exit(exitCodeFor(VERDICT.ACCIDENTAL_GREEN, enforceOnCrash()));
     });
 }
