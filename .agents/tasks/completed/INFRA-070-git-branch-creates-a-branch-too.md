@@ -71,10 +71,10 @@ matcher is where the existing matcher gets weakened, and the weakening does not 
 where `main` and `origin/develop` genuinely diverge, with no `BRANCH_GUARD_ALLOW_*` in the
 environment by construction:
 
-| Reverted | What fails |
-| --- | --- |
-| the detection | 3 cases — bad name, wrong base, and the two-command shape the item names |
-| the start-point extraction only | 1 case — wrong base, while detection still fires |
+| Reverted                        | What fails                                                               |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| the detection                   | 3 cases — bad name, wrong base, and the two-command shape the item names |
+| the start-point extraction only | 1 case — wrong base, while detection still fires                         |
 
 The second is the one worth having. With detection widened and the base unread, `git branch x main`
 would be **judged against HEAD** — a creation detected, judged, and judged against the wrong thing,
@@ -103,3 +103,25 @@ overridden by reflex.
 Not fixed here: it is a different subject from branch-creation spellings, and the shell-aware
 extraction it needs is already filed as HARNESS-061. Recorded so the next person meets a written
 cause instead of a confusing refusal, and so the item that fixes it knows this is now on a hot path.
+
+### The fix for the fourth spelling opened a fifth gap, by forking the list
+
+Review again, on the copy refusal itself. The copy matcher was given its OWN hand-typed flag list,
+**shorter** than the creation matcher's. So `git branch --track -c old new` matched neither: not a
+copy, because that list lacked `--track`; not a creation, because that matcher requires the next
+token to be a non-flag and `-c` is one. Detected as neither, it passed through the guard entirely —
+the exact bypass this item exists to close, opened inside the fix for it. Reproduced: exit 0, silent,
+for `--track`, `-t` and `--no-track`.
+
+The file's own header warns about this in as many words: _"a second spelling of what counts as this
+action is a second answer waiting to disagree"_. It had disagreed within the hour.
+
+The list is now defined once and interpolated into all three places that read it — detection, name
+extraction, base extraction. A case asserts the file contains exactly ONE literal spelling of it, so
+the next flag added cannot land in one matcher and not the others. Red-proved: restoring the shorter
+copy fails three cases.
+
+**The pattern across both rounds is the same and worth naming.** Widening a guard is where guards get
+weakened, and the weakening never announces itself: round one dropped a boundary from the two
+spellings that already worked, round two opened a hole in the spelling it had just closed. Both were
+caught by review, neither by a test I thought to write first, and both would have read as a pass.

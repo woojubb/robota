@@ -135,7 +135,15 @@ RE_BRANCH_CREATE_FLAGS='(-f|--force|-q|--quiet|-t|--track|--no-track)'
 # origin/develop`), the message says which form to use instead, and the same override that excuses a
 # deliberate exception everywhere else excuses this one. A clear refusal on a form nobody uses beats
 # a confident wrong answer on it.
-RE_BRANCH_COPY="${GITPFX}branch\s+((-f|--force|-q|--quiet)\s+)*(-[cC]|--copy|--force-copy)${GITEND}"
+#
+# ONE spelling of the flag list, interpolated into both. Re-typing it here was the first version, and
+# it re-created the fork this file's own header warns about — with the copy matcher admitting a
+# SHORTER list than the creation matcher, `git branch --track -c old new` matched NEITHER: not a copy
+# (its list lacked `--track`) and not a creation (that one requires the next token to be a non-flag,
+# and `-c` is a flag). Detected as neither, it passed through the guard entirely. A second spelling of
+# what counts as this action is a second answer waiting to disagree, and here it disagreed by opening
+# the exact bypass this item exists to close, inside the fix for it.
+RE_BRANCH_COPY="${GITPFX}branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*(-[cC]|--copy|--force-copy)${GITEND}"
 # Each alternative carries its OWN ending. Hanging one `${GITEND}` off the whole group was the first
 # attempt and it silently dropped the boundary from the two existing spellings — `-bogus` would have
 # read as `-b`. The `branch` alternative ends by consuming the first character of the name, which is
@@ -832,7 +840,7 @@ while read -r STMT_START STMT_LEN; do
     # extraction found nothing, because a statement is one creation and the first match is its name.
     if [[ -z "$NEW_BRANCH" ]]; then
       NEW_BRANCH=$(hook_match_extract "$COMMAND" \
-        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+((-f|--force|-q|--quiet|-t|--track|--no-track)[ \t]+)*' \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
           "$STMT_START" "$STMT_LEN" || true)
     fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
@@ -866,7 +874,7 @@ while read -r STMT_START STMT_LEN; do
       # judged, and judged against the wrong thing.
       if [[ -z "$START_POINT" ]]; then
         START_POINT=$(hook_match_extract "$COMMAND" \
-          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+((-f|--force|-q|--quiet|-t|--track|--no-track)[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
             "$STMT_START" "$STMT_LEN" || true)
       fi
       # A start point is a git ref, and the token holding it may be glued to what follows.

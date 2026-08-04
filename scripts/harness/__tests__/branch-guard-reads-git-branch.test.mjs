@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -154,6 +162,15 @@ describe('the copy forms create a branch too, and are refused rather than parsed
     ['long copy', 'git branch --copy a b'],
     ['long force copy', 'git branch --force-copy a b'],
     ['copy behind a flag', 'git branch -q -c a b'],
+    // Found by review of the FIRST fix, and it was a bypass that fix created. The copy matcher was
+    // given its own hand-typed flag list, SHORTER than the creation matcher's, so
+    // `git branch --track -c old new` matched neither: not a copy (its list lacked `--track`) and
+    // not a creation (that one requires the next token to be a non-flag, and `-c` is one). Detected
+    // as neither, it passed through the guard entirely — the exact bypass this item exists to close,
+    // opened inside the fix for it, by the second spelling this file's own header warns about.
+    ['tracking flag before the copy', 'git branch --track -c old new'],
+    ['short tracking flag before the copy', 'git branch -t -c old new'],
+    ['no-track before a force copy', 'git branch --no-track -C a b'],
   ];
 
   for (const [what, command] of COPY_SPELLINGS) {
@@ -166,6 +183,21 @@ describe('the copy forms create a branch too, and are refused rather than parsed
       expect(said).toMatch(/git checkout -b/);
     });
   }
+
+  it('reads ONE allowlist, so the two matchers cannot disagree', () => {
+    // The structural half of the finding above. Detection and extraction each held their own typed
+    // copy of the flag list; a flag added to one and not the others reopens the same gap silently.
+    // The list is defined once and interpolated, and this asserts the file still holds exactly one
+    // literal spelling of it — the definition.
+    const source = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.claude/hooks/branch-guard.sh'),
+      'utf8',
+    );
+    const literals = source.match(/-f\|--force\|-q\|--quiet\|-t\|--track\|--no-track/g) ?? [];
+
+    expect(literals.length, `${literals.length} copies of the flag allowlist`).toBe(1);
+    expect(source).toMatch(/RE_BRANCH_CREATE_FLAGS=/);
+  });
 
   it('takes its own deliberate exception', () => {
     expect(run('BRANCH_GUARD_ALLOW_BRANCH_COPY=1 git branch -c a b').status).toBe(0);
