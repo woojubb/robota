@@ -55,10 +55,24 @@ Two things this pins down, and the eliminations below are what make them worth s
 clone and changed nothing; the gate reproduces on the first attempt. The suspects are the steps the
 gate adds around it.
 
-**The remote damage is a SEPARATE and rarer step.** This reproduction did not touch GitHub at all.
-The first incident therefore had two parts: a reliable local clobber, and a push that escaped to the
-remote and has not recurred. Finding what pushed matters more — the local clobber is an annoyance,
-the remote one rewrote a shared branch.
+**The remote damage recurs too — it is not rare, it is CONDITIONAL on the push actually running.**
+The second reproduction (a push that the gate then REFUSED, so `git push` never ran) damaged only the
+clone. The third (a push attempt from a worktree that got as far as the network) rewrote GitHub's
+`develop` again, with fixture commits timestamped to the second. Three incidents, and the pattern is
+consistent:
+
+| Run                                                          | Local clobber | Remote rewritten |
+| ------------------------------------------------------------ | ------------- | ---------------- |
+| 1 — push from a worktree                                     | yes           | **yes**          |
+| 2 — push from a worktree, refused by the gate before pushing | yes           | no               |
+| 3 — push from a worktree, reached the network                | yes           | **yes**          |
+
+So the gate's own steps clobber the clone, and whatever then runs `git push` inherits a repository
+whose `develop` points at a fixture commit and pushes THAT. The remote damage is not a separate
+mechanism — it is the local damage escaping through the very push the operator asked for.
+
+That also means **a refused push is not a safe push**: run 2 left the clone broken with nothing to
+show for it.
 
 **Operationally, until this closes: do not `git push` from a worktree of this clone.** Pushing from
 the main checkout was tried immediately afterwards and left the clone untouched.

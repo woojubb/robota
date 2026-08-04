@@ -153,7 +153,8 @@ worktrees, and replacing a shared branch's history. It has since been REPRODUCED
 narrower and worse than first thought: it is the **pre-push gate**, so pushing from a worktree is
 enough. Until the write path is found and fenced: verify a worktree's change with the scans and the
 targeted test files it touches, let the full suite run in continuous integration, and **push from the
-main checkout rather than from the worktree**.
+main checkout rather than from the worktree**. A push the gate REFUSES is not a safe push — the gate
+has already run by then, and the clone needs repairing either way.
 
 How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
 occupant, one self-verified proposal per item — is procedure, owned by
