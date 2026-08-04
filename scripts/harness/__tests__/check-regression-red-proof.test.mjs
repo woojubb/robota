@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -6,6 +7,7 @@ import { EXECUTION } from '../lib/spawn-call-graph.mjs';
 
 import {
   VERDICT,
+  exitCodeFor,
   addedCaseTitleMatchers,
   classifyChanges,
   classifyVitestOutcome,
@@ -858,5 +860,43 @@ describe('HARNESS-041 orchestrator fixtures', () => {
       }),
     ).catch(() => {});
     expect(restored).toBe(true);
+  });
+});
+
+describe('what blocks a merge once the gate is enforcing (INFRA-046)', () => {
+  /**
+   * Promoted on measured evidence, not elapsed time. The 2026-07-25 audit found ZERO substantive
+   * verdicts across 40 pull requests — the reverse-apply path had never once executed, so promoting
+   * it then would have made a required check out of untested code. After the subject widened to the
+   * hooks and the harness, 13 of the last 22 runs produced `red-proof-ok`.
+   */
+  it('blocks on a proven defect and on nothing else', () => {
+    // A test that still passes with the fix reversed guards nothing — a defect whatever else the run
+    // found. Every OTHER verdict says what the checker could not establish, and a conclusion never
+    // reached must not refuse a merge.
+    expect(exitCodeFor(VERDICT.ACCIDENTAL_GREEN, true)).toBe(1);
+
+    for (const verdict of Object.values(VERDICT)) {
+      if (verdict === VERDICT.ACCIDENTAL_GREEN) continue;
+      expect(exitCodeFor(verdict, true), `${verdict} blocked a merge it cannot judge`).toBe(0);
+    }
+  });
+
+  it('blocks nothing at all while advisory', () => {
+    for (const verdict of Object.values(VERDICT)) {
+      expect(exitCodeFor(verdict, false), `${verdict} blocked with enforcement off`).toBe(0);
+    }
+  });
+
+  it('is enforcing in the workflow that runs it', () => {
+    // The flag is the promotion. Without this the mapping above is a capability nothing switches on —
+    // and a policy that no run applies is the vacuity this harness spends its time removing.
+    const ci = readFileSync(
+      path.resolve(import.meta.dirname, '../../../.github/workflows/ci.yml'),
+      'utf8',
+    );
+    const job = ci.slice(ci.indexOf('  regression-red-proof:'), ci.indexOf('  patch-coverage:'));
+
+    expect(job).toMatch(/REGRESSION_RED_PROOF_ENFORCE:\s*'1'/);
   });
 });

@@ -772,6 +772,25 @@ function extractJson(text) {
   return start >= 0 && end > start ? text.slice(start, end + 1) : text;
 }
 
+/**
+ * Which verdicts BLOCK, and which merely report.
+ *
+ * Extracted from the CLI block so the promotion this encodes is reachable by a test. It sat inline,
+ * where the one decision INFRA-046 changes could not be exercised at all — a policy nothing could
+ * check, which is the shape this repository files items about.
+ *
+ * Exactly one verdict blocks: `accidental-green`. A test that still passes with the fix reversed
+ * guards nothing, and that is a defect whatever else the run found. Every other verdict is a
+ * statement about what the checker COULD NOT establish — the test never imported the reversed file,
+ * the range carried no fix, vitest could not evaluate — and a conclusion never reached must not
+ * refuse a merge. That asymmetry is the whole of the promotion: it blocks on a proven defect and
+ * never on an absence of proof.
+ */
+export function exitCodeFor(verdict, enforce) {
+  if (verdict === VERDICT.ACCIDENTAL_GREEN) return enforce ? 1 : 0;
+  return 0;
+}
+
 // ── CLI entry ───────────────────────────────────────────────────────────────────────────────────────
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
@@ -783,7 +802,7 @@ if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) 
           '\n❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.\n' +
             '   Rewrite it to FAIL on the pre-fix code, or opt out with `allow-green-at-base: <reason>`.',
         );
-        process.exit(enforce ? 1 : 0); // advisory in v1 (not a required check); flip via env once stable
+        process.exit(exitCodeFor(verdict, enforce));
       }
       if (verdict === VERDICT.PROOF_UNREACHED) {
         log(

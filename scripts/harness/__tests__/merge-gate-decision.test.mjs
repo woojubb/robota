@@ -31,12 +31,22 @@ afterAll(() => {
  * The stub dispatches on the flags the hook actually passes, so a change in what the hook asks for
  * shows up here as an empty answer rather than as a silently different verdict.
  */
-function stubbedPath({ state, comments = [], headAt, labels = [] }) {
+function stubbedPath({
+  state,
+  comments = [],
+  headAt,
+  labels = [],
+  unresolved = 0,
+  threadsUnreadable = false,
+}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'merge-gate-'));
   scratch.push(dir);
 
   const fixture = path.join(dir, 'fixture.json');
-  writeFileSync(fixture, JSON.stringify({ state, comments, headAt, labels }));
+  writeFileSync(
+    fixture,
+    JSON.stringify({ state, comments, headAt, labels, unresolved, threadsUnreadable }),
+  );
 
   const gh = path.join(dir, 'gh');
   writeFileSync(
@@ -75,6 +85,15 @@ function stubbedPath({ state, comments = [], headAt, labels = [] }) {
       '  } else {',
       '    console.log(JSON.stringify(mine.at(-1) ?? {}));',
       '  }',
+      '  process.exit(0);',
+      '}',
+      '// The gate asks whether every inline finding was ANSWERED where it was raised. These cases',
+      '// are about other properties, so they answer "none open" — the state that lets the rest of',
+      '// the gate be judged. The thread check itself has its own cases below.',
+      'if (args.includes("repo view")) { console.log("woojubb/robota"); process.exit(0); }',
+      'if (args.includes("reviewThreads")) {',
+      '  if (f.threadsUnreadable) process.exit(1);',
+      '  console.log(String(f.unresolved ?? 0));',
       '  process.exit(0);',
       '}',
       'if (args.includes("pr checks")) { process.exit(0); }',
@@ -288,5 +307,48 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status).toBe(0);
     expect(verdict.output.trim()).toBe('');
+  });
+});
+
+describe('every inline finding is answered where it was raised', () => {
+  /**
+   * The gate already asked "has the review been read and resolved?" and answered it from the summary
+   * comment's findings count. That misses the half a reader actually sees. Measured across one
+   * session: 27 inline threads left OPEN on 18 merged pull requests — every finding genuinely fixed,
+   * with the reasoning in a commit message the thread does not link to. On the pull-request page a
+   * fixed finding and an ignored one are then the same thing: a comment with no answer under it.
+   */
+  const world = (unresolved) => ({
+    state: 'CLEAN',
+    headAt: '2020-01-01T00:00:00Z',
+    comments: [
+      {
+        author: { login: 'github-actions' },
+        createdAt: '2030-01-01T00:00:00Z',
+        body: 'ACTIONABLE FINDINGS: 0',
+      },
+    ],
+    unresolved,
+  });
+
+  it('refuses a merge while a thread is still open', () => {
+    const verdict = judge(world(2));
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output).toMatch(/2 unresolved review thread\(s\)/);
+    expect(verdict.output, 'the refusal does not say what answering means').toMatch(
+      /Reply on the thread/,
+    );
+  });
+
+  it('lets it through when every thread is answered', () => {
+    expect(judge(world(0)).status, judge(world(0)).output).toBe(0);
+  });
+
+  it('refuses when it cannot read the thread state at all', () => {
+    // Unknown is not zero. The same fail-closed rule this gate applies to an unreadable head date.
+    const verdict = judge({ ...world(0), unresolved: undefined, threadsUnreadable: true });
+
+    expect(verdict.status).toBe(2);
   });
 });

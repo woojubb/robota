@@ -214,6 +214,48 @@ if [[ -z "$LAST_REVIEW_AT" ]]; then
   exit 2
 fi
 
+# EVERY INLINE FINDING IS ANSWERED WHERE IT WAS RAISED (2026-08-04, owner).
+#
+# The gate already asked "has the review been read and resolved?" and answered it from the summary
+# comment's findings count. That misses the half a reader actually sees. Measured across one session:
+# 27 inline review threads were left OPEN on 18 merged pull requests — every one of them genuinely
+# fixed, with the reasoning in a commit message the thread does not link to. To anyone opening the
+# pull request afterwards, a finding answered in a commit and a finding ignored look identical, and
+# the skill this loop follows says so in as many words.
+#
+# So: reply on the thread and resolve it. The reply is where the decision lives — accepted and how,
+# or refuted and on what evidence.
+#
+# Unknown is not zero. If the thread state cannot be read, the gate refuses, the same way it refuses
+# an unreadable head date below.
+# Only GraphQL exposes thread resolution — `gh pr view --json` has no such field. The repository is
+# READ from the checkout rather than reconstructed: a hook that guessed an owner or a name would ask
+# about the wrong repository and answer confidently.
+REPO_NWO=$(bounded_gh repo view --json nameWithOwner --jq '.nameWithOwner' || echo "")
+UNRESOLVED=""
+if [[ -n "$REPO_NWO" ]]; then
+  UNRESOLVED=$(bounded_gh api graphql -f query="
+{ repository(owner: \"${REPO_NWO%%/*}\", name: \"${REPO_NWO##*/}\") {
+    pullRequest(number: $PR) { reviewThreads(first: 100) { nodes { isResolved } } }
+} }" --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length' || echo "")
+fi
+
+if [[ -z "$UNRESOLVED" ]]; then
+  echo "[merge-gate] Blocked: could not read PR #$PR's review threads, so whether every inline" >&2
+  echo "[merge-gate] finding was answered is unknown. Verify by hand, then override inline:" >&2
+  echo "[merge-gate] MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
+if [[ "$UNRESOLVED" != "0" ]]; then
+  echo "[merge-gate] Blocked: PR #$PR has $UNRESOLVED unresolved review thread(s)." >&2
+  echo "[merge-gate] Fixing a finding is not answering it. Reply on the thread with the decision —" >&2
+  echo "[merge-gate] accepted and how, or refuted and on what evidence — then resolve it, so the" >&2
+  echo "[merge-gate] next reader can tell a finding that was handled from one that was ignored." >&2
+  echo "[merge-gate] Deliberate exception: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
+  exit 2
+fi
+
 # Fail closed on an unreadable head date. `-n "$HEAD_AT" && …` skipped the whole recency check when
 # the extraction returned empty — reading "I could not tell" as "it is fine", which is the exact
 # conflation this hook's own header forbids. Review's MUST, and correct.

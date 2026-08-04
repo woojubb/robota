@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-046: promote advisory CI gates (regression-red-proof, patch-coverage) to blocking'
-status: todo
+status: in-progress
 created: 2026-07-25
 priority: high
 urgency: now
@@ -180,3 +180,32 @@ of zero verdicts would make a required check that is required to do nothing.
 
 **Blocked on:** INFRA-071 (widen the gate's subject to the harness and hook layer). Re-run this audit
 once verdicts exist.
+
+## Promotion Audit 2026-08-04 — `regression-red-proof` PROMOTED (owner decision)
+
+**The 2026-07-25 audit blocked on evidence, not on quality, and the evidence changed.** That audit
+found ZERO substantive verdicts across 40 pull requests: the reverse-apply-and-re-run path had never
+once executed, so promoting it then would have made a required check out of untested code.
+
+INFRA-071 widened the subject from `packages|apps/*/src` to include `.claude/hooks` and
+`scripts/harness`. Re-measured over the 22 most recent CI runs by reading each job's log directly, the
+way the previous audit did — the check-run conclusion remains worthless as evidence:
+
+**13 runs produced `red-proof-ok`.** Zero `accidental-green`. The remainder are honest skips
+(`range has no fix: commit`) and `inconclusive` verdicts on individual pairs.
+
+**What promotion does, exactly.** `REGRESSION_RED_PROOF_ENFORCE=1` makes exactly ONE verdict exit
+non-zero: `accidental-green`. `inconclusive`, `red-proof-unreached` and all three `skipped-*` values
+still pass. That asymmetry is the whole of it — the gate blocks on a proven defect and never on an
+absence of proof, so a pull request cannot be refused for a conclusion the checker could not reach.
+
+The mapping was inline in the CLI block, where the one decision this item changes could not be
+exercised. It is now `exitCodeFor(verdict, enforce)`, exported, with a case asserting all seven
+verdicts in both modes and a case asserting the workflow actually sets the flag — a policy no run
+applies is the vacuity this harness spends its time removing.
+
+**Required-check membership is deliberately HELD** (owner decision). `accidental-green` has never
+fired on a real pull request, so its blocking path is unproven in production; making it required would
+put an untested refusal in the merge path. One observed firing is the evidence the next step needs.
+
+**`patch-coverage` is NOT promoted** and this item stays open for it.
