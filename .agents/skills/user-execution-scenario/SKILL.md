@@ -1,6 +1,7 @@
 ---
 name: user-execution-scenario
 description: Sub-orchestration for the user-execution verification scenarios of one work unit. Runs in two modes at two moments — PLAN (before implementation: decide applicability, dispatch user-execution-scenario-author, gate that every scenario is written) and GATE (after implementation: execute each scenario, record the evidence, gate that it was executed and matched). Dispatches user-execution-scenario-author and backlog-gate-guard and routes on their outcomes. Holds no scenario criteria and forms no gate verdict. Dispatched by backlog-execution-orchestrator.
+loop: over=finding-set; escape=no-progress; bound=2 rounds
 ---
 
 # User-Execution Scenario — pipeline only
@@ -57,11 +58,11 @@ time.
 **4. Gate that every scenario is written.** Dispatch `backlog-gate-guard` for the written-scenario stage
 against the work item.
 
-| `GATE VERDICT`   | Route                                                                                                                                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PASS`           | Return `PLANNED`. Implementation may begin.                                                                                                                                |
-| `FAIL`           | **Return to step 1** with the guardian's failing criterion, so the author fills what is missing. Bounded: **2 re-authoring rounds**; on the third, return `HALT`.          |
-| `NON-COMPLIANCE` | **Return `HALT`.** Process was bypassed — implementation started before the scenario existed, or evidence was recorded that no run produced. This is a user-facing report. |
+| `GATE VERDICT`   | Route                                                                                                                                                                                                                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PASS`           | Return `PLANNED`. Implementation may begin.                                                                                                                                                                                                                                                               |
+| `FAIL`           | **Return to step 1** with the guardian's failing criterion, so the author fills what is missing. Stop when the same criteria fail unchanged and escalate ([no-progress escape](../../rules/enforcement-architecture.md)); bounded additionally at **2 re-authoring rounds**; on the third, return `HALT`. |
+| `NON-COMPLIANCE` | **Return `HALT`.** Process was bypassed — implementation started before the scenario existed, or evidence was recorded that no run produced. This is a user-facing report.                                                                                                                                |
 
 ## Mode GATE — after implementation, before completion
 

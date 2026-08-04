@@ -1,6 +1,7 @@
 ---
 name: npm-otp-publish
 description: Sub-orchestration for phase 3 of a release — the publish boundary. Sequences the strictly-ordered preflight (sync and already-published check, build, state-artifact readiness, publish preflight, registry auth, full dry-run), then the hard halt for the user's one-time password, then the single sanctioned publish command as the very next action, then post-publish verification. Every step must complete before the next; it routes on each outcome and never crosses the boundary early. Holds no publish policy. Dispatched by release-orchestration.
+loop: over=attempt; bound=3 requests
 ---
 
 # npm OTP Publish — pipeline only

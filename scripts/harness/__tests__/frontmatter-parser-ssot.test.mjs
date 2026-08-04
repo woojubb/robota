@@ -94,6 +94,12 @@ const FRONTMATTER_KEYS = [
   'related',
   'user_execution',
   'user_execution_scenario',
+  // Added when a fork slipped past this guard: a scan hand-rolled `^loop:\s*(.+)$` and the list did
+  // not name `loop`, so the named-key branch returned false and the anti-fork check passed on a fork.
+  // An allowlist of key names is only as good as its newest entry — when a frontmatter key is
+  // introduced, it belongs here in the same change.
+  'loop',
+  'owner',
 ];
 
 export function isFrontmatterKeyRegex(source) {
@@ -136,6 +142,13 @@ describe('HARNESS-046 anti-fork floor — one frontmatter parser', () => {
     expect(isFrontmatterKeyRegex('^status:\\s*(\\S+)')).toBe(true);
     expect(isFrontmatterKeyRegex('^name:\\s*(\\S+)\\s*$')).toBe(true);
     expect(isFrontmatterKeyRegex('^\\s*tags:\\s*(.+)$')).toBe(true);
+
+    // A fork that slipped past this floor, and the reason it did: the named-key branch consults an
+    // ALLOWLIST, so a scan hand-rolling `^loop:` was judged "not a frontmatter regex" and the floor
+    // passed on a real fork. An allowlist is only as good as its newest entry — this pins the two
+    // keys added with it, so losing them fails here rather than silently reopening the hole.
+    expect(isFrontmatterKeyRegex('^loop:\\s*(.+)$')).toBe(true);
+    expect(isFrontmatterKeyRegex('^owner:\\s*(\\S+)')).toBe(true);
 
     // Not frontmatter readers — the floor must not fire on ordinary harness regexes.
     expect(isFrontmatterKeyRegex('^\\s*import\\s')).toBe(false);

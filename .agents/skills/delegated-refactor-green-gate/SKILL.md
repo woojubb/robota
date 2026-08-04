@@ -1,6 +1,7 @@
 ---
 name: delegated-refactor-green-gate
 description: Pipeline for delegating one large mechanical change to a worker under a hard green-or-report gate — specify, dispatch mechanical-refactor-worker, independently re-verify the green claim, hand the working-tree diff to pr-review-reviewer, then commit. Route-only: it does no editing and forms no verdict. Use when delegating a big decision-free change on your own working tree.
+loop: over=finding-set; escape=no-progress; bound=2 rounds
 ---
 
 # Delegated Refactor Green Gate

@@ -1,6 +1,7 @@
 ---
 name: post-implementation-checklist
 description: Router for the mandatory post-implementation sequence — SPEC sync, build/test, README, commit/PR, publish, content/ docs, docs deploy. Each step's detail lives in its owning skill/rule; this file only fixes the order and the gates. Execute automatically after implementation work; do not wait for the user to request it.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Post-Implementation Checklist (router)
@@ -12,7 +13,8 @@ skill/rule linked below.
 ## Sequence (execute in order)
 
 1. **SPEC sync (GATE — before any verification).** Update each modified package's `docs/SPEC.md`
-   to the new behavior and run the bidirectional SPEC↔code verification loop until a clean cycle →
+   to the new behavior and run the bidirectional SPEC↔code verification loop until a clean cycle, or
+   until the same finding set recurs unchanged — then STOP and escalate to the user ([no-progress escape](../../rules/enforcement-architecture.md), which owns what that means) →
    [spec-code-conformance](../spec-code-conformance/SKILL.md). Do not proceed until SPECs are
    updated and committed.
 2. **Build and test.** `pnpm build` + `pnpm test` for modified packages must pass; check for stale

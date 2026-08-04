@@ -75,16 +75,42 @@ silent by nature:
   already outranks harness rules for conduct. The chain has always admitted a general standard beating
   a local one; it was never extended to engineering.
 
-## A live instance, left standing on purpose
+## Progress — step 1 is mechanical, and the live instance below is resolved
+
+`scan-loop-contract.mjs` (landed with HARNESS-071) makes the FIRST of the three Direction steps
+mechanical, and it is the step that would have caught round 8 by machine.
+
+Each pipeline's bound was written twice — once in the owning skill and once in this map's Loop-back
+cell — which is fourteen places a contradiction can open. The bound is now DECLARED once, in the
+skill's frontmatter, and the map's cell is checked against that declaration: it must mention progress
+detection when the skill declares the escape, and must carry the skill's number when it declares one.
+The map's header has claimed to be "mechanically kept current" for as long as it has existed; for this
+column that is now true.
+
+The check was red on the real tree before the map was reconciled — **7 `map-understates-the-escape`
+findings**, one of them the instance recorded below.
+
+**Removing the restatement was preferred where it could be, per the Direction's closing line.** It
+could not be removed entirely here: the map's value is that one page answers "what bounds this
+pipeline" without opening seven skills. So the fact has ONE owner (the declaration) and the map's cell
+is a derived restatement a machine now holds to it — which is the fallback that line reserves for
+facts that genuinely must appear twice.
+
+**Steps 2 and 3 remain**, and they are the harder ones: a quantified bound appearing outside its owner
+(the shape rounds 9, 10 and 12 kept re-finding in one draft spec), and rule-to-rule contradiction,
+which needs its suppression designed before the check is written.
+
+## A live instance, RESOLVED by the above (kept for the record)
 
 `orchestration-map.md`'s Loop-back column states a count-only bound for four pipelines, and one of
 them — `delegated-refactor-green-gate` — carries the no-progress escape in its own skill. So the map
 contradicts its own skill TODAY, in the direction of understating compliance.
 
-It is recorded here rather than patched, because patching those rows would state compliance the other
-three skills do not have, and would contradict what HARNESS-071 contains. The map row and the skill
-must be reconciled together, by whichever item lands first — which is precisely the coupling check 1
-of the Direction is meant to make mechanical.
+It was recorded rather than patched, because patching those rows would have stated compliance the
+other three skills did not have, and would have contradicted what HARNESS-071 contained. The map row
+and the skill had to be reconciled together, by whichever item landed first. HARNESS-071 landed first,
+gave every finding-set loop the escape, and reconciled every map cell in the same change — and check 1
+of the Direction now holds them together, which is what the coupling was waiting for.
 
 ## Why this is foundational (or not)
 
@@ -93,7 +119,7 @@ opposite, and the harness's whole premise is that a rule read is a rule in force
 than fixed inside #1615 because its subject is three unrelated cleanup items; that PR fixed its own
 five instances and this item exists so the sixth is caught by a machine.
 
-Related and NOT duplicated: [HARNESS-071](HARNESS-071-loops-with-no-progress-escape.md) is about loops
+Related and NOT duplicated: [HARNESS-071](completed/HARNESS-071-loops-with-no-progress-escape.md) is about loops
 that lack an escape. This is about documents that disagree. They met in round 13 — a rule contradicted
 the rule HARNESS-071 contains — which is why both exist.
 

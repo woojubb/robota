@@ -1,6 +1,7 @@
 ---
 name: automated-review-convergence
 description: Procedure for iterating on a PR's automated review feedback until it converges — fetch the findings (not the check status), judge each one, fix or refute it, push, then re-read the review the push re-triggered, and repeat until a fresh round yields nothing actionable. Use whenever a PR carries automated review output, before the merge is armed.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Automated Review Convergence
@@ -36,6 +37,11 @@ annotation, and analysis-alert streams a PR carries — because those _are_ the 
   the verification rules, not as a review finding.
 
 ## The Loop
+
+**Its escape is no-progress, and it is the only one.** Compare each round's finding-identity set to
+the previous round's; if the same findings recur unchanged, STOP and escalate to the user. There is no
+round cap — a stuck loop and a productive one look identical to a counter and different to the finding
+set. [no-progress escape](../../rules/enforcement-architecture.md) owns the form; this skill is one of its subjects.
 
 ### 1. Fetch the findings — the check status is not the review
 

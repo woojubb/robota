@@ -265,6 +265,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-rule-case-narrative.mjs'],
   },
   {
+    name: 'loop-contract',
+    command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
+  },
+  {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
   },

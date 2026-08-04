@@ -1,6 +1,7 @@
 ---
 name: spec-first-development
 description: Use before implementing any change that adds, removes, or modifies package behavior, public API, types, or contracts. Ensures the governing spec is updated before code is written and a verification test plan exists.
+loop: over=delegated; owner=spec-code-conformance
 ---
 
 ## Rule Anchor
