@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-075: the harness test suite wrote to the real repository — and to its GitHub remote'
-status: todo
+status: done
+completed: 2026-08-05
 priority: critical
 urgency: now
 type: INFRA
@@ -171,3 +172,59 @@ is the first to look at: it runs the affected packages' own suites, which nothin
 The parallel-work rule added the same day makes running the suite in a worktree the PRESCRIBED way
 to spend a blocking wait. This defect makes the prescribed workflow destructive, and it reached the
 shared remote — the one place a local mistake stops being local.
+
+## RESOLVED — the cause is inherited `GIT_DIR`, and the fence is in the shared vitest config
+
+### The cause, isolated
+
+A git HOOK exports `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and friends into everything it
+launches. `.husky/pre-push` launches the gate, the gate launches vitest, and every `git` a test
+spawns inherits them — so a fixture that builds its repository under `mkdtemp` and passes `cwd`
+**still writes to the repository being pushed from**, because `GIT_DIR` outranks `cwd`.
+
+One file, run twice against a throwaway clone, is the whole proof:
+
+```
+GIT_DIR=… npx vitest run scan-promotion-ancestry.test.mjs   -> branches created IN THE CLONE
+          npx vitest run scan-promotion-ancestry.test.mjs   -> clone unchanged
+```
+
+It explains every symptom at once: fixture commits on real refs (`GIT_DIR` points there),
+`core.bare = true` (a fixture's `git init --bare` writing to the inherited config), fixture worktrees
+registered against the real clone, and the remote rewrite — the corrupted `develop` is simply what
+`git push` then pushed.
+
+It also explains why the bisect kept coming up clean: **every step of the gate is harmless when run
+by hand.** `harness:scan`, `harness:plan`, `harness:test`, `harness:verify` and the whole gate were
+each run in a worktree of a throwaway clone and changed nothing. The trigger was never a step — it
+was the ENVIRONMENT a hook supplies, which no manual invocation reproduces.
+
+### The fence
+
+`vitest.shared.ts` deletes the twelve ambient git variables before any config is built. It lives
+there because that is the one file every vitest config in the workspace inherits — a fix in one test
+file would protect one test file.
+
+**Deleted, not set to `''`.** The first attempt set them empty, and `GIT_DIR=` is not the same as
+absent: git reads the empty value, the fixtures' own `git init` fails, and four tests went red
+pointing at nothing. Deleting in the config process is enough — vitest forks inherit its environment.
+
+### Proven, in both directions, under the reproduction condition
+
+| Run                                                      | Result                                    |
+| -------------------------------------------------------- | ----------------------------------------- |
+| `GIT_DIR=… vitest run scan-promotion-ancestry`, no fence | clone DAMAGED                             |
+| the same, with the fence                                 | clone CLEAN, 13 tests pass                |
+| the floor case with the fence removed                    | fails on `GIT_DIR reached a test process` |
+| full harness suite, fence in place                       | 2691 pass                                 |
+
+`tests-do-not-inherit-git-context.test.mjs` is the floor: it reads the variable set out of the config
+rather than restating it, and asserts at RUN TIME, inside a worker, that none of them arrived — the
+only place the property is real. A case that read the config and concluded "the deletion is written
+down" would pass over a fence that had stopped working.
+
+### What this does NOT fix
+
+The fixtures themselves still trust their `cwd`. The fence makes that safe by removing the thing that
+overrode it, but a test that explicitly sets `GIT_DIR` would still reach whatever it names. That is a
+narrower and much less likely mistake, and it is visible in the diff of whoever writes it.

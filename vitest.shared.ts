@@ -62,6 +62,58 @@ function positiveIntEnv(name: string, fallback: number): number {
 const MAX_FORKS = positiveIntEnv('VITEST_MAX_FORKS', 4);
 const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
 
+/**
+ * Git's own environment, removed before any test runs.
+ *
+ * ## Why this is here and not in one test file
+ *
+ * A git HOOK exports `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and friends into everything it
+ * launches. `.husky/pre-push` launches the verification gate, the gate launches vitest, and every
+ * `git` a test spawns then inherits them — so a fixture that carefully builds its repository under
+ * `mkdtemp` and passes `cwd` still writes to **the repository being pushed from**, because `GIT_DIR`
+ * outranks `cwd`.
+ *
+ * Measured on 2026-08-05 (HARNESS-075). One test file, run twice against a throwaway clone:
+ *
+ * ```
+ * GIT_DIR=… npx vitest run scan-promotion-ancestry.test.mjs   -> branches created in the CLONE
+ *           npx vitest run scan-promotion-ancestry.test.mjs   -> clone unchanged
+ * ```
+ *
+ * In the real incident that mechanism moved `develop` onto a fixture commit, set `core.bare`,
+ * registered ~20 fixture worktrees, and — because the corrupted `develop` was then what `git push`
+ * pushed — rewrote the shared branch on the remote. Three times.
+ *
+ * ## Why deletion, and why here
+ *
+ * No test in this repository wants an ambient git context: every one of them either builds its own
+ * repository or resolves a path explicitly. So the variables are not "usually unwanted", they are
+ * never wanted, and the only reason they were ever present is that something upstream launched us.
+ *
+ * It lives in the shared ceiling because that is the one file every vitest config in the workspace
+ * inherits — the same reason the resource limits are here. A fix in one test file would protect one
+ * test file.
+ */
+const GIT_AMBIENT_ENV = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_COMMON_DIR',
+  'GIT_CEILING_DIRECTORIES',
+  'GIT_PREFIX',
+  'GIT_NAMESPACE',
+  'GIT_CONFIG',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_SYSTEM',
+];
+
+// DELETED, not set to ''. `GIT_DIR=` (empty) is not the same as absent — git reads the empty value
+// and the fixture's own `git init` then fails, which turned a silent corruption into four red tests
+// pointing at nothing. Deleting in this process is enough: vitest forks inherit its environment.
+for (const name of GIT_AMBIENT_ENV) delete process.env[name];
+
 export const resourceCeiling = defineConfig({
   test: {
     pool: 'forks',

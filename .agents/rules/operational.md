@@ -146,15 +146,12 @@ independent item remains, something else advances during it.
 - **Re-check the first item before returning to it.** Its review may have arrived while you were
   away, and the state you left is not the state you come back to.
 
-**Known hazard, until [`HARNESS-075`](../tasks/HARNESS-075-the-test-suite-wrote-to-the-real-repository.md)
-closes.** Running this repository's own test suite inside a worktree has been observed writing to the
-parent clone and to its remote — moving branch refs, setting `core.bare`, registering fixture
-worktrees, and replacing a shared branch's history. It has since been REPRODUCED, and the trigger is
-narrower and worse than first thought: it is the **pre-push gate**, so pushing from a worktree is
-enough. Until the write path is found and fenced: verify a worktree's change with the scans and the
-targeted test files it touches, let the full suite run in continuous integration, and **push from the
-main checkout rather than from the worktree**. A push the gate REFUSES is not a safe push — the gate
-has already run by then, and the clone needs repairing either way.
+**One thing to know about running the suite in a worktree.** A git hook exports `GIT_DIR` into
+everything it launches, so for a while every test spawned by a pre-push gate wrote to the repository
+being pushed from rather than to its own fixture — moving branch refs, and pushing the result. The
+shared test configuration now removes that ambient context, and a floor asserts at run time that it
+is gone. Nothing further is required of you; it is recorded here because the rule above sends you
+into worktrees and the failure was silent while it lasted.
 
 How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
 occupant, one self-verified proposal per item — is procedure, owned by
