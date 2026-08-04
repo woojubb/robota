@@ -39,6 +39,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { asScalar, splitFrontmatter } from './frontmatter.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SKILLS_DIR = '.agents/skills';
 const MAP_PATH = '.agents/specs/orchestration-map.md';
@@ -53,16 +55,25 @@ const MAP_PATH = '.agents/specs/orchestration-map.md';
 const LOOP_LANGUAGE =
   /auto-re-drive|re-drives?\b|bounded iterations|Bounded:|bounded at|bounded to|round cap|loop until|repeats? until|loop repeats|\*\*Loop\*\*|verification loop|repeat phase|Back to Step/i;
 
-const DECLARATION = /^loop:\s*(.+)$/m;
-
 /** The escape, as a body must state it. Any of these; the rule owns what the comparison means. */
 const ESCAPE_IN_BODY = /recurs? unchanged|recurred unchanged|fail unchanged|no-progress/i;
 
+/**
+ * The `loop:` declaration, as fields.
+ *
+ * Read through `frontmatter.mjs`, which owns the `^<key>:` line regex for the whole harness. The
+ * first version of this file hand-rolled that regex and slipped past the guard built to stop exactly
+ * that, because the guard's key allowlist did not yet name `loop` — the fork and the hole in its
+ * detector arriving together. A single-line regex also mis-reads a value a formatter has wrapped,
+ * which is the defect the owner exists for.
+ */
 export function parseDeclaration(text) {
-  const match = DECLARATION.exec(frontmatterOf(text));
-  if (!match) return undefined;
+  const { entries } = splitFrontmatter(text);
+  const declared = entries?.get('loop');
+  if (declared === undefined) return undefined;
+
   const fields = {};
-  for (const part of match[1].split(';')) {
+  for (const part of asScalar(declared).split(';')) {
     const [key, ...rest] = part.split('=');
     if (rest.length === 0) continue;
     fields[key.trim()] = rest.join('=').trim();
@@ -70,16 +81,9 @@ export function parseDeclaration(text) {
   return fields;
 }
 
-function frontmatterOf(text) {
-  if (!text.startsWith('---\n')) return '';
-  const end = text.indexOf('\n---\n', 4);
-  return end === -1 ? '' : text.slice(4, end);
-}
-
+/** The document beneath its frontmatter — the text a declared escape must actually appear in. */
 function bodyOf(text) {
-  if (!text.startsWith('---\n')) return text;
-  const end = text.indexOf('\n---\n', 4);
-  return end === -1 ? text : text.slice(end + 5);
+  return splitFrontmatter(text).body;
 }
 
 /** The Loop-back cell of `orchestration-map.md`, per skill named in the row's orchestrator column. */

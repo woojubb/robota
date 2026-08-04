@@ -170,6 +170,15 @@ comparison is the defect a sibling item is about. The rule owns what the compari
 states the escape as one clause applied to its own loop and links to the rule. No skill restates the
 definition.
 
+**One defect review found in the fix, and its detector had the same hole.** The scan hand-rolled its
+own frontmatter reader instead of importing the module that owns the `^<key>:` line regex for the
+whole harness — the duplication class this repository already paid down, because a single-line regex
+mis-reads a value a formatter has wrapped. The instructive half is why nothing caught it: the anti-fork
+floor's named-key branch consults an ALLOWLIST of frontmatter key names, and the list did not contain
+`loop`, so a genuine fork was judged "not a frontmatter regex" and the floor passed. The fork and the
+hole in its detector arrived in the same change. Both fixed, and the floor now pins the two keys added
+with it, red-proved by removing them.
+
 Red-proved against the tree as it stood: **15 `undeclared-loop` findings, exit 1**; after, exit 0. The
 map axis was red on the real tree too — reconciling the orchestration map came after the scan was
 written, and it reported **7 `map-understates-the-escape`** findings first.
