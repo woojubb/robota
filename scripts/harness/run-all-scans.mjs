@@ -347,6 +347,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
   {
+    name: 'required-check-local-reachability',
+    command: ['node', 'scripts/harness/scan-required-check-local-reachability.mjs'],
+  },
+  {
     name: 'required-check-needs',
     command: ['node', 'scripts/harness/scan-required-check-needs.mjs'],
   },

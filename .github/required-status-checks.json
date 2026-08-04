@@ -12,55 +12,82 @@
           "context": "build",
           "workflow": ".github/workflows/ci.yml",
           "job": "build",
-          "verifies": "`pnpm build`, gated on the verification plan containing a scope whose checks need the monorepo build output. Produces the `package-dist` artifact every later dist-consuming job restores."
+          "verifies": "`pnpm build`, gated on the verification plan containing a scope whose checks need the monorepo build output. Produces the `package-dist` artifact every later dist-consuming job restores.",
+          "local": {
+            "entryPoint": "pnpm harness:verify-like-ci"
+          }
         },
         {
           "context": "quality",
           "workflow": ".github/workflows/ci.yml",
           "job": "quality",
-          "verifies": "`pnpm harness:verify` over the affected scopes (their build, TEST, lint and typecheck), plus the dist-dependent build-output contracts scan and the agent-cli binary e2e."
+          "verifies": "`pnpm harness:verify` over the affected scopes (their build, TEST, lint and typecheck), plus the dist-dependent build-output contracts scan and the agent-cli binary e2e.",
+          "local": {
+            "entryPoint": "pnpm harness:verify-like-ci"
+          }
         },
         {
           "context": "scans",
           "workflow": ".github/workflows/ci.yml",
           "job": "scans",
-          "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all."
+          "verifies": "The harness's own test suite plus the dist-independent scan suite, on a fresh checkout that has no `dist/` at all.",
+          "local": {
+            "entryPoint": "pnpm harness:pre-push"
+          }
         },
         {
           "context": "dependency audit",
           "workflow": ".github/workflows/ci.yml",
           "job": "dependency-audit",
-          "verifies": "osv-scanner over `pnpm-lock.yaml` — known-vulnerable DEPENDENCIES only, gated on a package-manifest or lockfile diff. It inspects no first-party source: injection, secrets and misconfiguration in this repository's own code are `review-gate`'s and CodeQL's surface, not this context's. Renamed from `security audit` by INFRA-060 D5, which is the name that invited it to be read as a whole-PR security review."
+          "verifies": "osv-scanner over `pnpm-lock.yaml` — known-vulnerable DEPENDENCIES only, gated on a package-manifest or lockfile diff. It inspects no first-party source: injection, secrets and misconfiguration in this repository's own code are `review-gate`'s and CodeQL's surface, not this context's. Renamed from `security audit` by INFRA-060 D5, which is the name that invited it to be read as a whole-PR security review.",
+          "local": {
+            "notRunnable": "ci-mirror-map NOT_MIRRORED"
+          }
         },
         {
           "context": "commitlint",
           "workflow": ".github/workflows/ci.yml",
           "job": "commitlint",
-          "verifies": "Conventional-commit format for every commit the PR itself authored (first-parent range against the base)."
+          "verifies": "Conventional-commit format for every commit the PR itself authored (first-parent range against the base).",
+          "local": {
+            "entryPoint": "pnpm harness:verify-like-ci"
+          }
         },
         {
           "context": "tui-e2e",
           "workflow": ".github/workflows/ci.yml",
           "job": "tui-e2e",
-          "verifies": "The TUI PTY e2e suite driven against the built `robota` binary. Gated on the `changes` classifier reporting code."
+          "verifies": "The TUI PTY e2e suite driven against the built `robota` binary. Gated on the `changes` classifier reporting code.",
+          "local": {
+            "entryPoint": "pnpm harness:verify-like-ci"
+          }
         },
         {
           "context": "examples-typecheck",
           "workflow": ".github/workflows/ci.yml",
           "job": "examples-typecheck",
-          "verifies": "The `examples/` workspaces typecheck against locally-built packages — the public surface as a consumer sees it. Gated on the `changes` classifier reporting code."
+          "verifies": "The `examples/` workspaces typecheck against locally-built packages — the public surface as a consumer sees it. Gated on the `changes` classifier reporting code.",
+          "local": {
+            "entryPoint": "pnpm harness:verify-like-ci"
+          }
         },
         {
           "context": "windows-shell",
           "workflow": ".github/workflows/ci.yml",
           "job": "windows-shell",
-          "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code."
+          "verifies": "The cross-platform shell resolver and the Shell tool spawning PowerShell, on real `windows-latest`. Gated on the `changes` classifier reporting code.",
+          "local": {
+            "notRunnable": "ci-mirror-map NOT_MIRRORED"
+          }
         },
         {
           "context": "review-gate",
           "workflow": ".github/workflows/review-gate.yml",
           "job": "review-gate",
-          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS."
+          "verifies": "Reads the PR's code-scanning output and blocks on findings this PR INTRODUCES at severity error or security-severity high/critical. Advisory findings are printed, never blocking, because every alert in the standing backlog would otherwise redden every PR. A PR that changes no code is PASS (not-applicable) via the same classifier ci.yml gates its build matrix on; an analysis that is missing or unreadable BLOCKS.",
+          "local": {
+            "notRunnable": "ci-mirror-map NOT_MIRRORED"
+          }
         }
       ],
       "deliberately_not_required": [
@@ -86,19 +113,29 @@
           "context": "promotion ancestry",
           "workflow": ".github/workflows/ci.yml",
           "job": "promotion-ancestry",
-          "verifies": "INFRA-051 A1/A2/A3 — the promotion carries `main`'s ancestry, adds no commit `develop` has never seen, and promotes `develop`'s tree unchanged."
+          "verifies": "INFRA-051 A1/A2/A3 — the promotion carries `main`'s ancestry, adds no commit `develop` has never seen, and promotes `develop`'s tree unchanged.",
+          "local": {
+            "entryPoint": "node scripts/harness/scan-promotion-ancestry.mjs --base main --head develop",
+            "note": "the arguments are part of the entry point: with no --base it reads GITHUB_BASE_REF, finds none off a PR, and SKIPS — running green having judged nothing."
+          }
         },
         {
           "context": "main PR source guard",
           "workflow": ".github/workflows/ci.yml",
           "job": "main-pr-source-guard",
-          "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork."
+          "verifies": "#1216 recurrence guard — a PR to `main` comes from `develop`/`release/*`/`hotfix/*` in this repository, never a feature branch and never a fork.",
+          "local": {
+            "notRunnable": "reads the pull request's head repository and ref from GitHub. Off a real PR there is no head to read, so a local run would either invent the input or report a pass over a source it never saw — the vacuity this guard was added to close."
+          }
         },
         {
           "context": "release-grade verification",
           "workflow": ".github/workflows/ci.yml",
           "job": "release-grade-verify",
-          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red."
+          "verifies": "`pnpm harness:verify:release` — the only required context that executes the repository's code on a promotion: full build, full scan suite, harness suite, typecheck, lint, an unconditional osv-scanner, and the workspace test suites. SPANS, corrected by INFRA-063 because the earlier wording read as total: every workspace script named exactly `test` (via `pnpm run -r --if-present test`), plus every suite declared under another `test:*` name that `scripts/harness/release-test-suites.mjs` enumerates — `test:bin` today, and whatever is added next without anyone editing a list. DOES NOT SPAN, by declaration rather than by silence: `test:pty` (runs as the required `tui-e2e` context on the develop PR of every commit a promotion carries), `test:live` and `test:bun` (need provider credentials / a Bun toolchain no runner has), the `test:coverage` and `test:watch` variants of suites already run, and `apps/agent-app`'s Electron e2e pair, which no workflow runs at all and is recorded as debt. `scan-release-sweep-coverage.mjs` re-verifies each of those claims on every scan run and turns a new unaccounted-for `test:*` script red.",
+          "local": {
+            "entryPoint": "pnpm harness:verify:release"
+          }
         }
       ],
       "deliberately_not_required": [
