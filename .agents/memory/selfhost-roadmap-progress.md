@@ -14,8 +14,10 @@ each punch-list verified against the actual code) and promoted to `.agents/spec-
   009 hook catalog, 010 computer-use, 011 evals-as-code, 012 scheduled-tasks, 013 multi-surface deployment,
   014 shared async artifacts.
 
-**SELFHOST-001 is in GATE-IMPLEMENT** (spec now in `.agents/spec-docs/active/`, `status: in-progress`; tasks:
-[`../spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md`](../spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md)):
+**SELFHOST-001 is DONE** — see the record at the foot of this file. Spec:
+[`../spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md`](../spec-docs/done/SELFHOST-001-multi-agent-orchestration-primitives.md);
+task: [`../tasks/completed/SELFHOST-001-multi-agent-orchestration-primitives.md`](../tasks/completed/SELFHOST-001-multi-agent-orchestration-primitives.md).
+The phase notes below are the record of how it got there, not its current state:
 
 - **P1 SHIPPED** (PR #1192, merged to develop, merge-verified): neutral orchestration contracts + event-type
   unions in `packages/agent-core/src/orchestration/` (agent-core OWNS them, zero new `@robota-sdk/agent-*` deps);
