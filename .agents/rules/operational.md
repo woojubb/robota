@@ -149,9 +149,11 @@ independent item remains, something else advances during it.
 **Known hazard, until [`HARNESS-075`](../tasks/HARNESS-075-the-test-suite-wrote-to-the-real-repository.md)
 closes.** Running this repository's own test suite inside a worktree has been observed writing to the
 parent clone and to its remote — moving branch refs, setting `core.bare`, registering fixture
-worktrees, and replacing a shared branch's history. Until the write path is found and fenced, verify
-a worktree's change with the scans and the targeted test files it touches, and let the full suite run
-in continuous integration rather than in a worktree of the clone you are working in.
+worktrees, and replacing a shared branch's history. It has since been REPRODUCED, and the trigger is
+narrower and worse than first thought: it is the **pre-push gate**, so pushing from a worktree is
+enough. Until the write path is found and fenced: verify a worktree's change with the scans and the
+targeted test files it touches, let the full suite run in continuous integration, and **push from the
+main checkout rather than from the worktree**.
 
 How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
 occupant, one self-verified proposal per item — is procedure, owned by
