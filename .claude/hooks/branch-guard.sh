@@ -110,7 +110,24 @@ GITEND='([^-[:alnum:]_]|$)'
 RE_COMMIT="${GITPFX}commit${GITEND}"
 RE_PUSH="${GITPFX}push${GITEND}"
 RE_MERGE="${GITPFX}merge${GITEND}"
-RE_CREATE="${GITPFX}(checkout\s+(-\S+\s+)*-[bB]|switch\s+(-\S+\s+)*-[cC])${GITEND}"
+# `git branch <name> [<start-point>]` creates a branch as truly as the two spellings above, and was
+# not detected — so `git branch x main && git checkout x` reached neither the base check nor the name
+# check, a branch cut from `main` and named outside the convention, in two commands the guard read as
+# "not a creation" (INFRA-070). The rule said only two spellings, which is the shape that leaves a
+# guard true on paper and reachable around in practice.
+#
+# The flag list is an ALLOWLIST, and that direction is the whole safety of it. `git branch` with no
+# argument lists; `-a`, `-r`, `-v`, `--list`, `--merged`, `--contains`, `--show-current` list;
+# `-d`/`-D` delete; `-m`/`-M` rename. Treating any of those as a creation would turn ordinary
+# inspection into a refusal — property 4, the failure that gets a guard turned off. Only flags that
+# still leave the command a creation are admitted, and the next token must not itself be a flag.
+RE_BRANCH_CREATE_FLAGS='(-f|--force|-q|--quiet|-t|--track|--no-track)'
+# Each alternative carries its OWN ending. Hanging one `${GITEND}` off the whole group was the first
+# attempt and it silently dropped the boundary from the two existing spellings — `-bogus` would have
+# read as `-b`. The `branch` alternative ends by consuming the first character of the name, which is
+# a boundary of its own kind; the other two still end on a non-word character.
+RE_CREATE="${GITPFX}(checkout\s+(-\S+\s+)*-[bB]${GITEND}|switch\s+(-\S+\s+)*-[cC]${GITEND}|branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*[^-[:space:]])"
+
 RE_GH_API="(^|[;&|({\"'\`]|[[:space:]])[[:space:]]*gh[[:space:]]+api${GITEND}"
 
 # Nothing is resolved here any more. An override belongs to a statement and is asked of that
@@ -780,6 +797,14 @@ while read -r STMT_START STMT_LEN; do
     NEW_BRANCH=$(hook_match_extract "$COMMAND" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
         "$STMT_START" "$STMT_LEN" || true)
+    # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
+    # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
+    # extraction found nothing, because a statement is one creation and the first match is its name.
+    if [[ -z "$NEW_BRANCH" ]]; then
+      NEW_BRANCH=$(hook_match_extract "$COMMAND" \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+((-f|--force|-q|--quiet|-t|--track|--no-track)[ \t]+)*' \
+          "$STMT_START" "$STMT_LEN" || true)
+    fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
     #
     # `git-branch.md` is mandatory about this: feature branches are created from a freshly-fetched
@@ -805,6 +830,15 @@ while read -r STMT_START STMT_LEN; do
       START_POINT=$(hook_match_extract "$COMMAND" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
           "$STMT_START" "$STMT_LEN" || true)
+      # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
+      # is the form the item was filed for: it names its base explicitly, so leaving this unread would
+      # have widened the DETECTION while leaving the base check comparing against HEAD — a creation
+      # judged, and judged against the wrong thing.
+      if [[ -z "$START_POINT" ]]; then
+        START_POINT=$(hook_match_extract "$COMMAND" \
+          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+((-f|--force|-q|--quiet|-t|--track|--no-track)[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+            "$STMT_START" "$STMT_LEN" || true)
+      fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
       #
       # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:

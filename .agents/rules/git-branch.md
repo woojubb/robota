@@ -211,7 +211,12 @@ so an `export` in an earlier statement does not reach it.
   branching off a squash-merged local branch re-introduces its pre-squash commits (pushes fine, merges DIRTY);
   a branch cut from `main` after a promotion drags `Merge pull request …` commits into the PR range and fails
   `commitlint`. A clean feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range.
-  **Enforced at creation** by `branch-guard`: a `checkout -b` / `switch -c` whose base is not
+  **Enforced at creation** by `branch-guard`, over every spelling that CREATES a branch —
+  `git checkout -b`, `git switch -c`, and `git branch <name> [<start-point>]`. The third was
+  detected by nothing while the rule named only the first two, so `git branch x main && git checkout x`
+  reached neither the base check nor the name check: a rule true on paper and reachable around in
+  practice. Listing, deleting and renaming (`git branch`, `-a`, `-r`, `-v`, `--list`, `-d`/`-D`,
+  `-m`/`-M`) are not creations and pass silently. A creation whose base is not
   `origin/develop` is refused, naming the base it found and the base it wanted. The start point is read from the
   command when one is given, and is the current HEAD when it is not — which is how the promotion-ancestry break
   happened, with nobody naming `main` and everyone simply standing on a promotion branch. `hotfix/*` and
