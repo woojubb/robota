@@ -20,9 +20,9 @@ here; does the fix make the code correct or only stop the symptom; is it about t
 what this diff had to work around.
 
 Applied the same day to five findings. Four were LOCAL and fixed test-first. Two were FOUNDATIONAL
-and filed rather than patched: [INFRA-073](../backlog/INFRA-073-one-verdict-for-an-aggregate.md)
+and filed rather than patched: [INFRA-073](../tasks/completed/INFRA-073-one-verdict-for-an-aggregate.md)
 (the red-proof gate judges an aggregate and reports a scalar, so a pass hides inside a fail) and
-[INFRA-075](../backlog/INFRA-075-substitution-span-restores-its-own-quotes.md) (restoring a `$(…)`
+[INFRA-075](../tasks/completed/INFRA-075-substitution-span-restores-its-own-quotes.md) (restoring a `$(…)`
 span un-masks the quotes inside it — a live false refusal, reproduced below).
 
 ```
@@ -62,7 +62,7 @@ change, so nothing in the diff signals anything and review sees a reuse.
   twelve CI runs, zero verdicts, no error anyone saw.
 - `testExecutesHook` was grep-level for an advisory floor; reused to pick which tests may set a
   verdict, the same imprecision can decide a hook it never ran
-  ([INFRA-074](../backlog/completed/INFRA-074-the-spawn-relation-is-not-tied-to-its-argument.md),
+  ([INFRA-074](../tasks/completed/INFRA-074-the-spawn-relation-is-not-tied-to-its-argument.md),
   resolved 2026-08-01 by reading the call graph rather than narrowing the text pattern).
 
 Floor: `scan-helper-limits`. `@limits` on the docblock is opt-in; acknowledging it at each importing

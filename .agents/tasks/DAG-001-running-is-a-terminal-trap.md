@@ -353,7 +353,7 @@ left to recover. Only `SqliteStorageAdapter` gets crash-durable recovery. The ga
 this task's own SPEC named "the sqlite/file path" as the sweeper's two target adapters, so the
 documentation promised a guarantee one of them cannot give.
 
-FOUNDATIONAL, so it is filed as [DAG-003](DAG-003-file-storage-persists-only-definitions.md) rather
+FOUNDATIONAL, so it is filed as [DAG-003](completed/DAG-003-file-storage-persists-only-definitions.md) rather
 than patched here, and the overclaim is corrected in three places: the adapter's SPEC row, this
 task's § Crash Recovery (which now names which adapter is actually protected), and the
 `task-run-recovery.ts` comment that had recorded the fact in passing while the change depended on the

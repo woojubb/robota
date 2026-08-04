@@ -1,7 +1,7 @@
 # Mandatory Rules Index
 
 All rules are mandatory and non-negotiable. Domain-specific rules live in
-[skills index](../skills/index.md) and [package specs](../../packages/*/docs/SPEC.md).
+[skills index](../skills/index.md) and package specs (`packages/*/docs/SPEC.md`).
 
 ## Amendable by amendment
 

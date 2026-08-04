@@ -412,6 +412,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
   },
   {
+    name: 'resolving-claims',
+    command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
+  },
+  {
     name: 'harness-scope-literal',
     command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
   },

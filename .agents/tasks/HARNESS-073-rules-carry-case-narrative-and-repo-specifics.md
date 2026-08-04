@@ -97,7 +97,7 @@ that makes a fall visible.
 
 Three exemptions, each because it is not a case:
 
-- **A resolving link.** `[SOME-123](../tasks/SOME-123-….md)` IS the relocation the form asks for — the
+- **A resolving link.** `[SOME-123](../tasks/SOME-123-….md)` IS the relocation the form asks for <!-- allow-unresolved: an illustration of the shape, in a passage about how a citation must resolve --> — the
   invariant here, the incident in the record that owns it, and a way for the reader to get there. The
   target must exist, so this exemption doubles as the check for the unresolvable-identifier defect the
   audits found. A link counts once however many times the identifier appears inside it, since naming

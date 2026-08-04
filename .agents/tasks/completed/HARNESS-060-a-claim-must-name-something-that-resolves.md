@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-060: a ticked box or a "FILED" that names nothing resolvable must fail'
-status: todo
+status: done
+completed: 2026-08-04
 priority: medium
 urgency: soon
 type: INFRA
@@ -89,3 +90,40 @@ data, and a guard that does that gets suppressed.
 - The current tree passes, proven GREEN — if it does not, the failures are findings and are fixed
   before this lands.
 - Archived documents are exempt, and the exemption is stated rather than implicit.
+
+## Implementation (2026-08-04)
+
+`scan-resolving-claims.mjs`, registered, and a FLAT GATE rather than a ratchet — because the live tree
+was brought to zero first, which is the only honest way to install one.
+
+**Three claim shapes, all purely referential.** A relative link naming no file; a `FILED` / `filed as`
+/ `tracked as` / `see <ID>` naming an item the tree does not define; a ticked box whose own text says
+the work is unfinished. It asks whether the thing you named exists and nothing about whether the work
+behind it is done — that judgement is where noise comes from.
+
+**Scoped to the live tree, and the exemption is stated.** `completed/`, `done/`, `rejected/` and the
+archives are historical records whose citations describe a tree that has moved on; failing on them
+would fire on correct data. Measured: **216 broken links across all of `.agents/`, 24 in the live
+tree**. The 24 were repaired — every one was a rename left behind (`../backlog/…` from before the
+tree became `tasks/`, `spec-docs/active/…` from before those documents reached `done/`) and every
+target still existed.
+
+**Four things are deliberately not defects**, each because the check would otherwise fire on a correct
+state: a fenced specimen, a template slot (`<pkg>`, `*`), a glob written as a link — de-linked, since
+it was never one — and a path a document is ABOUT, which declares itself with
+`<!-- allow-unresolved: <reason> -->` and a required reason.
+
+**Three false positives found by running it, and each taught the check something:**
+
+- `ADR-002` was reported as naming nothing. It exists, in `.design/decisions/` — a directory the ID
+  collector did not know. Decisions are work items too, and they do not live under `.agents`.
+- `CLI-AUDIT-019` was reported as naming nothing. It is defined as a SECTION HEADING forty lines above
+  the reference. A definition is a definition wherever the tree puts it; the collector reads headings
+  now as well as filenames.
+- A finished checklist item was reported as unfinished because a case-insensitive `TODO` matched the
+  directory name `todo/` in its own path. Case-sensitive, and never before a slash.
+
+**Done-when, each exercised:** a `FILED` naming a nonexistent ID fails and one naming a real ID
+passes; a ticked box saying the work is filed elsewhere fails and a plain one passes; the current tree
+passes at 346 documents; archived trees are exempt and the exemption is asserted by a case rather than
+left to the reader.
