@@ -33,6 +33,8 @@ set -euo pipefail
 INPUT=$(cat)
 # shellcheck source=lib/command-scan.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/command-scan.sh"
+# shellcheck source=lib/bounded-gh.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
 
 # The shared parser, for the reason it exists: the hand-rolled grep this replaces stopped at the
 # first quote inside the command, and a `gh pr merge` written after any quoted argument was never
@@ -77,7 +79,7 @@ PR=$(printf '%s' "$COMMAND_VERBS" | grep -oE 'gh[[:space:]]+pr[[:space:]]+merge[
 # same way gh does. A failure to resolve is still a refusal: not knowing which PR is being merged
 # and merging anyway are the two states this hook exists to keep apart.
 if [[ -z "$PR" ]] && command -v gh >/dev/null 2>&1; then
-  PR=$(gh pr view --json number --jq '.number' 2>/dev/null || true)
+  PR=$(bounded_gh pr view --json number --jq '.number' || true)
 fi
 
 if [[ -z "$PR" ]]; then
@@ -125,7 +127,7 @@ fi
 # The `__labels__` sentinel line is what keeps two answers apart: a PR carrying no labels still
 # answers one line, an unreadable response answers the empty string. Without it "I could not read
 # the labels" would silently mean "not withdrawn".
-LABELS=$(gh pr view "$PR" --json labels --jq '"__labels__", (.labels[].name)' 2>/dev/null || echo "")
+LABELS=$(bounded_gh pr view "$PR" --json labels --jq '"__labels__", (.labels[].name)' || echo "")
 if [[ -z "$LABELS" ]]; then
   echo "[merge-gate] Blocked: could not read the labels on #$PR, so a withdrawal cannot be ruled out." >&2
   echo "[merge-gate] Verify by hand, then override inline: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
@@ -162,7 +164,7 @@ if printf '%s\n' "$LABELS" | grep -qx 'disposition-containment'; then
   echo "[merge-gate] Note: #$PR carries 'disposition-containment' — it lands under a labelled hold." >&2
 fi
 
-STATE=$(gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus' 2>/dev/null || echo "")
+STATE=$(bounded_gh pr view "$PR" --json mergeStateStatus --jq '.mergeStateStatus' || echo "")
 if [[ -z "$STATE" ]]; then
   echo "[merge-gate] Blocked: could not read PR #$PR's merge state." >&2
   exit 2
@@ -173,7 +175,7 @@ fi
 # a refusal here, because "a check failed and I merged anyway" is a decision, not a default.
 if [[ "$STATE" != "CLEAN" ]]; then
   echo "[merge-gate] Blocked: PR #$PR is $STATE, not CLEAN." >&2
-  FAILING=$(gh pr checks "$PR" 2>/dev/null | grep -E "$(printf '\t')fail$(printf '\t')" | head -3 | cut -f1 | tr '\n' ' ' || true)
+  FAILING=$(bounded_gh pr checks "$PR" | grep -E "$(printf '\t')fail$(printf '\t')" | head -3 | cut -f1 | tr '\n' ' ' || true)
   [[ -n "$FAILING" ]] && echo "[merge-gate]   failing: $FAILING" >&2
   echo "[merge-gate] Wait for CI, or fix what failed. Deliberate exception: MERGE_GATE_ACK=1 inline." >&2
   exit 2
@@ -181,7 +183,7 @@ fi
 
 # --- 2. Review --------------------------------------------------------------------------------
 # A review that predates the head commit has not seen what is about to be merged.
-HEAD_AT=$(gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' 2>/dev/null || echo "")
+HEAD_AT=$(bounded_gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' || echo "")
 
 # The newest comment BY THE REVIEWER, not the newest comment. Reading `comments[-1]` unconditionally
 # meant anyone — including the person merging — could post a remark after the review and satisfy both
@@ -192,14 +194,14 @@ HEAD_AT=$(gh pr view "$PR" --json commits --jq '.commits[-1].committedDate' 2>/d
 # change, and a gate that silently stops recognising reviews would block every merge and teach
 # everyone to pass MERGE_GATE_ACK=1, which is the bypass it exists to prevent.
 REVIEWER_RE='^github-actions(\\[bot\\])?$'
-LAST_REVIEW=$(gh pr view "$PR" --json comments \
-  --jq "[.comments[] | select(.author.login | test(\"$REVIEWER_RE\"))] | last // {}" 2>/dev/null || echo '{}')
+LAST_REVIEW=$(bounded_gh pr view "$PR" --json comments \
+  --jq "[.comments[] | select(.author.login | test(\"$REVIEWER_RE\"))] | last // {}" || echo '{}')
 LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.createdAt // ""' 2>/dev/null || echo "")
 
 if [[ -z "$LAST_REVIEW_AT" ]]; then
   # Distinguish "nobody reviewed" from "the reviewer is not who this gate thinks it is". Reported
   # identically, a name mismatch reads as a missing review forever and is diagnosed by nobody.
-  AUTHORS=$(gh pr view "$PR" --json comments --jq '[.comments[].author.login] | unique | join(", ")' 2>/dev/null || echo "")
+  AUTHORS=$(bounded_gh pr view "$PR" --json comments --jq '[.comments[].author.login] | unique | join(", ")' || echo "")
   if [[ -n "$AUTHORS" ]]; then
     echo "[merge-gate] Blocked: no comment on #$PR is from the reviewer this gate looks for." >&2
     echo "[merge-gate]   looked for: $REVIEWER_RE   comments are from: $AUTHORS" >&2

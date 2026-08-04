@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-079: two hooks block a command on a network call with no deadline'
-status: todo
+status: done
 created: 2026-08-03
+completed: 2026-08-03
 priority: low
 urgency: later
 area: .claude/hooks
@@ -48,6 +49,42 @@ the same answer:
 State each answer where the call is, so the next reader does not have to re-derive which way "closed"
 points for that gate. Whatever the deadline is, it belongs in one place both hooks read, not typed
 twice.
+
+## Implementation
+
+**The direction asked which way "closed" points per hook. Counting the call sites dissolved the
+question.** All eleven already treat an unanswered lookup as a refusal — the substitution yields
+empty and empty fails the comparison that would have let the command through — so a timeout is not a
+new verdict, it is one more way the lookup did not answer, and it lands on the behaviour each site
+already has. Nothing had to be decided per hook.
+
+**The item named two hooks; there were three.** `merge-gate.sh` holds seven of the eleven calls and
+blocks a merge on every one of them. Scope widened rather than filed again: one hook is a habit, two
+is a convention, three is the convention already being general.
+
+**And the deadline was not a new idea here — it was an existing one applied once.**
+`branch-guard.sh` already carried a hand-rolled watchdog, with its hard-won details in comments (no
+`timeout` on a stock macOS; `wait` rather than `kill -0` polling, because a reaped-but-not-yet-waited
+child answers "alive" and would burn the whole deadline on every SUCCESS; the watchdog's stdout
+detached, because a command substitution does not return while any process holds its pipe). That
+function guarded ONE of eleven queries. It is now `lib/bounded-gh.sh`, and all eleven go through it.
+
+**A timeout must not be reported as the other empty answer.** "No open pull request" and "we could
+not ask" both come back empty, and reporting the first when the second happened costs the reader the
+whole debugging trail — they fix what the message named, re-run, and get the same refusal. The helper
+returns 0 answered / 1 failed / 2 expired, and announces the expiry itself, once, rather than having
+it re-derived at eleven sites. Whether it expired is read from a marker the watchdog writes, not from
+whether the watchdog process is still alive — that would reintroduce the reaping question the
+`kill -0` comment rejects, and would report an expired deadline as an ordinary failure.
+
+**Measured, not argued.** With a `gh` that never returns, the push guard waited **61 s and then said
+nothing about why**; bounded, it stops at its deadline and names it. Red-proved for all three hooks:
+60.0 s, 60.0 s, 60.0 s before the change, against an assertion of under 30.
+
+One correction worth recording: an intermediate check of "are any bare `gh` calls left" reported none
+while one remained. The pattern required the call to open its own command substitution, and
+`pre-push-check`'s call sits inside `$(cd … && \n gh …)` — multi-line, and preceded by another
+command. A method that cannot see a shape reports the absence of that shape as a clean bill.
 
 ## Test Plan
 
