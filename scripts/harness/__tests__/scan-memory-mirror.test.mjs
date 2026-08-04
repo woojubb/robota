@@ -38,6 +38,28 @@ describe('collectMemoryMirrorFindings', () => {
     expect(() => collectMemoryMirrorFindings(root)).toThrow(/\.agents\/memory/);
   });
 
+  it('has no branch that treats an absent corpus as clean', async () => {
+    // A `if (!existsSync(memDir)) return findings;` sat below the governed-tree check, saying "no
+    // in-repo memory yet is allowed" — the same contradiction this change removed from `main()`,
+    // left behind in the finder as unreachable code. Unreachable is not harmless: it is a second,
+    // opposite answer in one file, and the next reader has no way to know which one binds.
+    //
+    // This pins the property rather than the absence of the lines: an absent corpus must THROW, and
+    // must never come back as an empty finding list, which is what that branch returned.
+    const root = await createFixture();
+    let returned;
+    try {
+      returned = collectMemoryMirrorFindings(root);
+    } catch {
+      returned = undefined;
+    }
+
+    expect(
+      returned,
+      'an absent corpus came back as "no findings" instead of throwing',
+    ).toBeUndefined();
+  });
+
   it('passes a consistent index + fact-file pair', async () => {
     const root = await createFixture({
       '.agents/memory/MEMORY.md': GREEN_INDEX,

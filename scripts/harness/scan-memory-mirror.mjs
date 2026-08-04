@@ -51,11 +51,6 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
   const index = path.join(memDir, 'MEMORY.md');
   const findings = [];
 
-  if (!existsSync(memDir)) {
-    // No in-repo memory yet is allowed; the rule only bites once memory exists.
-    return findings;
-  }
-
   if (!existsSync(index)) {
     findings.push(
       '.agents/memory/ exists but has no MEMORY.md index (every clone needs the index to find facts).',
