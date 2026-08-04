@@ -238,6 +238,7 @@ export async function main() {
     process.exitCode = 1;
     return;
   }
+  process.stdout.write(`::examined:: ${listWorkflows().length} workflows\n`);
   process.stdout.write('ci-base-history scan passed.\n');
 }
 

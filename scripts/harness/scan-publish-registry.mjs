@@ -271,6 +271,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
+  console.log(`::examined:: ${examined} workspace packages`);
   console.log(
     `publish-registry scan passed (${examined} workspace package(s) reconciled against ${REGISTRY_PATH}).`,
   );

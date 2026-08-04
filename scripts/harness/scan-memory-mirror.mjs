@@ -25,6 +25,14 @@ import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+/**
+ * How many memory fact files the last run examined — read by `main` for its `::examined::` line.
+ *
+ * A module-level holder rather than a changed return shape, because the finder is imported by tests
+ * that assert on its findings; widening the return would rewrite them to prove nothing new.
+ */
+let examinedFactFiles = 0;
+
 export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.agents/memory'], {
     scan: 'memory-mirror',
@@ -50,6 +58,7 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
 
   // Fact files = every *.md in .agents/memory except the index itself.
   const factFiles = readdirSync(memDir).filter((f) => f.endsWith('.md') && f !== 'MEMORY.md');
+  examinedFactFiles = factFiles.length;
 
   // Linked targets in the index: markdown links to local .md files, e.g. [Title](slug.md)
   const linked = new Set(
@@ -96,6 +105,7 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${examinedFactFiles} memory fact files`);
   console.log('memory-mirror scan passed.');
   process.exit(0);
 }

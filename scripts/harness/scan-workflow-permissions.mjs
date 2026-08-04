@@ -191,6 +191,7 @@ export function main(argv = process.argv.slice(2)) {
     (total, scopes) => total + Object.keys(scopes).length,
     0,
   );
+  process.stdout.write(`::examined:: ${count} declared write scopes\n`);
   process.stdout.write(
     `workflow-permissions scan passed: ${count} declared write scope(s), each justified.` +
       (argv.includes('--live')

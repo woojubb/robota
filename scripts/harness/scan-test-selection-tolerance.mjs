@@ -214,6 +214,7 @@ export async function main() {
     return;
   }
 
+  process.stdout.write(`::examined:: ${invocations} filtered test invocations\n`);
   process.stdout.write(
     `test-selection-tolerance scan passed — ${invocations} filtered test invocation(s) examined; none can pass on zero matches.\n`,
   );

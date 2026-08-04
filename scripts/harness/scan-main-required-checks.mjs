@@ -431,6 +431,7 @@ export async function main({ argv = process.argv.slice(2) } = {}) {
   }
 
   const declared = readDeclaration();
+  process.stdout.write(`::examined:: ${declared.length} required contexts\n`);
   process.stdout.write(
     `main-required-checks scan passed — ${declared.length} required context(s) on \`${GOVERNED_BRANCH}\` all run and can fail: ${declared.map((entry) => entry.context).join(', ')}.` +
       (argv.includes('--live') ? ' Live ruleset reconciled.' : '') +
