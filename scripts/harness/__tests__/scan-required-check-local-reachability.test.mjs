@@ -76,6 +76,17 @@ describe('every required context answers', () => {
 
     expect(findings[0].kind).toBe('excused-without-a-reason');
   });
+
+  it('refuses a reason that is not a reason, rather than crashing on it', () => {
+    // `true` reads as "yes, not runnable" to a human writing JSON, and it carries no reason at all.
+    // Before this it threw on `.trim()`: loud, but a crash is not a verdict, and a scan whose whole
+    // subject is telling "I could not check" from "I checked" must not answer with a stack trace.
+    for (const value of [true, 1, {}, null]) {
+      const findings = judge([{ context: 'review-gate', local: { notRunnable: value } }]);
+
+      expect(findings, `\`${JSON.stringify(value)}\` passed as a reason`).not.toEqual([]);
+    }
+  });
 });
 
 describe('the excuse has one owner, and the two sources must agree', () => {

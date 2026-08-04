@@ -133,7 +133,11 @@ export function judgeContexts(branches, { scripts, fileExists, excusedByMirrorMa
         continue;
       }
 
-      if (local.notRunnable.trim().length === 0) {
+      // A non-string here (`true`, a number, an object) would throw on `.trim()` — loud, but a crash
+      // is not a verdict, and this file's whole subject is telling "I could not check" apart from
+      // "I checked". It gets the same finding an empty reason does, because it is the same state:
+      // the field was filled in without a reason in it.
+      if (typeof local.notRunnable !== 'string' || local.notRunnable.trim().length === 0) {
         findings.push({
           where,
           kind: 'excused-without-a-reason',
