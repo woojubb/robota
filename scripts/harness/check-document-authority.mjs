@@ -236,6 +236,20 @@ export async function main() {
     return;
   }
 
+  // At the call site, where the subject is in hand. `reportFindings` is a pinned unit-test seam and
+  // its contract is the verdict lines; the marker is a channel the runner reads, so folding it in
+  // there would make a suite-wide invariant into a change to a sentence a case asserts.
+  //
+  // A zero here is LEGITIMATE and must say so: this scan judges the diff, and a diff carrying no
+  // document is a correct empty subject rather than a sweep that found nothing. Undeclared, the
+  // runner would fail the suite for it — which is the invariant working, and the declaration is
+  // what tells the two apart.
+  process.stdout.write(
+    changedFiles.length === 0
+      ? '::examined:: 0 changed documents ::expected-empty:: this diff changes no document — the subject is the diff, not the tree\n'
+      : `::examined:: ${changedFiles.length} changed documents\n`,
+  );
+
   const findings = await findDocumentAuthorityFindings({ changedFiles });
   process.exitCode = reportFindings(findings);
 }

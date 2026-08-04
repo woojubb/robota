@@ -166,6 +166,8 @@ export async function main(root = WORKSPACE_ROOT, write = (line) => process.stdo
     `${examined} active task file(s) examined, ${archived} archived in ${COMPLETED_DIR}/` +
     (exemptions.length > 0 ? `, ${exemptions.length} exempt` : '');
 
+  write(`::examined:: ${examined} active task files\n`);
+
   if (findings.length === 0) {
     // HARNESS-063: `task-archival scan passed.` was identical whether the scan had read a hundred
     // breakdowns or none. A zero here is not a clean sweep — it is a corpus that contributed

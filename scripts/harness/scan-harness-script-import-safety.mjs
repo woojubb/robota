@@ -203,7 +203,8 @@ function main() {
     return;
   }
   console.log(
-    `harness-script-import-safety scan passed (${examined} script(s) imported, ` +
+    `::examined:: ${examined} harness scripts\n` +
+      `harness-script-import-safety scan passed (${examined} script(s) imported, ` +
       `${untested.length} without a test at baseline).`,
   );
 }

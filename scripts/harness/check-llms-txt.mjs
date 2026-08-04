@@ -66,6 +66,7 @@ export async function main() {
     return;
   }
 
+  process.stdout.write(`::examined:: ${targets.length} repo-relative links\n`);
   process.stdout.write(`llms-txt scan passed (${targets.length} links resolve).\n`);
 }
 

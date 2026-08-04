@@ -127,9 +127,34 @@ The lesson generalises to the remaining migration: the number must come from the
 configuration the walk consults. A declaration and a subject are different things, and the whole point
 of this invariant is the difference between them.
 
+### Migration, batch 2 — 23 → 36 of 100
+
+Thirteen more scans state the size of their subject: shell scripts, test-named package scripts,
+active task files, documentation code blocks, repo-relative links, source files, packages with a
+build contract, vitest configurations, harness scripts, planning documents, agent definitions,
+declared hook events, and the changed documents `document-authority` judges.
+
+**Two design points this batch settled, both learned by breaking something.**
+
+`check-build-output-contracts` has a renderer whose exact lines a case asserts. Folding the marker
+into it turned a suite-wide invariant into a change to a sentence, and the case went red on arrival.
+The marker is emitted at the CALL SITE for that scan and for `document-authority`, whose
+`reportFindings` is a pinned unit-test seam. **A verdict is prose for a human; the marker is a
+channel for the runner, and the two do not share a line.**
+
+`document-authority` produced the first legitimate zero of the migration: its subject is the DIFF,
+so a diff carrying no document is a correct empty subject rather than a sweep that found nothing.
+Undeclared it would have failed the suite — the invariant working — and the `::expected-empty::`
+declaration is what tells the two apart. The suite summary now reads
+`99 scans passed, 1 skipped`, which is the distinction this item exists to make visible.
+
+Where the count did not reach `main`, the module-level holder the memory-mirror scan modelled was
+used, RESET at the top of the walk so a run that reads nothing cannot report the previous run's
+number.
+
 ### What remains
 
-**78 of 97 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
+**64 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
 this item stays open until it is done, and the baseline number is the progress bar.
 
 ## Done when
