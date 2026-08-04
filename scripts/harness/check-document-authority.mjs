@@ -157,8 +157,27 @@ async function readIfExists(root, relativePath) {
   }
 }
 
+/**
+ * How many documents the last walk actually READ.
+ *
+ * Not `changedFiles.length`, which was the first attempt and was wrong in the way this whole
+ * invariant exists to expose: that is every diffed path, while this scan examines only the markdown
+ * among them that still exists on disk. On a diff of fourteen files carrying one document it
+ * declared fourteen — a number larger than the subject, from the input rather than from the walk.
+ *
+ * A module-level holder rather than a widened return: `findDocumentAuthorityFindings`'s shape is
+ * asserted by its own cases (HARNESS-057). RESET at the top of the walk.
+ */
+let documentsRead = 0;
+
+/** The holder, as a reading seam — so a case can assert the SIZE without re-asserting the findings. */
+export function readDocumentsExamined() {
+  return documentsRead;
+}
+
 export async function findDocumentAuthorityFindings({ root = WORKSPACE_ROOT, changedFiles } = {}) {
   const findings = [];
+  documentsRead = 0;
   const normalizedFiles = (changedFiles ?? []).map(normalizePath);
   const changedFileSet = new Set(normalizedFiles);
 
@@ -170,6 +189,7 @@ export async function findDocumentAuthorityFindings({ root = WORKSPACE_ROOT, cha
     if (content === undefined) {
       continue;
     }
+    documentsRead += 1;
 
     if (isArchitectureDoc(file) && ARCHITECTURE_PLAN_HEADINGS.test(content)) {
       findings.push({
@@ -239,18 +259,22 @@ export async function main() {
   // At the call site, where the subject is in hand. `reportFindings` is a pinned unit-test seam and
   // its contract is the verdict lines; the marker is a channel the runner reads, so folding it in
   // there would make a suite-wide invariant into a change to a sentence a case asserts.
+  const findings = await findDocumentAuthorityFindings({ changedFiles });
+
+  // AFTER the walk, because the number comes from the walk. A zero here is legitimate and must say
+  // so: this scan judges the diff, and a diff carrying no document is a correct empty subject rather
+  // than a sweep that found nothing. Undeclared, the runner fails the suite for it — the invariant
+  // working — and the declaration is what tells the two apart.
   //
-  // A zero here is LEGITIMATE and must say so: this scan judges the diff, and a diff carrying no
-  // document is a correct empty subject rather than a sweep that found nothing. Undeclared, the
-  // runner would fail the suite for it — which is the invariant working, and the declaration is
-  // what tells the two apart.
+  // Emitted at the call site rather than inside `reportFindings`, which is a pinned unit-test seam
+  // whose contract is the verdict lines. A verdict is prose for a human; this is a channel the
+  // runner reads.
   process.stdout.write(
-    changedFiles.length === 0
-      ? '::examined:: 0 changed documents ::expected-empty:: this diff changes no document — the subject is the diff, not the tree\n'
-      : `::examined:: ${changedFiles.length} changed documents\n`,
+    documentsRead === 0
+      ? '::examined:: 0 changed documents ::expected-empty:: this diff changes no markdown document that exists on disk — the subject is the diff, not the tree\n'
+      : `::examined:: ${documentsRead} changed documents\n`,
   );
 
-  const findings = await findDocumentAuthorityFindings({ changedFiles });
   process.exitCode = reportFindings(findings);
 }
 
