@@ -23,8 +23,8 @@ import { checkTreePrerequisites } from './tree-prerequisites.mjs';
  * The commands the REQUIRED `scans` context runs, mirrored locally.
  *
  * INFRA-069. `scans` is required on `protect-develop`, and this gate ran none of it: measured, a
- * change under a package's `src` selected ZERO of the ~99 scans, so the first thing that ever examined it
- * was CI. The declared local mirror, `verify-like-ci`, was invoked by nothing at all.
+ * change under a package's `src` selected ZERO scans, so the first thing that ever examined it was CI.
+ * (The item counts 81 and the suite counts 99 today; the number the argument rests on is the zero.) The declared local mirror, `verify-like-ci`, was invoked by nothing at all.
  *
  * The item framed the open question as what the local gate should COST, on the reasoning that a slow
  * pre-push gets bypassed with `--no-verify`. Measured instead of debated: the scan suite is 6s and

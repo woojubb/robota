@@ -55,6 +55,23 @@ describe('the pre-push gate mirrors the required `scans` context (INFRA-069)', (
     }
   });
 
+  it('runs nothing that job does not run', () => {
+    // The other direction, and it was missing while two comments claimed both were covered. A local
+    // gate that runs MORE than CI refuses pushes CI would accept — the guard-fires-on-correct-work
+    // failure this change argues against in its own docstring, which would have stayed green here.
+    //
+    // Provisioning is excluded on the CI side, so it must be excluded from the comparison rather
+    // than from the mirror: the local gate legitimately does not reinstall dependencies.
+    const ciCommands = ciScansJobCommands();
+
+    for (const command of rendered) {
+      expect(
+        ciCommands,
+        `pre-push runs \`${command}\` and the required \`scans\` job does not`,
+      ).toContain(command);
+    }
+  });
+
   it('reads a job that actually has commands', () => {
     // Fail closed. A parser that finds nothing would satisfy the loop above vacuously and report a
     // mirror over an empty set — the accidental green this repository measures in its own work.
