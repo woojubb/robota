@@ -208,4 +208,12 @@ applies is the vacuity this harness spends its time removing.
 fired on a real pull request, so its blocking path is unproven in production; making it required would
 put an untested refusal in the merge path. One observed firing is the evidence the next step needs.
 
+**A crash in the checker no longer reports success.** Its `.catch` exited 0, justified by a comment
+saying the job is advisory — a justification that stopped being true the moment it began enforcing. A
+crash that reports green is indistinguishable from "ran and found nothing wrong", which is the vacuity
+this harness spends its time removing. It exits non-zero now, and that is safe precisely BECAUSE the
+job is not required: the red is visible and blocks nothing. Promoting it to required means deciding
+this again — whether a crash in the checker should stop a merge — and that is the owner's call, not a
+side effect of the promotion.
+
 **`patch-coverage` is NOT promoted** and this item stays open for it.

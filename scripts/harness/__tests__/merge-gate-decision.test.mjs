@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -405,5 +405,76 @@ describe('every inline finding is answered where it was raised', () => {
     const verdict = judge({ ...world(0), unresolved: undefined, threadsUnreadable: true });
 
     expect(verdict.status).toBe(2);
+  });
+});
+
+describe('the jq program the hook actually sends', () => {
+  /**
+   * Every case above stubs `gh` at the process boundary and fabricates the two numbers, so none of
+   * them ever ran the filter. A typo in it fails closed at best — blocking every merge — and at
+   * worst matches nothing, which makes the whole enforcement a permanent no-op that looks green.
+   *
+   * So this reads the filter OUT OF THE HOOK and runs it over a realistic payload. A copy pasted
+   * here would drift from the hook the first time either changed, and then this case would prove
+   * something about a program nobody runs.
+   */
+  const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
+  // Read the pattern from the hook too. Restating it here is a second copy of a value the hook
+  // owns, and the first attempt got its escaping wrong — jq rejected the program, which looked
+  // like the hook was broken when it was the test that was.
+  const REVIEWER_RE = /^REVIEWER_RE='(.*)'$/m.exec(HOOK_SOURCE)?.[1] ?? '';
+
+  function filterFromHook() {
+    const start = HOOK_SOURCE.indexOf("--jq '.data.repository.pullRequest.reviewThreads.nodes");
+    expect(
+      start,
+      'the hook no longer contains the thread query — this case is reading nothing',
+    ).toBeGreaterThan(-1);
+    const end = HOOK_SOURCE.indexOf("' || echo", start);
+    // Shell splices the reviewer pattern in by closing and reopening the quote; undo exactly that.
+    return HOOK_SOURCE.slice(start + "--jq '".length, end).replace(
+      /'"\$REVIEWER_RE"'/g,
+      REVIEWER_RE,
+    );
+  }
+
+  function run(threads) {
+    const payload = JSON.stringify({
+      data: { repository: { pullRequest: { reviewThreads: { nodes: threads } } } },
+    });
+    const result = spawnSync('jq', ['-r', filterFromHook()], { input: payload, encoding: 'utf8' });
+    expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
+    return result.stdout.trim();
+  }
+
+  const thread = (login, isResolved, totalCount) => ({
+    isResolved,
+    comments: { totalCount, nodes: [{ author: { login } }] },
+  });
+
+  it('counts a reviewer thread that is unresolved', () => {
+    expect(run([thread('github-actions', false, 1)])).toBe('1 1');
+  });
+
+  it('counts a reviewer thread resolved with no reply', () => {
+    expect(run([thread('github-actions', true, 1)])).toBe('1 1');
+  });
+
+  it('does not count a reviewer thread that is resolved AND answered', () => {
+    expect(run([thread('github-actions', true, 2)])).toBe('1 0');
+  });
+
+  it("does not count a human's thread, however open", () => {
+    expect(run([thread('someone', false, 1)])).toBe('1 0');
+  });
+
+  it('reports the TOTAL separately from the unsatisfied count', () => {
+    // The total is what the full-page check reads; conflating the two would hide truncation.
+    const threads = [
+      thread('github-actions', true, 2),
+      thread('someone', false, 1),
+      thread('github-actions', false, 1),
+    ];
+    expect(run(threads)).toBe('3 1');
   });
 });

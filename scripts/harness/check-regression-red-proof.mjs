@@ -817,7 +817,19 @@ if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) 
       process.exit(0);
     })
     .catch((err) => {
-      log(`regression-red-proof: orchestration error — ${err?.message ?? err}`);
-      process.exit(0); // never block the pipeline on the checker's own failure (advisory)
+      log(`\n❌ regression-red-proof: orchestration error — ${err?.message ?? err}`);
+      log('   The checker did not reach a verdict. That is not a pass, and it is not a defect in');
+      log(
+        '   the change either — it is this tool failing, and it says so instead of exiting green.',
+      );
+      // Exits NON-ZERO, and the comment that used to justify exiting 0 — "advisory" — stopped being
+      // true when the job began enforcing. A crash reporting success is the vacuity this repository
+      // spends its time removing: green here would be indistinguishable from "ran and found nothing".
+      //
+      // Safe precisely BECAUSE the job is not a required check (INFRA-046 holds that deliberately):
+      // the red is visible and blocks nothing. Promoting the job to required means deciding this
+      // again — whether a crash in the checker should stop a merge — and that decision is the
+      // owner's, not a side effect of a promotion.
+      process.exit(1);
     });
 }
