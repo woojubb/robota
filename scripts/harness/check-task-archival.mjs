@@ -166,6 +166,17 @@ export async function main(root = WORKSPACE_ROOT, write = (line) => process.stdo
     `${examined} active task file(s) examined, ${archived} archived in ${COMPLETED_DIR}/` +
     (exemptions.length > 0 ? `, ${exemptions.length} exempt` : '');
 
+  // An empty ACTIVE half is a legitimate state — every item archived — and the advisory below has
+  // said so since HARNESS-063. But the marker is what the runner judges, and an undeclared zero
+  // fails the suite: without this branch the scan would redden the suite in exactly the state it
+  // already documents as correct. A prose sentence and a machine declaration are different things,
+  // and having the first is not having the second.
+  write(
+    examined === 0
+      ? `::examined:: 0 active task files ::expected-empty:: every task is archived under ${COMPLETED_DIR}/ (${archived} of them) — an empty active half is a finished backlog, not an unread one\n`
+      : `::examined:: ${examined} active task files\n`,
+  );
+
   if (findings.length === 0) {
     // HARNESS-063: `task-archival scan passed.` was identical whether the scan had read a hundred
     // breakdowns or none. A zero here is not a clean sweep — it is a corpus that contributed

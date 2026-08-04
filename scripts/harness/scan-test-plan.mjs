@@ -183,6 +183,8 @@ export async function main(root = WORKSPACE_ROOT, write = (line) => process.stdo
     `${examined} document(s) checked: ${examinedLive} live (${halfLabel(LIVE_HALF)}), ` +
     `${examinedArchive} archived (${halfLabel(ARCHIVE_HALF)})`;
 
+  write(`::examined:: ${examined} planning documents\n`);
+
   if (findings.length === 0) {
     if (examinedLive === 0) {
       write(

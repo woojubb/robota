@@ -176,7 +176,8 @@ export async function main() {
 
   if (!failed) {
     process.stdout.write(
-      `doc-examples scan passed (${manifest.length} blocks typechecked, ${skipped} marked skip).\n`,
+      `::examined:: ${manifest.length} documentation code blocks\n` +
+        `doc-examples scan passed (${manifest.length} blocks typechecked, ${skipped} marked skip).\n`,
     );
     return;
   }

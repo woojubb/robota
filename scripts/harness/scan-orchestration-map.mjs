@@ -118,6 +118,16 @@ export function rowsForSkill(mapText, skill) {
     .filter((line) => line.startsWith('|') && line.includes(`\`${skill}\``));
 }
 
+/**
+ * How many agent definitions the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases, and rewriting them to carry a number proves nothing new (HARNESS-057). It is RESET at the
+ * top of the walk, so a run that reads nothing cannot report the previous run's number — which is
+ * the whole failure this marker exists to expose.
+ */
+let agentsRead = 0;
+
 export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.claude/agents'], {
     scan: 'orchestration-map',
@@ -158,9 +168,11 @@ export function collectOrchestrationMapFindings(root = WORKSPACE_ROOT) {
     }
   }
 
+  agentsRead = 0;
   if (existsSync(agentsDir)) {
     for (const file of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
       const text = readFileSync(path.join(agentsDir, file), 'utf8');
+      agentsRead += 1;
       const name = asScalar(frontmatterObject(text).name) || file.replace(/\.md$/, '');
       // Require the agent to own a registry ROW, not merely to be mentioned somewhere in the file.
       if (!rowNames.has(name)) {
@@ -191,6 +203,7 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${agentsRead} agent definitions`);
   console.log('orchestration-map scan passed.');
   process.exit(0);
 }

@@ -418,6 +418,7 @@ export function findPortabilityFindings(root = WORKSPACE_ROOT) {
 export function main() {
   const { findings, filesExamined, skipped } = findPortabilityFindings();
   const scope = `${filesExamined} script(s) across ${SCAN_ROOTS.join(', ')}`;
+  process.stdout.write(`::examined:: ${filesExamined} shell scripts\n`);
   const dropped =
     skipped.length > 0 ? ` (${skipped.length} director(y/ies) skipped: ${skipped.join(', ')})` : '';
 

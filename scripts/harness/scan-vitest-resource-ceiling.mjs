@@ -165,7 +165,8 @@ function main() {
   }
 
   process.stdout.write(
-    `vitest resource-ceiling scan passed: ${inspected} config(s) inherit the shared ceiling` +
+    `::examined:: ${inspected} vitest configurations\n` +
+      `vitest resource-ceiling scan passed: ${inspected} config(s) inherit the shared ceiling` +
       `${sharedPresent ? '' : ' (WARNING: shared file absent)'}.\n`,
   );
 }

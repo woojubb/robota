@@ -311,6 +311,9 @@ export async function main() {
   const { recursive, extra, excluded } = classifyTestScripts();
   const debt = excluded.filter((entry) => EXCLUSION_KINDS[entry.exclusion.kind]?.debt);
   process.stdout.write(
+    `::examined:: ${recursive.length + extra.length + excluded.length} test-named package scripts\n`,
+  );
+  process.stdout.write(
     `release-sweep-coverage scan passed — ${recursive.length + extra.length + excluded.length} ` +
       `test-named script(s) accounted for: ${recursive.length} swept by \`pnpm ` +
       `${RECURSIVE_SWEEP_SCRIPT}\`, ${extra.length} run by ${RUNNER_PATH}, ${excluded.length} ` +

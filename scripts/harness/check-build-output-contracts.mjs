@@ -267,6 +267,11 @@ async function main() {
     process.exit(1);
   }
 
+  // Emitted at the call site, not inside `renderDistCoverage`. The renderer's contract is the
+  // VERDICT lines, and a case pins them exactly; the marker is a channel the runner reads, so
+  // folding it in there would have made a suite-wide invariant a change to a sentence.
+  console.log(`::examined:: ${checkedPackages} packages with a build contract`);
+
   for (const line of renderDistCoverage({
     checked: checkedPackages,
     distPresent: distPresentPackages,
