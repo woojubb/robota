@@ -244,6 +244,20 @@ describe('a rule that states a loop is bound by the same contract', () => {
     ]);
   });
 
+  it('keeps an ordinary hard-wrapped paragraph whole', () => {
+    // The inverse defect, and the same cause: splitting by FORMATTING rather than by passage. A
+    // paragraph stating a loop on one line and its escape on the next was flagged for lacking what
+    // it said one wrap away — an accusation granted by coincidence instead of an exemption.
+    expect(passages('first line\nsecond line')).toEqual(['first line\nsecond line']);
+
+    expect(
+      judgeRule({
+        name: 'research.md',
+        text: 'The orchestrator AUTO-re-drives the researcher toward convergence, and\nescapes when the same finding set recurs unchanged.',
+      }),
+    ).toEqual([]);
+  });
+
   it('accepts a loop paragraph that states the escape, or points at the rule that owns it', () => {
     expect(
       judgeRule({

@@ -241,13 +241,15 @@ export function passages(text) {
   for (const block of String(text).split(/\n\s*\n/)) {
     let current = null;
     for (const line of block.split('\n')) {
+      // A LIST MARKER opens a new passage. Anything else continues the one in progress — including
+      // the second line of an ordinary hard-wrapped paragraph, which the first version pushed as its
+      // own passage. That inverted the defect: a paragraph stating a loop on one line and its escape
+      // on the next was flagged for lacking what it said one wrap away.
       if (/^\s{0,3}(?:[-*+]|\d+\.)\s/.test(line)) {
         if (current !== null) out.push(current);
         current = line;
-      } else if (current !== null) {
-        current += `\n${line}`;
       } else {
-        out.push(line);
+        current = current === null ? line : `${current}\n${line}`;
       }
     }
     if (current !== null) out.push(current);
