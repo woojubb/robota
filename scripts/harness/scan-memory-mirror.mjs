@@ -25,7 +25,24 @@ import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+/**
+ * How many memory fact files the last run examined — read by `main` for its `::examined::` line.
+ *
+ * A module-level holder rather than a changed return shape, because the finder is imported by tests
+ * that assert on its findings; widening the return would rewrite them to prove nothing new.
+ */
+let examinedFactFiles = 0;
+
+/** What the last `collectMemoryMirrorFindings` run walked — exported so it can be asserted. */
+export function examinedFactFileCount() {
+  return examinedFactFiles;
+}
+
 export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
+  // Reset FIRST, before anything can return. The same correction was made in the workflow-permissions
+  // scan in this change and not mirrored here: a holder reset late reports the previous run's number
+  // for a run that examined nothing, and the early returns below are exactly those runs.
+  examinedFactFiles = 0;
   requireGovernedTree(root, ['.agents/memory'], {
     scan: 'memory-mirror',
     why: 'memory-mirroring.md makes the in-repo memory corpus mandatory here, so its absence is a broken checkout rather than a repository that has not started one.',
@@ -33,11 +50,6 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
   const memDir = path.join(root, '.agents/memory');
   const index = path.join(memDir, 'MEMORY.md');
   const findings = [];
-
-  if (!existsSync(memDir)) {
-    // No in-repo memory yet is allowed; the rule only bites once memory exists.
-    return findings;
-  }
 
   if (!existsSync(index)) {
     findings.push(
@@ -50,6 +62,7 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
 
   // Fact files = every *.md in .agents/memory except the index itself.
   const factFiles = readdirSync(memDir).filter((f) => f.endsWith('.md') && f !== 'MEMORY.md');
+  examinedFactFiles = factFiles.length;
 
   // Linked targets in the index: markdown links to local .md files, e.g. [Title](slug.md)
   const linked = new Set(
@@ -80,11 +93,12 @@ export function collectMemoryMirrorFindings(root = WORKSPACE_ROOT) {
 }
 
 export function main() {
-  if (!existsSync(path.join(WORKSPACE_ROOT, '.agents/memory'))) {
-    // No in-repo memory yet is allowed; the rule only bites once memory exists.
-    process.exit(0);
-  }
-
+  // No early return for an absent `.agents/memory`. One stood here saying "no in-repo memory yet is
+  // allowed", which contradicted this file's own finder — `requireGovernedTree` declares the corpus
+  // MANDATORY and an absent one a broken checkout. Two answers in one file, and the CLI took the
+  // wrong one: it exited 0 without reaching the throw its own test pins, and without printing the
+  // examined line every other path here prints. A guard that can exit silently over ground it never
+  // read is the defect this scan's declaration was added to expose.
   const findings = collectMemoryMirrorFindings();
 
   if (findings.length > 0) {
@@ -96,6 +110,16 @@ export function main() {
     process.exit(1);
   }
 
+  // A legitimate zero, declared. The index may exist with no fact files beside it yet — a bootstrap
+  // or post-cleanup state the scan itself considers clean — and an undeclared zero is a hard failure
+  // in the runner. Saying why is the whole contract; staying silent would redden the suite for a
+  // state this scan calls correct.
+  console.log(
+    examinedFactFiles === 0
+      ? '::examined:: 0 memory fact files ::expected-empty:: the index may exist before any fact ' +
+          'file does, and the mirroring rule only bites once memory exists'
+      : `::examined:: ${examinedFactFiles} memory fact files`,
+  );
   console.log('memory-mirror scan passed.');
   process.exit(0);
 }

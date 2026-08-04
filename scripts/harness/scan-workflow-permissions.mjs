@@ -70,6 +70,21 @@ export const JUSTIFIED_WRITE_SCOPES = {
 };
 
 /** Parse the top-level `permissions:` block of a workflow into `{scope: level}`. */
+/**
+ * How many write scopes the last run actually READ from workflows on disk.
+ *
+ * Deliberately not the size of the declaration table below. That table keeps an entry for a workflow
+ * that has since been deleted, and the anti-rot loop skips those — so reporting its size would claim
+ * an examined count larger than what was examined, which is the exact defect the `::examined::` line
+ * exists to expose. Found by review, in the change that introduced the line.
+ */
+let examinedWriteScopes = 0;
+
+/** What the last `findWorkflowPermissionFindings` run actually read — exported so it can be asserted. */
+export function examinedWriteScopeCount() {
+  return examinedWriteScopes;
+}
+
 export function parsePermissions(source) {
   const lines = source.split('\n');
   const start = lines.findIndex((line) => /^permissions:\s*$/.test(line));
@@ -91,6 +106,10 @@ export function parsePermissions(source) {
 }
 
 export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
+  // Reset FIRST, before the early returns. Placed after them, a run that bailed on an absent or
+  // empty workflow directory reported the PREVIOUS run's count — a holder that is not reset reports
+  // the largest run it ever saw, and the early-return paths are exactly where it examined nothing.
+  examinedWriteScopes = 0;
   const findings = [];
   const dir = path.join(root, WORKFLOW_DIR);
   if (!fs.existsSync(dir)) {
@@ -115,6 +134,7 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
     for (const [scope, level] of Object.entries(scopes)) {
       if (level !== 'write') continue;
       requested.add(`${name}:${scope}`);
+      examinedWriteScopes = requested.size;
       const justification = JUSTIFIED_WRITE_SCOPES[name]?.[scope];
       if (justification === undefined) {
         findings.push({
@@ -190,6 +210,18 @@ export function main(argv = process.argv.slice(2)) {
   const count = Object.values(JUSTIFIED_WRITE_SCOPES).reduce(
     (total, scopes) => total + Object.keys(scopes).length,
     0,
+  );
+  process.stdout.write(
+    // A legitimate zero, declared. Every workflow granting only `read` is a CORRECT state — one of
+    // this scan's own cases asserts exactly that — and the file's history shows the tree drifting
+    // that way, since a write scope has already been removed once. An undeclared zero is a hard
+    // failure in the runner, so silence here would redden the suite for a tree this scan calls
+    // clean. Every other scan in this batch is structurally prevented from printing an unearned
+    // zero; this one needed the guard written.
+    examinedWriteScopes === 0
+      ? '::examined:: 0 write scopes ::expected-empty:: no workflow grants a write permission, ' +
+          'which is the state this scan exists to move toward\n'
+      : `::examined:: ${examinedWriteScopes} write scopes read from workflows on disk\n`,
   );
   process.stdout.write(
     `workflow-permissions scan passed: ${count} declared write scope(s), each justified.` +

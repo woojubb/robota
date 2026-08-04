@@ -193,6 +193,7 @@ export async function main() {
     process.exitCode = 1;
     return;
   }
+  process.stdout.write(`::examined:: ${listWorkflows().length} workflows\n`);
   process.stdout.write('automerge-disarm-permission scan passed.\n');
 }
 

@@ -92,11 +92,45 @@ number that means nothing.
 Changing one scan's declaration to `::examined:: 0 workflows` fails the suite with
 `1 scan(s) reported a pass over nothing`, naming the scan and the door.
 
+### Migration, batch 1 — and a correction to what this migration costs
+
+**11 → 19 of 97.** Marked in this pass: the required-check dependency edges, filtered test
+invocations, workspace packages in the publish registry, declared write scopes, required contexts on
+the protected branch, workflows in two CI-history guards, and the memory fact files.
+
+**The first estimate — "each is a one-line addition beside a number the scan already computes" — was
+wrong, and the correction is the useful part.** It holds for the scans that print their count.
+For the rest it does not: their finder returns findings and nothing else, so the number exists inside
+the walk and dies there. Making it available is a per-scan change to what the finder hands back, and
+the finder is usually imported by tests that assert on its findings — so a widened return shape
+rewrites those tests to prove nothing new.
+
+The memory-mirror scan shows the cheapest honest form: a module-level holder set where the walk
+happens and read where the line is printed, leaving the finder's contract and its tests untouched.
+That is still a deliberate edit per scan, not a one-liner, and the remaining ~77 should be read as
+that size.
+
+### The first declaration was itself the defect this item is about
+
+Review caught it in the batch that added it. `workflow-permissions` declared the size of its
+JUSTIFIED_WRITE_SCOPES table — a static declaration that keeps an entry for a workflow which has since
+been deleted, while the loop that reads them SKIPS those. So the line reported a number larger than
+what was examined: the exact shape the `::examined::` line exists to expose, committed by the change
+that introduced the line.
+
+Measured rather than argued: with one declared workflow removed from disk, the corrected form reports
+**5** and the table-size form reports **6**. It now counts what was read from disk, and three cases pin
+it — the count, a legitimate zero, and that a module-level holder is RESET so it cannot carry a
+previous run's number into a run that read nothing. All three red-proved.
+
+The lesson generalises to the remaining migration: the number must come from the walk, never from the
+configuration the walk consults. A declaration and a subject are different things, and the whole point
+of this invariant is the difference between them.
+
 ### What remains
 
-**86 of 97 scans still declare nothing**, and each is a one-line addition beside a number the scan
-already computes. The ratchet is what makes that migration visible and irreversible; this item stays
-open until it is done, and the number in the baseline is the progress bar.
+**78 of 97 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
+this item stays open until it is done, and the baseline number is the progress bar.
 
 ## Done when
 

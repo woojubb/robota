@@ -192,6 +192,7 @@ export async function main() {
     return;
   }
 
+  process.stdout.write(`::examined:: ${edges} dependency edges\n`);
   process.stdout.write(
     `required-check-needs scan passed — ${edges} dependency edge(s) examined; no required check can be silently skipped by a dependency.\n`,
   );

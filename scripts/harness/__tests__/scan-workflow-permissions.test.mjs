@@ -7,6 +7,7 @@
  * because the halves were only ever exercised together.
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,12 +15,14 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  examinedWriteScopeCount,
   findWorkflowPermissionFindings,
   JUSTIFIED_WRITE_SCOPES,
   parsePermissions,
 } from '../scan-workflow-permissions.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const SCAN_SCRIPT_PATH = path.resolve(import.meta.dirname, '../scan-workflow-permissions.mjs');
 
 /** A throwaway repo root holding only `.github/workflows`, so fixtures cannot touch the real tree. */
 function makeRoot(workflows) {
@@ -129,5 +132,99 @@ describe('the real repository', () => {
       0,
     );
     expect(total).toBeGreaterThan(0);
+  });
+});
+
+describe('the examined count is what was read, not what was declared', () => {
+  /**
+   * The declaration table keeps an entry for a workflow that has since been deleted, and the
+   * anti-rot loop skips those. Reporting the table's size as the examined count therefore claims a
+   * number larger than what was examined — the exact defect the `::examined::` line exists to
+   * expose, committed by the change that introduced the line. Review caught it.
+   */
+  it('counts only the write scopes present on disk', () => {
+    const tree = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(tree);
+
+    expect(examinedWriteScopeCount(), 'a scope on disk was not counted').toBe(1);
+  });
+
+  it('reports zero when the governed tree holds no write scope at all', () => {
+    // And zero is exactly what the runner refuses to accept as a silent pass.
+    const tree = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(tree);
+
+    expect(examinedWriteScopeCount()).toBe(0);
+  });
+
+  it('declares WHY a zero is correct, so a clean read-only tree cannot redden the suite', () => {
+    // Every workflow granting only `read` is the state this scan exists to move toward: it returns
+    // no findings and examines no write scope. An UNDECLARED zero is a hard failure in the runner,
+    // so the line must carry its reason or the suite goes red over a tree the scan calls clean.
+    const tree = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    expect(findWorkflowPermissionFindings(tree)).toEqual([]);
+    expect(examinedWriteScopeCount()).toBe(0);
+
+    // The script resolves its workspace root from its own location, not from `cwd`, so it has to be
+    // copied INTO the fixture — running it in place would read the real repository and assert
+    // nothing about this tree. It has no local imports, so the copy is the whole dependency.
+    // ...and at the depth it expects: it resolves the workspace root as `../..` from its own
+    // directory, so a copy dropped at the fixture root would judge the fixture's PARENT. Placed a
+    // level too high, it reported "the workflow directory does not exist" over a tree that has one.
+    const copied = path.join(tree, 'scripts/harness/scan-workflow-permissions.mjs');
+    fs.mkdirSync(path.dirname(copied), { recursive: true });
+    fs.copyFileSync(SCAN_SCRIPT_PATH, copied);
+    const printed = execFileSync('node', [copied], { cwd: tree, encoding: 'utf8' });
+    expect(printed, 'a clean zero was printed with no reason attached').toMatch(
+      /::examined:: 0 write scopes ::expected-empty::/,
+    );
+  });
+
+  it('reports zero after a run that bailed on an absent workflow directory', () => {
+    // The reset must run BEFORE the early returns, not after them: those paths are exactly the ones
+    // that examined nothing, so a holder reset after them reports the previous run's number for the
+    // very case that looked at zero. Review caught this in the change that added the property.
+    const withScope = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+    const noWorkflowDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wf-perms-bare-'));
+    roots.push(noWorkflowDir);
+
+    findWorkflowPermissionFindings(withScope);
+    findWorkflowPermissionFindings(noWorkflowDir);
+
+    expect(examinedWriteScopeCount(), 'a run that read no directory kept the previous count').toBe(
+      0,
+    );
+  });
+
+  it("does not carry a previous run's count into the next", () => {
+    // A module-level holder that is never reset reports the largest run it ever saw.
+    const withScope = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+    const without = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    findWorkflowPermissionFindings(withScope);
+    findWorkflowPermissionFindings(without);
+
+    expect(examinedWriteScopeCount(), 'the count survived into a run that read nothing').toBe(0);
   });
 });
