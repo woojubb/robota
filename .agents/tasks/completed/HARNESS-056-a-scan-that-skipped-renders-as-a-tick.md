@@ -1,7 +1,8 @@
 ---
 id: HARNESS-056
 title: 'HARNESS-056: a scan that skipped renders as ✓, so the suite total overstates what ran'
-status: todo
+status: done
+completed: 2026-08-04
 priority: medium
 urgency: soon
 type: INFRA
@@ -54,3 +55,34 @@ the `✓` mark and the count are unchanged. The channel exists; the skip is not 
 - The suite summary separates ran from skipped, proven by a run containing at least one of each.
 - A scan that exits 0 having examined nothing cannot report `✓` — proven RED by executing one
   against an empty subject, not by reading the runner.
+
+## Implementation (2026-08-04)
+
+Both halves of the proposed direction, and the mechanism came from the sibling item rather than being
+invented here.
+
+**A skip is now a machine-readable fact, not a sentence.** HARNESS-057 gave the runner an
+`::examined:: <n> <subject>` declaration and made a zero WITHOUT a reason a hard failure. A zero WITH
+a reason is exactly what a skip is: the scan ran, found no subject, and said which and why. The runner
+reads that, so no scan had to learn a second convention.
+
+**Three marks, not two.** `✗` failed, `↩` skipped, `✓` examined its subject and found it clean.
+
+**The count states what RAN.** `all 97 scans passed` became `97 scans passed`, and on a host without
+the subject:
+
+```
+↩ progress-report-quantification
+96 scans passed, 1 skipped (20 declared what they examined)
+```
+
+That is the same suite on the same commit — the difference is the host, which is the whole point: on
+every CI runner this scan has no subject, and the old summary counted it as evidence.
+
+**Two existing cases asserted the old wording** and were updated rather than worked around. They
+asserted `all N scans passed`, which is the sentence this item filed as weaker than it reads; leaving
+them would have pinned the defect.
+
+**An undeclared zero is NOT a skip.** A scan that reports zero without saying why still fails, and a
+case pins that — otherwise the skip mark would have become a way to launder the very state
+HARNESS-057 refuses.

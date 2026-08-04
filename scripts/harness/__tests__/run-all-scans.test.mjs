@@ -83,7 +83,9 @@ describe('run-all-scans', () => {
       lines.push(line),
     );
     expect(exitCode).toBe(0);
-    expect(lines.join('\n')).toContain('all 2 scans passed');
+    // "all N scans passed" became "N scans passed": the word `all` covered a suite in which some
+    // scans had no subject and were counted anyway (HARNESS-056). The count now states what RAN.
+    expect(lines.join('\n')).toContain('2 scans passed');
   });
 
   it('counts multiple failures', async () => {
@@ -181,7 +183,7 @@ describe('runScans — advisory surfacing', () => {
 
     expect(exitCode).toBe(0);
     expect(out).toContain('✓ a'); // the emitting scan is still a PASS in the summary
-    expect(out).toContain('all 2 scans passed');
+    expect(out).toContain('2 scans passed');
     expect(out).toContain('NOT failures');
   });
 
@@ -191,7 +193,7 @@ describe('runScans — advisory surfacing', () => {
     ];
     const lines = [];
     await runScans(scans, (line) => lines.push(line));
-    expect(lines.filter((line) => line !== '').at(-1)).toBe('all 1 scans passed');
+    expect(lines.filter((line) => line !== '').at(-1)).toBe('1 scans passed');
   });
 
   it('prints no advisory block at all when there are none', async () => {
@@ -311,5 +313,55 @@ describe('how much did you look at', () => {
     expect(judgeExaminedAdoption(9, 97, () => 10).message).toMatch(/FELL/);
     expect(judgeExaminedAdoption(11, 97, () => 10).message).toMatch(/ROSE/);
     expect(judgeExaminedAdoption(10, 97, () => null).message).toMatch(/no frozen/);
+  });
+});
+
+describe('a scan that skipped does not render as a tick', () => {
+  /**
+   * The runner decided a scan's mark from its exit code alone, so a scan that ran nothing and exited
+   * 0 because it had no subject was indistinguishable from one that examined its whole subject and
+   * found it clean. Both printed `✓`, and both counted toward "all N scans passed" — a stronger
+   * claim than the run supports, on the line people actually read.
+   *
+   * The declaration supplies the missing signal: a zero WITH a reason is a skip.
+   */
+  const passed = { name: 'ran', run: async () => ({ code: 0, output: '::examined:: 12 files' }) };
+  const skipped = {
+    name: 'no-subject',
+    run: async () => ({
+      code: 0,
+      output: '::examined:: 0 transcripts ::expected-empty:: no transcript exists on this host',
+    }),
+  };
+
+  it('marks it ↩ and counts what RAN', async () => {
+    const lines = [];
+    const code = await runScans([passed, skipped], (l) => lines.push(l), 1);
+    const printed = lines.join('\n');
+
+    expect(code, 'a skip must not fail the suite').toBe(0);
+    expect(printed).toContain('↩ no-subject');
+    expect(printed).toContain('✓ ran');
+    expect(printed, 'the summary counted a skip as a pass').toContain('1 scans passed, 1 skipped');
+  });
+
+  it('says nothing about skips when there are none', async () => {
+    const lines = [];
+    await runScans([passed], (l) => lines.push(l), 1);
+
+    expect(lines.join('\n')).not.toMatch(/skipped/);
+  });
+
+  it('does not call an undeclared zero a skip — it fails', async () => {
+    // A skip is a scan that said WHY it had no subject. One that merely reports zero has not.
+    const lines = [];
+    const code = await runScans(
+      [{ name: 'silent', run: async () => ({ code: 0, output: '::examined:: 0 files' }) }],
+      (l) => lines.push(l),
+      1,
+    );
+
+    expect(code).toBe(1);
+    expect(lines.join('\n')).not.toContain('↩ silent');
   });
 });

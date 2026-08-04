@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-064: vacuity was measured once and never again — 30 of 76 scans could not fail, and nothing tracks whether that number moves'
-status: in-progress
+status: done
+completed: 2026-08-04
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -180,3 +181,42 @@ by removing it — an argument would be the same hole spelled differently — so
 but the frozen file now DECLARES that on both the pass and the fail path, and a case pins the
 declaration. The wiring red-proof was re-run against the change: deleting the line that calls
 `ledgerCeilingFindings` from `findGuardScopeFindings` still fails the reachability case.
+
+## Closed 2026-08-04 — every part of it already holds, and each was verified by execution
+
+This item asked for three things. All three are in force, and none of them was taken on trust; the
+commands and their output are below so the next reader can recount rather than believe.
+
+**1. The measurement repeats.** `scan-guard-scope-fail-closed` is registered and runs on every
+`pnpm harness:scan`. It does not read a recorded number — it points each pinned finder at a root
+without its governed tree and observes whether the finder throws or reports a pass, and it
+RE-EXECUTES every ledger entry's recorded verdict on every run. Today: **53 guards proven fail-closed
+by execution, 4 measured vacuous, 14 that fail closed but are not pinned.**
+
+**2. The population is derived, not hand-kept.** This was the item's sharpest claim and it is wrong:
+rule 1 of that scan derives the finder set from the registration list and the source, and a scan
+registered without a table entry FAILS. A guard cannot be added without answering for its behaviour,
+and a table entry naming a scan that no longer exists is itself a finding.
+
+**3. The number is ratcheted.** `scripts/harness/guard-ledger-ceilings.json` freezes
+`{ "vacuous": 4, "unpinned": 14 }`. Exercised in all four directions:
+
+```
+at ceiling   : []
+vacuous ROSE : 4 entr(y/ies), up from a frozen 3. A new vacuous entry is a NEW live instance …
+vacuous FELL : 4 entr(y/ies), DOWN from a frozen 5. Re-freeze it in this same change …
+unfrozen     : [ 'ledger-ceiling:vacuous', 'ledger-ceiling:unpinned' ]
+```
+
+So the 30-of-76 figure this item was filed about cannot silently move: a new vacuous guard raises the
+count and fails the suite, and a repaired one lowers it and demands a re-freeze in the same change.
+
+**What this item added, since it was not merely closed as stale.** The scan now declares
+`::examined:: 53 pinned guards`, so the number it audits is visible to the runner on every run and an
+unearned zero from it would fail the suite — the invariant of
+[HARNESS-057](HARNESS-057-a-scan-must-report-the-size-of-what-it-examined.md) applied to the scan that
+measures vacuity.
+
+**The honest residue.** The 14 unpinned guards fail closed but are not proven so by execution, and
+their ceiling holds the count rather than the property. Reducing that number is ordinary debt work
+under HARNESS-052, not a gap in the mechanism this item asked for.
