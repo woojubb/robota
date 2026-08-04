@@ -130,6 +130,15 @@ would be the restatement defect this repository files items about.
 **Red-proved against the exact wording round 13 found.** Restoring "bounded iterations, then escalate
 to the user" in `research.md` exits 1; the current text exits 0.
 
+**The exemption hole took TWO corrections, and the second is the instructive one.** Splitting on blank
+lines is not splitting into passages: a bulleted list in these documents is ONE blank-line block, so an
+unrelated bullet's link to the rule that owns the escape still excused a loop bullet that carried
+none — the same coincidence, one level tighter. Each list item is its own passage now, with its
+indented continuation lines, and the stricter split immediately surfaced a real instance: a bullet
+naming the conformance loop leaned on a sibling three bullets away. It carries its own pointer now,
+which is what this rule set asks of an entry anyway — a reader must be able to obey one without
+opening anything else.
+
 And the first version of that check was an accidental green worth recording: it asked whether the FILE
 anywhere linked the rule that owns the escape. Every rule links that rule for other reasons, so the
 restored bad wording passed. An exemption read from somewhere else in the document is an exemption

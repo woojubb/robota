@@ -227,6 +227,34 @@ export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
  * that owns the answer. That is narrower than "detect any contradiction between two rules", and it
  * is the shape the contradiction took.
  */
+/**
+ * The passages a rule is judged in.
+ *
+ * Blank lines are not enough. A bulleted list in these documents is ONE blank-line block, so a loop
+ * bullet with no escape sat in the same passage as an unrelated bullet's link to the rule that owns
+ * one — and the link would excuse it. That is the same "exemption granted by coincidence" this check
+ * was corrected for once already, one level tighter. A list item is its own passage; its indented
+ * continuation lines belong to it.
+ */
+export function passages(text) {
+  const out = [];
+  for (const block of String(text).split(/\n\s*\n/)) {
+    let current = null;
+    for (const line of block.split('\n')) {
+      if (/^\s{0,3}(?:[-*+]|\d+\.)\s/.test(line)) {
+        if (current !== null) out.push(current);
+        current = line;
+      } else if (current !== null) {
+        current += `\n${line}`;
+      } else {
+        out.push(line);
+      }
+    }
+    if (current !== null) out.push(current);
+  }
+  return out;
+}
+
 export function judgeRule({ name, text }) {
   const findings = [];
   // The rule that OWNS the escape states it once; demanding every paragraph of it restate the
@@ -246,7 +274,7 @@ export function judgeRule({ name, text }) {
   // the escape or linked the rule that owns it — and every rule links that rule for other reasons, so
   // restoring the exact wording this check exists to catch left it green. An exemption read from
   // somewhere else in the document is an exemption granted by coincidence.
-  for (const paragraph of text.split(/\n\s*\n/)) {
+  for (const paragraph of passages(text)) {
     if (!LOOP_LANGUAGE.test(paragraph)) continue;
     if (ESCAPE_IN_BODY.test(paragraph)) continue;
     // A paragraph may DELEGATE: pointing at the rule that owns the escape answers the same question.

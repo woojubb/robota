@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   judgeRule,
+  passages,
   judgeSkill,
   parseDeclaration,
   readMapBounds,
@@ -217,6 +218,30 @@ describe('a rule that states a loop is bound by the same contract', () => {
     });
 
     expect(found.map((f) => f.kind)).toEqual(['rule-states-a-loop-without-its-escape']);
+  });
+
+  it("does not let a SIBLING BULLET's link excuse a loop bullet", () => {
+    // A bulleted list is one blank-line block, so splitting on blank lines left the coincidence
+    // intact one level tighter: an unrelated bullet's link to the rule that owns the escape would
+    // excuse a loop bullet that carried none. Each list item is its own passage, and each normative
+    // bullet has to stand on its own — which is what this rule set asks of an entry anyway.
+    const found = judgeRule({
+      name: 'spec-workflow.md',
+      text: [
+        '- See [enforcement-architecture.md](enforcement-architecture.md) for the worker model.',
+        '- Any contract change MUST be followed by a conformance verification loop.',
+      ].join('\n'),
+    });
+
+    expect(found.map((f) => f.kind)).toEqual(['rule-states-a-loop-without-its-escape']);
+  });
+
+  it('splits a list into its items, and keeps their continuation lines', () => {
+    expect(passages('- one\n  wrapped\n- two\n\nprose')).toEqual([
+      '- one\n  wrapped',
+      '- two',
+      'prose',
+    ]);
   });
 
   it('accepts a loop paragraph that states the escape, or points at the rule that owns it', () => {
