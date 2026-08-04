@@ -7,6 +7,7 @@
  * because the halves were only ever exercised together.
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,6 +22,7 @@ import {
 } from '../scan-workflow-permissions.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+const SCAN_SCRIPT_PATH = path.resolve(import.meta.dirname, '../scan-workflow-permissions.mjs');
 
 /** A throwaway repo root holding only `.github/workflows`, so fixtures cannot touch the real tree. */
 function makeRoot(workflows) {
@@ -161,6 +163,33 @@ describe('the examined count is what was read, not what was declared', () => {
     findWorkflowPermissionFindings(tree);
 
     expect(examinedWriteScopeCount()).toBe(0);
+  });
+
+  it('declares WHY a zero is correct, so a clean read-only tree cannot redden the suite', () => {
+    // Every workflow granting only `read` is the state this scan exists to move toward: it returns
+    // no findings and examines no write scope. An UNDECLARED zero is a hard failure in the runner,
+    // so the line must carry its reason or the suite goes red over a tree the scan calls clean.
+    const tree = root({
+      'a.yml':
+        'on:\n  push:\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n',
+    });
+
+    expect(findWorkflowPermissionFindings(tree)).toEqual([]);
+    expect(examinedWriteScopeCount()).toBe(0);
+
+    // The script resolves its workspace root from its own location, not from `cwd`, so it has to be
+    // copied INTO the fixture — running it in place would read the real repository and assert
+    // nothing about this tree. It has no local imports, so the copy is the whole dependency.
+    // ...and at the depth it expects: it resolves the workspace root as `../..` from its own
+    // directory, so a copy dropped at the fixture root would judge the fixture's PARENT. Placed a
+    // level too high, it reported "the workflow directory does not exist" over a tree that has one.
+    const copied = path.join(tree, 'scripts/harness/scan-workflow-permissions.mjs');
+    fs.mkdirSync(path.dirname(copied), { recursive: true });
+    fs.copyFileSync(SCAN_SCRIPT_PATH, copied);
+    const printed = execFileSync('node', [copied], { cwd: tree, encoding: 'utf8' });
+    expect(printed, 'a clean zero was printed with no reason attached').toMatch(
+      /::examined:: 0 write scopes ::expected-empty::/,
+    );
   });
 
   it('reports zero after a run that bailed on an absent workflow directory', () => {

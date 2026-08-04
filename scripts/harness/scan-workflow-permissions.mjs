@@ -212,7 +212,16 @@ export function main(argv = process.argv.slice(2)) {
     0,
   );
   process.stdout.write(
-    `::examined:: ${examinedWriteScopes} write scopes read from workflows on disk\n`,
+    // A legitimate zero, declared. Every workflow granting only `read` is a CORRECT state — one of
+    // this scan's own cases asserts exactly that — and the file's history shows the tree drifting
+    // that way, since a write scope has already been removed once. An undeclared zero is a hard
+    // failure in the runner, so silence here would redden the suite for a tree this scan calls
+    // clean. Every other scan in this batch is structurally prevented from printing an unearned
+    // zero; this one needed the guard written.
+    examinedWriteScopes === 0
+      ? '::examined:: 0 write scopes ::expected-empty:: no workflow grants a write permission, ' +
+          'which is the state this scan exists to move toward\n'
+      : `::examined:: ${examinedWriteScopes} write scopes read from workflows on disk\n`,
   );
   process.stdout.write(
     `workflow-permissions scan passed: ${count} declared write scope(s), each justified.` +
