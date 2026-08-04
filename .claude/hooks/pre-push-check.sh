@@ -18,6 +18,8 @@ INPUT=$(cat)
 # single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
 # shellcheck source=lib/hook-facts.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+# shellcheck source=lib/bounded-gh.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
 
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
 # under `set -e` and the hook exits 1 with nothing said — which the hook protocol treats as
@@ -283,9 +285,8 @@ if ! REVIEW_STATE=$(cd "$PROJECT_DIR" && node "$RECORDER" --show 2>&1); then
   # `gh pr list --head` and not `gh pr view "$CUR_BRANCH"`: `pr view` takes a number, a URL or a
   # branch and decides which by shape, so a branch named `42` would be answered with pull request
   # #42's state — a waiver granted on some other change's evidence. `--head` only ever means a branch.
-  if command -v gh >/dev/null 2>&1 &&
-    [[ "$(cd "$PROJECT_DIR" &&
-      gh pr list --head "$CUR_BRANCH" --state open --json number --jq 'length' 2>/dev/null)" =~ ^[1-9] ]]; then
+  if [[ "$(cd "$PROJECT_DIR" &&
+    bounded_gh pr list --head "$CUR_BRANCH" --state open --json number --jq 'length')" =~ ^[1-9] ]]; then
     echo "[pre-push-check] Open pull request on '$CUR_BRANCH': its review automation owns the review" >&2
     echo "[pre-push-check] of this push. Resolve what that review reports; do not review it again." >&2
     exit 0

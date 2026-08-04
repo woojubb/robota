@@ -17,6 +17,8 @@ INPUT=$(cat)
 # single owner of the repository, branch and scrubbed-git facts. See lib/hook-facts.sh.
 # shellcheck source=lib/hook-facts.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+# shellcheck source=lib/bounded-gh.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
 
 # Extract tool_name without jq — match "tool_name":"Bash"
 # Fail closed on an unreadable tool name. Left bare, a non-zero return aborts the assignment
@@ -596,10 +598,7 @@ while read -r STMT_START STMT_LEN; do
       echo "[branch-guard] Blocked: refusing to delete protected branch '$DELETE_BRANCH_NAME'." >&2
       exit 2
     fi
-    MERGED_COUNT=""
-    if command -v gh >/dev/null 2>&1; then
-      MERGED_COUNT=$(gh pr list --head "$DELETE_BRANCH_NAME" --state merged --json number --jq 'length' 2>/dev/null || echo "")
-    fi
+    MERGED_COUNT=$(bounded_gh pr list --head "$DELETE_BRANCH_NAME" --state merged --json number --jq 'length' || echo "")
     if [[ -z "$MERGED_COUNT" ]]; then
       echo "[branch-guard] Blocked: cannot confirm a MERGED PR for '$DELETE_BRANCH_NAME' (gh unavailable / query failed)." >&2
       echo "[branch-guard] Verify the merge landed (gh pr view <n> --json state == MERGED), then override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
@@ -620,18 +619,15 @@ while read -r STMT_START STMT_LEN; do
     # outcome this guard exists to prevent, waved through by the guard itself.
     #
     # So ask the question that actually matters: is anything OPEN on this branch right now?
-    OPEN_COUNT=""
-    if command -v gh >/dev/null 2>&1; then
-      OPEN_COUNT=$(gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number --jq 'length' 2>/dev/null || echo "")
-    fi
+    OPEN_COUNT=$(bounded_gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number --jq 'length' || echo "")
     if [[ -z "$OPEN_COUNT" ]]; then
       echo "[branch-guard] Blocked: cannot confirm whether an OPEN PR exists for '$DELETE_BRANCH_NAME' (gh unavailable / query failed)." >&2
       echo "[branch-guard] Unable to determine is not the same as safe. Check by hand, then override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
       exit 2
     fi
     if [[ "$OPEN_COUNT" != "0" ]]; then
-      OPEN_LIST=$(gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number,mergeStateStatus \
-        --jq '[.[] | "#\(.number) (\(.mergeStateStatus))"] | join(", ")' 2>/dev/null || echo "")
+      OPEN_LIST=$(bounded_gh pr list --head "$DELETE_BRANCH_NAME" --state open --json number,mergeStateStatus \
+        --jq '[.[] | "#\(.number) (\(.mergeStateStatus))"] | join(", ")' || echo "")
       echo "[branch-guard] Blocked: '$DELETE_BRANCH_NAME' still has an OPEN PR — $OPEN_LIST." >&2
       echo "[branch-guard] Deleting it now CLOSES that PR. A merged PR earlier in this branch's history does not make deletion safe." >&2
       echo "[branch-guard] Merge or close it deliberately first. Intentional abandon? Override: BRANCH_GUARD_ALLOW_DELETE=1" >&2
@@ -703,58 +699,18 @@ while read -r STMT_START STMT_LEN; do
     # written without it.
     MERGED_REFS=""
     MERGED_REFS_READ=false
+    #
+    # Bounded, because this runs on every branch creation. This path was once entirely local; it makes
+    # a network call now, and a SLOW response is not a failed one — unbounded, a stalled connection
+    # holds the branch creation open instead of taking the fallback below.
+    #
+    # The bound comes from the shared helper, which is where the deadline and every hard-won detail of
+    # enforcing it lives. That helper's original was written HERE, for this one query, while ten other
+    # calls in this directory had no bound at all — which is how a convention ends up applied once.
     MERGED_LIMIT=500
-    #
-    # Bounded, because this runs on every branch creation. Before this check the path was entirely
-    # local; it now makes a network call, and a SLOW response is not a failed one — without a limit a
-    # stalled connection would hang the hook indefinitely instead of taking the fallback below.
-    #
-    # The bound is hand-rolled rather than delegated to `timeout`, which is absent on a stock macOS.
-    # Branching on whether it exists would leave the promise above true on one platform and silently
-    # false on another, with the untested path being the one nobody runs — the shape of defect this
-    # directory has spent the week removing. One path, everywhere.
-    GH_TIMEOUT=10
-    bounded_merged_refs() {
-      local out pid watcher rc
-      out=$(mktemp) || return 1
-      (gh pr list --state merged --limit "$MERGED_LIMIT" --json headRefName,headRefOid \
-        --jq '.[] | "\(.headRefName) \(.headRefOid)"' >"$out" 2>/dev/null) &
-      pid=$!
-
-      # A watchdog rather than a `kill -0` polling loop. Polling asks "is the child still alive", and a
-      # child that has exited but not yet been reaped can still answer yes — on a shell where it does,
-      # every successful query would burn the whole deadline and then be thrown away as a timeout, so
-      # the feature would always fall back and every branch creation would cost ten seconds. Measured
-      # here at 1.2s with the polling version, so it did not reproduce on this bash; `wait` removes the
-      # question rather than leaving it to the platform, and returns the instant the query finishes.
-      # stdout detached deliberately. This function runs inside a command substitution, and a command
-      # substitution does not return until EVERY process holding the write end of its pipe is gone —
-      # so a watchdog inheriting that pipe kept it open for the full deadline even after the query had
-      # answered and the watchdog itself was killed, because the `sleep` it spawned still held the fd.
-      # Measured: the success path took 10.2s that way, worse than the polling it replaced.
-      (
-        sleep "$GH_TIMEOUT"
-        kill -TERM "$pid" 2>/dev/null || true
-      ) >/dev/null 2>&1 &
-      watcher=$!
-
-      if wait "$pid"; then rc=0; else rc=1; fi
-      kill -TERM "$watcher" 2>/dev/null || true
-      wait "$watcher" 2>/dev/null || true
-
-      if [[ "$rc" -eq 0 ]]; then
-        cat "$out"
-        rm -f "$out"
-        return 0
-      fi
-      rm -f "$out"
-      return 1
-    }
-
-    if command -v gh >/dev/null 2>&1; then
-      if MERGED_REFS=$(bounded_merged_refs); then
-        MERGED_REFS_READ=true
-      fi
+    if MERGED_REFS=$(bounded_gh pr list --state merged --limit "$MERGED_LIMIT" \
+      --json headRefName,headRefOid --jq '.[] | "\(.headRefName) \(.headRefOid)"'); then
+      MERGED_REFS_READ=true
     fi
 
     # A full page may mean the list was truncated, so older merged branches would be missing and the

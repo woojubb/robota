@@ -275,3 +275,90 @@ describe('a guard that must ask GitHub refuses when it cannot', () => {
     });
   }
 });
+
+describe('a guard that asks GitHub bounds how long it waits', () => {
+  // A hook runs in front of a command someone is waiting on. A SLOW answer is not a failed one, and
+  // unbounded it is worse than a refusal: a refusal can be read and overridden, a hang can only be
+  // killed. Measured on this tree with a `gh` that never returns — the push guard waited the full 61
+  // seconds and then said nothing about why, where the bounded form stops at its deadline.
+  //
+  // And the deadline must not be reported as the other answer. "No open pull request" and "we could
+  // not ask" both come back empty, and reporting the first when the second happened costs the reader
+  // the whole debugging trail: they fix what the message named, re-run, and get the same refusal.
+
+  function ghThatNeverAnswers() {
+    const dir = mkdtempSync(path.join(tmpdir(), 'slow-gh-'));
+    writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nsleep 60\n', { mode: 0o755 });
+    return `${dir}:${process.env.PATH}`;
+  }
+
+  function repo(branch) {
+    const dir = mkdtempSync(path.join(tmpdir(), 'slow-gh-repo-'));
+    const git = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
+    git('init', '--quiet', `--initial-branch=${branch}`);
+    git('config', 'user.email', 'harness@example.test');
+    git('config', 'user.name', 'Harness');
+    writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+    git('add', '-A');
+    git('commit', '--quiet', '-m', 'root');
+    return dir;
+  }
+
+  // Each row is a guard whose verdict depends on a GitHub answer, and the command that makes it ask.
+  const ASKS_GITHUB = [
+    { hook: 'pre-push-check.sh', command: 'git push origin feat/probe' },
+    { hook: 'branch-guard.sh', command: 'git push origin --delete feat/probe' },
+    { hook: 'merge-gate.sh', command: 'gh pr merge 1234 --squash' },
+  ];
+
+  for (const { hook, command } of ASKS_GITHUB) {
+    it(`${hook} stops at its deadline instead of waiting on a silent GitHub`, () => {
+      const dir = repo('feat/probe');
+      const started = Date.now();
+      const { status, output } = run(
+        hook,
+        JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
+        {
+          PATH: ghThatNeverAnswers(),
+          CLAUDE_PROJECT_DIR: dir,
+          HOOK_GH_DEADLINE_SECONDS: '3',
+        },
+      );
+      const elapsed = (Date.now() - started) / 1000;
+
+      // Generous against the stub's 60s so a loaded machine cannot make this flaky, and still far
+      // enough below it that only a real bound can pass.
+      expect(elapsed, `it waited ${elapsed}s on a GitHub that never answers`).toBeLessThan(30);
+      expect(status, `it let the command through: ${output}`).toBe(2);
+      expect(output, 'the deadline was not named, so the refusal states the wrong reason').toMatch(
+        /did not answer within 3s/,
+      );
+    });
+  }
+
+  it('says nothing about a deadline when GitHub simply has no such pull request', () => {
+    // The other half. A guard that announced a timeout on every ordinary empty answer would train
+    // its reader to ignore the line that matters.
+    const dir = mkdtempSync(path.join(tmpdir(), 'fast-gh-'));
+    writeFileSync(path.join(dir, 'gh'), '#!/bin/sh\nprintf "0\\n"\n', { mode: 0o755 });
+    const work = repo('feat/probe');
+
+    const { output } = run(
+      'pre-push-check.sh',
+      JSON.stringify({
+        tool_name: 'Bash',
+        cwd: work,
+        tool_input: { command: 'git push origin feat/probe' },
+      }),
+      {
+        PATH: `${dir}:${process.env.PATH}`,
+        CLAUDE_PROJECT_DIR: work,
+        HOOK_GH_DEADLINE_SECONDS: '3',
+      },
+    );
+
+    expect(output, 'an ordinary empty answer was reported as a timeout').not.toMatch(
+      /did not answer within/,
+    );
+  });
+});
