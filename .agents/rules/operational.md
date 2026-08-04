@@ -124,6 +124,34 @@ looks like the command worked.
 - Never claim a file exists or was produced without actually creating it; verify paths before
   asserting presence; surface deliverables explicitly (share the file, not a folder).
 
+### A Wait Is Not Idle Time
+
+When work is blocked on something that takes minutes and is not yours to speed up — a continuous
+integration run, a review round, a deploy, a queued check — you take another independent item and
+progress it meanwhile. Waiting sequentially is a choice, and it makes every round trip cost the
+wall-clock of the whole session.
+
+The obligation is on the WAIT, not on the amount of work. If a blocking wait is under way and any
+independent item remains, something else advances during it.
+
+- **The wait must be real.** Something you cannot make faster and are not permitted to skip. A wait
+  invented to avoid interleaving is not a wait.
+- **The second item must be INDEPENDENT** — no source file, no rule document and no frozen baseline
+  in common with the one already in flight. Two changes to the same ratchet or registry are one
+  item, whatever the backlog calls them.
+- **Each item stays in its own worktree, on its own branch, in its own change proposal.** A shared
+  tree makes the two changes one diff, and a reviewer can then judge neither.
+- **Landing stays serial**, in the order the reviews finish. Parallel work is about the waiting, not
+  about the merging.
+- **Re-check the first item before returning to it.** Its review may have arrived while you were
+  away, and the state you left is not the state you come back to.
+
+How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
+occupant, one self-verified proposal per item — is procedure, owned by
+[`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md). This rule
+owns only WHEN it is mandatory: a blocking wait with an independent item available is not a
+judgement call.
+
 ## API Boundary & Process Lifecycle
 
 Absorbed from `api-boundary.md` (now a pointer stub).
