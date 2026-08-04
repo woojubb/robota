@@ -119,7 +119,7 @@ opposite, and the harness's whole premise is that a rule read is a rule in force
 than fixed inside #1615 because its subject is three unrelated cleanup items; that PR fixed its own
 five instances and this item exists so the sixth is caught by a machine.
 
-Related and NOT duplicated: [HARNESS-071](HARNESS-071-loops-with-no-progress-escape.md) is about loops
+Related and NOT duplicated: [HARNESS-071](completed/HARNESS-071-loops-with-no-progress-escape.md) is about loops
 that lack an escape. This is about documents that disagree. They met in round 13 — a rule contradicted
 the rule HARNESS-071 contains — which is why both exist.
 

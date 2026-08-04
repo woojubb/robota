@@ -30,6 +30,41 @@ whether a claim is true. So:
 Every one of those is mechanically detectable without judgement: a claim named an artifact, and the
 artifact did not resolve.
 
+## Measured — the size of the path half
+
+Surfaced 2026-08-04 while resolving a review finding on an unrelated pull request: a file moved to
+`completed/` and two links to it were not updated. Rather than fix the two and move on, the tree was
+swept, and the two were the visible edge of a class this item already owns.
+
+**216 broken relative links out of 1,104**, by the sweep below. The concentration says what they are:
+`.agents/spec-docs/done/` and `.agents/tasks/completed/` dominate, and most point at directory names
+that no longer exist — `../../backlog/…` from before the backlog tree became `tasks/`,
+`../spec-docs/active/…` from before those documents reached `done/`. A rename moved the files and left
+every reference behind.
+
+That makes the path half of this item mechanical AND large: the check is easy, and the tree is red on
+arrival, so it wants the same ratchet treatment the other arriving-red floors got rather than a flat
+gate nobody can turn on.
+
+```sh
+python3 - <<'EOF'
+import io, os, re
+bad = checked = 0
+for root, _, files in os.walk('.agents'):
+    for f in (n for n in files if n.endswith('.md')):
+        p = os.path.join(root, f)
+        for m in re.finditer(r'\]\((?!https?:|mailto:|#)([^)\s#]+)', io.open(p, encoding='utf-8').read()):
+            checked += 1
+            if not os.path.exists(os.path.normpath(os.path.join(root, m.group(1)))):
+                bad += 1
+print(checked, 'checked,', bad, 'broken')
+EOF
+```
+
+Two caveats the check will have to carry, both seen in that output: a fenced example may hold a
+deliberately unresolvable path (`../tasks/SOME-123-….md` in a document ABOUT link resolution), and a
+few "links" are regular expressions inside prose that happen to use bracket-paren syntax.
+
 ## Proposed direction
 
 A scan that fails when, in `.agents/**`:
