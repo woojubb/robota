@@ -172,9 +172,20 @@ input is at hand at the top of the function. The subject is only known after the
 existence checks and the skips — which is to say, after the walk. Every remaining scan should be
 marked from a counter incremented at the point of examination, never from the collection handed in.
 
+### Migration, batch 3 — 36 → 43 of 100
+
+Seven more: ADR documents, specification documents, architecture-map documents, spec documents,
+workflow files, agent definitions, review artifacts.
+
+**The batch-2 lesson held, and cost nothing this time.** Every one of these was marked from a counter
+incremented at the point of examination — the `readFileSync` inside the walk — never from the
+collection handed in. The one scan that already had its number at the print site
+(`action-references`, which counts the workflow sources it parsed) took a single line; the rest took
+a module-level holder each, which is the shape the item predicted and the size it predicted.
+
 ### What remains
 
-**64 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
+**57 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
 this item stays open until it is done, and the baseline number is the progress bar.
 
 ## Done when

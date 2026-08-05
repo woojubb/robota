@@ -51,7 +51,21 @@ function listSpecFiles(root) {
   }));
 }
 
+/**
+ * How many specification documents the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases, and rewriting them to carry a number proves nothing new (HARNESS-057). RESET at the top of
+ * the walk, so a run that reads nothing cannot report the previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, ['packages'], {
     scan: 'spec-paths',
     why: 'It validates the paths cited by package SPECs; with no packages/ there are no SPECs and the pass means nothing was read.',
@@ -60,6 +74,7 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
 
   for (const { packageDir, specPath } of listSpecFiles(root)) {
     const relativeSpec = path.relative(root, specPath);
+    examinedCount += 1;
     const lines = readFileSync(specPath, 'utf8').split('\n');
 
     for (const line of lines) {
@@ -91,6 +106,7 @@ export async function findSpecPathFindings(root = WORKSPACE_ROOT) {
 export async function main() {
   const findings = await findSpecPathFindings(WORKSPACE_ROOT);
   if (findings.length === 0) {
+    process.stdout.write(`::examined:: ${examinedCount} specification documents\n`);
     process.stdout.write('spec path scan passed.\n');
     return;
   }

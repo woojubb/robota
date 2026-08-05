@@ -47,7 +47,21 @@ function walkMarkdown(dir) {
 // Historical audit/lesson logs intentionally cite pre-refactor (now-removed) paths.
 const SKIP_FILES = new Set(['layering-audit.md', 'architecture-lessons.md']);
 
+/**
+ * How many architecture-map documents the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases, and rewriting them to carry a number proves nothing new (HARNESS-057). RESET at the top of
+ * the walk, so a run that reads nothing cannot report the previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, ['.agents/specs/architecture-map'], {
     scan: 'arch-map-paths',
     why: 'The architecture-map corpus IS this scan\u2019s subject: with no map to read, "every cited path exists" is true of nothing.',
@@ -56,6 +70,7 @@ export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
   for (const docPath of walkMarkdown(path.join(root, MAP_DIR_RELATIVE))) {
     if (SKIP_FILES.has(path.basename(docPath))) continue;
     const relative = path.relative(root, docPath);
+    examinedCount += 1;
     const lines = readFileSync(docPath, 'utf8').split('\n');
     for (const line of lines) {
       for (const token of citedRepoPaths(line, { pattern: REPO_SOURCE_PATH_PATTERN })) {
@@ -75,6 +90,7 @@ export async function findArchitectureMapPathFindings(root = WORKSPACE_ROOT) {
 export async function main() {
   const findings = await findArchitectureMapPathFindings(WORKSPACE_ROOT);
   if (findings.length === 0) {
+    process.stdout.write(`::examined:: ${examinedCount} architecture-map documents\n`);
     process.stdout.write('architecture-map path scan passed.\n');
     return;
   }
