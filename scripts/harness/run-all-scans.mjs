@@ -347,6 +347,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
   {
+    name: 'new-rule-declares-enforcement',
+    command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
+  },
+  {
     name: 'named-artifact-resolves',
     command: ['node', 'scripts/harness/scan-named-artifact-resolves.mjs'],
   },

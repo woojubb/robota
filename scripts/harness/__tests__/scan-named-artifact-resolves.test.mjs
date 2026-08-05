@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+// allow-missing-artifact-file: every name in this file is an invented fixture — the case is what a name looks like
+
 import {
   baselineKey,
+  fileIsExempt,
   findNamedArtifacts,
   hasAllowedReason,
   hasStem,
@@ -58,6 +61,31 @@ describe('the exemption, and where it must sit', () => {
 
   it('refuses an exemption with no reason in it', () => {
     expect(hasAllowedReason('names `gone.yml` (allow-missing-artifact: )')).toBe(false);
+  });
+
+  it('takes a FILE-level declaration, because a formatter can separate a line marker from its line', () => {
+    // Measured: prettier reflowed an assertion, leaving the claim on a line of its own with the
+    // marker two lines below — the exemption silently stopped applying and the check fired on the
+    // case that proves it works. A file whose fixtures ARE names says so once, where no reflow can
+    // separate the saying from the said. It replaced a hardcoded filename in the scan: a list of
+    // one, which is the shape that grows into a list of ten nobody can justify.
+    expect(fileIsExempt('// allow-missing-artifact-file: fixtures\nthe `nope.mjs` guard')).toBe(
+      true,
+    );
+    expect(
+      findNamedArtifacts('// allow-missing-artifact-file: fixtures\nthe `nope.mjs` guard'),
+    ).toEqual([]);
+  });
+
+  it('refuses a declaration with no reason — at either scope, and across the newline', () => {
+    // `\s` crosses a NEWLINE, so an empty marker swallowed the FOLLOWING line as its reason and a
+    // declaration saying nothing excused the file. It was fixed once for the per-line marker and
+    // came straight back when the shape was copied to the file-level one. Both are asserted here so
+    // the next copy has somewhere to fail.
+    expect(fileIsExempt('// allow-missing-artifact-file:\nreason on the next line')).toBe(false);
+    expect(hasAllowedReason('names it (allow-missing-artifact:\nreason on the next line')).toBe(
+      false,
+    );
   });
 
   it('applies to the LINE, so a marker beside the claim is not a marker on it', () => {

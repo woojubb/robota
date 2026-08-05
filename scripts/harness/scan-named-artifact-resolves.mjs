@@ -65,7 +65,29 @@ const NAMED = new RegExp(String.raw`^[A-Za-z0-9._/-]+\.(?:${EXTENSIONS.join('|')
 // so `(allow-missing-artifact: )` excused the line while saying nothing, which is the shape of every
 // suppression this repository regrets. Caught by its own case.
 const ALLOW =
-  /<!--\s*allow-missing-artifact:\s*([^]*?)-->|allow-missing-artifact:\s*([A-Za-z0-9][^\n]*)/;
+  /<!--\s*allow-missing-artifact:\s*([^]*?)-->|allow-missing-artifact:[ \t]*([A-Za-z0-9][^\n]*)/;
+
+/**
+ * A FILE-level declaration, for a document whose subject is invented names.
+ *
+ * The per-line marker is fragile in source: a formatter reflowed one assertion and left the claim on
+ * a line of its own with the marker two lines below, so the exemption silently stopped applying and
+ * the check fired on the case that proves it works. A file whose fixtures ARE names needs to say so
+ * once, where no reflow can separate the saying from the said.
+ *
+ * It replaces a hardcoded filename this scan used to carry — a list of one, which is the shape that
+ * grows into a list of ten nobody can justify.
+ */
+// `[ \t]`, not `\s`. `\s` crosses a NEWLINE, so an empty declaration swallowed the FOLLOWING line
+// as its reason and a marker saying nothing excused the whole file. The same defect had already been
+// fixed one function below for the per-line marker, and it came back the moment the shape was copied
+// — which is the argument for reading the reason on the marker's own line, both times.
+const ALLOW_FILE = /allow-missing-artifact-file:[ \t]*([A-Za-z0-9][^\n]*)/;
+
+export function fileIsExempt(source) {
+  const match = ALLOW_FILE.exec(source);
+  return Boolean(match && match[1].trim());
+}
 
 export function hasAllowedReason(line) {
   const match = ALLOW.exec(line);
@@ -98,6 +120,7 @@ export function hasStem(name) {
  * and dropping the whole line would excuse the real one.
  */
 export function findNamedArtifacts(source) {
+  if (fileIsExempt(source)) return [];
   const found = [];
   let inFence = false;
 
@@ -160,10 +183,6 @@ function documents(root) {
         if (!SKIP_DIRS.has(entry.name) && entry.name !== '.git') walk(full);
         continue;
       }
-      // A file whose SUBJECT is this scan writes invented names on purpose — `scan-x.mjs`,
-      // `Next.js` — and reading them as claims makes the check fire on the case that proves it
-      // works. Excluded by name rather than by a marker on every line of it.
-      if (entry.name === 'scan-named-artifact-resolves.test.mjs') continue;
       if (/\.(md|mjs|sh)$/.test(entry.name)) out.push(full);
     }
   };

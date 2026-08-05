@@ -207,6 +207,26 @@ Floors: `guards-fail-closed.test.mjs` covers the hook layer, including a `gh` th
 authenticate — the token condition above. An Action step is not mechanically covered
 yet; when one is added, its `|| echo` fallbacks are the first thing to read.
 
+**6. When its enumeration is incomplete, which way does it fail?** A guard that decides by a LIST
+of recognised inputs answers "not my business" to everything the list forgot — and that answer is
+silent. A guard that decides by a list of EXCLUDED inputs answers "mine" instead, and a mistake
+becomes a refusal someone sees, argues with, and fixes.
+
+The two directions are not equally wrong. A silent pass is discovered by the incident it failed to
+prevent; a wrong refusal is discovered by the next person who runs the command, and it has an
+override. So **enumerate what is excluded, not what is recognised** — and where the domain has a
+grammar rather than a vocabulary (command flags, URLs, versions), match the SHAPE and let the
+exclusions carry the semantics.
+
+Measured: one guard widened by an allowlist of flag tokens leaked three separate bypasses in a single
+change — a flag the list omitted, the `=` form of a flag it contained, and bundled short options —
+each of them a silent pass, each found by review rather than by the guard. Adding the missing tokens
+would have been the fourth attempt at the same mistake. Inverting the direction ended it.
+
+The cost is real and must be paid explicitly: an exclusion list that forgets an entry refuses correct
+work, so each entry earns its place and the refusals get their own cases. That cost is the point —
+it is visible, and the alternative is not.
+
 The two pull against each other on purpose. Property 5 alone produces a guard that refuses
 everything; property 4 alone produces one that permits everything. A guard is correct only when both
 hold, and each needs its own case. `hooks-have-execution-coverage` is the mechanical floor for question 3 in

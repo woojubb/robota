@@ -5,6 +5,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+// allow-missing-artifact-file: every path in this file is an invented fixture — the case is what a claim looks like
+
 import { commitishClaims, judgeMessage, pathClaims } from '../commit-message-claims.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -22,7 +24,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
  */
 const WORLD = {
   resolvesObject: (token) => token === 'abc1234',
-  pathKnown: (token) => token === 'scripts/harness/real.mjs', // (allow-missing-artifact: an invented name is the fixture this case is made of)
+  pathKnown: (token) => token === 'scripts/harness/real.mjs',
 };
 
 describe('what counts as a citation', () => {
@@ -43,8 +45,7 @@ describe('what counts as a citation', () => {
     // Prose names things loosely — "the harness scripts directory" — and reading that as a path
     // would fire on every sentence. A path claim in this repository is code-formatted.
     expect(pathClaims('edits `scripts/harness/x.mjs` under scripts/harness/')).toEqual([
-      // (allow-missing-artifact: an invented name is the fixture this case is made of)
-      'scripts/harness/x.mjs', // (allow-missing-artifact: an invented name is the fixture this case is made of)
+      'scripts/harness/x.mjs',
     ]);
   });
 
@@ -64,7 +65,7 @@ describe('the two claims a machine can check', () => {
   it('refuses a path that exists neither in the tree nor in the change', () => {
     // The shape that caught the real incident: the message says the item now records something, the
     // item is named, and the commit never touched it — because the edit silently did not land.
-    const findings = judgeMessage('docs: x\n\nrecorded in `scripts/harness/imaginary.mjs`', WORLD); // (allow-missing-artifact: an invented name is the fixture this case is made of)
+    const findings = judgeMessage('docs: x\n\nrecorded in `scripts/harness/imaginary.mjs`', WORLD);
 
     expect(findings).toHaveLength(1);
     expect(findings[0].kind).toBe('path-names-nothing');
@@ -73,9 +74,9 @@ describe('the two claims a machine can check', () => {
   it('accepts a path this commit touches even though the tree does not have it yet', () => {
     // A file ADDED by the commit is a legitimate citation. Requiring it to pre-exist would refuse
     // every message that introduces a file — a guard firing on correct work.
-    const staged = { ...WORLD, pathKnown: (token) => token === 'scripts/harness/new.mjs' }; // (allow-missing-artifact: an invented name is the fixture this case is made of)
+    const staged = { ...WORLD, pathKnown: (token) => token === 'scripts/harness/new.mjs' };
 
-    expect(judgeMessage('feat: x\n\nadds `scripts/harness/new.mjs`', staged)).toEqual([]); // (allow-missing-artifact: an invented name is the fixture this case is made of)
+    expect(judgeMessage('feat: x\n\nadds `scripts/harness/new.mjs`', staged)).toEqual([]);
   });
 
   it('says nothing about a message that cites nothing', () => {
@@ -88,7 +89,7 @@ describe('the rule is wired where commits actually pass through', () => {
     // The end-to-end form. A unit test over `judgeMessage` proves the judgement; this proves the
     // judgement is REACHED — by the command the hook and the required check both run.
     const result = runCommitlint(
-      'fix(x): probe\n\nsee 0f4a1234567 and `scripts/harness/definitely-not-here.mjs`\n', // (allow-missing-artifact: an invented name is the fixture this case is made of)
+      'fix(x): probe\n\nsee 0f4a1234567 and `scripts/harness/definitely-not-here.mjs`\n',
     );
 
     expect(result.status, result.output).not.toBe(0);
