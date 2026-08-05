@@ -95,6 +95,7 @@ export function findNeutralityViolationsInSource(source, file = 'fixture.ts') {
 }
 
 export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, SCAN_DIRS, {
     scan: 'orchestration-neutrality',
     why: 'The configured orchestration contract directories ARE the subject: over a root without them, "no app-domain identity leaks into the neutral contracts" is a statement about no contracts.',
@@ -112,8 +113,11 @@ export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
 
 function main() {
   const findings = findOrchestrationNeutralityFindings();
+
+  // Before the branch, for the reason above: the adoption count is read from every run.
+  console.log(`::examined:: ${examinedCount} source files`);
+
   if (findings.length === 0) {
-    console.log(`::examined:: ${examinedCount} source files`);
     console.log('orchestration-neutrality scan passed.');
     process.exit(0);
   }

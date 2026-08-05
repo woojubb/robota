@@ -95,6 +95,7 @@ export function readExamined() {
 }
 
 export function findTransportNames(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, ['packages'], {
     scan: 'deployment-matrix',
     why: 'Transport names are enumerated FROM the package tree; over an absent one the matrix would read as entirely phantom or entirely complete depending on the caller, neither of which is a measurement.',
@@ -160,8 +161,12 @@ function main() {
   const matrixNames = findMatrixNames(readFileSync(MATRIX, 'utf8'));
   const { undocumented, phantom } = diffDeploymentMatrix(codeNames, matrixNames);
 
+  // Before the branch. The runner reads this marker out of EVERY run, pass or fail, toward the
+  // frozen adoption count — so a marker only the passing arm reaches makes a legitimate failure
+  // ALSO report a fallen adoption, which is a second, false finding riding on the first.
+  console.log(`::examined:: ${examinedCount} transport source files`);
+
   if (undocumented.length === 0 && phantom.length === 0) {
-    console.log(`::examined:: ${examinedCount} transport source files`);
     console.log(`deployment-matrix scan passed (${[...codeNames].sort().join(', ')}).`);
     process.exit(0);
   }

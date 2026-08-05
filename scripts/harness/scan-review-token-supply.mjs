@@ -162,6 +162,7 @@ export function findTokenlessActionSteps(content) {
  * @returns {{findings: Array<{workflow: string, line: number, detail: string}>, checked: string[]}}
  */
 export function findReviewTokenSupplyFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   const workflows = listGovernedWorkflows(root);
   // ANTI-ROT (HARNESS-052, inherited). An empty governed set is not a pass: the day the action
   // reference is renamed, wrapped in a composite action, or pinned under another org, this guard

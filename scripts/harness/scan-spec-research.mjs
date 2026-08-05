@@ -41,6 +41,7 @@ export function readExamined() {
 }
 
 export function collectSpecResearchFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, ['.agents/spec-docs'], {
     scan: 'spec-research',
     why: 'The spec-doc pipeline is the corpus; each stage directory was optional, so a root with none printed a pass over nothing.',
@@ -90,6 +91,8 @@ export function collectSpecResearchFindings(root = WORKSPACE_ROOT) {
 export function main() {
   const findings = collectSpecResearchFindings();
 
+  console.log(`::examined:: ${examinedCount} spec documents`);
+
   if (findings.length > 0) {
     console.error('spec-research scan: FINDINGS');
     for (const f of findings) console.error('  - ' + f);
@@ -99,7 +102,6 @@ export function main() {
     process.exit(1);
   }
 
-  console.log(`::examined:: ${examinedCount} spec documents`);
   console.log('spec-research scan passed.');
   process.exit(0);
 }
