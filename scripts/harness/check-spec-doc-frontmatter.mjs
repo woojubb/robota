@@ -80,7 +80,21 @@ function frontmatter(text) {
   return { status: scalar('status'), type: scalar('type'), tags: asList(entries.get('tags')) };
 }
 
+/**
+ * How many spec documents the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases, and rewriting them to carry a number proves nothing new (HARNESS-057). RESET at the top of
+ * the walk, so a run that reads nothing cannot report the previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function findSpecDocFrontmatterFindings(target) {
+  examinedCount = 0;
   const blocking = [];
   const warnings = [];
   const singleFile = target && existsSync(target) && statSync(target).isFile();
@@ -107,6 +121,7 @@ export function findSpecDocFrontmatterFindings(target) {
   const idMap = new Map();
   for (const file of files) {
     const rel = path.relative(WORKSPACE_ROOT, file);
+    examinedCount += 1;
     const fm = frontmatter(readFileSync(file, 'utf8'));
     if (!fm) {
       blocking.push({ file: rel, detail: 'missing frontmatter block' });
@@ -140,6 +155,7 @@ export function main(argv = process.argv) {
   const { blocking, warnings } = findSpecDocFrontmatterFindings(target);
   for (const w of warnings) process.stdout.write(`- [warn] ${w.file}: ${w.detail}\n`);
   if (blocking.length === 0) {
+    process.stdout.write(`::examined:: ${examinedCount} spec documents\n`);
     process.stdout.write('spec-doc frontmatter scan passed.\n');
     return;
   }

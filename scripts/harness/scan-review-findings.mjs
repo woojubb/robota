@@ -21,6 +21,19 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+/**
+ * How many review artifacts the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
   const orch = path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
@@ -32,6 +45,7 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
       findings.push(`${label}: file missing (${path.relative(root, file)})`);
       return;
     }
+    examinedCount += 1;
     if (!re.test(readFileSync(file, 'utf8'))) {
       findings.push(`${label}: ${why}`);
     }
@@ -86,6 +100,7 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${examinedCount} review artifacts`);
   console.log('review-findings scan passed.');
   process.exit(0);
 }

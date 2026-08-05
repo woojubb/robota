@@ -45,9 +45,24 @@ function adrFiles(target) {
     .map((f) => path.join(ADR_DIR, f));
 }
 
+/**
+ * How many ADR documents the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases, and rewriting them to carry a number proves nothing new (HARNESS-057). RESET at the top of
+ * the walk, so a run that reads nothing cannot report the previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function findAdrFindings(target) {
+  examinedCount = 0;
   const findings = [];
   for (const file of adrFiles(target)) {
+    examinedCount += 1;
     const rel = path.relative(WORKSPACE_ROOT, file);
     const text = readFileSync(file, 'utf8');
     MUST_SECTIONS.forEach((re, i) => {
@@ -74,6 +89,7 @@ export function main(argv = process.argv) {
   const target = arg ? path.resolve(WORKSPACE_ROOT, arg) : undefined;
   const findings = findAdrFindings(target);
   if (findings.length === 0) {
+    process.stdout.write(`::examined:: ${examinedCount} ADR documents\n`);
     process.stdout.write('ADR completeness scan passed.\n');
     return;
   }

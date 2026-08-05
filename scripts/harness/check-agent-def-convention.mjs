@@ -60,6 +60,19 @@ const EDIT_TOOLS = ['Edit', 'Write'];
  * Split a markdown file into its frontmatter map + body. Values are a string (scalar) or a
  * string[] (`tools: [Read, Write]`, in any of the shapes prettier may leave it in).
  */
+/**
+ * How many agent definitions the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function parseAgentFile(text) {
   const { entries, body } = splitFrontmatter(text);
   return { frontmatter: entries ? Object.fromEntries(entries) : {}, body };
@@ -126,6 +139,7 @@ export function findAgentDefFindings(agentsDir = AGENTS_DIR, skillsIndexPath = S
   const indexText = existsSync(skillsIndexPath) ? readFileSync(skillsIndexPath, 'utf8') : '';
   for (const entry of readdirSync(agentsDir, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    examinedCount += 1;
     const text = readFileSync(path.join(agentsDir, entry.name), 'utf8');
     const { frontmatter } = parseAgentFile(text);
     const agentName = asScalar(frontmatter.name) || entry.name.replace(/\.md$/, '');
@@ -140,6 +154,7 @@ function main() {
   const results = findAgentDefFindings();
   if (results.length === 0) {
     console.log('✅ Agent-definition convention: all agents conform.');
+    console.log(`::examined:: ${examinedCount} agent definitions`);
     console.log('agent-def-convention summary: violations=0 result=PASS');
     process.exit(0);
   }

@@ -474,7 +474,8 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   write(
-    `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
+    `::examined:: ${sources.length} workflow files\n` +
+      `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
   );
   for (const { reference, resolution } of results) {
     write(
