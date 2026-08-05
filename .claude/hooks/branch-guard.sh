@@ -176,7 +176,15 @@ RE_BRANCH_CREATE_FLAGS="$RE_BRANCH_FLAG"
 # and `-c` is a flag). Detected as neither, it passed through the guard entirely. A second spelling of
 # what counts as this action is a second answer waiting to disagree, and here it disagreed by opening
 # the exact bypass this item exists to close, inside the fix for it.
-RE_BRANCH_COPY="${GITPFX}branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*(-[cC]|--copy|--force-copy)${GITEND}"
+# `-[a-zA-Z]*[cC][a-zA-Z]*`, not `-[cC]`. A short flag glued onto the copy — `-qc`, `-cq`, `-fc` —
+# never reached this matcher, because `-[cC]${GITEND}` demands a boundary the next letter is not. The
+# statement then fell through to the CREATION path, which reads a name and a base out of positions the
+# copy forms reverse: measured, `git branch -qc a b` was refused, but for the wrong argument. A wrong
+# answer given confidently is what refusing copies instead of parsing them exists to avoid.
+#
+# Only `c`/`C` mean copy among git-branch's short flags (`a r v d D m M f q t u l` are the rest), so a
+# bundle containing one IS a copy. The long forms need no bundling: `--` flags do not glue.
+RE_BRANCH_COPY="${GITPFX}branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*(-[a-zA-Z]*[cC][a-zA-Z]*|--copy|--force-copy)${GITEND}"
 # Each alternative carries its OWN ending. Hanging one `${GITEND}` off the whole group was the first
 # attempt and it silently dropped the boundary from the two existing spellings — `-bogus` would have
 # read as `-b`. The `branch` alternative ends by consuming the first character of the name, which is

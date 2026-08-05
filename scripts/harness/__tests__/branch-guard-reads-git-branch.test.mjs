@@ -179,6 +179,14 @@ describe('the copy forms create a branch too, and are refused rather than parsed
     // learns about.
     ['the = form before a copy', 'git branch --track=direct -c a b'],
     ['bundled shorts before a copy', 'git branch -qf -c a b'],
+    // The copy flag glued INTO a bundle. `-[cC]` demanded a boundary the next letter is not, so
+    // these never reached the copy matcher and fell through to the CREATION path — which reads a
+    // name and a base out of the positions the copy forms reverse. Measured: refused, but for the
+    // wrong argument, which is the confident wrong answer that refusing-instead-of-parsing exists
+    // to avoid.
+    ['the copy flag glued after another', 'git branch -qc a b'],
+    ['the copy flag glued before another', 'git branch -cq a b'],
+    ['force and copy in one bundle', 'git branch -fc a b'],
   ];
 
   for (const [what, command] of COPY_SPELLINGS) {
