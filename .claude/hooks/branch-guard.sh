@@ -147,13 +147,19 @@ RE_BRANCH_FLAG='(--[a-zA-Z][a-zA-Z0-9-]*(=[^[:space:]]*)?|-[a-zA-Z]+)'
 #     --set-upstream-to --unset-upstream -u
 #   - LISTING with a value: --list --contains --no-contains --merged --no-merged --points-at
 #     --sort --format --column
+# Bundled, like the create side. `-[adDmMruv]` matched a single letter only, so `git branch -av
+# feature/x` and `-rv origin/main` were read as creations and refused — the third time in this change
+# that a matcher was written for one spelling of a flag while git accepts several. The create matcher
+# and the copy matcher both take bundles; a denylist that does not is the same defect wearing the
+# other direction, and its cost is a refusal on ordinary listing.
+#
 # The listing flags are HERE too, and the comment that used to say they need no entry was wrong in
 # the way this file keeps being wrong: it asserted a property of git's grammar without reading it.
 # `git branch [-r|-a] [--list] [<pattern>...]` takes a PATTERN, so `git branch -r origin/main` put a
 # ref where a new branch's name goes and was refused — measured, on ordinary listing. A denylist that
 # forgets an entry refuses correct work, which is the cost this direction accepts; paying it means
 # adding the entry, not narrowing the direction.
-RE_BRANCH_NOT_CREATE="${GITPFX}branch\s+(${RE_BRANCH_FLAG}\s+)*(-[adDmMruv]|--all|--remotes|--verbose|--show-current|--delete|--move|--edit-description|--set-upstream-to|--unset-upstream|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--sort|--format|--column)([= ]|\s|$)"
+RE_BRANCH_NOT_CREATE="${GITPFX}branch\s+(${RE_BRANCH_FLAG}\s+)*(-[a-zA-Z]*[adDmMruv][a-zA-Z]*|--all|--remotes|--verbose|--show-current|--delete|--move|--edit-description|--set-upstream-to|--unset-upstream|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--sort|--format|--column)([= ]|\s|$)"
 RE_BRANCH_CREATE_FLAGS="$RE_BRANCH_FLAG"
 # `git branch -c|-C|--copy|--force-copy` creates a branch too, and is handled SEPARATELY because its
 # arguments are in the other order: `-c <new>` names the branch in the first position, `-c <old>

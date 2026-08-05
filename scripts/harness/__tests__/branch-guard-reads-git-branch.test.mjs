@@ -276,6 +276,13 @@ describe('listing, deleting and renaming are not creations', () => {
     ['listing remotes by name', 'git branch -r origin/main'],
     ['the long form of both', 'git branch --all release/x'],
     ['verbose listing with a pattern', 'git branch -v feat/x'],
+    // Bundled, like both create matchers already are. The denylist matched a single letter only, so
+    // these were read as creations and refused — the third time in this change that a matcher was
+    // written for one spelling while git accepts several. Same defect, other direction, and its
+    // cost is a refusal on ordinary listing.
+    ['bundled all-and-verbose with a pattern', 'git branch -av feature/x'],
+    ['bundled remotes-and-verbose with a name', 'git branch -rv origin/main'],
+    ['bundled delete', 'git branch -dr old'],
   ];
 
   for (const [what, command] of NOT_A_CREATION) {
