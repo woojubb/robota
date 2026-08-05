@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -46,6 +46,32 @@ describe('the ambient git context is not inherited (HARNESS-075)', () => {
     for (const name of declared) {
       expect(process.env[name], `${name} reached a test process`).toBeUndefined();
     }
+  });
+
+  it('survives the variables being INJECTED, which is the only version that can fail in CI', () => {
+    // The case above asserts the variables are absent. Review found that vacuous where it counts:
+    // continuous integration runs `pnpm harness:test` directly, never through `.husky/pre-push`, so
+    // nothing sets `GIT_DIR` there in the first place. Remove the fence and that case still passes —
+    // it verifies a condition that cannot fail, over the exact regression it exists to catch.
+    //
+    // So this one supplies the condition. It runs the suite again as a CHILD with `GIT_DIR` set, the
+    // way a git hook would, and asks whether the case above still holds inside it. With the fence,
+    // the child passes; without it, the child fails and so does this.
+    const child = spawnSync(
+      'npx',
+      ['vitest', 'run', import.meta.filename, '-t', 'none of them reaches a running test'],
+      {
+        cwd: WORKSPACE_ROOT,
+        encoding: 'utf8',
+        // A real git dir, exactly as `.husky/pre-push` would export it.
+        env: { ...process.env, GIT_DIR: path.join(WORKSPACE_ROOT, '.git') },
+        timeout: 120_000,
+      },
+    );
+
+    const output = `${child.stdout ?? ''}${child.stderr ?? ''}`;
+    expect(output, 'the child run selected no case, so it proved nothing').toMatch(/1 passed/);
+    expect(child.status, output).toBe(0);
   });
 
   it('a git command run by a test resolves from its OWN cwd, not from an inherited context', () => {
