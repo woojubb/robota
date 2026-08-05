@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -47,15 +48,33 @@ describe('the ambient git context is not inherited (HARNESS-075)', () => {
     }
   });
 
-  it('a git command run by a test resolves to the tree it is given, not to an inherited one', () => {
-    // The end-to-end form. `git rev-parse --git-dir` answers from GIT_DIR when it is set, and from
-    // the cwd otherwise — so this is the same question the fixtures ask, asked directly.
-    const answered = execFileSync('git', ['rev-parse', '--absolute-git-dir'], {
-      cwd: WORKSPACE_ROOT,
-      encoding: 'utf8',
-    }).trim();
+  it('a git command run by a test resolves from its OWN cwd, not from an inherited context', () => {
+    // The end-to-end form, asked of a SCRATCH repository rather than of this checkout.
+    //
+    // The first version asked it of `WORKSPACE_ROOT` and required the answer to sit under it. That
+    // is false in a linked worktree by construction: a worktree's `.git` is a FILE pointing at
+    // `<main clone>/.git/worktrees/<id>`, so `rev-parse` correctly answers a path under the MAIN
+    // clone — and the case would have failed in exactly the environment this whole fix exists to
+    // make safe. Review caught it.
+    //
+    // A scratch repository has no such indirection, so the question is asked without a layout
+    // assumption riding on it: given a cwd, does git answer from that cwd?
+    const scratch = mkdtempSync(path.join(tmpdir(), 'git-context-'));
+    try {
+      execFileSync('git', ['init', '--quiet'], { cwd: scratch });
 
-    expect(existsSync(answered), `git resolved to ${answered}, which does not exist`).toBe(true);
-    expect(path.resolve(answered).startsWith(path.resolve(WORKSPACE_ROOT))).toBe(true);
+      const answered = execFileSync('git', ['rev-parse', '--absolute-git-dir'], {
+        cwd: scratch,
+        encoding: 'utf8',
+      }).trim();
+
+      expect(existsSync(answered), `git resolved to ${answered}, which does not exist`).toBe(true);
+      expect(
+        realpathSync(answered).startsWith(realpathSync(scratch)),
+        `git answered ${answered} for a command run in ${scratch}`,
+      ).toBe(true);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 });
