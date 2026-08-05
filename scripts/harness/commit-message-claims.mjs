@@ -29,7 +29,13 @@
  * Deliberately NOT checked: whether the prose is true. That is the general problem, and it is not
  * this file's.
  *
- * Exit 0 = every checkable claim in the message resolves.
+ * ## No command-line entry
+ *
+ * `commitlint.config.js` imports `judgeMessage` and `pathHasEverExisted` directly, so a `main()`
+ * here would be a second way to run the same judgement — and the one nothing calls. Review found
+ * exactly that: a file-reading entry point and a CLI wrapper that no hook, no workflow and no test
+ * invoked. An entry point nothing calls is the reachability defect this repository measures; it is
+ * removed rather than wired, because the wiring already exists elsewhere.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -54,7 +60,10 @@ const COMMITISH = /\b(?=[0-9a-f]{7,40}\b)[a-f]*[0-9][0-9a-f]*\b/g;
 
 /** A code-spanned token shaped like a repository path. */
 const CODE_SPAN = /`([^`\n]+)`/g;
-const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*\/[A-Za-z0-9._/-]+$/;
+// A slash is not what makes a token a path. `AGENTS.md` and `commitlint.config.js` are cited in
+// commit messages constantly and went unchecked — the same false claim this file exists to catch,
+// one directory level up. A token with a file extension is a claim about a file wherever it sits.
+const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(\/[A-Za-z0-9._/-]+|\.[A-Za-z0-9]+)$/;
 
 export function commitishClaims(message) {
   const found = new Set();
@@ -158,43 +167,3 @@ export function pathHasEverExisted(
 export function isShallow(root = WORKSPACE_ROOT) {
   return gitLines(['rev-parse', '--is-shallow-repository'], root)[0] === 'true';
 }
-
-export function checkCommitMessageFile(file, root = WORKSPACE_ROOT) {
-  // Fail closed: a message file that cannot be read is not an empty message.
-  if (!existsSync(file)) throw new Error(`commit-message-claims: ${file} does not exist.`);
-  const message = readFileSync(file, 'utf8')
-    .split('\n')
-    .filter((line) => !line.startsWith('#'))
-    .join('\n');
-
-  const staged = new Set(gitLines(['diff', '--cached', '--name-only'], root));
-
-  return judgeMessage(message, {
-    resolvesObject: (token) => gitLines(['cat-file', '-t', token], root)[0] === 'commit',
-    pathKnown: (token) => pathHasEverExisted(token, { staged, root }),
-  });
-}
-
-function main() {
-  const file = process.argv[2];
-  if (!file) {
-    console.error('commit-message-claims: pass the path to the commit message file.');
-    process.exitCode = 1;
-    return;
-  }
-
-  const findings = checkCommitMessageFile(file);
-  if (findings.length === 0) return;
-
-  console.error(
-    `commit-message-claims: ${findings.length} claim(s) in the message resolve to nothing:`,
-  );
-  for (const finding of findings)
-    console.error(`  - [${finding.kind}] \`${finding.token}\` ${finding.detail}`);
-  console.error(
-    '\nRead the tree, then write the message. A message is what the next reader trusts instead of the diff.',
-  );
-  process.exitCode = 1;
-}
-
-if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) main();

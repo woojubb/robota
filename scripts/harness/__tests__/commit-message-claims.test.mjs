@@ -78,6 +78,20 @@ describe('what counts as a citation', () => {
     ]);
   });
 
+  it('reads a bare top-level filename, which is a path claim one level up', () => {
+    // A slash is not what makes a token a path. `AGENTS.md` and `commitlint.config.js` are cited in
+    // commit messages constantly and went unchecked — the same false claim this file exists to
+    // catch, in the directory most messages mention.
+    expect(pathClaims('edits `AGENTS.md` and `commitlint.config.js`')).toEqual([
+      'AGENTS.md',
+      'commitlint.config.js',
+    ]);
+  });
+
+  it('still does not read a word that names no file', () => {
+    expect(pathClaims('the `harness` directory')).toEqual([]);
+  });
+
   it('does not read a form standing in for a path', () => {
     expect(pathClaims('add `packages/<pkg>/docs/SPEC.md`')).toEqual([]);
   });
