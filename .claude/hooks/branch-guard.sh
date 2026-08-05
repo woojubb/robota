@@ -110,7 +110,93 @@ GITEND='([^-[:alnum:]_]|$)'
 RE_COMMIT="${GITPFX}commit${GITEND}"
 RE_PUSH="${GITPFX}push${GITEND}"
 RE_MERGE="${GITPFX}merge${GITEND}"
-RE_CREATE="${GITPFX}(checkout\s+(-\S+\s+)*-[bB]|switch\s+(-\S+\s+)*-[cC])${GITEND}"
+# `git branch <name> [<start-point>]` creates a branch as truly as the two spellings above, and was
+# not detected — so `git branch x main && git checkout x` reached neither the base check nor the name
+# check, a branch cut from `main` and named outside the convention, in two commands the guard read as
+# "not a creation" (INFRA-070). The rule said only two spellings, which is the shape that leaves a
+# guard true on paper and reachable around in practice.
+#
+# The flag list is an ALLOWLIST, and that direction is the whole safety of it. `git branch` with no
+# argument lists; `-a`, `-r`, `-v`, `--list`, `--merged`, `--contains`, `--show-current` list;
+# `-d`/`-D` delete; `-m`/`-M` rename. Treating any of those as a creation would turn ordinary
+# inspection into a refusal — property 4, the failure that gets a guard turned off. Only flags that
+# still leave the command a creation are admitted, and the next token must not itself be a flag.
+# ANY flag, by SHAPE — not a list of the ones we thought of. Third bypass in this one change, and
+# each was the allowlist missing a spelling: `--track -c` (a flag it did not list), then
+# `--track=direct` (the `=` form), then `-qf` (bundled shorts). A list of tokens cannot describe
+# git's flag grammar, and every gap in it is a SILENT pass — the failure direction that costs the
+# most, because nothing announces it.
+#
+# So the shape is matched instead, and the semantics are decided by a DENYLIST below. That inverts
+# the failure: a flag nobody anticipated now reads as a creation and gets JUDGED, so a mistake here
+# is a refusal someone sees and overrides, rather than a bypass nobody ever learns about. "Unknown
+# is not zero" is this repository's rule for exactly this choice.
+# `[^[:space:]]`, not `[^ \t]`. Inside a POSIX bracket expression `\t` is the two characters
+# BACKSLASH and t, so `[^ \t]` excludes the letter t — and `--track=direct` stopped matching at
+# `direc`, leaving the very bypass this line was written to close. Caught by probing the four
+# reported shapes rather than by reading the regex.
+RE_BRANCH_FLAG='(--[a-zA-Z][a-zA-Z0-9-]*(=[^[:space:]]*)?|-[a-zA-Z]+)'
+
+# The flags that make `git branch` something OTHER than a creation. This is the denylist the shape
+# matching above hands off to, and it is deliberately the only list left: a name missing from HERE
+# produces a refusal on correct work — loud, overridable, and fixed the next day — while a name
+# missing from an allowlist produced a silent bypass three times in this change alone.
+#
+# Two kinds, both taking a following argument that would otherwise read as a new branch name:
+#   - operating on an EXISTING branch: -d -D --delete -m -M --move --edit-description
+#     --set-upstream-to --unset-upstream -u
+#   - LISTING with a value: --list --contains --no-contains --merged --no-merged --points-at
+#     --sort --format --column
+# Bundled, like the create side. `-[adDmMruv]` matched a single letter only, so `git branch -av
+# feature/x` and `-rv origin/main` were read as creations and refused — the third time in this change
+# that a matcher was written for one spelling of a flag while git accepts several. The create matcher
+# and the copy matcher both take bundles; a denylist that does not is the same defect wearing the
+# other direction, and its cost is a refusal on ordinary listing.
+#
+# The listing flags are HERE too, and the comment that used to say they need no entry was wrong in
+# the way this file keeps being wrong: it asserted a property of git's grammar without reading it.
+# `git branch [-r|-a] [--list] [<pattern>...]` takes a PATTERN, so `git branch -r origin/main` put a
+# ref where a new branch's name goes and was refused — measured, on ordinary listing. A denylist that
+# forgets an entry refuses correct work, which is the cost this direction accepts; paying it means
+# adding the entry, not narrowing the direction.
+RE_BRANCH_NOT_CREATE="${GITPFX}branch\s+(${RE_BRANCH_FLAG}\s+)*(-[a-zA-Z]*[adDmMruv][a-zA-Z]*|--all|--remotes|--verbose|--show-current|--delete|--move|--edit-description|--set-upstream-to|--unset-upstream|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--sort|--format|--column)([= ]|\s|$)"
+RE_BRANCH_CREATE_FLAGS="$RE_BRANCH_FLAG"
+# `git branch -c|-C|--copy|--force-copy` creates a branch too, and is handled SEPARATELY because its
+# arguments are in the other order: `-c <new>` names the branch in the first position, `-c <old>
+# <new>` in the SECOND, with the base first. Every other spelling here puts the name first and the
+# base second. Parsing both arities through the same positional extraction is a place to get a
+# verdict silently backwards — judging the new branch's name against the source branch, or its base
+# against itself — and this guard has twice shipped a parser defect that refused the creation of the
+# branch its own fix lived on.
+#
+# So the copy forms are REFUSED rather than parsed. Copying a branch is not a spelling any workflow
+# here prescribes (`git-branch.md` prescribes `git fetch origin && git checkout -b <type>/<slug>
+# origin/develop`), the message says which form to use instead, and the same override that excuses a
+# deliberate exception everywhere else excuses this one. A clear refusal on a form nobody uses beats
+# a confident wrong answer on it.
+#
+# ONE spelling of the flag list, interpolated into both. Re-typing it here was the first version, and
+# it re-created the fork this file's own header warns about — with the copy matcher admitting a
+# SHORTER list than the creation matcher, `git branch --track -c old new` matched NEITHER: not a copy
+# (its list lacked `--track`) and not a creation (that one requires the next token to be a non-flag,
+# and `-c` is a flag). Detected as neither, it passed through the guard entirely. A second spelling of
+# what counts as this action is a second answer waiting to disagree, and here it disagreed by opening
+# the exact bypass this item exists to close, inside the fix for it.
+# `-[a-zA-Z]*[cC][a-zA-Z]*`, not `-[cC]`. A short flag glued onto the copy — `-qc`, `-cq`, `-fc` —
+# never reached this matcher, because `-[cC]${GITEND}` demands a boundary the next letter is not. The
+# statement then fell through to the CREATION path, which reads a name and a base out of positions the
+# copy forms reverse: measured, `git branch -qc a b` was refused, but for the wrong argument. A wrong
+# answer given confidently is what refusing copies instead of parsing them exists to avoid.
+#
+# Only `c`/`C` mean copy among git-branch's short flags (`a r v d D m M f q t u l` are the rest), so a
+# bundle containing one IS a copy. The long forms need no bundling: `--` flags do not glue.
+RE_BRANCH_COPY="${GITPFX}branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*(-[a-zA-Z]*[cC][a-zA-Z]*|--copy|--force-copy)${GITEND}"
+# Each alternative carries its OWN ending. Hanging one `${GITEND}` off the whole group was the first
+# attempt and it silently dropped the boundary from the two existing spellings — `-bogus` would have
+# read as `-b`. The `branch` alternative ends by consuming the first character of the name, which is
+# a boundary of its own kind; the other two still end on a non-word character.
+RE_CREATE="${GITPFX}(checkout\s+(-\S+\s+)*-[bB]${GITEND}|switch\s+(-\S+\s+)*-[cC]${GITEND}|branch\s+(${RE_BRANCH_CREATE_FLAGS}\s+)*[^-[:space:]])"
+
 RE_GH_API="(^|[;&|({\"'\`]|[[:space:]])[[:space:]]*gh[[:space:]]+api${GITEND}"
 
 # Nothing is resolved here any more. An override belongs to a statement and is asked of that
@@ -192,6 +278,7 @@ while read -r STMT_START STMT_LEN; do
   IS_PUSH=false
   IS_MERGE=false
   IS_BRANCH_CREATE=false
+  IS_BRANCH_COPY=false
   IS_GH_DELETE_BRANCH=false
   # GITPFX tolerates global git flags before the subcommand — `git -C <path> commit`, `git -c k=v push` —
   # which previously slipped past every action regex (worktree-blindness, parallel-wave lesson).
@@ -222,6 +309,24 @@ while read -r STMT_START STMT_LEN; do
   printf '%s' "$STMT_MASK" | grep -qE "$RE_PUSH" && IS_PUSH=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_MERGE" && IS_MERGE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
+  printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_COPY" && IS_BRANCH_COPY=true
+  # …unless the statement is one of the `git branch` forms that operate on an existing branch or
+  # list with a value. Their argument sits exactly where a new branch's name would, so the shape
+  # matching above reads `git branch -d old` as creating `old` and `--contains HEAD` as creating
+  # `HEAD`. Both were measured refusing correct work before this line existed.
+  if printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_NOT_CREATE"; then
+    IS_BRANCH_CREATE=false
+    IS_BRANCH_COPY=false
+  fi
+  # A copy is NEVER also judged as a creation, and this holds even when the copy refusal is
+  # overridden. `-c` is flag-shaped, so `git branch -c a b` looks like a creation of `a` from `b` —
+  # with the arguments the wrong way round, which is the entire reason copies are refused instead of
+  # parsed. Taking the deliberate exception must not silently hand the statement to the parser it was
+  # exempted from: measured, `BRANCH_GUARD_ALLOW_BRANCH_COPY=1 git branch -c a b` was then refused by
+  # the creation path, for a name and a base read out of the wrong positions.
+  if [[ "$IS_BRANCH_COPY" == "true" ]]; then
+    IS_BRANCH_CREATE=false
+  fi
   # `gh pr merge --delete-branch` is banned (git-branch.md): it once deleted the
   # develop integration branch. Match ONLY when --delete-branch is an actual argument
   # of a `gh pr merge` invocation — strip shell comments first, then require the flag
@@ -636,6 +741,20 @@ while read -r STMT_START STMT_LEN; do
     # A merged PR exists AND nothing is open on the branch → deletion is safe. Fall through.
   fi
 
+  # Judged here rather than below, because the checks below read a NAME and a BASE out of positions
+  # this form does not use (see RE_BRANCH_COPY). Refusing before that point is the whole reason the
+  # copy forms are a separate verb: nothing downstream gets the chance to answer about the wrong
+  # token.
+  if [[ "$IS_BRANCH_COPY" == "true" ]] && ! stmt_override BRANCH_GUARD_ALLOW_BRANCH_COPY; then
+    echo "[branch-guard] Blocked: 'git branch -c/-C' copies a branch, which creates one." >&2
+    echo "[branch-guard] Its arguments are in the other order — '-c <old> <new>' names the branch" >&2
+    echo "[branch-guard] SECOND — so the base and name checks would read the wrong token and answer" >&2
+    echo "[branch-guard] confidently backwards. Create it the prescribed way instead:" >&2
+    echo "[branch-guard]   git fetch origin && git checkout -b <type>/<slug> origin/develop" >&2
+    echo "[branch-guard] Deliberate exception: BRANCH_GUARD_ALLOW_BRANCH_COPY=1 inline." >&2
+    exit 2
+  fi
+
   if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" && "$IS_BRANCH_CREATE" == "false" ]]; then
     continue
   fi
@@ -780,6 +899,14 @@ while read -r STMT_START STMT_LEN; do
     NEW_BRANCH=$(hook_match_extract "$COMMAND" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
         "$STMT_START" "$STMT_LEN" || true)
+    # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
+    # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
+    # extraction found nothing, because a statement is one creation and the first match is its name.
+    if [[ -z "$NEW_BRANCH" ]]; then
+      NEW_BRANCH=$(hook_match_extract "$COMMAND" \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
+          "$STMT_START" "$STMT_LEN" || true)
+    fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
     #
     # `git-branch.md` is mandatory about this: feature branches are created from a freshly-fetched
@@ -805,6 +932,15 @@ while read -r STMT_START STMT_LEN; do
       START_POINT=$(hook_match_extract "$COMMAND" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
           "$STMT_START" "$STMT_LEN" || true)
+      # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
+      # is the form the item was filed for: it names its base explicitly, so leaving this unread would
+      # have widened the DETECTION while leaving the base check comparing against HEAD — a creation
+      # judged, and judged against the wrong thing.
+      if [[ -z "$START_POINT" ]]; then
+        START_POINT=$(hook_match_extract "$COMMAND" \
+          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+            "$STMT_START" "$STMT_LEN" || true)
+      fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
       #
       # Blanking the whole token whenever it contained an operator was worse than the bug it replaced:
