@@ -260,6 +260,14 @@ describe('listing, deleting and renaming are not creations', () => {
     ['listing merged branches with a value', 'git branch --merged origin/develop'],
     ['listing by pattern', 'git branch --list feat/*'],
     ['pointing at a ref', 'git branch --points-at HEAD'],
+    // `git branch [-r|-a] [--list] [<pattern>...]` takes a PATTERN, which sits exactly where a new
+    // branch's name goes. A comment in the hook used to claim these needed no denylist entry
+    // "because nothing follows them" — an assertion about git's grammar made without reading it,
+    // and `git branch -r origin/main` was refused on ordinary listing until review caught it.
+    ['listing all refs by pattern', 'git branch -a release/x'],
+    ['listing remotes by name', 'git branch -r origin/main'],
+    ['the long form of both', 'git branch --all release/x'],
+    ['verbose listing with a pattern', 'git branch -v feat/x'],
   ];
 
   for (const [what, command] of NOT_A_CREATION) {
