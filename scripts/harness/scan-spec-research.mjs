@@ -27,6 +27,19 @@ import { requireGovernedTree } from './governed-tree.mjs';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const STAGES = ['draft', 'todo', 'active'];
 
+/**
+ * How many spec documents the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function collectSpecResearchFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['.agents/spec-docs'], {
     scan: 'spec-research',
@@ -40,6 +53,7 @@ export function collectSpecResearchFindings(root = WORKSPACE_ROOT) {
     if (!existsSync(dir)) continue;
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
       const rel = `.agents/spec-docs/${stage}/${file}`;
+      examinedCount += 1;
       const text = readFileSync(path.join(dir, file), 'utf8');
 
       const m = text.match(/^##\s+(Prior Art Research|Research)\s*$/im);
@@ -85,6 +99,7 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${examinedCount} spec documents`);
   console.log('spec-research scan passed.');
   process.exit(0);
 }

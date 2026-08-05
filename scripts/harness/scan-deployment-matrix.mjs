@@ -81,6 +81,19 @@ function transportSourceFiles(dir) {
  * would turn this floor into three phantom findings per run, and a floor people route around
  * catches less than one that fires narrowly.
  */
+/**
+ * How many transport source files the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function findTransportNames(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'deployment-matrix',
@@ -94,6 +107,7 @@ export function findTransportNames(root = WORKSPACE_ROOT) {
     const srcDir = path.join(packagesDir, pkg, 'src');
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
     for (const file of transportSourceFiles(srcDir)) {
+      examinedCount += 1;
       const text = readFileSync(file, 'utf8');
       for (const re of [CLASS_NAME_RE, FACTORY_NAME_RE]) {
         re.lastIndex = 0;
@@ -147,6 +161,7 @@ function main() {
   const { undocumented, phantom } = diffDeploymentMatrix(codeNames, matrixNames);
 
   if (undocumented.length === 0 && phantom.length === 0) {
+    console.log(`::examined:: ${examinedCount} transport source files`);
     console.log(`deployment-matrix scan passed (${[...codeNames].sort().join(', ')}).`);
     process.exit(0);
   }
