@@ -48,31 +48,40 @@ describe('the ambient git context is not inherited (HARNESS-075)', () => {
     }
   });
 
-  it('survives the variables being INJECTED, which is the only version that can fail in CI', () => {
-    // The case above asserts the variables are absent. Review found that vacuous where it counts:
-    // continuous integration runs `pnpm harness:test` directly, never through `.husky/pre-push`, so
-    // nothing sets `GIT_DIR` there in the first place. Remove the fence and that case still passes —
-    // it verifies a condition that cannot fail, over the exact regression it exists to catch.
-    //
-    // So this one supplies the condition. It runs the suite again as a CHILD with `GIT_DIR` set, the
-    // way a git hook would, and asks whether the case above still holds inside it. With the fence,
-    // the child passes; without it, the child fails and so does this.
-    const child = spawnSync(
-      'npx',
-      ['vitest', 'run', import.meta.filename, '-t', 'none of them reaches a running test'],
-      {
-        cwd: WORKSPACE_ROOT,
-        encoding: 'utf8',
-        // A real git dir, exactly as `.husky/pre-push` would export it.
-        env: { ...process.env, GIT_DIR: path.join(WORKSPACE_ROOT, '.git') },
-        timeout: 120_000,
-      },
-    );
+  // 120s, against the root config's 10s default. This case starts a WHOLE second vitest — node
+  // startup, transpiling both config files, collecting the file — and the inner `spawnSync` already
+  // carries its own 120s bound. Leaving the outer default in place makes the case fail on a slow
+  // runner for a reason that has nothing to do with what it asserts, which is the worst kind of red:
+  // it reads as the fence being broken. It passed locally only because this machine is fast.
+  it(
+    'survives the variables being INJECTED, which is the only version that can fail in CI',
+    { timeout: 120_000 },
+    () => {
+      // The case above asserts the variables are absent. Review found that vacuous where it counts:
+      // continuous integration runs `pnpm harness:test` directly, never through `.husky/pre-push`, so
+      // nothing sets `GIT_DIR` there in the first place. Remove the fence and that case still passes —
+      // it verifies a condition that cannot fail, over the exact regression it exists to catch.
+      //
+      // So this one supplies the condition. It runs the suite again as a CHILD with `GIT_DIR` set, the
+      // way a git hook would, and asks whether the case above still holds inside it. With the fence,
+      // the child passes; without it, the child fails and so does this.
+      const child = spawnSync(
+        'npx',
+        ['vitest', 'run', import.meta.filename, '-t', 'none of them reaches a running test'],
+        {
+          cwd: WORKSPACE_ROOT,
+          encoding: 'utf8',
+          // A real git dir, exactly as `.husky/pre-push` would export it.
+          env: { ...process.env, GIT_DIR: path.join(WORKSPACE_ROOT, '.git') },
+          timeout: 120_000,
+        },
+      );
 
-    const output = `${child.stdout ?? ''}${child.stderr ?? ''}`;
-    expect(output, 'the child run selected no case, so it proved nothing').toMatch(/1 passed/);
-    expect(child.status, output).toBe(0);
-  });
+      const output = `${child.stdout ?? ''}${child.stderr ?? ''}`;
+      expect(output, 'the child run selected no case, so it proved nothing').toMatch(/1 passed/);
+      expect(child.status, output).toBe(0);
+    },
+  );
 
   it('a git command run by a test resolves from its OWN cwd, not from an inherited context', () => {
     // The end-to-end form, asked of a SCRATCH repository rather than of this checkout.
