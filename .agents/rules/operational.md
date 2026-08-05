@@ -146,6 +146,13 @@ independent item remains, something else advances during it.
 - **Re-check the first item before returning to it.** Its review may have arrived while you were
   away, and the state you left is not the state you come back to.
 
+**One thing to know about running the suite in a worktree.** A git hook exports `GIT_DIR` into
+everything it launches, so for a while every test spawned by a pre-push gate wrote to the repository
+being pushed from rather than to its own fixture — moving branch refs, and pushing the result. The
+shared test configuration now removes that ambient context, and a floor asserts at run time that it
+is gone. Nothing further is required of you; it is recorded here because the rule above sends you
+into worktrees and the failure was silent while it lasted.
+
 How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
 occupant, one self-verified proposal per item — is procedure, owned by
 [`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md). This rule
