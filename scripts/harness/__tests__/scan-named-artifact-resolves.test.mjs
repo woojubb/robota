@@ -47,6 +47,20 @@ describe('what is a name at all', () => {
     expect(hasStem('.github/workflows/ci.yml')).toBe(true);
   });
 
+  it('keeps real dot-files in reach while still rejecting suffixes', () => {
+    // Review found the first version excluding every leading-dot name, so `.eslintrc.json` and
+    // `.env.example` fell out of the scan without it saying so — a silent coverage cap, which this
+    // repository forbids precisely because nothing announces it.
+    //
+    // The difference is not length. `.test.ts` and `.d.ts` are shapes a file ends WITH, and
+    // documents mention them constantly while explaining a convention; a dot-file is a file.
+    expect(hasStem('.eslintrc.json')).toBe(true);
+    expect(hasStem('.env.example')).toBe(true);
+    expect(hasStem('.d.ts')).toBe(false);
+    expect(hasStem('.test.ts')).toBe(false);
+    expect(hasStem('.spec.ts')).toBe(false);
+  });
+
   it('rejects a form standing in for a name nobody has chosen', () => {
     expect(isTemplateSlot('ADR-NNN-short-title.md')).toBe(true);
     expect(isTemplateSlot('packages/<pkg>/docs/SPEC.md')).toBe(true);

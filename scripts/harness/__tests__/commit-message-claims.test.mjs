@@ -43,7 +43,18 @@ describe('what counts as a citation', () => {
   });
 
   it('does not read a fixture word that happens to be hex', () => {
+    // Once a digit is required these are excluded by the pattern itself, so the explicit list that
+    // used to name them was unreachable — dead code asserting a property something else already
+    // provided. Review found it; the list is gone and the property is asserted here instead.
     expect(commitishClaims('the `deadbeef` fixture')).toEqual([]);
+    expect(commitishClaims('the facefeed and baddcafe fixtures')).toEqual([]);
+  });
+
+  it('does not refuse a citation it cannot check, in a shallow clone', () => {
+    // `git log` cannot search a history that was not fetched, so "no commit touched this path"
+    // would mean "the history is not here" — and refusing a correct citation for that, in a
+    // REQUIRED check, is a guard firing on correct work. Unknown is not absent.
+    expect(pathHasEverExisted('anything/at/all.mjs', { isShallowOverride: true })).toBe(true);
   });
 
   it('does not read an ordinary English word built from a-f', () => {

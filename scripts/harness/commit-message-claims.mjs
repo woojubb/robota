@@ -56,21 +56,12 @@ const COMMITISH = /\b(?=[0-9a-f]{7,40}\b)[a-f]*[0-9][0-9a-f]*\b/g;
 const CODE_SPAN = /`([^`\n]+)`/g;
 const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*\/[A-Za-z0-9._/-]+$/;
 
-/**
- * Words that are hex-shaped but are not object names.
- *
- * `deadbeef`, `feedface` and friends appear in prose about fixtures. Kept short and literal: a list
- * that tried to be clever would start excusing real hashes.
- */
-const NOT_A_HASH = new Set(['deadbeef', 'feedface', 'facefeed', 'baddcafe', 'deadbead']);
-
 export function commitishClaims(message) {
   const found = new Set();
   COMMITISH.lastIndex = 0;
   let match;
   while ((match = COMMITISH.exec(message)) !== null) {
     const token = match[0];
-    if (NOT_A_HASH.has(token)) continue;
     // A pure-digit run is a number — a count, a year, an issue — not an object name.
     if (/^[0-9]+$/.test(token)) continue;
     found.add(token);
@@ -149,10 +140,23 @@ function gitLines(args, cwd = WORKSPACE_ROOT) {
  * bound on what this can decide: whether the named path belongs to THIS commit's tree cannot be
  * answered from the message alone, since commitlint is handed text and never the sha.
  */
-export function pathHasEverExisted(token, { staged, root = WORKSPACE_ROOT } = {}) {
+export function pathHasEverExisted(
+  token,
+  { staged, root = WORKSPACE_ROOT, isShallowOverride } = {},
+) {
   if (staged?.has(token)) return true;
   if (existsSync(path.join(root, token))) return true;
+  // A SHALLOW clone has no history to search, so "no commit touched this path" would mean "the
+  // history is not here" — and refusing a correct citation for that is a guard firing on correct
+  // work, in a REQUIRED check. Unknown is not absent: where the log cannot answer, this does not
+  // pretend it did.
+  if (isShallowOverride ?? isShallow(root)) return true;
   return gitLines(['log', '--all', '--oneline', '-1', '--', token], root).length > 0;
+}
+
+/** Whether the checkout has a truncated history, in which case the log cannot answer. */
+export function isShallow(root = WORKSPACE_ROOT) {
+  return gitLines(['rev-parse', '--is-shallow-repository'], root)[0] === 'true';
 }
 
 export function checkCommitMessageFile(file, root = WORKSPACE_ROOT) {
