@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -88,3 +91,38 @@ describe('the base it compares against', () => {
     expect(resolveBaseRef({ argv: [], env: {} })).toBe('origin/develop');
   });
 });
+
+describe('an unreadable base is a refusal, not a skip', () => {
+  it('exits non-zero when it cannot read the diff', () => {
+    // The comment said "fail closed" and the branch returned without an exit code — a SKIPPED line
+    // and a silent pass, which is the state the comment claims to refuse. Review caught it, and it
+    // is the same defect INFRA-048 fixed once already in the scan this one is modelled on.
+    const result = runScan(['--base-ref', 'does/not/exist']);
+
+    expect(result.status, result.output).not.toBe(0);
+    expect(result.output).toMatch(/cannot read the diff/);
+  });
+
+  it('does not declare the unread zero as expected-empty', () => {
+    // `::expected-empty::` tells the runner a zero is CORRECT. A zero nobody established is not,
+    // and marking it so would launder the failure through the very channel this repository added
+    // to tell those two apart.
+    const result = runScan(['--base-ref', 'does/not/exist']);
+
+    expect(result.output).toMatch(/::examined:: 0 new rule sections/);
+    expect(result.output).not.toMatch(/::expected-empty::/);
+  });
+
+  it('passes on a readable base, so the refusal is not simply always', () => {
+    expect(runScan(['--base-ref', 'origin/develop']).status).toBe(0);
+  });
+});
+
+function runScan(args) {
+  const script = path.resolve(import.meta.dirname, '../scan-new-rule-declares-enforcement.mjs');
+  try {
+    return { status: 0, output: execFileSync('node', [script, ...args], { encoding: 'utf8' }) };
+  } catch (error) {
+    return { status: error.status ?? -1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` };
+  }
+}

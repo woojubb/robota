@@ -115,15 +115,18 @@ function main() {
   const baseRef = resolveBaseRef();
   const diff = readDiff(baseRef);
 
-  // Fail closed: an unreadable diff is not an empty one. A base ref that does not exist locally is
-  // the ordinary case in a fresh clone, and it must say so rather than report a clean sweep.
+  // Fail closed, and MEAN it. The first version wrote this comment and then returned without an
+  // exit code — a SKIPPED line and a silent pass, which is precisely the state the comment claims to
+  // refuse. Review caught it, and it is the same defect INFRA-048 fixed once already in the scan
+  // this one is modelled on. "I could not read the diff" is not "the diff adds no rule".
   if (diff === null) {
-    console.log(
-      `::examined:: 0 new rule sections ::expected-empty:: \`${baseRef}\` is not readable here, ` +
-        "so this change's rule additions could not be determined",
-    );
-    console.log(
-      `new-rule-declares-enforcement scan SKIPPED — cannot read the diff against ${baseRef}.`,
+    process.exitCode = 1;
+    // NOT `::expected-empty::`. That marker declares a zero the runner should accept, and this zero
+    // is one nobody established — the very distinction this scan's own subject is about.
+    console.log('::examined:: 0 new rule sections');
+    console.error(
+      `new-rule-declares-enforcement scan FAILED — cannot read the diff against \`${baseRef}\`. ` +
+        'Fetch the base ref (a shallow clone has no merge base), or pass --base-ref explicitly.',
     );
     return;
   }
