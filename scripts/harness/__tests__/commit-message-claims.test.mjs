@@ -7,7 +7,12 @@ import { describe, expect, it } from 'vitest';
 
 // allow-missing-artifact-file: every path in this file is an invented fixture — the case is what a claim looks like
 
-import { commitishClaims, judgeMessage, pathClaims } from '../commit-message-claims.mjs';
+import {
+  commitishClaims,
+  judgeMessage,
+  pathClaims,
+  pathHasEverExisted,
+} from '../commit-message-claims.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -81,6 +86,36 @@ describe('the two claims a machine can check', () => {
 
   it('says nothing about a message that cites nothing', () => {
     expect(judgeMessage('chore: tidy up\n\nNo citations here.', WORLD)).toEqual([]);
+  });
+});
+
+describe('which tree the path is judged against', () => {
+  // Review found the first version judging against the wrong one, in the place that matters:
+  // continuous integration lints each commit of a pull request by piping its message into
+  // commitlint WITHOUT checking that commit out. The working tree stays at HEAD for every message,
+  // so `--cached` is empty and "does it exist" answers about the wrong tree — a message correctly
+  // naming a file its own commit added would fail once a later commit renamed it, and one naming a
+  // file only a LATER commit created would pass.
+  it('accepts a path that exists now', () => {
+    expect(pathHasEverExisted('scripts/harness/run-all-scans.mjs')).toBe(true);
+  });
+
+  it('accepts a path that USED to exist, because a commit may legitimately cite what it removed', () => {
+    // Measured against a real deletion: a workflow removed by INFRA-058. Under the old check every
+    // message that had ever named it would have started failing the moment it was deleted.
+    expect(pathHasEverExisted('.github/workflows/deploy.yml')).toBe(true);
+  });
+
+  it('still refuses a path that has never existed anywhere', () => {
+    expect(pathHasEverExisted('scripts/harness/never-was.mjs')).toBe(false);
+  });
+
+  it('accepts a staged path before it is anywhere else', () => {
+    expect(
+      pathHasEverExisted('scripts/harness/brand-new.mjs', {
+        staged: new Set(['scripts/harness/brand-new.mjs']),
+      }),
+    ).toBe(true);
   });
 });
 

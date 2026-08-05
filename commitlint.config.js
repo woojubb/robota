@@ -4,7 +4,7 @@
  * bodies/footers in this repo intentionally include long lines (evidence logs,
  * Co-Authored-By trailers).
  */
-import { judgeMessage } from './scripts/harness/commit-message-claims.mjs';
+import { judgeMessage, pathHasEverExisted } from './scripts/harness/commit-message-claims.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
@@ -49,7 +49,9 @@ const claimsResolve = {
           const staged = new Set(gitLines(['diff', '--cached', '--name-only']));
           const findings = judgeMessage(raw ?? '', {
             resolvesObject: (token) => gitLines(['cat-file', '-t', token])[0] === 'commit',
-            pathKnown: (token) => staged.has(token) || existsSync(token),
+            // History, not the current tree. CI lints every commit of a pull request without
+            // checking any of them out, so `--cached` is empty and the tree is always HEAD's.
+            pathKnown: (token) => pathHasEverExisted(token, { staged }),
           });
           if (findings.length === 0) return [true];
           return [

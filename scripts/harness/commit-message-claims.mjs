@@ -123,6 +123,26 @@ function gitLines(args, cwd = WORKSPACE_ROOT) {
   }
 }
 
+/**
+ * Whether a named path has EVER existed — staged now, present now, or anywhere in history.
+ *
+ * "Present now" alone was wrong, and review found it in the place that matters: continuous
+ * integration lints each commit of a pull request by piping `git log -1 --format=%B <sha>` into
+ * commitlint WITHOUT checking that commit out. The working tree stays at HEAD for every message, so
+ * `--cached` is empty and `existsSync` answers about the wrong tree — a message that correctly named
+ * a file its own commit added would fail once a later commit renamed it, and one that named a file
+ * only a LATER commit created would pass.
+ *
+ * History is the state that does not depend on which commit is checked out. It is also the honest
+ * bound on what this can decide: whether the named path belongs to THIS commit's tree cannot be
+ * answered from the message alone, since commitlint is handed text and never the sha.
+ */
+export function pathHasEverExisted(token, { staged, root = WORKSPACE_ROOT } = {}) {
+  if (staged?.has(token)) return true;
+  if (existsSync(path.join(root, token))) return true;
+  return gitLines(['log', '--all', '--oneline', '-1', '--', token], root).length > 0;
+}
+
 export function checkCommitMessageFile(file, root = WORKSPACE_ROOT) {
   // Fail closed: a message file that cannot be read is not an empty message.
   if (!existsSync(file)) throw new Error(`commit-message-claims: ${file} does not exist.`);
@@ -135,7 +155,7 @@ export function checkCommitMessageFile(file, root = WORKSPACE_ROOT) {
 
   return judgeMessage(message, {
     resolvesObject: (token) => gitLines(['cat-file', '-t', token], root)[0] === 'commit',
-    pathKnown: (token) => staged.has(token) || existsSync(path.join(root, token)),
+    pathKnown: (token) => pathHasEverExisted(token, { staged, root }),
   });
 }
 
