@@ -37,8 +37,20 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** A token shaped like an abbreviated or full object name. */
-const COMMITISH = /\b([0-9a-f]{7,40})\b/g;
+/**
+ * A token shaped like an abbreviated or full object name.
+ *
+ * The DIGIT is the whole difference between a hash and a word. Without it this matched any lowercase
+ * run built from a-f — `defaced`, `acceded`, `effaced` — so an ordinary sentence would have been
+ * refused for citing a commit it never mentioned. That is a guard firing on correct work, and it is
+ * the failure that gets a guard turned off.
+ *
+ * Scoping to code spans was the other candidate and it costs more than it saves: the citation that
+ * started this — a hash typed rather than read — was written in running prose, so a matcher that
+ * only reads code spans would have missed the very incident it exists for. A hash with no digit at
+ * all is possible and goes unchecked; that is a miss, and a miss is the cheaper error here.
+ */
+const COMMITISH = /\b(?=[0-9a-f]{7,40}\b)[a-f]*[0-9][0-9a-f]*\b/g;
 
 /** A code-spanned token shaped like a repository path. */
 const CODE_SPAN = /`([^`\n]+)`/g;
@@ -57,7 +69,7 @@ export function commitishClaims(message) {
   COMMITISH.lastIndex = 0;
   let match;
   while ((match = COMMITISH.exec(message)) !== null) {
-    const token = match[1];
+    const token = match[0];
     if (NOT_A_HASH.has(token)) continue;
     // A pure-digit run is a number — a count, a year, an issue — not an object name.
     if (/^[0-9]+$/.test(token)) continue;

@@ -6,7 +6,6 @@
  */
 import { judgeMessage, pathHasEverExisted } from './scripts/harness/commit-message-claims.mjs';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 
 /**
  * A commit message describes the DIFF, not the intent (HARNESS-076).

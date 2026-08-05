@@ -46,6 +46,19 @@ describe('what counts as a citation', () => {
     expect(commitishClaims('the `deadbeef` fixture')).toEqual([]);
   });
 
+  it('does not read an ordinary English word built from a-f', () => {
+    // Review found this: `defaced`, `acceded`, `effaced` are seven letters from a-f, so an ordinary
+    // sentence would have been refused for citing a commit it never mentioned — a guard firing on
+    // correct work, which is the failure that gets a guard turned off.
+    //
+    // The fix requires a DIGIT rather than scoping to code spans. Scoping was the other candidate
+    // and costs more than it saves: the citation that started this — a hash typed rather than read —
+    // was written in running prose, so a code-span-only matcher would miss the very incident it
+    // exists for. A hash with no digit at all goes unchecked; a miss is the cheaper error here.
+    expect(commitishClaims('the defaced and acceded and effaced parts')).toEqual([]);
+    expect(commitishClaims('see abc1234 for it')).toEqual(['abc1234']);
+  });
+
   it('reads a repository path only from a code span', () => {
     // Prose names things loosely — "the harness scripts directory" — and reading that as a path
     // would fire on every sentence. A path claim in this repository is code-formatted.
