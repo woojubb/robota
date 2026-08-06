@@ -72,6 +72,15 @@ export function addedRuleSections(diff) {
     }
     if (!file || !file.startsWith(RULES_PREFIX)) continue;
 
+    // A new hunk closes the section a previous hunk opened. Without this the body kept accumulating
+    // to the next heading anywhere in the file, so a declaration added FAR AWAY — under a different
+    // rule, in a later hunk — would answer for this one. The heading and its declaration must arrive
+    // together, which is the whole point of asking at the moment a rule is written.
+    if (line.startsWith('@@')) {
+      current = null;
+      continue;
+    }
+
     const heading = RULE_HEADING.exec(line);
     if (heading) {
       current = { file, title: heading[1].trim(), body: '' };

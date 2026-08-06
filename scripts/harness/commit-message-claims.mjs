@@ -38,7 +38,7 @@
  * removed rather than wired, because the wiring already exists elsewhere.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { hasStem } from './lib/file-name-shape.mjs';
@@ -58,7 +58,12 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * only reads code spans would have missed the very incident it exists for. A hash with no digit at
  * all is possible and goes unchecked; that is a miss, and a miss is the cheaper error here.
  */
-const COMMITISH = /\b(?=[0-9a-f]{7,40}\b)[a-f]*[0-9][0-9a-f]*\b/g;
+// A WHOLE token, not a window inside one. `\b` alone let a 7-char run be found inside a longer
+// identifier — `build0aded1234567890` contains one — so an ordinary word could be read as a
+// citation. The token is bounded by something that is not an identifier character on both sides,
+// which is what "a hash written on its own" actually looks like.
+const COMMITISH =
+  /(?<![0-9a-zA-Z_-])(?=[0-9a-f]{7,40}(?![0-9a-zA-Z_-]))[a-f]*[0-9][0-9a-f]*(?![0-9a-zA-Z_-])/g;
 
 /** A code-spanned token shaped like a repository path. */
 const CODE_SPAN = /`([^`\n]+)`/g;

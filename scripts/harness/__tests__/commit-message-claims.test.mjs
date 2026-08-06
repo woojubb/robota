@@ -37,6 +37,14 @@ describe('what counts as a citation', () => {
     expect(commitishClaims('fix: x\n\nsee abc1234 for the reason')).toEqual(['abc1234']);
   });
 
+  it('reads a WHOLE token, not a window inside a longer identifier', () => {
+    // `\\b` alone let a 7-character run be found inside a longer identifier, so an ordinary word
+    // could be read as a citation and refused for naming a commit nobody mentioned.
+    expect(commitishClaims('the build0aded1234567890 identifier')).toEqual([]);
+    expect(commitishClaims('commit abc1234.')).toEqual(['abc1234']);
+    expect(commitishClaims('ref: 0f4a123, then')).toEqual(['0f4a123']);
+  });
+
   it('does not read a number as an object name', () => {
     // A count, a year, an issue number. `1234567` is hex-shaped and is not a hash.
     expect(commitishClaims('closes 1234567 issues')).toEqual([]);

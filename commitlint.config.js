@@ -47,7 +47,10 @@ const claimsResolve = {
         'claims-resolve': ({ raw }) => {
           const staged = new Set(gitLines(['diff', '--cached', '--name-only']));
           const findings = judgeMessage(raw ?? '', {
-            resolvesObject: (token) => gitLines(['cat-file', '-t', token])[0] === 'commit',
+            // ANY object, as the rule's own documentation says — a message may cite a tag or a
+            // tree, and refusing those would be the check disagreeing with its own description.
+            // What it must still refuse is a token that names nothing.
+            resolvesObject: (token) => gitLines(['cat-file', '-t', token]).length > 0,
             // History, not the current tree. CI lints every commit of a pull request without
             // checking any of them out, so `--cached` is empty and the tree is always HEAD's.
             pathKnown: (token) => pathHasEverExisted(token, { staged }),

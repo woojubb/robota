@@ -46,6 +46,25 @@ describe('what the diff adds', () => {
     expect(sections[0].body).not.toContain('Enforced by');
   });
 
+  it('does not let a distant hunk answer for a heading', () => {
+    // The body used to accumulate to the next heading ANYWHERE in the file, so a declaration added
+    // far away — under a different rule, in a later hunk — answered for this one. The heading and
+    // its declaration must arrive together; that is the whole point of asking at the moment a rule
+    // is written.
+    const diff = [
+      'diff --git a/x b/x',
+      '+++ b/.agents/rules/x.md',
+      '@@ -1,0 +1,2 @@',
+      '+### New Rule',
+      '+body with no declaration',
+      '@@ -50,0 +60,2 @@',
+      '+Enforced by: `some-scan`',
+      '',
+    ].join('\n');
+
+    expect(judgeSections(addedRuleSections(diff)).map((f) => f.title)).toEqual(['New Rule']);
+  });
+
   it('does not let one section answer for the next', () => {
     const sections = addedRuleSections(
       diffFor('.agents/rules/operational.md', [

@@ -53,7 +53,12 @@ export function hasStem(name) {
   // (allow-missing-artifact: the names in this paragraph are the shapes being explained, not files)
   if (base.startsWith('.')) {
     const rest = base.slice(1);
-    const leading = rest.slice(0, rest.indexOf('.'));
+    // `indexOf` returns -1 when there is no further dot, and `slice(0, -1)` silently drops the last
+    // character instead of saying so. Unreachable today — the caller has already required an
+    // extension — but a silent wrong answer waiting for the first caller that does not.
+    const nextDot = rest.indexOf('.');
+    if (nextDot === -1) return false;
+    const leading = rest.slice(0, nextDot);
     if (leading.length < 2 || SUFFIX_SEGMENTS.has(leading)) return false;
     return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$/.test(rest);
   }
