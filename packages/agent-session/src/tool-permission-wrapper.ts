@@ -7,6 +7,7 @@ import {
 } from './tool-hook-helpers.js';
 
 import type { IPermissionEnforcerOptions } from './permission-types.js';
+import type { TSessionLogData } from './session-logger.js';
 import type {
   IToolExecutionContext,
   IToolResult,
@@ -26,7 +27,7 @@ export interface IToolWrapperDeps {
   readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
   readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
   getPermissionMode: IPermissionEnforcerOptions['getPermissionMode'];
-  log(event: string, detail: Record<string, unknown>): void;
+  log(event: string, detail: TSessionLogData): void;
   checkPermission(toolName: string, toolArgs: TToolArgs, signal?: AbortSignal): Promise<boolean>;
 }
 

@@ -74,7 +74,25 @@ export class PermissionEnforcer {
 
   /** Wrap all tools with permission checking */
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
-    return tools.map((tool) => wrapToolWithPermission(tool, this as unknown as IToolWrapperDeps));
+    // Built explicitly rather than cast. A blind assertion here would compile only by silencing the
+    // private-member mismatch, and this repository counts and ratchets those. Naming the ten members
+    // is what makes the extraction a boundary: if the wrapper starts reading an eleventh, this stops
+    // compiling instead of quietly widening.
+    const deps: IToolWrapperDeps = {
+      sessionId: this.sessionId,
+      cwd: this.cwd,
+      config: this.config,
+      terminal: this.terminal,
+      transcriptPath: this.transcriptPath,
+      onToolExecution: this.onToolExecution,
+      hookTypeExecutors: this.hookTypeExecutors,
+      getPermissionMode: this.getPermissionMode,
+      log: (event, detail) => this.log(event, detail),
+      checkPermission: (toolName, toolArgs, signal) =>
+        this.checkPermission(toolName, toolArgs, signal),
+    };
+
+    return tools.map((tool) => wrapToolWithPermission(tool, deps));
   }
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
