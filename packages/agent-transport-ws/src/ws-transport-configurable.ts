@@ -11,13 +11,13 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { PayloadChannelRegistry } from './payload-channels.js';
 import {
   hostAllowed,
-  mintToken,
   originAllowed,
   presentedToken,
   tokenMatches,
 } from './ws-connection-guards.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import { resolveAdmission } from '@robota-sdk/agent-interface-transport';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
@@ -28,6 +28,15 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
+
+/**
+ * The reason recorded for a caller that opted OPEN before `openReason` existed.
+ *
+ * Not a way around the requirement — it names exactly what happened, so a reader can tell an
+ * inherited opt-out from a considered one and go fix it.
+ */
+const WS_OPEN_REASON_REQUIRED =
+  'SEC-008: opened by a caller that predates the written-reason requirement';
 
 const DEFAULT_PORT = 7070;
 const DEFAULT_MAX_RETRIES = 20;
@@ -50,6 +59,8 @@ export interface IWsTransportConfig {
    * session); mirrors Jupyter's `c.ServerApp.token = ''`. An explicit `token` takes precedence over `open`.
    */
   open?: boolean;
+  /** SEC-008: why running with no credential is correct here. Required when `open` is true. */
+  openReason?: string;
   /**
    * SEC-001 defense-in-depth: extra host names (beyond `localhost`/`127.0.0.1`/`::1`) accepted in the
    * upgrade `Host` header. The `Host` allow-list closes DNS-rebinding independently of the token.
@@ -115,11 +126,19 @@ export class WsTransport
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
     // SEC-001 secure-by-default: an explicit token wins; else auto-mint UNLESS `open` opts out. A failed
     // mint throws out of the constructor → the transport never binds OPEN (fail-closed).
-    if (config.token) {
-      this.token = config.token;
-    } else if (!config.open) {
-      this.token = mintToken();
-    }
+    //
+    // SEC-008: this transport got the decision RIGHT and its sibling got it wrong, which is the whole
+    // problem — one question, two answers, because each transport owned its own. The behaviour here is
+    // unchanged; what changed is that it now comes from the shared seam, so there is one place to read
+    // and one place to change. `open` additionally requires a written reason, because "no credential"
+    // and "nobody thought about it" were the two states this work exists to tell apart.
+    const admission = resolveAdmission({
+      ...(config.token !== undefined ? { token: config.token } : {}),
+      ...(config.open === true
+        ? { open: true, openReason: config.openReason ?? WS_OPEN_REASON_REQUIRED }
+        : {}),
+    });
+    if (admission.token !== null) this.token = admission.token;
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
   }

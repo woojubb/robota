@@ -1,5 +1,10 @@
 # agent-transport-tui Specification
 
+
+## Transport Admission (SEC-008)
+
+transport-admission: none — the peer is this process's own terminal. There is no remote party and nothing to authenticate; the OS user who started the process is the boundary.
+
 ## Scope
 
 Terminal UI transport for the Robota SDK — the React + Ink interactive renderer. Split out of the

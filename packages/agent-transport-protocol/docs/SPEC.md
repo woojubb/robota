@@ -1,5 +1,10 @@
 # agent-transport-protocol Specification
 
+
+## Transport Admission (SEC-008)
+
+transport-admission: none — transport-neutral wire types and a session bridge, shared by the transports that do the admitting. It binds nothing.
+
 ## Scope
 
 Owns the **transport-neutral session bridge + wire protocol** shared by transport implementations

@@ -159,7 +159,7 @@ function createCommandHostContext(): ICommandHostContext {
       return { removed };
     },
     getCwd: () => '/workspace',
-    listCommands: () => [{ name: 'example', description: 'Example command' }],
+    listCommands: () => [{ name: 'example', description: 'Example command', modelInvocable: true }],
     listEditCheckpoints: () => [],
     restoreEditCheckpoint: async () => createCheckpointResult(),
     rollbackEditCheckpoint: async () => createCheckpointResult(),

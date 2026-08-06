@@ -39,6 +39,10 @@ describe('HTTP Transport Routes', () => {
     const mockSession = session ?? createMockSession();
     const app = createAgentRoutes({
       sessionFactory: () => mockSession,
+      // SEC-008: these cases predate the trust boundary and are about what each route DOES. They say
+      // so rather than carrying a credential, so a reader can tell "admission is not under test" from
+      // "admission was forgotten" — which is the distinction the boundary exists to make possible.
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
     });
     return { app, mockSession };
   }
@@ -199,7 +203,7 @@ describe('HTTP Transport Routes', () => {
   }
 
   async function requestSubmit(session: IInteractiveSession): Promise<string> {
-    const app = createAgentRoutes({ sessionFactory: () => session });
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' } });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -279,7 +283,7 @@ describe('HTTP Transport Routes', () => {
       abort: vi.fn(() => settleSubmit?.()),
     });
 
-    const app = createAgentRoutes({ sessionFactory: () => session });
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' } });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -299,5 +303,105 @@ describe('HTTP Transport Routes', () => {
     const offCount = (session.off as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     expect(offCount).toBe(onCount); // finally teardown removed every listener — no leak
     expect(onCount).toBeGreaterThan(0);
+  });
+});
+
+// ── SEC-008: the route is a trust boundary, not a pass-through ───────────────
+
+describe('SEC-008: an unadmitted request never reaches the session', () => {
+  /** A session that records whether anything actually got through to it. */
+  function createRecordingSession() {
+    const reached: string[] = [];
+    const session = {
+      ...(createMockSession() as unknown as Record<string, unknown>),
+      submit: async (prompt: string) => {
+        reached.push(`submit:${prompt}`);
+      },
+      executeCommand: async (name: string) => {
+        reached.push(`command:${name}`);
+        return { message: 'ran', success: true };
+      },
+      on: vi.fn(),
+      off: vi.fn(),
+    } as unknown as IInteractiveSession;
+    return { session, reached };
+  }
+
+  const CREDENTIAL = 'a'.repeat(64);
+
+  it('refuses POST /submit with no credential, before the prompt runs', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+
+    const res = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'run something' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(401);
+    // The status alone would not be enough. What matters is that the prompt did not execute — a
+    // route that runs the turn and THEN reports 401 has already done the thing it refused.
+    expect(reached, 'the prompt reached the session despite the refusal').toEqual([]);
+  });
+
+  it('refuses POST /command with no credential, before the command runs', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(401);
+    expect(reached, 'the command reached the session despite the refusal').toEqual([]);
+  });
+
+  it('refuses a WRONG credential the same way it refuses a missing one', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+
+    const res = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'run something' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${'b'.repeat(64)}` },
+    });
+
+    expect(res.status).toBe(401);
+    expect(reached).toEqual([]);
+  });
+
+  it('admits a correct credential', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${CREDENTIAL}` },
+    });
+
+    // Without this the suite would pass by refusing EVERYTHING, which is a gate nobody can use.
+    expect(res.status).toBe(200);
+    expect(reached).toEqual(['command:clear']);
+  });
+
+  it('admits with no credential only when the host said so, in writing', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'unit test — no boundary under test here' },
+    });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(200);
+    expect(reached).toEqual(['command:clear']);
   });
 });

@@ -133,6 +133,10 @@ export class SessionSkillRouter {
       ...(cmd.displayName !== undefined ? { displayName: cmd.displayName } : {}),
       description: cmd.description,
       ...(cmd.example !== undefined ? { example: cmd.example } : {}),
+      // SEC-008: carried, not dropped. This projection is where the tag was lost, and a consumer
+      // that cannot see it cannot honour it. Absent means NOT model-invocable — the safe reading of
+      // a command that never opted in.
+      modelInvocable: cmd.modelInvocable === true,
     }));
   }
 

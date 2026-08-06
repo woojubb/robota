@@ -374,6 +374,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  {
+    name: 'transport-admission',
+    command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
+  },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
   {
     name: 'contract-cast-ratchet',
