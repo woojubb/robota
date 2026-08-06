@@ -144,6 +144,28 @@ describe('CORE-027: the wrapper still never throws', () => {
   });
 });
 
+describe('CORE-027: what the model is told about a failure', () => {
+  it('carries the reason in `error`, which is what the history writer renders', () => {
+    // Review corrected a false claim here, and the correction is worth a case rather than a comment.
+    // Before this change a blocked call was `success: true`, so the JSON payload reached the model
+    // untouched. Now `success: false` reaches `ToolManager.executeTool`, which throws;
+    // `ToolExecutionService` catches and returns `{ success: false, error }`; and the history writer
+    // renders that as `Error: <message>`.
+    //
+    // So the model reads one error line instead of a JSON envelope — INTENDED, and the point of the
+    // item: a blocked call is a failure, and being told so plainly beats being handed a
+    // success-shaped value to introspect. The reason must therefore travel in `error`, not only in
+    // `data`, or the correction loses the thing the model needs.
+    const blocked = toolFailure('hook-blocked', 'Access denied by policy');
+
+    expect(blocked.error).toBe('Access denied by policy');
+    expect(
+      blocked.error.length,
+      'the history writer throws on a failed result with no error',
+    ).toBeGreaterThan(0);
+  });
+});
+
 describe('CORE-027: a denial, a crash and a success are three different things', () => {
   it('tells a denial apart from a crash without reading prose', async () => {
     const denying = makeEnforcer({

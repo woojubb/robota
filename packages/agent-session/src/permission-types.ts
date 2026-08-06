@@ -100,11 +100,19 @@ export function toolFailure(
   outcome: TToolFailureOutcome,
   error: string,
   /**
-   * What the MODEL is shown, when it differs from the default.
+   * The payload, kept in the shape callers already parse.
    *
-   * A hook block has said `{ blocked: true, reason }` since HOOK-003, and the model reads that text.
-   * Changing the envelope is this item's subject; changing what the model sees is a different
-   * decision with a different blast radius, so the payload stays exactly as it was.
+   * A CORRECTION, because the first version of this comment claimed something false and review
+   * caught it. It said the model still sees `{ blocked: true, reason }` because `data` was
+   * unchanged. It does not. `success: false` now reaches `ToolManager.executeTool`, which throws
+   * `ToolExecutionError`; `ToolExecutionService` catches that and returns `{ success: false, error }`,
+   * and the history writer renders a failed result as `Error: <message>`. So what the model reads
+   * changed from the JSON payload to one error line.
+   *
+   * That change is INTENDED and is the point of the item: a blocked call is a failure, and the model
+   * being told `Error: Blocked by hook — <reason>` is more honest than being handed a success-shaped
+   * envelope it has to introspect. What was wrong was the claim that nothing changed, not the change.
+   * The reason travels in `error`, so nothing is lost.
    */
   data?: unknown,
 ) {
