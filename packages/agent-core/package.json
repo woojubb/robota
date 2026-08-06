@@ -28,6 +28,7 @@
         "import": "./dist/node/node.js",
         "require": "./dist/node/node.cjs"
       },
+      "browser": null,
       "default": {
         "import": "./dist/node/node.js",
         "require": "./dist/node/node.cjs"
