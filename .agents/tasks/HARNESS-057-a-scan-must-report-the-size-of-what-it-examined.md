@@ -183,9 +183,19 @@ collection handed in. The one scan that already had its number at the print site
 (`action-references`, which counts the workflow sources it parsed) took a single line; the rest took
 a module-level holder each, which is the shape the item predicted and the size it predicted.
 
+### Migration, batch 4 — 43 → 47 of 100
+
+Spec documents, transport source files, source files under the neutrality sweep, and workflow files.
+
+**One placement defect, caught by running it.** The marker for `review-token-supply` first went
+inside the failure arm, so it would have been absent from every passing run — and every run this
+scan has ever had is a passing one, meaning the line would have looked present in the source and
+never once appeared in the output. It is emitted before the branch now. The general form: a size is
+reported whichever way the verdict goes, because the verdict is not what the size is about.
+
 ### What remains
 
-**57 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
+**53 of 100 scans still declare nothing.** The ratchet makes the migration visible and irreversible;
 this item stays open until it is done, and the baseline number is the progress bar.
 
 ## Done when

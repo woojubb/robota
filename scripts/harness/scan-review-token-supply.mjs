@@ -36,6 +36,19 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const WORKFLOW_DIR = path.join('.github', 'workflows');
 
 /** The action whose token-less OIDC exchange makes the `github_token` input load-bearing. */
+/**
+ * How many workflow files the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export const VALIDATED_ACTION_PATTERN = /anthropics\/claude-code-action/;
 
 /** Workflow files (repo-relative) that invoke the validated action. Discovered, never hardcoded. */
@@ -149,6 +162,7 @@ export function findTokenlessActionSteps(content) {
  * @returns {{findings: Array<{workflow: string, line: number, detail: string}>, checked: string[]}}
  */
 export function findReviewTokenSupplyFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   const workflows = listGovernedWorkflows(root);
   // ANTI-ROT (HARNESS-052, inherited). An empty governed set is not a pass: the day the action
   // reference is renamed, wrapped in a composite action, or pinned under another org, this guard
@@ -172,6 +186,7 @@ export function findReviewTokenSupplyFindings(root = WORKSPACE_ROOT) {
   }
   const findings = [];
   for (const workflow of workflows) {
+    examinedCount += 1;
     const content = readFileSync(path.join(root, workflow), 'utf8');
     for (const finding of findTokenlessActionSteps(content)) {
       findings.push({ workflow, ...finding });
@@ -182,6 +197,11 @@ export function findReviewTokenSupplyFindings(root = WORKSPACE_ROOT) {
 
 export function main() {
   const { findings, checked } = findReviewTokenSupplyFindings();
+
+  // Before the branch, so the size is reported whichever way the verdict goes. Placed inside the
+  // failure arm it would have been absent from every passing run — which is every run this scan has
+  // ever had, so the marker would have looked present and never appeared.
+  process.stdout.write(`::examined:: ${examinedCount} workflow files\n`);
 
   if (findings.length > 0) {
     process.stdout.write('review-token-supply scan failed:\n');
