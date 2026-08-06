@@ -41,7 +41,10 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const RULES_PREFIX = '.agents/rules/';
 
 /** The declaration, in either terminal state. */
-const DECLARED = /Enforced by:\s*(?:`([^`]+)`|nothing\s*—\s*([^\n]+))/;
+// An em dash OR a plain hyphen. The two are semantically identical here, and refusing the hyphen
+// made a required scan reject a correct declaration over a character nobody can see is wrong — the
+// reader is told the rule is undeclared, which is not what happened.
+const DECLARED = /Enforced by:\s*(?:`([^`]+)`|nothing\s*[—-]\s*([^\n]+))/;
 
 /** A heading that introduces a normative section. `##` is a grouping; `###` is where rules live. */
 const RULE_HEADING = /^\+###\s+(.+)$/;

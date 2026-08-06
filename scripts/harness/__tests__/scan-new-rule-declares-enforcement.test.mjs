@@ -94,6 +94,13 @@ describe('the two terminal states, and nothing else', () => {
     ).toEqual([]);
   });
 
+  it('accepts a plain hyphen as well as an em dash', () => {
+    // The two are semantically identical here. Refusing the hyphen made a required scan reject a
+    // correct declaration over a character nobody can see is wrong, and it told the reader the rule
+    // was UNDECLARED — which is not what happened.
+    expect(judgeSections(section('Enforced by: nothing - it leaves no trace\n'))).toEqual([]);
+  });
+
   it('refuses a nothing with no reason', () => {
     expect(judgeSections(section('Enforced by: nothing\n'))).toHaveLength(1);
   });

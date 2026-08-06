@@ -171,7 +171,16 @@ export function pathHasEverExisted(
   // history is not here" — and refusing a correct citation for that is a guard firing on correct
   // work, in a REQUIRED check. Unknown is not absent: where the log cannot answer, this does not
   // pretend it did.
-  if (isShallowOverride ?? isShallow(root)) return true;
+  // A shallow clone cannot answer, and this says so on stderr rather than passing quietly. The
+  // check still does not REFUSE — refusing a correct citation because the history was not fetched
+  // is a guard firing on correct work, in a required check — but a reader looking at a green run
+  // deserves to know a question went unasked.
+  if (isShallowOverride ?? isShallow(root)) {
+    process.stderr.write(
+      `commit-message-claims: shallow clone — cannot verify that \`${token}\` has ever existed.\n`,
+    );
+    return true;
+  }
   return gitLines(['log', '--all', '--oneline', '-1', '--', token], root).length > 0;
 }
 

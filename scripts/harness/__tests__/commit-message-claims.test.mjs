@@ -166,6 +166,25 @@ describe('which tree the path is judged against', () => {
     expect(pathHasEverExisted('scripts/harness/never-was.mjs')).toBe(false);
   });
 
+  it('says out loud when a shallow clone leaves the question unasked', () => {
+    // It does not refuse — refusing a correct citation because the history was not fetched is a
+    // guard firing on correct work, in a required check. But a reader looking at a green run
+    // deserves to know a question went unasked, so it is written to stderr rather than passed over.
+    const said = [];
+    const original = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => {
+      said.push(String(chunk));
+      return true;
+    };
+    try {
+      expect(pathHasEverExisted('anything/at/all.mjs', { isShallowOverride: true })).toBe(true);
+    } finally {
+      process.stderr.write = original;
+    }
+
+    expect(said.join('')).toMatch(/shallow clone/);
+  });
+
   it('accepts a staged path before it is anywhere else', () => {
     expect(
       pathHasEverExisted('scripts/harness/brand-new.mjs', {
