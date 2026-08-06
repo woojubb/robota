@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LocalExecutor } from './local-executor';
 import type { IAIProviderInstance } from './local-executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';

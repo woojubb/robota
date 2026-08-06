@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 
-import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core';
+import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core/node';
 import { CheckpointTree } from '@robota-sdk/agent-session';
 
 import { NodeFileSystem, NodeFileSystemAsync } from '../adapters/node-file-system.js';
