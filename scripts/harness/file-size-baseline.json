@@ -48,7 +48,6 @@
   "packages/agent-provider-openai-compatible/src/gemma/provider.ts": 312,
   "packages/agent-provider-openai-compatible/src/qwen/provider.ts": 301,
   "packages/agent-provider-openai-compatible/src/qwen/responses-parser.ts": 302,
-  "packages/agent-session/src/permission-enforcer.ts": 320,
   "packages/agent-session/src/session-run.ts": 323,
   "packages/agent-session/src/session.ts": 316,
   "packages/agent-transport-tui/src/App.tsx": 605,

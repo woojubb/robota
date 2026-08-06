@@ -21,8 +21,10 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
 
+import { toolFailure } from '../permission-types.js';
+
 import type { IPermissionEnforcerOptions } from '../permission-types.js';
-import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
+import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 function makeNoopTerminal(): ITerminalOutput {
   return {
@@ -69,8 +71,6 @@ function makeTool(name: string, execute: () => Promise<unknown>) {
   } as never;
 }
 
-const ARGS: TToolArgs = {};
-
 describe('CORE-027: a crashed tool is not a success', () => {
   it('does not report a thrown tool as `success: true`', async () => {
     const enforcer = makeEnforcer();
@@ -106,6 +106,41 @@ describe('CORE-027: a crashed tool is not a success', () => {
     const ended = onToolExecution.mock.calls.map(([e]) => e).filter((e) => e.type === 'end');
     expect(ended, 'no end event was emitted for a crashed tool').toHaveLength(1);
     expect(ended[0].success, 'a crashed tool was announced as a successful one').toBe(false);
+  });
+});
+
+describe('CORE-027: the wrapper still never throws', () => {
+  it('survives a tool whose own name cannot be read', () => {
+    // The comment above this wrapper says it must NEVER throw: if it does, the round records the
+    // assistant tool_use with no tool_result and the conversation is corrupted. A first version of
+    // this change hoisted `tool.getName()` above the try to make the name available to the catch —
+    // putting an unguarded call above that very comment. Review caught it.
+    const enforcer = makeEnforcer();
+    const broken = {
+      getName: () => {
+        throw new Error('this tool cannot say what it is');
+      },
+      name: 'Broken',
+      description: 'a tool that cannot name itself',
+      parameters: { type: 'object' as const, properties: {} },
+      execute: (async () => ({ success: true })) as never,
+      setEventService: vi.fn(),
+    } as never;
+
+    const [wrapped] = enforcer.wrapTools([broken]);
+
+    return expect(wrapped.execute({}, undefined as never)).resolves.toMatchObject({
+      success: false,
+    });
+  });
+
+  it('names the hook block as its own outcome, not as a success', () => {
+    // The third of the three outcomes the failure type declares. It was left behind by the first
+    // pass: the type promised the distinction while `tool-hook-helpers` still returned
+    // `success: true` — the type asserting a property the code did not have, in the change whose
+    // subject is exactly that.
+    expect(toolFailure('hook-blocked', 'nope').success).toBe(false);
+    expect(toolFailure('hook-blocked', 'nope').outcome).toBe('hook-blocked');
   });
 });
 

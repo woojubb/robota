@@ -30,6 +30,12 @@
       "timestamp": "2026-08-05T16:41:22.739Z",
       "ratio": "47/100",
       "reason": "A fifth instance, reporting the examined-size migration as 47/100 with no percentage while telling the owner the harness work was ending. Every instance so far has been a RATIO of a migration's progress written in a summary to the owner — which is exactly where a percentage carries the meaning and the bare fraction does not."
+    },
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-06T12:41:08.495Z",
+      "ratio": "1/3",
+      "reason": "A sixth instance — '#1651 (CORE-027 1/3)', naming which third of an item a pull request carries. Six for six, every one a RATIO OF PROGRESS written in a summary to the owner. The rule is right and the habit is specific: it is not ratios in general that go unqualified, it is the sentence that reports how far along something is."
     }
   ]
 }

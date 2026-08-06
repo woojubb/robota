@@ -96,12 +96,23 @@ export type TToolFailureOutcome = 'threw' | 'denied' | 'hook-blocked';
  * `data` keeps the JSON string it always carried, because the model is shown that text and changing
  * what it sees is a separate decision from making the envelope honest.
  */
-function toolFailure(outcome: TToolFailureOutcome, error: string) {
+export function toolFailure(
+  outcome: TToolFailureOutcome,
+  error: string,
+  /**
+   * What the MODEL is shown, when it differs from the default.
+   *
+   * A hook block has said `{ blocked: true, reason }` since HOOK-003, and the model reads that text.
+   * Changing the envelope is this item's subject; changing what the model sees is a different
+   * decision with a different blast radius, so the payload stays exactly as it was.
+   */
+  data?: unknown,
+) {
   return {
     success: false as const,
     outcome,
     error,
-    data: JSON.stringify({ success: false, output: '', error }),
+    data: JSON.stringify(data ?? { success: false, output: '', error }),
     metadata: {},
   };
 }
@@ -114,10 +125,26 @@ function toolFailure(outcome: TToolFailureOutcome, error: string) {
  * and both are the point: before CORE-027 the catch returned `success: true` AND emitted no end
  * event at all, so a crash was invisible to the caller and to anything watching.
  */
+/**
+ * What a crash announcement looks like, named rather than widened.
+ *
+ * The first version typed `announce` as taking a `Record<string, unknown>`, which the real
+ * `onToolExecution` cannot be assigned to — parameter positions are contravariant — so the call site
+ * reached for `as never`. A cast at a boundary is the boundary's type being wrong; this is the
+ * subset of the event this function actually emits.
+ */
+export interface IToolCrashAnnouncement {
+  type: 'end';
+  toolName: string;
+  toolArgs: TToolArgs;
+  success: false;
+  executionId?: string;
+}
+
 export function reportToolCrash(
   error: unknown,
-  announce: ((event: Record<string, unknown>) => void) | undefined,
-  where: { toolName: string; toolArgs: unknown; executionId?: string },
+  announce: ((event: IToolCrashAnnouncement) => void) | undefined,
+  where: { toolName: string; toolArgs: TToolArgs; executionId?: string },
 ) {
   const message = error instanceof Error ? error.message : String(error);
   announce?.({

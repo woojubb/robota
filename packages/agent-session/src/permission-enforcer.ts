@@ -9,13 +9,13 @@
 import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
-import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
 import {
   truncateToolResult,
   buildHookInput,
   runPreToolHook,
   firePostToolHook,
 } from './tool-hook-helpers.js';
+import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 
 import type {
   IPermissionEnforcerOptions,
@@ -25,6 +25,7 @@ import type {
   ISpinner,
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
 import type {
   IToolWithEventService,
   IToolResult,
@@ -73,7 +74,7 @@ export class PermissionEnforcer {
 
   /** Wrap all tools with permission checking */
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
-    return tools.map((tool) => this.wrapToolWithPermission(tool));
+    return tools.map((tool) => wrapToolWithPermission(tool, this as unknown as IToolWrapperDeps));
   }
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
@@ -91,129 +92,6 @@ export class PermissionEnforcer {
    * The wrapper intercepts execute() and runs permission evaluation before delegating.
    * If denied, returns a tool result indicating the action was blocked.
    */
-  private wrapToolWithPermission(tool: IToolWithEventService): IToolWithEventService {
-    const enforcer = this;
-    const originalExecute = tool.execute.bind(tool);
-
-    const wrappedTool = Object.create(tool) as IToolWithEventService;
-    wrappedTool.execute = async (
-      parameters: TToolParameters,
-      context?: IToolExecutionContext,
-    ): Promise<IToolResult> => {
-      // Must NEVER throw — if this throws, the execution round records the
-      // assistant tool_use in history but never adds a tool_result, which
-      // corrupts the conversation and causes a 400 error on the next API call.
-      // OUTSIDE the try: the catch announces which tool crashed (CORE-027).
-      const toolName = tool.getName();
-
-      try {
-        enforcer.log('tool_call', {
-          tool: toolName,
-          args: parameters as Record<string, string | number | boolean | object>,
-        });
-
-        const hookInput = buildHookInput(
-          enforcer.sessionId,
-          enforcer.cwd,
-          toolName,
-          parameters,
-          enforcer.getPermissionMode(),
-          enforcer.transcriptPath,
-        );
-
-        const preResult = await runPreToolHook(
-          enforcer.config.hooks,
-          hookInput,
-          enforcer.hookTypeExecutors,
-        );
-        if (preResult) {
-          enforcer.log('tool_blocked', { tool: toolName, reason: 'hook' });
-          return preResult;
-        }
-
-        // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
-        const allowed = await enforcer.checkPermission(
-          toolName,
-          parameters as TToolArgs,
-          context?.signal,
-        );
-        if (!allowed) {
-          enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
-          enforcer.onToolExecution?.({
-            type: 'end',
-            toolName,
-            toolArgs: parameters as TToolArgs,
-            success: false,
-            denied: true,
-            executionId: context?.executionId,
-          });
-          return PERMISSION_DENIED_RESULT;
-        }
-
-        enforcer.onToolExecution?.({
-          type: 'start',
-          toolName,
-          toolArgs: parameters as TToolArgs,
-          executionId: context?.executionId,
-        });
-
-        const result = await originalExecute(parameters, context as IToolExecutionContext);
-
-        // Truncate oversized tool output (matches 30K char limit)
-        const truncatedResult = truncateToolResult(result);
-
-        if (truncatedResult !== result && typeof result.data === 'string') {
-          enforcer.terminal.writeLine(
-            `  ⚠  Output truncated: ${result.data.length.toLocaleString()} chars total — model sees first and last 15,000 chars`,
-          );
-        }
-
-        enforcer.onToolExecution?.({
-          type: 'end',
-          toolName,
-          toolArgs: parameters as TToolArgs,
-          success: truncatedResult.success,
-          toolResultData:
-            typeof truncatedResult.data === 'string'
-              ? truncatedResult.data
-              : JSON.stringify(truncatedResult.data),
-          executionId: context?.executionId,
-        });
-
-        const dataSize =
-          typeof truncatedResult.data === 'string'
-            ? truncatedResult.data.length
-            : JSON.stringify(truncatedResult.data).length;
-        enforcer.log('tool_result', {
-          tool: toolName,
-          success: truncatedResult.success,
-          dataChars: dataSize,
-          truncated: truncatedResult !== result,
-        });
-        firePostToolHook(
-          enforcer.config.hooks,
-          hookInput,
-          truncatedResult,
-          enforcer.hookTypeExecutors,
-        );
-        return truncatedResult;
-      } catch (err) {
-        // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
-        const where = { toolName, toolArgs: parameters, executionId: context?.executionId };
-        return reportToolCrash(err, enforcer.onToolExecution as never, where);
-      }
-    };
-
-    // SELFHOST-004: the wrapper runs `originalExecute` (bound to the ORIGINAL tool), which reads the
-    // ORIGINAL tool's `eventService` (e.g. the `FunctionTool` span-completion emit). Because
-    // `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, forward it
-    // to the original tool — otherwise an injected event bus never reaches the tool and spans never fire.
-    wrappedTool.setEventService = (eventService) => {
-      tool.setEventService(eventService);
-    };
-
-    return wrappedTool;
-  }
 
   /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a
    * cancelled approval denies. */
