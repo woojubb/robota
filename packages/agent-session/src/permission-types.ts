@@ -76,16 +76,65 @@ export interface IPermissionEnforcerOptions {
   taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
 }
 
-/** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */
-export const PERMISSION_DENIED_RESULT = {
-  success: true,
-  data: JSON.stringify({
+/**
+ * How a tool call ended, when it did not simply succeed (CORE-027).
+ *
+ * Three outcomes used to be indistinguishable from success at this type — a tool that THREW, a user
+ * DENIAL, and a hook BLOCK — because each was returned as `{ success: true, data: '{"success":
+ * false,…}' }`. Every consumer above had to parse English out of a string and guess, and all three
+ * guesses were the same one.
+ *
+ * The framing the audit stated is the one kept here: **"never throw" is correct and "encode the
+ * failure as success" is not — they are independent decisions.** Nothing below starts throwing.
+ */
+export type TToolFailureOutcome = 'threw' | 'denied' | 'hook-blocked';
+
+/**
+ * The failure envelope. `success: false` is the part consumers branch on; `outcome` is the part they
+ * branch on when they need to know WHICH failure, and neither requires reading `data`.
+ *
+ * `data` keeps the JSON string it always carried, because the model is shown that text and changing
+ * what it sees is a separate decision from making the envelope honest.
+ */
+function toolFailure(outcome: TToolFailureOutcome, error: string) {
+  return {
+    success: false as const,
+    outcome,
+    error,
+    data: JSON.stringify({ success: false, output: '', error }),
+    metadata: {},
+  };
+}
+
+/**
+ * The crash path, as one call: announce the failure to the listener and return an honest envelope.
+ *
+ * It lives beside the envelope rather than in the enforcer because the enforcer is at its size
+ * ceiling and this is the same subject — what a failed tool call looks like. Two things happen here
+ * and both are the point: before CORE-027 the catch returned `success: true` AND emitted no end
+ * event at all, so a crash was invisible to the caller and to anything watching.
+ */
+export function reportToolCrash(
+  error: unknown,
+  announce: ((event: Record<string, unknown>) => void) | undefined,
+  where: { toolName: string; toolArgs: unknown; executionId?: string },
+) {
+  const message = error instanceof Error ? error.message : String(error);
+  announce?.({
+    type: 'end',
+    toolName: where.toolName,
+    toolArgs: where.toolArgs,
     success: false,
-    output: '',
-    error: 'Permission denied. The user did not approve this action.',
-  }),
-  metadata: {},
-} as const;
+    executionId: where.executionId,
+  });
+  return toolFailure('threw', message);
+}
+
+/** Returned when the user denies a permission prompt. */
+export const PERMISSION_DENIED_RESULT = toolFailure(
+  'denied',
+  'Permission denied. The user did not approve this action.',
+);
 
 /** Maximum chars for any single tool output. Matches Claude Code's 30K limit. */
 export const MAX_TOOL_OUTPUT_CHARS = 30_000;

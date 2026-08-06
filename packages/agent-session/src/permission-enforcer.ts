@@ -9,7 +9,7 @@
 import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
-import { PERMISSION_DENIED_RESULT } from './permission-types.js';
+import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
 import {
   truncateToolResult,
   buildHookInput,
@@ -103,8 +103,10 @@ export class PermissionEnforcer {
       // Must NEVER throw — if this throws, the execution round records the
       // assistant tool_use in history but never adds a tool_result, which
       // corrupts the conversation and causes a 400 error on the next API call.
+      // OUTSIDE the try: the catch announces which tool crashed (CORE-027).
+      const toolName = tool.getName();
+
       try {
-        const toolName = tool.getName();
         enforcer.log('tool_call', {
           tool: toolName,
           args: parameters as Record<string, string | number | boolean | object>,
@@ -196,12 +198,9 @@ export class PermissionEnforcer {
         );
         return truncatedResult;
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          success: true,
-          data: JSON.stringify({ success: false, output: '', error: message }),
-          metadata: {},
-        };
+        // CORE-027 — beside the envelope it returns, in `permission-types.ts`.
+        const where = { toolName, toolArgs: parameters, executionId: context?.executionId };
+        return reportToolCrash(err, enforcer.onToolExecution as never, where);
       }
     };
 
