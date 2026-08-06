@@ -184,6 +184,36 @@ export function pathHasEverExisted(
   return gitLines(['log', '--all', '--oneline', '-1', '--', token], root).length > 0;
 }
 
+/**
+ * Whether a cited object is one this repository can be said to know.
+ *
+ * The path check above already treats a shallow clone as unable to answer rather than as an answer,
+ * and an object citation is the same question about the same missing history. A shallow clone holds
+ * a handful of recent commits, so a message correctly citing an OLDER commit names an object the
+ * checkout genuinely does not have — and refusing it would be this guard firing on correct work in a
+ * REQUIRED check, which is the failure direction a required check must not have.
+ *
+ * Living next to `pathHasEverExisted` is the point. The two tolerances were written apart once
+ * before, in this same file's neighbourhood, and drifted; one function per question, used by every
+ * caller, is what keeps them from disagreeing again.
+ *
+ * AMBIGUOUS is not ABSENT either: `cat-file -t` also exits non-zero when a short prefix matches
+ * several objects, which a repository grows into as it accumulates commits, so `--disambiguate`
+ * settles it — a prefix matching MORE than one thing resolves rather than being refused for naming
+ * nothing.
+ */
+export function objectIsKnown(token, { root = WORKSPACE_ROOT, isShallowOverride } = {}) {
+  if (gitLines(['cat-file', '-t', token], root).length > 0) return true;
+  if (gitLines(['rev-parse', '--disambiguate=' + token], root).length > 0) return true;
+  if (isShallowOverride ?? isShallow(root)) {
+    process.stderr.write(
+      `commit-message-claims: shallow clone — cannot verify that \`${token}\` names an object.\n`,
+    );
+    return true;
+  }
+  return false;
+}
+
 /** Whether the checkout has a truncated history, in which case the log cannot answer. */
 export function isShallow(root = WORKSPACE_ROOT) {
   return gitLines(['rev-parse', '--is-shallow-repository'], root)[0] === 'true';

@@ -42,12 +42,13 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   "documented in the rule," "when practical," and untracked follow-ups are NOT terminal states.
 - Mechanize **by default**: reach for a check whenever the violation is detectable with reasonable signal.
   The burden is to justify NOT mechanizing (a specific obstacle), never to justify mechanizing.
-- **Say which state was reached, in the rule itself.** A rule declares `Enforced by: \`<check>\``or`Enforced by: nothing — <why a machine cannot decide this>`. Both are answers; silence is not, and
-silence is precisely what a reader cannot tell from enforcement. This paragraph was already the
-rule and nothing checked it, so the step was skippable — and a rule did land here as three
-paragraphs with no mechanism, no filed item, and no admission that it had neither.
-Enforced by: `new-rule-declares-enforcement`, which reads the change's own diff: a `###`section
-added under`.agents/rules/` must carry one of the two declarations.
+- **Say which state was reached, in the rule itself.** A rule declares ``Enforced by: `<check>` `` or
+  `Enforced by: nothing — <why a machine cannot decide this>`. Both are answers; silence is not, and
+  silence is precisely what a reader cannot tell from enforcement. This paragraph was already the
+  rule and nothing checked it, so the step was skippable — and a rule did land here as three
+  paragraphs with no mechanism, no filed item, and no admission that it had neither.
+  Enforced by: `new-rule-declares-enforcement`, which reads the change's own diff: a `###`section
+  added under`.agents/rules/` must carry one of the two declarations.
 - **Fix the class, not the instance.** When a lesson comes from a concrete defect, name the invariant
   (the class), enumerate every current instance of it in the repo, fix them all in the same change, and
   make the mechanism catch the whole class so a future sibling instance fails. Fixing only the triggering

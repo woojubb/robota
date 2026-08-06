@@ -4,7 +4,11 @@
  * bodies/footers in this repo intentionally include long lines (evidence logs,
  * Co-Authored-By trailers).
  */
-import { judgeMessage, pathHasEverExisted } from './scripts/harness/commit-message-claims.mjs';
+import {
+  judgeMessage,
+  objectIsKnown,
+  pathHasEverExisted,
+} from './scripts/harness/commit-message-claims.mjs';
 import { execFileSync } from 'node:child_process';
 
 /**
@@ -49,15 +53,9 @@ const claimsResolve = {
           const findings = judgeMessage(raw ?? '', {
             // ANY object, as the rule's own documentation says — a message may cite a tag or a
             // tree, and refusing those would be the check disagreeing with its own description.
-            //
-            // AMBIGUOUS is not ABSENT. `cat-file -t` also exits non-zero when a short prefix matches
-            // several objects, and a repository grows into that: a 7-character hash that was unique
-            // when the message was written stops being unique later, and the citation was perfectly
-            // valid. `rev-parse --disambiguate` lists what a prefix matches, so a prefix matching
-            // MORE than one thing resolves rather than being refused for naming nothing.
-            resolvesObject: (token) =>
-              gitLines(['cat-file', '-t', token]).length > 0 ||
-              gitLines(['rev-parse', '--disambiguate=' + token]).length > 0,
+            // Ambiguity and a shallow clone are both handled there, in one place, so this side and
+            // the path side cannot answer the same question two ways.
+            resolvesObject: (token) => objectIsKnown(token),
             // History, not the current tree. CI lints every commit of a pull request without
             // checking any of them out, so `--cached` is empty and the tree is always HEAD's.
             pathKnown: (token) => pathHasEverExisted(token, { staged }),

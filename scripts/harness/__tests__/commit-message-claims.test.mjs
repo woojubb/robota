@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   commitishClaims,
   judgeMessage,
+  objectIsKnown,
   pathClaims,
   pathHasEverExisted,
 } from '../commit-message-claims.mjs';
@@ -63,6 +64,23 @@ describe('what counts as a citation', () => {
     // would mean "the history is not here" — and refusing a correct citation for that, in a
     // REQUIRED check, is a guard firing on correct work. Unknown is not absent.
     expect(pathHasEverExisted('anything/at/all.mjs', { isShallowOverride: true })).toBe(true);
+  });
+
+  it('does not refuse a cited OBJECT it cannot check, in a shallow clone', () => {
+    // Review found the two halves disagreeing. The PATH side already treated a shallow clone as
+    // unable to answer, but the OBJECT side did not — and a shallow clone holds only a handful of
+    // recent commits, so a message correctly citing an older one named an object the checkout
+    // genuinely does not have. Same missing history, same required check, opposite verdicts.
+    //
+    // A hash of the right shape that no repository has ever held stands in for the older commit:
+    // if the shallow tolerance were absent this refuses, which is the guard firing on correct work.
+    expect(
+      objectIsKnown('0000000000000000000000000000000000000123', { isShallowOverride: true }),
+    ).toBe(true);
+    // And with a real history it still answers, so the tolerance did not turn the check off.
+    expect(
+      objectIsKnown('0000000000000000000000000000000000000123', { isShallowOverride: false }),
+    ).toBe(false);
   });
 
   it('does not read an ordinary English word built from a-f', () => {
