@@ -74,6 +74,7 @@ import type { ISession } from '@robota-sdk/agent-core';
 import type {
   ITransportAdapter,
   IGoalState,
+  ITurnHandle,
   IPlanArtifact,
   ITerminalHandoff,
   TTurnSource,
@@ -481,7 +482,7 @@ export class InteractiveSession
     displayInput?: string,
     rawInput?: string,
     options: ITurnOptions = {},
-  ): Promise<void> {
+  ): Promise<ITurnHandle> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     // REMOTE-014 E5: resolve the SERVER-ASSIGNED driver id (display-only). A human turn defaults to the owner;
@@ -490,7 +491,13 @@ export class InteractiveSession
     const driverId =
       options.driverId ??
       (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
-    const resolvedOptions: ITurnOptions = { ...options, driverId };
+    // RUNTIME-003: a submission is identified when it is ACCEPTED, not when it starts running —
+    // otherwise a queued one would have no identity for the whole time its caller is waiting on it.
+    // The drain carries this id back in `resumeTurnId`, so one submission is one turn throughout.
+    const { turnId, completed } = options.resumeTurnId
+      ? { turnId: options.resumeTurnId, completed: this.execCtrl.completionOf(options.resumeTurnId) }
+      : this.execCtrl.beginSubmission();
+    const resolvedOptions: ITurnOptions = { ...options, driverId, resumeTurnId: turnId };
     if (this.execCtrl.executing) {
       // Same-driver coalesces to the tail (1-deep = today); a different driver appends (no clobber).
       const outcome = this.execCtrl.enqueuePending({
@@ -506,7 +513,10 @@ export class InteractiveSession
             `(max ${MAX_PENDING_QUEUE_DEPTH}). Try again after the current work settles.`,
         );
       }
-      return;
+      // The queued path returns as soon as the input is accepted, exactly as it did before — the
+      // turn has not run yet and waiting for it here would block the submitter behind the turn in
+      // front. The handle is how a caller that DOES want to wait now says so.
+      return { turnId, completed };
     }
     await this.execCtrl.executePrompt(
       input,
@@ -523,6 +533,7 @@ export class InteractiveSession
       (p, d, r, o) => this.submit(p, d, r, o),
       resolvedOptions,
     );
+    return { turnId, completed };
   }
 
   /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at emit time for attribution. */

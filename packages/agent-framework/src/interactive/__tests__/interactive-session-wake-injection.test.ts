@@ -35,7 +35,7 @@ function createSessionStub(): Session {
       remainingPercentage: 100,
     }),
     abort: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
+    shutdown: vi.fn().mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) }),
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
   } as unknown as Session;
@@ -103,10 +103,17 @@ async function setupSession(): Promise<{
   return { session, manager, started };
 }
 
+const EMPTY_TURN_RESULT = {
+  response: '',
+  history: [],
+  toolSummaries: [],
+  contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
+};
+
 describe('FLOW-002 session wake injection', () => {
   it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
 
     const created = await manager.spawn(scheduledWakeRequest('check the build'));
     await Promise.resolve();
@@ -121,7 +128,7 @@ describe('FLOW-002 session wake injection', () => {
 
   it('TC-03: duplicate wakes for the same task id coalesce to a single turn', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
 
     await manager.spawn(scheduledWakeRequest('do X'));
     await Promise.resolve();

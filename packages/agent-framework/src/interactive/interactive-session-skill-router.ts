@@ -31,6 +31,7 @@ import type {
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
+import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 function normalizeNameToken(name: string): string {
@@ -59,11 +60,13 @@ export class SessionSkillRouter {
     commandHostAdapters: ICommandHostAdapters | undefined,
     private readonly getSession: () => ICommandHostContext,
     private readonly getSessionId: () => string,
+    // RUNTIME-003: submitting now yields the turn's identity; a router that starts a turn on the
+    // user's behalf has no use for it, but the type says what it is rather than erasing it.
     private readonly onSubmit: (
       prompt: string,
       displayInput?: string,
       rawInput?: string,
-    ) => Promise<void>,
+    ) => Promise<ITurnHandle | void>,
     private readonly onApplyResult: (result: string) => Promise<void>,
     private readonly recordSkillActivation: (
       event: ISkillActivationEvent,

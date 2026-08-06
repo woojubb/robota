@@ -45,10 +45,19 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
 
     // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
     // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
-    // Reject while a turn is in flight. (Known TOCTOU: the synchronous streamSSE subscribe below runs before
-    // `await session.submit`, so two requests passing this check in the same tick could still both proceed;
-    // the window is small and far better than silent cross-talk. Per-session isolation is a larger
-    // follow-up — see ARCH-004.)
+    // Reject while a turn is in flight.
+    //
+    // RUNTIME-003: this comment used to declare a TOCTOU here — that two requests passing the check in
+    // the same tick could both proceed. Measured, they cannot: from this check through `streamSSE` to
+    // `session.submit` there is no suspension point, so a second request's check always observes the
+    // first turn already claimed. The ordering was recorded both ways round (with a synchronous and an
+    // async `sessionFactory`) and came out `check → submit → check` each time.
+    //
+    // Worth stating plainly, because the safety is INHERITED rather than owned: it holds because Hono
+    // enters the stream callback synchronously, which is a property of a dependency and not of this
+    // route. A regression case in `routes.test.ts` pins the observable outcome — one turn starts, the
+    // other is refused — so a Hono that started deferring would be caught here rather than in
+    // production. Per-session isolation remains the larger answer (ARCH-004).
     if (session.isExecuting()) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }

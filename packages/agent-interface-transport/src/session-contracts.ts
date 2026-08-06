@@ -221,6 +221,57 @@ export interface IExecutionResult {
   promptFileReferences?: IPromptFileReferenceRecord[];
 }
 
+/**
+ * RUNTIME-003: the identity of one submission, handed back to whoever made it.
+ *
+ * Without this a subscriber has only the session-global `complete` / `interrupted` / `error` events,
+ * which say that A turn ended and never which one. Two callers listening at once are answered by
+ * whichever fires first — measured in the MCP adapter, where the second `submit` was handed the
+ * running turn's response as its own.
+ *
+ * `completed` ALWAYS settles, and that is the part worth stating. A session runs one turn at a time
+ * and queues the rest, and a queued submission does not always get to run: the co-drive queue
+ * coalesces a same-driver entry into the one behind it and drops at capacity. A handle that only
+ * settled for submissions that ran would leave the others waiting forever, which is the hang this
+ * type exists to make impossible — so a submission that never runs REJECTS with `TurnNotRunError`
+ * and says which of those happened.
+ */
+export interface ITurnHandle {
+  /** Minted when the submission is accepted, and kept if it waits in the queue before running. */
+  readonly turnId: string;
+  /** Resolves with THIS submission's result; rejects with `TurnNotRunError` if it never ran. */
+  readonly completed: Promise<IExecutionResult>;
+}
+
+/** Why a submission never became a turn. */
+export type TTurnNotRunReason =
+  /** A later same-driver input replaced it in the queue (tail-coalesce). */
+  | 'coalesced'
+  /** The queue was at capacity when it arrived. */
+  | 'dropped'
+  /** The queue was cleared (abort / cancel) before it ran. */
+  | 'cancelled'
+  /** The session began shutting down before it ran. */
+  | 'shutdown';
+
+/**
+ * A submission that was accepted and then never ran.
+ *
+ * Typed rather than a bare `Error` because the caller has to act on the reason — 'coalesced' means
+ * the caller's own newer input superseded it and is normal, while 'dropped' means the queue was
+ * full and the input is gone. A consumer forced to regex-match a message to tell those apart still
+ * has the string-matching this change exists to remove.
+ */
+export class TurnNotRunError extends Error {
+  constructor(
+    readonly turnId: string,
+    readonly reason: TTurnNotRunReason,
+  ) {
+    super(`turn ${turnId} never ran: ${reason}`);
+    this.name = 'TurnNotRunError';
+  }
+}
+
 /** Permission handler delegate — clients provide their own UI. */
 export type TInteractivePermissionHandler = (
   toolName: string,
@@ -342,12 +393,15 @@ export interface IInteractiveSession {
   // Submission
   // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
   // with no id defaults to the owner; an agent-wakeup turn to the agent id). Existing callers omit it.
+  // RUNTIME-003: returns the submission's own identity. A caller that ignores it is unaffected —
+  // `await session.submit(...)` still means what it did — but a caller that needs to know which turn
+  // answered it no longer has to guess from a session-global event.
   submit(
     input: string,
     displayInput?: string,
     rawInput?: string,
     options?: ISubmitOptions,
-  ): Promise<void>;
+  ): Promise<ITurnHandle>;
   abort(): void;
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;

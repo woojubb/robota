@@ -6,12 +6,17 @@
  * shutting-down flag, and all private execution lifecycle methods.
  */
 
+
+import { randomUUID } from 'node:crypto';
+
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { TurnNotRunError } from '@robota-sdk/agent-interface-transport';
+
 
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
 import { executePromptTurn } from './interactive-session-prompt.js';
@@ -37,6 +42,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -78,6 +84,15 @@ export interface ITurnOptions {
   wakeTaskId?: string;
   /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this turn (co-drive attribution; display-only). */
   driverId?: TDriverId;
+  /**
+   * RUNTIME-003: the id this submission was already given, set only by the queue drain.
+   *
+   * Identity is minted once, when the submission is accepted, and a queued submission keeps it when
+   * it finally runs — otherwise the caller holding a handle would be waiting on an id the turn no
+   * longer has. A caller does not set this: naming your own turn would let two submissions claim one
+   * identity, which is the confusion the id exists to end.
+   */
+  resumeTurnId?: string;
 }
 
 /** REMOTE-014 E5: one queued input awaiting its turn (attributed). */
@@ -86,18 +101,27 @@ export interface IQueuedInput {
   readonly displayInput?: string;
   readonly rawInput?: string;
   readonly options: ITurnOptions;
+  /** RUNTIME-003: this submission's id, so the handle its caller holds settles for the right turn. */
+  readonly turnId?: string;
 }
 
 /** REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice. */
 export const MAX_PENDING_QUEUE_DEPTH = 32;
 
-/** A submit callback that optionally carries turn options (default = user turn). */
+/**
+ * A submit callback that optionally carries turn options (default = user turn).
+ *
+ * RUNTIME-003: submitting now yields the turn's identity, and this callback's callers do not want
+ * it — the drain re-submits an input whose handle its original submitter already holds, so acting on
+ * a handle here would mean waiting on a turn someone else is already waiting on. The type names what
+ * comes back rather than erasing it, so a caller that DID want it would not have to cast.
+ */
 export type TSubmitFn = (
   prompt: string,
   displayInput?: string,
   rawInput?: string,
   options?: ITurnOptions,
-) => Promise<void>;
+) => Promise<ITurnHandle | void>;
 export class SessionExecutionController {
   executing = false;
   streamingText = '';
@@ -117,6 +141,79 @@ export class SessionExecutionController {
     private readonly skillRouter: SessionSkillRouter,
     private readonly callbacks: IExecutionControllerCallbacks,
   ) {}
+
+  /**
+   * RUNTIME-003: one entry per accepted submission, until its turn ends or it is refused a turn.
+   *
+   * The map is what makes `ITurnHandle.completed` able to promise it always settles: every way a
+   * submission can stop existing — it ran, it was coalesced away, it was dropped at capacity, the
+   * queue was cleared, the session shut down — goes through `settleTurn` or `failTurn`, so nothing
+   * can leave a caller waiting on a turn that will never come.
+   */
+  private readonly turnSettlers = new Map<
+    string,
+    {
+      promise: Promise<IExecutionResult>;
+      resolve: (result: IExecutionResult) => void;
+      reject: (error: Error) => void;
+    }
+  >();
+
+  /**
+   * Accept a submission and give it an identity. The promise is registered before the caller can do
+   * anything with it, so a turn that ends synchronously still finds its settler.
+   */
+  beginSubmission(): { turnId: string; completed: Promise<IExecutionResult> } {
+    const turnId = randomUUID();
+    let settle!: { resolve: (r: IExecutionResult) => void; reject: (e: Error) => void };
+    const completed = new Promise<IExecutionResult>((resolve, reject) => {
+      settle = { resolve, reject };
+    });
+    this.turnSettlers.set(turnId, { promise: completed, ...settle });
+    // A caller may ignore the handle entirely — `void session.submit(...)` is how autonomous turns
+    // are started here. Without a handler attached, a submission that is later coalesced away would
+    // reject into an unhandled rejection and crash a strict host, so the rejection is marked handled
+    // here and the ORIGINAL promise is what the caller receives.
+    completed.catch(() => {});
+    return { turnId, completed };
+  }
+
+  /**
+   * The promise already registered for an accepted submission.
+   *
+   * The queue drain re-enters `submit` for an input that was accepted earlier, and its caller is
+   * holding the promise from THAT acceptance. Handing back the same one is the whole point: minting
+   * a second promise here would settle something nobody is waiting on. Returns a rejected promise
+   * for an id this controller does not know, which can only mean the submission already settled.
+   */
+  completionOf(turnId: string): Promise<IExecutionResult> {
+    const registered = this.turnSettlers.get(turnId);
+    if (registered) return registered.promise;
+    const orphan = Promise.reject(new TurnNotRunError(turnId, 'cancelled'));
+    orphan.catch(() => {});
+    return orphan;
+  }
+
+  /** The turn ended. Settles the caller's handle with the result it produced. */
+  settleTurn(turnId: string | undefined, result: IExecutionResult): void {
+    if (turnId === undefined) return;
+    this.turnSettlers.get(turnId)?.resolve(result);
+    this.turnSettlers.delete(turnId);
+  }
+
+  /** The turn threw. The caller's handle rejects with the same error the turn failed on. */
+  failTurnWithError(turnId: string | undefined, error: Error): void {
+    if (turnId === undefined) return;
+    this.turnSettlers.get(turnId)?.reject(error);
+    this.turnSettlers.delete(turnId);
+  }
+
+  /** The submission never became a turn, and the caller is told which of the ways happened. */
+  failTurn(turnId: string | undefined, reason: TTurnNotRunReason): void {
+    if (turnId === undefined) return;
+    this.turnSettlers.get(turnId)?.reject(new TurnNotRunError(turnId, reason));
+    this.turnSettlers.delete(turnId);
+  }
 
   /** The HEAD queued prompt (next to run), or null — backward-compatible single-prompt read. */
   get pendingPrompt(): string | null {
@@ -143,11 +240,15 @@ export class SessionExecutionController {
       ) {
         this.wakeTaskIds.delete(tail.options.wakeTaskId);
       }
+      // RUNTIME-003: the entry being replaced never gets a turn, so whoever holds its handle is
+      // told now rather than waiting on a submission that has already been superseded.
+      this.failTurn(tail.turnId, 'coalesced');
       this.pendingQueue[this.pendingQueue.length - 1] = entry;
       return 'coalesced';
     }
     if (this.pendingQueue.length >= MAX_PENDING_QUEUE_DEPTH) {
       if (entry.options.wakeTaskId !== undefined) this.wakeTaskIds.delete(entry.options.wakeTaskId);
+      this.failTurn(entry.turnId, 'dropped');
       return 'dropped';
     }
     this.pendingQueue.push(entry);
@@ -163,6 +264,7 @@ export class SessionExecutionController {
     const drivers: TDriverId[] = [];
     for (const entry of this.pendingQueue) {
       if (entry.options.wakeTaskId !== undefined) this.wakeTaskIds.delete(entry.options.wakeTaskId);
+      this.failTurn(entry.turnId, 'cancelled');
       const driver = entry.options.driverId;
       if (driver !== undefined && !drivers.includes(driver)) drivers.push(driver);
     }
@@ -250,7 +352,16 @@ export class SessionExecutionController {
       // Dequeue the HEAD (submission order); resubmit it. Its wakeTaskId is NOT released here — the turn it
       // starts will release it on completion (or `clearPendingQueue` if aborted).
       const head = this.pendingQueue.shift() as IQueuedInput;
-      setTimeout(() => void submit(head.input, head.displayInput, head.rawInput, head.options), 0);
+      // RUNTIME-003: the queued submission keeps the id it was given when it was accepted, so the
+      // handle its caller has been holding settles for the turn it actually asked for.
+      setTimeout(
+        () =>
+          void submit(head.input, head.displayInput, head.rawInput, {
+            ...head.options,
+            resumeTurnId: head.turnId,
+          }),
+        0,
+      );
     }
   }
 
@@ -272,11 +383,20 @@ export class SessionExecutionController {
     // entries saw idle.) The `finally` always releases it — including if the refresh throws, which is why
     // checkAndRefreshContextIfStale now runs INSIDE the try.
     this.executing = true;
+    // RUNTIME-003: which submission this turn belongs to. It was minted when the submission was
+    // accepted — by `beginSubmission` on the direct path, or, for one that waited in the queue, by
+    // the same call before it was ever enqueued — so the handle handed out then settles here.
+    const activeTurnId = turnOptions.resumeTurnId;
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
     let completedResult: IExecutionResult | undefined;
+    // RUNTIME-003: what this turn ended with, for the handle its submitter holds. `completedResult`
+    // cannot stand in — it is deliberately the COMPLETED path only (post-turn capture keys off it),
+    // while a handle must settle for an interrupted turn too.
+    let terminalResult: IExecutionResult | undefined;
+    let turnError: Error | undefined;
     // SELFHOST-008 P3: per-turn recall — the ephemeral `<recalled-memory>` block (query = input) computed
     // BEFORE the turn's model call, guarded so a recall failure skips injection but never breaks the turn.
     let ephemeralSystemContext: string | undefined;
@@ -322,12 +442,17 @@ export class SessionExecutionController {
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
           completedResult = result; // stash for post-turn capture in the `finally`
+          terminalResult = result;
           this.callbacks.emit('complete', result);
         },
         onInterrupted: (result: IExecutionResult) => {
+          // RUNTIME-003: an interrupted turn still RAN and still produced what it got to, so the
+          // caller's handle resolves with it. Rejecting would say the submission never happened.
+          terminalResult = result;
           this.callbacks.emit('interrupted', result);
         },
         onError: (err: Error) => {
+          turnError = err;
           this.callbacks.emit('error', err);
         },
         onContextUpdate: () => {
@@ -367,6 +492,16 @@ export class SessionExecutionController {
         }
       }
       this.callbacks.persistSession();
+      // RUNTIME-003: settle the submitter's handle BEFORE draining, so a caller awaiting this turn
+      // is answered by it rather than by whatever the drain starts next. Settling here — in the
+      // `finally` that always runs — is what makes "the handle always settles" true for a turn that
+      // threw somewhere the onError callback never saw.
+      if (terminalResult !== undefined) this.settleTurn(activeTurnId, terminalResult);
+      else
+        this.failTurnWithError(
+          activeTurnId,
+          turnError ?? new Error('the turn ended without a result'),
+        );
       this.drainPendingQueue(submit);
     }
   }
@@ -377,7 +512,7 @@ export class SessionExecutionController {
     displayInput: string | undefined,
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
-    submit: (p: string, d?: string, r?: string) => Promise<void>,
+    submit: (p: string, d?: string, r?: string) => Promise<ITurnHandle | void>,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -418,7 +553,7 @@ export class SessionExecutionController {
 
   async executeForegroundCommand(
     execute: () => Promise<ICommandResult>,
-    submit: (p: string, d?: string, r?: string) => Promise<void>,
+    submit: (p: string, d?: string, r?: string) => Promise<ITurnHandle | void>,
   ): Promise<ICommandResult> {
     this.executing = true;
     this.clearStreaming();

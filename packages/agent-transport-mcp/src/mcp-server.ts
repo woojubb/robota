@@ -125,39 +125,23 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
 }
 
 /**
- * Submit a prompt and wait for the complete/interrupted/error event.
+ * Submit a prompt and wait for THIS submission's turn.
+ *
+ * The previous version subscribed to the session-global `complete` / `interrupted` / `error` events
+ * and resolved on whichever fired first. A session runs one turn at a time and queues the rest, so
+ * two concurrent `submit` calls did not run concurrently — the second waited and then took the
+ * RUNNING turn's response as its own answer. Both callers were told about one turn, and neither was
+ * told which.
+ *
+ * `submit` now returns the submission's identity, so there is nothing left to correlate by hand: the
+ * handle settles for the turn this call asked for, and for no other. A submission the session
+ * accepted but never ran rejects with `TurnNotRunError`, which is reported as a tool error rather
+ * than left to hang — the failure mode the event-listening version could not even express.
  */
-function waitForCompletion(
+async function waitForCompletion(
   session: IInteractiveSession,
   prompt: string,
 ): Promise<IExecutionResult> {
-  return new Promise((resolve, reject) => {
-    const onComplete = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result);
-    };
-    const onInterrupted = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result);
-    };
-    const onError = (error: Error): void => {
-      cleanup();
-      reject(error);
-    };
-
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
-
-    session.submit(prompt).catch((err) => {
-      cleanup();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    });
-  });
+  const handle = await session.submit(prompt);
+  return handle.completed;
 }
