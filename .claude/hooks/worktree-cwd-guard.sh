@@ -124,6 +124,74 @@ STASH_END='([^-[:alnum:]_]|$)'
 # another. Three earlier findings on this same block were the same shape: a rule this file already
 # states, re-derived worse a few lines away. (#1585)
 STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
+
+# --- Ambient git environment -------------------------------------------------------------------
+#
+# `GIT_DIR` and its family outrank the working directory. A process that inherits one runs against a
+# DIFFERENT repository than the one it appears to be standing in, and git hooks export exactly these
+# variables — so a command launched from inside a hook, or from a test that was, silently reaches
+# another clone. That is not a hypothetical: a shared branch was overwritten with fixture commits
+# this way more than once, and every command involved looked local.
+#
+# Checked BEFORE anything that resolves a repository, because with one of these set the resolution
+# itself answers about the wrong repo. Any git command at all is judged, not just the destructive
+# ones: `git commit` into the wrong repository is as bad as `git reset` in the right one.
+#
+# fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
+# not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
+# the repository-identity checks below are not replaced by this one.
+GIT_AMBIENT_ENV_SET=""
+for _var in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_NAMESPACE; do
+  if [[ -n "${!_var:-}" ]]; then
+    GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
+  fi
+done
+if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
+  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
+  echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} is set in this environment." >&2
+  echo "[worktree-cwd-guard] These outrank the working directory, so this git command can read and" >&2
+  echo "[worktree-cwd-guard] write a DIFFERENT repository than the one you are standing in. A shared" >&2
+  echo "[worktree-cwd-guard] branch was overwritten this way; the command looked local and was not." >&2
+  echo "[worktree-cwd-guard] Unset them, then run the command again." >&2
+  exit 2
+fi
+
+# --- A checkout that fails, in a command that keeps going ---------------------------------------
+#
+# A branch checked out by another worktree cannot be checked out here — git refuses it. On its own
+# that is fine: the command fails and nothing happened. In a COMPOUND command it is not, because the
+# statements after it still run, against whatever branch is actually checked out. That is how a
+# `reset --hard` intended for one branch landed on another.
+#
+# So the block is narrow on purpose: a bare failing checkout is left alone (git's own error IS the
+# whole outcome), and only a checkout with something after it is refused.
+if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)'; then
+  # Bounded by what a REF NAME may contain, not by "up to whitespace". Read the loose way, the
+  # separator came along with it — `git checkout foo; git reset` yielded `foo;`, which matches no
+  # branch, so the block silently passed the exact command it exists to refuse. A guard that fails
+  # to parse must not read as a guard that found nothing.
+  CHECKOUT_TARGET=$(printf '%s' "$VERBS" |
+    grep -oE "${STASH_PRE}git[[:space:]]+(checkout|switch)[[:space:]]+[A-Za-z0-9._][A-Za-z0-9._/-]*" |
+    grep -oE '[A-Za-z0-9._][A-Za-z0-9._/-]*$' | head -1 || true)
+  # Judged against the repository the COMMAND will run in, resolved by this file's own owner of that
+  # question — not by a bare `git` call, which answers about the HOOK process's directory. The first
+  # version did the latter and passed the exact command it exists to refuse whenever the two differ,
+  # which is every subagent and every worktree. The test caught it; the lesson is that "which repo"
+  # already had an answer here and re-deriving it produced a worse one.
+  CHECKOUT_REPO=$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")
+  if [[ -n "${CHECKOUT_TARGET:-}" ]] && [[ -n "${CHECKOUT_REPO:-}" ]] &&
+    git -C "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
+    grep -qxF "branch refs/heads/${CHECKOUT_TARGET}" &&
+    [[ "$(git -C "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" != "$CHECKOUT_TARGET" ]]; then
+    echo "[worktree-cwd-guard] Blocked: '${CHECKOUT_TARGET}' is checked out in another worktree, so" >&2
+    echo "[worktree-cwd-guard] this checkout FAILS — and the rest of this compound command still runs," >&2
+    echo "[worktree-cwd-guard] against whatever branch is actually checked out. A reset --hard landed" >&2
+    echo "[worktree-cwd-guard] on the wrong branch exactly this way." >&2
+    echo "[worktree-cwd-guard] Run the work in that worktree, or split this into separate commands." >&2
+    exit 2
+  fi
+fi
 if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}${STASH_GIT}${STASH_END}"; then
   BARE_STASH=false
   # PER STATEMENT, and a comment is not a statement.

@@ -157,3 +157,74 @@ describe('worktree-cwd-guard hook', () => {
     expect(res.status).toBe(0);
   });
 });
+
+describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
+  // Both of these were recurring, and both were silent at the moment they happened. Written here
+  // rather than in a new file because they are the same guard's subject — a second file would fork
+  // the vocabulary of "what a worktree hazard is", which this repo has already paid for once.
+
+  it('BLOCKS any git command while an ambient GIT_DIR points elsewhere', () => {
+    // Git hooks export GIT_DIR, and it outranks the working directory. A process that inherited one
+    // wrote to the repository it was invoked FROM rather than the one it stood in — which overwrote
+    // a shared branch with fixture commits. Every command involved looked local.
+    const { status, stderr } = runHook({
+      command: 'git commit -m "ordinary work"',
+      cwd: mainRepo,
+      env: { GIT_DIR: path.join(root, 'somewhere-else', '.git') },
+    });
+
+    expect(status).toBe(2);
+    expect(stderr).toMatch(/GIT_DIR is set/);
+  });
+
+  it('leaves an ordinary git command alone when the environment is clean', () => {
+    // Without this the case above would pass against a guard that blocked every git command, which
+    // is not a guard — it is an outage.
+    const { status } = runHook({ command: 'git commit -m "ordinary work"', cwd: mainRepo });
+
+    expect(status).toBe(0);
+  });
+
+  it('BLOCKS a compound command whose checkout targets a branch another worktree holds', () => {
+    // A checkout git refuses is harmless alone. In a compound command it is not: the statements
+    // AFTER it still run, against whatever branch is actually checked out. A `reset --hard` meant
+    // for one branch landed on another exactly this way.
+    const held = 'held-by-a-sibling';
+    execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
+    const sibling = path.join(root, 'sibling-worktree');
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], { stdio: 'pipe' });
+
+    try {
+      const { status, stderr } = runHook({
+        command: `git checkout ${held}; git reset --hard origin/develop`,
+        cwd: mainRepo,
+      });
+
+      expect(status).toBe(2);
+      expect(stderr).toMatch(/checked out in another worktree/);
+    } finally {
+      execFileSync('git', ['-C', mainRepo, 'worktree', 'remove', '--force', sibling], {
+        stdio: 'pipe',
+      });
+    }
+  });
+
+  it('leaves a BARE checkout of that branch alone', () => {
+    // git's own refusal is the whole outcome when nothing follows it. Blocking here would be the
+    // guard firing on correct work, which is what gets a guard turned off.
+    const held = 'held-by-a-sibling-2';
+    execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
+    const sibling = path.join(root, 'sibling-worktree-2');
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], { stdio: 'pipe' });
+
+    try {
+      const { status } = runHook({ command: `git checkout ${held}`, cwd: mainRepo });
+
+      expect(status).toBe(0);
+    } finally {
+      execFileSync('git', ['-C', mainRepo, 'worktree', 'remove', '--force', sibling], {
+        stdio: 'pipe',
+      });
+    }
+  });
+});
