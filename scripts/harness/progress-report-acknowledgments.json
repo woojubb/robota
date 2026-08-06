@@ -24,6 +24,12 @@
       "timestamp": "2026-08-04T06:58:15.776Z",
       "ratio": "78/97",
       "reason": "A fourth instance, committed while building the acknowledgment path for the first three — reporting 78/97 of the scans still undeclared, with no percentage. Recorded rather than argued away: it is the same violation, and the fact that it happened during the fix is the clearest evidence that the rule needs a mechanism and not an intention."
+    },
+    {
+      "transcript": "50cb28dd-0dd1-4ca4-897a-f8d0b47191c7.jsonl",
+      "timestamp": "2026-08-05T16:41:22.739Z",
+      "ratio": "47/100",
+      "reason": "A fifth instance, reporting the examined-size migration as 47/100 with no percentage while telling the owner the harness work was ending. Recorded rather than argued away. Worth noting what it says about the rule: every instance so far has been a RATIO of a migration's progress, written in a summary to the owner — which is exactly where a percentage carries the meaning and the bare fraction does not."
     }
   ]
 }

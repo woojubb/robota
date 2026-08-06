@@ -88,6 +88,16 @@ describe('what counts as a citation', () => {
     ]);
   });
 
+  it('does not read a SHAPE a file ends with as a file', () => {
+    // Measured on this repository's own continuous integration: the commit that shipped the first
+    // half of this rule was refused by it, for naming `.test.ts` while explaining a convention.
+    // Two checks needed the same answer and each had grown its own — the judgement is shared now,
+    // because a second spelling of "what counts as a file name" is a second answer waiting to
+    // disagree, and here it disagreed the moment the second caller existed.
+    expect(pathClaims('names `.test.ts` and `.d.ts`')).toEqual([]);
+    expect(pathClaims('names `.eslintrc.json`')).toEqual(['.eslintrc.json']);
+  });
+
   it('still does not read a word that names no file', () => {
     expect(pathClaims('the `harness` directory')).toEqual([]);
   });

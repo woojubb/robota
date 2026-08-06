@@ -41,6 +41,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { hasStem } from './lib/file-name-shape.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
@@ -87,6 +89,11 @@ export function pathClaims(message) {
     if (!PATHISH.test(token)) continue;
     // A form, not a path.
     if (/[<>*?{}]/.test(token)) continue;
+    // A SHAPE, not a name. `.test.ts` and `.d.ts` are what a file ends with, and a commit message
+    // explaining a convention names them constantly — measured on this repository's own CI, which
+    // refused the commit that shipped the first half of this rule. Shared with the named-artifact
+    // scan so the two cannot answer differently.
+    if (!hasStem(token)) continue;
     found.add(token);
   }
   return [...found];
