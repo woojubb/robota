@@ -47,10 +47,43 @@ const GOVERNED_TREE = 'packages';
 /** How a package that ships both surfaces declares it. */
 const DECLARATION = /browser-node-subpath:\s*allowed\s*[—-]\s*\S/;
 
-/** Does this manifest promise a browser build? */
+/**
+ * Does this manifest promise a browser build?
+ *
+ * A `browser` condition that RESOLVES to something. `"browser": null` is the opposite claim — it is
+ * how a Node-only subpath tells a resolver to refuse it by name, and it is the convention this very
+ * scan was written alongside: `agent-core`'s `./node` carries one.
+ *
+ * The first version asked `JSON.stringify(exports).includes('"browser"')`, which matches the null
+ * marker as readily as a real target. Review found it before it fired: no package trips it today
+ * because every package declaring `"browser": null` also declares a real browser entry at `.`, but
+ * the next Node-only package to adopt the convention with no browser build would have been read as
+ * a browser package and then asked to justify its ordinary Node imports in SPEC.md. A check that
+ * fires on correct work is one that gets turned off — and this one would have been taught to fire
+ * by the pattern it exists to protect.
+ */
 function declaresBrowser(manifest) {
-  const seen = JSON.stringify(manifest.exports ?? {});
-  return seen.includes('"browser"') || manifest.browser !== undefined;
+  return hasLiveBrowserCondition(manifest.exports) || isLiveTarget(manifest.browser);
+}
+
+/** A condition target that actually resolves — not `null`, and not an empty map. */
+function isLiveTarget(target) {
+  if (target === null || target === undefined) return false;
+  if (typeof target === 'string') return target !== '';
+  if (Array.isArray(target)) return target.some(isLiveTarget);
+  if (typeof target === 'object') return Object.values(target).some(isLiveTarget);
+  return false;
+}
+
+/** Any `browser` key anywhere in the exports tree whose target resolves. */
+function hasLiveBrowserCondition(node) {
+  if (node === null || node === undefined || typeof node !== 'object') return false;
+  if (Array.isArray(node)) return node.some(hasLiveBrowserCondition);
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'browser' && isLiveTarget(value)) return true;
+    if (hasLiveBrowserCondition(value)) return true;
+  }
+  return false;
 }
 
 export function browserPackages(root = WORKSPACE_ROOT) {

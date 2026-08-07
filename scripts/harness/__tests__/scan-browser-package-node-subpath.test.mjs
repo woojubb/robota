@@ -118,6 +118,62 @@ describe('what the check considers its subject', () => {
     expect(findBrowserNodeSubpathFindings(root)).toHaveLength(1);
   });
 
+  it('does NOT read a `"browser": null` marker as a browser build', () => {
+    // The false-positive trap this PR's own convention would have set. `"browser": null` is how a
+    // Node-only subpath tells a resolver to refuse it BY NAME — the opposite of promising a browser
+    // build — and the first version of this check asked
+    // `JSON.stringify(exports).includes('"browser"')`, which matches the marker as readily as a
+    // real target.
+    //
+    // No package trips it today, because every package carrying the marker also declares a real
+    // browser entry at `.`. The next Node-only package to adopt the convention would have been read
+    // as a browser package and then asked to justify its ordinary Node imports. A check that fires
+    // on correct work is one that gets turned off.
+    makePackage('agent-thing', {
+      exports: {
+        '.': { node: { import: './dist/node/index.js' } },
+        './node': { node: { import: './dist/node/node.js' }, browser: null },
+      },
+      source: IMPORTS_NODE_SUBPATH,
+    });
+
+    expect(browserPackages(root)).toEqual([]);
+    expect(findBrowserNodeSubpathFindings(root)).toEqual([]);
+  });
+
+  it('still sees a browser build declared BESIDE a `"browser": null` marker', () => {
+    // The shape `agent-core` actually has, and the reason the fix is "a condition that RESOLVES"
+    // rather than "no null anywhere": a package may legitimately promise a browser build at `.` and
+    // refuse one for its `/node` subpath, and that package IS in scope.
+    makePackage('agent-thing', {
+      exports: {
+        '.': { browser: { import: './dist/browser/index.js' } },
+        './node': { node: { import: './dist/node/node.js' }, browser: null },
+      },
+      source: IMPORTS_NODE_SUBPATH,
+    });
+
+    expect(findBrowserNodeSubpathFindings(root)).toHaveLength(1);
+  });
+
+  it('reads a top-level `browser` field, and not a null one', () => {
+    // The other half of `declaresBrowser`, which the same substring reading covered by accident.
+    makePackage('with-field', { exports: {}, source: IMPORTS_NODE_SUBPATH });
+    writeFileSync(
+      path.join(root, 'packages', 'with-field', 'package.json'),
+      JSON.stringify({ name: 'with-field', browser: './dist/browser/index.js' }),
+    );
+    makePackage('with-null-field', { exports: {}, source: IMPORTS_NODE_SUBPATH });
+    writeFileSync(
+      path.join(root, 'packages', 'with-null-field', 'package.json'),
+      JSON.stringify({ name: 'with-null-field', browser: null }),
+    );
+
+    expect(findBrowserNodeSubpathFindings(root).map((f) => f.file)).toEqual([
+      path.join('packages', 'with-field', 'src', 'index.ts'),
+    ]);
+  });
+
   it('REFUSES a root with no packages tree rather than reporting it clean', () => {
     const bare = mkdtempSync(path.join(tmpdir(), 'browser-subpath-bare-'));
     scratch.push(bare);
