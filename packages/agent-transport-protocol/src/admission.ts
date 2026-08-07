@@ -37,23 +37,59 @@ export function mintTransportToken(): string {
 /**
  * Resolve the admission decision for one transport.
  *
+ * IDEMPOTENT: it accepts an already-resolved `ITransportAdmission` and returns it unchanged, so
+ * `resolve(resolve(x))` is `resolve(x)`. That is not a convenience — it is what lets a caller
+ * holding either shape just call this, instead of deciding which shape it holds first.
+ *
+ * The HTTP route used to make that decision with `'token' in options.admission`, and review showed
+ * it cannot work: BOTH interfaces declare a `token`, so a config is only distinguishable from a
+ * resolution by the VALUE. `{ token: '' }` — documented as "mint a fresh one" — was read as
+ * pre-resolved and installed the empty string as the required credential, which a peer sending an
+ * empty bearer would then match. Making this function idempotent deletes that discriminator
+ * instead of repairing it.
+ *
  * @throws if `open` is set without a reason — an unexplained open transport is the state this
  * module exists to remove, so it is refused at construction rather than recorded and shipped.
+ * @throws if a token and `open: true` are asked for together. The two are contradictory, and the
+ * silent precedence this used to give (token wins) is the safe DIRECTION but the wrong ANSWER: a
+ * caller that wrote both does not know what it is asking for, and one of the two things it believes
+ * is false. `WebRtcTransport` already refused the analogous `secret` + `open` pair in its own
+ * constructor; a seam whose whole claim is "one place to read and one place to change" cannot leave
+ * that protection to whichever transport happens to have implemented it.
  */
-export function resolveAdmission(config: ITransportAdmissionConfig = {}): ITransportAdmission {
-  if (config.token !== undefined && config.token !== '') {
-    return { token: config.token };
+export function resolveAdmission(
+  config: ITransportAdmissionConfig | ITransportAdmission = {},
+): ITransportAdmission {
+  const requestedOpen = 'open' in config && config.open === true;
+  const hasToken = config.token !== undefined && config.token !== null && config.token !== '';
+
+  if (hasToken && requestedOpen) {
+    throw new Error(
+      'transport admission: a token and `open: true` are contradictory — one requires a credential ' +
+        'and the other requires none. Asking for both means one of the two beliefs behind the call ' +
+        'is wrong; say which is intended.',
+    );
   }
-  if (config.open === true) {
+
+  if (hasToken) {
+    return { token: config.token as string };
+  }
+
+  // `token: null` is the RESOLVED open state, not an absent token — the one value that tells an
+  // already-resolved admission apart from a config. It still has to carry its reason: an
+  // admission reaching this function without one was either built by hand or corrupted, and both
+  // are the unexplained-open state the reason exists to prevent.
+  if (config.token === null || requestedOpen) {
     const reason = config.openReason?.trim();
     if (!reason) {
       throw new Error(
-        'transport admission: `open: true` requires `openReason`. An open transport is a decision, ' +
-          'and a decision nobody wrote down is indistinguishable from an oversight.',
+        'transport admission: an open transport requires `openReason`. An open transport is a ' +
+          'decision, and a decision nobody wrote down is indistinguishable from an oversight.',
       );
     }
     return { token: null, openReason: reason };
   }
+
   return { token: mintTransportToken() };
 }
 

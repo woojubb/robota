@@ -54,15 +54,17 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
   // build rather than serving without one. Resolving per request would also mint a new token per
   // request, which no peer could ever present.
-  // A caller that has ALREADY resolved the decision passes it straight through. Taking only a config
-  // meant `http-transport.ts` had to take its resolved admission apart and rebuild a config for this
-  // to resolve again — two resolutions of one decision, and a mint on the second if the first had
-  // opened without a reason (review). A resolved admission carries `token`, and that is what tells
-  // the two shapes apart.
-  const admission =
-    'token' in options.admission
-      ? (options.admission as ITransportAdmission)
-      : resolveAdmission(options.admission);
+  // Either shape goes in: `resolveAdmission` is idempotent, so an already-resolved admission comes
+  // back unchanged and a config is resolved. `http-transport.ts` therefore does not have to take
+  // its resolved admission apart and rebuild a config for this to resolve again — two resolutions
+  // of one decision, and a mint on the second if the first had opened without a reason (review).
+  //
+  // This used to pick between the two with `'token' in options.admission`, and review showed that
+  // cannot work: BOTH interfaces declare a `token`, so the shapes differ only by VALUE. A config of
+  // `{ token: '' }` — documented as "mint a fresh one" — was read as pre-resolved and installed the
+  // EMPTY STRING as the required credential, which a peer sending an empty bearer would match. The
+  // discriminator is gone rather than repaired; there is nothing here left to get wrong.
+  const admission = resolveAdmission(options.admission);
 
   /**
    * The trust boundary, installed BEFORE every route rather than checked inside each one.

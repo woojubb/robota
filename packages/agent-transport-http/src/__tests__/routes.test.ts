@@ -454,4 +454,26 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
     expect(res.status).toBe(200);
     expect(reached).toEqual(['command:clear']);
   });
+
+  it('leaves an empty bearer unadmitted whatever the host configured', async () => {
+    // `bearerCredential` requires at least one character after `Bearer `, so a presented credential
+    // is never the empty string — MEASURED, for `Bearer`, `Bearer `, `Bearer  ` and no header at
+    // all. This pins that, because it is what makes the discriminator defect a LOCKOUT rather than
+    // a bypass, and the difference is worth having a case for rather than a claim about.
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    for (const authorization of ['Bearer ', 'Bearer', 'Bearer  ']) {
+      const res = await app.request('/command', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'clear', args: '' }),
+        headers: { 'content-type': 'application/json', authorization },
+      });
+      expect(res.status, authorization).toBe(401);
+    }
+    expect(reached).toEqual([]);
+  });
 });
