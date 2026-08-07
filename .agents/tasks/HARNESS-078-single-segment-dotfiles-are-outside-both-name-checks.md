@@ -14,10 +14,10 @@ cites `.nvmrc` — and neither check that verifies a named artifact exists can s
 Review reported the cause as `hasStem` returning false for a leading-dot token with no second dot.
 That conclusion is right; the cause is one layer further out, MEASURED:
 
-| token | reaches `hasStem`? | why not |
-| --- | --- | --- |
-| `.gitignore` | no | `PATHISH` requires a slash or a dot AFTER the opening character |
-| `.gitignore` | no | `NAMED` requires one of ten listed extensions |
+| token        | reaches `hasStem`? | why not                                                         |
+| ------------ | ------------------ | --------------------------------------------------------------- |
+| `.gitignore` | no                 | `PATHISH` requires a slash or a dot AFTER the opening character |
+| `.gitignore` | no                 | `NAMED` requires one of ten listed extensions                   |
 
 So `hasStem` never saw them, and fixing `hasStem` alone changes nothing observable. It is fixed
 anyway in #1647 — it is the shared answer to "is this a file name", and it should be right for the
