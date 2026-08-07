@@ -58,14 +58,22 @@ function connectRemote(signaling: ISignalingClient): Promise<Record<string, unkn
 describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('has the collapsed webrtc metadata and is disabled by default', () => {
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({ signaling: sig, open: true, openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing' });
+    const t = new WebRtcTransport({
+      signaling: sig,
+      open: true,
+      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+    });
     expect(t.name).toBe('webrtc');
     expect(t.defaultEnabled).toBe(false);
   });
 
   it('start() before attach() throws', async () => {
     const [sig] = createInMemorySignalingPair();
-    const t = new WebRtcTransport({ signaling: sig, open: true, openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing' });
+    const t = new WebRtcTransport({
+      signaling: sig,
+      open: true,
+      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+    });
     await expect(t.start()).rejects.toThrow(/attach\(\) must be called/);
   });
 
@@ -90,7 +98,8 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
 
     const [sig] = createInMemorySignalingPair();
     const t = new WebRtcTransport({
-      open: true, openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+      open: true,
+      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
       signaling: sig,
       iceServers: [{ urls: 'turn:relay.example:3478', username: 'u', credential: 'c' }],
       forceTurn: true,
@@ -109,7 +118,11 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('TC-03: establishes an RTCDataChannel between two peers and round-trips TClient→session→TServer through the shared handler', async () => {
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const session = createStubSession();
-    const host = new WebRtcTransport({ signaling: hostSig, open: true, openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing' });
+    const host = new WebRtcTransport({
+      signaling: hostSig,
+      open: true,
+      openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
+    });
     host.attach(session);
 
     const remoteReply = connectRemote(remoteSig);

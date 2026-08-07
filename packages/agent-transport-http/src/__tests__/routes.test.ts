@@ -203,7 +203,10 @@ describe('HTTP Transport Routes', () => {
   }
 
   async function requestSubmit(session: IInteractiveSession): Promise<string> {
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -283,7 +286,10 @@ describe('HTTP Transport Routes', () => {
       abort: vi.fn(() => settleSubmit?.()),
     });
 
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -331,7 +337,10 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
 
   it('refuses POST /submit with no credential, before the prompt runs', async () => {
     const { session, reached } = createRecordingSession();
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
 
     const res = await app.request('/submit', {
       method: 'POST',
@@ -347,7 +356,10 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
 
   it('refuses POST /command with no credential, before the command runs', async () => {
     const { session, reached } = createRecordingSession();
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
 
     const res = await app.request('/command', {
       method: 'POST',
@@ -361,7 +373,10 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
 
   it('refuses a WRONG credential the same way it refuses a missing one', async () => {
     const { session, reached } = createRecordingSession();
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
 
     const res = await app.request('/submit', {
       method: 'POST',
@@ -375,7 +390,10 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
 
   it('admits a correct credential', async () => {
     const { session, reached } = createRecordingSession();
-    const app = createAgentRoutes({ sessionFactory: () => session, admission: { token: CREDENTIAL } });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
 
     const res = await app.request('/command', {
       method: 'POST',

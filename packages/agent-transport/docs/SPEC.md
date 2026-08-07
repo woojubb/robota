@@ -1,6 +1,5 @@
 # @robota-sdk/agent-transport — Package Specification
 
-
 ## Transport Admission (SEC-008)
 
 transport-admission: none — this package is the transport REGISTRY plus a headless in-process adapter and testing fixtures. Nothing here accepts a peer over a wire, so there is no admission decision to make; the transports it registers each make their own.

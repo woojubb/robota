@@ -1,6 +1,5 @@
 # SPEC.md — @robota-sdk/agent-transport-gui
 
-
 ## Transport Admission (SEC-008)
 
 transport-admission: none — a presentation layer. It renders a `TServerMessage` stream that some other transport has already admitted a peer onto, and opens no socket of its own.

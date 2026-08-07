@@ -77,7 +77,10 @@ describe('SEC-008: what an MCP peer may call, and as whom', () => {
     const executeCommand = vi.fn().mockResolvedValue({ message: 'ran', success: true });
     const client = await connect(createSession({ executeCommand }));
 
-    const result = await client.callTool({ name: 'command_plugin', arguments: { args: 'install x' } });
+    const result = await client.callTool({
+      name: 'command_plugin',
+      arguments: { args: 'install x' },
+    });
 
     expect((result as { isError?: boolean }).isError).toBe(true);
     expect(executeCommand, 'the command ran despite never being offered').not.toHaveBeenCalled();

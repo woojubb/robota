@@ -1,6 +1,5 @@
 # SPEC.md — @robota-sdk/agent-transport-webrtc-web
 
-
 ## Transport Admission (SEC-008)
 
 transport-admission: none — the browser side PRESENTS a credential rather than deciding who may present one. Its fail-closed pairing gate is the client half of the host's handshake (`agent-transport-webrtc`), which is where the decision is made.
