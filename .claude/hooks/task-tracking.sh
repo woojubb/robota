@@ -23,6 +23,67 @@ fi
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 TASKS_DIR="$PROJECT_DIR/.agents/tasks"
 
+# --- Open GitHub issues ---------------------------------------------------------------------------
+#
+# finding-depth.md says a FOUNDATIONAL finding is filed as a root item AND registered as a GitHub
+# issue, and that an open issue outranks unfiled backlog work when choosing what to do next. Nothing
+# showed those issues to anyone, so the filing was the end of the story rather than the start of it —
+# four sat open while unrelated work was picked instead.
+#
+# ABOVE the tasks-directory check, and that is a second review finding: the block sat below it, so a
+# repository with no `.agents/tasks/` — another clone reusing this hook, or this one before local task
+# tracking existed — got no issue notice at all. Whether task FILES exist has nothing to do with
+# whether issues are open, and one question must not gate the other.
+#
+# START ONLY, and the guard is a review finding rather than a preference: the first version sat above
+# the MODE branch, so the Stop hook called the GitHub API on every session end too. The comment said
+# "reported at session start" while the code did it twice, which is the class this repository keeps
+# paying for — a comment describing something the code does not do.
+#
+# TIMED OUT for the same reason it is start-only. Every other check in this file is a local grep; this
+# is the one network call, and a hook that hangs holds up the session it was meant to inform. Five
+# seconds, and a timeout is reported rather than swallowed — "could not ask" and "nothing to report"
+# are different answers and a reader must be able to tell them apart.
+#
+# Best-effort otherwise: `gh` may be absent or unauthenticated and a session must still start.
+if [[ "$MODE" == "start" ]] && command -v gh >/dev/null 2>&1; then
+  # One more than shown, so "there are more" is MEASURED rather than inferred from hitting the cap.
+  # `--limit 20` returns 20 whether 20 or 200 are open, and a check for "exactly the cap" says
+  # "there may be more" when there are exactly twenty and no more — a notice that cries wolf is one
+  # people stop reading.
+  ISSUE_SHOW=20
+  ISSUE_LIMIT=$((ISSUE_SHOW + 1))
+  # `|| ISSUE_STATUS=$?` rather than a bare assignment: this file runs under `set -e`, so a
+  # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the whole
+  # session notice vanished and the hook exited 0 as if it had nothing to say. Silence on an error
+  # is the one thing a hook may not do (enforcement-architecture.md).
+  ISSUE_STATUS=0
+  OPEN_ISSUES=$(timeout 5s gh issue list --state open --limit "$ISSUE_LIMIT" \
+    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null) || ISSUE_STATUS=$?
+  if [[ $ISSUE_STATUS -eq 124 ]]; then
+    echo "[task-tracking] Could not list open GitHub issues: the API did not answer within 5s."
+    echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
+    echo ""
+  elif [[ $ISSUE_STATUS -ne 0 ]]; then
+    # The likeliest failure in practice is not a timeout — it is an unauthenticated `gh`, and the
+    # first version passed over it in silence. "Could not ask" and "none open" are different answers
+    # and a reader must be able to tell them apart, which is the whole reason this notice exists.
+    echo "[task-tracking] Could not list open GitHub issues (gh exited $ISSUE_STATUS — often not"
+    echo "[task-tracking] authenticated). This is 'not asked', not 'none open': gh auth status"
+    echo ""
+  elif [[ -n "$OPEN_ISSUES" ]]; then
+    ISSUE_COUNT=$(printf '%s\n' "$OPEN_ISSUES" | grep -c '')
+    echo "OPEN GitHub issues — these outrank unfiled backlog work (finding-depth.md):"
+    printf '%s\n' "$OPEN_ISSUES" | head -n "$ISSUE_SHOW"
+    # A silent truncation would read as "that is all of them", which is the shape of claim this
+    # repository treats as a defect: a bounded list that does not say it is bounded.
+    if [[ "$ISSUE_COUNT" -gt "$ISSUE_SHOW" ]]; then
+      echo "  (showing the first $ISSUE_SHOW — there are more: gh issue list)"
+    fi
+    echo ""
+  fi
+fi
+
 if [[ ! -d "$TASKS_DIR" ]]; then
   exit 0
 fi
@@ -53,49 +114,6 @@ for f in "$TASKS_DIR"/*.md; do
   [[ "$basename" == "README.md" ]] && continue
   ACTIVE_TASKS+=("$basename")
 done
-
-# --- Open GitHub issues ---------------------------------------------------------------------------
-#
-# finding-depth.md says a FOUNDATIONAL finding is filed as a root item AND registered as a GitHub
-# issue, and that an open issue outranks unfiled backlog work when choosing what to do next. Nothing
-# showed those issues to anyone, so the filing was the end of the story rather than the start of it —
-# four sat open while unrelated work was picked instead.
-#
-# START ONLY, and the guard is a review finding rather than a preference: the first version sat above
-# the MODE branch, so the Stop hook called the GitHub API on every session end too. The comment said
-# "reported at session start" while the code did it twice, which is the class this repository keeps
-# paying for — a comment describing something the code does not do.
-#
-# TIMED OUT for the same reason it is start-only. Every other check in this file is a local grep; this
-# is the one network call, and a hook that hangs holds up the session it was meant to inform. Five
-# seconds, and a timeout is reported rather than swallowed — "could not ask" and "nothing to report"
-# are different answers and a reader must be able to tell them apart.
-#
-# Best-effort otherwise: `gh` may be absent or unauthenticated and a session must still start.
-if [[ "$MODE" == "start" ]] && command -v gh >/dev/null 2>&1; then
-  ISSUE_LIMIT=20
-  # `|| ISSUE_STATUS=$?` rather than a bare assignment: this file runs under `set -e`, so a
-  # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the whole
-  # session notice vanished and the hook exited 0 as if it had nothing to say. Silence on an error
-  # is the one thing a hook may not do (enforcement-architecture.md).
-  ISSUE_STATUS=0
-  OPEN_ISSUES=$(timeout 5s gh issue list --state open --limit "$ISSUE_LIMIT" \
-    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null) || ISSUE_STATUS=$?
-  if [[ $ISSUE_STATUS -eq 124 ]]; then
-    echo "[task-tracking] Could not list open GitHub issues: the API did not answer within 5s."
-    echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
-    echo ""
-  elif [[ -n "$OPEN_ISSUES" ]]; then
-    echo "OPEN GitHub issues — these outrank unfiled backlog work (finding-depth.md):"
-    echo "$OPEN_ISSUES"
-    # A silent truncation would read as "that is all of them", which is the shape of claim this
-    # repository treats as a defect: a bounded list that does not say it is bounded.
-    if [[ "$(printf '%s\n' "$OPEN_ISSUES" | grep -c '')" -ge $ISSUE_LIMIT ]]; then
-      echo "  (showing the first $ISSUE_LIMIT — there may be more: gh issue list)"
-    fi
-    echo ""
-  fi
-fi
 
 if [[ ${#ACTIVE_TASKS[@]} -eq 0 ]]; then
   exit 0

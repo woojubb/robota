@@ -22,9 +22,32 @@ afterAll(() => {
   while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
 });
 
+/**
+ * A stand-in `gh` that HONOURS `--limit`, the way the real one does.
+ *
+ * A stub that ignores it cannot express the question these cases ask. Measured: with a fixed 20-line
+ * stub, narrowing the hook's `--limit` changed nothing, so the case "passed" against a hook that had
+ * lost the very property it was written for — a green for the wrong reason.
+ */
+function ghListing(total) {
+  return `#!/bin/sh
+limit=20
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--limit" ]; then limit=$2; fi
+  shift
+done
+i=1
+while [ $i -le ${total} ] && [ $i -le "$limit" ]; do
+  echo "  - #$i issue $i"
+  i=$((i + 1))
+done
+`;
+}
+
 /** Run the hook with a stand-in `gh` at the front of PATH. */
-function runHook(mode, { ghScript } = {}) {
+function runHook(mode, { ghScript, projectDir } = {}) {
   const env = { ...process.env };
+  if (projectDir !== undefined) env.CLAUDE_PROJECT_DIR = projectDir;
   if (ghScript !== undefined) {
     const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
     scratch.push(dir);
@@ -78,13 +101,46 @@ describe('open issues are shown where the choice is made', () => {
     expect(output, "a timeout must not read as 'none open'").toMatch(/not asked/);
   });
 
+  it('reports a gh that FAILED, rather than passing over it', () => {
+    // The likeliest failure is not a timeout — it is an unauthenticated gh, and the first version
+    // passed over it in silence. "Could not ask" and "none open" are different answers, which is the
+    // whole reason this notice exists.
+    const { output } = runHook('start', {
+      ghScript: `#!/bin/sh\necho 'not authenticated' >&2\nexit 1\n`,
+    });
+
+    expect(output).toMatch(/Could not list open GitHub issues/);
+    expect(output).toMatch(/not asked/);
+  });
+
+  it('reports issues even where there is no task directory', () => {
+    // The block sat below the `.agents/tasks/` existence check, so a clone reusing this hook without
+    // local task tracking got no issue notice at all. Whether task FILES exist has nothing to do
+    // with whether issues are open.
+    const empty = mkdtempSync(path.join(tmpdir(), 'no-tasks-'));
+    scratch.push(empty);
+
+    const { output } = runHook('start', { ghScript: LISTS_TWO, projectDir: empty });
+
+    expect(output).toMatch(/OPEN GitHub issues/);
+  });
+
   it('says so when the list is truncated', () => {
     // A bounded list that does not say it is bounded reads as "that is all of them".
-    const twentyFive = Array.from({ length: 25 }, (_, i) => `  - #${i + 1} issue ${i + 1}`).join(
-      '\\n',
-    );
-    const { output } = runHook('start', { ghScript: `#!/bin/sh\nprintf '${twentyFive}\\n'\n` });
+    // 25 open, and the stub honours `--limit`: the hook asks for one more than it shows, sees the
+    // extra, and says so.
+    const { output } = runHook('start', { ghScript: ghListing(25) });
 
     expect(output).toMatch(/showing the first 20/);
+  });
+
+  it('does NOT claim more when exactly the shown number are open', () => {
+    // The reason the hook asks for one more than it shows. A check for "hit the cap" says "there may
+    // be more" when there are exactly twenty and no more, and a notice that cries wolf is one people
+    // stop reading — which costs more than the truncation it was guarding.
+    const { output } = runHook('start', { ghScript: ghListing(20) });
+
+    expect(output).toMatch(/OPEN GitHub issues/);
+    expect(output).not.toMatch(/there are more/);
   });
 });
