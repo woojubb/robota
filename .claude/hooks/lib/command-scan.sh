@@ -306,8 +306,15 @@ HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*e|--eval)[ \t]+"
 # node / bun: `-e`/`--eval` and `-p`/`--print`, which evaluates its argument and prints the result.
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[ep]|--eval|--print)[ \t]+"
-# deno / bun subcommands, which take the code positionally after the word.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+${HOOK_INTERP_ARGS}(eval|run)[ \t]+"
+# `deno eval <code>` takes its code positionally. `run` is NOT here, and review is why: `deno run`
+# and `bun run` take a script FILE or a package.json script NAME, never inline code. Keeping it read
+# a quoted argument as code — MEASURED, `deno run "git push --force"` came back UNMASKED — which is
+# the same over-blocking class this change fixes for `node script.mjs --notes "…"`.
+#
+# (The reproduction in the finding, `deno run build.ts "…"`, does NOT exhibit it: the argument
+# pattern sits BEFORE the flag, so `run` has to be the last token before the quote. The defect is
+# real one form over.)
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+${HOOK_INTERP_ARGS}eval[ \t]+"
 # perl: `-e` and `-E`, in a bundle (`-ne`, `-lE`) or alone.
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[eE]|--eval)[ \t]+"
 # php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.

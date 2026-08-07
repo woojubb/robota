@@ -831,6 +831,34 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('does NOT read a `deno run` / `bun run` argument as code', () => {
+    // `run` was grouped with `eval` on the assumption that both take their code positionally. They
+    // do not: `deno run` takes a script FILE and `bun run` a package.json script NAME. Review
+    // caught it. RAN before the fix: `deno run "git push --force"` came back UNMASKED —
+    // `[deno run  git push --force ]` — so a quoted argument was scanned as code, the same
+    // over-blocking this change fixes for `node script.mjs --notes "…"`.
+    //
+    // Worth recording that the finding's own reproduction (`deno run build.ts "…"`) does NOT
+    // exhibit it, measured: the argument pattern sits BEFORE the flag, so `run` has to be the last
+    // token before the quote. The defect was real one form over, and the case uses that form.
+    const cwd = scratchRepo('feat/probe');
+    for (const command of [
+      'deno run "notes mentioning git push --force"',
+      'bun run "notes mentioning git push --force"',
+      'deno run build.ts "notes mentioning git push --force"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd }).status, command).toBe(0);
+    }
+
+    // `deno eval` genuinely does take code positionally, and stays covered.
+    expect(
+      runHook('branch-guard.sh', 'deno eval "git push --force origin main"', {
+        cwd: scratchRepo('main'),
+      }).status,
+      'deno eval stopped being read as code',
+    ).toBe(2);
+  });
+
   it('does not expand what the shell would not expand', () => {
     // Two ways the substitution restore over-reached, both found by it blocking its own commit.
     //
