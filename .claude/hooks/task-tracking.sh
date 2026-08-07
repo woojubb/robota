@@ -61,18 +61,38 @@ done
 # showed those issues to anyone, so the filing was the end of the story rather than the start of it —
 # four sat open while unrelated work was picked instead.
 #
-# Reported at session start, beside the other "what is already outstanding" notice, because that is
-# when the choice of what to work on is actually made.
+# START ONLY, and the guard is a review finding rather than a preference: the first version sat above
+# the MODE branch, so the Stop hook called the GitHub API on every session end too. The comment said
+# "reported at session start" while the code did it twice, which is the class this repository keeps
+# paying for — a comment describing something the code does not do.
 #
-# Best-effort by design: `gh` may be absent or unauthenticated, and a session must still start. That
-# is the one place this file tolerates silence, and it says so rather than leaving the reader to
-# wonder whether there were no issues or no way to ask.
-if command -v gh >/dev/null 2>&1; then
-  OPEN_ISSUES=$(gh issue list --state open --limit 20 \
-    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null || true)
-  if [[ -n "$OPEN_ISSUES" ]]; then
+# TIMED OUT for the same reason it is start-only. Every other check in this file is a local grep; this
+# is the one network call, and a hook that hangs holds up the session it was meant to inform. Five
+# seconds, and a timeout is reported rather than swallowed — "could not ask" and "nothing to report"
+# are different answers and a reader must be able to tell them apart.
+#
+# Best-effort otherwise: `gh` may be absent or unauthenticated and a session must still start.
+if [[ "$MODE" == "start" ]] && command -v gh >/dev/null 2>&1; then
+  ISSUE_LIMIT=20
+  # `|| ISSUE_STATUS=$?` rather than a bare assignment: this file runs under `set -e`, so a
+  # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the whole
+  # session notice vanished and the hook exited 0 as if it had nothing to say. Silence on an error
+  # is the one thing a hook may not do (enforcement-architecture.md).
+  ISSUE_STATUS=0
+  OPEN_ISSUES=$(timeout 5s gh issue list --state open --limit "$ISSUE_LIMIT" \
+    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null) || ISSUE_STATUS=$?
+  if [[ $ISSUE_STATUS -eq 124 ]]; then
+    echo "[task-tracking] Could not list open GitHub issues: the API did not answer within 5s."
+    echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
+    echo ""
+  elif [[ -n "$OPEN_ISSUES" ]]; then
     echo "OPEN GitHub issues — these outrank unfiled backlog work (finding-depth.md):"
     echo "$OPEN_ISSUES"
+    # A silent truncation would read as "that is all of them", which is the shape of claim this
+    # repository treats as a defect: a bounded list that does not say it is bounded.
+    if [[ "$(printf '%s\n' "$OPEN_ISSUES" | grep -c '')" -ge $ISSUE_LIMIT ]]; then
+      echo "  (showing the first $ISSUE_LIMIT — there may be more: gh issue list)"
+    fi
     echo ""
   fi
 fi
