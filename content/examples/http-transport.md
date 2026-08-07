@@ -19,8 +19,16 @@ const transport = createHttpTransport();
 session.attachTransport(transport);
 await transport.start();
 
+// SEC-008: with no `admission` option the transport MINTS a credential rather than serving open.
+// Every request must present it, including your own — so print it, or hand it to whatever you are
+// spawning. `null` here means the transport was deliberately opened; see "Admission" below.
+console.log('token:', transport.getAdmissionToken());
+
 serve({ fetch: transport.getApp().fetch, port: 3000 });
 ```
+
+Every example below sends that token. A request without it gets `401`, and that is the default: a
+transport reaches `session.submit` and `session.executeCommand`, so it is not open unless you say so.
 
 ## Endpoints
 
@@ -38,7 +46,9 @@ serve({ fetch: transport.getApp().fetch, port: 3000 });
 ## SSE Events (POST /submit)
 
 ```bash
+# $TOKEN is what `transport.getAdmissionToken()` printed at startup. Without the header this is 401.
 curl -X POST http://localhost:3000/submit \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Explain this project"}'
 ```

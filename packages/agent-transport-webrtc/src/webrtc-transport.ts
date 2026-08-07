@@ -121,7 +121,12 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
       // The written-reason requirement is the shared seam's, not this file's — one place decides what
       // counts as an answer, so the two sibling transports cannot drift apart again. The seam is asked
       // for its verdict and its error; nothing here re-implements it.
-      resolveAdmission({
+      //
+      // THE RETURN VALUE IS INTENTIONALLY UNUSED: this call exists only to THROW. WebRTC does not
+      // carry a bearer credential — it pairs — so there is no resolved admission for it to hold; what
+      // it needs from the seam is the refusal of `open` without a reason. Review asked for this
+      // sentence, because a call whose result is always discarded reads at a glance like dead code.
+      void resolveAdmission({
         open: true,
         ...(this.options.openReason !== undefined ? { openReason: this.options.openReason } : {}),
       });
