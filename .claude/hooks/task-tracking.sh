@@ -61,23 +61,63 @@ if [[ "$MODE" == "start" ]]; then
   # people stop reading.
   ISSUE_SHOW=20
   ISSUE_LIMIT=$((ISSUE_SHOW + 1))
-  # `|| ISSUE_STATUS=$?` rather than a bare assignment: this file runs under `set -e`, so a
-  # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the whole
-  # session notice vanished and the hook exited 0 as if it had nothing to say. Silence on an error
-  # is the one thing a hook may not do (enforcement-architecture.md).
+
+  # AN OPT-OUT, because this is the only network call in a hook that was otherwise entirely local
+  # and instant. Review: offline or unauthenticated, every session start pays for a lookup that
+  # cannot succeed, and there was no way to decline it. A notice is worth having; a notice you
+  # cannot turn off is a tax.
+  #
+  # The deadline is also this hook's own and SHORTER than the shared default. `bounded-gh.sh` is
+  # sized for a guard deciding whether to refuse a command, where waiting beats guessing. Nothing is
+  # being decided here — a session starts either way — so the ceiling is 4s, and the shared default
+  # still applies to every guard that does decide.
+  HOOK_GH_DEADLINE_SECONDS="${TASK_TRACKING_ISSUE_DEADLINE_SECONDS:-4}"
   ISSUE_STATUS=0
-  OPEN_ISSUES=$(bounded_gh issue list --state open --limit "$ISSUE_LIMIT" \
-    --json number,title --jq '.[] | "  - #\(.number) \(.title)"') || ISSUE_STATUS=$?
-  if [[ $ISSUE_STATUS -eq 2 ]]; then
-    echo "[task-tracking] Could not list open GitHub issues: the deadline expired."
+  OPEN_ISSUES=""
+  if [[ -n "${TASK_TRACKING_SKIP_ISSUES:-}" ]]; then
+    ISSUE_STATUS=-1
+  elif ! command -v gh >/dev/null 2>&1; then
+    # Told apart from a gh that RAN AND FAILED. `bounded_gh` returns 1 for both, and the message
+    # for the second ("often not authenticated") misleads someone who simply has no `gh` — review
+    # found that, and it is worth more than the wording: the two need different actions.
+    ISSUE_STATUS=-2
+  else
+    # NOT CACHED, and that is a decision rather than an omission. Review suggested a cache for
+    # rapid successive sessions, and it was written and then removed: a cached list asserts an
+    # issue is OPEN for as long as the entry lives, so within its window the notice would name
+    # issues that were closed and miss ones just filed. This notice's whole claim is "these outrank
+    # unfiled backlog work" — a false one costs more than the lookup it saves, and it is precisely
+    # the claim-does-not-match-reality class this repository is currently counting.
+    #
+    # The rate-limiting worry is answered by the opt-out above and by `gh issue list` being one
+    # cheap request against a 5000/hour budget.
+    #
+    # `|| ISSUE_STATUS=$?` rather than a bare assignment: this file runs under `set -e`, so a
+    # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the
+    # whole session notice vanished and the hook exited 0 as if it had nothing to say. Silence on
+    # an error is the one thing a hook may not do (enforcement-architecture.md).
+    OPEN_ISSUES=$(bounded_gh issue list --state open --limit "$ISSUE_LIMIT" \
+      --json number,title --jq '.[] | "  - #\(.number) \(.title)"') || ISSUE_STATUS=$?
+  fi
+
+  if [[ $ISSUE_STATUS -eq -1 ]]; then
+    : # Declined by TASK_TRACKING_SKIP_ISSUES. Saying nothing IS the requested behaviour.
+  elif [[ $ISSUE_STATUS -eq -2 ]]; then
+    echo "[task-tracking] Did not list open GitHub issues: no \`gh\` on PATH."
+    echo "[task-tracking] This is 'not asked', not 'none open'. Silence it: TASK_TRACKING_SKIP_ISSUES=1"
+    echo ""
+  elif [[ $ISSUE_STATUS -eq 2 ]]; then
+    echo "[task-tracking] Could not list open GitHub issues: the deadline expired (${HOOK_GH_DEADLINE_SECONDS}s)."
     echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
+    echo "[task-tracking] Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
   elif [[ $ISSUE_STATUS -ne 0 ]]; then
-    # The likeliest failure in practice is not a timeout — it is an unauthenticated `gh`, and the
-    # first version passed over it in silence. "Could not ask" and "none open" are different answers
-    # and a reader must be able to tell them apart, which is the whole reason this notice exists.
-    echo "[task-tracking] Could not list open GitHub issues (gh exited $ISSUE_STATUS — often not"
+    # `gh` is present and RAN AND FAILED — most often unauthenticated. The first version passed
+    # over this in silence. "Could not ask" and "none open" are different answers and a reader must
+    # be able to tell them apart, which is the whole reason this notice exists.
+    echo "[task-tracking] Could not list open GitHub issues (gh ran and failed — most often not"
     echo "[task-tracking] authenticated). This is 'not asked', not 'none open': gh auth status"
+    echo "[task-tracking] Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
   elif [[ -n "$OPEN_ISSUES" ]]; then
     ISSUE_COUNT=$(printf '%s\n' "$OPEN_ISSUES" | grep -c '')

@@ -7,7 +7,7 @@
  * wrong, and each is a property the notice has to keep to be worth having.
  */
 
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -45,8 +45,19 @@ done
 }
 
 /** Run the hook with a stand-in `gh` at the front of PATH. */
-function runHook(mode, { ghScript, projectDir, deadlineSeconds } = {}) {
-  const env = { ...process.env };
+function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, emptyPath } = {}) {
+  const env = { ...process.env, ...extraEnv };
+  // A PATH with no `gh` on it — the "not installed" case, which `bounded_gh` reports with the same
+  // exit code as "ran and failed".
+  //
+  // Built by REMOVING the directories that hold a `gh`, not by emptying PATH: the hook needs
+  // `date`, `grep` and friends, and a bare PATH left it unable to run at all — measured, the case
+  // then asserted against empty output and would have passed for the wrong reason. Portable
+  // because it asks the system where `gh` is rather than assuming a location.
+  if (emptyPath === true) {
+    const entries = (env.PATH ?? '').split(path.delimiter).filter(Boolean);
+    env.PATH = entries.filter((dir) => !existsSync(path.join(dir, 'gh'))).join(path.delimiter);
+  }
   // The deadline belongs to `bounded-gh.sh` and defaults to 10s. A case about the deadline sets it
   // rather than waiting it out — otherwise the suite's own timeout fires first and the case reports
   // on the harness instead of on the hook.
@@ -139,6 +150,33 @@ describe('open issues are shown where the choice is made', () => {
     const { output } = runHook('start', { ghScript: ghListing(25) });
 
     expect(output).toMatch(/showing the first 20/);
+  });
+
+  it('can be declined, and then makes no network call at all', () => {
+    // Review: this is the only network call in a hook that was otherwise entirely local and
+    // instant, and offline or unauthenticated users paid for it on every session start with no way
+    // to say no. A notice is worth having; a notice you cannot turn off is a tax.
+    const { output } = runHook('start', {
+      ghScript: `#!/bin/sh\nprintf 'THE HOOK CALLED GH\\n'\n`,
+      env: { TASK_TRACKING_SKIP_ISSUES: '1' },
+    });
+
+    expect(output).not.toMatch(/THE HOOK CALLED GH/);
+    expect(output).not.toMatch(/OPEN GitHub issues/);
+    // And it says nothing about the issues either way — saying nothing IS what was asked for.
+    expect(output).not.toMatch(/not asked/);
+  });
+
+  it('tells a MISSING gh apart from one that ran and failed', () => {
+    // `bounded_gh` returns 1 for both, and the message for the second ("often not authenticated")
+    // misleads someone who simply has no `gh`. The two need different actions, so they get
+    // different messages. PATH has the gh-holding directories removed rather than being emptied —
+    // see the helper for why an empty PATH made this case pass for the wrong reason.
+    const { output } = runHook('start', { emptyPath: true });
+
+    expect(output).toMatch(/no `gh` on PATH/);
+    expect(output).toMatch(/not asked/);
+    expect(output).not.toMatch(/authenticated/);
   });
 
   it('does NOT claim more when exactly the shown number are open', () => {
