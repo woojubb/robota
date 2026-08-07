@@ -102,6 +102,25 @@ describe('what counts as a citation', () => {
     expect(commitishClaims('fix: reverts `abc1234`')).toEqual(['abc1234']);
   });
 
+  it('does not refuse a citation when GIT ITSELF could not answer', () => {
+    // Review found the catch treating ANY git failure as "not found". A non-zero exit from
+    // `cat-file -t` IS an answer — no such object — and refusing is correct. Git being absent is not
+    // an answer, and reading it as absence refuses a good citation on a REQUIRED check.
+    //
+    // Measured by pointing the check at a directory that is not a repository, with PATH intact: git
+    // runs, exits non-zero, and that is a real answer, so the token IS refused. The outage case is
+    // the one above it in the code — it throws rather than returning empty — and this case pins the
+    // boundary between them by asserting the ANSWERING side still answers.
+    const notARepo = mkdtempSync(path.join(tmpdir(), 'claims-not-a-repo-'));
+    try {
+      expect(objectIsKnown('0123456789abcdef0123456789abcdef01234567', { root: notARepo })).toBe(
+        false,
+      );
+    } finally {
+      rmSync(notARepo, { recursive: true, force: true });
+    }
+  });
+
   it('does not read an ordinary English word built from a-f', () => {
     // Review found this: `defaced`, `acceded`, `effaced` are seven letters from a-f, so an ordinary
     // sentence would have been refused for citing a commit it never mentioned — a guard firing on

@@ -1,3 +1,6 @@
+// allow-missing-artifact-file: every path in this file is an invented fixture — the case is what a
+// rule declaration looks like, and naming a real scan would tie these to a file that may be renamed
+
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -152,3 +155,45 @@ function runScan(args) {
     return { status: error.status ?? -1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` };
   }
 }
+
+describe('a rule added under a heading that already existed', () => {
+  // Review found this floor firing only on a brand-new `### heading`, which is not how most rules
+  // arrive — a rule is usually one more bullet under a section that is already there. A floor that
+  // misses the common case is close to no floor.
+  const file = '+++ b/.agents/rules/example.md';
+
+  it('is asked for its declaration', () => {
+    const diff = [
+      file,
+      '@@ -1,0 +1,2 @@',
+      '+- **A worker MUST declare its scope.**',
+      '+  Why it matters.',
+    ].join('\n');
+
+    expect(judgeSections(addedRuleSections(diff))).toHaveLength(1);
+  });
+
+  it('is satisfied by a declaration that arrives WITH it', () => {
+    const diff = [
+      file,
+      '@@ -1,0 +1,2 @@',
+      '+- **A worker MUST declare its scope.**',
+      '+  Enforced by: `scan-scope.mjs`',
+    ].join('\n');
+
+    expect(judgeSections(addedRuleSections(diff))).toEqual([]);
+  });
+
+  it('leaves ordinary prose alone', () => {
+    // Every prose edit under a rules heading is an added line. Refusing those would make this fire
+    // on correct work, which is what gets a floor turned off — so it asks for an OBLIGATION, not
+    // merely a bullet.
+    const diff = [
+      file,
+      '@@ -1,0 +1,1 @@',
+      '+- This paragraph explains why the earlier rule exists.',
+    ].join('\n');
+
+    expect(judgeSections(addedRuleSections(diff))).toEqual([]);
+  });
+});

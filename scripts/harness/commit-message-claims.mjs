@@ -160,11 +160,38 @@ export function judgeMessage(message, { resolvesObject, pathKnown }) {
   return findings;
 }
 
+/**
+ * Thrown when git could not RUN, as opposed to running and answering "no".
+ *
+ * The difference decides the verdict. `cat-file -t` exiting non-zero is a real answer — there is no
+ * such object — and refusing the message is correct. Git being absent, or the repository being
+ * unreadable, is not an answer at all, and reading it as absence refuses a perfectly good citation
+ * on a REQUIRED check: the guard firing on correct work, which is what gets a guard turned off.
+ */
+class GitUnavailableError extends Error {}
+
 function gitLines(args, cwd = WORKSPACE_ROOT) {
   try {
     return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-  } catch {
-    return [];
+  } catch (error) {
+    // A non-zero EXIT is git answering. Anything else — the binary missing, the process killed —
+    // means it never got to answer, and this must not pass that off as a finding.
+    const status = /** @type {{ status?: number }} */ (error).status;
+    if (typeof status === 'number') return [];
+    throw new GitUnavailableError(
+      `git could not run (${args[0]}): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/** Run a git question, treating an outage as UNABLE TO ANSWER rather than as a negative answer. */
+function gitAnswered(args, { onUnavailable, cwd = WORKSPACE_ROOT }) {
+  try {
+    return gitLines(args, cwd);
+  } catch (error) {
+    if (!(error instanceof GitUnavailableError)) throw error;
+    process.stderr.write(`commit-message-claims: ${error.message}\n`);
+    return onUnavailable;
   }
 }
 
@@ -202,7 +229,12 @@ export function pathHasEverExisted(
     );
     return true;
   }
-  return gitLines(['log', '--all', '--oneline', '-1', '--', token], root).length > 0;
+  return (
+    gitAnswered(['log', '--all', '--oneline', '-1', '--', token], {
+      onUnavailable: ['unavailable'],
+      cwd: root,
+    }).length > 0
+  );
 }
 
 /**
@@ -224,8 +256,10 @@ export function pathHasEverExisted(
  * nothing.
  */
 export function objectIsKnown(token, { root = WORKSPACE_ROOT, isShallowOverride } = {}) {
-  if (gitLines(['cat-file', '-t', token], root).length > 0) return true;
-  if (gitLines(['rev-parse', '--disambiguate=' + token], root).length > 0) return true;
+  // `['unavailable']` is a non-empty stand-in: git could not answer, so this does not refuse.
+  const unavailable = { onUnavailable: ['unavailable'], cwd: root };
+  if (gitAnswered(['cat-file', '-t', token], unavailable).length > 0) return true;
+  if (gitAnswered(['rev-parse', '--disambiguate=' + token], unavailable).length > 0) return true;
   if (isShallowOverride ?? isShallow(root)) {
     process.stderr.write(
       `commit-message-claims: shallow clone — cannot verify that \`${token}\` names an object.\n`,

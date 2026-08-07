@@ -49,6 +49,22 @@ const DECLARED = /Enforced by:\s*(?:`([^`]+)`|nothing\s*[—-]\s*([^\n]+))/;
 /** A heading that introduces a normative section. `##` is a grouping; `###` is where rules live. */
 const RULE_HEADING = /^\+###\s+(.+)$/;
 
+/**
+ * A rule ADDED under a heading that already existed.
+ *
+ * Review found this floor firing only on a brand-new `### heading`, which is not how most rules
+ * arrive — a rule is usually another bullet under a section that is already there. A floor that
+ * misses the common case is close to no floor, so the added BULLET is a subject too.
+ *
+ * Narrow on purpose, because every prose edit under a rules heading is an added line and refusing
+ * those would make this fire on correct work. A rule states an obligation, so this asks for one: a
+ * list item carrying a normative keyword. An added sentence that explains, illustrates or softens is
+ * not matched, and neither is a bullet that merely mentions one of these words in passing prose
+ * after the first clause.
+ */
+const ADDED_RULE_BULLET =
+  /^\+\s*[-*]\s+(?:\*\*)?[^.\n]{0,120}?\b(MUST|MUST NOT|NEVER|ALWAYS|PROHIBITED|REQUIRED|is banned|is forbidden)\b/;
+
 export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env } = {}) {
   const flag = argv.indexOf('--base-ref');
   if (flag >= 0 && argv[flag + 1]) return argv[flag + 1];
@@ -87,6 +103,14 @@ export function addedRuleSections(diff) {
     const heading = RULE_HEADING.exec(line);
     if (heading) {
       current = { file, title: heading[1].trim(), body: '' };
+      sections.push(current);
+      continue;
+    }
+    // A rule added under a heading that already existed. It opens its own section, because the
+    // declaration has to arrive WITH it — a declaration already in the file, under some other rule,
+    // is exactly what this floor exists to stop counting as an answer.
+    if (!current && ADDED_RULE_BULLET.test(line)) {
+      current = { file, title: line.slice(1).trim().slice(0, 80), body: `${line.slice(1)}\n` };
       sections.push(current);
       continue;
     }
