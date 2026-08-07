@@ -113,10 +113,7 @@ describe('the scan itself, not only its helpers', () => {
     mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
     writeFileSync(
       path.join(root, '.github/required-status-checks.json'),
-      readFileSync(
-        path.join(WORKSPACE_ROOT, '.github/required-status-checks.json'),
-        'utf8',
-      ),
+      readFileSync(path.join(WORKSPACE_ROOT, '.github/required-status-checks.json'), 'utf8'),
     );
     return root;
   }
