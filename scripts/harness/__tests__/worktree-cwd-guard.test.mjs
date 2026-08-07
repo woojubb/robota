@@ -293,6 +293,18 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status).toBe(2);
   });
 
+  it('leaves `git checkout <ref> -- <path>` alone', () => {
+    // Restoring files FROM a ref does not switch to it, so it succeeds even while a sibling worktree
+    // holds that branch — the premise behind this block does not apply. Blocking it would be the
+    // guard firing on correct work, which is what gets a guard turned off. Review found it.
+    const { status } = runHook({
+      command: `git checkout ${held} -- README.md; ls`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(0);
+  });
+
   it('reads its variable list from the file that owns it', () => {
     // Three copies of the ambient-variable list existed and had already drifted — seven names in the
     // hook, nine in the gate. The list now lives in one file, and this asserts the hook reads THAT

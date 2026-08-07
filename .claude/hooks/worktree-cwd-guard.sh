@@ -152,6 +152,13 @@ if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
   # which is every subagent and every worktree. The test caught it; the lesson is that "which repo"
   # already had an answer here and re-deriving it produced a worse one.
   CHECKOUT_REPO=$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")
+  # `git checkout <ref> -- <path>` RESTORES files from a ref; it does not switch to it, so it
+  # succeeds even when a sibling worktree holds that branch and the premise behind this block does
+  # not apply. Blocking it is the guard firing on correct work — measured, review found it, and a
+  # guard that refuses a legitimate restore is one someone turns off.
+  if printf '%s' "$COMMAND" | grep -qE "checkout[^|;&]*[[:space:]]--([[:space:]]|$)"; then
+    CHECKOUT_TARGET=""
+  fi
   if [[ -n "${CHECKOUT_TARGET:-}" ]] && [[ -n "${CHECKOUT_REPO:-}" ]] &&
     hook_git_in "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
     grep -qxF "branch refs/heads/${CHECKOUT_TARGET}" &&
