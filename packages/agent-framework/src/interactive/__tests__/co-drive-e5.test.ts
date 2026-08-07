@@ -37,7 +37,7 @@ describe('co-drive queue (REMOTE-014 TC-01)', () => {
 
     expect(c.enqueuePending(entry('b1', 'device-B'))).toBe('queued'); // different driver → append
     expect(c.pendingCount()).toBe(2);
-    expect(c.pendingQueue.map((e) => e.input)).toEqual(['a2', 'b1']); // submission order preserved
+    expect(c.pending.contents.map((e) => e.input)).toEqual(['a2', 'b1']); // submission order preserved
   });
 
   it('drops-newest at MAX_PENDING_QUEUE_DEPTH (attributed notice is the caller’s job)', () => {

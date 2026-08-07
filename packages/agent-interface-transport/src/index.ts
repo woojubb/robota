@@ -185,6 +185,7 @@ export type {
   TTurnSource,
   IExecutionResult,
   ITurnHandle,
+  ITurnNotRunError,
   TTurnNotRunReason,
   IToolState,
   IDiffLine,
@@ -217,4 +218,3 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
-export { TurnNotRunError } from './session-contracts.js';

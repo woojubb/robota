@@ -1,5 +1,6 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { acceptSubmission } from './interactive-session-accept-submission.js';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
@@ -485,22 +486,12 @@ export class InteractiveSession
   ): Promise<ITurnHandle> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
-    // REMOTE-014 E5: resolve the SERVER-ASSIGNED driver id (display-only). A human turn defaults to the owner;
-    // an agent-wakeup/goal turn to the reserved agent id (never the owner — an autonomous action must not be
-    // mis-attributed to the operator).
-    const driverId =
-      options.driverId ??
-      (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
-    // RUNTIME-003: a submission is identified when it is ACCEPTED, not when it starts running —
-    // otherwise a queued one would have no identity for the whole time its caller is waiting on it.
-    // The drain carries this id back in `resumeTurnId`, so one submission is one turn throughout.
-    const { turnId, completed } = options.resumeTurnId
-      ? {
-          turnId: options.resumeTurnId,
-          completed: this.execCtrl.completionOf(options.resumeTurnId),
-        }
-      : this.execCtrl.beginSubmission();
-    const resolvedOptions: ITurnOptions = { ...options, driverId, resumeTurnId: turnId };
+    // REMOTE-014 E5 attribution + RUNTIME-003 identity, resolved together because both are decided
+    // at ACCEPTANCE and both travel on the same options object.
+    const { driverId, turnId, completed, resolvedOptions } = acceptSubmission(
+      options,
+      this.execCtrl,
+    );
     if (this.execCtrl.executing) {
       // Same-driver coalesces to the tail (1-deep = today); a different driver appends (no clobber).
       const outcome = this.execCtrl.enqueuePending({
@@ -516,9 +507,7 @@ export class InteractiveSession
             `(max ${MAX_PENDING_QUEUE_DEPTH}). Try again after the current work settles.`,
         );
       }
-      // The queued path returns as soon as the input is accepted, exactly as it did before — the
-      // turn has not run yet and waiting for it here would block the submitter behind the turn in
-      // front. The handle is how a caller that DOES want to wait now says so.
+      // The queued path returns on acceptance, as before; the handle is how a caller waits.
       return { turnId, completed };
     }
     await this.execCtrl.executePrompt(

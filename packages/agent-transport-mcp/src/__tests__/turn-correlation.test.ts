@@ -17,6 +17,8 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { createAgentMcpServer } from '../mcp-server.js';
 
 /**
@@ -56,7 +58,10 @@ function createQueueingSession() {
     await runNext();
   };
 
-  const session = {
+  // Built on the PUBLISHED conformant double rather than a cast. A cast to `IInteractiveSession` is
+  // a partial re-implementation nothing checks against the real contract: it compiles whatever it
+  // happens to contain, so a member the contract gains later is silently absent here.
+  const session = createTestInteractiveSession({
     submit: async (input: string) => {
       const turnId = `turn-${++minted}`;
       let settle!: (result: unknown) => void;
@@ -82,7 +87,7 @@ function createQueueingSession() {
     off: (event: string, handler: (data: unknown) => void) => {
       listeners.get(event)?.delete(handler);
     },
-  } as unknown as IInteractiveSession;
+  } as never);
 
   return session;
 }

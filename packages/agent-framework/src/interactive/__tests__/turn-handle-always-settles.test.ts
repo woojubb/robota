@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
-import { TurnNotRunError } from '@robota-sdk/agent-interface-transport';
+import { TurnNotRunError } from '../turn-not-run-error.js';
 
 function createController(): SessionExecutionController {
   return new SessionExecutionController(
@@ -35,7 +35,7 @@ function createController(): SessionExecutionController {
 }
 
 function queued(controller: SessionExecutionController, driverId: string): IQueuedInput {
-  const { turnId } = controller.beginSubmission();
+  const { turnId } = controller.turns.begin();
   return { input: `from ${driverId}`, options: { driverId }, turnId };
 }
 
@@ -63,7 +63,7 @@ async function reasonOf(completed: Promise<unknown>): Promise<string> {
 describe('RUNTIME-003: a submission that never runs still answers its caller', () => {
   it('says `coalesced` when a later input from the same driver replaces it', async () => {
     const controller = createController();
-    const first = controller.beginSubmission();
+    const first = controller.turns.begin();
     controller.enqueuePending({
       input: 'first',
       options: { driverId: 'owner' },
@@ -82,7 +82,7 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
     // Distinct drivers, so each APPENDS instead of coalescing, which is what fills the queue.
     for (let i = 0; i < 32; i++) controller.enqueuePending(queued(controller, `driver-${i}`));
 
-    const overflow = controller.beginSubmission();
+    const overflow = controller.turns.begin();
     const outcome = controller.enqueuePending({
       input: 'one too many',
       options: { driverId: 'driver-late' },
@@ -95,7 +95,7 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
 
   it('says `cancelled` when the queue is cleared out from under it', async () => {
     const controller = createController();
-    const waiting = controller.beginSubmission();
+    const waiting = controller.turns.begin();
     controller.enqueuePending({
       input: 'waiting',
       options: { driverId: 'owner' },
@@ -112,8 +112,8 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
     // promise from that acceptance. Minting a second one there would settle something nobody is
     // waiting on — the hang this whole type exists to prevent, reintroduced at the last step.
     const controller = createController();
-    const accepted = controller.beginSubmission();
+    const accepted = controller.turns.begin();
 
-    expect(controller.completionOf(accepted.turnId)).toBe(accepted.completed);
+    expect(controller.turns.completionOf(accepted.turnId)).toBe(accepted.completed);
   });
 });
