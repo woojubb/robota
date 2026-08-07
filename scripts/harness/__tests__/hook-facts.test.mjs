@@ -650,7 +650,13 @@ describe('fact 5 — git runs with a scrubbed environment', () => {
       },
     );
     expect(run.status).toBe(2);
-    expect(run.output).toContain('MAIN checkout');
+    // The REASON changed, and the case says which one it now is. This fixture builds two independent
+    // repositories, so the ambient `GIT_DIR` names a DIFFERENT one — and that block runs first,
+    // because deferring it to the main-checkout judgement below was a measured bypass: that block
+    // resolves its directory with the scrub, so it can never see a redirect. The scrub property this
+    // case exists for is still what makes the refusal correct; it is now reported by the block that
+    // can actually see the redirect.
+    expect(run.output).toMatch(/DIFFERENT repository|MAIN checkout/);
   });
 
   it('leaves no hook calling git without the scrub', () => {

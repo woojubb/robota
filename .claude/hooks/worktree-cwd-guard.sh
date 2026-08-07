@@ -352,8 +352,20 @@ printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIV
 # a DESTRUCTIVE command in a worktree-assigned session. That block reports the cwd-fallback story,
 # which is the more specific and more useful answer there. Everything else — every non-destructive
 # command, and every ordinary session — had no check at all before this.
-if [[ -n "${ROBOTA_AGENT_WORKTREE:-}" && "$IS_DESTRUCTIVE" == "true" ]]; then
-  : # the assigned-worktree judgement below owns this one
+# The deferral was WRONG, and review found the case that shows it. The block at the bottom resolves
+# its directory with `hook_git_in`, which SCRUBS the ambient variables — so it can never see that a
+# `GIT_DIR` would redirect the real command. It detects "cwd fell back to MAIN", a different failure
+# mode. Deferring to it meant that from inside a correctly assigned worktree,
+#
+#   GIT_DIR=/somewhere/else/.git git reset --hard
+#
+# was permitted: the ambient check skipped, and the bottom check saw a path under `.claude/worktrees/`
+# and allowed it. Measured before and after.
+#
+# So the deferral survives only where the two blocks answer the SAME question — a foreign repository
+# is this block's subject and nothing below looks for it.
+if false; then
+  :
 else
   # --- Ambient git environment -------------------------------------------------------------------
   #
