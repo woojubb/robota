@@ -4,6 +4,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { createAgentRoutes } from '../routes.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -320,8 +322,11 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     const emit = (event: string, data: unknown): void => {
       for (const h of listeners.get(event) ?? []) h(data);
     };
-    const session = {
-      ...(createMockSession() as unknown as Record<string, unknown>),
+    // Built on the PUBLISHED conformant double rather than another cast to the contract. A cast is a
+    // partial re-implementation nothing checks against the real thing — it compiles whatever it
+    // happens to contain, so a member the contract gains later is simply missing and the suite keeps
+    // passing.
+    const session = createTestInteractiveSession({
       isExecuting: () => executing,
       submit: async () => {
         started += 1;
@@ -340,7 +345,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
       off: (event: string, handler: (data: unknown) => void) => {
         listeners.get(event)?.delete(handler);
       },
-    } as unknown as IInteractiveSession;
+    } as never);
     return { session, startedTurns: () => started };
   }
 
