@@ -9,6 +9,16 @@
  *
  * One answer, imported by both. A second spelling of "what counts as a file name" is a second answer
  * waiting to disagree, and here it disagreed the moment the second caller existed.
+ *
+ * ## Which way its enumeration fails
+ *
+ * fail-direction: refuse — `SUFFIX_SEGMENTS` below is a closed list, and review rightly asked whether
+ * that is the "enumerate what is recognized" shape a gap can slip through. It is not, because of the
+ * DIRECTION the gap fails in: a suffix this list does not know is treated as a file STEM, so the
+ * token is checked as a path, and a path that does not exist REFUSES the commit and says why. The
+ * cost of a missing entry is a visible false refusal someone fixes, not a silent pass.
+ *
+ * That is the opposite of the allowlist rule 6 forbids, where the gap is a pass nobody sees.
  */
 /**
  * Leading segments that make a dotted token a SUFFIX rather than a dot-file.
