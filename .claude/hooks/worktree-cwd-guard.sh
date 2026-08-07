@@ -139,30 +139,40 @@ STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 # `grep -c ''` counts lines: more than one means the command continues past the checkout.
 if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
   [[ "$(printf '%s' "$COMMAND" | grep -c '')" -gt 1 ]]; then
+  # PER STATEMENT, and every one of them. The first version read only the FIRST checkout in the
+  # command (`head -1`) and applied the restore exemption to the WHOLE string, so one harmless
+  # `git checkout -- README.md` in front erased the detection of a real switch behind it:
+  #
+  #   git checkout -- README.md; git checkout <held-branch>; git reset --hard   -> permitted
+  #
+  # Review found it, measured. This file already learned the same lesson twice — the stash check and
+  # the override both say "the token sitting on a sibling command excuses nothing" — and the reading
+  # was re-derived here without it.
+  #
   # Bounded by what a REF NAME may contain, not by "up to whitespace". Read the loose way, the
   # separator came along with it — `git checkout foo; git reset` yielded `foo;`, which matches no
   # branch, so the block silently passed the exact command it exists to refuse. A guard that fails
   # to parse must not read as a guard that found nothing.
-  CHECKOUT_TARGET=$(printf '%s' "$VERBS" |
-    grep -oE "${STASH_PRE}git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*(checkout|switch)[[:space:]]+[A-Za-z0-9._][A-Za-z0-9._/-]*" |
-    grep -oE '[A-Za-z0-9._][A-Za-z0-9._/-]*$' | head -1 || true)
-  # Judged against the repository the COMMAND will run in, resolved by this file's own owner of that
-  # question — not by a bare `git` call, which answers about the HOOK process's directory. The first
-  # version did the latter and passed the exact command it exists to refuse whenever the two differ,
-  # which is every subagent and every worktree. The test caught it; the lesson is that "which repo"
-  # already had an answer here and re-deriving it produced a worse one.
   CHECKOUT_REPO=$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")
-  # `git checkout <ref> -- <path>` RESTORES files from a ref; it does not switch to it, so it
-  # succeeds even when a sibling worktree holds that branch and the premise behind this block does
-  # not apply. Blocking it is the guard firing on correct work — measured, review found it, and a
-  # guard that refuses a legitimate restore is one someone turns off.
-  if printf '%s' "$COMMAND" | grep -qE "checkout[^|;&]*[[:space:]]--([[:space:]]|$)"; then
-    CHECKOUT_TARGET=""
-  fi
-  if [[ -n "${CHECKOUT_TARGET:-}" ]] && [[ -n "${CHECKOUT_REPO:-}" ]] &&
+  CHECKOUT_TARGET=""
+  while IFS= read -r STATEMENT; do
+    [[ -z "${STATEMENT//[[:space:]]/}" ]] && continue
+    # `git checkout <ref> -- <path>` RESTORES files from a ref; it does not switch to it, so it
+    # succeeds even when a sibling worktree holds that branch. Judged per statement, so a restore
+    # excuses only ITSELF.
+    printf '%s' "$STATEMENT" | grep -qE "checkout[[:space:]][^|;&]*[[:space:]]--([[:space:]]|$)" && continue
+    CANDIDATE=$(printf '%s' "$STATEMENT" |
+      grep -oE "${STASH_PRE}git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*(checkout|switch)[[:space:]]+[A-Za-z0-9._][A-Za-z0-9._/-]*" |
+      grep -oE '[A-Za-z0-9._][A-Za-z0-9._/-]*$' | head -1 || true)
+    [[ -z "$CANDIDATE" ]] && continue
+    [[ -n "${CHECKOUT_REPO:-}" ]] || continue
     hook_git_in "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
-    grep -qxF "branch refs/heads/${CHECKOUT_TARGET}" &&
-    [[ "$(hook_git_in "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" != "$CHECKOUT_TARGET" ]]; then
+      grep -qxF "branch refs/heads/${CANDIDATE}" || continue
+    [[ "$(hook_git_in "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" == "$CANDIDATE" ]] && continue
+    CHECKOUT_TARGET="$CANDIDATE"
+    break
+  done < <(printf '%s' "$VERBS" | tr ';&|\n' '\n\n\n\n')
+  if [[ -n "$CHECKOUT_TARGET" ]]; then
     echo "[worktree-cwd-guard] Blocked: '${CHECKOUT_TARGET}' is checked out in another worktree, so" >&2
     echo "[worktree-cwd-guard] this checkout FAILS — and the rest of this compound command still runs," >&2
     echo "[worktree-cwd-guard] against whatever branch is actually checked out. A reset --hard landed" >&2

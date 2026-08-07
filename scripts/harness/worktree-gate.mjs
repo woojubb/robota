@@ -80,7 +80,21 @@ export function listWorktrees(cwd = process.cwd()) {
   return worktrees;
 }
 
-/** Variables that would send a git command somewhere other than where it appears to go. */
+/**
+ * Variables that would send a git command somewhere other than where it appears to go.
+ *
+ * PRESENCE, not "does it name another repository" — which is a deliberate difference from the hook,
+ * and review was right to ask about it.
+ *
+ * The hook judges ONE command as it is issued, thousands of times a session, and git exports these
+ * into every hook it runs; refusing on presence there would fire on the ordinary case constantly.
+ * This gate is asked ONCE, before work begins, and its answer is "is it safe to start here" — a
+ * session that starts with any of these inherited is one where every later judgement is made against
+ * a different repository than the reader thinks. The cost of being wrong differs by orders of
+ * magnitude in the two places, so the thresholds differ too.
+ *
+ * What must NOT differ is the LIST, and it does not: both read `git-ambient-env.json`.
+ */
 export function ambientGitEnvFindings(env = process.env) {
   return GIT_AMBIENT_ENV.filter((name) => env[name] !== undefined && env[name] !== '').map(
     (name) => ({

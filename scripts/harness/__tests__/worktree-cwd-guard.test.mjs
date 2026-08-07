@@ -305,6 +305,20 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status).toBe(0);
   });
 
+  it('is not blinded by an unrelated restore in front of a real switch', () => {
+    // The restore exemption matched the WHOLE command and only the first checkout was read, so one
+    // harmless `git checkout -- README.md` in front erased the detection of a real switch behind it.
+    // Measured: permitted. This file had already learned the lesson twice — the stash check and the
+    // override both say a token sitting on a sibling command excuses nothing — and the reading was
+    // re-derived here without it.
+    const { status } = runHook({
+      command: `git checkout -- README.md; git checkout ${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
   it('reads its variable list from the file that owns it', () => {
     // Three copies of the ambient-variable list existed and had already drifted — seven names in the
     // hook, nine in the gate. The list now lives in one file, and this asserts the hook reads THAT
