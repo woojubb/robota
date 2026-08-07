@@ -293,7 +293,11 @@ describe('a flag is judged by what git accepts, not by how the rule was spelt', 
   });
 
   it('leaves non-destructive flags that merely contain the letters alone', () => {
-    for (const command of ['git push --follow-tags origin develop', 'git clean -n', 'git push -u origin develop']) {
+    for (const command of [
+      'git push --follow-tags origin develop',
+      'git clean -n',
+      'git push -u origin develop',
+    ]) {
       const { status } = runHook({ command, cwd: mainRepo, env: inWorktreeSession() });
       expect(status, command).toBe(0);
     }
