@@ -40,27 +40,23 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 /**
  * Ambient git variables that redirect where a git command reads and writes.
  *
- * The same list the test harness deletes before running. Kept in sync by intent, not by import: this
- * script must run with no build step and no workspace resolution, because one of the states it
- * exists to diagnose is a worktree whose dependencies are not installed.
+ * Loaded from `git-ambient-env.json`, which OWNS the list. Three copies of it existed — here, in the
+ * test harness, and in the hook — and review found them already disagreeing: seven variables in one,
+ * nine in another. A second spelling of "what redirects git" is a second answer waiting to disagree,
+ * and this one had.
+ *
+ * Read with `readFileSync` rather than an import so this script keeps running in a worktree whose
+ * dependencies were never installed — which is one of the states it exists to diagnose.
  */
-const GIT_AMBIENT_ENV = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-  'GIT_PREFIX',
-  'GIT_NAMESPACE',
-];
+const GIT_AMBIENT_ENV = JSON.parse(
+  readFileSync(path.join(import.meta.dirname, 'git-ambient-env.json'), 'utf8'),
+).variables;
 
 function git(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();

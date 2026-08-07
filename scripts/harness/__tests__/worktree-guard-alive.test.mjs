@@ -67,6 +67,14 @@ function repoWithWorktree() {
   for (const lib of readdirSync(path.join(HOOKS_DIR, 'lib')).filter((n) => n.endsWith('.sh'))) {
     copyFileSync(path.join(HOOKS_DIR, 'lib', lib), path.join(hooks, 'lib', lib));
   }
+  // The same lesson one file over: the guard also reads the ambient-variable list it OWNS, resolved
+  // relative to its own location. A worktree without it is a hook whose subject list is unreadable —
+  // it then refuses, correctly, and every case below fails for a reason it does not assert.
+  mkdirSync(path.join(worktree, 'scripts', 'harness'), { recursive: true });
+  copyFileSync(
+    path.join(HOOKS_DIR, '..', 'scripts', 'harness', 'git-ambient-env.json'),
+    path.join(worktree, 'scripts', 'harness', 'git-ambient-env.json'),
+  );
 
   return { main, worktree, hook: path.join(hooks, 'worktree-cwd-guard.sh') };
 }

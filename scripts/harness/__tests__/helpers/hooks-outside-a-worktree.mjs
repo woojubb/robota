@@ -48,12 +48,20 @@ afterAll(() => {
  * bypass the gate that would have caught a real one.
  *
  * The whole directory is copied, not the single file, because hooks source `lib/command-scan.sh`
- * relative to themselves.
+ * relative to themselves — and `scripts/harness/git-ambient-env.json` comes along for the same
+ * reason: the guard resolves the ambient-variable list it OWNS relative to its own location, and a
+ * copy without it is a hook whose subject list is unreadable. It then refuses, correctly, and every
+ * case here fails for a reason that has nothing to do with what it is testing.
  */
 export function hooksOutsideAWorktree() {
   const dir = mkdtempSync(path.join(tmpdir(), 'hooks-main-clone-'));
   copies.push(dir);
   const hooks = path.join(dir, 'hooks');
   cpSync(path.join(WORKSPACE_ROOT, '.claude/hooks'), hooks, { recursive: true });
+  cpSync(
+    path.join(WORKSPACE_ROOT, 'scripts/harness/git-ambient-env.json'),
+    path.join(dir, 'scripts/harness/git-ambient-env.json'),
+    { recursive: true },
+  );
   return hooks;
 }

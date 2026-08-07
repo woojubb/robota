@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -249,5 +249,69 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
         stdio: 'pipe',
       });
     }
+  });
+});
+
+describe('worktree-cwd-guard: what review found the first version missing', () => {
+  const held = 'held-for-review-cases';
+  let sibling;
+
+  beforeAll(() => {
+    execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
+    sibling = path.join(root, 'sibling-review');
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], {
+      stdio: 'pipe',
+    });
+  });
+
+  afterAll(() => {
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'remove', '--force', sibling], {
+      stdio: 'pipe',
+    });
+  });
+
+  it('BLOCKS a compound command joined by a NEWLINE', () => {
+    // This file already says, twenty lines above the check, that a newline is a separator too — and
+    // the check re-derived the reading anyway and came out worse. A destructive command on a later
+    // LINE is the shape the guard exists for.
+    const { status } = runHook({
+      command: `git checkout ${held}\ngit reset --hard origin/develop`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('BLOCKS a checkout reached through `git -C`', () => {
+    // `-C` pointing at another repository is not an edge case: it is how one worktree reaches into
+    // another. Both other matchers in this file tolerate it explicitly; this one did not.
+    const { status } = runHook({
+      command: `git -C ${mainRepo} checkout ${held}; git status`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('reads its variable list from the file that owns it', () => {
+    // Three copies of the ambient-variable list existed and had already drifted — seven names in the
+    // hook, nine in the gate. The list now lives in one file, and this asserts the hook reads THAT
+    // file rather than a fourth copy: every name the owning file declares must appear in the hook's
+    // behaviour, which is what the ambient case above exercises for GIT_DIR.
+    const owned = JSON.parse(
+      readFileSync(path.join(import.meta.dirname, '../git-ambient-env.json'), 'utf8'),
+    ).variables;
+    const hookText = readFileSync(HOOK, 'utf8');
+
+    expect(owned.length).toBeGreaterThan(0);
+    // The hook must NOT spell the names out — that is how the copies drifted.
+    const spelledOut = owned.filter((name) =>
+      new RegExp(`for _var in[^\\n]*${name}`).test(hookText),
+    );
+    expect(
+      spelledOut,
+      'the hook re-spells the list instead of reading the file that owns it',
+    ).toEqual([]);
+    expect(hookText).toMatch(/git-ambient-env\.json/);
   });
 });

@@ -134,13 +134,17 @@ STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 #
 # So the block is narrow on purpose: a bare failing checkout is left alone (git's own error IS the
 # whole outcome), and only a checkout with something after it is refused.
-if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)'; then
+# A NEWLINE is a separator too, and this file already says so twenty lines up about GITPFX — the
+# same reading was re-derived here and came out worse, which is the recurring defect in this file.
+# `grep -c ''` counts lines: more than one means the command continues past the checkout.
+if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
+  [[ "$(printf '%s' "$COMMAND" | grep -c '')" -gt 1 ]]; then
   # Bounded by what a REF NAME may contain, not by "up to whitespace". Read the loose way, the
   # separator came along with it — `git checkout foo; git reset` yielded `foo;`, which matches no
   # branch, so the block silently passed the exact command it exists to refuse. A guard that fails
   # to parse must not read as a guard that found nothing.
   CHECKOUT_TARGET=$(printf '%s' "$VERBS" |
-    grep -oE "${STASH_PRE}git[[:space:]]+(checkout|switch)[[:space:]]+[A-Za-z0-9._][A-Za-z0-9._/-]*" |
+    grep -oE "${STASH_PRE}git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*(checkout|switch)[[:space:]]+[A-Za-z0-9._][A-Za-z0-9._/-]*" |
     grep -oE '[A-Za-z0-9._][A-Za-z0-9._/-]*$' | head -1 || true)
   # Judged against the repository the COMMAND will run in, resolved by this file's own owner of that
   # question — not by a bare `git` call, which answers about the HOOK process's directory. The first
@@ -359,9 +363,30 @@ else
   # fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
   # not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
   # the repository-identity checks below are not replaced by this one.
+  # The list is OWNED by scripts/harness/git-ambient-env.json. It used to be spelled out here, and
+  # review found this copy checking seven variables where the gate's copy checked nine — the drift
+  # this file has paid for before. An unreadable list is a REFUSAL: a check that cannot read its own
+  # subject has not run, and must not read as one that found nothing.
+  # Found relative to THIS FILE first. The hook is copied into worktrees, and the copy that is
+  # running is the one whose repository owns the list — `CLAUDE_PROJECT_DIR` may point elsewhere
+  # entirely, which is the situation the guard around it exists for.
+  GIT_AMBIENT_ENV_NAMES=""
+  for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
+    "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
+    "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
+    [[ -r "$_candidate" ]] || continue
+    GIT_AMBIENT_ENV_NAMES=$(sed -n 's/^[[:space:]]*"\(GIT_[A-Z_]*\)".*/\1/p' "$_candidate")
+    [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
+  done
+  if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
+    echo "[worktree-cwd-guard] Blocked: could not read scripts/harness/git-ambient-env.json, so the" >&2
+    echo "[worktree-cwd-guard] ambient-git" >&2
+    echo "[worktree-cwd-guard] check has no subject list. A check that cannot read what it judges" >&2
+    echo "[worktree-cwd-guard] has not run, and must not read as one that found nothing." >&2
+    exit 2
+  fi
   GIT_AMBIENT_ENV_SET=""
-  for _var in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_NAMESPACE; do
+  for _var in $GIT_AMBIENT_ENV_NAMES; do
     if [[ -n "${!_var:-}" ]]; then
       GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
     fi
