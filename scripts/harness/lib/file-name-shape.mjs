@@ -40,6 +40,21 @@ const SUFFIX_SEGMENTS = new Set([
 ]);
 
 /**
+ * Extensions a named repository artifact carries. Kept narrow on purpose.
+ *
+ * Owned HERE rather than in the scan that used to hold it, because two questions need it and the
+ * file's own opening paragraph says what a second copy costs: "a second spelling of 'what counts as
+ * a file name' is a second answer waiting to disagree". `hasStem` needs it to tell `.gitignore` (a
+ * FILE) from `.ts` (an EXTENSION people write in prose constantly), and the named-artifact scan
+ * needs it to decide what to look for at all.
+ *
+ * fail-direction: refuse. An extension missing from this list makes a bare `.foo` mention read as a
+ * file name, so it is checked as a path and REFUSES visibly with the reason. The cost of a gap is
+ * a false refusal someone fixes, not a silent pass.
+ */
+export const EXTENSIONS = ['mjs', 'cjs', 'js', 'ts', 'tsx', 'md', 'sh', 'yml', 'yaml', 'json'];
+
+/**
  * Whether the token is a file NAME rather than an extension or a suffix.
  *
  * `.d.ts` and `.test.ts` are shapes a file ends WITH; they name no file, and reading them as names
@@ -67,7 +82,22 @@ export function hasStem(name) {
     // character instead of saying so. Unreachable today — the caller has already required an
     // extension — but a silent wrong answer waiting for the first caller that does not.
     const nextDot = rest.indexOf('.');
-    if (nextDot === -1) return false;
+    // A SINGLE-SEGMENT dotfile — `.gitignore`, `.npmrc`, `.nvmrc`, `.editorconfig`. These returned
+    // false, which is the same silent coverage cap review had just found for the two-dot case and
+    // which was not extended to the one-dot case.
+    //
+    // The rule needs no new list: the segment is a NAME unless it is an EXTENSION. `.gitignore` is
+    // a file; `.ts` and `.md` are what a document writes while explaining a convention, and reading
+    // those as names is the failure that once produced 1656 findings from 470 documents. The
+    // extension list already existed for the other question and now lives here, so the two answers
+    // cannot drift apart.
+    //
+    // The length floor is unchanged and load-bearing for the same reason it is below: a one-letter
+    // segment names no file.
+    if (nextDot === -1) {
+      if (rest.length < 2 || EXTENSIONS.includes(rest.toLowerCase())) return false;
+      return /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(rest);
+    }
     const leading = rest.slice(0, nextDot);
     if (leading.length < 2 || SUFFIX_SEGMENTS.has(leading)) return false;
     return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$/.test(rest);

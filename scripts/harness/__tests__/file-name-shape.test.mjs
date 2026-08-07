@@ -23,6 +23,23 @@ describe('a dot-file is a file; a suffix is a shape', () => {
     // These name no file. Documents explaining a convention mention them constantly, and reading
     // them as names reported every such document.
     expect(hasStem('.d.ts')).toBe(false);
+    // SINGLE-SEGMENT dotfiles. These returned false — the same silent cap review had just found for
+    // the two-dot case, not extended to the one-dot case.
+    //
+    // The rule needs no new list: the segment is a NAME unless it is an EXTENSION. That list already
+    // existed for the other question and now lives beside this one, so the two cannot drift.
+    expect(hasStem('.gitignore')).toBe(true);
+    expect(hasStem('.npmrc')).toBe(true);
+    expect(hasStem('.nvmrc')).toBe(true);
+    expect(hasStem('.editorconfig')).toBe(true);
+    // A BARE EXTENSION is what a document writes while explaining a convention. Reading these as
+    // names is the failure that once produced 1656 findings from 470 documents.
+    expect(hasStem('.ts')).toBe(false);
+    expect(hasStem('.md')).toBe(false);
+    expect(hasStem('.json')).toBe(false);
+    expect(hasStem('.mjs')).toBe(false);
+    // A one-letter segment names no file, the same floor the two-dot branch keeps.
+    expect(hasStem('.a')).toBe(false);
     expect(hasStem('.test.ts')).toBe(false);
     expect(hasStem('.spec.ts')).toBe(false);
     expect(hasStem('.live.test.ts')).toBe(false);

@@ -70,6 +70,13 @@ const CODE_SPAN = /`([^`\n]+)`/g;
 // A slash is not what makes a token a path. `AGENTS.md` and `commitlint.config.js` are cited in
 // commit messages constantly and went unchecked — the same false claim this file exists to catch,
 // one directory level up. A token with a file extension is a claim about a file wherever it sits.
+//
+// A SINGLE-SEGMENT dotfile — `.gitignore`, `.npmrc` — is NOT matched, and that is measured rather
+// than overlooked. Review reported them as excluded by `hasStem`; `hasStem` never saw them, because
+// this pattern rejects them first. Widening it was tried and reverted: `.git`, `.agents`, `.husky`
+// and `.turbo` are DIRECTORIES and `.length` is a PROPERTY, all written in backticks constantly,
+// and admitting the shape refused correct documents. The coverage gap is real and is filed rather
+// than closed by making the check noisier. See HARNESS-078.
 const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(\/[A-Za-z0-9._/-]+|\.[A-Za-z0-9]+)$/;
 
 /**

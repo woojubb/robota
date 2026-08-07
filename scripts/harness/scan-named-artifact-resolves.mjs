@@ -41,7 +41,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { hasStem } from './lib/file-name-shape.mjs';
+import { EXTENSIONS, hasStem } from './lib/file-name-shape.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -49,8 +49,9 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const ROOTS = ['.agents/rules', '.agents/skills', 'scripts/harness', '.claude/hooks'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'completed', 'done', 'rejected', 'archive']);
 
-/** Extensions a named repository artifact carries. Kept narrow on purpose. */
-const EXTENSIONS = ['mjs', 'cjs', 'js', 'ts', 'tsx', 'md', 'sh', 'yml', 'yaml', 'json'];
+// The extension list moved to `lib/file-name-shape.mjs`: `hasStem` needs it to tell `.gitignore`
+// (a file) from `.ts` (an extension), and this scan needs it to decide what to look for. Two
+// questions, one answer — which is the reason that file exists.
 
 /**
  * A name is read only from INSIDE backticks.
@@ -62,6 +63,11 @@ const EXTENSIONS = ['mjs', 'cjs', 'js', 'ts', 'tsx', 'md', 'sh', 'yml', 'yaml', 
  * a file from mentioning a word.
  */
 const CODE_SPAN = /`([^`\n]+)`/g;
+// A SINGLE-SEGMENT dotfile — `.gitignore`, `.editorconfig` — carries no listed extension and is
+// therefore outside this scan's reach. That gap is real; admitting the shape was TRIED and RAN, and
+// it produced findings for `.git`, `.agents`, `.husky`, `.turbo` (directories), `.bashrc`,
+// `.hookrc` and `.length` (a property access) — correct documents refused. Filed as HARNESS-078
+// rather than closed by widening, because a check that fires on correct work gets turned off.
 const NAMED = new RegExp(String.raw`^[A-Za-z0-9._/-]+\.(?:${EXTENSIONS.join('|')})$`);
 // The reason must contain a WORD. `\S` alone accepted `)` — the closing paren of the marker itself —
 // so `(allow-missing-artifact: )` excused the line while saying nothing, which is the shape of every
