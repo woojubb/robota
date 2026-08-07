@@ -214,11 +214,33 @@ function gitAnswered(args, { onUnavailable, cwd = WORKSPACE_ROOT }) {
  * bound on what this can decide: whether the named path belongs to THIS commit's tree cannot be
  * answered from the message alone, since commitlint is handed text and never the sha.
  */
+/**
+ * Does this token stay inside the repository once resolved?
+ *
+ * `path.relative` rather than a string prefix: a prefix test says `/repo-evil` is inside `/repo`,
+ * and `..` at the front is the only thing that means "left the tree". An absolute token resolves to
+ * itself and is caught by the same test.
+ */
+function isInsideRoot(root, token) {
+  const relative = path.relative(path.resolve(root), path.resolve(root, token));
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
 export function pathHasEverExisted(
   token,
   { staged, root = WORKSPACE_ROOT, isShallowOverride } = {},
 ) {
   if (staged?.has(token)) return true;
+  // A token that escapes the repository is not a repository path, and asking the filesystem about
+  // it is worse than useless. Review found `../../../etc/hosts.conf` reaching `existsSync` — its
+  // last segment has an extension shape, so `PATHISH` and `hasStem` both pass it — which made a
+  // commit message a file-existence oracle for paths OUTSIDE the checkout, and let a citation
+  // "resolve" against a file this repository does not contain.
+  //
+  // Refused rather than probed: the answer to "does this repository contain `../../etc/passwd`" is
+  // no, whatever the host filesystem happens to hold, so the claim is reported like any other that
+  // names nothing here.
+  if (!isInsideRoot(root, token)) return false;
   if (existsSync(path.join(root, token))) return true;
   // A SHALLOW clone has no history to search, so "no commit touched this path" would mean "the
   // history is not here" — and refusing a correct citation for that is a guard firing on correct

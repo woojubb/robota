@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -221,6 +221,44 @@ describe('which tree the path is judged against', () => {
   // file only a LATER commit created would pass.
   it('accepts a path that exists now', () => {
     expect(pathHasEverExisted('scripts/harness/run-all-scans.mjs')).toBe(true);
+  });
+
+  it('REFUSES a token that escapes the repository', () => {
+    // Review: `PATHISH` allows a leading `.` and inner `/`, and `../../../etc/hosts.conf` has an
+    // extension-shaped last segment, so `hasStem` passes it too — and the token then reached
+    // `existsSync(path.join(root, token))`, which resolves OUTSIDE the checkout.
+    //
+    // Two things wrong with that. It made a commit message a file-existence oracle for the host
+    // filesystem, and it let a citation "resolve" against a file this repository does not contain —
+    // the check reporting a pass it had no basis for.
+    //
+    // The answer to "does this repository contain `../../etc/passwd`" is no, whatever the host
+    // happens to hold, so these are refused like any other token naming nothing here.
+    // The token must name something that ACTUALLY EXISTS outside the root, or the case passes with
+    // or without the guard — measured, my first version used `/etc/hosts.conf`, which exists on no
+    // host here, so `existsSync` answered false either way and the case proved nothing.
+    //
+    // A scratch file outside the checkout, created by this case, so the assertion does not depend
+    // on what the host happens to have lying around.
+    const outside = mkdtempSync(path.join(tmpdir(), 'outside-the-repo-'));
+    writeFileSync(path.join(outside, 'target.md'), 'reachable only by escaping the root\n');
+    try {
+      const escaping = path.relative(WORKSPACE_ROOT, path.join(outside, 'target.md'));
+      expect(escaping.startsWith('..'), 'the fixture did not escape the root').toBe(true);
+      expect(existsSync(path.join(WORKSPACE_ROOT, escaping)), 'the fixture is unreachable').toBe(
+        true,
+      );
+
+      expect(pathHasEverExisted(escaping), escaping).toBe(false);
+      expect(pathHasEverExisted(path.join(outside, 'target.md')), 'absolute').toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('does not mistake a SIBLING directory for an inside path', () => {
+    // Why containment is `path.relative` and not a string prefix: `/repo-evil` starts with `/repo`.
+    expect(pathHasEverExisted('../robota-evil/AGENTS.md')).toBe(false);
   });
 
   it('accepts a path that USED to exist, because a commit may legitimately cite what it removed', () => {
