@@ -27,9 +27,16 @@ afterAll(() => {
   while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
 });
 
-/** A package with the given manifest exports and one source file. */
-function makePackage(name, { exports, source, spec } = {}) {
-  const dir = path.join(root, 'packages', name);
+/**
+ * A package with the given manifest exports and one source file.
+ *
+ * `name` may carry a directory — `dag-nodes/file-read` — because the workspace declares packages at
+ * two depths. The first version of this scan read `packages/*` one level deep and so never looked at
+ * the nested family or at apps; the cases below cover both, since a check that does not look is
+ * indistinguishable from one that found nothing.
+ */
+function makePackage(name, { exports, source, spec, family = 'packages' } = {}) {
+  const dir = path.join(root, family, name);
   mkdirSync(path.join(dir, 'src'), { recursive: true });
   writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name, exports: exports ?? {} }));
   writeFileSync(path.join(dir, 'src', 'index.ts'), source ?? '// nothing\n');
@@ -89,6 +96,26 @@ describe('what the check considers its subject', () => {
 
     expect(browserPackages(root)).toEqual([]);
     expect(findBrowserNodeSubpathFindings(root)).toEqual([]);
+  });
+
+  it('sees a package NESTED one level deeper', () => {
+    // `packages/dag-nodes/*` is declared in pnpm-workspace.yaml, and the flat read missed all of it.
+    makePackage('dag-nodes/file-read', {
+      exports: BROWSER_EXPORTS,
+      source: IMPORTS_NODE_SUBPATH,
+    });
+
+    expect(findBrowserNodeSubpathFindings(root)).toHaveLength(1);
+  });
+
+  it('sees an app', () => {
+    makePackage('agent-app', {
+      exports: BROWSER_EXPORTS,
+      source: IMPORTS_NODE_SUBPATH,
+      family: 'apps',
+    });
+
+    expect(findBrowserNodeSubpathFindings(root)).toHaveLength(1);
   });
 
   it('REFUSES a root with no packages tree rather than reporting it clean', () => {

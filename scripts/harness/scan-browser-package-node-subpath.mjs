@@ -35,11 +35,12 @@
  * not read as nothing-wrong.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { requireGovernedTree } from './governed-tree.mjs';
 import { loadHarnessConfig } from './harness-config.mjs';
+import { listSourceFiles, listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const GOVERNED_TREE = 'packages';
@@ -52,31 +53,12 @@ function declaresBrowser(manifest) {
   return seen.includes('"browser"') || manifest.browser !== undefined;
 }
 
-/** Every non-test source file under a package. */
-function sourceFiles(packageDir) {
-  const root = path.join(packageDir, 'src');
-  if (!existsSync(root)) return [];
-  const found = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir)) {
-      const full = path.join(dir, entry);
-      if (statSync(full).isDirectory()) {
-        if (entry === '__tests__' || entry === 'node_modules' || entry === 'dist') continue;
-        walk(full);
-        continue;
-      }
-      if (/\.(ts|tsx|mts|js|mjs)$/.test(entry) && !entry.includes('.test.')) found.push(full);
-    }
-  };
-  walk(root);
-  return found;
-}
-
 export function browserPackages(root = WORKSPACE_ROOT) {
-  const packagesDir = path.join(root, 'packages');
-  if (!existsSync(packagesDir)) return [];
-  return readdirSync(packagesDir)
-    .map((name) => path.join(packagesDir, name))
+  // The workspace's OWN lister, not a hand-rolled walk. The first version read `packages/*` one
+  // level deep, so `packages/dag-nodes/*` and every app were outside its subject list — a check that
+  // silently did not look at half the tree. Review found it. `pnpm-workspace.yaml` declares the
+  // layout and this function is where the harness reads it.
+  return listWorkspacePackageDirs(root)
     .filter((dir) => existsSync(path.join(dir, 'package.json')))
     .filter((dir) => {
       try {
@@ -102,7 +84,7 @@ export function findBrowserNodeSubpathFindings(root = WORKSPACE_ROOT) {
   for (const packageDir of browserPackages(root)) {
     const spec = path.join(packageDir, 'docs', 'SPEC.md');
     if (existsSync(spec) && DECLARATION.test(readFileSync(spec, 'utf8'))) continue;
-    for (const file of sourceFiles(packageDir)) {
+    for (const file of listSourceFiles(path.join(packageDir, 'src'))) {
       const text = readFileSync(file, 'utf8');
       if (!nodeSubpath.test(text)) continue;
       findings.push({ file: path.relative(root, file) });
