@@ -13,11 +13,11 @@ import {
   hostAllowed,
   originAllowed,
   presentedToken,
+  resolveWsAdmission,
   tokenMatches,
 } from './ws-connection-guards.js';
 
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import { resolveAdmission } from '@robota-sdk/agent-interface-transport';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
@@ -28,15 +28,6 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
-
-/**
- * The reason recorded for a caller that opted OPEN before `openReason` existed.
- *
- * Not a way around the requirement — it names exactly what happened, so a reader can tell an
- * inherited opt-out from a considered one and go fix it.
- */
-const WS_OPEN_REASON_REQUIRED =
-  'SEC-008: opened by a caller that predates the written-reason requirement';
 
 const DEFAULT_PORT = 7070;
 const DEFAULT_MAX_RETRIES = 20;
@@ -124,20 +115,9 @@ export class WsTransport
   constructor(config: IWsTransportConfig = {}) {
     this.port = config.port ?? DEFAULT_PORT;
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
-    // SEC-001 secure-by-default: an explicit token wins; else auto-mint UNLESS `open` opts out. A failed
-    // mint throws out of the constructor → the transport never binds OPEN (fail-closed).
-    //
-    // SEC-008: this transport got the decision RIGHT and its sibling got it wrong, which is the whole
-    // problem — one question, two answers, because each transport owned its own. The behaviour here is
-    // unchanged; what changed is that it now comes from the shared seam, so there is one place to read
-    // and one place to change. `open` additionally requires a written reason, because "no credential"
-    // and "nobody thought about it" were the two states this work exists to tell apart.
-    const admission = resolveAdmission({
-      ...(config.token !== undefined ? { token: config.token } : {}),
-      ...(config.open === true
-        ? { open: true, openReason: config.openReason ?? WS_OPEN_REASON_REQUIRED }
-        : {}),
-    });
+    // SEC-001/SEC-008: secure by default, decided by the shared seam rather than a copy here — see
+    // SPEC § Transport Admission. A failed mint throws out of the constructor (fail-closed).
+    const admission = resolveWsAdmission(config);
     if (admission.token !== null) this.token = admission.token;
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);

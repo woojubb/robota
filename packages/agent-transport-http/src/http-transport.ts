@@ -7,7 +7,7 @@
 
 import { createAgentRoutes } from './routes.js';
 
-import { resolveAdmission } from '@robota-sdk/agent-interface-transport';
+import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 import type {
   IInteractiveSession,
   ITransportAdapter,

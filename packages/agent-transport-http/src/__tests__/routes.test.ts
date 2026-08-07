@@ -4,6 +4,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { createAgentRoutes } from '../routes.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -315,21 +317,26 @@ describe('HTTP Transport Routes', () => {
 // ── SEC-008: the route is a trust boundary, not a pass-through ───────────────
 
 describe('SEC-008: an unadmitted request never reaches the session', () => {
-  /** A session that records whether anything actually got through to it. */
+  /**
+   * A session that records whether anything actually got through to it.
+   *
+   * Built on the PUBLISHED conformant double rather than another cast to the contract. A cast is a
+   * partial re-implementation nothing checks against the real thing: it compiles whatever it happens
+   * to contain, so a member the contract gains later is simply missing here and the suite keeps
+   * passing.
+   */
   function createRecordingSession() {
     const reached: string[] = [];
-    const session = {
-      ...(createMockSession() as unknown as Record<string, unknown>),
+    const session = createTestInteractiveSession({
       submit: async (prompt: string) => {
         reached.push(`submit:${prompt}`);
+        return { turnId: 'recording-turn', completed: Promise.resolve() } as never;
       },
       executeCommand: async (name: string) => {
         reached.push(`command:${name}`);
         return { message: 'ran', success: true };
       },
-      on: vi.fn(),
-      off: vi.fn(),
-    } as unknown as IInteractiveSession;
+    });
     return { session, reached };
   }
 

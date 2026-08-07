@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `finder(bare)`: throws
+    // `packages missing from <root>`.
+    file: 'scan-transport-admission.mjs',
+    finder: 'findAdmissionFindings',
+    tree: 'packages',
+    why: 'it asks every transport package whether it answers the admission question; over a root with no packages there is no transport to ask, and "nobody failed to answer" reads exactly like "everybody answered" — which is the shape that let three transports ship with no trust boundary',
+  },
+  {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `.github/workflows does not exist`.
     file: 'scan-ci-concurrency-footprint.mjs',

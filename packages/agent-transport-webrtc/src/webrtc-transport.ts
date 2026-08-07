@@ -1,6 +1,6 @@
 import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
 import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
-import { resolveAdmission } from '@robota-sdk/agent-interface-transport';
+import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 import type {
   IConfigurableTransport,
   IInteractiveSession,

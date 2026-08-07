@@ -7,17 +7,12 @@
  * transport module stays within the file-size ratchet.
  */
 
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
+
+import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+import type { ITransportAdmission } from '@robota-sdk/agent-interface-transport';
 
 import type { IncomingMessage } from 'node:http';
-
-/**
- * Mint a random per-launch loopback token. Throws (never returns empty) if entropy is unavailable →
- * the transport then fails to construct/start rather than binding OPEN (SEC-001 fail-closed).
- */
-export function mintToken(): string {
-  return randomBytes(32).toString('hex');
-}
 
 /**
  * Host names that are always loopback (port stripped by the caller). IPv4 bind only, so `[::1]`
@@ -82,4 +77,28 @@ export function presentedToken(req: IncomingMessage): string | null {
   }
   const proto = req.headers['sec-websocket-protocol'];
   return typeof proto === 'string' ? proto.split(',')[0]?.trim() || null : null;
+}
+
+/** Recorded for a caller that opted OPEN before `openReason` existed — see SPEC § Transport Admission. */
+const WS_OPEN_REASON_REQUIRED =
+  'SEC-008: opened by a caller that predates the written-reason requirement';
+
+/**
+ * This transport's admission decision, asked of the shared seam.
+ *
+ * Lives here rather than in the transport file because this module already owns the admission
+ * policy — token comparison and the Host/Origin allow-lists — and the transport file carries
+ * lifecycle and frame routing. The split is also what keeps that file inside its size ratchet.
+ */
+export function resolveWsAdmission(config: {
+  token?: string;
+  open?: boolean;
+  openReason?: string;
+}): ITransportAdmission {
+  return resolveAdmission({
+    ...(config.token !== undefined ? { token: config.token } : {}),
+    ...(config.open === true
+      ? { open: true, openReason: config.openReason ?? WS_OPEN_REASON_REQUIRED }
+      : {}),
+  });
 }

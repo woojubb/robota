@@ -56,5 +56,9 @@ declare const resolveSessionByToken: TSessionFactory;
 
 const routes = createAgentRoutes({
   sessionFactory: (req) => resolveSessionByToken(req),
+  // SEC-008: required. Every request must present this credential, or the route refuses it before
+  // the session is reached. Pass `{ open: true, openReason: '…' }` only if something in front of
+  // this already decides who may reach it — and say what that is.
+  admission: { token: process.env.AGENT_HTTP_TOKEN ?? '' },
 });
 ```

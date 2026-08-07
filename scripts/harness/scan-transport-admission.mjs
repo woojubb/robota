@@ -42,10 +42,24 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { requireGovernedTree } from './governed-tree.mjs';
+import { loadHarnessConfig } from './harness-config.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TRANSPORT_PREFIX = 'agent-transport';
+/** The workspace-relative tree this scan cannot judge without. */
+const GOVERNED_TREE = 'packages';
 /** The one function that owns the decision. Referencing it IS the answer. */
 const SEAM = 'resolveAdmission';
+/**
+ * The package that owns the seam, built from the CONFIGURED scope rather than baked in.
+ *
+ * A hardcoded scope does not fail when the scope changes — it matches nothing, and matching nothing
+ * reads exactly like a clean pass.
+ */
+function seamPackage() {
+  return `${loadHarnessConfig().npmScopePrefix}agent-transport-protocol`;
+}
 /** How a package with no remote peer declares it. */
 const DECLARATION = /transport-admission:\s*none\s*[—-]\s*\S/;
 
@@ -82,15 +96,23 @@ export function transportPackages(root = WORKSPACE_ROOT) {
 }
 
 export function findAdmissionFindings(root = WORKSPACE_ROOT) {
+  // Fail closed. Over a root with no `packages/` this would find no transports and report no
+  // findings — which reads as "every transport answers" when the truth is that none was examined.
+  requireGovernedTree(root, GOVERNED_TREE, {
+    scan: 'transport-admission',
+    why: 'the transports it judges live there, so its subject list would be empty rather than clean.',
+  });
   const findings = [];
   for (const packageDir of transportPackages(root)) {
     const name = path.basename(packageDir);
     const spec = path.join(packageDir, 'docs', 'SPEC.md');
     if (existsSync(spec) && DECLARATION.test(readFileSync(spec, 'utf8'))) continue;
 
-    const referencesSeam = sourceFiles(packageDir).some((file) =>
-      readFileSync(file, 'utf8').includes(SEAM),
-    );
+    const seam = seamPackage();
+    const referencesSeam = sourceFiles(packageDir).some((file) => {
+      const text = readFileSync(file, 'utf8');
+      return text.includes(SEAM) && text.includes(seam);
+    });
     if (referencesSeam) continue;
 
     findings.push({ package: name, spec: path.relative(root, spec) });
@@ -121,7 +143,7 @@ function main() {
   }
   console.error(
     `\nSEC-008: admission must be decided by the shared seam, not re-decided per transport.\n` +
-      `  - Call \`${SEAM}\` from @robota-sdk/agent-interface-transport and gate on its result; or\n` +
+      `  - Call \`${SEAM}\` from ${seamPackage()} and gate on its result; or\n` +
       `  - if this transport has no remote peer, say so in its docs/SPEC.md:\n` +
       `      transport-admission: none — <why there is nothing to admit>\n` +
       `  Omitting both is how three transports shipped without a trust boundary.`,

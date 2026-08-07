@@ -14,20 +14,22 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAgentMcpServer } from '../mcp-server.js';
 
-function createSession(overrides: Record<string, unknown> = {}) {
-  return {
-    submit: vi.fn(),
-    abort: vi.fn(),
-    cancelQueue: vi.fn(),
-    isExecuting: () => false,
-    getPendingPrompt: () => null,
-    getMessages: () => [],
-    getContextState: () => ({ usedTokens: 0, maxTokens: 200000, usedPercentage: 0 }),
+/**
+ * Built on the PUBLISHED conformant double rather than a cast.
+ *
+ * A cast to `IInteractiveSession` is a partial re-implementation nothing checks against the real
+ * contract — it compiles whatever it happens to contain, so a member the contract gains later is
+ * simply absent here and the suite keeps passing. The double is checked; overrides only replace what
+ * this file actually cares about.
+ */
+function createSession(overrides: Partial<IInteractiveSession> = {}): IInteractiveSession {
+  return createTestInteractiveSession({
     executeCommand: vi.fn().mockResolvedValue({ message: 'ran', success: true }),
     listCommands: () => [
       { name: 'clear', description: 'Clear history', modelInvocable: true },
@@ -35,10 +37,8 @@ function createSession(overrides: Record<string, unknown> = {}) {
       // carries `modelInvocable: false` in the first place.
       { name: 'plugin', description: 'Manage plugins', modelInvocable: false },
     ],
-    on: vi.fn(),
-    off: vi.fn(),
     ...overrides,
-  } as unknown as IInteractiveSession;
+  });
 }
 
 async function connect(session: IInteractiveSession): Promise<Client> {

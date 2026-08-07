@@ -2156,6 +2156,9 @@ importers:
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
+      '@robota-sdk/agent-transport-protocol':
+        specifier: workspace:*
+        version: link:../agent-transport-protocol
       hono:
         specifier: '>=4.12.27 <5.0.0'
         version: 4.12.32

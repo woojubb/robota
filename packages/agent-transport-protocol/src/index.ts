@@ -18,3 +18,11 @@ export type {
   TResumeSink,
   IAttachOptions,
 } from './session-resume-bridge.js';
+
+// SEC-008: admission — the one place a transport asks what credential it requires.
+export {
+  bearerCredential,
+  credentialMatches,
+  mintTransportToken,
+  resolveAdmission,
+} from './admission.js';

@@ -216,11 +216,6 @@ export type {
   IPlanArtifact,
 } from './session-contracts.js';
 
-// SEC-008: admission — the one place a transport asks what credential it requires.
-export {
-  bearerCredential,
-  credentialMatches,
-  mintTransportToken,
-  resolveAdmission,
-} from './admission.js';
+// SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
+// @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
 export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';

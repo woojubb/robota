@@ -13,7 +13,7 @@ import {
   bearerCredential,
   credentialMatches,
   resolveAdmission,
-} from '@robota-sdk/agent-interface-transport';
+} from '@robota-sdk/agent-transport-protocol';
 import type {
   IInteractiveSession,
   ITransportAdmissionConfig,
