@@ -375,7 +375,14 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
 
 describe('worktree-cwd-guard: what review found the first version missing', () => {
   const held = 'held-for-review-cases';
+  // A SECOND, unrelated repository with its own held branch in its own sibling worktree. Without
+  // one, a `git -C <path>` case can only point back at `mainRepo` — which is what the case review
+  // called out did, so the wrong-repository lookup it was written for could not be observed.
+  const otherHeld = 'held-in-the-other-repo';
+  const otherFree = 'free-in-the-other-repo';
   let sibling;
+  let otherRepo;
+  let otherSibling;
 
   beforeAll(() => {
     execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
@@ -383,10 +390,21 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], {
       stdio: 'pipe',
     });
+
+    otherRepo = initRepo(path.join(root, 'otherrepo'));
+    execFileSync('git', ['-C', otherRepo, 'branch', otherHeld], { stdio: 'pipe' });
+    execFileSync('git', ['-C', otherRepo, 'branch', otherFree], { stdio: 'pipe' });
+    otherSibling = path.join(root, 'other-sibling');
+    execFileSync('git', ['-C', otherRepo, 'worktree', 'add', '-q', otherSibling, otherHeld], {
+      stdio: 'pipe',
+    });
   });
 
   afterAll(() => {
     execFileSync('git', ['-C', mainRepo, 'worktree', 'remove', '--force', sibling], {
+      stdio: 'pipe',
+    });
+    execFileSync('git', ['-C', otherRepo, 'worktree', 'remove', '--force', otherSibling], {
       stdio: 'pipe',
     });
   });
@@ -412,6 +430,47 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     });
 
     expect(status).toBe(2);
+  });
+
+  it('BLOCKS a checkout that reaches the held branch through a CREATE flag', () => {
+    // The extraction regex took the token immediately after `checkout`/`switch`, so a flag in front
+    // of the name ended the match at a `-` and the block was skipped entirely. RAN against the
+    // pre-fix hook: exit 0 for both.
+    //
+    // git refuses `-B`/`-c` onto a branch another worktree holds exactly as it refuses a plain
+    // checkout — moving HEAD to that ref is what is blocked — so this is the hazard verbatim: the
+    // checkout fails and `reset --hard` lands on whatever branch is actually checked out.
+    for (const command of [
+      `git checkout -B ${held}; git reset --hard`,
+      `git switch -c ${held}; git reset --hard`,
+    ]) {
+      const { status } = runHook({ command, cwd: mainRepo });
+      expect(status, command).toBe(2);
+    }
+  });
+
+  it('asks the repository the checkout statement NAMES, not the one the session is in', () => {
+    // `CHECKOUT_REPO` passed `""` for the `-C` while the extraction regex two lines below it
+    // explicitly matched `git -C <path> checkout <ref>`. So a checkout naming another repository
+    // was looked up in THIS one — both the branch-held question and the already-on-it exemption
+    // answered about the wrong repo. RAN against the pre-fix hook: exit 0.
+    const { status } = runHook({
+      command: `git -C ${otherRepo} checkout ${otherHeld}; git status`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('does not block a checkout in another repo of a branch nobody holds', () => {
+    // The other half of the same resolution: asking the named repository must not turn every
+    // cross-repo checkout into a refusal.
+    const { status } = runHook({
+      command: `git -C ${otherRepo} checkout ${otherFree}; git status`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(0);
   });
 
   it('leaves `git checkout <ref> -- <path>` alone', () => {
