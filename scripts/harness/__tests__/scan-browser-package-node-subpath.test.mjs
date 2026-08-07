@@ -65,14 +65,50 @@ describe('a package that promises a browser build', () => {
     ]);
   });
 
-  it('is left alone when it declares the exception, with a reason', () => {
+  it('is left alone when it declares the exception, naming the file, with a reason', () => {
+    makePackage('agent-thing', {
+      exports: BROWSER_EXPORTS,
+      source: IMPORTS_NODE_SUBPATH,
+      spec:
+        '# Thing\n\nbrowser-node-subpath: allowed — `src/index.ts` imports it, and the browser entry ' +
+        'is a separate graph.\n',
+    });
+
+    expect(findBrowserNodeSubpathFindings(root)).toEqual([]);
+  });
+
+  it('is NOT excused by a declaration that names no file', () => {
+    // Otherwise the phrase switches the check off for the whole package. An escape hatch wider
+    // than the thing it excuses is a hole, and naming the file is also what makes the reason
+    // checkable — the reason is always about a specific import.
     makePackage('agent-thing', {
       exports: BROWSER_EXPORTS,
       source: IMPORTS_NODE_SUBPATH,
       spec: '# Thing\n\nbrowser-node-subpath: allowed — the browser entry is a separate graph.\n',
     });
 
-    expect(findBrowserNodeSubpathFindings(root)).toEqual([]);
+    expect(findBrowserNodeSubpathFindings(root)).toHaveLength(1);
+  });
+
+  it('excuses only the file the declaration NAMES, not the rest of the package', () => {
+    // Review: the exemption was granted at package granularity, so once the phrase appeared
+    // anywhere in SPEC.md the `continue` skipped the package's entire `src/` tree. `agent-tools`
+    // justifies exactly one import site; any other `/node` import added elsewhere in it later would
+    // have been silently covered — the same "nothing stopped the next one" this scan exists to
+    // answer, reintroduced by its own escape hatch.
+    makePackage('agent-thing', {
+      exports: BROWSER_EXPORTS,
+      source: IMPORTS_NODE_SUBPATH,
+      spec: '# Thing\n\nbrowser-node-subpath: allowed — `src/index.ts` is a separate graph.\n',
+    });
+    writeFileSync(
+      path.join(root, 'packages', 'agent-thing', 'src', 'later-addition.ts'),
+      IMPORTS_NODE_SUBPATH,
+    );
+
+    expect(findBrowserNodeSubpathFindings(root).map((f) => f.file)).toEqual([
+      path.join('packages', 'agent-thing', 'src', 'later-addition.ts'),
+    ]);
   });
 
   it('is NOT excused by a declaration with no reason', () => {
