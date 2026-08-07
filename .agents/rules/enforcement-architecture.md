@@ -223,6 +223,12 @@ change — a flag the list omitted, the `=` form of a flag it contained, and bun
 each of them a silent pass, each found by review rather than by the guard. Adding the missing tokens
 would have been the fourth attempt at the same mistake. Inverting the direction ended it.
 
+Floor: `guards-declare-their-failure-direction.test.mjs`. Every judging hook declares
+`fail-direction: refuse|permit — <reason>`, so the direction is a statement someone made rather than
+a property a reader has to reconstruct from the matcher. The floor checks the DECLARATION, not the
+direction itself: which way a given regex fails is not decidable by a machine, and a check that
+claimed to decide it would be the silent-pass shape this property is about, one level up.
+
 The cost is real and must be paid explicitly: an exclusion list that forgets an entry refuses correct
 work, so each entry earns its place and the refusals get their own cases. That cost is the point —
 it is visible, and the alternative is not.

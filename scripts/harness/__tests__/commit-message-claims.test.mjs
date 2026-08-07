@@ -83,6 +83,17 @@ describe('what counts as a citation', () => {
     ).toBe(false);
   });
 
+  it('does not read a FORM as a path', () => {
+    // `PATHISH`'s character classes already exclude `< > * ? { }`, so a placeholder never reaches the
+    // path check. A second test for the same property used to sit below it and could not run —
+    // review found it, and it is the same dead-check shape this change removed elsewhere. The
+    // property is asserted here instead of guarded twice.
+    expect(pathClaims('rename `src/<name>.ts` for clarity')).toEqual([]);
+    expect(pathClaims('touch `a{b}.ts` and `x*.ts`')).toEqual([]);
+    // And a real path still reads, so the assertion is not vacuous.
+    expect(pathClaims('touch `ok/path.ts`')).toEqual(['ok/path.ts']);
+  });
+
   it('does not read a cited PATH as a commit as well', () => {
     // Review found this, and it is the guard firing on correct work in a REQUIRED check: a file whose
     // STEM happens to be hex-shaped was read twice — correctly as a path, and again as a commit that

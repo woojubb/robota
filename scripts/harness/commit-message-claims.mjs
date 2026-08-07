@@ -113,8 +113,6 @@ export function pathClaims(message) {
   while ((match = CODE_SPAN.exec(message)) !== null) {
     const token = match[1].trim();
     if (!PATHISH.test(token)) continue;
-    // A form, not a path.
-    if (/[<>*?{}]/.test(token)) continue;
     // A SHAPE, not a name. `.test.ts` and `.d.ts` are what a file ends with, and a commit message
     // explaining a convention names them constantly — measured on this repository's own CI, which
     // refused the commit that shipped the first half of this rule. Shared with the named-artifact
