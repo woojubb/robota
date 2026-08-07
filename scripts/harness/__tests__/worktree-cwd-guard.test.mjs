@@ -163,18 +163,37 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
   // rather than in a new file because they are the same guard's subject — a second file would fork
   // the vocabulary of "what a worktree hazard is", which this repo has already paid for once.
 
-  it('BLOCKS any git command while an ambient GIT_DIR points elsewhere', () => {
+  it('BLOCKS a git command whose ambient GIT_DIR names a DIFFERENT repository', () => {
     // Git hooks export GIT_DIR, and it outranks the working directory. A process that inherited one
     // wrote to the repository it was invoked FROM rather than the one it stood in — which overwrote
     // a shared branch with fixture commits. Every command involved looked local.
+    //
+    // The fixture points at a REAL other repository, because a GIT_DIR naming nothing is not this
+    // incident: git fails loudly on its own there, and a case built on it would have passed for a
+    // reason that has nothing to do with the check.
+    const elsewhere = initRepo(path.join(root, 'another-clone'));
+
     const { status, stderr } = runHook({
       command: 'git commit -m "ordinary work"',
       cwd: mainRepo,
-      env: { GIT_DIR: path.join(root, 'somewhere-else', '.git') },
+      env: { GIT_DIR: path.join(elsewhere, '.git') },
     });
 
     expect(status).toBe(2);
-    expect(stderr).toMatch(/GIT_DIR is set/);
+    expect(stderr).toMatch(/DIFFERENT repository/);
+  });
+
+  it('PERMITS a GIT_DIR naming the SAME repository', () => {
+    // The variable being present is ordinary — git sets it whenever it runs a hook — and this guard
+    // is built for that: it asks its own questions through a scrubbed environment. Refusing on
+    // presence alone fires on the normal case, which is what gets a guard turned off.
+    const { status } = runHook({
+      command: 'git commit -m "ordinary work"',
+      cwd: mainRepo,
+      env: { GIT_DIR: path.join(mainRepo, '.git') },
+    });
+
+    expect(status).toBe(0);
   });
 
   it('leaves an ordinary git command alone when the environment is clean', () => {

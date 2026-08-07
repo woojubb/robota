@@ -125,38 +125,6 @@ STASH_END='([^-[:alnum:]_]|$)'
 # states, re-derived worse a few lines away. (#1585)
 STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 
-# --- Ambient git environment -------------------------------------------------------------------
-#
-# `GIT_DIR` and its family outrank the working directory. A process that inherits one runs against a
-# DIFFERENT repository than the one it appears to be standing in, and git hooks export exactly these
-# variables — so a command launched from inside a hook, or from a test that was, silently reaches
-# another clone. That is not a hypothetical: a shared branch was overwritten with fixture commits
-# this way more than once, and every command involved looked local.
-#
-# Checked BEFORE anything that resolves a repository, because with one of these set the resolution
-# itself answers about the wrong repo. Any git command at all is judged, not just the destructive
-# ones: `git commit` into the wrong repository is as bad as `git reset` in the right one.
-#
-# fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
-# not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
-# the repository-identity checks below are not replaced by this one.
-GIT_AMBIENT_ENV_SET=""
-for _var in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_NAMESPACE; do
-  if [[ -n "${!_var:-}" ]]; then
-    GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
-  fi
-done
-if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
-  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
-  echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} is set in this environment." >&2
-  echo "[worktree-cwd-guard] These outrank the working directory, so this git command can read and" >&2
-  echo "[worktree-cwd-guard] write a DIFFERENT repository than the one you are standing in. A shared" >&2
-  echo "[worktree-cwd-guard] branch was overwritten this way; the command looked local and was not." >&2
-  echo "[worktree-cwd-guard] Unset them, then run the command again." >&2
-  exit 2
-fi
-
 # --- A checkout that fails, in a command that keeps going ---------------------------------------
 #
 # A branch checked out by another worktree cannot be checked out here — git refuses it. On its own
@@ -181,9 +149,9 @@ if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)'; then
   # already had an answer here and re-deriving it produced a worse one.
   CHECKOUT_REPO=$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")
   if [[ -n "${CHECKOUT_TARGET:-}" ]] && [[ -n "${CHECKOUT_REPO:-}" ]] &&
-    git -C "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
+    hook_git_in "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
     grep -qxF "branch refs/heads/${CHECKOUT_TARGET}" &&
-    [[ "$(git -C "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" != "$CHECKOUT_TARGET" ]]; then
+    [[ "$(hook_git_in "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" != "$CHECKOUT_TARGET" ]]; then
     echo "[worktree-cwd-guard] Blocked: '${CHECKOUT_TARGET}' is checked out in another worktree, so" >&2
     echo "[worktree-cwd-guard] this checkout FAILS — and the rest of this compound command still runs," >&2
     echo "[worktree-cwd-guard] against whatever branch is actually checked out. A reset --hard landed" >&2
@@ -325,10 +293,6 @@ case "$SELF_DIR" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
 case "${CLAUDE_PROJECT_DIR:-}" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
 [[ -n "${ROBOTA_AGENT_WORKTREE:-}" ]] && IN_WORKTREE_SESSION=true
 
-if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
-  exit 0
-fi
-
 # --- Detect destructive git commands ------------------------------------------------------------
 
 # GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
@@ -355,6 +319,81 @@ printf '%s' "$VERBS" | grep -qE "${GITPFX}clean\b[^|;&]*(-[[:alnum:]]*f|--force)
 printf '%s' "$VERBS" | grep -qE "${GITPFX}checkout\b[^|;&]*[[:space:]]--([[:space:]]|$)" && IS_DESTRUCTIVE=true
 # git push --force / --force-with-lease
 printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIVE=true
+
+
+# --- Ambient git environment --------------------------------------------------------------------
+#
+# ABOVE the worktree-session gate, and that is the finding. Placed below it, this never ran in an
+# ordinary session — which is precisely where the incident happened: a command in the main checkout,
+# no worktree marker anywhere, writing to another repository because a variable said so.
+#
+# It defers to the judgement at the bottom of this file for the one case that already owns:
+# a DESTRUCTIVE command in a worktree-assigned session. That block reports the cwd-fallback story,
+# which is the more specific and more useful answer there. Everything else — every non-destructive
+# command, and every ordinary session — had no check at all before this.
+if [[ -n "${ROBOTA_AGENT_WORKTREE:-}" && "$IS_DESTRUCTIVE" == "true" ]]; then
+  : # the assigned-worktree judgement below owns this one
+else
+  # --- Ambient git environment -------------------------------------------------------------------
+  #
+  # `GIT_DIR` and its family outrank the working directory. A process that inherits one runs against a
+  # DIFFERENT repository than the one it appears to be standing in, and git hooks export exactly these
+  # variables — so a command launched from inside a hook, or from a test that was, silently reaches
+  # another clone. That is not a hypothetical: a shared branch was overwritten with fixture commits
+  # this way more than once, and every command involved looked local.
+  #
+  # Checked BEFORE anything that resolves a repository, because with one of these set the resolution
+  # itself answers about the wrong repo. Any git command at all is judged, not just the destructive
+  # ones: `git commit` into the wrong repository is as bad as `git reset` in the right one.
+  #
+  # NARROWED, by a case this file already had. Git sets `GIT_DIR` when it runs a hook, so the variable
+  # being present is ORDINARY — and this guard is built for that: `hook_git` scrubs the environment for
+  # its own questions, and `hook-facts` asserts no hook asks git anything without the scrub. Refusing on
+  # presence alone fired on the normal case and broke the existing "still sees the MAIN checkout when
+  # GIT_DIR names a worktree" case, which is the guard working exactly as designed.
+  #
+  # The hazard is not that the variable is set. It is that it names a DIFFERENT repository than the one
+  # the command appears to target — then the command silently reaches the other one, which is how a
+  # shared branch was overwritten. Same repository: the scrub already handles it, and this permits.
+  #
+  # fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
+  # not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
+  # the repository-identity checks below are not replaced by this one.
+  GIT_AMBIENT_ENV_SET=""
+  for _var in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+    GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_NAMESPACE; do
+    if [[ -n "${!_var:-}" ]]; then
+      GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
+    fi
+  done
+  AMBIENT_REPO=""
+  AMBIENT_TARGET_REPO=""
+  if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
+    printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
+    # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
+    # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
+    # another clone does not. Read with the ambient environment INTACT — the question is where the
+    # command being judged would actually land, and scrubbing here would erase the very thing asked.
+    AMBIENT_REPO=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+    AMBIENT_TARGET_REPO=$(hook_git_in \
+      "$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")" \
+      rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  fi
+  if [[ -n "$AMBIENT_REPO" && -n "$AMBIENT_TARGET_REPO" && "$AMBIENT_REPO" != "$AMBIENT_TARGET_REPO" ]]; then
+    echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} names a DIFFERENT repository" >&2
+    echo "[worktree-cwd-guard]   ambient: ${AMBIENT_REPO}" >&2
+    echo "[worktree-cwd-guard]   target:  ${AMBIENT_TARGET_REPO}" >&2
+    echo "[worktree-cwd-guard] These outrank the working directory, so this git command can read and" >&2
+    echo "[worktree-cwd-guard] write a DIFFERENT repository than the one you are standing in. A shared" >&2
+    echo "[worktree-cwd-guard] branch was overwritten this way; the command looked local and was not." >&2
+    echo "[worktree-cwd-guard] Unset them, then run the command again." >&2
+    exit 2
+  fi
+fi
+
+if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
+  exit 0
+fi
 
 if [[ "$IS_DESTRUCTIVE" != "true" ]]; then
   exit 0
