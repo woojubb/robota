@@ -158,6 +158,127 @@ describe('worktree-cwd-guard hook', () => {
   });
 });
 
+/**
+ * A harness audit RAN the hook over these and got exit 0 for every one. The `-C` was read from the
+ * WHOLE command — first match anywhere — and the four destructive rules were written out twice with
+ * different windows between the tokens, so a flag a rule did not spell was a flag it did not see.
+ *
+ * Each case below was measured against the pre-fix hook before it was written. `git -C <worktree>`
+ * cases had no coverage at all: the file had ZERO `git -C` cases.
+ */
+describe('a destructive statement is judged against its OWN repository', () => {
+  const inWorktreeSession = () => ({ ROBOTA_AGENT_WORKTREE: worktreeRepo });
+
+  it('BLOCKS a reset whose sibling statement carries the only `git -C`', () => {
+    // Pre-fix: exit 0. The harmless `-C <worktree>` resolved for the whole command, so the reset —
+    // which runs in the MAIN cwd — was judged against the worktree and allowed.
+    const { status } = runHook({
+      command: `git -C ${worktreeRepo} status && git reset --hard`,
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(2);
+  });
+
+  it('BLOCKS a reset that names MAIN via `-C` behind a worktree `-C`', () => {
+    // Pre-fix: exit 0, and this is the worse half — the destructive statement names the main
+    // checkout OUTRIGHT and was still waved through by the statement in front of it.
+    const { status } = runHook({
+      command: `git -C ${worktreeRepo} status && git -C ${mainRepo} reset --hard`,
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(2);
+  });
+
+  it('ALLOWS a reset in the worktree when a sibling statement reads MAIN', () => {
+    // The same defect refusing correct work: pre-fix this was exit 2, because the `-C <main>` on a
+    // read-only `log` spoke for a reset aimed at the worktree the session is actually in. A guard
+    // that both misses the hazard and blocks correct work is not conservative.
+    const { status } = runHook({
+      command: `git -C ${mainRepo} log -1 && git reset --hard`,
+      cwd: worktreeRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(0);
+  });
+
+  it('ALLOWS a destructive statement that names the worktree via `-C` from MAIN', () => {
+    const { status } = runHook({
+      command: `git -C ${worktreeRepo} reset --hard`,
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(0);
+  });
+});
+
+describe('a flag is judged by what git accepts, not by how the rule was spelt', () => {
+  const inWorktreeSession = () => ({ ROBOTA_AGENT_WORKTREE: worktreeRepo });
+
+  it('BLOCKS `git push -f`', () => {
+    // Pre-fix: exit 0. The rule was literally `push\b[^|;&]*--force`, while the `clean` rule two
+    // lines above it WAS bundle-aware — the two were written separately and only one learned.
+    const { status } = runHook({
+      command: 'git push -f origin develop',
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(2);
+  });
+
+  it('BLOCKS a force push in every long spelling', () => {
+    for (const flag of ['--force', '--force-with-lease', '--force-if-includes']) {
+      const { status } = runHook({
+        command: `git push ${flag} origin develop`,
+        cwd: mainRepo,
+        env: inWorktreeSession(),
+      });
+      expect(status, flag).toBe(2);
+    }
+  });
+
+  it('BLOCKS a destructive flag separated from its verb by a REDIRECT', () => {
+    // Pre-fix: exit 0 for both. `2>&1` is a word between the subcommand and its flag, and the
+    // windowed regexes stopped before it.
+    for (const command of ['git clean 2>&1 -fd', 'git reset 2>&1 --hard']) {
+      const { status } = runHook({ command, cwd: mainRepo, env: inWorktreeSession() });
+      expect(status, command).toBe(2);
+    }
+  });
+
+  it('BLOCKS a reset that runs inside a substitution', () => {
+    // `echo "$(git reset --hard)"` RESETS. RAN against the pre-fix hook: already exit 2 — this is
+    // a property the rewrite had to KEEP, not a hole it closed, and it is the reason the word list
+    // is the substitution-INCLUDING one. Measured both readings: `hook_statement_words` returns
+    // `echo|""` here and would have lost the case silently.
+    const { status } = runHook({
+      command: 'echo "$(git reset --hard)"',
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(2);
+  });
+
+  it('leaves a commit message that MENTIONS a force push alone', () => {
+    // The false positive the whole word-list approach is judged on. Quoted content is hidden by the
+    // tokenizer, so this builds `git|commit|-m|""` and is not a force push.
+    const { status } = runHook({
+      command: 'git commit -m "do not git push -f"',
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+    expect(status).toBe(0);
+  });
+
+  it('leaves non-destructive flags that merely contain the letters alone', () => {
+    for (const command of ['git push --follow-tags origin develop', 'git clean -n', 'git push -u origin develop']) {
+      const { status } = runHook({ command, cwd: mainRepo, env: inWorktreeSession() });
+      expect(status, command).toBe(0);
+    }
+  });
+});
+
 describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
   // Both of these were recurring, and both were silent at the moment they happened. Written here
   // rather than in a new file because they are the same guard's subject — a second file would fork

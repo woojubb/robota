@@ -5,10 +5,14 @@
 # that worktree was externally cleaned/removed mid-session, the process cwd dropped to the main clone,
 # and `git reset --hard` then ran against MAIN.
 #
-# Blocks: `git reset --hard`, `git clean -f[dx]`, `git checkout -- .`, `git push --force*`
+# Blocks: `git reset --hard`, `git clean` with a force flag, `git checkout -- <path>`, and
+# `git push` with a force flag — where "a force flag" means `--force*` OR any short bundle
+# containing `f`, because `git push -f` is the same command and was permitted until an audit
+# measured it.
 # ONLY WHEN BOTH:
-#   (a) the command's EFFECTIVE repo resolves to the MAIN checkout — its toplevel path is NOT under
-#       `.claude/worktrees/`; AND
+#   (a) the STATEMENT's effective repo resolves to the MAIN checkout — its toplevel path is NOT
+#       under `.claude/worktrees/`. Per statement, not per command: a `-C` read from the whole
+#       string let one statement's harmless `-C <worktree>` speak for a destructive sibling's; AND
 #   (b) a worktree-assignment marker is present — the `ROBOTA_AGENT_WORKTREE` env var is set. The
 #       worktree launcher (Claude Code `Agent` tool `isolation: "worktree"`) SHOULD export
 #       `ROBOTA_AGENT_WORKTREE=<assigned worktree path>` when spawning a worktree subagent, so this
@@ -113,12 +117,13 @@ fi
 # closing backtick failed the trailing `([[:space:]]|$)`. Five hand-written copies of "what ends a
 # word" is five chances to disagree, and two of them already had. So they are written once.
 #
-# The leading class matches this file's GITPFX; the trailing one is GITEND's rule — anything that is
+# The leading class is what may sit immediately before a `git`; the trailing one is anything that is
 # not a word character or `-`, which covers the closing backtick, `)`, `;` and end of line.
 STASH_PRE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*([^[:space:]]+=)?[[:space:]]*'
 STASH_END='([^-[:alnum:]_]|$)'
-# `git`, INCLUDING the global flags that may precede a subcommand — the same tolerance GITPFX below
-# already has. Written once and used by every match, because the fourth review finding on this change
+# `git`, INCLUDING the global flags that may precede a subcommand — the same tolerance
+# `statement_is_destructive` below reaches by skipping them in the word list. Written once and used
+# by every match, because the fourth review finding on this change
 # was that the entry gate lacked it: `git -C <sibling-worktree> stash pop` skipped the whole check,
 # and a `-C` pointing at a sibling worktree is not an edge case — it is how one worktree reaches into
 # another. Three earlier findings on this same block were the same shape: a rule this file already
@@ -134,7 +139,7 @@ STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 #
 # So the block is narrow on purpose: a bare failing checkout is left alone (git's own error IS the
 # whole outcome), and only a checkout with something after it is refused.
-# A NEWLINE is a separator too, and this file already says so twenty lines up about GITPFX — the
+# A NEWLINE is a separator too, and this file already says so where it splits statements — the
 # same reading was re-derived here and came out worse, which is the recurring defect in this file.
 # `grep -c ''` counts lines: more than one means the command continues past the checkout.
 if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
@@ -314,32 +319,86 @@ case "$SELF_DIR" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
 case "${CLAUDE_PROJECT_DIR:-}" in */.claude/worktrees/*) IN_WORKTREE_SESSION=true ;; esac
 [[ -n "${ROBOTA_AGENT_WORKTREE:-}" ]] && IN_WORKTREE_SESSION=true
 
-# --- Detect destructive git commands ------------------------------------------------------------
-
-# GITPFX tolerates env prefixes and global git flags before the subcommand (`git -C <path> reset`,
-# `git -c k=v push`) — the same pattern branch-guard uses.
+# --- What makes a git invocation destructive ----------------------------------------------------
 #
-# A newline is a boundary too. The command arrives decoded as JSON with real newlines, and
-# is decoded as JSON now and carries real newlines, so grep's `^` is a line start and the second line
-# of `cd <repo>` + newline + `git reset --hard` begins with no whitespace, no `;` and no `&`.
-# Measured 2026-07-28: this guard was reachable from `;`, `&&` and env prefixes but silently bypassed
-# by exactly that shape — and a destructive command on a later line of a block is the shape of the
-# incident it exists to prevent.
-# A quote and a backtick are boundaries too: a KEPT region — `bash -c "git push"`, or a backtick
-# subshell — puts one immediately before the verb, and without them the region survived masking and
-# still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
-# false positive it sits beside.
-GITPFX='(^|[[:space:];&|({"'"'"'`])([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*'
+# ONE judgement, asked of the TOKENIZER rather than matched with a regex over the raw text — and
+# asked once, not twice. This file used to hold the same four rules written out in two places: a
+# whole-command pass that decided IS_DESTRUCTIVE, and a second per-statement pass that decided
+# whether the inline override excused it. They differed only in the window between tokens
+# (`[^|;&]*` against `.*`), and the difference was a real drift the duplication itself created —
+# `git checkout --;ls` matched the override copy and not the entry-gate copy, so the gate the
+# command had to pass first never saw it.
+#
+# Between them the two copies missed three shapes an audit MEASURED as exit 0:
+#
+#   git push -f origin develop     the short flag; the rule was literally `push\b[^|;&]*--force`,
+#                                  while the `clean` rule two lines up WAS bundle-aware
+#   git clean 2>&1 -fd             a redirect between the verb and its flag
+#   git reset 2>&1 --hard          the same, on the rule this guard exists for
+#
+# A word list has no window to get wrong: a flag was PASSED or it was not. `hook_statement_all_words`
+# and not `hook_statement_words`, because a destructive verb inside a substitution RUNS —
+# `echo "$(git reset --hard)"` resets — and the substitution-excluding reading returns `echo|""`
+# there. Measured both ways before choosing.
+#
+# Quoted content is hidden by the tokenizer, so `git commit -m "do not git push -f"` builds the
+# words `git|commit|-m|""` and is not a force-push. That is the false positive this whole approach
+# is judged on, and it has a case.
 
-IS_DESTRUCTIVE=false
-# git reset --hard
-printf '%s' "$VERBS" | grep -qE "${GITPFX}reset\b[^|;&]*--hard\b" && IS_DESTRUCTIVE=true
-# git clean with a force flag (-f, -fd, -fdx, -xf, --force)
-printf '%s' "$VERBS" | grep -qE "${GITPFX}clean\b[^|;&]*(-[[:alnum:]]*f|--force)" && IS_DESTRUCTIVE=true
-# git checkout -- <path> (discards working-tree changes, e.g. `git checkout -- .`)
-printf '%s' "$VERBS" | grep -qE "${GITPFX}checkout\b[^|;&]*[[:space:]]--([[:space:]]|$)" && IS_DESTRUCTIVE=true
-# git push --force / --force-with-lease
-printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIVE=true
+# `--force`, `--force-with-lease`, `--force-if-includes`, and any short bundle containing `f`
+# (`-f`, `-fd`, `-xf`). The bundle test requires a SHORT flag — a single leading `-` — so
+# `--follow-tags` is not a force push.
+is_force_flag() {
+  case "$1" in
+    --force | --force=* | --force-*) return 0 ;;
+    -[!-]*) [[ "$1" == *f* ]] && return 0 ;;
+  esac
+  return 1
+}
+
+# Whether a statement's word list contains a destructive git invocation.
+#
+# The verb is the first word after `git` that is neither a global option nor a redirect — which is
+# why `git clean 2>&1 -fd` is now seen, and `git -C <path> reset --hard` reads `reset` rather than
+# the path. A second `git` restarts the reading, so `git status | git reset --hard` judges both.
+statement_is_destructive() {
+  local seen_git=false verb="" skip_value=false word
+  while IFS= read -r word; do
+    if [[ "$skip_value" == "true" ]]; then
+      skip_value=false
+      continue
+    fi
+    case "$word" in
+      git | */git)
+        seen_git=true
+        verb=""
+        continue
+        ;;
+    esac
+    [[ "$seen_git" == "true" ]] || continue
+    if [[ -z "$verb" ]]; then
+      case "$word" in
+        # A global option that CONSUMES the next word. Without this the path of a
+        # `git -C <path> reset --hard` read as the subcommand and the statement judged clean.
+        -C | -c | --git-dir | --work-tree | --namespace | --exec-path) skip_value=true ;;
+        # A redirect is not the subcommand. `git clean 2>&1 -fd` was exit 0 for want of this.
+        *'>'* | *'<'*) ;;
+        -*) ;;
+        '') ;;
+        *) verb="$word" ;;
+      esac
+      continue
+    fi
+    case "$verb" in
+      reset) [[ "$word" == "--hard" ]] && return 0 ;;
+      clean) is_force_flag "$word" && return 0 ;;
+      # `git checkout -- <path>` DISCARDS working-tree changes. The bare `--` is the whole signal.
+      checkout) [[ "$word" == "--" ]] && return 0 ;;
+      push) is_force_flag "$word" && return 0 ;;
+    esac
+  done <<< "$1"
+  return 1
+}
 
 
 # --- Ambient git environment --------------------------------------------------------------------
@@ -348,187 +407,198 @@ printf '%s' "$VERBS" | grep -qE "${GITPFX}push\b[^|;&]*--force" && IS_DESTRUCTIV
 # ordinary session — which is precisely where the incident happened: a command in the main checkout,
 # no worktree marker anywhere, writing to another repository because a variable said so.
 #
-# It defers to the judgement at the bottom of this file for the one case that already owns:
-# a DESTRUCTIVE command in a worktree-assigned session. That block reports the cwd-fallback story,
-# which is the more specific and more useful answer there. Everything else — every non-destructive
-# command, and every ordinary session — had no check at all before this.
-# The deferral was WRONG, and review found the case that shows it. The block at the bottom resolves
-# its directory with `hook_git_in`, which SCRUBS the ambient variables — so it can never see that a
+# It judges EVERY session and every git command, with no deferral to the block at the bottom of this
+# file. The first version deferred: in a worktree-assigned session with a destructive command it let
+# the cwd-fallback check answer instead, on the reasoning that the more specific story was the more
+# useful one. That was wrong, and review found the case that shows it. The bottom block resolves its
+# directory with `hook_git_in`, which SCRUBS the ambient variables — so it can never see that a
 # `GIT_DIR` would redirect the real command. It detects "cwd fell back to MAIN", a different failure
-# mode. Deferring to it meant that from inside a correctly assigned worktree,
+# mode. So from inside a correctly assigned worktree,
 #
 #   GIT_DIR=/somewhere/else/.git git reset --hard
 #
 # was permitted: the ambient check skipped, and the bottom check saw a path under `.claude/worktrees/`
-# and allowed it. Measured before and after.
+# and allowed it. Measured before and after. A foreign repository is this block's subject and nothing
+# below looks for it, so there is no case in which deferring is safe.
 #
-# So the deferral survives only where the two blocks answer the SAME question — a foreign repository
-# is this block's subject and nothing below looks for it.
-if false; then
-  :
-else
-  # --- Ambient git environment -------------------------------------------------------------------
-  #
-  # `GIT_DIR` and its family outrank the working directory. A process that inherits one runs against a
-  # DIFFERENT repository than the one it appears to be standing in, and git hooks export exactly these
-  # variables — so a command launched from inside a hook, or from a test that was, silently reaches
-  # another clone. That is not a hypothetical: a shared branch was overwritten with fixture commits
-  # this way more than once, and every command involved looked local.
-  #
-  # Checked BEFORE anything that resolves a repository, because with one of these set the resolution
-  # itself answers about the wrong repo. Any git command at all is judged, not just the destructive
-  # ones: `git commit` into the wrong repository is as bad as `git reset` in the right one.
-  #
-  # NARROWED, by a case this file already had. Git sets `GIT_DIR` when it runs a hook, so the variable
-  # being present is ORDINARY — and this guard is built for that: `hook_git` scrubs the environment for
-  # its own questions, and `hook-facts` asserts no hook asks git anything without the scrub. Refusing on
-  # presence alone fired on the normal case and broke the existing "still sees the MAIN checkout when
-  # GIT_DIR names a worktree" case, which is the guard working exactly as designed.
-  #
-  # The hazard is not that the variable is set. It is that it names a DIFFERENT repository than the one
-  # the command appears to target — then the command silently reaches the other one, which is how a
-  # shared branch was overwritten. Same repository: the scrub already handles it, and this permits.
-  #
-  # fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
-  # not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
-  # the repository-identity checks below are not replaced by this one.
-  # The list is OWNED by scripts/harness/git-ambient-env.json. It used to be spelled out here, and
-  # review found this copy checking seven variables where the gate's copy checked nine — the drift
-  # this file has paid for before. An unreadable list is a REFUSAL: a check that cannot read its own
-  # subject has not run, and must not read as one that found nothing.
-  # Found relative to THIS FILE first. The hook is copied into worktrees, and the copy that is
-  # running is the one whose repository owns the list — `CLAUDE_PROJECT_DIR` may point elsewhere
-  # entirely, which is the situation the guard around it exists for.
-  GIT_AMBIENT_ENV_NAMES=""
-  for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
-    "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
-    "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
-    [[ -r "$_candidate" ]] || continue
-    GIT_AMBIENT_ENV_NAMES=$(sed -n 's/^[[:space:]]*"\(GIT_[A-Z_]*\)".*/\1/p' "$_candidate")
-    [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
-  done
-  if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
-    echo "[worktree-cwd-guard] Blocked: could not read scripts/harness/git-ambient-env.json, so the" >&2
-    echo "[worktree-cwd-guard] ambient-git" >&2
-    echo "[worktree-cwd-guard] check has no subject list. A check that cannot read what it judges" >&2
-    echo "[worktree-cwd-guard] has not run, and must not read as one that found nothing." >&2
-    exit 2
+# `GIT_DIR` and its family outrank the working directory. A process that inherits one runs against a
+# DIFFERENT repository than the one it appears to be standing in, and git hooks export exactly these
+# variables — so a command launched from inside a hook, or from a test that was, silently reaches
+# another clone. That is not a hypothetical: a shared branch was overwritten with fixture commits
+# this way more than once, and every command involved looked local.
+#
+# Checked BEFORE anything that resolves a repository, because with one of these set the resolution
+# itself answers about the wrong repo. Any git command at all is judged, not just the destructive
+# ones: `git commit` into the wrong repository is as bad as `git reset` in the right one.
+#
+# NARROWED, by a case this file already had. Git sets `GIT_DIR` when it runs a hook, so the variable
+# being present is ORDINARY — and this guard is built for that: `hook_git` scrubs the environment for
+# its own questions, and `hook-facts` asserts no hook asks git anything without the scrub. Refusing on
+# presence alone fired on the normal case and broke the existing "still sees the MAIN checkout when
+# GIT_DIR names a worktree" case, which is the guard working exactly as designed.
+#
+# The hazard is not that the variable is set. It is that it names a DIFFERENT repository than the one
+# the command appears to target — then the command silently reaches the other one, which is how a
+# shared branch was overwritten. Same repository: the scrub already handles it, and this permits.
+#
+# fail-direction: refuse — the list of variable names is a DENYLIST, so a variable git adds later is
+# not covered here. That gap is stated rather than hidden; it fails toward permitting, which is why
+# the repository-identity checks below are not replaced by this one.
+# The list is OWNED by scripts/harness/git-ambient-env.json. It used to be spelled out here, and
+# review found this copy checking seven variables where the gate's copy checked nine — the drift
+# this file has paid for before. An unreadable list is a REFUSAL: a check that cannot read its own
+# subject has not run, and must not read as one that found nothing.
+# Found relative to THIS FILE first. The hook is copied into worktrees, and the copy that is
+# running is the one whose repository owns the list — `CLAUDE_PROJECT_DIR` may point elsewhere
+# entirely, which is the situation the guard around it exists for.
+GIT_AMBIENT_ENV_NAMES=""
+for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
+  "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
+  "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
+  [[ -r "$_candidate" ]] || continue
+  GIT_AMBIENT_ENV_NAMES=$(sed -n 's/^[[:space:]]*"\(GIT_[A-Z_]*\)".*/\1/p' "$_candidate")
+  [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
+done
+if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
+  echo "[worktree-cwd-guard] Blocked: could not read scripts/harness/git-ambient-env.json, so the" >&2
+  echo "[worktree-cwd-guard] ambient-git" >&2
+  echo "[worktree-cwd-guard] check has no subject list. A check that cannot read what it judges" >&2
+  echo "[worktree-cwd-guard] has not run, and must not read as one that found nothing." >&2
+  exit 2
+fi
+GIT_AMBIENT_ENV_SET=""
+for _var in $GIT_AMBIENT_ENV_NAMES; do
+  if [[ -n "${!_var:-}" ]]; then
+    GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
   fi
-  GIT_AMBIENT_ENV_SET=""
-  for _var in $GIT_AMBIENT_ENV_NAMES; do
-    if [[ -n "${!_var:-}" ]]; then
-      GIT_AMBIENT_ENV_SET="${GIT_AMBIENT_ENV_SET}${GIT_AMBIENT_ENV_SET:+, }${_var}"
-    fi
-  done
-  AMBIENT_REPO=""
-  AMBIENT_TARGET_REPO=""
-  if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
-    printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
-    # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
-    # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
-    # another clone does not. Read with the ambient environment INTACT — the question is where the
-    # command being judged would actually land, and scrubbing here would erase the very thing asked.
-    AMBIENT_REPO=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-    AMBIENT_TARGET_REPO=$(hook_git_in \
-      "$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")" \
-      rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-  fi
-  if [[ -n "$AMBIENT_REPO" && -n "$AMBIENT_TARGET_REPO" && "$AMBIENT_REPO" != "$AMBIENT_TARGET_REPO" ]]; then
-    echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} names a DIFFERENT repository" >&2
-    echo "[worktree-cwd-guard]   ambient: ${AMBIENT_REPO}" >&2
-    echo "[worktree-cwd-guard]   target:  ${AMBIENT_TARGET_REPO}" >&2
-    echo "[worktree-cwd-guard] These outrank the working directory, so this git command can read and" >&2
-    echo "[worktree-cwd-guard] write a DIFFERENT repository than the one you are standing in. A shared" >&2
-    echo "[worktree-cwd-guard] branch was overwritten this way; the command looked local and was not." >&2
-    echo "[worktree-cwd-guard] Unset them, then run the command again." >&2
-    exit 2
-  fi
+done
+AMBIENT_REPO=""
+AMBIENT_TARGET_REPO=""
+if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
+  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
+  # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
+  # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
+  # another clone does not. Read with the ambient environment INTACT — the question is where the
+  # command being judged would actually land, and scrubbing here would erase the very thing asked.
+  AMBIENT_REPO=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  AMBIENT_TARGET_REPO=$(hook_git_in \
+    "$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")" \
+    rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+fi
+if [[ -n "$AMBIENT_REPO" && -n "$AMBIENT_TARGET_REPO" && "$AMBIENT_REPO" != "$AMBIENT_TARGET_REPO" ]]; then
+  echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} names a DIFFERENT repository" >&2
+  echo "[worktree-cwd-guard]   ambient: ${AMBIENT_REPO}" >&2
+  echo "[worktree-cwd-guard]   target:  ${AMBIENT_TARGET_REPO}" >&2
+  echo "[worktree-cwd-guard] These outrank the working directory, so this git command can read and" >&2
+  echo "[worktree-cwd-guard] write a DIFFERENT repository than the one you are standing in. A shared" >&2
+  echo "[worktree-cwd-guard] branch was overwritten this way; the command looked local and was not." >&2
+  echo "[worktree-cwd-guard] Unset them, then run the command again." >&2
+  exit 2
 fi
 
 if [[ "$IN_WORKTREE_SESSION" != "true" ]]; then
   exit 0
 fi
 
-if [[ "$IS_DESTRUCTIVE" != "true" ]]; then
-  exit 0
-fi
-
-# --- The inline override, asked of the destructive statement itself ------------------------------
-# Split on statement separators and judge each statement alone. A statement that is destructive is
-# excused only if the override prefixes THAT statement; the token sitting on a sibling command
-# excuses nothing. Every destructive statement must carry it, so a decoy plus a real one still
-# refuses. See the note above for the three earlier readings this replaces.
-OVERRIDE_RE='^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*WORKTREE_CWD_GUARD_ALLOW_MAIN=1[[:space:]]'
-DESTRUCTIVE_STATEMENTS=0
-OVERRIDDEN_STATEMENTS=0
-while IFS= read -r STATEMENT; do
-  [[ -z "${STATEMENT//[[:space:]]/}" ]] && continue
-  IS_STMT_DESTRUCTIVE=false
-  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}reset\b.*--hard\b" && IS_STMT_DESTRUCTIVE=true
-  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}clean\b.*(-[[:alnum:]]*f|--force)" && IS_STMT_DESTRUCTIVE=true
-  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}checkout\b.*[[:space:]]--([[:space:]]|$)" && IS_STMT_DESTRUCTIVE=true
-  printf '%s' "$STATEMENT" | grep -qE "${GITPFX}push\b.*--force" && IS_STMT_DESTRUCTIVE=true
-  [[ "$IS_STMT_DESTRUCTIVE" != "true" ]] && continue
-  DESTRUCTIVE_STATEMENTS=$((DESTRUCTIVE_STATEMENTS + 1))
-  if printf '%s' "$STATEMENT" | grep -qE "$OVERRIDE_RE"; then
-    OVERRIDDEN_STATEMENTS=$((OVERRIDDEN_STATEMENTS + 1))
+# --- Every destructive statement, judged against ITS OWN repository ------------------------------
+#
+# The `-C` used to be read from the WHOLE command, first match anywhere. That is the bypass an audit
+# measured, and it is the third time this file has met the class — the stash block above it and
+# `branch-guard` both already resolve per statement, and both say so in a comment this reading did
+# not follow. Two shapes were exit 0:
+#
+#   git -C <worktree> status && git reset --hard          the reset runs in the MAIN cwd
+#   git -C <worktree> status && git -C <MAIN> reset --hard the reset names MAIN outright
+#
+# In both, the first `-C` found anywhere resolved under `.claude/worktrees/` and the guard allowed
+# the whole command. It also refused a legitimate one for the same reason: `git -C <MAIN> log -1 &&
+# git reset --hard` from inside a worktree resolved to MAIN and blocked a reset aimed at the
+# worktree. A guard that both misses the hazard and blocks correct work is not conservative, it is
+# reading the wrong string.
+#
+# So the statement is the unit of every question asked below: is it destructive, does the override
+# excuse it, and WHICH repository does it name. The window comes from `hook_statement_ranges`, the
+# one splitter this file already uses twice — not a third `sed` over separators.
+STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
+  # The command could not be split, so nothing in it can be attributed to a repository. FAIL-SAFE is
+  # this guard's rule everywhere else, but not here: refusing to split is not the same as finding
+  # nothing, and the whole command is still in hand to ask the cheaper question of.
+  if statement_is_destructive "$(hook_statement_all_words "$COMMAND" || printf '')"; then
+    echo "[worktree-cwd-guard] Blocked: the command is destructive and could not be split into" >&2
+    echo "[worktree-cwd-guard] statements, so which repository it targets was never determined." >&2
+    echo "[worktree-cwd-guard] This is not a pass." >&2
+    exit 2
   fi
-# `%s\n`, not `%s`: without a trailing newline `read` drops the final line, which for a single-
-# statement command is the only line there is — the override would then never be seen and an
-# ordinary, correct invocation would be refused.
-done < <(printf '%s\n' "$VERBS" | sed -E 's/(\|\||&&|[;&|])/\n/g')
-
-if [[ "$DESTRUCTIVE_STATEMENTS" -gt 0 && "$OVERRIDDEN_STATEMENTS" -eq "$DESTRUCTIVE_STATEMENTS" ]]; then
   exit 0
 fi
 
-# --- Resolve the EFFECTIVE dir the command will actually run in ----------------------------------
-# Precedence (worktree-aware, same intent as branch-guard/pre-push-check): `git -C <path>` in the
-# command > hook-input `cwd` > CLAUDE_PROJECT_DIR. Unlike branch-guard, we do NOT fall back to `.`
-# (the hook's OWN process dir): `.` is wherever the hook binary runs, not where the tool command runs
-# — resolving its toplevel would judge an unrelated checkout (this caused a fail-safe bug: a non-git
-# cwd fell back to `.`, which resolved to the hook's own checkout and blocked). If no concrete dir can
-# be named, we cannot positively confirm anything → FAIL-SAFE, do not block.
+# The inline override, asked of the destructive statement ITSELF. The token sitting on a sibling
+# command excuses nothing — a decoy in front of a real one still refuses.
+OVERRIDE_RE='^[[:space:]]*([[:alnum:]_]+=[^[:space:]]+[[:space:]]+)*WORKTREE_CWD_GUARD_ALLOW_MAIN=1[[:space:]]'
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
-# Unanchored: `git -C <path>` is almost never the first thing on the line. Anchored, the highest-
-# precedence input to this resolution was never available, so a `cd <worktree> && git -C <main> reset
-# --hard` — the exact cross-checkout shape this guard exists for — resolved to the worktree and passed.
-# `|| true` is load-bearing: grep exits 1 when there is no `-C`, and under `set -euo pipefail` a
-# failed command substitution aborts the hook silently before any check runs.
-# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
-# redirect this guard at another repository. The RAW command goes in: `hook_git_c_path` masks it
-# itself, by the grammar, and handing it a string a second reader had already mangled was the
-# bypass above. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
-# The `first-nonempty` mode, named rather than flattened into the validating one its siblings use.
-# It is this guard's FAIL-SAFE and the paragraph above is its reason: this hook blocks only on
-# POSITIVE confirmation, so naming an unresolvable `-C` target and then declining to block is the
-# correct outcome, where validating would silently retarget the guard at the session repository and
-# block a destructive command aimed somewhere else. It has no `.` fallback for the same reason.
-EFFECTIVE_DIR=$(hook_effective_repo first-nonempty "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
 
-# No nameable effective dir → cannot positively confirm main-checkout → FAIL-SAFE.
-if [[ -z "$EFFECTIVE_DIR" ]]; then
+while read -r STMT_START STMT_LEN; do
+  [[ -n "$STMT_START" && -n "$STMT_LEN" ]] || continue
+
+  # FAIL-CLOSED ON THE TOKENIZER FAILING, not on it answering "no words" — a statement can
+  # legitimately build none. The error signal is awk's exit status; emptiness is an ANSWER. The
+  # `&& printf '\001'` sentinel carries the failure through the substitution, which strips trailing
+  # newlines and would otherwise hide it. `branch-guard.sh` records the same trap.
+  if ! STMT_WORDS=$(hook_statement_all_words "$COMMAND" "$STMT_START" "$STMT_LEN" && printf '\001'); then
+    echo "[worktree-cwd-guard] Blocked: a statement could not be split into words, so what it does" >&2
+    echo "[worktree-cwd-guard] to which repository was never read. This is not a pass." >&2
+    exit 2
+  fi
+  STMT_WORDS=${STMT_WORDS%$'\n\001'}
+
+  statement_is_destructive "$STMT_WORDS" || continue
+
+  STMT_TEXT=$(hook_verb_scan "$COMMAND" "$STMT_START" "$STMT_LEN" || printf '')
+  printf '%s' "$STMT_TEXT" | grep -qE "$OVERRIDE_RE" && continue
+
+  # Precedence (worktree-aware, same intent as branch-guard/pre-push-check): `git -C <path>` in THIS
+  # statement > hook-input `cwd` > CLAUDE_PROJECT_DIR. Unlike branch-guard, we do NOT fall back to
+  # `.` (the hook's OWN process dir): `.` is wherever the hook binary runs, not where the tool
+  # command runs — resolving its toplevel would judge an unrelated checkout (this caused a fail-safe
+  # bug: a non-git cwd fell back to `.`, which resolved to the hook's own checkout and blocked).
+  #
+  # The RAW command goes in, with this statement's window: `hook_git_c_path` masks it itself, by the
+  # grammar, and handing it a string a second reader had already mangled was an earlier bypass. See
+  # lib/command-scan.sh.
+  GIT_C_PATH=$(hook_git_c_path "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  # The `first-nonempty` mode, named rather than flattened into the validating one its siblings use.
+  # It is this guard's FAIL-SAFE: this hook blocks only on POSITIVE confirmation, so naming an
+  # unresolvable `-C` target and then declining to block is the correct outcome, where validating
+  # would silently retarget the guard at the session repository and block a destructive command
+  # aimed somewhere else. It has no `.` fallback for the same reason.
+  EFFECTIVE_DIR=$(hook_effective_repo first-nonempty "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
+  # No nameable effective dir → cannot positively confirm main-checkout → FAIL-SAFE, next statement.
+  [[ -n "$EFFECTIVE_DIR" ]] || continue
+
+  # Positively resolve the repo toplevel. Not inside a git work tree (empty/error) → cannot
+  # positively confirm main-checkout → FAIL-SAFE.
+  TOPLEVEL=$(hook_git_in "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
+  [[ -n "$TOPLEVEL" ]] || continue
+
+  # Under `.claude/worktrees/` → the assigned worktree, not main → this statement is fine.
+  printf '%s' "$TOPLEVEL" | grep -q '/\.claude/worktrees/' && continue
+
+  BLOCKED_TOPLEVEL="$TOPLEVEL"
+  break
+done <<< "$STATEMENT_RANGES"
+
+# Read from a here-string, never a PIPE: a `while` on the right of a pipe runs in a SUBSHELL, where
+# both the `exit 2` of a refusal and the `BLOCKED_TOPLEVEL` it sets would be confined to that
+# subshell — the hook would carry on and exit 0, a refusal that refuses nothing.
+if [[ -z "${BLOCKED_TOPLEVEL:-}" ]]; then
   exit 0
 fi
 
-# --- (a) is the effective repo the MAIN checkout? -----------------------------------------------
-# Positively resolve the repo toplevel of the EFFECTIVE dir. If the dir is not inside a git work tree
-# (empty/error) → cannot positively confirm main-checkout → FAIL-SAFE, do not block.
-TOPLEVEL=$(hook_git_in "$EFFECTIVE_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")
-if [[ -z "$TOPLEVEL" ]]; then
-  exit 0
-fi
-
-# Under `.claude/worktrees/` → the assigned worktree, not main → allow.
-if printf '%s' "$TOPLEVEL" | grep -q '/\.claude/worktrees/'; then
-  exit 0
-fi
-
-# Both conditions positively confirmed: destructive command + assigned-worktree marker +
-# effective repo is the MAIN checkout. This is the silent-cwd-fallback incident → BLOCK.
+# Positively confirmed: a destructive statement, an assigned-worktree marker, and an effective repo
+# that is the MAIN checkout. This is the silent-cwd-fallback incident → BLOCK.
 echo "[worktree-cwd-guard] Blocked: a DESTRUCTIVE git command resolved to the MAIN checkout" >&2
-echo "[worktree-cwd-guard]   effective repo: $TOPLEVEL" >&2
+echo "[worktree-cwd-guard]   effective repo: $BLOCKED_TOPLEVEL" >&2
 # Named however this session was identified. The env marker is optional now — the copy of the hook
 # that is running is the signal that actually arrives — and referencing it bare aborted the script
 # under `set -u` AFTER the refusal had printed, turning a considered exit 2 into a bare exit 1.
