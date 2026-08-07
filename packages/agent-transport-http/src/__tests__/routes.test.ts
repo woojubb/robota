@@ -36,6 +36,45 @@ function createMockSession(overrides?: Record<string, unknown>) {
   } as unknown as IInteractiveSession;
 }
 
+function createHonestSession() {
+  let executing = false;
+  let started = 0;
+  const listeners = new Map<string, Set<(data: unknown) => void>>();
+  const emit = (event: string, data: unknown): void => {
+    for (const h of listeners.get(event) ?? []) h(data);
+  };
+  // Built on the PUBLISHED conformant double rather than another cast to the contract. A cast is a
+  // partial re-implementation nothing checks against the real thing — it compiles whatever it
+  // happens to contain, so a member the contract gains later is simply missing and the suite keeps
+  // passing.
+  const session = createTestInteractiveSession({
+    isExecuting: () => executing,
+    submit: async () => {
+      // The real `submit()` opens with `await ensureInitialized()` before it reads or sets the
+      // busy flag. A stub without that suspension point cannot express the window, and the first
+      // version of this file did not have it — which is why it reported no race.
+      await Promise.resolve();
+      if (executing) return; // the real session queues here
+      started += 1;
+      executing = true;
+      await new Promise((r) => setTimeout(r, 20));
+      executing = false;
+      // The route's SSE stream ends on the terminal event, so a session that never emits one
+      // would hang the request and the case would fail on a TIMEOUT — a red for the wrong reason,
+      // which proves as little as a green for the wrong reason.
+      emit('complete', { success: true, content: 'done' });
+    },
+    on: (event: string, handler: (data: unknown) => void) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)?.add(handler);
+    },
+    off: (event: string, handler: (data: unknown) => void) => {
+      listeners.get(event)?.delete(handler);
+    },
+  } as never);
+  return { session, startedTurns: () => started };
+}
+
 describe('HTTP Transport Routes', () => {
   function createApp(session?: IInteractiveSession) {
     const mockSession = session ?? createMockSession();
@@ -235,14 +274,25 @@ describe('HTTP Transport Routes', () => {
 
   // ── ARCH-004 RUNTIME-38: reject concurrent /submit on a busy session ──
 
-  it('POST /submit returns 409 while a turn is already in flight (isExecuting)', async () => {
-    const { app } = createApp(createMockSession({ isExecuting: vi.fn().mockReturnValue(true) }));
-    const res = await app.request('/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'hi' }),
-    });
-    expect(res.status).toBe(409);
+  it('POST /submit returns 409 while a turn is already in flight', async () => {
+    // The route CLAIMS the turn now rather than reading `session.isExecuting()`, so a session stubbed
+    // as "already executing" no longer expresses this: the flag it used to set is set inside
+    // `submit()`, past a suspension point, which is exactly the race that made the old check
+    // unreliable. A request actually in flight is what the refusal is about, so that is what this
+    // holds — and it is a stronger statement than the stub was.
+    const { session } = createHonestSession();
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const post = async (prompt: string): Promise<Response> =>
+      app.request('/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+
+    const [first, second] = await Promise.all([post('first'), post('second')]);
+    await Promise.all([first.text(), second.text()]);
+
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
   });
 
   // ── ARCH-004 RUNTIME-14: SSE teardown always removes every listener (no leak) ──
@@ -315,60 +365,21 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
    * the route itself documented: the check and the `await session.submit` inside `streamSSE` are
    * separated by awaits, so two requests arriving together both read `false` and both proceed.
    */
-  function createHonestSession() {
-    let executing = false;
-    let started = 0;
-    const listeners = new Map<string, Set<(data: unknown) => void>>();
-    const emit = (event: string, data: unknown): void => {
-      for (const h of listeners.get(event) ?? []) h(data);
-    };
-    // Built on the PUBLISHED conformant double rather than another cast to the contract. A cast is a
-    // partial re-implementation nothing checks against the real thing — it compiles whatever it
-    // happens to contain, so a member the contract gains later is simply missing and the suite keeps
-    // passing.
-    const session = createTestInteractiveSession({
-      isExecuting: () => executing,
-      submit: async () => {
-        started += 1;
-        executing = true;
-        await new Promise((r) => setTimeout(r, 20));
-        executing = false;
-        // The route's SSE stream ends on the terminal event, so a session that never emits one
-        // would hang the request and the case would fail on a TIMEOUT — a red for the wrong reason,
-        // which proves as little as a green for the wrong reason.
-        emit('complete', { success: true, content: 'done' });
-      },
-      on: (event: string, handler: (data: unknown) => void) => {
-        if (!listeners.has(event)) listeners.set(event, new Set());
-        listeners.get(event)?.add(handler);
-      },
-      off: (event: string, handler: (data: unknown) => void) => {
-        listeners.get(event)?.delete(handler);
-      },
-    } as never);
-    return { session, startedTurns: () => started };
-  }
-
   it('starts exactly one turn, and answers the other 409', async () => {
-    const { session, startedTurns } = createHonestSession();
-
-    // A REGRESSION guard, and labelled as one: it passes against today's code, because the TOCTOU the
-    // route used to document is not reachable. Measuring the ordering — with a synchronous and with an
-    // async `sessionFactory` — gave `check → submit → check` both times: nothing suspends between the
-    // busy check and the claim, so the second request always sees the first turn.
+    // The window is REAL, and review found it after the first version of this case declared it was
+    // not. Measured: `submit()` opens with `await ensureInitialized()`, an unconditional suspension
+    // point, and the `executing` flag `isExecuting()` reads is only set past it. So two requests both
+    // read `false`, both call `submit`, and the loser silently coalesces into the pending queue while
+    // its HTTP response streams back the WINNER'S events — both are subscribed to one shared emitter.
     //
-    // It is here because that safety is inherited from Hono entering the stream callback
-    // synchronously, not owned by this route. The uneven lookup below is what a real host looks like
-    // (a session store answering one request faster than another) and is the shape that would expose
-    // the window first if that ever changed.
-    let lookups = 0;
-    const app = createAgentRoutes({
-      sessionFactory: async () => {
-        const ticks = lookups++ === 0 ? 5 : 0;
-        for (let i = 0; i < ticks; i++) await Promise.resolve();
-        return session;
-      },
-    });
+    // That is worse than what the original comment warned about: not two turns, but one turn's output
+    // delivered to two clients as if each had asked for it.
+    //
+    // The earlier version of this case measured `check → submit → check` and concluded there was no
+    // race. It was measuring a `submit` with no suspension point in it — a stub I wrote — so it was
+    // reporting on my fixture rather than on the session.
+    const { session, startedTurns } = createHonestSession();
+    const app = createAgentRoutes({ sessionFactory: () => session });
 
     const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
@@ -378,12 +389,11 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
       });
 
     const both = await Promise.all([post('AAAA'), post('BBBB')]);
-    // Drain both bodies so the SSE streams finish before the counter is read.
     await Promise.all(both.map((r) => r.text()));
 
     expect(
       startedTurns(),
-      'both requests passed the isExecuting() look and both started a turn — the TOCTOU the route documents',
+      'both requests passed the isExecuting() look and reached submit — one turn, two clients',
     ).toBe(1);
     expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
   });

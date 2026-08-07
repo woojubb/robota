@@ -34,6 +34,9 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const { sessionFactory } = options;
   const app = new Hono();
 
+  // RUNTIME-38: claimed by the route, not read from the session — see the note at the check below.
+  let turnInFlight = false;
+
   // POST /submit — execute prompt, stream events via SSE
   app.post('/submit', async (c) => {
     const session = await sessionFactory(c);
@@ -45,22 +48,21 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
 
     // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
     // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
-    // Reject while a turn is in flight.
     //
-    // RUNTIME-003: this comment used to declare a TOCTOU here — that two requests passing the check in
-    // the same tick could both proceed. Measured, they cannot: from this check through `streamSSE` to
-    // `session.submit` there is no suspension point, so a second request's check always observes the
-    // first turn already claimed. The ordering was recorded both ways round (with a synchronous and an
-    // async `sessionFactory`) and came out `check → submit → check` each time.
+    // The route CLAIMS the turn rather than asking whether one is running, and that difference is the
+    // whole fix. `session.isExecuting()` is set inside `submit()` past an `await ensureInitialized()`
+    // — an unconditional suspension point — so two requests both read `false`, both call `submit`, and
+    // the loser coalesces into the pending queue while its HTTP response streams back the WINNER'S
+    // events. One turn delivered to two clients as if each had asked for it, which is worse than the
+    // race the earlier comment described and then wrongly declared absent.
     //
-    // Worth stating plainly, because the safety is INHERITED rather than owned: it holds because Hono
-    // enters the stream callback synchronously, which is a property of a dependency and not of this
-    // route. A regression case in `routes.test.ts` pins the observable outcome — one turn starts, the
-    // other is refused — so a Hono that started deferring would be caught here rather than in
-    // production. Per-session isolation remains the larger answer (ARCH-004).
-    if (session.isExecuting()) {
+    // A synchronous flag on the route closes it because there is no suspension point between reading
+    // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
+    // the route wedged.
+    if (turnInFlight) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
+    turnInFlight = true;
 
     return streamSSE(c, async (stream) => {
       const cleanup: Array<() => void> = [];
@@ -114,6 +116,8 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
         // event listeners can never leak.
         for (const fn of cleanup) fn();
+        // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the route.
+        turnInFlight = false;
       }
     });
   });
