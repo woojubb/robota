@@ -35,9 +35,13 @@ function createSessionStub(): Session {
       remainingPercentage: 100,
     }),
     abort: vi.fn(),
-    shutdown: vi
-      .fn()
-      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) }),
+    // `Session.shutdown(): Promise<void>`. A sweep that gave every mock in this change the new
+    // TURN HANDLE shape reached this one too, and `shutdown` does not return a handle — no case
+    // reads it, so nothing failed. That is precisely the shape `helpers/session-stub.ts` was added
+    // to argue against: a stub that disagrees with the thing it stands in for makes its cases pass
+    // about something that cannot happen. Review caught it here in the same change that wrote the
+    // argument down.
+    shutdown: vi.fn().mockResolvedValue(undefined),
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
   } as unknown as Session;

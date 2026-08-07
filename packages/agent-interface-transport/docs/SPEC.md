@@ -95,7 +95,7 @@ are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*
 | `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
 | `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
 | `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
-| `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled/shutdown)       |
+| `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)       |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`

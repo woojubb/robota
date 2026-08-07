@@ -44,8 +44,11 @@ async submit(input: string): Promise<ITurnHandle> {
 `createTestInteractiveSession` already returns a conforming handle, so a double built on it needs no
 change.
 
-Two things this deliberately does NOT do. The HTTP route's documented TOCTOU was measured and is not
-reachable — nothing suspends between its busy check and the claim — so the comment asserting it was
-corrected rather than a guard added for a race that does not exist; a regression case now pins the
-observable outcome, because that safety is inherited from the router's scheduling rather than owned
-by the route. And DAG run advancement (P3) stays with DAG-001.
+One thing this deliberately does NOT do: DAG run advancement (P3) stays with DAG-001.
+
+An earlier draft of this note claimed the HTTP route's documented TOCTOU had been measured and was
+not reachable. That was wrong, and it is corrected here rather than left for a reader to trip over.
+The probe behind it used a `submit` stub with no suspension point, so it could not exhibit the race
+it was written to rule out; the real `submit` opens with `await ensureInitialized()`. The race is
+real and is fixed in its own change (#1656), where the route CLAIMS the turn instead of asking
+whether one is running.
