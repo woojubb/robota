@@ -211,7 +211,9 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
     const held = 'held-by-a-sibling';
     execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
     const sibling = path.join(root, 'sibling-worktree');
-    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], { stdio: 'pipe' });
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], {
+      stdio: 'pipe',
+    });
 
     try {
       const { status, stderr } = runHook({
@@ -234,7 +236,9 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
     const held = 'held-by-a-sibling-2';
     execFileSync('git', ['-C', mainRepo, 'branch', held], { stdio: 'pipe' });
     const sibling = path.join(root, 'sibling-worktree-2');
-    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], { stdio: 'pipe' });
+    execFileSync('git', ['-C', mainRepo, 'worktree', 'add', '-q', sibling, held], {
+      stdio: 'pipe',
+    });
 
     try {
       const { status } = runHook({ command: `git checkout ${held}`, cwd: mainRepo });
