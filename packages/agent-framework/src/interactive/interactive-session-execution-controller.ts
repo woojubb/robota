@@ -6,7 +6,6 @@
  * shutting-down flag, and all private execution lifecycle methods.
  */
 
-
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -16,7 +15,6 @@ import {
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 import { TurnNotRunError } from '@robota-sdk/agent-interface-transport';
-
 
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
 import { executePromptTurn } from './interactive-session-prompt.js';

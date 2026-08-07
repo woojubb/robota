@@ -47,7 +47,9 @@ function queued(controller: SessionExecutionController, driverId: string): IQueu
  * the defect. Racing a short deadline turns the hang into an assertion that says what went wrong.
  */
 async function reasonOf(completed: Promise<unknown>): Promise<string> {
-  const deadline = new Promise<string>((resolve) => setTimeout(() => resolve('never settled'), 250));
+  const deadline = new Promise<string>((resolve) =>
+    setTimeout(() => resolve('never settled'), 250),
+  );
   return Promise.race([
     completed.then(
       () => 'settled — the submission was not refused a turn',
@@ -62,7 +64,11 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
   it('says `coalesced` when a later input from the same driver replaces it', async () => {
     const controller = createController();
     const first = controller.beginSubmission();
-    controller.enqueuePending({ input: 'first', options: { driverId: 'owner' }, turnId: first.turnId });
+    controller.enqueuePending({
+      input: 'first',
+      options: { driverId: 'owner' },
+      turnId: first.turnId,
+    });
 
     // Same driver, so the queue REPLACES the tail rather than appending — the standard
     // editable-pending behaviour. The replaced entry is now unreachable.
@@ -90,7 +96,11 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
   it('says `cancelled` when the queue is cleared out from under it', async () => {
     const controller = createController();
     const waiting = controller.beginSubmission();
-    controller.enqueuePending({ input: 'waiting', options: { driverId: 'owner' }, turnId: waiting.turnId });
+    controller.enqueuePending({
+      input: 'waiting',
+      options: { driverId: 'owner' },
+      turnId: waiting.turnId,
+    });
 
     controller.clearPendingQueue();
 

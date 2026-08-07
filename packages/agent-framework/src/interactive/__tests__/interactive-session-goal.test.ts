@@ -25,7 +25,9 @@ function createSessionStub(): Session {
       remainingPercentage: 100,
     }),
     abort: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) }),
+    shutdown: vi
+      .fn()
+      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) }),
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
   } as unknown as Session;
@@ -43,7 +45,9 @@ const EMPTY_TURN_RESULT = {
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
     const session = new InteractiveSession({ session: createSessionStub() });
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
+    const submitSpy = vi
+      .spyOn(session, 'submit')
+      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 
@@ -63,7 +67,10 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 
   it('cancelGoal stops an active goal and emits goal_stopped', async () => {
     const session = new InteractiveSession({ session: createSessionStub() });
-    vi.spyOn(session, 'submit').mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
+    vi.spyOn(session, 'submit').mockResolvedValue({
+      turnId: 'stub-turn',
+      completed: Promise.resolve(EMPTY_TURN_RESULT),
+    });
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 

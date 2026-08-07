@@ -207,23 +207,17 @@ naming which happened. Four cases in `turn-handle-always-settles.test.ts`, each 
 removing its own settle point. They race a 250ms deadline instead of letting the suite time out,
 because a hang reported as "timed out" names the harness rather than the defect.
 
+The HTTP half moved to its own change: measuring the TOCTOU the route documented showed it does not
+exist, so what came of it is a corrected comment and a labelled regression guard — a documentation
+correction rather than a fix, and pairing it with this one made the red-proof floor read a
+comment-only edit as an unproven regression test.
+
 `abort()` was left alone deliberately: the queue-clear path rejects waiting handles as `cancelled`
 and the RUNNING turn settles through its own `finally` — the same rule P1 landed for `agent-session`,
 that a turn is over when it has stopped and not when it was asked to stop.
 
-#### The HTTP TOCTOU does not exist — the comment did
-
-`routes.ts` documented a race between its busy check and `session.submit`. Measured, there is no
-suspension point between them: the call order came out `check → submit → check` with both a
-synchronous and an async `sessionFactory`, so a second request always observes the first turn's
-claim. The comment was corrected rather than a guard added for a race that is not there.
-
-What IS true is worth keeping visible: that safety is INHERITED, not owned — it holds because the
-router enters the stream callback synchronously, which is a dependency's property. The case in
-`routes.test.ts` is labelled a regression guard (it passes against today's code and says so), so a
-router that started deferring is caught there instead of in production.
-
 ### Remaining
+
 - **P3 — DAG run advancement.** Owned by [DAG-001](DAG-001-running-is-a-terminal-trap.md) and
   [DAG-002](completed/DAG-002-run-contract-typed-on-a-foreign-file-format.md); the floating
   `void this.processRunUntilTerminal(...)` (`prompt-backend.ts:89`) belongs with them.

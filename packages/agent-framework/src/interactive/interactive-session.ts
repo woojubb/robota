@@ -495,7 +495,10 @@ export class InteractiveSession
     // otherwise a queued one would have no identity for the whole time its caller is waiting on it.
     // The drain carries this id back in `resumeTurnId`, so one submission is one turn throughout.
     const { turnId, completed } = options.resumeTurnId
-      ? { turnId: options.resumeTurnId, completed: this.execCtrl.completionOf(options.resumeTurnId) }
+      ? {
+          turnId: options.resumeTurnId,
+          completed: this.execCtrl.completionOf(options.resumeTurnId),
+        }
       : this.execCtrl.beginSubmission();
     const resolvedOptions: ITurnOptions = { ...options, driverId, resumeTurnId: turnId };
     if (this.execCtrl.executing) {
