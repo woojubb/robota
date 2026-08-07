@@ -1033,13 +1033,44 @@ describe('an interpreter argument that is not code (INFRA-084)', () => {
     expect(scan('python3 script.py "git push"')).not.toMatch(/git push/);
   });
 
+  it("leaves a SHELL script file's data argument masked", () => {
+    // The same defect this change fixes lived in the shell-interpreter pattern, unchanged by the
+    // first version: `bash script.sh "…"` passes DATA to a script, and only `bash -c "…"` is code.
+    // Review found it — a fix that leaves its own sibling untouched is half a fix.
+    expect(scan('bash script.sh "git push"')).not.toMatch(/git push/);
+    expect(scan('bash -c "git push --force"')).toMatch(/git push --force/);
+  });
+
+  it("reads deno's SUBCOMMAND form, which uses no dash", () => {
+    // `deno eval "…"` and `deno run` are how Deno runs inline code; requiring a dash flag masked
+    // them. An interpreter's idiom is what it is, not what the pattern found convenient.
+    expect(scan('deno eval "git push --force"')).toMatch(/git push --force/);
+  });
+
+  it('masks a data argument to a perl or php SCRIPT FILE', () => {
+    // perl and php take a script file with ordinary arguments after it, exactly like node and
+    // python. Their `-e` form is still code; their script form is not.
+    expect(scan('perl script.pl "git push"')).not.toMatch(/git push/);
+    expect(scan('php page.php "git push"')).not.toMatch(/git push/);
+    expect(scan('perl -e "git push --force"')).toMatch(/git push --force/);
+  });
+
   it('still EXAMINES a POSITIONAL script, which takes no flag', () => {
-    // Review caught this as a silent bypass my first fix introduced. `awk`, `perl` and `php` take
-    // their script as a positional argument — `awk 'BEGIN{system("…")}'` is the idiomatic form — so
-    // requiring a code flag masked exactly the shape those interpreters are used in. A guard made
-    // narrower is only better if what it stopped looking at was not the thing it guards.
+    // `awk` genuinely takes its program as a positional argument, and requiring a code flag masked
+    // the shape it is used in.
     expect(scan('awk \'BEGIN{system("git push --force")}\'')).toMatch(/git push --force/);
-    expect(scan("perl 'system(q(git push --force))'")).toMatch(/git push --force/);
+  });
+
+  it('does NOT treat a positional perl argument as code', () => {
+    // An earlier version of this file asserted the opposite, and it was wrong. Measured:
+    //
+    //   perl 'print "hi"'   ->   Can't open perl script "print "hi"": No such file or directory
+    //
+    // perl reads a positional argument as a FILE NAME; only `-e` is code, and php is the same.
+    // Grouping them with awk was a guess about a grammar — the exact mistake `command-scan.sh` is a
+    // record of; its own header says reading one grammar with another's rules is what it exists to
+    // stop.
+    expect(scan("perl 'system(q(git push --force))'")).not.toMatch(/git push/);
   });
 
   it('still EXAMINES the code an interpreter is asked to run', () => {
