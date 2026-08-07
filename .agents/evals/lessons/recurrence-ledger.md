@@ -110,7 +110,7 @@ A guard reporting clean over something it never read.
 
 ## L6 — Dead code left by a change
 
-**Count: 11** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — lint reports unused imports as WARNINGS, which do not fail
+**Count: 12** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — lint reports unused imports as WARNINGS, which do not fail
 
 Imports, comments and checks left behind by the change that removed their subject.
 
@@ -118,6 +118,7 @@ Imports, comments and checks left behind by the change that removed their subjec
 - 2026-08-07 — two comments describing methods the same change deleted (#1651)
 - 2026-08-07 — `mintToken` orphaned once WS moved to the shared seam (#1655)
 - 2026-08-07 — an unreachable form check `PATHISH` already guaranteed (#1647)
+- 2026-08-07 — removing a scan rule left its one-line wrapper `jobExcludesMain` with no production caller and a docstring still naming the caller (#1659). Found by review ON the change that added this ledger — a lint rule that only WARNS is why
 
 ---
 
