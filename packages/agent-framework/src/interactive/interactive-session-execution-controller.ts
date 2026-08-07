@@ -96,8 +96,7 @@ export interface IQueuedInput {
   readonly turnId?: string;
 }
 
-/** REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice. */
-export const MAX_PENDING_QUEUE_DEPTH = 32;
+
 
 /**
  * A submit callback that optionally carries turn options (default = user turn).

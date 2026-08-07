@@ -10,7 +10,22 @@
 import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
 
 import type { IQueuedInput } from './interactive-session-execution-controller.js';
-import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
+
+/**
+ * REMOTE-014 E5: max co-drive queue depth — beyond this, drop-newest with an attributed notice.
+ *
+ * Declared HERE, where the queue that enforces it lives, and that placement is a review finding.
+ * It sat in `interactive-session-execution-controller.ts`, which imports this file's class as a
+ * VALUE at field-initialiser time (`readonly pending = new PendingInputQueue(...)`, evaluated while
+ * the module loads) — so the two modules referred to each other at value level. It happened to work
+ * because the constant is only read inside `enqueue()`, deferring the reference until both modules
+ * had finished initialising; change the import order or the bundler and it becomes a TDZ crash.
+ *
+ * Working by accident is not the same as working. The controller only DECLARED it and never used
+ * it; this file is its only reader, so ownership moved to the reader and the cycle is gone rather
+ * than merely harmless.
+ */
+export const MAX_PENDING_QUEUE_DEPTH = 32;
 
 export interface IQueueSettlers {
   /** Tell the holder of this submission's handle that it will never run. */

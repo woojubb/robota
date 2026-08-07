@@ -5,7 +5,7 @@ import { acceptSubmission } from './interactive-session-accept-submission.js';
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
-import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
+import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-pending-queue.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {

@@ -7,10 +7,10 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  MAX_PENDING_QUEUE_DEPTH,
   SessionExecutionController,
   type IQueuedInput,
 } from '../interactive-session-execution-controller.js';
+import { MAX_PENDING_QUEUE_DEPTH } from '../interactive-session-pending-queue.js';
 import { SessionPromptRegistry } from '../session-prompt-registry.js';
 
 /**
