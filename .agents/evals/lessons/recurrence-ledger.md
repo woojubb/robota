@@ -100,7 +100,7 @@ Writing a second answer to a question a file already owns, usually a worse one.
 
 ## L5 — A check that does not look at its whole subject
 
-**Count: 5** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
+**Count: 6** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
 
 A guard reporting clean over something it never read.
 
@@ -108,6 +108,7 @@ A guard reporting clean over something it never read.
 - 2026-08-07 — the restore exemption matched the whole command, so one harmless checkout erased detection of a real one (#1654)
 - 2026-08-07 — `scan-required-check-needs` tests exercised two helpers and never the finder (harness audit)
 - 2026-08-07 — the worktree guard read the `-C` from the WHOLE command and spelled its four destructive rules twice with different windows; a harness audit RAN five commands past it and got exit 0 for every one (#1654)
+- 2026-08-07 — `pre-push-check` judged five worktree pushes against the MAIN checkout's branch record, which named a sixth, already-merged branch. Refused correct work; the mirror case waves an unreviewed push through (#1662). Third instance this week of a guard answering about the wrong repository
 - 2026-08-07 — the HTTP busy check saw only turns this route claimed, so a turn started by another surface was invisible (#1656)
 
 ## L6 — Dead code left by a change
