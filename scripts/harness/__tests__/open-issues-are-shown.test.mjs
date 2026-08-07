@@ -160,6 +160,12 @@ describe('open issues are shown where the choice is made', () => {
     expect(status).toBe(0);
     expect(output).toMatch(/deadline expired/);
     expect(output, "a timeout must not read as 'none open'").toMatch(/not asked/);
+    // And the deadline it names is the one this case SET. Review measured that the hook overwrote
+    // `HOOK_GH_DEADLINE_SECONDS` unconditionally, so this case ran against the 4s default while
+    // claiming to test a 1s one — it passed, for the wrong reason, and the runtime (5.2s, not 2.0s)
+    // was the only visible trace. Asserting the number turns that into a failure instead of a
+    // slower green.
+    expect(output, 'the deadline this case set was discarded').toMatch(/\(1s\)/);
   });
 
   it('reports a gh that FAILED, rather than passing over it', () => {

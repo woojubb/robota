@@ -71,7 +71,17 @@ if [[ "$MODE" == "start" ]]; then
   # sized for a guard deciding whether to refuse a command, where waiting beats guessing. Nothing is
   # being decided here — a session starts either way — so the ceiling is 4s, and the shared default
   # still applies to every guard that does decide.
-  HOOK_GH_DEADLINE_SECONDS="${TASK_TRACKING_ISSUE_DEADLINE_SECONDS:-4}"
+  #
+  # `${HOOK_GH_DEADLINE_SECONDS:-…}`, not a bare assignment, and review found why it has to be. The
+  # first version overwrote the variable UNCONDITIONALLY, which is the one knob `bounded-gh.sh`
+  # documents as "one deadline for every network call a hook makes while deciding" — so a caller
+  # exporting it to raise the deadline on a slow network had that silently discarded here.
+  #
+  # It also broke this hook's own test: the case that passes `deadlineSeconds: 1` sets exactly this
+  # variable, so it was clobbered back to 4 and the case measured the default while claiming to
+  # measure a 1-second deadline. A green for the wrong reason, in the file whose subject is telling
+  # "could not ask" from "none open".
+  HOOK_GH_DEADLINE_SECONDS="${HOOK_GH_DEADLINE_SECONDS:-${TASK_TRACKING_ISSUE_DEADLINE_SECONDS:-4}}"
   ISSUE_STATUS=0
   OPEN_ISSUES=""
   if [[ -n "${TASK_TRACKING_SKIP_ISSUES:-}" ]]; then
