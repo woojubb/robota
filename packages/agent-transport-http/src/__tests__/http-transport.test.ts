@@ -53,3 +53,25 @@ describe('createHttpTransport', () => {
     expect(() => transport.getApp()).toThrow('Transport not started');
   });
 });
+
+describe('SEC-008: the decision is resolved once', () => {
+  it('requires the credential it minted, not a second one', async () => {
+    // The transport resolved admission at construction and then rebuilt a CONFIG for the routes to
+    // resolve again. Two resolutions of one decision: harmless while a token was given, and a fresh
+    // mint on the second pass if the first had opened without a reason — so the credential the host
+    // was handed by `getAdmissionToken()` would not be the one the routes required.
+    const transport = createHttpTransport();
+    transport.attach(createMockSession());
+    await transport.start();
+    const token = transport.getAdmissionToken();
+
+    expect(token).not.toBeNull();
+    const refused = await transport.getApp().request('/executing');
+    const admitted = await transport
+      .getApp()
+      .request('/executing', { headers: { authorization: `Bearer ${token}` } });
+
+    expect(refused.status).toBe(401);
+    expect(admitted.status, 'the token the host was handed does not open the door').toBe(200);
+  });
+});

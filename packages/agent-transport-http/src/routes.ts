@@ -16,6 +16,7 @@ import {
 } from '@robota-sdk/agent-transport-protocol';
 import type {
   IInteractiveSession,
+  ITransportAdmission,
   ITransportAdmissionConfig,
 } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
@@ -33,7 +34,7 @@ export interface IAgentRoutesOptions {
    * `{ open: true, openReason: '…' }` still runs with no credential, and that is a legitimate answer
    * for a host that has its own boundary in front. It just has to be written down.
    */
-  admission: ITransportAdmissionConfig;
+  admission: ITransportAdmissionConfig | ITransportAdmission;
 }
 
 /**
@@ -53,7 +54,15 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
   // build rather than serving without one. Resolving per request would also mint a new token per
   // request, which no peer could ever present.
-  const admission = resolveAdmission(options.admission);
+  // A caller that has ALREADY resolved the decision passes it straight through. Taking only a config
+  // meant `http-transport.ts` had to take its resolved admission apart and rebuild a config for this
+  // to resolve again — two resolutions of one decision, and a mint on the second if the first had
+  // opened without a reason (review). A resolved admission carries `token`, and that is what tells
+  // the two shapes apart.
+  const admission =
+    'token' in options.admission
+      ? (options.admission as ITransportAdmission)
+      : resolveAdmission(options.admission);
 
   /**
    * The trust boundary, installed BEFORE every route rather than checked inside each one.

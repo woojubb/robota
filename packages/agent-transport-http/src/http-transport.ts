@@ -49,10 +49,9 @@ export function createHttpTransport(
       if (!session) throw new Error('No session attached. Call attach() first.');
       app = createAgentRoutes({
         sessionFactory: () => session!,
-        admission:
-          admission.token === null
-            ? { open: true, openReason: admission.openReason ?? '' }
-            : { token: admission.token },
+        // The decision already made, passed through — not taken apart and rebuilt for the routes to
+        // resolve a second time.
+        admission,
       });
     },
     async stop() {
