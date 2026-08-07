@@ -1010,17 +1010,14 @@ describe('the command parse has one owner', () => {
 describe('an interpreter argument that is not code (INFRA-084)', () => {
   /** Read a command the way every guard reads it. */
   function scan(command) {
-    const result = spawnSync(
-      'bash',
-      [
-        '-c',
-        `source "$1"/lib/hook-facts.sh; hook_verb_scan "$2"`,
-        'bash',
-        path.join(WORKSPACE_ROOT, '.claude/hooks'),
-        command,
-      ],
-      { encoding: 'utf8' },
-    );
+    // A SCRIPT FILE, not a `bash -c` string. The command being scanned and the hooks directory both
+    // reach the shell as arguments either way, but building the program text at all is the shape
+    // CodeQL flags and the shape every other helper in this file already avoids — they spawn the
+    // hook directly. One way to run a shell here, not two.
+    const runner = path.join(mkdtempSync(path.join(tmpdir(), 'verb-scan-')), 'scan.sh');
+    scratchRoots.push(path.dirname(runner));
+    writeFileSync(runner, 'source "$1"/lib/hook-facts.sh\nhook_verb_scan "$2"\n');
+    const result = spawnSync('bash', [runner, HOOKS_DIR, command], { encoding: 'utf8' });
     return result.stdout ?? '';
   }
 
@@ -1034,6 +1031,15 @@ describe('an interpreter argument that is not code (INFRA-084)', () => {
 
   it('leaves a positional argument to python masked', () => {
     expect(scan('python3 script.py "git push"')).not.toMatch(/git push/);
+  });
+
+  it('still EXAMINES a POSITIONAL script, which takes no flag', () => {
+    // Review caught this as a silent bypass my first fix introduced. `awk`, `perl` and `php` take
+    // their script as a positional argument — `awk 'BEGIN{system("…")}'` is the idiomatic form — so
+    // requiring a code flag masked exactly the shape those interpreters are used in. A guard made
+    // narrower is only better if what it stopped looking at was not the thing it guards.
+    expect(scan('awk \'BEGIN{system("git push --force")}\'')).toMatch(/git push --force/);
+    expect(scan("perl 'system(q(git push --force))'")).toMatch(/git push --force/);
   });
 
   it('still EXAMINES the code an interpreter is asked to run', () => {

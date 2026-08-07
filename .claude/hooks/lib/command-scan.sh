@@ -272,7 +272,7 @@ hook_cwd_of() {
 # runs") was true of `node -e "…"` and false of everything else, and nothing said so.
 #
 # `ssh` and `eval` keep the older shape: their code argument carries no flag — it is positional.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*(-[a-zA-Z]*[ec]|--eval|--command|--exec)[ \t]+|([^ \t;&|(\n]*/)?ssh[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|ruby)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*(-[a-zA-Z]*[ec]|--eval|--command|--exec)[ \t]+|([^ \t;&|(\n]*/)?(ssh|awk|perl|php|expect|tclsh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
 
 # The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
 # `awk` run a command too, but not a shell one, so reading their argument with shell quoting
