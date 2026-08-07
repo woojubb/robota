@@ -9,10 +9,21 @@ point of keeping it: `Mechanism` records what was built and at what count, so a 
 evidence the mechanism did not work. A class whose count moves after its mechanism landed goes back
 to the top of the next cycle, and the row says how many times that has now happened.
 
-**How to record.** On meeting a mistake, find the class here first. If it exists, increment `Count`
-and add a dated line under it naming the instance. Only add a row when no existing class fits — a
-new row for something already listed hides the recurrence, which is the one thing this file exists
-to prevent.
+**How to record.** On meeting a mistake, find the class here first. If it exists, increment `Count`,
+update `Last seen`, and add a dated line naming the instance. Only add a row when no existing class
+fits — a new row for something already listed hides the recurrence, which is the one thing this file
+exists to prevent.
+
+**A class ages out; it does not get cleared.** A row whose `Last seen` is more than **90 days** old
+is RETIRED at the next cycle: moved to `## Retired` at the foot of this file with its count and dates
+intact. Retirement says the class stopped happening, which is a different claim from a mechanism
+having shipped — and the two must not be confused, because a mechanism that shipped and did not work
+is exactly what the count is for.
+
+If a retired class recurs, it comes back with its **old count carried forward**, not from zero. The
+history is the evidence: a class on its third return has told you three times that whatever was done
+about it was not enough, and starting the count again would erase the only part of that worth
+knowing.
 
 **Counts below are measured**, from review findings and CI failures on PRs #1647–#1658 unless a row
 says otherwise. They are a floor: only what was written down is counted.
@@ -21,7 +32,7 @@ says otherwise. They are a floor: only what was written down is counted.
 
 ## L1 — A claim that does not match the code
 
-**Count: 24** · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
+**Count: 24** · First seen 2026-08-06 · Last seen 2026-08-07 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
 Written Last, Against the Diff"
 
 A comment, SPEC line, PR body, changeset or commit message asserting something the diff does not do.
@@ -39,7 +50,7 @@ A comment, SPEC line, PR body, changeset or commit message asserting something t
 
 ## L2 — A measurement made against my own fixture
 
-**Count: 4** · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "A Fixture
+**Count: 4** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "A Fixture
 Decides Nothing Until It Reproduces Reality"
 
 A probe, stub or fixture that did not behave like the thing it stood in for, and whose answer was
@@ -52,7 +63,7 @@ then reported as a property of the code.
 
 ## L3 — A new mechanism whose first version has the defect it guards
 
-**Count: 20** · Mechanism: the cycle itself — `learning-loop.md` § "Mechanisms Land on a Cycle"
+**Count: 21** · First seen 2026-08-07 · Last seen 2026-08-08 · Mechanism: the cycle itself — `learning-loop.md` § "Mechanisms Land on a Cycle"
 
 Findings raised against mechanisms added to prevent mistakes, in their first version.
 
@@ -61,10 +72,11 @@ Findings raised against mechanisms added to prevent mistakes, in their first ver
 - 2026-08-07 — open-issue notice: 7 (ran on stop, no deadline, silent on a failing `gh`, gated on a task directory, silent truncation, floor not listed, re-implemented an owned helper)
 - 2026-08-07 — `scan-browser-package-node-subpath`: 1 (read one level of a two-level workspace)
 - 2026-08-07 — interpreter classification: 4 (positional bypass, sibling pattern untouched, `deno` subcommand form, `perl`/`php` misgrouped)
+- 2026-08-08 — the worktree guard's own deferral was a bypass: inside a correctly assigned worktree, `GIT_DIR=/elsewhere/.git git reset --hard` was permitted, because the block it deferred to resolves through the scrub and cannot see a redirect (#1654)
 
 ## L4 — Re-deriving something the repository already owns
 
-**Count: 5** · Mechanism: none yet — candidate for the next cycle
+**Count: 5** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: none yet — candidate for the next cycle
 
 Writing a second answer to a question a file already owns, usually a worse one.
 
@@ -76,17 +88,18 @@ Writing a second answer to a question a file already owns, usually a worse one.
 
 ## L5 — A check that does not look at its whole subject
 
-**Count: 3** · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
+**Count: 4** · First seen 2026-08-07 · Last seen 2026-08-08 · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
 
 A guard reporting clean over something it never read.
 
 - 2026-08-07 — `scan-browser-package-node-subpath` read `packages/*` one level deep, missing the nested family and every app; the wider read found three real violations (#1652)
 - 2026-08-07 — the restore exemption matched the whole command, so one harmless checkout erased detection of a real one (#1654)
 - 2026-08-07 — `scan-required-check-needs` tests exercised two helpers and never the finder (harness audit)
+- 2026-08-08 — the HTTP busy check saw only turns this route claimed, so a turn started by another surface was invisible (#1656)
 
 ## L6 — Dead code left by a change
 
-**Count: 11** · Mechanism: partial — lint reports unused imports as WARNINGS, which do not fail
+**Count: 11** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — lint reports unused imports as WARNINGS, which do not fail
 
 Imports, comments and checks left behind by the change that removed their subject.
 
@@ -94,3 +107,12 @@ Imports, comments and checks left behind by the change that removed their subjec
 - 2026-08-07 — two comments describing methods the same change deleted (#1651)
 - 2026-08-07 — `mintToken` orphaned once WS moved to the shared seam (#1655)
 - 2026-08-07 — an unreachable form check `PATHISH` already guaranteed (#1647)
+
+---
+
+## Retired
+
+Classes whose `Last seen` passed 90 days. Counts and dates are kept: a return carries the old count
+forward.
+
+_(none yet)_

@@ -45,11 +45,18 @@ row for something already listed hides the recurrence, which is the one thing th
 prevent. The counts are what the next cycle prioritises by, so a class nobody incremented is a class
 the cycle will not see.
 
-**The count is never reset and the row is never deleted, including after its mechanism lands.** The
-row records what was built and at what count, so a later increment is evidence that the mechanism did
-not work — and that class goes back to the top of the next cycle, carrying how many times it has now
-survived a fix. A ledger that is cleared when a mechanism ships can only ever say the mechanism was
-built; this one says whether it worked.
+**The count is never reset and the row is never deleted because a mechanism landed.** The row records
+what was built and at what count, so a later increment is evidence that the mechanism did not work —
+and that class goes back to the top of the next cycle, carrying how many times it has now survived a
+fix. A ledger cleared when a mechanism ships can only say the mechanism was built; this one says
+whether it worked.
+
+**A class ages out instead.** Every entry carries its date, and a class not seen for 90 days is
+RETIRED at the next cycle — moved to the ledger's `Retired` section with its count and dates intact.
+Retirement is the claim that the class stopped happening, which is a different claim from a mechanism
+having shipped; conflating them is how a mechanism that shipped and did not work disappears from the
+record. A retired class that recurs comes back with its OLD count carried forward, because a class on
+its third return has said three times that what was done about it was not enough.
 
 **On a cycle, the recorded lessons are worked as a batch** — and the batch begins by auditing what
 already exists, so new checks are added against a measured picture rather than on top of one.
