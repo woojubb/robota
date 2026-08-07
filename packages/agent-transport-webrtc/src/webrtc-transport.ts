@@ -1,6 +1,5 @@
-import { createWsHandler } from '@robota-sdk/agent-transport-protocol';
+import { createWsHandler, resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
-import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
 import type {
   IConfigurableTransport,
   IInteractiveSession,
@@ -102,6 +101,16 @@ export class WebRtcTransport implements IConfigurableTransport<IInteractiveSessi
     // transport auto-mints its credential, which cannot work here — a pairing secret has to be known
     // by the peer, so there is nothing to mint. What carries across is the direction of the default:
     // no decision means no transport, rather than no gate.
+    // A secret AND an explicit open is a contradiction, and it used to pass in silence: the branch
+    // below is skipped when a secret is present, so `open`/`openReason` were ignored without a word.
+    // The caller asked for two different things and got one — which of them they meant is not
+    // something this constructor can know, so it refuses rather than picking.
+    if (this.options.secret && this.options.open === true) {
+      throw new Error(
+        'WebRtcTransport: `secret` and `open: true` are contradictory. A pairing secret gates the ' +
+          'data channel; `open` runs without a gate. Pass one.',
+      );
+    }
     if (this.options.secret === undefined || this.options.secret === '') {
       if (this.options.open !== true) {
         throw new Error(

@@ -48,4 +48,14 @@ describe('SEC-008: the WebRTC transport requires an admission decision', () => {
     // exactly the silent exposure the case above forbids, one keyword further along.
     expect(() => new WebRtcTransport({ signaling, open: true })).toThrow(/openReason/);
   });
+
+  it('refuses a secret AND an explicit open together', () => {
+    // Silently ignoring one of two contradictory options is how a caller ends up believing the
+    // channel is gated when it is, or is not, by whichever option happened to win. The constructor
+    // cannot know which they meant, so it does not choose.
+    expect(
+      () =>
+        new WebRtcTransport({ signaling, secret: 'pairing-secret', open: true, openReason: 'x' }),
+    ).toThrow(/contradictory/);
+  });
 });

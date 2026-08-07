@@ -157,7 +157,11 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'name is required' }, 400);
     }
 
-    const result = await session.executeCommand(body.name, body.args ?? '');
+    // SEC-008: 'remote', not the default 'user'. A peer over HTTP is not the person at the keyboard,
+    // and defaulting to the local operator both mis-attributes the call and skips the 'remote' policy
+    // seam that exists to treat the two differently. Admission decided WHO may reach the session; it
+    // does not say who they are. (The MCP adapter had the same defect; this is its sibling.)
+    const result = await session.executeCommand(body.name, body.args ?? '', 'remote');
     if (!result) {
       return c.json({ error: `Unknown command: ${body.name}` }, 404);
     }

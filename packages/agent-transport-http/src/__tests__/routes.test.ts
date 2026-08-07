@@ -133,7 +133,8 @@ describe('HTTP Transport Routes', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.message).toBe('Conversation cleared.');
-    expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '');
+    // SEC-008: the call now carries its origin — a peer over HTTP is 'remote', not the operator.
+    expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '', 'remote');
   });
 
   it('POST /command returns 400 without name', async () => {
@@ -396,6 +397,27 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
 
     expect(res.status).toBe(401);
     expect(reached).toEqual([]);
+  });
+
+  it('attributes an admitted command to a REMOTE source', async () => {
+    // The same defect MCP had, in the transport beside it: `executeCommand` with no `source` defaults
+    // to `'user'` — the local operator — so a remote peer is attributed as the person at the keyboard
+    // and the `'remote'` policy seam is never consulted. Admission decides WHO may reach the session;
+    // it does not say who they are.
+    const executeCommand = vi.fn().mockResolvedValue({ message: 'ran', success: true });
+    const session = createTestInteractiveSession({ executeCommand });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${CREDENTIAL}` },
+    });
+
+    expect(executeCommand).toHaveBeenCalledWith('clear', '', 'remote');
   });
 
   it('admits a correct credential', async () => {

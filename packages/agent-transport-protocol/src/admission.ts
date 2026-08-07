@@ -61,8 +61,15 @@ export function resolveAdmission(config: ITransportAdmissionConfig = {}): ITrans
  * Whether a presented credential matches the required one.
  *
  * Compared with `timingSafeEqual` over the raw bytes, so the answer takes the same time whatever the
- * first differing character is. The length check before it is not a leak worth avoiding — the token
- * length is fixed and public — but `timingSafeEqual` throws on unequal lengths, so it has to happen.
+ * first differing character is. The length check before it is unavoidable — `timingSafeEqual` throws
+ * on unequal lengths — and it does leak one bit: whether the presented credential is the right
+ * LENGTH.
+ *
+ * For a minted token that costs nothing: the length is fixed at 64 hex characters and published in
+ * this file. A host that supplies its own token of some other length leaks that length instead, and
+ * review was right to point out that the earlier wording ("fixed and public") quietly assumed the
+ * minted case for every case. Length is not the secret in either — but the claim now says which
+ * situation it is describing.
  *
  * A missing credential is a mismatch, not a special case: a peer that sends nothing and a peer that
  * sends the wrong thing are equally unadmitted, and giving them different answers would tell an
