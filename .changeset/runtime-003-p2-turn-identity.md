@@ -22,7 +22,7 @@ promised a turn: the co-drive queue coalesces a same-driver input into the one b
 capacity, and discards everything when cleared. A handle that settled only for submissions that ran
 would leave the rest waiting forever — a worse failure than the ambiguity it replaces — so each of
 those rejects with a typed `TurnNotRunError` naming which happened (`coalesced`, `dropped`,
-`cancelled`, `shutdown`).
+`cancelled` — shutdown clears the queue through the same path, so it reports as cancelled).
 
 **Migration.** A caller that ignores the return value is unaffected: `await session.submit(...)`
 still means what it did, and the direct path still resolves only when the turn is over. An

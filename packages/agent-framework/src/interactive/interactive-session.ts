@@ -1,5 +1,5 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
 import { acceptSubmission } from './interactive-session-accept-submission.js';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
@@ -488,18 +488,10 @@ export class InteractiveSession
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     // REMOTE-014 E5 attribution + RUNTIME-003 identity, resolved together because both are decided
     // at ACCEPTANCE and both travel on the same options object.
-    const { driverId, turnId, completed, resolvedOptions } = acceptSubmission(
-      options,
-      this.execCtrl,
-    );
+    const { driverId, turnId, completed, resolvedOptions, queueBehindRunningTurn } =
+      acceptSubmission(options, this.execCtrl);
     if (this.execCtrl.executing) {
-      // Same-driver coalesces to the tail (1-deep = today); a different driver appends (no clobber).
-      const outcome = this.execCtrl.enqueuePending({
-        input,
-        displayInput,
-        rawInput,
-        options: resolvedOptions,
-      });
+      const outcome = queueBehindRunningTurn({ input, displayInput, rawInput });
       if (outcome === 'dropped') {
         this.emit(
           'user_message',

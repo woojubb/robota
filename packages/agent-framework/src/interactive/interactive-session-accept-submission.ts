@@ -20,6 +20,7 @@ import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-tr
 import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 import type {
+  IQueuedInput,
   ITurnOptions,
   SessionExecutionController,
 } from './interactive-session-execution-controller.js';
@@ -30,6 +31,18 @@ export interface IAcceptedSubmission {
   readonly turnId: string;
   readonly completed: Promise<IExecutionResult>;
   readonly resolvedOptions: ITurnOptions;
+  /**
+   * Put this submission on the queue behind the turn already running.
+   *
+   * Handed back as part of acceptance rather than exported separately, because the entry it builds
+   * must carry the `turnId` minted above: every refusal path settles by that id, and an entry
+   * without one leaves its caller waiting forever — which is how the queued half of RUNTIME-003
+   * shipped inert in its first draft. Same-driver input coalesces to the tail (1-deep today); a
+   * different driver appends without clobbering.
+   */
+  readonly queueBehindRunningTurn: (
+    entry: Omit<IQueuedInput, 'options' | 'turnId'>,
+  ) => 'queued' | 'coalesced' | 'dropped';
 }
 
 export function acceptSubmission(
@@ -44,10 +57,13 @@ export function acceptSubmission(
         completed: execCtrl.turns.completionOf(options.resumeTurnId),
       }
     : execCtrl.turns.begin();
+  const resolvedOptions: ITurnOptions = { ...options, driverId, resumeTurnId: turnId };
   return {
     driverId,
     turnId,
     completed,
-    resolvedOptions: { ...options, driverId, resumeTurnId: turnId },
+    resolvedOptions,
+    queueBehindRunningTurn: (entry) =>
+      execCtrl.enqueuePending({ ...entry, options: resolvedOptions, turnId }),
   };
 }

@@ -16,6 +16,8 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createSessionStub } from './helpers/session-stub.js';
+import { InteractiveSession } from '../interactive-session.js';
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
@@ -115,5 +117,41 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
     const accepted = controller.turns.begin();
 
     expect(controller.turns.completionOf(accepted.turnId)).toBe(accepted.completed);
+  });
+});
+
+describe('RUNTIME-003: the identity survives the whole queued path', () => {
+  // Review found the gap that made the queued half of this feature inert: the entry `submit()` builds
+  // never set its top-level `turnId`, so every settle point in the queue was called with `undefined`
+  // and settled nothing. The cases above passed because they build entries BY HAND — they prove the
+  // queue's behaviour and not the wiring that reaches it.
+  //
+  // `execCtrl` is protected, and a case that cast that away would be breaking encapsulation to look
+  // at something. A subclass is what the modifier permits, so the observation costs nothing the
+  // design did not already allow.
+  class ObservableSession extends InteractiveSession {
+    readonly enqueued: IQueuedInput[] = [];
+
+    watchTheQueue(): void {
+      this.execCtrl.executing = true; // a turn is in flight, so the next submission queues
+      const enqueue = this.execCtrl.enqueuePending.bind(this.execCtrl);
+      this.execCtrl.enqueuePending = (entry: IQueuedInput) => {
+        this.enqueued.push(entry);
+        return enqueue(entry);
+      };
+    }
+  }
+
+  it('what submit() enqueues carries the id it minted', async () => {
+    const session = new ObservableSession({ session: createSessionStub() });
+    session.watchTheQueue();
+
+    const handle = await session.submit('queued behind a running turn');
+
+    expect(session.enqueued).toHaveLength(1);
+    expect(
+      session.enqueued[0]?.turnId,
+      'the queue entry has no identity, so no refusal can settle its handle',
+    ).toBe(handle.turnId);
   });
 });

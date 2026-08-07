@@ -6,8 +6,6 @@
  * shutting-down flag, and all private execution lifecycle methods.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import {
   createUserMessage,
   createAssistantMessage,
@@ -42,7 +40,7 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
+import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -94,7 +92,7 @@ export interface IQueuedInput {
   readonly displayInput?: string;
   readonly rawInput?: string;
   readonly options: ITurnOptions;
-  /** RUNTIME-003: this submission's id, so the handle its caller holds settles for the right turn. */
+  /** RUNTIME-003: this submission's id. EVERY refusal path settles by it — omit it and the queue is inert. */
   readonly turnId?: string;
 }
 
@@ -238,11 +236,13 @@ export class SessionExecutionController {
       // starts will release it on completion (or `clearPendingQueue` if aborted).
       const head = this.pending.shift() as IQueuedInput;
       // RUNTIME-003: the queued submission keeps its id, so its caller's handle settles for it.
+      //
+      // ONE source: the entry's own id, which is what every settle point uses (review).
       setTimeout(
         () =>
           void submit(head.input, head.displayInput, head.rawInput, {
             ...head.options,
-            resumeTurnId: head.turnId,
+            ...(head.turnId !== undefined ? { resumeTurnId: head.turnId } : {}),
           }),
         0,
       );

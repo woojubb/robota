@@ -25,9 +25,10 @@ function createSessionStub(): Session {
       remainingPercentage: 100,
     }),
     abort: vi.fn(),
-    shutdown: vi
-      .fn()
-      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) }),
+    // `Session.shutdown` returns void — it is not a submission and has no turn handle. Review found
+    // this stub resolving one, which no case reads: a double that disagrees with the thing it stands
+    // in for is a test passing about something else.
+    shutdown: vi.fn().mockResolvedValue(undefined),
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
   } as unknown as Session;

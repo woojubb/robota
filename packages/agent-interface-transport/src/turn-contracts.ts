@@ -39,10 +39,15 @@ export type TTurnNotRunReason =
   | 'coalesced'
   /** The queue was at capacity when it arrived. */
   | 'dropped'
-  /** The queue was cleared (abort / cancel) before it ran. */
-  | 'cancelled'
-  /** The session began shutting down before it ran. */
-  | 'shutdown';
+  /**
+   * The queue was cleared before it ran — abort, cancel, or session shutdown.
+   *
+   * A separate `'shutdown'` member was declared here and never produced: shutdown clears the queue
+   * through the same `clearPendingQueue`, so every entry it discards is already reported as
+   * cancelled. Review found it, and a vocabulary member no code path can emit is a promise to the
+   * consumer that nothing keeps — it would have them writing a branch that never runs.
+   */
+  | 'cancelled';
 
 /**
  * The error a rejected `ITurnHandle.completed` carries.
