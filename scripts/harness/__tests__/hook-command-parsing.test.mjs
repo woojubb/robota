@@ -794,6 +794,43 @@ describe('a hook examines the command that will run', () => {
     expect(real.status, "the interpreter's own string stopped being read").toBe(2);
   });
 
+  it('reads the code flag EACH interpreter actually has', () => {
+    // Requiring a code flag was the INFRA-084 fix; spelling that requirement as one flat list
+    // `-[a-zA-Z]*[ec]|--eval|--command|--exec|eval|run` took the under-blocking with it. RAN
+    // against that list, every command here hid the push inside it from every guard — a narrowing
+    // that regressed in the opposite direction from the one it fixed, with no case to catch it.
+    //
+    // `node -p` and `perl -E` were confirmed by RUNNING them. `php` is not installed on this host,
+    // so its flag is taken from the documentation and this case exercises the MASK, not php.
+    const main = scratchRepo('main');
+    const code = [
+      ['php -r', `php -r "system('git push --force origin main')"`],
+      ['node -p', `node -p "require('child_process').execSync('git push --force origin main')"`],
+      ['node --print', `node --print "run('git push --force origin main')"`],
+      ['perl -E', `perl -E "system 'git push --force origin main'"`],
+    ];
+    for (const [flag, command] of code) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, flag).toBe(2);
+    }
+  });
+
+  it('does NOT read a flag that means something else to that interpreter', () => {
+    // Why the flag set is per-interpreter rather than one wider list. `-E` is CODE for perl and
+    // CHARACTER ENCODING for ruby; `-r` is CODE for php and REQUIRE-A-LIBRARY for ruby. A union
+    // would read these arguments as code and refuse ordinary work — the self-blocking INFRA-084
+    // exists to undo, reintroduced by the fix for its own regression.
+    const cwd = scratchRepo('feat/probe');
+    const data = [
+      ['ruby -E is an encoding', 'ruby -E utf-8 script.rb "notes about git push --force"'],
+      ['ruby -r requires a library', 'ruby -r json script.rb "notes about git push --force"'],
+      ['python -m names a module', 'python3 -m tool "notes about git push --force"'],
+      ['php -F takes a file', 'php -F loop.php "notes about git push --force"'],
+    ];
+    for (const [why, command] of data) {
+      expect(runHook('branch-guard.sh', command, { cwd }).status, why).toBe(0);
+    }
+  });
+
   it('does not expand what the shell would not expand', () => {
     // Two ways the substitution restore over-reached, both found by it blocking its own commit.
     //

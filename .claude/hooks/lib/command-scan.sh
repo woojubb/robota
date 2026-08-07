@@ -272,7 +272,49 @@ hook_cwd_of() {
 # runs") was true of `node -e "…"` and false of everything else, and nothing said so.
 #
 # `ssh` and `eval` keep the older shape: their code argument carries no flag — it is positional.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|ruby|perl|php)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*(-[a-zA-Z]*[ec]|--eval|--command|--exec|eval|run)[ \t]+|([^ \t;&|(\n]*/)?(ssh|awk|expect|tclsh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+#
+# The flag set is PER INTERPRETER, because the interpreters disagree about what a flag means and one
+# flat list cannot be right for all of them. The first version was flat — `-[a-zA-Z]*[ec]|--eval|
+# --command|--exec|eval|run` — and review measured what that missed. RAN, and each of these hid the
+# command inside it from every guard:
+#
+#   php -r "system('git push --force')"      `-r` is php's inline-code flag; it ends in neither e nor c
+#   node -p "…execSync('git push --force')"  `-p`/`--print` evaluates exactly as `-e` does
+#   perl -E "system 'git push --force'"      `-E` is perl's `-e` with features on; `[ec]` is lower-case
+#
+# `node -p` and `perl -E` were confirmed by RUNNING them; `php -r` is documented and php is not
+# installed on this host, which the case says rather than pretending otherwise.
+#
+# The pre-INFRA-084 regex required no flag at all, so it caught all three — this narrowing was a
+# regression in the opposite direction from the one it fixed, and the tests added with it had no
+# case for any of the three. That is the shape to watch for: a rule narrowed to fix over-blocking
+# takes the under-blocking with it unless the narrowing is measured against real invocations.
+#
+# Why per-interpreter and not one wider list: `-E` is CODE for perl and CHARACTER ENCODING for
+# ruby, and `-r` is CODE for php and REQUIRE-A-LIBRARY for ruby. A union list would read a `ruby -E
+# utf-8` argument as code and refuse ordinary work — the self-blocking INFRA-084 exists to undo.
+HOOK_INTERP_BOUNDARY='(^|[ \t;&|(\n`])'
+HOOK_INTERP_PATH='([^ \t;&|(\n]*/)?'
+# Any number of non-quoted arguments may sit between the interpreter and its code flag.
+HOOK_INTERP_ARGS='([^ \t;&|(\n"\047]+[ \t]+)*'
+HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
+# A shell: `-c`, in a bundle or alone.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*c|--command)[ \t]+"
+# python: `-c`. `-m` names a MODULE, not code.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*c|--command)[ \t]+"
+# ruby: `-e` only. `-E` is the encoding flag and `-r` requires a LIBRARY — both would over-block.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*e|--eval)[ \t]+"
+# node / bun: `-e`/`--eval` and `-p`/`--print`, which evaluates its argument and prints the result.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[ep]|--eval|--print)[ \t]+"
+# deno / bun subcommands, which take the code positionally after the word.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+${HOOK_INTERP_ARGS}(eval|run)[ \t]+"
+# perl: `-e` and `-E`, in a bundle (`-ne`, `-lE`) or alone.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[eE]|--eval)[ \t]+"
+# php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[rRBE]|--run)[ \t]+"
+# Positional: the code argument carries no flag at all.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(ssh|awk|expect|tclsh)[ \t]+${HOOK_INTERP_ARGS}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|eval[ \t]+)\$"
 
 # The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
 # `awk` run a command too, but not a shell one, so reading their argument with shell quoting
