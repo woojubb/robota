@@ -7,7 +7,7 @@
  * wrong, and each is a property the notice has to keep to be worth having.
  */
 
-import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -50,13 +50,56 @@ function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, e
   // A PATH with no `gh` on it — the "not installed" case, which `bounded_gh` reports with the same
   // exit code as "ran and failed".
   //
-  // Built by REMOVING the directories that hold a `gh`, not by emptying PATH: the hook needs
-  // `date`, `grep` and friends, and a bare PATH left it unable to run at all — measured, the case
-  // then asserted against empty output and would have passed for the wrong reason. Portable
-  // because it asks the system where `gh` is rather than assuming a location.
+  // Built by SYMLINKING the binaries the hook needs into a scratch dir, and nothing else. Two
+  // simpler versions were measured and both failed:
+  //
+  //   PATH=''                       the hook cannot run `grep` or `jq` either, produces NO output,
+  //                                 and the case asserts against '' — a pass for the wrong reason
+  //   PATH minus gh's directories   works here, where gh is in ~/.local/bin; on the CI runner gh
+  //                                 shares a directory with coreutils, so removing it is the case
+  //                                 above. RAN, and that is how this version came to exist.
+  //
+  // The list is what the hook and `lib/*.sh` actually invoke, read from their source. A binary
+  // added there and not here makes this case fail loudly rather than silently.
   if (emptyPath === true) {
-    const entries = (env.PATH ?? '').split(path.delimiter).filter(Boolean);
-    env.PATH = entries.filter((dir) => !existsSync(path.join(dir, 'gh'))).join(path.delimiter);
+    const dir = mkdtempSync(path.join(tmpdir(), 'no-gh-path-'));
+    scratch.push(dir);
+    // The shells first — the hook is spawned as `bash <hook>` and its stubs are `#!/bin/sh`, so a
+    // list without them means the case measures "bash not found" and calls it "gh not found".
+    // Measured: that is exactly what the first list did.
+    const needed = [
+      'bash',
+      'sh',
+      'env',
+      'awk',
+      'basename',
+      'cat',
+      'cut',
+      'date',
+      'dirname',
+      'find',
+      'grep',
+      'head',
+      'jq',
+      'kill',
+      'ls',
+      'mkdir',
+      'mktemp',
+      'node',
+      'printf',
+      'rm',
+      'sed',
+      'sleep',
+      'sort',
+      'tr',
+      'wc',
+    ];
+    const searchPath = (env.PATH ?? '').split(path.delimiter).filter(Boolean);
+    for (const name of needed) {
+      const found = searchPath.map((d) => path.join(d, name)).find((f) => existsSync(f));
+      if (found !== undefined) symlinkSync(found, path.join(dir, name));
+    }
+    env.PATH = dir;
   }
   // The deadline belongs to `bounded-gh.sh` and defaults to 10s. A case about the deadline sets it
   // rather than waiting it out — otherwise the suite's own timeout fires first and the case reports
