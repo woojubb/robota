@@ -96,8 +96,6 @@ export interface IQueuedInput {
   readonly turnId?: string;
 }
 
-
-
 /**
  * A submit callback that optionally carries turn options (default = user turn).
  *
