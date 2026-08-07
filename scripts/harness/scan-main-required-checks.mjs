@@ -232,11 +232,6 @@ export function jobConditionProblem(jobText) {
   return condition;
 }
 
-/** True when a job's own `if:` can leave it unrun on a `main` PR (used for `needs:` resolution). */
-export function jobExcludesMain(jobText) {
-  return jobConditionProblem(jobText) !== undefined;
-}
-
 /** Every finding for the declared `main` required list. */
 export function findRequiredCheckFindings(root = WORKSPACE_ROOT) {
   const findings = [];

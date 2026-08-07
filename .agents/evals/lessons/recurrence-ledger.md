@@ -28,11 +28,18 @@ knowing.
 **Counts below are measured**, from review findings and CI failures on PRs #1647–#1658 unless a row
 says otherwise. They are a floor: only what was written down is counted.
 
+**Every date here is UTC**, because the evidence is UTC: a GitHub commit, review comment or check run
+carries a UTC timestamp, and a reader comparing a row against the PR it cites is reading UTC. Saying
+so is not pedantry — it was a review finding. Rows were first written in the recording session's
+local time (KST, UTC+9), which put four of them a calendar day AHEAD of the evidence they named, and
+they read as future-dated. They are restated in UTC below. Nothing about the 90-day retirement rule
+turns on a day either way; what it turns on is the file saying which clock it keeps.
+
 ---
 
 ## L1 — A claim that does not match the code
 
-**Count: 25** · First seen 2026-08-06 · Last seen 2026-08-08 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
+**Count: 25** · First seen 2026-08-06 · Last seen 2026-08-07 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
 Written Last, Against the Diff"
 
 A comment, SPEC line, PR body, changeset or commit message asserting something the diff does not do.
@@ -46,7 +53,7 @@ A comment, SPEC line, PR body, changeset or commit message asserting something t
 - 2026-08-07 — hook comment said "reported at session start" while the code also ran on stop (#1657)
 - 2026-08-07 — helper claimed it ended a duplication while both copies remained (#1653)
 - 2026-08-07 — comment said a length check leaks nothing because the length is "fixed and public"; true only of a minted token (#1655)
-- 2026-08-08 — a test comment said a substitution case was newly caught; RAN against the pre-fix hook, it was already exit 2 (#1654)
+- 2026-08-07 — a test comment said a substitution case was newly caught; RAN against the pre-fix hook, it was already exit 2 (#1654)
 - (15 further instances of the same shape across #1647–#1658, not itemised)
 
 ## L2 — A measurement made against my own fixture
@@ -64,7 +71,7 @@ then reported as a property of the code.
 
 ## L3 — A new mechanism whose first version has the defect it guards
 
-**Count: 22** · First seen 2026-08-07 · Last seen 2026-08-08 · Mechanism: the cycle itself — `learning-loop.md` § "Mechanisms Land on a Cycle"
+**Count: 22** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: the cycle itself — `learning-loop.md` § "Mechanisms Land on a Cycle"
 
 Findings raised against mechanisms added to prevent mistakes, in their first version.
 
@@ -73,12 +80,12 @@ Findings raised against mechanisms added to prevent mistakes, in their first ver
 - 2026-08-07 — open-issue notice: 7 (ran on stop, no deadline, silent on a failing `gh`, gated on a task directory, silent truncation, floor not listed, re-implemented an owned helper)
 - 2026-08-07 — `scan-browser-package-node-subpath`: 1 (read one level of a two-level workspace)
 - 2026-08-07 — interpreter classification: 4 (positional bypass, sibling pattern untouched, `deno` subcommand form, `perl`/`php` misgrouped)
-- 2026-08-08 — the worktree guard's own deferral was a bypass: inside a correctly assigned worktree, `GIT_DIR=/elsewhere/.git git reset --hard` was permitted, because the block it deferred to resolves through the scrub and cannot see a redirect (#1654)
-- 2026-08-08 — the REPLACEMENT checkout reader judged the `--` restore exemption in-line, so it returned the ref of `git checkout <ref> -- <path>` and blocked correct work; the existing case caught it before it left the branch (#1654)
+- 2026-08-07 — the worktree guard's own deferral was a bypass: inside a correctly assigned worktree, `GIT_DIR=/elsewhere/.git git reset --hard` was permitted, because the block it deferred to resolves through the scrub and cannot see a redirect (#1654)
+- 2026-08-07 — the REPLACEMENT checkout reader judged the `--` restore exemption in-line, so it returned the ref of `git checkout <ref> -- <path>` and blocked correct work; the existing case caught it before it left the branch (#1654)
 
 ## L4 — Re-deriving something the repository already owns
 
-**Count: 6** · First seen 2026-08-07 · Last seen 2026-08-08 · Mechanism: none yet — candidate for the next cycle
+**Count: 6** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: none yet — candidate for the next cycle
 
 Writing a second answer to a question a file already owns, usually a worse one.
 
@@ -87,19 +94,19 @@ Writing a second answer to a question a file already owns, usually a worse one.
 - 2026-08-07 — a hand-rolled workspace walk where `listWorkspacePackageDirs` owns the layout (#1652)
 - 2026-08-07 — the ambient-variable list spelled out in three files, already drifted 7 vs 9 (#1654)
 - 2026-08-07 — `TTurnNotRunReason` respelt as literals beside the contract that owns it (#1653)
-- 2026-08-08 — two blocks of one hook split statements with their own `tr` and `sed` while `hook_statement_ranges` owns the split — in the file whose stated subject is that there must be ONE reading (#1654)
+- 2026-08-07 — two blocks of one hook split statements with their own `tr` and `sed` while `hook_statement_ranges` owns the split — in the file whose stated subject is that there must be ONE reading (#1654)
 
 ## L5 — A check that does not look at its whole subject
 
-**Count: 5** · First seen 2026-08-07 · Last seen 2026-08-08 · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
+**Count: 5** · First seen 2026-08-07 · Last seen 2026-08-07 · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
 
 A guard reporting clean over something it never read.
 
 - 2026-08-07 — `scan-browser-package-node-subpath` read `packages/*` one level deep, missing the nested family and every app; the wider read found three real violations (#1652)
 - 2026-08-07 — the restore exemption matched the whole command, so one harmless checkout erased detection of a real one (#1654)
 - 2026-08-07 — `scan-required-check-needs` tests exercised two helpers and never the finder (harness audit)
-- 2026-08-08 — the worktree guard read the `-C` from the WHOLE command and spelled its four destructive rules twice with different windows; a harness audit RAN five commands past it and got exit 0 for every one (#1654)
-- 2026-08-08 — the HTTP busy check saw only turns this route claimed, so a turn started by another surface was invisible (#1656)
+- 2026-08-07 — the worktree guard read the `-C` from the WHOLE command and spelled its four destructive rules twice with different windows; a harness audit RAN five commands past it and got exit 0 for every one (#1654)
+- 2026-08-07 — the HTTP busy check saw only turns this route claimed, so a turn started by another surface was invisible (#1656)
 
 ## L6 — Dead code left by a change
 

@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DECLARATION_FILE,
   findRequiredCheckFindings,
-  jobExcludesMain,
+  jobConditionProblem,
   jobNeeds,
   pullRequestTrigger,
   splitJobSteps,
@@ -286,16 +286,31 @@ describe('scan-main-required-checks parsing helpers', () => {
   });
 
   it('whitelists job conditions rather than blacklisting one spelling', () => {
-    // Admissible: no condition, or exactly `== main` in either quote style.
-    expect(jobExcludesMain('    runs-on: ubuntu-latest\n')).toBe(false);
-    expect(jobExcludesMain("    if: github.base_ref == 'main'\n")).toBe(false);
-    expect(jobExcludesMain('    if: github.base_ref == "main"\n')).toBe(false);
-    // Everything else, including spellings never anticipated, fails closed.
-    expect(jobExcludesMain("    if: github.base_ref != 'main'\n")).toBe(true);
-    expect(jobExcludesMain('    if: github.base_ref != "main"\n')).toBe(true);
-    expect(jobExcludesMain("    if: github.base_ref == 'develop'\n")).toBe(true);
-    expect(jobExcludesMain("    if: needs.changes.outputs.code == 'true'\n")).toBe(true);
-    expect(jobExcludesMain('    if: false\n')).toBe(true);
+    // Asked of `jobConditionProblem` directly. This whitelist used to be tested only through
+    // `jobExcludesMain`, a one-line wrapper whose sole production caller was R6 — so removing R6
+    // left the wrapper dead AND left the live function with no test of its own. Review caught it,
+    // and it is the same L6 class the ledger in this change tracks.
+    //
+    // Admissible: no condition, or exactly `== main` in either quote style — `undefined`, meaning
+    // no problem.
+    expect(jobConditionProblem('    runs-on: ubuntu-latest\n')).toBeUndefined();
+    expect(jobConditionProblem("    if: github.base_ref == 'main'\n")).toBeUndefined();
+    expect(jobConditionProblem('    if: github.base_ref == "main"\n')).toBeUndefined();
+    // Everything else, including spellings never anticipated, fails closed — and the finding NAMES
+    // the condition, which the boolean wrapper threw away.
+    expect(jobConditionProblem("    if: github.base_ref != 'main'\n")).toBe(
+      "github.base_ref != 'main'",
+    );
+    expect(jobConditionProblem('    if: github.base_ref != "main"\n')).toBe(
+      'github.base_ref != "main"',
+    );
+    expect(jobConditionProblem("    if: github.base_ref == 'develop'\n")).toBe(
+      "github.base_ref == 'develop'",
+    );
+    expect(jobConditionProblem("    if: needs.changes.outputs.code == 'true'\n")).toBe(
+      "needs.changes.outputs.code == 'true'",
+    );
+    expect(jobConditionProblem('    if: false\n')).toBe('false');
   });
 
   it('splits steps and reads their conditions', () => {
