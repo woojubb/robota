@@ -451,11 +451,35 @@ is_force_flag() {
 
 # Whether a statement's word list contains a destructive git invocation.
 #
-# The verb is the first word after `git` that is neither a global option nor a redirect — which is
-# why `git clean 2>&1 -fd` is now seen, and `git -C <path> reset --hard` reads `reset` rather than
-# the path. A second `git` restarts the reading, so `git status | git reset --hard` judges both.
+# The question is asked of the STATEMENT, not of one invocation inside it: a verb seen anywhere in
+# the statement arms its flags for the rest of it. That is not a simplification, it is the only
+# model this word list can support — and getting it wrong was a review finding on the first version.
+#
+# The first version tracked "the verb of the invocation being read" and reset it at every `git`
+# token. `hook_statement_all_words` flattens a substitution into the SAME word stream, and an
+# UNQUOTED one leaves no boundary marker at all. MEASURED:
+#
+#   git reset $(git rev-parse HEAD~1) --hard   ->  git|reset|git|rev-parse|HEAD~1|--hard
+#   git push $(git remote) -f main             ->  git|push|git|remote|-f|main
+#
+# The substitution's `git` reset the verb, `rev-parse` was adopted as the new one, and `--hard`
+# matched nothing. Both were exit 0. There is no way to tell that nested `git` from a sequential one
+# at this level, so the per-invocation model cannot be recovered — the statement is the unit.
+#
+# What that trades: a statement holding a destructive verb AND, elsewhere in it, the flag of that
+# verb is judged destructive even if they belong to different invocations. `git reset --soft HEAD &&
+# git log --hard` would be refused. Quoted text cannot cause it (the tokenizer hides it, so
+# `git commit -m "--hard"` builds `""`), and this guard blocks only in a worktree session whose cwd
+# has fallen back to MAIN — a rare state where refusing too much is the right way to be wrong.
+#
+# The redirect and `-C` handling stay: `git clean 2>&1 -fd` and `git -C <path> reset --hard` were
+# both exit 0 before them.
 statement_is_destructive() {
-  local seen_git=false verb="" skip_value=false word
+  local seen_git=false skip_value=false word
+  # The verbs seen ANYWHERE in this statement, not the verb of the invocation currently being read.
+  # A destructive flag counts when its verb is among them.
+  local saw_reset=false saw_clean=false saw_checkout=false saw_push=false
+
   while IFS= read -r word; do
     if [[ "$skip_value" == "true" ]]; then
       skip_value=false
@@ -464,31 +488,27 @@ statement_is_destructive() {
     case "$word" in
       git | */git)
         seen_git=true
-        verb=""
         continue
         ;;
     esac
     [[ "$seen_git" == "true" ]] || continue
-    if [[ -z "$verb" ]]; then
-      case "$word" in
-        # A global option that CONSUMES the next word. Without this the path of a
-        # `git -C <path> reset --hard` read as the subcommand and the statement judged clean.
-        -C | -c | --git-dir | --work-tree | --namespace | --exec-path) skip_value=true ;;
-        # A redirect is not the subcommand. `git clean 2>&1 -fd` was exit 0 for want of this.
-        *'>'* | *'<'*) ;;
-        -*) ;;
-        '') ;;
-        *) verb="$word" ;;
-      esac
-      continue
-    fi
-    case "$verb" in
-      reset) [[ "$word" == "--hard" ]] && return 0 ;;
-      clean) is_force_flag "$word" && return 0 ;;
-      # `git checkout -- <path>` DISCARDS working-tree changes. The bare `--` is the whole signal.
-      checkout) [[ "$word" == "--" ]] && return 0 ;;
-      push) is_force_flag "$word" && return 0 ;;
+    case "$word" in
+      # A global option that CONSUMES the next word. Without this the path of a
+      # `git -C <path> reset --hard` read as the subcommand and the statement judged clean.
+      -C | -c | --git-dir | --work-tree | --namespace | --exec-path)
+        skip_value=true
+        continue
+        ;;
+      reset) saw_reset=true ;;
+      clean) saw_clean=true ;;
+      checkout) saw_checkout=true ;;
+      push) saw_push=true ;;
     esac
+    [[ "$saw_reset" == "true" && "$word" == "--hard" ]] && return 0
+    [[ "$saw_clean" == "true" ]] && is_force_flag "$word" && return 0
+    # `git checkout -- <path>` DISCARDS working-tree changes. The bare `--` is the whole signal.
+    [[ "$saw_checkout" == "true" && "$word" == "--" ]] && return 0
+    [[ "$saw_push" == "true" ]] && is_force_flag "$word" && return 0
   done <<< "$1"
   return 1
 }

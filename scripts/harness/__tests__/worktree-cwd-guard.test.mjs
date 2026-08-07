@@ -260,6 +260,27 @@ describe('a flag is judged by what git accepts, not by how the rule was spelt', 
     expect(status).toBe(2);
   });
 
+  it('BLOCKS a destructive command with a git SUBSTITUTION among its arguments', () => {
+    // Review found this in the first version of the word-list judgement, which tracked "the verb of
+    // the invocation being read" and reset it at every `git` token. `hook_statement_all_words`
+    // flattens a substitution into the SAME word stream, and an unquoted one leaves no boundary:
+    //
+    //   git reset $(git rev-parse HEAD~1) --hard  ->  git|reset|git|rev-parse|HEAD~1|--hard
+    //
+    // The nested `git` cleared the verb, `rev-parse` was adopted instead, and `--hard` matched
+    // nothing. RAN against that version: exit 0 for both of these.
+    //
+    // There is no way to tell that nested `git` from a sequential one at this level, so the verb is
+    // now a property of the STATEMENT rather than of an invocation inside it.
+    for (const command of [
+      'git reset $(git rev-parse HEAD~1) --hard',
+      'git push $(git remote) -f main',
+    ]) {
+      const { status } = runHook({ command, cwd: mainRepo, env: inWorktreeSession() });
+      expect(status, command).toBe(2);
+    }
+  });
+
   it('leaves a commit message that MENTIONS a force push alone', () => {
     // The false positive the whole word-list approach is judged on. Quoted content is hidden by the
     // tokenizer, so this builds `git|commit|-m|""` and is not a force push.
