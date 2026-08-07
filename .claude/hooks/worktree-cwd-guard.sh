@@ -571,12 +571,26 @@ if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
   printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
   # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
   # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
-  # another clone does not. Read with the ambient environment INTACT — the question is where the
-  # command being judged would actually land, and scrubbing here would erase the very thing asked.
-  AMBIENT_REPO=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-  AMBIENT_TARGET_REPO=$(hook_git_in \
-    "$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")" \
-    rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  # another clone does not.
+  #
+  # BOTH readings are taken from the SAME directory, and that is the whole design of the comparison:
+  # one is read with the ambient environment INTACT and one with it scrubbed, so the ONLY thing that
+  # can make them differ is the environment — which is the question being asked. The first version
+  # read the ambient side from the hook process's own OS cwd and the scrubbed side from the declared
+  # tool cwd, so the two differed in two ways at once. With `GIT_DIR` set that is harmless (it
+  # replaces the cwd search outright), but the family includes variables that do not — and a
+  # comparison whose inputs vary in something other than its subject is not measuring its subject.
+  # Review raised it without being able to confirm a reachable mismatch; neither could I, and it is
+  # fixed on the reasoning rather than on a case, which is why no test claims to reproduce one.
+  #
+  # `cd` in a subshell rather than `git -C`: the ambient environment must survive, so `hook_git_in`
+  # (which scrubs) cannot be used here — and a literal `git -C` in a hook is what
+  # `hook-facts.test.mjs` refuses, precisely so the scrub is not skipped by accident.
+  AMBIENT_DIR=$(hook_effective_repo first-nonempty "" "$(hook_cwd_of "$INPUT" || true)" "${CLAUDE_PROJECT_DIR:-}")
+  if [[ -n "$AMBIENT_DIR" ]]; then
+    AMBIENT_REPO=$(cd "$AMBIENT_DIR" 2>/dev/null && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+    AMBIENT_TARGET_REPO=$(hook_git_in "$AMBIENT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  fi
 fi
 if [[ -n "$AMBIENT_REPO" && -n "$AMBIENT_TARGET_REPO" && "$AMBIENT_REPO" != "$AMBIENT_TARGET_REPO" ]]; then
   echo "[worktree-cwd-guard] Blocked: ${GIT_AMBIENT_ENV_SET} names a DIFFERENT repository" >&2

@@ -656,7 +656,12 @@ describe('fact 5 — git runs with a scrubbed environment', () => {
     // resolves its directory with the scrub, so it can never see a redirect. The scrub property this
     // case exists for is still what makes the refusal correct; it is now reported by the block that
     // can actually see the redirect.
-    expect(run.output).toMatch(/DIFFERENT repository|MAIN checkout/);
+    //
+    // Named exactly, not as an alternation. Review pointed out that `/DIFFERENT repository|MAIN
+    // checkout/` still passes if the deferral comes back: the ambient block would be skipped and the
+    // main-checkout block would answer instead, and the OR accepts that answer. The whole point of
+    // this case is WHICH block refused, so it asserts that and nothing else.
+    expect(run.output).toMatch(/DIFFERENT repository/);
   });
 
   it('leaves no hook calling git without the scrub', () => {
