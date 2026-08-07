@@ -17,8 +17,8 @@
  *
  * This scan is the SOLE owner of the `needs:` graph. `scan-main-required-checks.mjs` used to assert
  * an adjacent property as its R6 — on `main` only, and only for a dependency excluded by its own
- * `if:` — and a harness audit measured that rule down to zero live subjects, because all three of
- * `main`'s required jobs declare `needs: []`. This scan covers every declared branch, the other half
+ * `if:` — and a harness audit measured that rule down to zero live subjects, because none of `main`'s
+ * three required jobs declares a `needs:` key at all. This scan covers every declared branch, the other half
  * of the shape (a dependency that RUNS AND FAILS), and the one case R6 held alone: a `needs:` naming
  * a job its workflow does not declare, which landed here before R6 was removed.
  *

@@ -72,8 +72,12 @@ with no case asserting a non-empty finding has never been shown to do anything. 
 this way — its cases tested two helper functions and never called the finder, so both halves could be
 right while the scan reported nothing.
 
-The cadence is an owner decision and changes by owner decision. It does not weaken the rules below;
-those bind every mechanism that exists.
+The cadence is an owner decision and changes by owner decision. What it changes is WHEN a lesson
+reaches a terminal state, never WHICH states are terminal — and that reconciliation is written into
+§ "Enforcement Preference" below rather than asserted here. Review was right to refuse the assertion:
+this file's own § "Contradiction Between Rules" says a MUST is not in force while another document
+permits its negation, and "it does not weaken the rules below" is a claim about a contradiction, not
+an amendment of one.
 
 ### Enforcement Preference
 
@@ -82,8 +86,19 @@ those bind every mechanism that exists.
   package-local contract test that trips on the violation; or (b) **infeasible-now** — a written, concrete
   reason mechanization is not yet practical PLUS a tracked backlog/task item to add it. "Will be careful,"
   "documented in the rule," "when practical," and untracked follow-ups are NOT terminal states.
+- **A lesson RECORDED between cycles is OPEN, not closed, and the two terminal states above are what
+  closing it means.** This is the reconciliation with § "Mechanisms Land on a Cycle" above, and it is
+  written here because that section changes WHEN a lesson closes and this one owns WHAT closing is.
+  A ledger row is not a third terminal state — it is the tracked item that keeps an open lesson
+  visible until the cycle reaches it, which is what (b) already requires of anything not yet
+  mechanized. What the cadence removes is the obligation to build the mechanism in the SAME CHANGE
+  as the lesson; what it does not remove is the obligation to build one.
 - Mechanize **by default**: reach for a check whenever the violation is detectable with reasonable signal.
-  The burden is to justify NOT mechanizing (a specific obstacle), never to justify mechanizing.
+  The burden is to justify NOT mechanizing (a specific obstacle), never to justify mechanizing — and
+  "the next cycle owns it, and the class is counted in the ledger" IS that specific obstacle, for as
+  long as the cycle is the owner's chosen cadence. It is not a standing excuse: a class whose count
+  keeps rising past a cycle that did not reach it is the case § "Mechanisms Land on a Cycle" sends
+  back to the top of the next one.
 - **Fix the class, not the instance.** When a lesson comes from a concrete defect, name the invariant
   (the class), enumerate every current instance of it in the repo, fix them all in the same change, and
   make the mechanism catch the whole class so a future sibling instance fails. Fixing only the triggering
@@ -95,7 +110,8 @@ those bind every mechanism that exists.
   changed or owned scope without a documented reason.
 - A recurring auto-lesson candidate (e.g. in `.agents/evals/lessons/`) that keeps accruing frequency with
   no mechanism is an **open** lesson — promote it to a mechanism or record why it cannot be, do not let it
-  sit as a perpetual candidate.
+  sit as a perpetual candidate. The recurrence ledger is where "keeps accruing" is now MEASURED rather
+  than felt, so this bullet has a number behind it for the first time.
 
 ### Pattern Generalization
 

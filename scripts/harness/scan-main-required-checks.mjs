@@ -39,8 +39,8 @@
  *
  * The `needs:` graph is NOT checked here. It was, as R6 — "every job named in `needs:` is itself
  * substantive on a `main` PR" — and a harness audit measured that rule down to zero live subjects:
- * all three of `main`'s required jobs declare `needs: []`, so R6 examined nothing on the branch it
- * was written for while `scan-required-check-needs` (INFRA-060) held the same property over all 6
+ * none of `main`'s three required jobs declares a `needs:` key at all, so R6 examined nothing on the
+ * branch it was written for while `scan-required-check-needs` (INFRA-060) held the same property over all 6
  * live edges, on every declared branch, and for a dependency that RUNS AND FAILS as well as one
  * excluded by its own `if:`. Two rules over one graph, one of them looking at nothing, is a worse
  * state than one rule: it reads as double coverage. `scan-required-check-needs` is the sole owner.
