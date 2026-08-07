@@ -59,6 +59,18 @@ const routes = createAgentRoutes({
   // SEC-008: required. Every request must present this credential, or the route refuses it before
   // the session is reached. Pass `{ open: true, openReason: '…' }` only if something in front of
   // this already decides who may reach it — and say what that is.
-  admission: { token: process.env.AGENT_HTTP_TOKEN ?? '' },
+  //
+  // Read the variable STRICTLY. An empty string is not a token: `resolveAdmission` treats it as "no
+  // credential given" and mints a fresh random one per process, so a reader who forgot to set the
+  // variable would believe a fixed shared credential was in effect while every process had its own.
+  // Safe, but silent — and silent is the half this whole change exists to remove.
+  admission: { token: requiredEnv('AGENT_HTTP_TOKEN') },
 });
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value)
+    throw new Error(`${name} is not set — the HTTP transport has no credential to require.`);
+  return value;
+}
 ```

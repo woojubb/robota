@@ -79,10 +79,6 @@ export function presentedToken(req: IncomingMessage): string | null {
   return typeof proto === 'string' ? proto.split(',')[0]?.trim() || null : null;
 }
 
-/** Recorded for a caller that opted OPEN before `openReason` existed — see SPEC § Transport Admission. */
-const WS_OPEN_REASON_REQUIRED =
-  'SEC-008: opened by a caller that predates the written-reason requirement';
-
 /**
  * This transport's admission decision, asked of the shared seam.
  *
@@ -95,10 +91,14 @@ export function resolveWsAdmission(config: {
   open?: boolean;
   openReason?: string;
 }): ITransportAdmission {
+  // No fabricated reason. The first version filled one in for any caller that omitted it, which made
+  // WS the one transport where `{ open: true }` alone was accepted — HTTP and WebRTC both refuse it.
+  // Review found that: a reason invented on the caller's behalf reads, to the next person, as a
+  // decision somebody made. The whole point of requiring it is that nobody can produce one by
+  // accident, so the seam is asked the question exactly as it was given.
   return resolveAdmission({
     ...(config.token !== undefined ? { token: config.token } : {}),
-    ...(config.open === true
-      ? { open: true, openReason: config.openReason ?? WS_OPEN_REASON_REQUIRED }
-      : {}),
+    ...(config.open === true ? { open: true } : {}),
+    ...(config.openReason !== undefined ? { openReason: config.openReason } : {}),
   });
 }
