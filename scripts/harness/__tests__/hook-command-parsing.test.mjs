@@ -1006,3 +1006,41 @@ describe('the command parse has one owner', () => {
     ).toStrictEqual([]);
   });
 });
+
+describe('an interpreter argument that is not code (INFRA-084)', () => {
+  /** Read a command the way every guard reads it. */
+  function scan(command) {
+    const result = spawnSync(
+      'bash',
+      [
+        '-c',
+        `source "$1"/lib/hook-facts.sh; hook_verb_scan "$2"`,
+        'bash',
+        path.join(WORKSPACE_ROOT, '.claude/hooks'),
+        command,
+      ],
+      { encoding: 'utf8' },
+    );
+    return result.stdout ?? '';
+  }
+
+  // The rule this file already states: an interpreter's FIRST quoted argument is the code it runs.
+  // `node -e "…"` is that shape. `node script.mjs --notes "…"` is not — the quoted part is data the
+  // script receives, and reading it as a command means an ordinary argument that happens to contain
+  // the word `push` is judged as a push.
+  it('leaves a quoted argument to a SCRIPT masked', () => {
+    expect(scan('node x.mjs --notes "git push -n left alone"')).not.toMatch(/git push/);
+  });
+
+  it('leaves a positional argument to python masked', () => {
+    expect(scan('python3 script.py "git push"')).not.toMatch(/git push/);
+  });
+
+  it('still EXAMINES the code an interpreter is asked to run', () => {
+    // Without this the fix would be "mask everything", which is not a fix — it is the guard going
+    // blind to the one shape it was widened for.
+    expect(scan('node -e "git push --force"')).toMatch(/git push --force/);
+    expect(scan('bash -c "git push --force"')).toMatch(/git push --force/);
+    expect(scan('python3 -c "git push --force"')).toMatch(/git push --force/);
+  });
+});

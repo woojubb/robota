@@ -264,7 +264,15 @@ hook_cwd_of() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+#
+# INFRA-084: a CODE FLAG is required, and that requirement is the whole point. Any number of
+# arguments could sit before the quoted string, so `node script.mjs --notes "…"` matched and the
+# script's DATA was read as commands — an ordinary argument mentioning `git push` was judged as a
+# push. The rule this file already stated ("the interpreter's first quoted argument is the code it
+# runs") was true of `node -e "…"` and false of everything else, and nothing said so.
+#
+# `ssh` and `eval` keep the older shape: their code argument carries no flag — it is positional.
+HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*(-[a-zA-Z]*[ec]|--eval|--command|--exec)[ \t]+|([^ \t;&|(\n]*/)?ssh[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
 
 # The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
 # `awk` run a command too, but not a shell one, so reading their argument with shell quoting
