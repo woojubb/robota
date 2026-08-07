@@ -12,11 +12,32 @@ import { streamSSE } from 'hono/streaming';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
-/** Callback that resolves an IInteractiveSession from the request context. */
+/**
+ * Callback that resolves an IInteractiveSession from the request context.
+ *
+ * ## The identity invariant
+ *
+ * Two requests that resolve to the SAME LOGICAL SESSION must receive the SAME OBJECT. The busy
+ * check in `/submit` is a `WeakSet<IInteractiveSession>` keyed by object identity, so a factory
+ * that returns a fresh wrapper per call — a new proxy, a new adapter, a `{...session}` copy —
+ * defeats it silently: every request looks unclaimed, two turns start on one session, and the
+ * response of the one that ran is delivered to both callers.
+ *
+ * Review raised this: the requirement was real and stated nowhere, and neither the type system nor
+ * a test can catch a conforming-looking implementation that breaks it. Saying so here is the whole
+ * of the enforcement, which is worth being honest about rather than leaving implied.
+ *
+ * Returning the same object is the ordinary shape — resolve from a map keyed by session id — so
+ * this constrains a caller only if it was already building per-request wrappers.
+ */
 export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
 
 export interface IAgentRoutesOptions {
-  /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
+  /**
+   * Resolve an IInteractiveSession per request (e.g., by auth token, session ID).
+   *
+   * Must be identity-stable for one logical session — see `TSessionFactory`.
+   */
   sessionFactory: TSessionFactory;
 }
 
@@ -98,33 +119,45 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
             // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
           });
 
+        // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
+        // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
+        // caught by the Promise constructor and turned into an already-rejected `done` instead of
+        // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
+        // was consumed with only some of its listeners attached and nothing to relay it, and the
+        // rejection surfaced afterwards at `await done`. The turn is gone by then.
+        //
+        // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
+        // claim is released by the `finally` and the request fails having spent nothing.
+        let settle!: () => void;
         const done = new Promise<void>((resolve) => {
-          subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-          subscribe('tool_start', (state) => void write('tool_start', state));
-          subscribe('tool_end', (state) => void write('tool_end', state));
-          subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
+          settle = resolve;
+        });
 
-          subscribe('complete', async (result) => {
-            // Flush the terminal event before resolving, so the resolve → cleanup →
-            // stream-close continuation cannot race ahead of the write.
-            await write('complete', result);
-            resolve();
-          });
-          subscribe('interrupted', async (result) => {
-            await write('interrupted', result);
-            resolve();
-          });
-          subscribe('error', async (error: Error) => {
-            await write('error', { message: error.message });
-            resolve();
-          });
+        subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
+        subscribe('tool_start', (state) => void write('tool_start', state));
+        subscribe('tool_end', (state) => void write('tool_end', state));
+        subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
 
-          // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-          // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-          stream.onAbort(() => {
-            session.abort();
-            resolve();
-          });
+        subscribe('complete', async (result) => {
+          // Flush the terminal event before resolving, so the resolve → cleanup →
+          // stream-close continuation cannot race ahead of the write.
+          await write('complete', result);
+          settle();
+        });
+        subscribe('interrupted', async (result) => {
+          await write('interrupted', result);
+          settle();
+        });
+        subscribe('error', async (error: Error) => {
+          await write('error', { message: error.message });
+          settle();
+        });
+
+        // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
+        // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
+        stream.onAbort(() => {
+          session.abort();
+          settle();
         });
 
         await session.submit(body.prompt);
@@ -137,6 +170,23 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         // session it claimed.
         turnsInFlight.delete(session);
       }
+    },
+    // A stream callback that throws AFTER the response headers are out cannot be turned into an
+    // error status — the client already has a 200 and an open stream. Without this handler the
+    // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
+    // `quality` job red under vitest, which is how it was found.
+    //
+    // So it is reported on the channel the client is actually listening to, and the stream is
+    // closed. The teardown in the `finally` above has already run by the time this is called, so
+    // the listeners are gone and the claim is released — this handler owes only the telling.
+    async (error, stream) => {
+      await stream
+        .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
+        .catch(() => {
+          // allow-fallback: the stream is already gone, which is the one case where there is
+          // nobody left to tell. Rethrowing here would restore the unhandled rejection this
+          // handler exists to remove.
+        });
     });
   });
 

@@ -407,6 +407,70 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     expect(after.status, 'the session stayed claimed after setup threw').toBe(200);
   });
 
+  it('does NOT consume a turn when the subscription setup throws', async () => {
+    // The case above pins the CLAIM. Review pointed out that it says nothing about the turn, and
+    // that the turn was the more expensive half: the subscriptions were wired inside a promise
+    // executor, so a throw from `session.on` was caught by the Promise constructor and became an
+    // already-rejected `done` rather than propagating. Execution fell through to `submit()` — a
+    // real turn ran, with only some of its listeners attached and nothing relaying it — and the
+    // rejection surfaced afterwards at `await done`, by which point the turn was gone.
+    //
+    // RED-PROVED against the executor placement: `submit` was called once.
+    let threw = false;
+    const { session } = createHonestSession();
+    const realOn = session.on.bind(session);
+    session.on = ((event: string, handler: () => void) => {
+      if (!threw && event === 'text_delta') {
+        threw = true;
+        throw new Error('listener cap reached');
+      }
+      return realOn(event as 'text_delta', handler);
+    }) as IInteractiveSession['on'];
+    const submit = vi.spyOn(session, 'submit');
+
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    await (
+      await app.request('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: 'must never reach the session' }),
+        headers: { 'content-type': 'application/json' },
+      })
+    )
+      .text()
+      .catch(() => '');
+
+    expect(threw, 'the fixture never threw, so this case proves nothing').toBe(true);
+    expect(submit, 'a turn was consumed by a request that could not relay it').not.toHaveBeenCalled();
+  });
+
+  it('TELLS the client when the stream callback throws', async () => {
+    // The throw above had nowhere to go. `streamSSE` had no error handler, so it became an
+    // UNHANDLED rejection — silent in a browser, and red under vitest, which is how it was found
+    // (the `quality` job on this PR). A stream that dies without saying so leaves the client
+    // waiting on a 200 and an open connection forever.
+    //
+    // It cannot be an error STATUS: the headers are already out by the time the callback runs. So
+    // it is reported on the channel the client is listening to.
+    const { session } = createHonestSession();
+    const realOn = session.on.bind(session);
+    session.on = ((event: string, handler: () => void) => {
+      if (event === 'text_delta') throw new Error('listener cap reached');
+      return realOn(event as 'text_delta', handler);
+    }) as IInteractiveSession['on'];
+
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const response = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'the setup will throw' }),
+      headers: { 'content-type': 'application/json' },
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body, 'the stream closed without telling the client anything').toContain('event: error');
+    expect(body).toContain('listener cap reached');
+  });
+
   it('refuses when the session is busy from SOMEWHERE ELSE', async () => {
     // Claiming per route closed the race but dropped `session.isExecuting()` entirely, so a turn
     // started by another surface — the TUI, a WS client, a previous process — was invisible here and

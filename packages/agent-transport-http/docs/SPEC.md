@@ -34,6 +34,18 @@ Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`.
 
 New routes extend `createAgentRoutes`; new options extend the option interfaces.
 
+### `TSessionFactory` must be identity-stable
+
+Two requests resolving to the same logical session MUST receive the same object. `/submit` refuses a
+second concurrent turn using a `WeakSet<IInteractiveSession>` keyed by object identity, so a factory
+returning a fresh wrapper per call — a proxy, an adapter, a spread copy — defeats that check
+silently: every request looks unclaimed, two turns start on one session, and the response of the one
+that ran is delivered to both callers.
+
+Nothing enforces this. The type system cannot express it and a conforming-looking implementation
+that breaks it produces no error, only the bug the check exists to prevent. It is stated here and on
+the type because saying so is the whole of the enforcement.
+
 ## Error Taxonomy
 
 HTTP errors surface as Hono responses; no new error classes.
