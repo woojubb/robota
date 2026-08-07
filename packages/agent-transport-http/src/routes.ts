@@ -118,96 +118,99 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     }
     if (claim !== undefined) turnsInFlight.add(claim);
 
-    return streamSSE(c, async (stream) => {
-      // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
-      // It used to open just before `await session.submit`, leaving the subscription setup between
-      // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
-      // nothing to release it, and every later request to it got 409 forever. A claim whose release
-      // is not in the same protected region is a lock, not a claim.
-      const cleanup: Array<() => void> = [];
-      try {
-        const subscribe = <T>(event: string, handler: (data: T) => void): void => {
-          session.on(event as 'text_delta', handler as () => void);
-          cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
-        };
+    return streamSSE(
+      c,
+      async (stream) => {
+        // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
+        // It used to open just before `await session.submit`, leaving the subscription setup between
+        // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
+        // nothing to release it, and every later request to it got 409 forever. A claim whose release
+        // is not in the same protected region is a lock, not a claim.
+        const cleanup: Array<() => void> = [];
+        try {
+          const subscribe = <T>(event: string, handler: (data: T) => void): void => {
+            session.on(event as 'text_delta', handler as () => void);
+            cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
+          };
 
-        // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
-        // not an unhandled rejection (post-headers errors bypass Hono's onError).
-        const write = (event: string, data: unknown): Promise<void> =>
-          stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
-            // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-            // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+          // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
+          // not an unhandled rejection (post-headers errors bypass Hono's onError).
+          const write = (event: string, data: unknown): Promise<void> =>
+            stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
+              // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
+              // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+            });
+
+          // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
+          // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
+          // caught by the Promise constructor and turned into an already-rejected `done` instead of
+          // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
+          // was consumed with only some of its listeners attached and nothing to relay it, and the
+          // rejection surfaced afterwards at `await done`. The turn is gone by then.
+          //
+          // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
+          // claim is released by the `finally` and the request fails having spent nothing.
+          let settle!: () => void;
+          const done = new Promise<void>((resolve) => {
+            settle = resolve;
           });
 
-        // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
-        // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
-        // caught by the Promise constructor and turned into an already-rejected `done` instead of
-        // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
-        // was consumed with only some of its listeners attached and nothing to relay it, and the
-        // rejection surfaced afterwards at `await done`. The turn is gone by then.
-        //
-        // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
-        // claim is released by the `finally` and the request fails having spent nothing.
-        let settle!: () => void;
-        const done = new Promise<void>((resolve) => {
-          settle = resolve;
-        });
+          subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
+          subscribe('tool_start', (state) => void write('tool_start', state));
+          subscribe('tool_end', (state) => void write('tool_end', state));
+          subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
 
-        subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-        subscribe('tool_start', (state) => void write('tool_start', state));
-        subscribe('tool_end', (state) => void write('tool_end', state));
-        subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
+          subscribe('complete', async (result) => {
+            // Flush the terminal event before resolving, so the resolve → cleanup →
+            // stream-close continuation cannot race ahead of the write.
+            await write('complete', result);
+            settle();
+          });
+          subscribe('interrupted', async (result) => {
+            await write('interrupted', result);
+            settle();
+          });
+          subscribe('error', async (error: Error) => {
+            await write('error', { message: error.message });
+            settle();
+          });
 
-        subscribe('complete', async (result) => {
-          // Flush the terminal event before resolving, so the resolve → cleanup →
-          // stream-close continuation cannot race ahead of the write.
-          await write('complete', result);
-          settle();
-        });
-        subscribe('interrupted', async (result) => {
-          await write('interrupted', result);
-          settle();
-        });
-        subscribe('error', async (error: Error) => {
-          await write('error', { message: error.message });
-          settle();
-        });
+          // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
+          // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
+          stream.onAbort(() => {
+            session.abort();
+            settle();
+          });
 
-        // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-        // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-        stream.onAbort(() => {
-          session.abort();
-          settle();
-        });
-
-        await session.submit(body.prompt);
-        await done;
-      } finally {
-        // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
-        // event listeners can never leak.
-        for (const fn of cleanup) fn();
-        // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
-        // session it claimed.
-        if (claim !== undefined) turnsInFlight.delete(claim);
-      }
-    },
-    // A stream callback that throws AFTER the response headers are out cannot be turned into an
-    // error status — the client already has a 200 and an open stream. Without this handler the
-    // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
-    // `quality` job red under vitest, which is how it was found.
-    //
-    // So it is reported on the channel the client is actually listening to, and the stream is
-    // closed. The teardown in the `finally` above has already run by the time this is called, so
-    // the listeners are gone and the claim is released — this handler owes only the telling.
-    async (error, stream) => {
-      await stream
-        .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
-        .catch(() => {
-          // allow-fallback: the stream is already gone, which is the one case where there is
-          // nobody left to tell. Rethrowing here would restore the unhandled rejection this
-          // handler exists to remove.
-        });
-    });
+          await session.submit(body.prompt);
+          await done;
+        } finally {
+          // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
+          // event listeners can never leak.
+          for (const fn of cleanup) fn();
+          // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
+          // session it claimed.
+          if (claim !== undefined) turnsInFlight.delete(claim);
+        }
+      },
+      // A stream callback that throws AFTER the response headers are out cannot be turned into an
+      // error status — the client already has a 200 and an open stream. Without this handler the
+      // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
+      // `quality` job red under vitest, which is how it was found.
+      //
+      // So it is reported on the channel the client is actually listening to, and the stream is
+      // closed. The teardown in the `finally` above has already run by the time this is called, so
+      // the listeners are gone and the claim is released — this handler owes only the telling.
+      async (error, stream) => {
+        await stream
+          .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
+          .catch(() => {
+            // allow-fallback: the stream is already gone, which is the one case where there is
+            // nobody left to tell. Rethrowing here would restore the unhandled rejection this
+            // handler exists to remove.
+          });
+      },
+    );
   });
 
   // POST /command — execute system command

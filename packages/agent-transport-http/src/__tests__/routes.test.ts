@@ -440,7 +440,10 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
       .catch(() => '');
 
     expect(threw, 'the fixture never threw, so this case proves nothing').toBe(true);
-    expect(submit, 'a turn was consumed by a request that could not relay it').not.toHaveBeenCalled();
+    expect(
+      submit,
+      'a turn was consumed by a request that could not relay it',
+    ).not.toHaveBeenCalled();
   });
 
   it('TELLS the client when the stream callback throws', async () => {
