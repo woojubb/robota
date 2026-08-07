@@ -47,6 +47,12 @@ function createHonestSession() {
   // partial re-implementation nothing checks against the real thing — it compiles whatever it
   // happens to contain, so a member the contract gains later is simply missing and the suite keeps
   // passing.
+  //
+  // And the overrides are typed. The first version ended `} as never`, which defeated exactly what
+  // the double was chosen for: `never` is assignable to everything, so a misspelled member name or a
+  // wrong handler signature compiled silently — the same blindness as the cast it replaced, one line
+  // further down. Review found it. Each override is narrowed at its own site instead, so a typo is a
+  // compile error and nothing else is waved through.
   const session = createTestInteractiveSession({
     isExecuting: () => executing,
     submit: async () => {
@@ -64,14 +70,14 @@ function createHonestSession() {
       // which proves as little as a green for the wrong reason.
       emit('complete', { success: true, content: 'done' });
     },
-    on: (event: string, handler: (data: unknown) => void) => {
+    on: ((event: string, handler: (data: unknown) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)?.add(handler);
-    },
-    off: (event: string, handler: (data: unknown) => void) => {
+    }) as IInteractiveSession['on'],
+    off: ((event: string, handler: (data: unknown) => void) => {
       listeners.get(event)?.delete(handler);
-    },
-  } as never);
+    }) as IInteractiveSession['off'],
+  });
   return { session, startedTurns: () => started };
 }
 
