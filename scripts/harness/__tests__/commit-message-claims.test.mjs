@@ -83,6 +83,25 @@ describe('what counts as a citation', () => {
     ).toBe(false);
   });
 
+  it('does not read a cited PATH as a commit as well', () => {
+    // Review found this, and it is the guard firing on correct work in a REQUIRED check: a file whose
+    // STEM happens to be hex-shaped was read twice — correctly as a path, and again as a commit that
+    // names nothing — so an accurate message citing a real file was refused for a hash it never wrote.
+    //
+    // A hyphen in the stem shields it (`scan-c0ffee1.mjs` never matched, and the reviewer's own
+    // example was that shape), which is exactly why this needed measuring rather than reasoning: the
+    // shapes that DO reproduce are the ones where the hex run is the whole stem.
+    expect(commitishClaims('fix: rename `c0ffee1.mjs`')).toEqual([]);
+    expect(commitishClaims('fix: touch `src/a1b2c3d.ts`')).toEqual([]);
+    expect(commitishClaims('fix: see `docs/deadb33f.md`')).toEqual([]);
+
+    // And the citation this file exists for still reads, including one beside a path.
+    expect(commitishClaims('fix: `c0ffee1.mjs`, see abc1234')).toEqual(['abc1234']);
+    // A code-spanned token that is NOT a path claim is still a citation — a hash in backticks is the
+    // ordinary way to write one, and excluding whole code spans would blind the check to it.
+    expect(commitishClaims('fix: reverts `abc1234`')).toEqual(['abc1234']);
+  });
+
   it('does not read an ordinary English word built from a-f', () => {
     // Review found this: `defaced`, `acceded`, `effaced` are seven letters from a-f, so an ordinary
     // sentence would have been refused for citing a commit it never mentioned — a guard firing on

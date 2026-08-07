@@ -72,11 +72,32 @@ const CODE_SPAN = /`([^`\n]+)`/g;
 // one directory level up. A token with a file extension is a claim about a file wherever it sits.
 const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(\/[A-Za-z0-9._/-]+|\.[A-Za-z0-9]+)$/;
 
+/**
+ * Blank out the code spans this message already claims as PATHS.
+ *
+ * A file whose STEM is hex-shaped was read twice — correctly as a path, and again as a commit naming
+ * nothing — so `fix: rename \`c0ffee1.mjs\`` was refused on a REQUIRED check for a hash it never
+ * wrote. That is the guard firing on correct work, which is what gets a guard turned off.
+ *
+ * Only the spans `pathClaims` accepted are blanked, not every code span. A hash in backticks is the
+ * ordinary way to write a citation, and excluding code spans wholesale would blind this to the very
+ * thing it exists for. Blanked to SPACES rather than removed, so every remaining match keeps its
+ * offsets and its word boundaries.
+ */
+function withoutPathSpans(message) {
+  const paths = new Set(pathClaims(message));
+  if (paths.size === 0) return message;
+  return message.replace(CODE_SPAN, (span, inner) =>
+    paths.has(inner.trim()) ? ' '.repeat(span.length) : span,
+  );
+}
+
 export function commitishClaims(message) {
   const found = new Set();
+  const scanned = withoutPathSpans(message);
   COMMITISH.lastIndex = 0;
   let match;
-  while ((match = COMMITISH.exec(message)) !== null) {
+  while ((match = COMMITISH.exec(scanned)) !== null) {
     const token = match[0];
     // A pure-digit run is a number — a count, a year, an issue — not an object name.
     if (/^[0-9]+$/.test(token)) continue;
