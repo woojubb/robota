@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
+
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 
 import {
+  findRequiredCheckNeedsFindings,
   isFailSafeFor,
   jobContextName,
   JOB_STATUS_FUNCTION,
@@ -86,5 +93,47 @@ describe('jobContextName', () => {
     expect(jobContextName('x', "    name: 'patch-coverage (advisory)'\n")).toBe(
       'patch-coverage (advisory)',
     );
+  });
+});
+
+describe('the scan itself, not only its helpers', () => {
+  // Found by a harness audit: every case here tested `isFailSafeFor` and `jobContextName` and none
+  // ever called the finder. Both helpers can be right while the scan reports nothing — a check whose
+  // only proof is of its parts has not been shown to fail at all, which is the property that decides
+  // whether it is worth keeping.
+  const scratch = [];
+  afterAll(() => {
+    while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
+  });
+
+  /** A root carrying the real required-check declaration and nothing else. */
+  function rootWithDeclarationOnly() {
+    const root = mkdtempSync(path.join(tmpdir(), 'required-check-needs-'));
+    scratch.push(root);
+    mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.github/required-status-checks.json'),
+      readFileSync(
+        path.join(WORKSPACE_ROOT, '.github/required-status-checks.json'),
+        'utf8',
+      ),
+    );
+    return root;
+  }
+
+  it('reports every required check whose workflow it cannot read', () => {
+    const { findings, edges } = findRequiredCheckNeedsFindings(rootWithDeclarationOnly());
+
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]?.detail).toMatch(/does not exist/);
+    // And it says it examined nothing, so the absence cannot read as a clean pass.
+    expect(edges).toBe(0);
+  });
+
+  it('REFUSES a root with no declaration rather than reporting it clean', () => {
+    const bare = mkdtempSync(path.join(tmpdir(), 'required-check-needs-bare-'));
+    scratch.push(bare);
+
+    expect(() => findRequiredCheckNeedsFindings(bare)).toThrow(/required-status-checks\.json/);
   });
 });

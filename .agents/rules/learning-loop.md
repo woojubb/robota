@@ -33,6 +33,29 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   in-repo memory, not only the rules tree — and record the sweep and its result in the same change. A
   MUST is not in force while another document permits its negation.
 
+### Mechanisms Land on a Cycle, Not on Every Lesson (owner decision)
+
+**Between cycles, a lesson is RECORDED, not mechanized.** Correct the instance, write the invariant
+where it belongs, and note the mechanism it would take. Building that mechanism waits for the next
+harness cycle, when they are designed together instead of one at a time.
+
+**On a cycle, the recorded lessons are worked as a batch** — and the batch begins by auditing what
+already exists, so new checks are added against a measured picture rather than on top of one.
+
+Why, measured: over seven days, 72 of 87 commits were harness, hook or rule work, and the five
+mechanisms added in a single session drew twenty review findings of their own. One-at-a-time is what
+produced that: each lesson arrives mid-task, the mechanism is written beside the work that prompted
+it, and nothing looks at the set. At this size the marginal mechanism prevents a narrow past mistake
+while introducing a broader new one.
+
+What an audit asks of every existing check, one question each: **can it be shown to fail?** A check
+with no case asserting a non-empty finding has never been shown to do anything. One was found exactly
+this way — its cases tested two helper functions and never called the finder, so both halves could be
+right while the scan reported nothing.
+
+The cadence is an owner decision and changes by owner decision. It does not weaken the rules below;
+those bind every mechanism that exists.
+
 ### Enforcement Preference
 
 - **A prose rule alone does not close a lesson.** Every institutionalized lesson MUST reach one of exactly
