@@ -36,8 +36,14 @@
  *       every step evaluates false.
  *   R5  Neither the job nor any of its steps carries `continue-on-error`. That is the one FAIL-OPEN
  *       rot: the command fails, the check run still reports success.
- *   R6  Every job named in `needs:` is itself substantive on a `main` PR. A required job whose
- *       dependency is main-excluded reports `skipping` — accepted — without the `if:` ever saying so.
+ *
+ * The `needs:` graph is NOT checked here. It was, as R6 — "every job named in `needs:` is itself
+ * substantive on a `main` PR" — and a harness audit measured that rule down to zero live subjects:
+ * all three of `main`'s required jobs declare `needs: []`, so R6 examined nothing on the branch it
+ * was written for while `scan-required-check-needs` (INFRA-060) held the same property over all 6
+ * live edges, on every declared branch, and for a dependency that RUNS AND FAILS as well as one
+ * excluded by its own `if:`. Two rules over one graph, one of them looking at nothing, is a worse
+ * state than one rule: it reads as double coverage. `scan-required-check-needs` is the sole owner.
  *
  * The declaration must be non-empty and every referenced file must be readable: an empty list would
  * satisfy every assertion vacuously, which is the failure this scan exists to prevent.
@@ -321,20 +327,8 @@ export function findRequiredCheckFindings(root = WORKSPACE_ROOT) {
       );
     }
 
-    // R6 — a dependency that skips takes the required job down with it, silently.
-    for (const need of jobNeeds(job.text)) {
-      const dependency = inspectJob({ root, workflow, jobId: need });
-      if (dependency.error) {
-        report(`[R6] \`${jobId}\` needs \`${need}\`: ${dependency.error}`);
-        continue;
-      }
-      const dependencyProblem = jobConditionProblem(dependency.job.text);
-      if (dependencyProblem !== undefined) {
-        report(
-          `[R6] \`${jobId}\` needs \`${need}\`, whose \`if: ${dependencyProblem}\` can leave it unrun on a \`${GOVERNED_BRANCH}\` PR. GitHub then skips \`${jobId}\` too, and a skipped required check is accepted — the gate disappears without its own \`if:\` ever saying so.`,
-        );
-      }
-    }
+    // The `needs:` graph is `scan-required-check-needs`'s subject, on every declared branch —
+    // see this file's header for why the rule left here.
   }
   return findings;
 }

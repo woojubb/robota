@@ -136,4 +136,109 @@ describe('the scan itself, not only its helpers', () => {
 
     expect(() => findRequiredCheckNeedsFindings(bare)).toThrow(/required-status-checks\.json/);
   });
+
+  /** A root carrying one hand-written branch declaration and the given workflow files. */
+  function rootWith(workflows, contexts) {
+    const root = mkdtempSync(path.join(tmpdir(), 'required-check-needs-fixture-'));
+    scratch.push(root);
+    mkdirSync(path.join(root, '.github/workflows'), { recursive: true });
+    for (const [name, text] of Object.entries(workflows)) {
+      writeFileSync(path.join(root, '.github/workflows', name), text);
+    }
+    writeFileSync(
+      path.join(root, '.github/required-status-checks.json'),
+      JSON.stringify({ branches: { main: { required_status_checks: contexts } } }),
+    );
+    return root;
+  }
+
+  it('reports the shape `scan-main-required-checks` R6 used to own', () => {
+    // R6 asserted this on `main` only. It came here when the audit measured it down to zero live
+    // subjects; the case moved with the rule so its red did not end with it. RAN against this scan
+    // BEFORE R6 was deleted: 1 edge, 1 finding.
+    const root = rootWith(
+      {
+        'ci.yml': `on:
+  pull_request:
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    if: github.base_ref != 'main'
+    steps:
+      - run: echo gate
+  release-grade-verify:
+    name: release-grade verification
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - run: pnpm harness:verify:release
+`,
+      },
+      [
+        {
+          context: 'release-grade verification',
+          workflow: '.github/workflows/ci.yml',
+          job: 'release-grade-verify',
+        },
+      ],
+    );
+
+    const { findings, edges } = findRequiredCheckNeedsFindings(root);
+
+    expect(edges).toBe(1);
+    expect(findings[0]?.detail).toMatch(/NOT a required check on `main`/);
+  });
+
+  it('reports a `needs:` naming a job that workflow does not declare', () => {
+    // The one case `scan-main-required-checks`'s R6 held that this scan did not, and the reason
+    // the guard had to land BEFORE R6 was removed. `needs:` resolves within the job's OWN
+    // workflow, but the fallback `dependencyContext = need` compared the raw job id against the
+    // required-context names — so a `needs:` on a job absent from this file was indistinguishable
+    // from a satisfied dependency whenever some OTHER workflow published a required context of
+    // the same name. The edge then took the early `continue` and reported clean.
+    //
+    // It is not clean. GitHub refuses the whole workflow for an unresolvable `needs:`, so the
+    // required check never reports at all — the shape #1436 rolled back for.
+    const root = rootWith(
+      {
+        'ci.yml': `on:
+  pull_request:
+jobs:
+  release-grade-verify:
+    name: release-grade verification
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - run: pnpm harness:verify:release
+`,
+        // `gate` is a required context — but published from a DIFFERENT workflow, so its own
+        // declaration entry resolves and only the dangling edge above is left to catch.
+        'gate.yml': `on:
+  pull_request:
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo gate
+`,
+      },
+      [
+        {
+          context: 'release-grade verification',
+          workflow: '.github/workflows/ci.yml',
+          job: 'release-grade-verify',
+        },
+        { context: 'gate', workflow: '.github/workflows/gate.yml', job: 'gate' },
+      ],
+    );
+
+    const { findings, edges } = findRequiredCheckNeedsFindings(root);
+
+    expect(edges).toBe(1);
+    expect(findings.map((finding) => finding.detail).join('\n')).toMatch(
+      /needs `gate`, which no job in/,
+    );
+  });
 });
