@@ -14,25 +14,38 @@
 import { describe, expect, it } from 'vitest';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
+import type { ISignalingClient } from '../signaling.js';
+
+/** A signalling channel that is never used — these cases never get past the constructor. */
+const signaling = {
+  send: () => {},
+  onMessage: () => () => {},
+  close: () => {},
+} as unknown as ISignalingClient;
 
 describe('SEC-008: the WebRTC transport requires an admission decision', () => {
   it('refuses to construct with neither a secret nor an explicit open', () => {
-    expect(() => new WebRtcTransport({})).toThrow(/openReason|secret/);
+    expect(() => new WebRtcTransport({ signaling })).toThrow(/openReason|secret/);
   });
 
   it('constructs with a pairing secret', () => {
-    expect(() => new WebRtcTransport({ secret: 'pairing-secret' })).not.toThrow();
+    expect(() => new WebRtcTransport({ signaling, secret: 'pairing-secret' })).not.toThrow();
   });
 
   it('constructs open when the host says so, in writing', () => {
     expect(
-      () => new WebRtcTransport({ open: true, openReason: 'loopback only — no remote peer' }),
+      () =>
+        new WebRtcTransport({
+          signaling,
+          open: true,
+          openReason: 'loopback only — no remote peer',
+        }),
     ).not.toThrow();
   });
 
   it('refuses an open transport with no reason', () => {
     // Without this the fix would be an option that means nothing: `open: true` alone would restore
     // exactly the silent exposure the case above forbids, one keyword further along.
-    expect(() => new WebRtcTransport({ open: true })).toThrow(/openReason/);
+    expect(() => new WebRtcTransport({ signaling, open: true })).toThrow(/openReason/);
   });
 });
