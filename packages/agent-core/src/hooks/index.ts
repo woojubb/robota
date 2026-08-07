@@ -2,7 +2,7 @@
 export { runHooks } from './hook-runner.js';
 export type { IRunHooksResult } from './hook-runner.js';
 // `CommandExecutor`/`HttpExecutor` are NOT here: they import `node:child_process`, and this barrel
-// feeds the BROWSER build (CORE-028). They are exported from `../node.js`.
+// feeds the BROWSER build (CORE-028). They are exported from `@robota-sdk/agent-core/node`.
 export { GuardrailExecutor } from './executors/guardrail-executor.js';
 export type {
   THookEvent,
