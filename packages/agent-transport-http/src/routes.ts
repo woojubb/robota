@@ -67,7 +67,12 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // A synchronous flag on the route closes it because there is no suspension point between reading
     // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
     // the route wedged.
-    if (turnsInFlight.has(session)) {
+    // BOTH, and review is why. The claim is what this route knows; `isExecuting()` is what the
+    // SESSION knows. Dropping the second made a turn started by another surface — the TUI, a WS
+    // client, a previous process — invisible here, and this route would start a second one on a
+    // session already running. Dropping the first is the race at the top of this comment. Neither
+    // subsumes the other, so both are asked.
+    if (turnsInFlight.has(session) || session.isExecuting()) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
     turnsInFlight.add(session);

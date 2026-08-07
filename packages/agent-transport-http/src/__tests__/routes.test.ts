@@ -407,6 +407,24 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     expect(after.status, 'the session stayed claimed after setup threw').toBe(200);
   });
 
+  it('refuses when the session is busy from SOMEWHERE ELSE', async () => {
+    // Claiming per route closed the race but dropped `session.isExecuting()` entirely, so a turn
+    // started by another surface — the TUI, a WS client, a previous process — was invisible here and
+    // this route would start a second one on a session already running. Review found it: the claim
+    // is what this route knows, and isExecuting is what the session knows. Both are needed.
+    const { session } = createHonestSession();
+    session.isExecuting = () => true; // busy, but not by anything this router claimed
+    const app = createAgentRoutes({ sessionFactory: () => session });
+
+    const res = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'while another surface holds the turn' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(409);
+  });
+
   it('does not refuse a DIFFERENT session because another one is busy', async () => {
     // Review found this: the claim was a single flag on the router, but `sessionFactory` is
     // documented as resolving a session per request — the example says "multi-tenant" in as many
