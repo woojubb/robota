@@ -1,0 +1,96 @@
+# Recurrence Ledger
+
+**What this is.** One row per recurring mistake CLASS, with a count that only goes up. Between
+harness cycles a mistake is recorded here rather than mechanized (`learning-loop.md` § "Mechanisms
+Land on a Cycle"); the counts are what the next cycle prioritises by.
+
+**The count is never reset, and never deleted — including after a mechanism lands.** That is the
+point of keeping it: `Mechanism` records what was built and at what count, so a later increment is
+evidence the mechanism did not work. A class whose count moves after its mechanism landed goes back
+to the top of the next cycle, and the row says how many times that has now happened.
+
+**How to record.** On meeting a mistake, find the class here first. If it exists, increment `Count`
+and add a dated line under it naming the instance. Only add a row when no existing class fits — a
+new row for something already listed hides the recurrence, which is the one thing this file exists
+to prevent.
+
+**Counts below are measured**, from review findings and CI failures on PRs #1647–#1658 unless a row
+says otherwise. They are a floor: only what was written down is counted.
+
+---
+
+## L1 — A claim that does not match the code
+
+**Count: 24** · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
+Written Last, Against the Diff"
+
+A comment, SPEC line, PR body, changeset or commit message asserting something the diff does not do.
+
+- 2026-08-06 — comment claimed the model still saw the same payload; the throw path changed it (#1651)
+- 2026-08-06 — SPEC said `CommandExecutor`/`HttpExecutor` are exported from `hooks/index.ts`; the same diff moved them (#1652)
+- 2026-08-06 — SPEC listed `isPathInside`/`canonicalizePath` under the main barrel after they moved to `/node` (#1652)
+- 2026-08-07 — route comment declared a TOCTOU absent; it is real (#1656)
+- 2026-08-07 — PR body claimed fifteen cases never ran; they all did (#1651)
+- 2026-08-07 — changeset advertised a `TTurnNotRunReason` member no code path produces (#1653)
+- 2026-08-07 — hook comment said "reported at session start" while the code also ran on stop (#1657)
+- 2026-08-07 — helper claimed it ended a duplication while both copies remained (#1653)
+- 2026-08-07 — comment said a length check leaks nothing because the length is "fixed and public"; true only of a minted token (#1655)
+- (15 further instances of the same shape across #1647–#1658, not itemised)
+
+## L2 — A measurement made against my own fixture
+
+**Count: 4** · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "A Fixture
+Decides Nothing Until It Reproduces Reality"
+
+A probe, stub or fixture that did not behave like the thing it stood in for, and whose answer was
+then reported as a property of the code.
+
+- 2026-08-07 — a `submit` stub with no suspension point "proved" the HTTP race did not exist (#1656)
+- 2026-08-07 — a `gh` stub ignoring `--limit` passed a truncation check that had lost the property (#1657)
+- 2026-08-07 — a test run from the repo root "proved" fifteen cases were unreached (#1651)
+- 2026-08-07 — a positional-argument grammar assumed for `perl`, which reads that argument as a filename (#1658)
+
+## L3 — A new mechanism whose first version has the defect it guards
+
+**Count: 20** · Mechanism: the cycle itself — `learning-loop.md` § "Mechanisms Land on a Cycle"
+
+Findings raised against mechanisms added to prevent mistakes, in their first version.
+
+- 2026-08-07 — worktree gate + hook: 5 (newline separator, `git -C`, variable-list drift, restore exemption scoped to the whole command, gate/hook thresholds differing silently)
+- 2026-08-07 — `scan-transport-admission`: 3 (no test, hardcoded scope, not fail-closed)
+- 2026-08-07 — open-issue notice: 7 (ran on stop, no deadline, silent on a failing `gh`, gated on a task directory, silent truncation, floor not listed, re-implemented an owned helper)
+- 2026-08-07 — `scan-browser-package-node-subpath`: 1 (read one level of a two-level workspace)
+- 2026-08-07 — interpreter classification: 4 (positional bypass, sibling pattern untouched, `deno` subcommand form, `perl`/`php` misgrouped)
+
+## L4 — Re-deriving something the repository already owns
+
+**Count: 5** · Mechanism: none yet — candidate for the next cycle
+
+Writing a second answer to a question a file already owns, usually a worse one.
+
+- 2026-08-07 — hand-rolled `timeout 5s` beside `bounded-gh.sh`, which exists because `timeout` is absent on macOS (#1657)
+- 2026-08-07 — a bare `git` call where `hook_git_in` owns the scrubbed form (#1654)
+- 2026-08-07 — a hand-rolled workspace walk where `listWorkspacePackageDirs` owns the layout (#1652)
+- 2026-08-07 — the ambient-variable list spelled out in three files, already drifted 7 vs 9 (#1654)
+- 2026-08-07 — `TTurnNotRunReason` respelt as literals beside the contract that owns it (#1653)
+
+## L5 — A check that does not look at its whole subject
+
+**Count: 3** · Mechanism: partial — `scan-guard-scope-fail-closed` covers the missing-tree case only
+
+A guard reporting clean over something it never read.
+
+- 2026-08-07 — `scan-browser-package-node-subpath` read `packages/*` one level deep, missing the nested family and every app; the wider read found three real violations (#1652)
+- 2026-08-07 — the restore exemption matched the whole command, so one harmless checkout erased detection of a real one (#1654)
+- 2026-08-07 — `scan-required-check-needs` tests exercised two helpers and never the finder (harness audit)
+
+## L6 — Dead code left by a change
+
+**Count: 11** · Mechanism: partial — lint reports unused imports as WARNINGS, which do not fail
+
+Imports, comments and checks left behind by the change that removed their subject.
+
+- 2026-08-07 — seven dead imports in `permission-enforcer.ts` after the wrapper moved (#1651)
+- 2026-08-07 — two comments describing methods the same change deleted (#1651)
+- 2026-08-07 — `mintToken` orphaned once WS moved to the shared seam (#1655)
+- 2026-08-07 — an unreachable form check `PATHISH` already guaranteed (#1647)

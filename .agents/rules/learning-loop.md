@@ -39,6 +39,18 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 where it belongs, and note the mechanism it would take. Building that mechanism waits for the next
 harness cycle, when they are designed together instead of one at a time.
 
+**Recorded means COUNTED, in [`.agents/evals/lessons/recurrence-ledger.md`](../evals/lessons/recurrence-ledger.md).**
+One row per mistake CLASS, with a count that only rises. Find the class before adding a row — a new
+row for something already listed hides the recurrence, which is the one thing the ledger exists to
+prevent. The counts are what the next cycle prioritises by, so a class nobody incremented is a class
+the cycle will not see.
+
+**The count is never reset and the row is never deleted, including after its mechanism lands.** The
+row records what was built and at what count, so a later increment is evidence that the mechanism did
+not work — and that class goes back to the top of the next cycle, carrying how many times it has now
+survived a fix. A ledger that is cleared when a mechanism ships can only ever say the mechanism was
+built; this one says whether it worked.
+
 **On a cycle, the recorded lessons are worked as a batch** — and the batch begins by auditing what
 already exists, so new checks are added against a measured picture rather than on top of one.
 
