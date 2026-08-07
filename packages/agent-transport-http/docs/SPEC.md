@@ -34,17 +34,19 @@ Owns `IHttpTransportOptions`, `IAgentRoutesOptions`, `TSessionFactory`.
 
 New routes extend `createAgentRoutes`; new options extend the option interfaces.
 
-### `TSessionFactory` must be identity-stable
+### `TSessionFactory` need not be identity-stable
 
-Two requests resolving to the same logical session MUST receive the same object. `/submit` refuses a
-second concurrent turn using a `WeakSet<IInteractiveSession>` keyed by object identity, so a factory
-returning a fresh wrapper per call — a proxy, an adapter, a spread copy — defeats that check
-silently: every request looks unclaimed, two turns start on one session, and the response of the one
-that ran is delivered to both callers.
+`/submit` refuses a second concurrent turn on one session. That claim is keyed by
+`getSession().getSessionId()`, so a factory returning a fresh wrapper per call — a proxy, an
+adapter, a spread copy — is handled: the wrappers differ, the id does not.
 
-Nothing enforces this. The type system cannot express it and a conforming-looking implementation
-that breaks it produces no error, only the bug the check exists to prevent. It is stated here and on
-the type because saying so is the whole of the enforcement.
+It was keyed on object IDENTITY first, which made identity-stability a requirement callers were
+never told about and nothing could check. This section said so, and review pointed out that the
+contract already supplies the id. A requirement the type system cannot express and no test can
+catch is not a contract; using what the session already promises removes it instead of documenting
+it.
+
+A session that cannot name itself is not claimed at all, and `isExecuting()` still guards it.
 
 ## Error Taxonomy
 

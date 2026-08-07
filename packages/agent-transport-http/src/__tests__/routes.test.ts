@@ -515,6 +515,33 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     expect(second.startedTurns(), 'a second tenant was refused because the first was busy').toBe(1);
   });
 
+  it('still refuses when the factory returns a FRESH WRAPPER for the same session', async () => {
+    // The claim used to be a `WeakSet` keyed on the OBJECT, and the first answer to this was a
+    // paragraph telling callers to be identity-stable — a requirement nothing could check, which
+    // review rightly refused. The contract already gives every session a stable id
+    // (`getSession(): { getSessionId(): string }`), so the claim is keyed by that and the
+    // requirement is gone rather than documented.
+    //
+    // RED-PROVED against the WeakSet: [200, 200], and BOTH turns started.
+    const backing = createHonestSession();
+    const app = createAgentRoutes({
+      // A new object every call, forwarding to one session — the shape that defeated identity.
+      sessionFactory: () => ({ ...backing.session }) as IInteractiveSession,
+    });
+    const post = async (prompt: string): Promise<Response> =>
+      app.request('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+    const both = await Promise.all([post('first'), post('second')]);
+    await Promise.all(both.map((r) => r.text()));
+
+    expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(backing.startedTurns(), 'two turns ran on one session').toBe(1);
+  });
+
   it('starts exactly one turn, and answers the other 409', async () => {
     // The window is REAL, and review found it after the first version of this case declared it was
     // not. Measured: `submit()` opens with `await ensureInitialized()`, an unconditional suspension

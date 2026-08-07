@@ -55,9 +55,13 @@ const EMPTY_BACKGROUND_GROUP = {
  * have — each was checked against nothing, so the suites built on them proved things no shipped code
  * guarantees.
  */
+/** Counts doubles so each gets its own session id. See `getSessionId` below. */
+let doublesCreated = 0;
+
 export function createTestInteractiveSession(
   overrides?: Partial<IInteractiveSession>,
 ): IInteractiveSession {
+  const sessionId = `test-session-${(doublesCreated += 1)}`;
   const base: IInteractiveSession = {
     // ARCH-012: required, not optional. A double that omitted them let a consumer's
     // `getActiveDriverId?.()` resolve to `undefined` and read as "no active driver" — the ambiguity
@@ -74,7 +78,16 @@ export function createTestInteractiveSession(
     getMessages: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
-      getSessionId: () => 'test-session-id',
+      // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every
+      // instance report the same identity, so two doubles standing in for two different sessions
+      // were indistinguishable to any consumer that keys by id — and a fixture that cannot
+      // represent two sessions cannot test anything about two sessions. Found when
+      // `agent-transport-http` started keying its concurrent-turn claim by id and the multi-tenant
+      // case went red for the fixture's reason rather than the code's.
+      //
+      // A counter, not a random: the value stays stable within one double and reproducible across
+      // runs, so a failure message names the same session twice.
+      getSessionId: () => sessionId,
       // SELFHOST-004: the span collector subscribes to the session bus each turn.
       getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     }),

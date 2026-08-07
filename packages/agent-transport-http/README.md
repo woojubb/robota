@@ -18,10 +18,9 @@ pnpm add @robota-sdk/agent-transport-http
 `IInteractiveSession` per request (e.g. by auth token or session id). `createHttpTransport`
 wraps them as a mountable transport with an optional `basePath`.
 
-The factory must be **identity-stable**: two requests for the same logical session must get the same
-object. `/submit`'s concurrent-turn refusal is keyed by object identity, so a factory that builds a
-fresh wrapper per call defeats it silently. Resolving from a map keyed by session id — the ordinary
-shape — satisfies this.
+The factory may return a fresh object per request. `/submit`'s concurrent-turn refusal is keyed by
+`getSession().getSessionId()`, not by object identity, so a per-request wrapper around one session
+is still recognised as that session.
 
 <!-- doc-example-skip: requires the host app's hono dependency -->
 

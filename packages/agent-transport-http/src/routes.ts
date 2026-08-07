@@ -15,29 +15,20 @@ import type { Context } from 'hono';
 /**
  * Callback that resolves an IInteractiveSession from the request context.
  *
- * ## The identity invariant
+ * It need NOT return the same object twice for the same logical session. It briefly did: `/submit`
+ * keyed its concurrent-turn claim on object identity, so a factory building a fresh wrapper per
+ * call — a proxy, an adapter, a `{...session}` copy — defeated the guard in silence. The first
+ * answer was to document that as a requirement callers had to keep, and review refused it: a
+ * requirement neither the type system nor a test can check is not a contract, it is a hope.
  *
- * Two requests that resolve to the SAME LOGICAL SESSION must receive the SAME OBJECT. The busy
- * check in `/submit` is a `WeakSet<IInteractiveSession>` keyed by object identity, so a factory
- * that returns a fresh wrapper per call — a new proxy, a new adapter, a `{...session}` copy —
- * defeats it silently: every request looks unclaimed, two turns start on one session, and the
- * response of the one that ran is delivered to both callers.
- *
- * Review raised this: the requirement was real and stated nowhere, and neither the type system nor
- * a test can catch a conforming-looking implementation that breaks it. Saying so here is the whole
- * of the enforcement, which is worth being honest about rather than leaving implied.
- *
- * Returning the same object is the ordinary shape — resolve from a map keyed by session id — so
- * this constrains a caller only if it was already building per-request wrappers.
+ * What the session already promises is enough. `getSession(): { getSessionId(): string }` names the
+ * session, the claim is keyed by that name, and the requirement is gone rather than written down.
+ * A session that cannot name itself is simply not claimed, and `isExecuting()` still guards it.
  */
 export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
 
 export interface IAgentRoutesOptions {
-  /**
-   * Resolve an IInteractiveSession per request (e.g., by auth token, session ID).
-   *
-   * Must be identity-stable for one logical session — see `TSessionFactory`.
-   */
+  /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: TSessionFactory;
 }
 
@@ -62,9 +53,37 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // other tenant's. A busy neighbour is not a reason to refuse you — that is a worse defect than the
   // race it closed.
   //
-  // Keyed WEAKLY, so a session the host stops handing out is collected with it rather than pinned
-  // here forever by a claim nobody will ever release.
-  const turnsInFlight = new WeakSet<IInteractiveSession>();
+  // Keyed by the session's declared ID, not by object identity, and that is a review finding.
+  //
+  // A `WeakSet<IInteractiveSession>` keyed the claim on the OBJECT. That is a requirement no caller
+  // was told about and nothing could check: a `sessionFactory` returning a fresh wrapper per call
+  // for the same logical session — a proxy, an adapter, a spread copy — defeats it in silence, and
+  // every request then looks unclaimed. The first version of this comment documented that as an
+  // invariant callers had to keep. Review pointed out the contract already supplies what is needed:
+  // `getSession(): { getSessionId(): string }` (`session-contracts.ts`). Asking for the id turns an
+  // unenforceable requirement into no requirement at all.
+  //
+  // Entries are deleted in the stream's `finally`, so this does not grow with the number of
+  // sessions the host has ever served — which is what the weak keying was buying.
+  const turnsInFlight = new Set<string>();
+
+  /**
+   * The key one logical session is claimed under.
+   *
+   * A session that cannot name itself is not claimable, and `undefined` says so rather than
+   * inventing a key that would collide with every other unnameable session. The busy check below
+   * then falls through to `isExecuting()`, which needs no key.
+   */
+  const claimKey = (session: IInteractiveSession): string | undefined => {
+    try {
+      const id = session.getSession()?.getSessionId();
+      return typeof id === 'string' && id !== '' ? id : undefined;
+    } catch {
+      // allow-fallback: a session that throws while naming itself has not told us who it is, and
+      // guessing would claim the wrong turn. `isExecuting()` still guards this request.
+      return undefined;
+    }
+  };
 
   // POST /submit — execute prompt, stream events via SSE
   app.post('/submit', async (c) => {
@@ -93,10 +112,11 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // client, a previous process — invisible here, and this route would start a second one on a
     // session already running. Dropping the first is the race at the top of this comment. Neither
     // subsumes the other, so both are asked.
-    if (turnsInFlight.has(session) || session.isExecuting()) {
+    const claim = claimKey(session);
+    if ((claim !== undefined && turnsInFlight.has(claim)) || session.isExecuting()) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
-    turnsInFlight.add(session);
+    if (claim !== undefined) turnsInFlight.add(claim);
 
     return streamSSE(c, async (stream) => {
       // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
@@ -168,7 +188,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         for (const fn of cleanup) fn();
         // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
         // session it claimed.
-        turnsInFlight.delete(session);
+        if (claim !== undefined) turnsInFlight.delete(claim);
       }
     },
     // A stream callback that throws AFTER the response headers are out cannot be turned into an
