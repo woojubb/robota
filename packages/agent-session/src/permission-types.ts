@@ -126,14 +126,6 @@ export function toolFailure(
 }
 
 /**
- * The crash path, as one call: announce the failure to the listener and return an honest envelope.
- *
- * It lives beside the envelope rather than in the enforcer because the enforcer is at its size
- * ceiling and this is the same subject — what a failed tool call looks like. Two things happen here
- * and both are the point: before CORE-027 the catch returned `success: true` AND emitted no end
- * event at all, so a crash was invisible to the caller and to anything watching.
- */
-/**
  * What a crash announcement looks like, named rather than widened.
  *
  * The first version typed `announce` as taking a `Record<string, unknown>`, which the real
@@ -149,6 +141,14 @@ export interface IToolCrashAnnouncement {
   executionId?: string;
 }
 
+/**
+ * The crash path, as one call: announce the failure to the listener and return an honest envelope.
+ *
+ * It lives beside the envelope rather than in the enforcer because the enforcer is at its size
+ * ceiling and this is the same subject — what a failed tool call looks like. Two things happen here
+ * and both are the point: before CORE-027 the catch returned `success: true` AND emitted no end
+ * event at all, so a crash was invisible to the caller and to anything watching.
+ */
 export function reportToolCrash(
   error: unknown,
   announce: ((event: IToolCrashAnnouncement) => void) | undefined,

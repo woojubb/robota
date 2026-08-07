@@ -9,12 +9,6 @@
 import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
-import {
-  truncateToolResult,
-  buildHookInput,
-  runPreToolHook,
-  firePostToolHook,
-} from './tool-hook-helpers.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 
 import type {
@@ -26,14 +20,7 @@ import type {
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
-import type {
-  IToolWithEventService,
-  IToolResult,
-  TToolParameters,
-  IToolExecutionContext,
-  TToolArgs,
-  THooksConfig,
-} from '@robota-sdk/agent-core';
+import type { IToolWithEventService, TToolArgs, THooksConfig } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
@@ -104,12 +91,6 @@ export class PermissionEnforcer {
   clearSessionAllowedTools(): void {
     this.sessionAllowedTools.clear();
   }
-
-  /**
-   * Wrap a tool with permission checking.
-   * The wrapper intercepts execute() and runs permission evaluation before delegating.
-   * If denied, returns a tool result indicating the action was blocked.
-   */
 
   /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a
    * cancelled approval denies. */
