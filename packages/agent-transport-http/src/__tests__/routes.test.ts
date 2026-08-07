@@ -371,6 +371,68 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
    * the route itself documented: the check and the `await session.submit` inside `streamSSE` are
    * separated by awaits, so two requests arriving together both read `false` and both proceed.
    */
+  it('releases the claim when SETUP throws, not only when the turn does', async () => {
+    // A REGRESSION guard, labelled as one: it passes against both placements of the `try`, and that
+    // is worth saying rather than leaving as an implied red-proof.
+    //
+    // Review was right that the protected region should open at the claim — the subscription setup
+    // runs in a synchronous promise executor, outside where the `try` used to start. Measured, the
+    // session is released either way: the router swallows a throw from the stream callback and the
+    // `finally` runs regardless. So the correctness today does not depend on the placement; it
+    // depends on the router, which is not this route's to promise.
+    //
+    // The `try` opens at the claim anyway, because a claim whose release is not in the same region
+    // is a lock, and this case pins the observable outcome so a router that stopped swallowing would
+    // be caught here rather than by a session wedged at 409 forever.
+    let requests = 0;
+    const { session } = createHonestSession();
+    const realOn = session.on.bind(session);
+    session.on = ((event: string, handler: () => void) => {
+      if (requests === 0 && event === 'text_delta') throw new Error('listener cap reached');
+      return realOn(event as 'text_delta', handler);
+    }) as IInteractiveSession['on'];
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const post = async (prompt: string): Promise<Response> =>
+      app.request('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+    await (await post('the one that throws in setup')).text().catch(() => '');
+    requests += 1;
+    const after = await post('the one that must still be served');
+    await after.text();
+
+    expect(after.status, 'the session stayed claimed after setup threw').toBe(200);
+  });
+
+  it('does not refuse a DIFFERENT session because another one is busy', async () => {
+    // Review found this: the claim was a single flag on the router, but `sessionFactory` is
+    // documented as resolving a session per request — the example says "multi-tenant" in as many
+    // words. One tenant's turn refused every other tenant's, which is a worse defect than the race
+    // it closed: a busy neighbour is not a reason to refuse you.
+    const first = createHonestSession();
+    const second = createHonestSession();
+    let call = 0;
+    const app = createAgentRoutes({
+      sessionFactory: () => (call++ === 0 ? first.session : second.session),
+    });
+    const post = async (prompt: string): Promise<Response> =>
+      app.request('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+    const both = await Promise.all([post('tenant A'), post('tenant B')]);
+    await Promise.all(both.map((r) => r.text()));
+
+    expect(both.map((r) => r.status)).toEqual([200, 200]);
+    expect(first.startedTurns()).toBe(1);
+    expect(second.startedTurns(), 'a second tenant was refused because the first was busy').toBe(1);
+  });
+
   it('starts exactly one turn, and answers the other 409', async () => {
     // The window is REAL, and review found it after the first version of this case declared it was
     // not. Measured: `submit()` opens with `await ensureInitialized()`, an unconditional suspension

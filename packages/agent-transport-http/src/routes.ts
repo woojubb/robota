@@ -34,8 +34,16 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const { sessionFactory } = options;
   const app = new Hono();
 
-  // RUNTIME-38: claimed by the route, not read from the session — see the note at the check below.
-  let turnInFlight = false;
+  // RUNTIME-38: claimed by the route, PER SESSION — see the note at the check below.
+  //
+  // A single flag was the first version, and review found what it cost: `sessionFactory` resolves a
+  // session per request (the documented multi-tenant shape), so one tenant's turn refused every
+  // other tenant's. A busy neighbour is not a reason to refuse you — that is a worse defect than the
+  // race it closed.
+  //
+  // Keyed WEAKLY, so a session the host stops handing out is collected with it rather than pinned
+  // here forever by a claim nobody will ever release.
+  const turnsInFlight = new WeakSet<IInteractiveSession>();
 
   // POST /submit — execute prompt, stream events via SSE
   app.post('/submit', async (c) => {
@@ -59,65 +67,70 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // A synchronous flag on the route closes it because there is no suspension point between reading
     // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
     // the route wedged.
-    if (turnInFlight) {
+    if (turnsInFlight.has(session)) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
-    turnInFlight = true;
+    turnsInFlight.add(session);
 
     return streamSSE(c, async (stream) => {
+      // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
+      // It used to open just before `await session.submit`, leaving the subscription setup between
+      // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
+      // nothing to release it, and every later request to it got 409 forever. A claim whose release
+      // is not in the same protected region is a lock, not a claim.
       const cleanup: Array<() => void> = [];
-
-      const subscribe = <T>(event: string, handler: (data: T) => void): void => {
-        session.on(event as 'text_delta', handler as () => void);
-        cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
-      };
-
-      // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
-      // not an unhandled rejection (post-headers errors bypass Hono's onError).
-      const write = (event: string, data: unknown): Promise<void> =>
-        stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
-          // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-          // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
-        });
-
-      const done = new Promise<void>((resolve) => {
-        subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-        subscribe('tool_start', (state) => void write('tool_start', state));
-        subscribe('tool_end', (state) => void write('tool_end', state));
-        subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
-
-        subscribe('complete', async (result) => {
-          // Flush the terminal event before resolving, so the resolve → cleanup →
-          // stream-close continuation cannot race ahead of the write.
-          await write('complete', result);
-          resolve();
-        });
-        subscribe('interrupted', async (result) => {
-          await write('interrupted', result);
-          resolve();
-        });
-        subscribe('error', async (error: Error) => {
-          await write('error', { message: error.message });
-          resolve();
-        });
-
-        // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-        // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-        stream.onAbort(() => {
-          session.abort();
-          resolve();
-        });
-      });
-
       try {
+        const subscribe = <T>(event: string, handler: (data: T) => void): void => {
+          session.on(event as 'text_delta', handler as () => void);
+          cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
+        };
+
+        // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
+        // not an unhandled rejection (post-headers errors bypass Hono's onError).
+        const write = (event: string, data: unknown): Promise<void> =>
+          stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
+            // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
+            // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+          });
+
+        const done = new Promise<void>((resolve) => {
+          subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
+          subscribe('tool_start', (state) => void write('tool_start', state));
+          subscribe('tool_end', (state) => void write('tool_end', state));
+          subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
+
+          subscribe('complete', async (result) => {
+            // Flush the terminal event before resolving, so the resolve → cleanup →
+            // stream-close continuation cannot race ahead of the write.
+            await write('complete', result);
+            resolve();
+          });
+          subscribe('interrupted', async (result) => {
+            await write('interrupted', result);
+            resolve();
+          });
+          subscribe('error', async (error: Error) => {
+            await write('error', { message: error.message });
+            resolve();
+          });
+
+          // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
+          // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
+          stream.onAbort(() => {
+            session.abort();
+            resolve();
+          });
+        });
+
         await session.submit(body.prompt);
         await done;
       } finally {
         // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
         // event listeners can never leak.
         for (const fn of cleanup) fn();
-        // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the route.
-        turnInFlight = false;
+        // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
+        // session it claimed.
+        turnsInFlight.delete(session);
       }
     });
   });
