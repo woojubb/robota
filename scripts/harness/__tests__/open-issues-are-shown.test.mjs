@@ -45,8 +45,12 @@ done
 }
 
 /** Run the hook with a stand-in `gh` at the front of PATH. */
-function runHook(mode, { ghScript, projectDir } = {}) {
+function runHook(mode, { ghScript, projectDir, deadlineSeconds } = {}) {
   const env = { ...process.env };
+  // The deadline belongs to `bounded-gh.sh` and defaults to 10s. A case about the deadline sets it
+  // rather than waiting it out — otherwise the suite's own timeout fires first and the case reports
+  // on the harness instead of on the hook.
+  if (deadlineSeconds !== undefined) env.HOOK_GH_DEADLINE_SECONDS = String(deadlineSeconds);
   if (projectDir !== undefined) env.CLAUDE_PROJECT_DIR = projectDir;
   if (ghScript !== undefined) {
     const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
@@ -94,10 +98,13 @@ describe('open issues are shown where the choice is made', () => {
     // hanging `gh`: under `set -e` the failing substitution KILLED the script, the whole session
     // notice vanished, and the hook exited 0 as if it had nothing to say. Silence on an error is the
     // one thing a hook may not do.
-    const { status, output } = runHook('start', { ghScript: `#!/bin/sh\nsleep 30\n` });
+    const { status, output } = runHook('start', {
+      ghScript: `#!/bin/sh\nsleep 30\n`,
+      deadlineSeconds: 1,
+    });
 
     expect(status).toBe(0);
-    expect(output).toMatch(/did not answer within/);
+    expect(output).toMatch(/deadline expired/);
     expect(output, "a timeout must not read as 'none open'").toMatch(/not asked/);
   });
 

@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# One deadline for every network call a hook makes while deciding — see lib/bounded-gh.sh.
+# shellcheck source=lib/bounded-gh.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/bounded-gh.sh"
+
 MODE="${1:-}"
 if [[ "$MODE" != "start" && "$MODE" != "stop" ]]; then
   echo "[task-tracking] Usage: task-tracking.sh <start|stop>" >&2
@@ -40,13 +44,17 @@ TASKS_DIR="$PROJECT_DIR/.agents/tasks"
 # "reported at session start" while the code did it twice, which is the class this repository keeps
 # paying for — a comment describing something the code does not do.
 #
-# TIMED OUT for the same reason it is start-only. Every other check in this file is a local grep; this
-# is the one network call, and a hook that hangs holds up the session it was meant to inform. Five
-# seconds, and a timeout is reported rather than swallowed — "could not ask" and "nothing to report"
-# are different answers and a reader must be able to tell them apart.
+# BOUNDED by `bounded_gh`, which this directory already owns. The first version hand-rolled
+# `timeout 5s` — a second way to put a deadline on a `gh` call, and the wrong one: `timeout` is absent
+# on a stock macOS, so the bound would have been true on one platform and silently false on the other,
+# with the untested path being the one nobody runs. That is the defect `bounded-gh.sh` was extracted
+# to fix (INFRA-087), reintroduced by me next door. Review caught it.
+#
+# Its exit codes carry the distinction this notice exists for: 2 is "the deadline expired", 1 is "gh
+# is absent or failed", and neither may read as "nothing to report".
 #
 # Best-effort otherwise: `gh` may be absent or unauthenticated and a session must still start.
-if [[ "$MODE" == "start" ]] && command -v gh >/dev/null 2>&1; then
+if [[ "$MODE" == "start" ]]; then
   # One more than shown, so "there are more" is MEASURED rather than inferred from hitting the cap.
   # `--limit 20` returns 20 whether 20 or 200 are open, and a check for "exactly the cap" says
   # "there may be more" when there are exactly twenty and no more — a notice that cries wolf is one
@@ -58,10 +66,10 @@ if [[ "$MODE" == "start" ]] && command -v gh >/dev/null 2>&1; then
   # session notice vanished and the hook exited 0 as if it had nothing to say. Silence on an error
   # is the one thing a hook may not do (enforcement-architecture.md).
   ISSUE_STATUS=0
-  OPEN_ISSUES=$(timeout 5s gh issue list --state open --limit "$ISSUE_LIMIT" \
-    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null) || ISSUE_STATUS=$?
-  if [[ $ISSUE_STATUS -eq 124 ]]; then
-    echo "[task-tracking] Could not list open GitHub issues: the API did not answer within 5s."
+  OPEN_ISSUES=$(bounded_gh issue list --state open --limit "$ISSUE_LIMIT" \
+    --json number,title --jq '.[] | "  - #\(.number) \(.title)"') || ISSUE_STATUS=$?
+  if [[ $ISSUE_STATUS -eq 2 ]]; then
+    echo "[task-tracking] Could not list open GitHub issues: the deadline expired."
     echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
     echo ""
   elif [[ $ISSUE_STATUS -ne 0 ]]; then
