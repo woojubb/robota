@@ -7,14 +7,17 @@
  * caller waits forever on a turn that will never run.
  */
 
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId, TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
 
 import type { IQueuedInput } from './interactive-session-execution-controller.js';
 import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
 
 export interface IQueueSettlers {
   /** Tell the holder of this submission's handle that it will never run. */
-  refuse: (turnId: string | undefined, reason: 'coalesced' | 'dropped' | 'cancelled') => void;
+  // The reason type comes from the contract that owns it. Spelling the members here again would be
+  // a second vocabulary to keep in step — and this file's own subject is a queue whose members
+  // changed once already in review ('shutdown' was removed as unreachable).
+  refuse: (turnId: string | undefined, reason: TTurnNotRunReason) => void;
   /** Release a wake gate for an entry that will never run (CORE-024/RUNTIME-19). */
   releaseWake: (wakeTaskId: string) => void;
 }

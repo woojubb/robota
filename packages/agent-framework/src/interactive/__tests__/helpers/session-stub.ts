@@ -6,6 +6,10 @@
  * does not return and no case reads — and a stub that disagrees with the thing it stands in for is a
  * test passing about something else.
  *
+ * Both of those files now call this, which is worth stating because the first version of this file
+ * claimed the deduplication while leaving them untouched: a helper nobody migrated to is a fourth
+ * copy, not one fewer. Review caught that.
+ *
  * `overrides` is where a case says what it actually cares about; everything else answers the way a
  * real session would for a test that never exercises it.
  */
