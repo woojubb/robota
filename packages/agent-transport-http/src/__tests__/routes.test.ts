@@ -330,7 +330,10 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
     const session = createTestInteractiveSession({
       submit: async (prompt: string) => {
         reached.push(`submit:${prompt}`);
-        return { turnId: 'recording-turn', completed: Promise.resolve() } as never;
+        // No cast. `submit` returns void on this branch, and the typed override says so — the
+        // earlier `as never` would have accepted a handle here and compiled, which is the blindness
+        // the conformant double exists to remove. (RUNTIME-003 changes this return type; that lands
+        // on its own branch, and the type is what will tell this file about it.)
       },
       executeCommand: async (name: string) => {
         reached.push(`command:${name}`);
