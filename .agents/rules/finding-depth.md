@@ -25,7 +25,10 @@ first two forces a guess whenever neither is true.
   unfixed code and watch it fail (`tdd-and-planning`, `check-regression-red-proof`).
 - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. It MUST NOT
   be patched in place. File the root item, register its GitHub issue, and choose **re-plan** or
-  **labelled containment** — never a third option.
+  **labelled containment** — never a third option. The registered issue is not a filing cabinet: an
+  OPEN GitHub issue outranks unfiled backlog work when choosing what to do next, and stays ahead of
+  it until it is closed. A foundational defect that everyone agrees is foundational and nobody
+  schedules is the same defect, now with a paper trail.
 - **INVALID** — the premise does not hold. Nothing to fix; record what the code actually does. A
   wrong finding must not drive a change.
 - **UNDETERMINED** — the verdict could not be reached, naming the specific thing that would settle

@@ -54,6 +54,29 @@ for f in "$TASKS_DIR"/*.md; do
   ACTIVE_TASKS+=("$basename")
 done
 
+# --- Open GitHub issues ---------------------------------------------------------------------------
+#
+# finding-depth.md says a FOUNDATIONAL finding is filed as a root item AND registered as a GitHub
+# issue, and that an open issue outranks unfiled backlog work when choosing what to do next. Nothing
+# showed those issues to anyone, so the filing was the end of the story rather than the start of it —
+# four sat open while unrelated work was picked instead.
+#
+# Reported at session start, beside the other "what is already outstanding" notice, because that is
+# when the choice of what to work on is actually made.
+#
+# Best-effort by design: `gh` may be absent or unauthenticated, and a session must still start. That
+# is the one place this file tolerates silence, and it says so rather than leaving the reader to
+# wonder whether there were no issues or no way to ask.
+if command -v gh >/dev/null 2>&1; then
+  OPEN_ISSUES=$(gh issue list --state open --limit 20 \
+    --json number,title --jq '.[] | "  - #\(.number) \(.title)"' 2>/dev/null || true)
+  if [[ -n "$OPEN_ISSUES" ]]; then
+    echo "OPEN GitHub issues — these outrank unfiled backlog work (finding-depth.md):"
+    echo "$OPEN_ISSUES"
+    echo ""
+  fi
+fi
+
 if [[ ${#ACTIVE_TASKS[@]} -eq 0 ]]; then
   exit 0
 fi
