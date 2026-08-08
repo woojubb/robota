@@ -9,11 +9,12 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import { relayTurn, reportStreamFailure } from './submit-stream.js';
+import { relayTurn } from './submit-stream.js';
 import { createTurnClaims } from './turn-claims.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { TStreamFailureListener } from './submit-stream.js';
 import type { ITurnClaims } from './turn-claims.js';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
 /**
@@ -38,6 +39,12 @@ export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInt
 export interface IAgentRoutesOptions {
   /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: TSessionFactory;
+  /**
+   * Where the DETAIL of a post-headers stream failure goes (the client gets only a generic line —
+   * see `submit-stream.ts`). Injected per the side-concern rule: the host decides the destination,
+   * and absent means the host chose to drop it.
+   */
+  onStreamFailure?: TStreamFailureListener;
 }
 
 /**
@@ -47,7 +54,11 @@ export interface IAgentRoutesOptions {
  * routes and this one carries the admission decision; inlining it made the factory four times the
  * length of every other route in it.
  */
-function submitHandler(sessionFactory: TSessionFactory, claims: ITurnClaims) {
+function submitHandler(
+  sessionFactory: TSessionFactory,
+  claims: ITurnClaims,
+  onStreamFailure?: TStreamFailureListener,
+) {
   return async (c: Context) => {
     const session = await sessionFactory(c);
     const body = await c.req.json<{ prompt: string }>();
@@ -115,10 +126,13 @@ function submitHandler(sessionFactory: TSessionFactory, claims: ITurnClaims) {
     // `streamSSE` itself throw synchronously would mean stubbing Hono's internals, which tests the
     // stub rather than the route. This is defensive code for a path Hono does not currently take.
     try {
+      // NO third argument, deliberately: Hono's runner follows any `onError` by writing the raw
+      // `e.message` to the stream, so the only leak-proof shape is a callback nothing escapes —
+      // `relayTurn` catches its own failures and reports them generically. An onError here would be
+      // dead code that turns into a leak the day it stops being dead.
       return streamSSE(
         c,
-        relayTurn(session, body.prompt, () => claims.release(claim)),
-        reportStreamFailure,
+        relayTurn(session, body.prompt, () => claims.release(claim), onStreamFailure),
       );
     } catch (error) {
       claims.release(claim);
@@ -138,7 +152,7 @@ function submitHandler(sessionFactory: TSessionFactory, claims: ITurnClaims) {
  * ```
  */
 export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
-  const { sessionFactory } = options;
+  const { sessionFactory, onStreamFailure } = options;
   const app = new Hono();
 
   // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
@@ -146,7 +160,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const claims = createTurnClaims();
 
   // POST /submit — execute prompt, stream events via SSE
-  app.post('/submit', submitHandler(sessionFactory, claims));
+  app.post('/submit', submitHandler(sessionFactory, claims, onStreamFailure));
 
   // POST /command — execute system command
   app.post('/command', async (c) => {

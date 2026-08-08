@@ -8,9 +8,9 @@ HTTP transport (Hono) for the Robota SDK. Split out of the consolidated `agent-t
 ## Boundaries
 
 - Owns the Hono-based HTTP transport adapter and agent route builder.
-- Depends on `agent-interface-transport` (transport contracts) and `agent-core` (the shared
-  `createLogger` — the host-side channel for a stream failure whose detail must not cross the trust
-  boundary; see § Error Taxonomy).
+- Depends only on `agent-interface-transport` (transport contracts) — contract-pure, per
+  `project-structure.md`. The one side concern (where a stream-failure detail goes) is INJECTED
+  (`IAgentRoutesOptions.onStreamFailure`), not imported; see § Error Taxonomy.
 - No other transport package depends on this one.
 
 ## Architecture Overview
@@ -75,7 +75,14 @@ What crosses the boundary is split by who wrote the message. The session's `erro
 verbatim on the SSE `error` channel — it is the session's client-facing wording (`humanizeApiError`)
 and the WS transport relays it identically. An exception ESCAPING the stream callback after the
 headers went out is not a message anything composed for a client: the client gets a generic line and
-the detail goes to the package logger, the same withholding the `/submit` 500 branch practices.
+the detail goes to the host's injected `onStreamFailure` listener (absent = the host chose to drop
+it), the same withholding the `/submit` 500 branch practices.
+
+The callback swallows its own failures rather than passing an `onError` to `streamSSE`, and that is
+load-bearing: Hono's runner follows any `onError` by writing the raw `e.message` to the stream, so
+an escaped exception reaches the client verbatim regardless of what the handler withheld. Measured —
+the body carried two error events, the generic line and the leak — and pinned by a test asserting
+the raw message is absent from the body.
 
 ## Test Strategy
 
@@ -84,5 +91,4 @@ Route + transport unit tests under `src/__tests__`.
 ## Dependencies
 
 - `@robota-sdk/agent-interface-transport`.
-- `@robota-sdk/agent-core` (logger only).
 - External: `hono`.
