@@ -24,11 +24,16 @@ protocol is shared, not duplicated.
   degraded path (no-fallback rule).
 - **No enable path here.** `defaultEnabled` is `false`, the transport is NOT registered in `agent-cli`, and there is
   no `/remote-control` command; the enable path (command + composition-root wiring + QR) is REMOTE-008 Steps 2-4.
-- **Pairing gate (REMOTE-008 Step 1) is opt-in via the `secret` option.** With a `secret`, the data channel is
-  phase-separated: pre-accept it carries only pairing frames (routed to the handshake; non-pairing frames DROPPED),
-  and only after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built —
-  fail closed on mismatch/timeout (channel closed, session never exposed). Without a `secret` (loopback/tests) the
-  channel is exposed immediately, unchanged.
+- **Admission is decided at construction, and there is no unstated default (SEC-008).** With a `secret`, the data
+  channel is phase-separated: pre-accept it carries only pairing frames (routed to the handshake; non-pairing frames
+  DROPPED), and only after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built
+  — fail closed on mismatch/timeout (channel closed, session never exposed).
+
+  Without a `secret` the constructor THROWS unless the caller passes `{ open: true, openReason: '…' }`. Running
+  ungated is a decision someone has to make and write down; it used to be what happened when nobody said anything,
+  which is the shape SEC-008 removed. `secret` together with `open: true` is contradictory and also throws. The
+  written-reason requirement lives in `resolveAdmission` in `@robota-sdk/agent-transport-protocol`, so the sibling
+  transports cannot drift apart on what counts as an answer.
 
 ## Architecture Overview
 
@@ -59,12 +64,12 @@ reserved for E4). Without `reconnect`, the gate is exactly the B4 first-pair-onl
 
 ## Type Ownership
 
-| Type                                 | Location                  | Purpose                                                                                       |
-| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------- |
-| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling, optional ICE servers, optional pairing `secret`).   |
-| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                                             |
-| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.                                        |
-| `PairingGate`, `IPairingGateOptions` | `src/pairing-gate.ts`     | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept). |
+| Type                                 | Location                  | Purpose                                                                                                                     |
+| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `IWebRtcTransportOptions`            | `src/webrtc-transport.ts` | Construction options (injected signaling, optional ICE servers, pairing `secret` OR `open`+`openReason` — one is required). |
+| `ISignalingClient`, `ISignalMessage` | `src/signaling.ts`        | Signaling port + opaque SDP/ICE message envelope.                                                                           |
+| `IWeriftModule`, `TModuleResolver`   | `src/werift-loader.ts`    | Lazy-loaded werift surface + injectable resolver seam.                                                                      |
+| `PairingGate`, `IPairingGateOptions` | `src/pairing-gate.ts`     | REMOTE-008 fail-closed routing switch (pairing frames → handshake; session only post-accept).                               |
 
 `TClientMessage`/`TServerMessage`/`IWsHandlerOptions` are re-consumed from `@robota-sdk/agent-transport-protocol`
 (their SSOT) — this package does not re-declare them.

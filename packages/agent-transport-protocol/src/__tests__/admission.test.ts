@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { resolveAdmission } from '../admission.js';
+import { bearerCredential, resolveAdmission } from '../admission.js';
 
 const OPEN_REASON = 'loopback only, the port is bound to 127.0.0.1';
 
@@ -94,5 +94,37 @@ describe('resolveAdmission refuses a contradiction', () => {
     expect(resolveAdmission({ token: 'a-credential', open: false })).toEqual({
       token: 'a-credential',
     });
+  });
+});
+
+describe('bearerCredential reads the header the way RFC 7235 defines it', () => {
+  it('matches the SCHEME without regard to case', () => {
+    // `auth-scheme` is a token, and tokens compare case-insensitively. The exact-case match refused
+    // a conformant client with a 401 it could not act on — a refusal that reads as a server bug and
+    // gets worked around rather than fixed. Review found it.
+    expect(bearerCredential('bearer abc123')).toBe('abc123');
+    expect(bearerCredential('BEARER abc123')).toBe('abc123');
+    expect(bearerCredential('BeArEr abc123')).toBe('abc123');
+  });
+
+  it('leaves the CREDENTIAL exactly as sent', () => {
+    // Only the scheme is case-insensitive. The credential is compared byte for byte, so folding it
+    // would make two different secrets the same secret.
+    expect(bearerCredential('Bearer AbC')).toBe('AbC');
+  });
+
+  it('accepts more than one space between the two', () => {
+    expect(bearerCredential('Bearer   abc123')).toBe('abc123');
+    expect(bearerCredential('Bearer\tabc123')).toBe('abc123');
+  });
+
+  it('refuses a header that merely STARTS with the word', () => {
+    // `Bearerness xyz` is a different scheme, and reading it as a bearer token would admit a peer
+    // that never claimed to be one.
+    expect(bearerCredential('Bearerness xyz')).toBeUndefined();
+    expect(bearerCredential('Basic abc123')).toBeUndefined();
+    expect(bearerCredential('Bearer')).toBeUndefined();
+    expect(bearerCredential('Bearer ')).toBeUndefined();
+    expect(bearerCredential(undefined)).toBeUndefined();
   });
 });

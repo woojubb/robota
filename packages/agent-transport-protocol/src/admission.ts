@@ -122,11 +122,19 @@ export function credentialMatches(expected: string, presented: string | undefine
 /**
  * Extract a bearer credential from an `Authorization` header value.
  *
- * Returns `undefined` for anything that is not exactly a bearer token, including a header that
- * merely starts with the right word — a peer sending `Bearerness xyz` is sending something else.
+ * Returns `undefined` for anything that is not a bearer token, including a header that merely
+ * starts with the right word — a peer sending `Bearerness xyz` is sending something else.
+ *
+ * The SCHEME is matched case-insensitively, per RFC 7235: `auth-scheme` is a token and tokens are
+ * compared without regard to case, so `bearer …` and `BEARER …` are the same request. Review found
+ * the exact-case match; it failed safe, refusing a conformant client with a 401 it could not act on,
+ * which is the kind of refusal that gets read as a server bug and worked around rather than fixed.
+ * The credential itself is untouched — it is not a token in that sense and its case is significant.
+ *
+ * Separator: one or more spaces or tabs, not exactly one space. That is the same clause's `BWS`.
  */
 export function bearerCredential(header: string | undefined | null): string | undefined {
   if (!header) return undefined;
-  const match = /^Bearer (.+)$/.exec(header);
+  const match = /^Bearer[ \t]+(.+)$/i.exec(header);
   return match?.[1];
 }
