@@ -1,5 +1,9 @@
 # Tools Specification
 
+## Browser Surface (CORE-028)
+
+browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry whose graph does not reach the file-tool sandbox. Measured rather than assumed — the built browser bundle contains no `node:` builtin and no `isPathInside`.
+
 ## Scope
 
 Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides the ergonomic tool-construction factories (`createFunctionTool`, `createZodFunctionTool`) — which construct the `FunctionTool` class owned by `@robota-sdk/agent-core` (DATA-005 SSOT) — and a set of 10 built-in CLI tools (`shell`, `bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`, `askUserQuestion`) used by the agent CLI.

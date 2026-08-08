@@ -87,6 +87,13 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `finder(bare)`: throws `packages missing from <root>`.
+    file: 'scan-browser-package-node-subpath.mjs',
+    finder: 'findBrowserNodeSubpathFindings',
+    tree: 'packages',
+    why: 'it asks which packages promising a browser build import a Node-only subpath; over a root with no packages none does, and "nobody violated it" reads exactly like "the rule holds"',
+  },
+  {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `.github/workflows does not exist`.
     file: 'scan-ci-concurrency-footprint.mjs',

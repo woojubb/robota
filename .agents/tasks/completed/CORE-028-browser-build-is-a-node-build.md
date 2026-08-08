@@ -1,6 +1,7 @@
 ---
 title: 'CORE-028: `agent-core`''s "browser" build is a Node build, and every browser product hand-writes stubs around it'
-status: todo
+status: done
+completed: 2026-08-06
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -29,7 +30,8 @@ Observed independently by **L0 (foundation, the cause)** and **L4 (product, the 
   `tsdown.config.ts` builds `dist/browser` from the _same_ barrel as the Node build; that barrel
   re-exports Node-only modules: `src/utils/index.ts:2-8` (`./path-containment` → `node:fs`,
   `node:path`) and `src/hooks/index.ts:4` (`CommandExecutor`, `HttpExecutor` → `node:child_process`).
-- L4 F1 — `packages/agent-core/dist/browser/index.js:1`:
+- L4 F1 — the browser bundle's first line, quoted from a build of the pre-fix tree (the artifact is
+  not committed, so this is the reading rather than a path that resolves):
   `import{randomUUID as e}from"node:crypto";import{realpathSync as t}from"node:fs";import{basename as n,…}from"node:path";import s from"jssha";import{spawn as c}from"node:child_process";`
   Root-cause sites named by L4 and not by L0: `utils/path-containment.ts:19-20`,
   `hooks/executors/command-executor.ts:10`, and five `randomUUID` importers —
@@ -128,3 +130,41 @@ observable in the repo's own browser product.
 - **Cleanup:** delete the scratch consumer project.
 - **Evidence (fill in after implementation):** build output for the un-aliased consumer, plus a
   browser console screenshot/log showing no `TypeError` on the exercised path.
+
+## Resolution — the browser entry's static graph reaches no Node builtin
+
+Measured before and after, on the shipped artifact rather than the source:
+
+```
+before:  node:child_process, node:fs, node:path
+after :  (none)
+```
+
+### What moved, and why each way
+
+**`path-containment` and the hook executors left the shared barrel.** They now live behind a `./node`
+subpath a consumer asks for by name. Building one export condition from a barrel that re-exports
+Node-only modules was the cause the item named, and a subpath is the smallest thing that makes the
+barrel able to satisfy both conditions. Seven consumers moved with them — three found by the obvious
+search and four more only when the build failed, because `packages/dag-nodes/*` is nested a level
+deeper than the glob that found the first three.
+
+**The default hook executors load through `import()`.** `CommandExecutor` imports
+`node:child_process` and `hook-runner` constructed it eagerly, so the specifier was in the static
+graph even for a caller that supplies its own executors. `runHooks` was already async and the
+default is reached on exactly one branch, so nothing above changed shape.
+
+The lazily-loaded chunk still carries `node:child_process`, and that is the honest end state rather
+than a remaining defect. A browser caller supplying its own executors never loads it; one that does
+not gets a real module-not-found — which is precisely what the aliasing workaround was hiding when it
+resolved `child_process` to an empty object and deferred the failure into a user's page.
+
+### The build-time assertion the item required
+
+It already existed: `browser-bundle-node-builtins.test.mjs`, whose `KNOWN_REMAINING` list is the
+tracked debt. This change empties it, which is the assertion's own record of the fix.
+
+A second scan was written before that file was found, reading the artifact and following static
+edges. It was **withdrawn rather than landed** — two checks over one property is the forked-answer
+defect this repository keeps paying for, and the existing one is better placed: it already
+distinguishes the source check from the bundle check and says so when it skips.

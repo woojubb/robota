@@ -11,7 +11,7 @@
  */
 import { resolve } from 'node:path';
 
-import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core';
+import { canonicalizePath, isPathInside } from '@robota-sdk/agent-core/node';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
