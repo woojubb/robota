@@ -89,7 +89,12 @@ async function until(predicate: () => boolean, label: string, timeoutMs = 5000):
 
 describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
   it('carries interleaved text deltas, opaque binary frames, and a custom event on one connection', async () => {
-    const transport = new WsTransport({ port: 17840, maxRetries: 40, open: true });
+    const transport = new WsTransport({
+      port: 17840,
+      maxRetries: 40,
+      open: true,
+      openReason: 'SEC-008: this case is about payload channels, not admission',
+    });
     const channel = transport.registerChannel<{ manifest: { name: string; size: number } }>({
       name: 'file',
       events: ['manifest'],
@@ -152,7 +157,12 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
   });
 
   it('reassembles an opaque upload sent by the client, byte-identically and in order', async () => {
-    const transport = new WsTransport({ port: 17860, maxRetries: 40, open: true });
+    const transport = new WsTransport({
+      port: 17860,
+      maxRetries: 40,
+      open: true,
+      openReason: 'SEC-008: this case is about payload channels, not admission',
+    });
     const channel = transport.registerChannel({ name: 'upload', events: [], binary: true });
     transport.attach(emittingSession());
     await transport.start();
@@ -184,7 +194,12 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
   });
 
   it('answers an unroutable inbound frame with a protocol_error instead of dropping it', async () => {
-    const transport = new WsTransport({ port: 17880, maxRetries: 40, open: true });
+    const transport = new WsTransport({
+      port: 17880,
+      maxRetries: 40,
+      open: true,
+      openReason: 'SEC-008: this case is about payload channels, not admission',
+    });
     transport.attach(emittingSession());
     await transport.start();
     started.push(transport);
@@ -211,7 +226,12 @@ describe('WsTransport payload-agnostic channels (TRANS-001 e2e)', () => {
   });
 
   it('keeps the text-agent profile working when no channel is registered at all', async () => {
-    const transport = new WsTransport({ port: 17900, maxRetries: 40, open: true });
+    const transport = new WsTransport({
+      port: 17900,
+      maxRetries: 40,
+      open: true,
+      openReason: 'SEC-008: this case is about payload channels, not admission',
+    });
     const session = emittingSession();
     transport.attach(session);
     await transport.start();

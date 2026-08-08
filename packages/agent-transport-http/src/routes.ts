@@ -9,7 +9,16 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import {
+  bearerCredential,
+  credentialMatches,
+  resolveAdmission,
+} from '@robota-sdk/agent-transport-protocol';
+import type {
+  IInteractiveSession,
+  ITransportAdmission,
+  ITransportAdmissionConfig,
+} from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
 /** Callback that resolves an IInteractiveSession from the request context. */
@@ -18,6 +27,14 @@ export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInt
 export interface IAgentRoutesOptions {
   /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: TSessionFactory;
+  /**
+   * SEC-008: what a peer must present to reach the session. REQUIRED — there is no shape of this
+   * option that means "I did not think about it", which is the state these routes shipped in.
+   *
+   * `{ open: true, openReason: '…' }` still runs with no credential, and that is a legitimate answer
+   * for a host that has its own boundary in front. It just has to be written down.
+   */
+  admission: ITransportAdmissionConfig | ITransportAdmission;
 }
 
 /**
@@ -33,6 +50,39 @@ export interface IAgentRoutesOptions {
 export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const { sessionFactory } = options;
   const app = new Hono();
+
+  // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
+  // build rather than serving without one. Resolving per request would also mint a new token per
+  // request, which no peer could ever present.
+  // Either shape goes in: `resolveAdmission` is idempotent, so an already-resolved admission comes
+  // back unchanged and a config is resolved. `http-transport.ts` therefore does not have to take
+  // its resolved admission apart and rebuild a config for this to resolve again — two resolutions
+  // of one decision, and a mint on the second if the first had opened without a reason (review).
+  //
+  // This used to pick between the two with `'token' in options.admission`, and review showed that
+  // cannot work: BOTH interfaces declare a `token`, so the shapes differ only by VALUE. A config of
+  // `{ token: '' }` — documented as "mint a fresh one" — was read as pre-resolved and installed the
+  // EMPTY STRING as the required credential, which a peer sending an empty bearer would match. The
+  // discriminator is gone rather than repaired; there is nothing here left to get wrong.
+  const admission = resolveAdmission(options.admission);
+
+  /**
+   * The trust boundary, installed BEFORE every route rather than checked inside each one.
+   *
+   * Before this, `POST /submit` reached `session.submit` and `POST /command` reached
+   * `session.executeCommand` with nothing in between — remote arbitrary execution with no gate, and
+   * an unauthenticated request looked exactly like an authorised one in both directions.
+   *
+   * A missing credential and a wrong one get the same answer, deliberately: telling them apart tells
+   * a caller which half they got right.
+   */
+  app.use('*', async (c, next) => {
+    if (admission.token === null) return next();
+    if (credentialMatches(admission.token, bearerCredential(c.req.header('authorization')))) {
+      return next();
+    }
+    return c.json({ error: 'unauthorized' }, 401);
+  });
 
   // POST /submit — execute prompt, stream events via SSE
   app.post('/submit', async (c) => {
@@ -118,7 +168,11 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'name is required' }, 400);
     }
 
-    const result = await session.executeCommand(body.name, body.args ?? '');
+    // SEC-008: 'remote', not the default 'user'. A peer over HTTP is not the person at the keyboard,
+    // and defaulting to the local operator both mis-attributes the call and skips the 'remote' policy
+    // seam that exists to treat the two differently. Admission decided WHO may reach the session; it
+    // does not say who they are. (The MCP adapter had the same defect; this is its sibling.)
+    const result = await session.executeCommand(body.name, body.args ?? '', 'remote');
     if (!result) {
       return c.json({ error: `Unknown command: ${body.name}` }, 404);
     }

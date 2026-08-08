@@ -1,5 +1,9 @@
 # agent-transport-mcp Specification
 
+## Transport Admission (SEC-008)
+
+transport-admission: none — the MCP server speaks over stdio to a client process the user launched, so the boundary is process spawn: a peer that can write to this stdin already runs as the user. What this package DOES enforce is what that peer may reach — SEC-008 stops it being offered commands marked `modelInvocable: false`, and attributes its calls as `'remote'` rather than as the local operator.
+
 ## Scope
 
 Model Context Protocol (MCP) server transport for the Robota SDK. Split out of the consolidated
