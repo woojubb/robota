@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DECLARATION_FILE,
   findRequiredCheckFindings,
-  jobExcludesMain,
+  jobConditionProblem,
   jobNeeds,
   pullRequestTrigger,
   splitJobSteps,
@@ -241,27 +241,10 @@ ${SUBSTANTIVE_JOB}`;
     expect(details.some((detail) => detail.includes('[R5]'))).toBe(true);
   });
 
-  it('[R6] is RED when a required job needs a job that is main-excluded', async () => {
-    const workflow = `${TRIGGER}  gate:
-    name: gate
-    runs-on: ubuntu-latest
-    if: github.base_ref != 'main'
-    steps:
-      - run: echo gate
-  release-grade-verify:
-    name: release-grade verification
-    runs-on: ubuntu-latest
-    needs: gate
-    steps:
-      - run: pnpm harness:verify:release
-`;
-    const root = await fixture({
-      workflow,
-      contexts: [entry('release-grade verification', 'release-grade-verify')],
-    });
-    const details = findRequiredCheckFindings(root).map((finding) => finding.detail);
-    expect(details.some((detail) => detail.includes('[R6]'))).toBe(true);
-  });
+  // R6 — "a required job needs a job that is main-excluded" — was removed by a harness audit that
+  // measured it down to zero live subjects, and this fixture moved with the rule to
+  // `scan-required-check-needs.test.mjs`, which is now the sole owner of the `needs:` graph. Its
+  // red was reproduced there before the rule was deleted, so the coverage moved rather than ending.
 
   it('[R1] is RED when the job publishes a different context name', async () => {
     const root = await fixture({
@@ -303,16 +286,31 @@ describe('scan-main-required-checks parsing helpers', () => {
   });
 
   it('whitelists job conditions rather than blacklisting one spelling', () => {
-    // Admissible: no condition, or exactly `== main` in either quote style.
-    expect(jobExcludesMain('    runs-on: ubuntu-latest\n')).toBe(false);
-    expect(jobExcludesMain("    if: github.base_ref == 'main'\n")).toBe(false);
-    expect(jobExcludesMain('    if: github.base_ref == "main"\n')).toBe(false);
-    // Everything else, including spellings never anticipated, fails closed.
-    expect(jobExcludesMain("    if: github.base_ref != 'main'\n")).toBe(true);
-    expect(jobExcludesMain('    if: github.base_ref != "main"\n')).toBe(true);
-    expect(jobExcludesMain("    if: github.base_ref == 'develop'\n")).toBe(true);
-    expect(jobExcludesMain("    if: needs.changes.outputs.code == 'true'\n")).toBe(true);
-    expect(jobExcludesMain('    if: false\n')).toBe(true);
+    // Asked of `jobConditionProblem` directly. This whitelist used to be tested only through
+    // `jobExcludesMain`, a one-line wrapper whose sole production caller was R6 — so removing R6
+    // left the wrapper dead AND left the live function with no test of its own. Review caught it,
+    // and it is the same L6 class the ledger in this change tracks.
+    //
+    // Admissible: no condition, or exactly `== main` in either quote style — `undefined`, meaning
+    // no problem.
+    expect(jobConditionProblem('    runs-on: ubuntu-latest\n')).toBeUndefined();
+    expect(jobConditionProblem("    if: github.base_ref == 'main'\n")).toBeUndefined();
+    expect(jobConditionProblem('    if: github.base_ref == "main"\n')).toBeUndefined();
+    // Everything else, including spellings never anticipated, fails closed — and the finding NAMES
+    // the condition, which the boolean wrapper threw away.
+    expect(jobConditionProblem("    if: github.base_ref != 'main'\n")).toBe(
+      "github.base_ref != 'main'",
+    );
+    expect(jobConditionProblem('    if: github.base_ref != "main"\n')).toBe(
+      'github.base_ref != "main"',
+    );
+    expect(jobConditionProblem("    if: github.base_ref == 'develop'\n")).toBe(
+      "github.base_ref == 'develop'",
+    );
+    expect(jobConditionProblem("    if: needs.changes.outputs.code == 'true'\n")).toBe(
+      "needs.changes.outputs.code == 'true'",
+    );
+    expect(jobConditionProblem('    if: false\n')).toBe('false');
   });
 
   it('splits steps and reads their conditions', () => {
