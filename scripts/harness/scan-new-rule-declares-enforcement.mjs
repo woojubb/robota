@@ -79,8 +79,10 @@ const RULE_HEADING = /^\+###\s+(.+)$/;
  * carries a declaration. That is a migration with a number attached, and doing it inside a PR about
  * something else would either land it half-done or hold this PR for it.
  */
+// `MUST` subsumes `MUST NOT` — the prefix matches and `\b` holds at the space — so listing both
+// made the second alternative dead weight a reader would try to reason about. Review found it.
 const ADDED_RULE_BULLET =
-  /^\+\s*[-*]\s+(?:\*\*)?[^.\n]{0,120}?\b(MUST|MUST NOT|NEVER|ALWAYS|PROHIBITED|REQUIRED|is banned|is forbidden)\b/;
+  /^\+\s*[-*]\s+(?:\*\*)?[^.\n]{0,120}?\b(MUST|NEVER|ALWAYS|PROHIBITED|REQUIRED|is banned|is forbidden)\b/;
 
 /**
  * The base to diff against — `shared.mjs`'s resolver, not a local one.

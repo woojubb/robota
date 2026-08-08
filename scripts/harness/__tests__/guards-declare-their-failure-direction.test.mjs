@@ -32,7 +32,12 @@ const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
  * fails, in one declaration a reader can find and a reviewer can disagree with. A guard whose author
  * never had to answer the question is the one that answers it by accident.
  */
-const DECLARATION = /fail-direction:\s*(refuse|permit)\b[^\n]*/;
+// The declaration and its CONTINUATION lines. `[^\n]*` alone read only the first line, so the
+// reason assertion below judged a wrapped rationale by its opening words — a hook whose first line
+// was terse and whose argument lived on line two would have passed as argued-for. Review found it.
+// A continuation is a following comment line that is not itself a new sentence-opening marker:
+// blank comment lines end the declaration, matching how the five hooks actually wrap.
+const DECLARATION = /fail-direction:\s*(refuse|permit)\b[^\n]*(?:\n#[ \t]+[^\n]+)*/;
 
 const JUDGING_HOOKS = readdirSync(HOOKS_DIR)
   .filter((name) => name.endsWith('.sh'))

@@ -79,6 +79,13 @@ export function readBacklogFrontmatter(content) {
  * root loop and not to the `completed/` loop one screen down, so an archived file with its status
  * in the body stayed silent — a class closed on one side and left open on the other.
  */
+// RETROACTIVE, deliberately, and the sweep is on record rather than assumed: when the reader was
+// made honest (frontmatter-only), the full corpus — 831 task files, root and completed/ — was run
+// through this scan in the same change. Exactly nine violations existed (`completed/ARCH-002-p15`
+// through `-p23`, status in a banned `## Status` body section) and all nine were repaired in that
+// change. There is NO baseline here for the same reason `named-artifact-resolves` ships one: that
+// floor started with 75 standing violations to burn down; this one starts with zero, and a baseline
+// over zero is an invitation to grow one.
 const NO_STATUS_PROBLEM =
   'no `status:` in frontmatter — README.md requires a `---` block, and this scan (and every ' +
   'other grep over the backlog) reads status from there and nowhere else';
