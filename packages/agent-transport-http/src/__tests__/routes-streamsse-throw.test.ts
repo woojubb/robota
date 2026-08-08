@@ -25,7 +25,11 @@ const { createAgentRoutes } = await import('../routes.js');
 describe('a streamSSE that throws synchronously', () => {
   it('does not leave the session claimed forever', async () => {
     const session = createTestInteractiveSession();
-    const app = createAgentRoutes({ sessionFactory: () => session });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      // SEC-008: admission is not under test here, and the reason it is open says so.
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
     const post = () =>
       app.request('/submit', {
         method: 'POST',

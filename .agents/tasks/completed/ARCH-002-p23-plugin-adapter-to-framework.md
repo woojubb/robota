@@ -1,6 +1,15 @@
-# ARCH-002-p23: Move plugin-command-adapter and plugin-command-source-loader out of agent-cli
+---
+title: 'ARCH-002-p23: Move plugin-command-adapter and plugin-command-source-loader out of agent-cli'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-cli, packages/agent-command
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p23: Move plugin-command-adapter and plugin-command-source-loader out of agent-cli
 
 ## Problem
 

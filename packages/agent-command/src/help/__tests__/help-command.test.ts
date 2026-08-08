@@ -79,6 +79,7 @@ describe('formatCommandHelpMessage — example field', () => {
         displayName: 'Compact Context',
         description: 'Compress context window',
         example: '/compact Summarize the current context',
+        modelInvocable: true,
       },
     ]);
 
@@ -94,6 +95,7 @@ describe('formatCommandHelpMessage — example field', () => {
         displayName: 'Provider Setup',
         description: 'Manage provider profiles',
         example: '/provider switch production',
+        modelInvocable: true,
       },
     ]);
 
@@ -108,6 +110,7 @@ describe('formatCommandHelpMessage — example field', () => {
         name: 'help',
         displayName: 'Help',
         description: 'Show available commands',
+        modelInvocable: true,
       },
     ]);
 

@@ -81,6 +81,29 @@ These contract interfaces use generic type parameters where applicable. The pack
 small number of foundation types from `@robota-sdk/agent-core` only (INFRA-025); all such imports
 are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*`) dependencies.
 
+## Transport Admission (SEC-008)
+
+Admission was not a member of any contract, so each transport re-decided it and they disagreed —
+two siblings chose opposite defaults for one question, and a third had no gate at all. This package
+owns the decision so there is one place to read and one place to change.
+
+`resolveAdmission` is SECURE BY DEFAULT: an explicit token wins, otherwise one is minted. A transport
+may still run open, but only by saying so — `open: true` WITH an `openReason`. The reason is required
+because "no credential" and "nobody thought about it" were indistinguishable in the code this
+replaces, and only one of them is a decision.
+
+Minting throws rather than returning an open admission, so a transport that cannot get entropy fails
+to construct instead of binding without a gate.
+
+The functions that produce the decision — `resolveAdmission`, `mintTransportToken`,
+`credentialMatches`, `bearerCredential` — live in `@robota-sdk/agent-transport-protocol`, not here.
+This package is inert by rule (no runtime dependency edges), and they need `node:crypto`; putting
+them here would give every consumer of these types a runtime edge on a Node builtin.
+
+`transport-admission: none — <reason>` in a transport's own SPEC.md is how a package with no remote
+peer declares it. `scan-transport-admission` requires every `packages/agent-transport-*` to do one or
+the other.
+
 ## Public API Surface
 
 | Export                         | Kind      | Description                                                                                    |
@@ -93,6 +116,8 @@ are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*
 | `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
 | `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
 | `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
+| `ITransportAdmission`          | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
+| `ITransportAdmissionConfig`    | Interface | SEC-008: how a caller asks for an admission decision                                           |
 | `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
 | `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
 | `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |

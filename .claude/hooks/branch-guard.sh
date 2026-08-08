@@ -1,6 +1,12 @@
 #!/bin/bash
 # branch-guard hook
 # Blocks git commit on protected branches (main, master, develop).
+#
+# fail-direction: refuse — this hook classifies git verbs, and git's grammar is wider than any list
+# of spellings. An allowlist of flag tokens here leaked three bypasses in one change, each silent.
+# So an unrecognised shape of a guarded verb is treated as THAT VERB and judged; what is excluded is
+# enumerated instead, and a missing exclusion produces a refusal on ordinary work — visible, arguable,
+# and overridable — rather than a hole nobody learns about.
 # Blocks git push on main/master only (develop push after merge is allowed).
 # Runs as a PreToolUse hook on Bash tool calls.
 #

@@ -261,7 +261,7 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
   {
-    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an
+    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an (allow-missing-artifact: INFRA-058 deleted the workflow; this names why the scan exists)
     // unresolvable `uses:` dies at `Set up job`, so there is no failing step to read and a skipped
     // job reports the run green. The resolvability half runs in CI (see the scan's header for why
     // it stays off on a promotion to `main`); the static half runs everywhere.
@@ -347,6 +347,14 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
   },
   {
+    name: 'new-rule-declares-enforcement',
+    command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
+  },
+  {
+    name: 'named-artifact-resolves',
+    command: ['node', 'scripts/harness/scan-named-artifact-resolves.mjs'],
+  },
+  {
     name: 'required-check-local-reachability',
     command: ['node', 'scripts/harness/scan-required-check-local-reachability.mjs'],
   },
@@ -374,6 +382,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-build-tooling-scope.mjs'],
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
+  {
+    name: 'transport-admission',
+    command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
+  },
   {
     name: 'browser-package-node-subpath',
     command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],

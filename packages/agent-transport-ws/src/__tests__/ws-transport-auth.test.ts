@@ -35,6 +35,8 @@ const started: WsTransport[] = [];
 interface IStartConfig {
   token?: string;
   open?: boolean;
+  /** SEC-008: required alongside `open` — the transport refuses an opt-out nobody explained. */
+  openReason?: string;
   allowedHosts?: readonly string[];
   allowedOrigins?: readonly string[];
 }
@@ -125,7 +127,10 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
   });
 
   it('TC-05: the discouraged `open` opt-out restores unauthenticated behavior', async () => {
-    const { port, token } = await startOn({ open: true });
+    const { port, token } = await startOn({
+      open: true,
+      openReason: 'SEC-008: the discouraged opt-out is the SUBJECT of this case',
+    });
     expect(token).toBeUndefined();
     expect(await probe(port)).toBe('messages');
   });
@@ -157,5 +162,24 @@ describe('WsTransport loopback auth (GUI-002 TC-03)', () => {
     expect(await probe(port, { token, headers: { origin: 'https://app.example.com' } })).toBe(
       'messages',
     );
+  });
+});
+
+describe('SEC-008: `open` takes a written reason here too', () => {
+  // The first version filled a reason in for any caller that omitted one, which made WS the ONE
+  // transport where `{ open: true }` alone was accepted — HTTP and WebRTC both refuse it. Review
+  // found that: a reason invented on the caller's behalf reads, to the next person, as a decision
+  // somebody made, and the whole point of requiring it is that nobody can produce one by accident.
+  it('refuses an opt-out with no reason', () => {
+    expect(() => new WsTransport({ port: 17999, open: true })).toThrow(/openReason/);
+  });
+
+  it('accepts one that says why', () => {
+    // Without this the fix would be "refuse every open transport", which is not the decision — an
+    // open transport is legitimate, it just has to be chosen out loud.
+    expect(
+      () =>
+        new WsTransport({ port: 17999, open: true, openReason: 'loopback only — no remote peer' }),
+    ).not.toThrow();
   });
 });

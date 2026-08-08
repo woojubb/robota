@@ -1,6 +1,15 @@
-# ARCH-002-p16: Make cwd required in createSkillsCommandModule
+---
+title: 'ARCH-002-p16: Make cwd required in createSkillsCommandModule'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-command, packages/agent-cli
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p16: Make cwd required in createSkillsCommandModule
 
 ## Problem
 
