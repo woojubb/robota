@@ -159,30 +159,31 @@ STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 # holds that ref, so a bare `--` in the statement ends the reading. `git checkout -- .` reaches this
 # same exit, and is the DESTRUCTIVE block's subject rather than this one's.
 checkout_targets_in_words() {
-  local seen_git=false saw_verb=false want="" word found=false
-  # The `--` is decided over the WHOLE statement first, because it comes AFTER the ref it exempts:
-  # in `git checkout <ref> -- <path>` the ref is read before the separator is reached. Judged
-  # in-line, the reader returned the ref and the guard blocked a restore — a guard firing on correct
-  # work, which is what gets a guard turned off.
+  local seen_git=false saw_verb=false want="" word
+  # The `--` question is POSITIONAL, and review walked through why twice.
   #
-  # What exempts is a PATHSPEC after the separator, not the separator. A trailing `--` with nothing
-  # behind it is git's own disambiguation — `git <command> [<revision>...] -- [<file>...]` — and the
-  # command is still an ordinary switch. Reading any bare `--` as a restore meant
-  # `git checkout <held> --; git reset --hard` reproduced this block's exact hazard while bypassing
-  # it entirely. Review found it, and the coverage had only the genuine restore form.
-  local past_separator=false
-  while IFS= read -r word; do
-    [[ "$past_separator" == "true" ]] && return 1
-    [[ "$word" == "--" ]] && past_separator=true
-  done <<< "$1"
-
+  # In `git checkout <ref> -- <path>` the ref comes BEFORE the separator, so an exemption that ends
+  # the whole reading exempts too much: `hook_statement_all_words` flattens substitutions into the
+  # same word list, so a `--` INSIDE one — `git checkout $(git log --oneline -- README.md) <held>` —
+  # switched the old pre-scan off before the real target was ever read, and the exact accident this
+  # block exists for sailed through. The rest of this file already accepts the consequence of
+  # flattening — every candidate is checked, because nothing can tell which word is the real
+  # argument — and an early return was this one function voting the other way.
+  #
+  # So: candidates BEFORE the first `--` are the restore-ref reading and are exempt; words AFTER it
+  # stay candidates. A false candidate costs nothing unless it coincides with a branch another
+  # worktree holds, which is the same trade every other candidate from a substitution already makes.
+  #
+  # A trailing `--` with NOTHING after it exempts nobody: that is git's own revision/path
+  # disambiguation and the command is still an ordinary switch (the previous round's finding).
+  local separator_seen=false word_after_separator=false
+  local -a pre=() post=()
   while IFS= read -r word; do
     case "$want" in
       # A flag whose value is a branch git will move HEAD to.
       target)
         want=""
-        printf '%s\n' "$word"
-        found=true
+        if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         continue
         ;;
       # A flag whose value is something else entirely — an upstream, a start point.
@@ -215,19 +216,38 @@ checkout_targets_in_words() {
       esac
       continue
     fi
+    if [[ "$separator_seen" == "true" && -n "$word" ]]; then
+      word_after_separator=true
+    fi
     case "$word" in
+      --)
+        separator_seen=true
+        ;;
       -b | -B | --orphan | -t | --track) want=target ;;
       -c | -C) want=target ;;
       --conflict | --pathspec-from-file) want=skip ;;
       -*) ;;
       *'>'* | *'<'* | '') ;;
       *)
-        printf '%s\n' "$word"
-        found=true
+        if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         ;;
     esac
   done <<< "$1"
-  [[ "$found" == "true" ]]
+
+  local -a candidates=()
+  if [[ "$separator_seen" == "true" && "$word_after_separator" == "true" ]]; then
+    # Restore-shaped: what precedes the separator is the ref being read FROM, which a sibling
+    # worktree may legitimately hold. What follows is still checked, because a flattened
+    # substitution can put the real switch target there.
+    candidates=("${post[@]+"${post[@]}"}")
+  else
+    candidates=("${pre[@]+"${pre[@]}"}")
+  fi
+  [[ ${#candidates[@]} -gt 0 ]] || return 1
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    printf '%s\n' "$candidate"
+  done
 }
 
 # --- A checkout that fails, in a command that keeps going ---------------------------------------

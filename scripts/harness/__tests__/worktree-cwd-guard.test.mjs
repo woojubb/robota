@@ -574,6 +574,24 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status, 'a trailing -- was read as a restore').toBe(2);
   });
 
+  it('is not disarmed by a `--` inside a nested substitution', () => {
+    // `hook_statement_all_words` flattens substitutions into one word list, so the `--` in
+    // `$(git log --oneline -- README.md)` sat in the same stream as the real target. The old
+    // pre-scan returned "no candidates" at the first `--`, and the exact accident this block
+    // exists for — checkout fails, `reset --hard` lands on the wrong branch — sailed through.
+    // Review found it, and found the substitution coverage only had a `--`-free substitution.
+    //
+    // The separator is positional now: it exempts the candidates BEFORE it (the restore-ref
+    // reading) and the words after it are still checked, which is the same trade every other
+    // flattened candidate already makes.
+    const { status } = runHook({
+      command: `git checkout $(git log --oneline -- README.md) ${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'a substitution-internal -- disarmed the reader').toBe(2);
+  });
+
   it('leaves `git checkout <ref> -- <path>` alone', () => {
     // Restoring files FROM a ref does not switch to it, so it succeeds even while a sibling worktree
     // holds that branch — the premise behind this block does not apply. Blocking it would be the
