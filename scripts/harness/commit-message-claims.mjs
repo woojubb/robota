@@ -257,20 +257,6 @@ export function stagedPaths() {
 }
 
 /**
- * Whether a named path has EVER existed — staged now, present now, or anywhere in history.
- *
- * "Present now" alone was wrong, and review found it in the place that matters: continuous
- * integration lints each commit of a pull request by piping `git log -1 --format=%B <sha>` into
- * commitlint WITHOUT checking that commit out. The working tree stays at HEAD for every message, so
- * `--cached` is empty and `existsSync` answers about the wrong tree — a message that correctly named
- * a file its own commit added would fail once a later commit renamed it, and one that named a file
- * only a LATER commit created would pass.
- *
- * History is the state that does not depend on which commit is checked out. It is also the honest
- * bound on what this can decide: whether the named path belongs to THIS commit's tree cannot be
- * answered from the message alone, since commitlint is handed text and never the sha.
- */
-/**
  * Does this token stay inside the repository once resolved?
  *
  * `path.relative` rather than a string prefix: a prefix test says `/repo-evil` is inside `/repo`,
@@ -286,6 +272,20 @@ function isInsideRoot(root, token) {
   return relative !== '' && !escaped && !path.isAbsolute(relative);
 }
 
+/**
+ * Whether a named path has EVER existed — staged now, present now, or anywhere in history.
+ *
+ * "Present now" alone was wrong, and review found it in the place that matters: continuous
+ * integration lints each commit of a pull request by piping `git log -1 --format=%B <sha>` into
+ * commitlint WITHOUT checking that commit out. The working tree stays at HEAD for every message, so
+ * `--cached` is empty and `existsSync` answers about the wrong tree — a message that correctly named
+ * a file its own commit added would fail once a later commit renamed it, and one that named a file
+ * only a LATER commit created would pass.
+ *
+ * History is the state that does not depend on which commit is checked out. It is also the honest
+ * bound on what this can decide: whether the named path belongs to THIS commit's tree cannot be
+ * answered from the message alone, since commitlint is handed text and never the sha.
+ */
 export function pathHasEverExisted(
   token,
   { staged, root = WORKSPACE_ROOT, isShallowOverride } = {},
