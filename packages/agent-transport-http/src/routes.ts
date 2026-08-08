@@ -23,7 +23,11 @@ import type { Context } from 'hono';
  *
  * What the session already promises is enough. `getSession(): { getSessionId(): string }` names the
  * session, the claim is keyed by that name, and the requirement is gone rather than written down.
- * A session that cannot name itself is simply not claimed, and `isExecuting()` still guards it.
+ *
+ * The session must therefore BE nameable. `/submit` refuses with 500 when `getSessionId()` returns
+ * nothing, because without an id the concurrent-turn guarantee does not exist and serving anyway
+ * would hand back the bug to whoever could least tell. The contract types that method as returning
+ * a `string`, so a conformant session never meets it.
  */
 export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
 
@@ -68,11 +72,11 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const turnsInFlight = new Set<string>();
 
   /**
-   * The key one logical session is claimed under.
+   * The key one logical session is claimed under, or `undefined` when it will not name itself.
    *
-   * A session that cannot name itself is not claimable, and `undefined` says so rather than
-   * inventing a key that would collide with every other unnameable session. The busy check below
-   * then falls through to `isExecuting()`, which needs no key.
+   * `undefined` rather than a placeholder: a shared fallback key would collide every unnameable
+   * session into one claim and refuse them all as each other's neighbours. The caller turns it into
+   * a refusal — see the check below for why serving anyway is not the softer option.
    */
   const claimKey = (session: IInteractiveSession): string | undefined => {
     try {
@@ -107,110 +111,147 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // A synchronous flag on the route closes it because there is no suspension point between reading
     // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
     // the route wedged.
-    // BOTH, and review is why. The claim is what this route knows; `isExecuting()` is what the
+    //
+    // BOTH are asked, and review is why. The claim is what this route knows; `isExecuting()` is what the
     // SESSION knows. Dropping the second made a turn started by another surface — the TUI, a WS
     // client, a previous process — invisible here, and this route would start a second one on a
     // session already running. Dropping the first is the race at the top of this comment. Neither
     // subsumes the other, so both are asked.
+    // A session that cannot name itself is REFUSED, not served racily, and review is why. The busy
+    // check is a guarantee only while the claim is keyed by a real id: with no id it falls back to
+    // `isExecuting()` alone, which the comment above documents as the racy read this route exists
+    // to stop relying on. Serving anyway would degrade the fix back into the bug for exactly the
+    // callers who could not be told they were affected.
+    //
+    // `getSession(): { getSessionId(): string }` is required by the contract and the published test
+    // double honours it, so this is unreachable for a conformant session. Naming it is what keeps
+    // that true, instead of leaving a non-conformant one quietly half-guarded.
     const claim = claimKey(session);
-    if ((claim !== undefined && turnsInFlight.has(claim)) || session.isExecuting()) {
+    if (claim === undefined) {
+      return c.json(
+        {
+          error:
+            'session identity unavailable — getSession().getSessionId() returned nothing, so a ' +
+            'concurrent turn on this session cannot be refused. Refusing rather than serving a ' +
+            'turn this route cannot guarantee belongs to this caller.',
+        },
+        500,
+      );
+    }
+    if (turnsInFlight.has(claim) || session.isExecuting()) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
-    if (claim !== undefined) turnsInFlight.add(claim);
+    turnsInFlight.add(claim);
 
-    return streamSSE(
-      c,
-      async (stream) => {
-        // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
-        // It used to open just before `await session.submit`, leaving the subscription setup between
-        // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
-        // nothing to release it, and every later request to it got 409 forever. A claim whose release
-        // is not in the same protected region is a lock, not a claim.
-        const cleanup: Array<() => void> = [];
-        try {
-          const subscribe = <T>(event: string, handler: (data: T) => void): void => {
-            session.on(event as 'text_delta', handler as () => void);
-            cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
-          };
+    // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
+    // `finally`. Review pointed at the rule this file already states one level in: a claim whose
+    // release is not in the same protected region is a lock, not a claim. If `streamSSE` throws
+    // before it ever runs the callback, this releases and rethrows; the callback's own `finally`
+    // covers everything after it starts.
+    //
+    // NOT REPRODUCED BY A TEST, and that is said here rather than implied by a case that would pass
+    // either way. A throw from `session.on` lands INSIDE the callback, where the inner `finally`
+    // already releases — measured: a case built that way is green with this `catch` removed. Making
+    // `streamSSE` itself throw synchronously would mean stubbing Hono's internals, which tests the
+    // stub rather than the route. This is defensive code for a path Hono does not currently take.
+    try {
+      return streamSSE(
+        c,
+        async (stream) => {
+          // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
+          // It used to open just before `await session.submit`, leaving the subscription setup between
+          // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
+          // nothing to release it, and every later request to it got 409 forever. A claim whose release
+          // is not in the same protected region is a lock, not a claim.
+          const cleanup: Array<() => void> = [];
+          try {
+            const subscribe = <T>(event: string, handler: (data: T) => void): void => {
+              session.on(event as 'text_delta', handler as () => void);
+              cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
+            };
 
-          // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
-          // not an unhandled rejection (post-headers errors bypass Hono's onError).
-          const write = (event: string, data: unknown): Promise<void> =>
-            stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
-              // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-              // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+            // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
+            // not an unhandled rejection (post-headers errors bypass Hono's onError).
+            const write = (event: string, data: unknown): Promise<void> =>
+              stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
+                // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
+                // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
+              });
+
+            // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
+            // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
+            // caught by the Promise constructor and turned into an already-rejected `done` instead of
+            // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
+            // was consumed with only some of its listeners attached and nothing to relay it, and the
+            // rejection surfaced afterwards at `await done`. The turn is gone by then.
+            //
+            // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
+            // claim is released by the `finally` and the request fails having spent nothing.
+            let settle!: () => void;
+            const done = new Promise<void>((resolve) => {
+              settle = resolve;
             });
 
-          // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
-          // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
-          // caught by the Promise constructor and turned into an already-rejected `done` instead of
-          // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
-          // was consumed with only some of its listeners attached and nothing to relay it, and the
-          // rejection surfaced afterwards at `await done`. The turn is gone by then.
-          //
-          // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
-          // claim is released by the `finally` and the request fails having spent nothing.
-          let settle!: () => void;
-          const done = new Promise<void>((resolve) => {
-            settle = resolve;
-          });
+            subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
+            subscribe('tool_start', (state) => void write('tool_start', state));
+            subscribe('tool_end', (state) => void write('tool_end', state));
+            subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
 
-          subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-          subscribe('tool_start', (state) => void write('tool_start', state));
-          subscribe('tool_end', (state) => void write('tool_end', state));
-          subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
+            subscribe('complete', async (result) => {
+              // Flush the terminal event before resolving, so the resolve → cleanup →
+              // stream-close continuation cannot race ahead of the write.
+              await write('complete', result);
+              settle();
+            });
+            subscribe('interrupted', async (result) => {
+              await write('interrupted', result);
+              settle();
+            });
+            subscribe('error', async (error: Error) => {
+              await write('error', { message: error.message });
+              settle();
+            });
 
-          subscribe('complete', async (result) => {
-            // Flush the terminal event before resolving, so the resolve → cleanup →
-            // stream-close continuation cannot race ahead of the write.
-            await write('complete', result);
-            settle();
-          });
-          subscribe('interrupted', async (result) => {
-            await write('interrupted', result);
-            settle();
-          });
-          subscribe('error', async (error: Error) => {
-            await write('error', { message: error.message });
-            settle();
-          });
+            // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
+            // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
+            stream.onAbort(() => {
+              session.abort();
+              settle();
+            });
 
-          // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-          // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-          stream.onAbort(() => {
-            session.abort();
-            settle();
-          });
-
-          await session.submit(body.prompt);
-          await done;
-        } finally {
-          // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
-          // event listeners can never leak.
-          for (const fn of cleanup) fn();
-          // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
-          // session it claimed.
-          if (claim !== undefined) turnsInFlight.delete(claim);
-        }
-      },
-      // A stream callback that throws AFTER the response headers are out cannot be turned into an
-      // error status — the client already has a 200 and an open stream. Without this handler the
-      // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
-      // `quality` job red under vitest, which is how it was found.
-      //
-      // So it is reported on the channel the client is actually listening to, and the stream is
-      // closed. The teardown in the `finally` above has already run by the time this is called, so
-      // the listeners are gone and the claim is released — this handler owes only the telling.
-      async (error, stream) => {
-        await stream
-          .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
-          .catch(() => {
-            // allow-fallback: the stream is already gone, which is the one case where there is
-            // nobody left to tell. Rethrowing here would restore the unhandled rejection this
-            // handler exists to remove.
-          });
-      },
-    );
+            await session.submit(body.prompt);
+            await done;
+          } finally {
+            // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
+            // event listeners can never leak.
+            for (const fn of cleanup) fn();
+            // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
+            // session it claimed.
+            turnsInFlight.delete(claim);
+          }
+        },
+        // A stream callback that throws AFTER the response headers are out cannot be turned into an
+        // error status — the client already has a 200 and an open stream. Without this handler the
+        // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
+        // `quality` job red under vitest, which is how it was found.
+        //
+        // So it is reported on the channel the client is actually listening to, and the stream is
+        // closed. The teardown in the `finally` above has already run by the time this is called, so
+        // the listeners are gone and the claim is released — this handler owes only the telling.
+        async (error, stream) => {
+          await stream
+            .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
+            .catch(() => {
+              // allow-fallback: the stream is already gone, which is the one case where there is
+              // nobody left to tell. Rethrowing here would restore the unhandled rejection this
+              // handler exists to remove.
+            });
+        },
+      );
+    } catch (error) {
+      turnsInFlight.delete(claim);
+      throw error;
+    }
   });
 
   // POST /command — execute system command

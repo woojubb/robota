@@ -9,31 +9,45 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 import { createAgentRoutes } from '../routes.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
-function createMockSession(overrides?: Record<string, unknown>) {
-  return {
-    submit: vi.fn(),
+/**
+ * Built on the PUBLISHED conformant double, not a cast.
+ *
+ * It WAS a cast — `{ … } as unknown as IInteractiveSession` — and `/submit` refusing a session that
+ * cannot name itself is what exposed it: the cast omitted `getSession`, so five cases got a 500.
+ * That is the cast working exactly as this file's other double already warns it does — "a partial
+ * re-implementation nothing checks against the real thing", compiling whatever it happens to
+ * contain and silently missing whatever the contract gains later.
+ *
+ * The overrides are typed at their own sites for the same reason `createHonestSession` narrows
+ * each: `as never` or a blanket cast would defeat what the published double is for.
+ */
+function createMockSession(overrides?: Partial<IInteractiveSession>) {
+  return createTestInteractiveSession({
+    submit: vi.fn() as unknown as IInteractiveSession['submit'],
     abort: vi.fn(),
     cancelQueue: vi.fn(),
     getMessages: vi.fn().mockReturnValue([
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'world' },
-    ]),
+    ]) as unknown as IInteractiveSession['getMessages'],
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 10,
       usedTokens: 1000,
       maxTokens: 200000,
-    }),
-    isExecuting: vi.fn().mockReturnValue(false),
-    getPendingPrompt: vi.fn().mockReturnValue(null),
+    }) as unknown as IInteractiveSession['getContextState'],
+    isExecuting: vi.fn().mockReturnValue(false) as unknown as IInteractiveSession['isExecuting'],
+    getPendingPrompt: vi
+      .fn()
+      .mockReturnValue(null) as unknown as IInteractiveSession['getPendingPrompt'],
     executeCommand: vi.fn().mockResolvedValue({
       message: 'Conversation cleared.',
       success: true,
-    }),
-    listCommands: vi.fn().mockReturnValue([]),
-    on: vi.fn(),
-    off: vi.fn(),
+    }) as unknown as IInteractiveSession['executeCommand'],
+    listCommands: vi.fn().mockReturnValue([]) as unknown as IInteractiveSession['listCommands'],
+    on: vi.fn() as unknown as IInteractiveSession['on'],
+    off: vi.fn() as unknown as IInteractiveSession['off'],
     ...overrides,
-  } as unknown as IInteractiveSession;
+  });
 }
 
 function createHonestSession() {
@@ -231,10 +245,10 @@ describe('HTTP Transport Routes', () => {
         const set = handlers.get(event) ?? new Set();
         set.add(handler);
         handlers.set(event, set);
-      }),
+      }) as unknown as IInteractiveSession['on'],
       off: vi.fn((event: string, handler: (data: unknown) => void) => {
         handlers.get(event)?.delete(handler);
-      }),
+      }) as unknown as IInteractiveSession['off'],
       submit: vi.fn(async () => {
         // Emit ONLY the terminal event — deliberately no trailing thinking(false).
         for (const handler of handlers.get(terminalEvent) ?? []) {
@@ -323,17 +337,19 @@ describe('HTTP Transport Routes', () => {
     const handlers = new Map<string, Set<(data: unknown) => void>>();
     let settleSubmit: (() => void) | undefined;
     const session = createMockSession({
-      isExecuting: vi.fn().mockReturnValue(false),
+      isExecuting: vi.fn().mockReturnValue(false) as unknown as IInteractiveSession['isExecuting'],
       on: vi.fn((event: string, handler: (data: unknown) => void) => {
         const set = handlers.get(event) ?? new Set();
         set.add(handler);
         handlers.set(event, set);
-      }),
+      }) as unknown as IInteractiveSession['on'],
       off: vi.fn((event: string, handler: (data: unknown) => void) => {
         handlers.get(event)?.delete(handler);
-      }),
+      }) as unknown as IInteractiveSession['off'],
       // A run that never emits a terminal event on its own — it settles only when abort() is called.
-      submit: vi.fn(() => new Promise<void>((resolve) => (settleSubmit = resolve))),
+      submit: vi.fn(
+        () => new Promise<void>((resolve) => (settleSubmit = resolve)),
+      ) as unknown as IInteractiveSession['submit'],
       abort: vi.fn(() => settleSubmit?.()),
     });
 
@@ -543,6 +559,28 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
 
     expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(backing.startedTurns(), 'two turns ran on one session').toBe(1);
+  });
+
+  it('REFUSES a session that will not name itself, rather than serving it racily', async () => {
+    // Review: with no id, `claim` was `undefined` and the busy check fell back to `isExecuting()`
+    // alone — which the route's own comment documents as the racy read this whole change exists to
+    // stop relying on. So the fix silently degraded into the bug for exactly the callers who could
+    // not be told they were affected.
+    //
+    // The contract types `getSessionId()` as returning a `string`, so this is unreachable for a
+    // conformant session; naming it is what keeps that true.
+    const { session } = createHonestSession();
+    session.getSession = (() => ({ getSessionId: () => '' })) as IInteractiveSession['getSession'];
+    const app = createAgentRoutes({ sessionFactory: () => session });
+
+    const response = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'nobody can guarantee this is mine' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/session identity unavailable/);
   });
 
   it('starts exactly one turn, and answers the other 409', async () => {

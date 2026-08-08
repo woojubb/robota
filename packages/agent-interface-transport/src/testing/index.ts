@@ -7,8 +7,11 @@ const EMPTY_CONTEXT_STATE = {
   remainingPercentage: 100,
 };
 
+// `sessionId` here is a PLACEHOLDER. Every read of these shapes goes through the factory below,
+// which stamps the double's own id over it — see the note on `sessionId` there. Left as a literal
+// so the shape stays a plain constant; nothing outside the factory should read it.
 const EMPTY_EXECUTION_WORKSPACE = {
-  sessionId: 'test-session-id',
+  sessionId: 'test-session-placeholder',
   updatedAt: new Date().toISOString(),
   entries: [] as [],
 };
@@ -25,7 +28,7 @@ const EMPTY_GOAL_STATE = {
 
 const EMPTY_BACKGROUND_GROUP = {
   id: '',
-  parentSessionId: 'test-session-id',
+  parentSessionId: 'test-session-placeholder',
   waitPolicy: 'wait_all' as const,
   taskIds: [],
   status: 'completed' as const,
@@ -106,9 +109,15 @@ export function createTestInteractiveSession(
     readBackgroundTaskLog: () => Promise.resolve({ taskId: '', lines: [] }),
     listBackgroundJobGroups: () => [],
     getBackgroundJobGroup: () => undefined,
-    createBackgroundJobGroup: () => ({ ...EMPTY_BACKGROUND_GROUP }),
-    waitBackgroundJobGroup: () => Promise.resolve({ ...EMPTY_BACKGROUND_GROUP }),
-    getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE }),
+    // EVERY surface that names this session names the SAME id, and review is why. Making
+    // `getSessionId()` per-double left three others on a shared literal — so a consumer that
+    // distinguishes two doubles by `parentSessionId` or by the workspace snapshot's `sessionId`
+    // still saw one session where there were two, which is the exact collision the change was
+    // meant to remove, one field over.
+    createBackgroundJobGroup: () => ({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId }),
+    waitBackgroundJobGroup: () =>
+      Promise.resolve({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId }),
+    getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE, sessionId }),
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],
     spawnAgentJob: () =>
@@ -116,7 +125,7 @@ export function createTestInteractiveSession(
         id: 'agent_1',
         type: 'general-purpose',
         label: 'general-purpose',
-        parentSessionId: 'test-session-id',
+        parentSessionId: sessionId,
         status: 'running' as const,
         mode: 'background' as const,
         depth: 1,
