@@ -7,8 +7,11 @@ const EMPTY_CONTEXT_STATE = {
   remainingPercentage: 100,
 };
 
+// `sessionId` here is a PLACEHOLDER. Every read of these shapes goes through the factory below,
+// which stamps the double's own id over it — see the note on `sessionId` there. Left as a literal
+// so the shape stays a plain constant; nothing outside the factory should read it.
 const EMPTY_EXECUTION_WORKSPACE = {
-  sessionId: 'test-session-id',
+  sessionId: 'test-session-placeholder',
   updatedAt: new Date().toISOString(),
   entries: [] as [],
 };
@@ -25,7 +28,7 @@ const EMPTY_GOAL_STATE = {
 
 const EMPTY_BACKGROUND_GROUP = {
   id: '',
-  parentSessionId: 'test-session-id',
+  parentSessionId: 'test-session-placeholder',
   waitPolicy: 'wait_all' as const,
   taskIds: [],
   status: 'completed' as const,
@@ -55,9 +58,32 @@ const EMPTY_BACKGROUND_GROUP = {
  * have — each was checked against nothing, so the suites built on them proved things no shipped code
  * guarantees.
  */
+/** Counts doubles so each gets its own session id. See `getSessionId` below. */
+let doublesCreated = 0;
+
 export function createTestInteractiveSession(
   overrides?: Partial<IInteractiveSession>,
 ): IInteractiveSession {
+  const fallbackId = `test-session-${(doublesCreated += 1)}`;
+  /**
+   * The id EVERY surface of this double names — including when a caller overrides `getSession`.
+   *
+   * `parentSessionId`/workspace `sessionId` used to close over the counter value directly, so an
+   * overridden `getSession().getSessionId()` and the other surfaces disagreed about who this
+   * session is — the exact cross-surface id collision the counter was added to remove, reopened by
+   * the override path. Review found it before a suite did. Resolved LAZILY through the assembled
+   * object, falling back to the counter when the override cannot answer (throws, or returns an
+   * empty id — both are shapes tests deliberately build).
+   */
+  const sessionId = (): string => {
+    try {
+      const id = assembled.getSession().getSessionId();
+      return typeof id === 'string' && id !== '' ? id : fallbackId;
+    } catch {
+      // allow-fallback: a double whose getSession deliberately throws still needs a name for its OTHER surfaces
+      return fallbackId;
+    }
+  };
   const base: IInteractiveSession = {
     // ARCH-012: required, not optional. A double that omitted them let a consumer's
     // `getActiveDriverId?.()` resolve to `undefined` and read as "no active driver" — the ambiguity
@@ -86,7 +112,16 @@ export function createTestInteractiveSession(
     getMessages: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
-      getSessionId: () => 'test-session-id',
+      // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every
+      // instance report the same identity, so two doubles standing in for two different sessions
+      // were indistinguishable to any consumer that keys by id — and a fixture that cannot
+      // represent two sessions cannot test anything about two sessions. Found when
+      // `agent-transport-http` started keying its concurrent-turn claim by id and the multi-tenant
+      // case went red for the fixture's reason rather than the code's.
+      //
+      // A counter, not a random: the value stays stable within one double and reproducible across
+      // runs, so a failure message names the same session twice.
+      getSessionId: () => fallbackId,
       // SELFHOST-004: the span collector subscribes to the session bus each turn.
       getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     }),
@@ -105,9 +140,15 @@ export function createTestInteractiveSession(
     readBackgroundTaskLog: () => Promise.resolve({ taskId: '', lines: [] }),
     listBackgroundJobGroups: () => [],
     getBackgroundJobGroup: () => undefined,
-    createBackgroundJobGroup: () => ({ ...EMPTY_BACKGROUND_GROUP }),
-    waitBackgroundJobGroup: () => Promise.resolve({ ...EMPTY_BACKGROUND_GROUP }),
-    getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE }),
+    // EVERY surface that names this session names the SAME id, and review is why. Making
+    // `getSessionId()` per-double left three others on a shared literal — so a consumer that
+    // distinguishes two doubles by `parentSessionId` or by the workspace snapshot's `sessionId`
+    // still saw one session where there were two, which is the exact collision the change was
+    // meant to remove, one field over.
+    createBackgroundJobGroup: () => ({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId() }),
+    waitBackgroundJobGroup: () =>
+      Promise.resolve({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId() }),
+    getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE, sessionId: sessionId() }),
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],
     spawnAgentJob: () =>
@@ -115,7 +156,7 @@ export function createTestInteractiveSession(
         id: 'agent_1',
         type: 'general-purpose',
         label: 'general-purpose',
-        parentSessionId: 'test-session-id',
+        parentSessionId: sessionId(),
         status: 'running' as const,
         mode: 'background' as const,
         depth: 1,
@@ -131,5 +172,6 @@ export function createTestInteractiveSession(
     cancelGoal: () => null,
     ...overrides,
   };
-  return base;
+  const assembled = base;
+  return assembled;
 }

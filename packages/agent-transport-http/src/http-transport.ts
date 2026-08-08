@@ -13,6 +13,8 @@ import type {
   ITransportAdapter,
   ITransportAdmissionConfig,
 } from '@robota-sdk/agent-interface-transport';
+
+import type { TStreamFailureListener } from './submit-stream.js';
 import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {
@@ -26,6 +28,13 @@ export interface IHttpTransportOptions {
    * execute anything". Omission now means the safe thing, and running open takes saying so.
    */
   admission?: ITransportAdmissionConfig;
+  /**
+   * Where the DETAIL of a post-headers stream failure goes — forwarded to `createAgentRoutes`.
+   * Review found this seam missing: the option existed on the routes and not on the entry point
+   * README and the examples actually use, so "the host decides the destination" was a decision no
+   * host on this path could make. Same forwarding rule as `admission`, which sat beside it.
+   */
+  onStreamFailure?: TStreamFailureListener;
 }
 
 export function createHttpTransport(
@@ -52,6 +61,7 @@ export function createHttpTransport(
         // The decision already made, passed through — not taken apart and rebuilt for the routes to
         // resolve a second time.
         admission,
+        onStreamFailure: options?.onStreamFailure,
       });
     },
     async stop() {
