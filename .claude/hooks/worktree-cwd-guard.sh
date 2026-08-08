@@ -677,7 +677,13 @@ for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
   "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
   "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
   [[ -r "$_candidate" ]] || continue
-  GIT_AMBIENT_ENV_NAMES=$(sed -n 's/^[[:space:]]*"\(GIT_[A-Z_]*\)".*/\1/p' "$_candidate")
+  # `grep -o` over the whole document, NOT a line-anchored sed. Review pointed at the failure a
+  # line shape invites: a formatter collapsing the short array onto one line would make a
+  # line-per-name pattern come back empty, and the refusal below would then block every git command
+  # in every worktree session — fail-closed, but a repo-wide outage resting on text shape (#1664 is
+  # the same disagreement class). Token extraction reads the names wherever the formatter puts
+  # them; a real JSON parse would need node, which is too heavy for a hook that runs per command.
+  GIT_AMBIENT_ENV_NAMES=$(grep -o '"GIT_[A-Z_]*"' "$_candidate" | tr -d '"')
   [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
 done
 if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
