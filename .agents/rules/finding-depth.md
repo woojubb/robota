@@ -25,7 +25,10 @@ first two forces a guess whenever neither is true.
   unfixed code and watch it fail (`tdd-and-planning`, `check-regression-red-proof`).
 - **FOUNDATIONAL** — the finding is reachable only because something underneath is wrong. It MUST NOT
   be patched in place. File the root item, register its GitHub issue, and choose **re-plan** or
-  **labelled containment** — never a third option.
+  **labelled containment** — never a third option. The registered issue is not a filing cabinet: an
+  OPEN GitHub issue outranks unfiled backlog work when choosing what to do next, and stays ahead of
+  it until it is closed. A foundational defect that everyone agrees is foundational and nobody
+  schedules is the same defect, now with a paper trail.
 - **INVALID** — the premise does not hold. Nothing to fix; record what the code actually does. A
   wrong finding must not drive a change.
 - **UNDETERMINED** — the verdict could not be reached, naming the specific thing that would settle
@@ -171,6 +174,14 @@ Prose does not enforce (`enforcement-architecture.md`). The floors:
   no backlog item — a foundational finding whose root item does not exist is the same as not having
   filed it. `pre-push-check` already refuses a push with no record, so the field is reached by the
   real invocation on every push rather than when remembered.
+- `task-tracking.sh` lists OPEN issues at session start, which is when the choice of what to work on
+  is made — the priority sentence above enforces nothing if the issues are never in front of the
+  reader. `open-issues-are-shown.test.mjs` holds the properties that make the notice worth reading:
+  it is start-only, it survives an unresponsive or unauthenticated `gh` and says which happened, it
+  does not depend on a task directory existing, and it says when its list is truncated. This is a
+  REPORTING floor, not a refusing one, and the difference is stated because it matters: nothing here
+  fails a build when an issue is ignored — it only makes ignoring one a decision rather than an
+  oversight.
 - `pr-review-fixer` TAKES the verdict rather than producing it, and stops on a foundational one;
   `pr-finding-resolution-loop` routes that verdict to the root item rather than back into the fix loop.
 - `depth-verdict-reachable.test.mjs` refuses a worker that is told to take a `DEPTH:` verdict when no

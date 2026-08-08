@@ -1,6 +1,15 @@
-# ARCH-002-p18: Move TransportRegistry to agent-transport
+---
+title: 'ARCH-002-p18: Move TransportRegistry to agent-transport'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-cli, packages/agent-transport
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p18: Move TransportRegistry to agent-transport
 
 ## Problem
 

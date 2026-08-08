@@ -146,6 +146,12 @@ independent item remains, something else advances during it.
 - **Re-check the first item before returning to it.** Its review may have arrived while you were
   away, and the state you left is not the state you come back to.
 
+Enforced by: nothing — whether an agent took a second item during a blocking wait leaves no trace in
+the repository. The tree shows two branches, and two branches are what sequential work produces too.
+Filed as [HARNESS-077](../tasks/HARNESS-077-a-wait-leaves-no-trace.md), which asks whether the wait
+itself can be instrumented; until then this rule is read, not checked, and says so rather than
+reading like a rule something enforces.
+
 **One thing to know about running the suite in a worktree.** A git hook exports `GIT_DIR` into
 everything it launches, so for a while every test spawned by a pre-push gate wrote to the repository
 being pushed from rather than to its own fixture — moving branch refs, and pushing the result. The

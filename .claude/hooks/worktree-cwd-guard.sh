@@ -1,6 +1,10 @@
 #!/bin/bash
 # worktree-cwd-guard hook (HARNESS-043)
 # Blocks DESTRUCTIVE git commands when a worktree-assigned subagent's cwd has silently fallen back
+#
+# fail-direction: refuse — it exists because a cwd silently fell back to the wrong repository, which
+# is precisely an unrecognised state reading as an ordinary one. Treating what it cannot place as
+# placed would reinstate the defect it was written for.
 # to the MAIN checkout. This is the TYPE-003 incident: a subagent was assigned an isolated worktree,
 # that worktree was externally cleaned/removed mid-session, the process cwd dropped to the main clone,
 # and `git reset --hard` then ran against MAIN.

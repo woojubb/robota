@@ -71,6 +71,8 @@ export {
   readToolCalls,
   readErrors,
 } from './interaction-contracts.js';
+// RUNTIME-003: the one narrowing for a rejected `ITurnHandle.completed` (a value, not a type).
+export { isTurnNotRunError } from './turn-contracts.js';
 // ── Driver identity + driver-routed event contracts ─────────
 // REMOTE-014 E5: co-drive driver-id constants (values, not types).
 export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
@@ -184,6 +186,9 @@ export type {
   TInteractiveEventName,
   TTurnSource,
   IExecutionResult,
+  ITurnHandle,
+  ITurnNotRunError,
+  TTurnNotRunReason,
   IToolState,
   IDiffLine,
   IToolSummary,
@@ -215,3 +220,7 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
+
+// SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
+// @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
+export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';

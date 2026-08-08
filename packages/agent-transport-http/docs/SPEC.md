@@ -8,7 +8,10 @@ HTTP transport (Hono) for the Robota SDK. Split out of the consolidated `agent-t
 ## Boundaries
 
 - Owns the Hono-based HTTP transport adapter and agent route builder.
-- Depends only on `agent-interface-transport` (transport contracts).
+- Depends on `agent-interface-transport` (transport contracts) and `agent-transport-protocol` (SEC-008: the
+  one seam that decides admission — `resolveAdmission`, `bearerCredential`, `credentialMatches`). The admission
+  decision is deliberately NOT re-made here; three transports each deciding it for themselves is how they came
+  to disagree.
 - No other transport package depends on this one.
 
 ## Architecture Overview
@@ -45,4 +48,5 @@ Route + transport unit tests under `src/__tests__`.
 ## Dependencies
 
 - `@robota-sdk/agent-interface-transport`.
+- `@robota-sdk/agent-transport-protocol` (SEC-008 admission seam).
 - External: `hono`.

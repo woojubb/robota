@@ -65,7 +65,19 @@ export function createTestInteractiveSession(
     isInitialized: true,
     getPendingCount: () => 0,
     getActiveDriverId: () => null,
-    submit: () => Promise.resolve(),
+    // RUNTIME-003: a double must hand back a handle that SETTLES, because that is the promise the
+    // contract makes and a double that never settled would let a suite pass while the consumer it
+    // stands in for hangs. The default turn ends at once with an empty result.
+    submit: () =>
+      Promise.resolve({
+        turnId: 'test-turn',
+        completed: Promise.resolve({
+          response: '',
+          history: [],
+          toolSummaries: [],
+          contextState: { ...EMPTY_CONTEXT_STATE },
+        }),
+      }),
     abort: () => {},
     cancelQueue: () => {},
     shutdown: () => Promise.resolve(),

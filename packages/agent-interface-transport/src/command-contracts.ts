@@ -159,6 +159,20 @@ export interface ICommandListEntry {
   description: string;
   /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
   example?: string;
+  /**
+   * SEC-008: whether a MODEL may invoke this command, carried through instead of dropped.
+   *
+   * The list used to stop at name/description, so every consumer received a flat catalogue with no
+   * way to tell an operator-only command from a model-callable one. The MCP adapter read that list
+   * and registered all of it as callable tools, which turned commands explicitly marked
+   * `modelInvocable: false` — `plugin` installs and enables code — into things a remote peer's model
+   * could call.
+   *
+   * REQUIRED rather than optional, because an optional flag would let a consumer read `undefined`
+   * for two unrelated situations: "this command may not be model-invoked" and "the producer of this
+   * list does not say". Those need different handling and the first must not be reached by accident.
+   */
+  modelInvocable: boolean;
 }
 
 export type TPluginInstallScope = 'user' | 'project';

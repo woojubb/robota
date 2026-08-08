@@ -1,6 +1,15 @@
-# ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider
+---
+title: 'ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-cli, packages/agent-provider
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p19: Move DEFAULT_PROVIDER_DEFINITIONS to agent-provider
 
 ## Problem
 

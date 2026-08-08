@@ -45,9 +45,26 @@ function createCommandHostContext(): ICommandHostContext {
     compactContext: async () => undefined,
     getCwd: () => '/workspace',
     listCommands: () => [
-      { name: 'help', displayName: 'Help', description: 'Show available commands' },
-      { name: 'provider', displayName: 'Provider Setup', description: 'Manage provider profiles' },
-      { name: 'plugin', displayName: 'Plugins', description: 'Manage plugins' },
+      {
+        name: 'help',
+        displayName: 'Help',
+        description: 'Show available commands',
+        modelInvocable: true,
+      },
+      {
+        name: 'provider',
+        displayName: 'Provider Setup',
+        description: 'Manage provider profiles',
+        modelInvocable: true,
+      },
+      // SEC-008: `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
+      // what the real command says rather than the value that happened to compile.
+      {
+        name: 'plugin',
+        displayName: 'Plugins',
+        description: 'Manage plugins',
+        modelInvocable: false,
+      },
     ],
     listEditCheckpoints: () => [],
     restoreEditCheckpoint: async () => ({

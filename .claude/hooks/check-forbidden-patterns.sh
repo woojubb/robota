@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # PreToolUse hook: block try/catch-fallback in NEW content being written.
 # Covers common-mistakes #9 (try/catch fallback) as a pre-write floor before
+#
+# fail-direction: permit — its subject is a PATTERN in content being written, not a command whose
+# grammar it must cover. Treating unrecognised content as forbidden would refuse every file that does
+# not match a known-bad shape, which is all of them. The miss it accepts is a fallback spelled a way
+# the patterns do not describe; the refusal it avoids is every correct write in the repository.
 # scan-no-fallback.mjs catches it in CI.
 #
 # The former any-type and console-usage branches were removed (HARNESS-DIET-006):

@@ -19,6 +19,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { asScalar, parseFrontmatterBlock } from './frontmatter.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -40,15 +41,54 @@ const OPEN_STATUSES = new Set(['todo', 'in-progress']);
  */
 const LEGACY_COMPLETED_TODO = new Set([]);
 
-/** @returns {{ status: string | null, hasCompletedDate: boolean }} */
+/**
+ * The status a task file declares, read from its FRONTMATTER.
+ *
+ * The reader was `/^status:\s*(\S+)/m` over the WHOLE document, so a file with no `---` block at
+ * all still answered with whatever its prose happened to say — and answered authoritatively, since
+ * every placement rule below trusts it. A case written to prove the missing-frontmatter finding
+ * measured it instead: a body line reading `status: done` came back as a terminal status in the
+ * wrong directory rather than as a file with no frontmatter.
+ *
+ * `README.md` says grep-based tooling relies EXCLUSIVELY on frontmatter for status tracking, and
+ * bans a `## Status` body section outright. This function is that tooling; reading the body was the
+ * claim and the code disagreeing.
+ *
+ * It parses through `parseFrontmatterBlock`, which declares itself the owner of the `^<key>:` line
+ * regex for the whole harness. A private block regex here would be a second answer to "where does
+ * frontmatter start and end", which is the fork this repository already has a guard against.
+ *
+ * @returns {{ status: string | null, hasCompletedDate: boolean }}
+ */
 export function readBacklogFrontmatter(content) {
-  const statusMatch = /^status:\s*(\S+)/m.exec(content);
-  const completedMatch = /^completed:\s*\S+/m.exec(content);
+  const entries = parseFrontmatterBlock(content);
+  if (entries === null) return { status: null, hasCompletedDate: false };
+  // The first token of the value: `status: done # note` is still `done`, matching what the previous
+  // `(\S+)` capture read, so a trailing YAML comment does not silently become an unknown status.
+  const status = asScalar(entries.get('status')).trim().split(/\s+/)[0];
   return {
-    status: statusMatch ? statusMatch[1] : null,
-    hasCompletedDate: completedMatch !== null,
+    status: status === '' ? null : status,
+    hasCompletedDate: asScalar(entries.get('completed')).trim() !== '',
   };
 }
+
+/**
+ * What a file with no readable `status:` is told, in BOTH halves of the tree.
+ *
+ * One spelling because it is one rule. Review found the missing-frontmatter finding added to the
+ * root loop and not to the `completed/` loop one screen down, so an archived file with its status
+ * in the body stayed silent — a class closed on one side and left open on the other.
+ */
+// RETROACTIVE, deliberately, and the sweep is on record rather than assumed: when the reader was
+// made honest (frontmatter-only), the full corpus — 831 task files, root and completed/ — was run
+// through this scan in the same change. Exactly nine violations existed (`completed/ARCH-002-p15`
+// through `-p23`, status in a banned `## Status` body section) and all nine were repaired in that
+// change. There is NO baseline here for the same reason `named-artifact-resolves` ships one: that
+// floor started with 75 standing violations to burn down; this one starts with zero, and a baseline
+// over zero is an invitation to grow one.
+const NO_STATUS_PROBLEM =
+  'no `status:` in frontmatter — README.md requires a `---` block, and this scan (and every ' +
+  'other grep over the backlog) reads status from there and nowhere else';
 
 async function listMarkdown(dirAbsolute) {
   try {
@@ -74,7 +114,19 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
     const { status, hasCompletedDate } = readBacklogFrontmatter(
       await fs.readFile(path.join(root, relative), 'utf8'),
     );
-    if (status === null) continue;
+    // A task with no readable `status:` is REPORTED, not skipped, and review found why. `README.md`
+    // requires every task file to carry a `---`-delimited frontmatter block and says outright that
+    // "grep-based tooling and harness scripts rely exclusively on frontmatter for status tracking"
+    // — and this scan, one of that tooling, answered `null` and moved on. A file written with the
+    // status in the BODY therefore passed every placement rule below, which is the rule this scan
+    // enforces being unenforceable against the one shape that breaks it.
+    //
+    // Found the ordinary way: a task file added in this very change had no frontmatter and the scan
+    // reported clean.
+    if (status === null) {
+      findings.push({ file: relative, problem: NO_STATUS_PROBLEM });
+      continue;
+    }
     if (TERMINAL_STATUSES.has(status)) {
       findings.push({
         file: relative,
@@ -93,7 +145,15 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
     const relative = path.join(COMPLETED_DIR, name);
     if (LEGACY_COMPLETED_TODO.has(relative)) continue;
     const { status } = readBacklogFrontmatter(await fs.readFile(path.join(root, relative), 'utf8'));
-    if (status !== null && OPEN_STATUSES.has(status)) {
+    // The same rule as the root loop, and review found it applied to only one of them. An archived
+    // file with no frontmatter passed silently, and the reason the root loop refuses one — that
+    // nothing can read the status of a file that does not declare it where the tooling looks — does
+    // not stop applying because the file is in `completed/`.
+    if (status === null) {
+      findings.push({ file: relative, problem: NO_STATUS_PROBLEM });
+      continue;
+    }
+    if (OPEN_STATUSES.has(status)) {
       findings.push({
         file: relative,
         problem: `open status "${status}" inside completed/ — reopen (move back) or close it`,
