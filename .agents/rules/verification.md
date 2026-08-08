@@ -107,3 +107,52 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - If any stage fails, fix the issue before proceeding.
 - The harness results must be reported with counts (total tests, failures, build status).
 - This is a blocking gate — no merge to `main` or `release/*` without harness pass.
+
+### A Fixture Decides Nothing Until It Reproduces Reality
+
+**A measurement made against something you wrote is a measurement of what you wrote.** Before a
+probe, stub or fixture is allowed to settle a question about the real code, run it once against the
+real subject and confirm it reproduces a state you already know. If it cannot, the fixture is the
+thing under test, and its answer is about the fixture.
+
+This is not a style preference. Four conclusions were reversed in one session, each drawn from a
+fixture that did not behave like the thing it stood in for:
+
+- a `submit` stub with no suspension point "proved" a race did not exist — the real one opens with
+  an `await`, and the race is real;
+- a `gh` stub that ignored `--limit` made a truncation check pass while the check had lost the
+  property;
+- a test file run from the wrong directory "proved" fifteen cases never ran — under its own package
+  config they all did;
+- a positional-argument grammar was assumed for an interpreter that reads that argument as a
+  filename.
+
+In every one the code was fine and the instrument was wrong, and in every one the wrong answer was
+reported as a property of the code.
+
+**How to apply.** State, in the change, what the fixture was checked against. A fixture that cannot
+be checked against reality is a reason to measure differently, not a reason to proceed.
+
+Enforced by: nothing — whether a fixture was validated before it was trusted leaves no trace a
+machine can read, and a check that claimed to decide it would be asserting the very thing it cannot
+see.
+
+### Prose Is Written Last, Against the Diff
+
+**A comment, SPEC line, PR body or commit message is written after the code it describes, by reading
+the finished diff.** Not from the intent that produced the change.
+
+The dominant defect class in review is a claim that does not match the code — and it is produced by
+writing both in one pass, where the sentence describes what the author meant to do and the code
+records what they did. It appears in every artifact: a comment explaining a method the same change
+deleted; a SPEC naming an export the same change moved; a PR body asserting a measurement that was
+taken with the wrong instrument; a changeset advertising a member no code path produces.
+
+**How to apply.** After the code is final, re-read every sentence the change adds or leaves behind
+and ask what in the diff makes it true. Delete or correct what nothing supports. Prose about a
+change is a claim, and a claim is checked against the diff — the same standard the commit-message
+rule already applies to citations.
+
+Enforced by: nothing — whether a sentence describes the code beneath it is not decidable by a
+machine, and this repository's experience is that the checks which try end up asserting file
+existence while the sentence stays wrong.
