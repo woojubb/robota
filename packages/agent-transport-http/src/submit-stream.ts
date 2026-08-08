@@ -26,13 +26,6 @@ import type { SSEStreamingApi } from 'hono/streaming';
 export type TStreamFailureListener = (error: Error) => void;
 
 /**
- * The `streamSSE` callback for one submitted prompt.
- *
- * `release` is called in the teardown, ALWAYS — on completion, on error, and on client disconnect.
- * It is passed in rather than taken here because the claim is made before the stream opens: a claim
- * whose release lives only inside the stream is a lock that outlives the request that took it.
- */
-/**
  * Wire every relay subscription and the abort path; answer with the promise that settles when the
  * turn is over (or refused one).
  *
@@ -147,6 +140,15 @@ function teardown(cleanup: Array<() => void>, release: () => void): void {
   release();
 }
 
+/**
+ * The `streamSSE` callback for one submitted prompt.
+ *
+ * `release` is called in the teardown, ALWAYS — on completion, on error, and on client disconnect.
+ * It is passed in rather than taken here because the claim is made before the stream opens: a claim
+ * whose release lives only inside the stream is a lock that outlives the request that took it.
+ * (This block sat on `wireRelay` for one round after the split stranded it — the stale-doc shape
+ * this file keeps writing about, caught doing it.)
+ */
 export function relayTurn(
   session: IInteractiveSession,
   prompt: string,
