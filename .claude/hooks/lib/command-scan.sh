@@ -355,7 +355,13 @@ HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
 # A shell: `-c`, in a bundle or alone. NOT `--command` — measured, `bash --command` is "invalid
 # option" and `python3 --command` is "unknown option". A flag the tool does not have is a claim this
 # file makes and the tool refuses, which is the same class as everything else on this list.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_SH_BOOL}c${HOOK_INTERP_SEP}"
+# The shell alternative is NAMED, because two lists need it and review found the second one
+# carrying a hand-written copy: `HOOK_SHELL_INTERPRETER_RE` below still had `-[a-zA-Z]*c` after this
+# one was narrowed, and the tokenizer tries that list FIRST — so `bash -qc "…"` matched there and the
+# narrowing was dead for every shell. Sharing the parts was not enough; the ALTERNATIVE has to be the
+# same string, or "composed from the same parts" is a claim about the parts nobody made about the whole.
+HOOK_INTERP_SHELL_ALT="${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_SH_BOOL}c${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
 # python: `-c`. `-m` names a MODULE, not code.
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PY_BOOL}c${HOOK_INTERP_SEP}"
 # ruby: `-e` only. `-E` is the encoding flag and `-r` requires a LIBRARY — both would over-block.
@@ -412,12 +418,13 @@ HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|eval[ \t]+)\$"
 # rules would be an approximation of a DIFFERENT grammar — the exact mistake this file is a
 # record of. They stay on the list above, kept verbatim; only these are descended into.
 #
-# COMPOSED FROM THE SAME PARTS as the list above, not hand-written a second time. It was a literal
-# copy carrying its own `--command` and its own required space — so the two answers to "what is a
-# code flag" drifted the moment one of them was corrected, which is the defect this whole file
-# exists to end and which it was reproducing about itself.
+# THE SAME ALTERNATIVE as the list above — `${HOOK_INTERP_SHELL_ALT}`, one string, not a second
+# spelling of it. It was a literal copy carrying its own `--command` and its own required space, and
+# after those were fixed it drifted again: the copy kept `-[a-zA-Z]*c` through the bundle narrowing
+# and, because the tokenizer tries THIS list first, the narrowing never applied to a shell at all.
+# Two corrections, one cause. "Composed from the same parts" says nothing about the whole.
 HOOK_SHELL_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
-HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*c${HOOK_INTERP_SEP}"
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
 HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|${HOOK_INTERP_PATH}ssh[ \t]+${HOOK_INTERP_ARGS}"
 HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|eval[ \t]+)\$"
 

@@ -860,6 +860,28 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('narrows the SHELL branch in both lists that carry it', () => {
+    // `HOOK_SHELL_INTERPRETER_RE` — the list of interpreters whose argument is parsed AS SHELL — was
+    // a hand-written copy of the shell alternative, and it kept `-[a-zA-Z]*c` through the bundle
+    // narrowing. The tokenizer tries that list FIRST, so the narrowing was dead for every shell.
+    // Review found it. MEASURED before the fix: `bash -qc "…"` exited 2.
+    //
+    // `q` is not a boolean flag of any shell here, so `-qc` is a fused value flag and its argument
+    // is data. On `main`, so it discriminates.
+    const main = scratchRepo('main');
+
+    expect(
+      runHook('branch-guard.sh', 'bash -qc "note about git push --force origin main"', {
+        cwd: main,
+      }).status,
+      'the second list kept the pre-narrowing pattern',
+    ).toBe(0);
+    // And the real one still blocks, through the same shared alternative.
+    expect(
+      runHook('branch-guard.sh', 'bash -c "git push --force origin main"', { cwd: main }).status,
+    ).toBe(2);
+  });
+
   it('still reads a BUNDLE of boolean flags ending in the code flag', () => {
     // The other direction, pinned in the same change: narrowing the bundle to each interpreter's
     // value-less flags must not stop reading a real one. Every command here RUNS its argument.
