@@ -55,6 +55,17 @@ const SUFFIX_SEGMENTS = new Set([
 export const EXTENSIONS = ['mjs', 'cjs', 'js', 'ts', 'tsx', 'md', 'sh', 'yml', 'yaml', 'json'];
 
 /**
+ * Is this segment one of the suffix words, whatever its case?
+ *
+ * Lowercased before the lookup, because the sibling branch already lowercases before checking
+ * `EXTENSIONS` and review found the two disagreeing: `.Test.ts` failed the case-sensitive `has` and
+ * came out the other side as a genuine dot-FILE. One question, one answer.
+ */
+function isSuffixSegment(segment) {
+  return SUFFIX_SEGMENTS.has(segment.toLowerCase());
+}
+
+/**
  * Whether the token is a file NAME rather than an extension or a suffix.
  *
  * `.d.ts` and `.test.ts` are shapes a file ends WITH; they name no file, and reading them as names
@@ -94,12 +105,17 @@ export function hasStem(name) {
     //
     // The length floor is unchanged and load-bearing for the same reason it is below: a one-letter
     // segment names no file.
+    //
+    // `SUFFIX_SEGMENTS` is asked here too, and review found the asymmetry: `.test` and `.config`
+    // alone are the same shape as `.test.ts` with the extension left off, and only the two-dot form
+    // was excluded. A document writing "files ending in `.test`" was naming a shape, not a file.
     if (nextDot === -1) {
-      if (rest.length < 2 || EXTENSIONS.includes(rest.toLowerCase())) return false;
+      if (rest.length < 2) return false;
+      if (isSuffixSegment(rest) || EXTENSIONS.includes(rest.toLowerCase())) return false;
       return /^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(rest);
     }
     const leading = rest.slice(0, nextDot);
-    if (leading.length < 2 || SUFFIX_SEGMENTS.has(leading)) return false;
+    if (leading.length < 2 || isSuffixSegment(leading)) return false;
     return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$/.test(rest);
   }
   return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$/.test(base);

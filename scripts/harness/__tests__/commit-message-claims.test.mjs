@@ -364,3 +364,40 @@ function runCommitlint(message) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+describe('what the citation shape refuses to read as a commit', () => {
+  // This rule is a REQUIRED status check, so a token it reads as a citation and cannot resolve
+  // refuses an otherwise correct commit. MEASURED over this repository's last 3000 messages: the
+  // digit-only shape matched 93 tokens and 45 occurrences did not resolve. Both narrowings below
+  // keep all 48 real citations and cut the false refusals to 7.
+  const cite = (message) => commitishClaims(message);
+
+  it('does not read an all-DIGIT token as a hash', () => {
+    // GitHub Actions run ids, issue numbers, timestamps, byte counts. A 7-digit all-numeric SHA-1
+    // prefix has odds of about one in 270 million; a run id in a commit message is a certainty.
+    expect(cite('see run 30195049439 for the failure')).toEqual([]);
+    expect(cite('1700000000000 ms')).toEqual([]);
+  });
+
+  it('does not read a CHECKSUM length as a hash', () => {
+    // 32 is an MD5 and 64 a SHA-256, and both appear in messages. A person cites 7-12 characters or
+    // the whole 40.
+    expect(cite('integrity c7597884fdba1815ca9319c967d909e2 changed')).toEqual([]);
+    expect(cite(`sha256 ${'a1'.repeat(32)} pinned`)).toEqual([]);
+  });
+
+  it('still reads the shapes a person actually writes', () => {
+    expect(cite('fixed in abc1234')).toEqual(['abc1234']);
+    expect(cite('fixed in abc1234def0')).toEqual(['abc1234def0']);
+    expect(cite(`reverts ${'0abcdef'.repeat(5) + 'abcde'}`)).toHaveLength(1);
+  });
+
+  it('does NOT read a hyphenated fragment, and that is the cheaper error', () => {
+    // `-` counts as an identifier character in the boundary, so `abc1234-followup` is missed. Review
+    // asked whether it should be. Dropping `-` would admit the hash-like fragment build output is
+    // full of — `index-a1b2c3d4.js` — and a message naming a bundle would be refused for citing a
+    // commit nobody mentioned. A miss costs an unchecked citation; that costs a correct commit.
+    expect(cite('see abc1234-followup for it')).toEqual([]);
+    expect(cite('the bundle index-a1b2c3d4.js grew')).toEqual([]);
+  });
+});

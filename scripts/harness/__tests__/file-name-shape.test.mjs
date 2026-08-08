@@ -63,3 +63,30 @@ describe('a dot-file is a file; a suffix is a shape', () => {
     expect(hasStem('packages/x/.eslintrc.json')).toBe(true);
   });
 });
+
+describe('a suffix is a suffix however it is written', () => {
+  it('is not a NAME when the extension is left off', () => {
+    // `.test` and `.config` alone are `.test.ts` with the extension dropped — the same shape, and
+    // only the two-dot form was excluded. A document writing "files ending in `.test`" is naming a
+    // shape, not a file. Review found the asymmetry.
+    expect(hasStem('.test')).toBe(false);
+    expect(hasStem('.config')).toBe(false);
+    expect(hasStem('.spec')).toBe(false);
+  });
+
+  it('is not a NAME when it is capitalised', () => {
+    // The sibling branch lowercases before checking `EXTENSIONS`; this one did not, so `.Test.ts`
+    // failed the lookup and came out as a genuine dot-file.
+    expect(hasStem('.Test.ts')).toBe(false);
+    expect(hasStem('.Spec.ts')).toBe(false);
+    expect(hasStem('.D.ts')).toBe(false);
+  });
+
+  it('still reads a real dot-file as a name', () => {
+    // The other direction, so the narrowing above cannot quietly swallow the case this function is
+    // FOR: these name files, and a document mentioning them is naming something.
+    expect(hasStem('.gitignore')).toBe(true);
+    expect(hasStem('.npmrc')).toBe(true);
+    expect(hasStem('.eslintrc.json')).toBe(true);
+  });
+});

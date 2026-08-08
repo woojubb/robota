@@ -8,8 +8,8 @@ import {
   judgeMessage,
   objectIsKnown,
   pathHasEverExisted,
+  stagedPaths,
 } from './scripts/harness/commit-message-claims.mjs';
-import { execFileSync } from 'node:child_process';
 
 /**
  * A commit message describes the DIFF, not the intent (HARNESS-076).
@@ -27,14 +27,6 @@ import { execFileSync } from 'node:child_process';
  * — and because commitlint is already a REQUIRED status check, so this runs in continuous integration
  * as well as locally, which a hook alone would not.
  */
-const gitLines = (args) => {
-  try {
-    return execFileSync('git', args, { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-  } catch {
-    return [];
-  }
-};
-
 const claimsResolve = {
   rules: {
     'claims-resolve': [
@@ -49,7 +41,10 @@ const claimsResolve = {
     {
       rules: {
         'claims-resolve': ({ raw }) => {
-          const staged = new Set(gitLines(['diff', '--cached', '--name-only']));
+          // `stagedPaths()` rather than a local git call: the copy that stood here swallowed every
+          // failure into an empty list, which is the distinction the module it sits beside exists to
+          // make — "git could not answer" is not "git answered no". Review found the two disagreeing.
+          const staged = stagedPaths();
           const findings = judgeMessage(raw ?? '', {
             // ANY object, as the rule's own documentation says — a message may cite a tag or a
             // tree, and refusing those would be the check disagreeing with its own description.

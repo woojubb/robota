@@ -35,6 +35,8 @@
  * Exit 0 = every rule section this change adds answers.
  */
 import { execFileSync } from 'node:child_process';
+
+import { resolveGitBaseRef } from './shared.mjs';
 import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -80,10 +82,22 @@ const RULE_HEADING = /^\+###\s+(.+)$/;
 const ADDED_RULE_BULLET =
   /^\+\s*[-*]\s+(?:\*\*)?[^.\n]{0,120}?\b(MUST|MUST NOT|NEVER|ALWAYS|PROHIBITED|REQUIRED|is banned|is forbidden)\b/;
 
-export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env } = {}) {
+/**
+ * The base to diff against — `shared.mjs`'s resolver, not a local one.
+ *
+ * This function used to try three candidates and check none of them for existence, so any run
+ * outside a GitHub pull_request context — an agent worktree, a shallow clone, a local
+ * `pnpm harness:scan` — hard-failed on an `origin/develop` that was simply not fetched. Review
+ * pointed at the resolver this repository already has: eight candidates, each verified to exist,
+ * and a `null` when none does. A fourth spelling of "which ref is the base" is a fourth answer
+ * waiting to disagree with the other three, which is the fragility HARNESS-055/HARNESS-077 track.
+ *
+ * `null` still fails the scan. Refusing is right when there is genuinely nothing to compare
+ * against — what changed is that it now takes eight misses to get there rather than one.
+ */
+export function resolveBaseRef({ argv = process.argv.slice(2) } = {}) {
   const flag = argv.indexOf('--base-ref');
-  if (flag >= 0 && argv[flag + 1]) return argv[flag + 1];
-  return env.GITHUB_BASE_REF ? `origin/${env.GITHUB_BASE_REF}` : 'origin/develop';
+  return resolveGitBaseRef(flag >= 0 ? argv[flag + 1] : null);
 }
 
 /**
@@ -169,7 +183,7 @@ export function readDiff(baseRef, { cwd = WORKSPACE_ROOT } = {}) {
 
 function main() {
   const baseRef = resolveBaseRef();
-  const diff = readDiff(baseRef);
+  const diff = baseRef === null ? null : readDiff(baseRef);
 
   // Fail closed, and MEAN it. The first version wrote this comment and then returned without an
   // exit code — a SKIPPED line and a silent pass, which is precisely the state the comment claims to
@@ -181,8 +195,12 @@ function main() {
     // is one nobody established — the very distinction this scan's own subject is about.
     console.log('::examined:: 0 new rule sections');
     console.error(
-      `new-rule-declares-enforcement scan FAILED — cannot read the diff against \`${baseRef}\`. ` +
-        'Fetch the base ref (a shallow clone has no merge base), or pass --base-ref explicitly.',
+      baseRef === null
+        ? 'new-rule-declares-enforcement scan FAILED — no base ref exists to diff against. Every ' +
+            'candidate the harness knows (HARNESS_BASE_REF, GITHUB_BASE_REF, develop, main, and their ' +
+            'origin/ forms) was checked and none resolves here. Fetch one, or pass --base-ref.'
+        : `new-rule-declares-enforcement scan FAILED — cannot read the diff against \`${baseRef}\`. ` +
+            'Fetch the base ref (a shallow clone has no merge base), or pass --base-ref explicitly.',
     );
     return;
   }

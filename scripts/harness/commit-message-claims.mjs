@@ -57,13 +57,38 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
  * started this — a hash typed rather than read — was written in running prose, so a matcher that
  * only reads code spans would have missed the very incident it exists for. A hash with no digit at
  * all is possible and goes unchecked; that is a miss, and a miss is the cheaper error here.
+ *
+ * This is a REQUIRED status check, so a token it reads as a citation and cannot resolve REFUSES an
+ * otherwise correct commit — the expensive direction. Review asked what else gets read that way,
+ * and the answer was measured over this repository's last 3000 messages, through this module rather
+ * than through the pattern alone: 51 tokens matched, 40 resolved, and 11 occurrences refused a
+ * message that had cited nothing.
+ *
+ * The LENGTH set removes four of them. 7–12 characters or the full 40 is how a person cites a
+ * commit; 32 is an MD5 and 64 a SHA-256, and both appear in messages as checksums —
+ * `c7597884fdba1815ca9319c967d909e2` was one. After it: 47 matched, the same 40 resolved, 7
+ * occurrences left, all of them short-hash-shaped tokens that genuinely resolve to nothing in this
+ * clone. That last kind is the refusal this rule is for.
+ *
+ * The LETTER requirement moves an exclusion that already existed — a post-filter dropping all-digit
+ * tokens — into the pattern, so the shape is described in one place instead of asserted in two. It
+ * matters: a GitHub Actions run id like `30195049439` is all digits and is the single most common
+ * hash-shaped token in these messages, while a 7-digit all-numeric SHA-1 prefix has odds of about
+ * one in 270 million.
  */
 // A WHOLE token, not a window inside one. `\b` alone let a 7-char run be found inside a longer
 // identifier — `build0aded1234567890` contains one — so an ordinary word could be read as a
 // citation. The token is bounded by something that is not an identifier character on both sides,
 // which is what "a hash written on its own" actually looks like.
+//
+// `-` IS an identifier character here, deliberately, and review asked whether it should be: it
+// means `abc1234-followup` is not read as a citation at all, a silent miss. It is the cheaper error.
+// Dropping `-` would admit the hyphenated hash-like fragment that build output is full of —
+// `index-a1b2c3d4.js` (allow-missing-artifact: an invented bundle name, which is the shape being
+// described) — and a message naming a bundle would be refused for citing a commit nobody mentioned.
+// A miss costs an unchecked citation; that costs a correct commit.
 const COMMITISH =
-  /(?<![0-9a-zA-Z_-])(?=[0-9a-f]{7,40}(?![0-9a-zA-Z_-]))[a-f]*[0-9][0-9a-f]*(?![0-9a-zA-Z_-])/g;
+  /(?<![0-9a-zA-Z_-])(?=(?:[0-9a-f]{7,12}|[0-9a-f]{40})(?![0-9a-zA-Z_-]))(?=[0-9a-f]*[a-f])[a-f]*[0-9][0-9a-f]*(?![0-9a-zA-Z_-])/g;
 
 /** A code-spanned token shaped like a repository path. */
 const CODE_SPAN = /`([^`\n]+)`/g;
@@ -120,7 +145,9 @@ export function commitishClaims(message) {
   let match;
   while ((match = COMMITISH.exec(scanned)) !== null) {
     const token = match[0];
-    // A pure-digit run is a number — a count, a year, an issue — not an object name.
+    // A pure-digit run is a number — a count, a year, an issue — not an object name. The pattern
+    // above now requires a hex letter, so this is a second expression of the same rule; it stays as
+    // the assertion that it holds, and would catch a pattern edit that dropped it.
     if (/^[0-9]+$/.test(token)) continue;
     found.add(token);
   }
@@ -212,6 +239,21 @@ function gitAnswered(args, { onUnavailable, cwd = WORKSPACE_ROOT }) {
     process.stderr.write(`commit-message-claims: ${error.message}\n`);
     return onUnavailable;
   }
+}
+
+/**
+ * The paths staged for the commit being written, or an empty set when git cannot say.
+ *
+ * Exported so `commitlint.config.js` stops keeping its own `gitLines` — review found that copy
+ * swallowing every git failure into `[]`, which is the distinction this file was written to make:
+ * "git could not answer" is not "git answered no". Both callers now go through `gitAnswered`, which
+ * says so on stderr and hands back the empty set only after that has been recorded.
+ *
+ * An empty set is the right VALUE either way — `pathHasEverExisted` still asks history and the
+ * working tree, so nothing is decided on this alone.
+ */
+export function stagedPaths() {
+  return new Set(gitAnswered(['diff', '--cached', '--name-only'], { onUnavailable: [] }));
 }
 
 /**

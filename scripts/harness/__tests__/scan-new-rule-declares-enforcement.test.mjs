@@ -6,6 +6,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { resolveGitBaseRef } from '../shared.mjs';
+
 import {
   addedRuleSections,
   judgeSections,
@@ -114,10 +116,22 @@ describe('the two terminal states, and nothing else', () => {
 });
 
 describe('the base it compares against', () => {
-  it('prefers an explicit ref, then the pull request base, then develop', () => {
-    expect(resolveBaseRef({ argv: ['--base-ref', 'origin/main'], env: {} })).toBe('origin/main');
-    expect(resolveBaseRef({ argv: [], env: { GITHUB_BASE_REF: 'main' } })).toBe('origin/main');
-    expect(resolveBaseRef({ argv: [], env: {} })).toBe('origin/develop');
+  it('takes an explicit ref as given', () => {
+    expect(resolveBaseRef({ argv: ['--base-ref', 'origin/main'] })).toBe('origin/main');
+  });
+
+  it('otherwise DELEGATES, rather than answering with a list of its own', () => {
+    // This function used to try three candidates and verify none of them, so a run outside a
+    // GitHub pull_request context — an agent worktree, a shallow clone, a plain local
+    // `pnpm harness:scan` — hard-failed on an `origin/develop` that was simply not fetched. Review
+    // pointed at `shared.mjs`'s resolver, which this repository already has: eight candidates, each
+    // checked for existence. A fourth spelling of "which ref is the base" is a fourth answer
+    // waiting to disagree with the other three.
+    //
+    // So the case asserts the DELEGATION: with no flag, the answer is the shared resolver's answer,
+    // whatever this checkout makes that. Asserting a literal here would be asserting the shared
+    // resolver's behaviour a second time, in the file that exists to stop having a second copy.
+    expect(resolveBaseRef({ argv: [] })).toBe(resolveGitBaseRef(null));
   });
 });
 
