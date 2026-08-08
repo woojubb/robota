@@ -63,6 +63,24 @@ export class PendingInputQueue {
    * emits an attributed notice). Releases a coalesced-away / dropped entry's `wakeTaskId` (CORE-024).
    */
   enqueue(entry: IQueuedInput): 'queued' | 'coalesced' | 'dropped' {
+    // AN ENTRY WITHOUT AN IDENTITY IS REFUSED HERE, loudly, rather than queued to be silently
+    // un-settleable later. `turnId` is optional on the type and every settle path no-ops on
+    // `undefined` — `refuse`, `settle` and `fail` all open with `if (turnId === undefined) return;`
+    // — so an entry built without one takes the whole queued path and its caller's `completed`
+    // never settles. That exact defect SHIPPED once in this change: the queue half was inert
+    // because the id was not threaded onto the entry, and nothing failed.
+    //
+    // Review asked for the optionality to be typed away, and it should be; that is a signature
+    // change across `ITurnOptions`, `IQueuedInput` and three registry methods, filed as RUNTIME-006
+    // rather than half-done here. What this costs meanwhile is one comparison, and it converts the silent
+    // version of the failure into a thrown one at the moment the entry is built.
+    if (entry.turnId === undefined) {
+      throw new Error(
+        'pending queue: a queued submission needs its turnId — without one no refusal can settle ' +
+          "its caller's handle, and the wait never ends. This is the RUNTIME-003 inert-queue " +
+          'defect, caught at the enqueue rather than in a hang.',
+      );
+    }
     const tail = this.entries[this.entries.length - 1];
     if (tail && tail.options.driverId === entry.options.driverId) {
       if (

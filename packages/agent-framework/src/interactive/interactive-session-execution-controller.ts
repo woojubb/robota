@@ -47,67 +47,21 @@ import type { Session } from '@robota-sdk/agent-session';
 
 export type { TTurnSource };
 
-export interface IExecutionControllerCallbacks {
-  getSession: () => Session;
-  getSessionOrThrow: () => Session;
-  getCwd: () => string;
-  getContextState: () => IContextWindowState;
-  getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
-  emit: <E extends string>(event: E, ...args: unknown[]) => void;
-  persistSession: () => void;
-  /**
-   * SELFHOST-008 P2: optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is
-   * `await`ed in the executePrompt `finally` immediately BEFORE `persistSession()` on the completed-turn path,
-   * so the returned `IMemoryEvent`s (recorded via the history tracker) land in THIS turn's persisted record.
-   * Absent ⇒ capture OFF. It extracts/evaluates/curates through the injected `IMemoryStore` and returns the
-   * events; the controller records them + swallows any error to a skip (a capture bug never breaks the turn).
-   */
-  captureMemory?: (input: {
-    userMessage: string;
-    assistantMessage: string;
-  }) => Promise<IMemoryEvent[]>;
-  /**
-   * SELFHOST-008 P3: optional per-turn recall. When set (surface supplied a `recallMemory` policy), it is
-   * called at turn START with the turn's input and returns a rendered `<recalled-memory>` block (or '') to
-   * inject EPHEMERALLY into that turn's model call (never persisted). Absent ⇒ recall OFF (startup-only
-   * injection). The controller guards this call — a recall failure skips injection, never breaks the turn.
-   */
-  recallMemory?: (query: string) => Promise<string>;
-}
+// The contracts moved to their own file when this one grew past its size baseline; re-exported so
+// every existing importer keeps working and the split is not a breaking change to the package.
+export type {
+  IExecutionControllerCallbacks,
+  ITurnOptions,
+  IQueuedInput,
+  TSubmitFn,
+} from './interactive-session-execution-contracts.js';
+import type {
+  IExecutionControllerCallbacks,
+  ITurnOptions,
+  IQueuedInput,
+  TSubmitFn,
+} from './interactive-session-execution-contracts.js';
 
-/** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
-export interface ITurnOptions {
-  turnSource?: TTurnSource;
-  /** When set, the in-flight wake for this background task id is cleared on turn completion. */
-  wakeTaskId?: string;
-  /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this turn (co-drive attribution; display-only). */
-  driverId?: TDriverId;
-  /** RUNTIME-003: the id this submission already has, set ONLY by the queue drain — never by a caller. */
-  resumeTurnId?: string;
-}
-
-/** REMOTE-014 E5: one queued input awaiting its turn (attributed). */
-export interface IQueuedInput {
-  readonly input: string;
-  readonly displayInput?: string;
-  readonly rawInput?: string;
-  readonly options: ITurnOptions;
-  /** RUNTIME-003: this submission's id. EVERY refusal path settles by it — omit it and the queue is inert. */
-  readonly turnId?: string;
-}
-
-/**
- * A submit callback that optionally carries turn options (default = user turn).
- *
- * RUNTIME-003: the handle comes back, but this callback's callers do not want it — the drain
- * re-submits an input whose handle its original submitter already holds.
- */
-export type TSubmitFn = (
-  prompt: string,
-  displayInput?: string,
-  rawInput?: string,
-  options?: ITurnOptions,
-) => Promise<ITurnHandle | void>;
 export class SessionExecutionController {
   executing = false;
   streamingText = '';
