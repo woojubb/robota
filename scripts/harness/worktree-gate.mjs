@@ -205,6 +205,11 @@ function newestMtime(dir, skip = new Set(['node_modules', '.git'])) {
  * visible in the gate's own output, not inferred from this comment.
  */
 const BUILD_OUTPUTS = ['dist', '.next', 'out'];
+// A CLOSED list, like BUILD_OUTPUTS above it, and said out loud for the same reason: this pair was
+// found silently under-covering twice in one review cycle (`.next`, then `app/`), and a package
+// whose source lives somewhere unlisted — `lib/`, say — is skipped without a trace. The `main()`
+// printout of examined outputs is what makes that visible; extending the list is a measured edit,
+// not a discovery.
 const SOURCE_DIRS = ['src', 'app', 'pages'];
 
 /**
@@ -333,6 +338,11 @@ function main() {
   const phase = takeOption(argv, '--phase');
   const branch = takeOption(argv, '--branch');
 
+  // Exit-code taxonomy, deliberate and worth stating since nothing else does: 2 = the INVOCATION
+  // is wrong (bad phase/branch — the caller's mistake, nothing was examined), 1 = the gate RAN and
+  // refused (findings, or an environment no check may run in). The agents that call this are told
+  // to read the OUTPUT, not the code; the split exists for a future caller that reads codes anyway,
+  // so "fix your command line" and "fix your worktree" are not one number.
   if (phase !== 'before' && phase !== 'after') {
     console.error('worktree-gate: --phase must be `before` or `after`.');
     console.error('  usage: worktree-gate.mjs --phase before|after --branch <name>');

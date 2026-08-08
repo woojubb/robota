@@ -609,6 +609,38 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status, 'a backgrounded checkout hid the continuation').toBe(2);
   });
 
+  it('is not disarmed by a substitution AFTER the target carrying its own `--`', () => {
+    // The mirror image of the earlier substitution case, and review supplied the repro: with the
+    // real target BEFORE a substitution whose inside contains `--`, the flattened stream put the
+    // target in the exempted half and it fell out of the candidate list entirely. The separator
+    // verdict is read at the TOP level now, where a substitution is a hidden token — only the
+    // statement's own `-- <pathspec>` exempts.
+    const { status } = runHook({
+      command: `git checkout ${held} $(git log --oneline -- README.md); git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status, "a substitution's own -- exempted the statement's target").toBe(2);
+  });
+
+  it('reads the branch a `worktree add` takes, and skips its path', () => {
+    // `git worktree add <path> <branch>` fails on a held <branch> exactly like a checkout, and in a
+    // compound command the statements after it still run — review found the whole accident outside
+    // this reader, arriving through a different verb. The path positional is a directory, never a
+    // branch a sibling can hold, and must not become a false candidate.
+    const { status } = runHook({
+      command: `git worktree add ../scratch-here ${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+    expect(status, 'a held branch behind worktree add went unread').toBe(2);
+
+    const ok = runHook({
+      command: 'git worktree add ../scratch-here some-brand-new-branch; git status',
+      cwd: mainRepo,
+    });
+    expect(ok.status, 'an unheld branch was refused').toBe(0);
+  });
+
   it('reads a value FUSED to its create flag', () => {
     // `-Bheld` and `--track=origin/held` are ordinary git grammar; the exact-match cases missed
     // both, they fell into the generic-flag skip, and the branch names were never candidates —

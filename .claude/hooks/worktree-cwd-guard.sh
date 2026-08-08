@@ -175,7 +175,20 @@ STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 # holds that ref, so a bare `--` in the statement ends the reading. `git checkout -- .` reaches this
 # same exit, and is the DESTRUCTIVE block's subject rather than this one's.
 checkout_targets_in_words() {
+  # $2 says whether the STATEMENT ITSELF carries a `-- <pathspec>` — read from the top-level word
+  # list, where a substitution collapses to one hidden token. Review supplied the shape the
+  # flattened reading cannot answer alone: with the real target BEFORE a substitution whose inside
+  # happens to contain `--` (`git checkout <held> $(git log --oneline -- README.md)`), the flattened
+  # stream put the target in `pre`, the substitution's `--` turned the exemption on, and the target
+  # fell out of the candidate list entirely — the mirror image of the previous round's miss. Only
+  # the top-level reading can tell the statement's own separator from a substitution's, so the
+  # caller reads it there and this function believes $2 over any `--` it meets in the flat stream.
+  local statement_has_separator="${2:-false}"
   local seen_git=false saw_verb=false want="" word
+  # `git worktree add <path> <branch>` fails on a held <branch> exactly like a checkout does, and
+  # review found it outside this reader entirely — same accident, different verb. The first
+  # positional after `worktree add` is the PATH and is skipped; the second is the candidate.
+  local awaiting_worktree_sub=false verb_is_worktree=false worktree_path_skipped=false
   # The `--` question is POSITIONAL, and review walked through why twice.
   #
   # In `git checkout <ref> -- <path>` the ref comes BEFORE the separator, so an exemption that ends
@@ -246,6 +259,20 @@ checkout_targets_in_words() {
           saw_verb=true
           continue
           ;;
+        worktree)
+          awaiting_worktree_sub=true
+          continue
+          ;;
+        add)
+          if [[ "$awaiting_worktree_sub" == "true" ]]; then
+            saw_verb=true
+            verb_is_worktree=true
+          fi
+          continue
+          ;;
+        *)
+          awaiting_worktree_sub=false
+          ;;
       esac
       continue
     fi
@@ -254,7 +281,9 @@ checkout_targets_in_words() {
     fi
     case "$word" in
       --)
-        separator_seen=true
+        # Only the statement's OWN separator exempts; one arriving from a flattened substitution is
+        # that substitution's business ($2 above).
+        [[ "$statement_has_separator" == "true" ]] && separator_seen=true
         ;;
       # `--detach` succeeds while a sibling holds the ref — HEAD detaches, no branch is taken — so
       # the premise of this whole block (a checkout that FAILS with statements still to run) does
@@ -291,6 +320,11 @@ checkout_targets_in_words() {
       -*) ;;
       *'>'* | *'<'* | '') ;;
       *)
+        if [[ "$verb_is_worktree" == "true" && "$worktree_path_skipped" != "true" ]]; then
+          # The worktree PATH — a directory, never a branch another worktree can hold.
+          worktree_path_skipped=true
+          continue
+        fi
         if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         ;;
     esac
@@ -401,7 +435,20 @@ if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|&])' ||
     fi
     CO_WORDS=${CO_WORDS%$'\n\001'}
 
-    CANDIDATES=$(checkout_targets_in_words "$CO_WORDS") || CANDIDATES=""
+    # The statement's OWN `-- <pathspec>`, read at the TOP level where substitutions are hidden
+    # tokens — see the note inside `checkout_targets_in_words`.
+    CO_TOP_WORDS=$(hook_statement_words "$COMMAND" "$CO_START" "$CO_LEN" 2>/dev/null || printf '')
+    CO_HAS_SEPARATOR=false
+    CO_PAST_SEP=false
+    while IFS= read -r _co_word; do
+      if [[ "$CO_PAST_SEP" == "true" && -n "$_co_word" ]]; then
+        CO_HAS_SEPARATOR=true
+        break
+      fi
+      [[ "$_co_word" == "--" ]] && CO_PAST_SEP=true
+    done <<< "$CO_TOP_WORDS"
+
+    CANDIDATES=$(checkout_targets_in_words "$CO_WORDS" "$CO_HAS_SEPARATOR") || CANDIDATES=""
     [[ -n "$CANDIDATES" ]] || continue
 
     # The `-C` of THIS statement, then the session's own directory.
