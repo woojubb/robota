@@ -75,6 +75,20 @@ runs `lint-staged` under a clone-wide lock, and a bare stash command is refused 
 worktree exists. For a before/after comparison use `git archive` or a copy — no shared ref is
 involved, and it is what the agent that hit this switched to.
 
+**The work is wrapped by two gates, and this is where they are invoked.** They exist because the
+list above is what a worktree agent learns by damaging something — a gate that runs before and after
+turns each of those into a refusal instead of an incident. Both are in
+[`worktree-traffic-control`](../worktree-traffic-control/SKILL.md); neither depends on anyone
+remembering the table.
+
+| when                                 | what                                                                                                   | refuses on                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| BEFORE handing an agent its worktree | `node scripts/harness/worktree-gate.mjs --phase before --branch <name>` (agent: `worktree-entry-gate`) | an inherited `GIT_DIR` family variable, a branch a sibling worktree already holds, a worktree with no dependencies installed |
+| AFTER the agent reports done         | `node scripts/harness/worktree-gate.mjs --phase after --branch <name>` (agent: `worktree-exit-gate`)   | the same ambient check, a HEAD that is not the branch the work was for, build output older than the source beside it         |
+
+`--branch` is REQUIRED. Without it the branch-held and HEAD-matches checks examine nothing and the
+gate would print a pass it did not compute, which is the silent green the gate exists to remove.
+
 ### 3. Sequence overlapping work behind occupants
 
 If a candidate item's territory overlaps the OWNED paths of a **currently-running** agent, **HOLD** it —
