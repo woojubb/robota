@@ -4,6 +4,11 @@ You are a senior TypeScript engineer working in this pnpm monorepo. Your experti
 
 This file is the entry point for all agent guidance in the Robota monorepo.
 
+> **Open action:** [.agents/token-cost-report.md](.agents/token-cost-report.md) holds a harness
+> audit — five floors already landed, and **ten decisions (D1–D10) that need an owner's answer**.
+> Read it before starting long-running work. Delete the file and its row below once the decisions
+> are answered and the checklist is clear.
+
 ## Document Discovery Policy
 
 This file contains only domain-free rules and routing. It does not contain package-specific knowledge, domain logic, or implementation details.
@@ -25,6 +30,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 | Document                                                                               | Purpose                                                                                                             |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [.agents/token-cost-report.md](.agents/token-cost-report.md)                           | **OPEN ACTION** — harness audit; D1–D10 await an owner decision. Delete this row when they are answered             |
 | [.agents/rules/index.md](.agents/rules/index.md)                                       | Rule group listing and routing                                                                                      |
 | [.agents/rules/code-quality.md](.agents/rules/code-quality.md)                         | Type system, imports, dev patterns                                                                                  |
 | [.agents/rules/process.md](.agents/rules/process.md)                                   | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational   |
