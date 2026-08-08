@@ -6,46 +6,25 @@
  * execution-workspace methods are WS-only).
  */
 
-import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
-
 import {
   bearerCredential,
   credentialMatches,
   resolveAdmission,
 } from '@robota-sdk/agent-transport-protocol';
+import { Hono } from 'hono';
 
 import { submitHandler } from './submit-route.js';
-
-import type { TSessionFactory } from './submit-route.js';
 import { createTurnClaims } from './turn-claims.js';
 
+import type { TSessionFactory } from './submit-route.js';
 import type { TStreamFailureListener } from './submit-stream.js';
-import type { ITurnClaims } from './turn-claims.js';
 import type {
-  IInteractiveSession,
   ITransportAdmission,
   ITransportAdmissionConfig,
 } from '@robota-sdk/agent-interface-transport';
-import type { Context } from 'hono';
 
-/**
- * Callback that resolves an IInteractiveSession from the request context.
- *
- * It need NOT return the same object twice for the same logical session. It briefly did: `/submit`
- * keyed its concurrent-turn claim on object identity, so a factory building a fresh wrapper per
- * call — a proxy, an adapter, a `{...session}` copy — defeated the guard in silence. The first
- * answer was to document that as a requirement callers had to keep, and a requirement neither the
- * type system nor a test can check is not a contract, it is a hope.
- *
- * What the session already promises is enough. `getSession(): { getSessionId(): string }` names the
- * session, the claim is keyed by that name, and the requirement is gone rather than written down.
- *
- * The session must therefore BE nameable. `/submit` refuses with 500 when `getSessionId()` returns
- * nothing, because without an id the concurrent-turn guarantee does not exist and serving anyway
- * would hand back the bug to whoever could least tell. The contract types that method as returning
- * a `string`, so a conformant session never meets it.
- */
+// Re-exported so existing importers keep their path; the definition and its rationale live with
+// the code that enforces them, in `submit-route.ts`.
 export type { TSessionFactory } from './submit-route.js';
 
 export interface IAgentRoutesOptions {
