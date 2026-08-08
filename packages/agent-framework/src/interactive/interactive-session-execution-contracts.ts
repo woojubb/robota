@@ -11,13 +11,14 @@
  * change already made for `turn-contracts.ts` one package over.
  */
 
-import type { IToolState } from './types.js';
-import type { IMemoryStore } from '../memory/types.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-transport';
-import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
-import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
+import type {
+  IExecutionWorkspaceSnapshot,
+  ITurnHandle,
+  TDriverId,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 export interface IExecutionControllerCallbacks {
@@ -65,7 +66,15 @@ export interface IQueuedInput {
   readonly displayInput?: string;
   readonly rawInput?: string;
   readonly options: ITurnOptions;
-  /** RUNTIME-003: this submission's id. EVERY refusal path settles by it — omit it and the queue is inert. */
+  /**
+   * RUNTIME-003: this submission's id. EVERY refusal path settles by it.
+   *
+   * Optional on the TYPE and required in fact: `PendingInputQueue.enqueue` throws on an entry
+   * without one, because a queued submission nothing can settle leaves its caller waiting forever —
+   * which is how the queued half of this feature once shipped inert, with nothing failing.
+   *
+   * The optionality itself is RUNTIME-006. Until that lands, the throw is what holds the invariant.
+   */
   readonly turnId?: string;
 }
 

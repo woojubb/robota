@@ -20,6 +20,7 @@ import type { SessionExecutionController } from '../interactive-session-executio
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
 import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
+import { EMPTY_TURN_RESULT } from './helpers/session-stub.js';
 
 function createSessionStub(): Session {
   return {
@@ -108,13 +109,6 @@ async function setupSession(): Promise<{
   await Promise.resolve();
   return { session, manager, started };
 }
-
-const EMPTY_TURN_RESULT = {
-  response: '',
-  history: [],
-  toolSummaries: [],
-  contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
-};
 
 describe('FLOW-002 session wake injection', () => {
   it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {

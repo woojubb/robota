@@ -10,16 +10,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IGoalEvent } from '@robota-sdk/agent-interface-transport';
-import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+import {
+  EMPTY_TURN_RESULT,
+  createSessionStub as createSharedSessionStub,
+} from './helpers/session-stub.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
-
-const EMPTY_TURN_RESULT = {
-  response: '',
-  history: [],
-  toolSummaries: [],
-  contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
-};
 
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {

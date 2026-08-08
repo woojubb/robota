@@ -8,10 +8,10 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
-
 import { TurnNotRunError } from './turn-not-run-error.js';
+
 import type { IExecutionResult } from './types.js';
+import type { TTurnNotRunReason } from '@robota-sdk/agent-interface-transport';
 
 export class TurnSettlerRegistry {
   /**
@@ -72,6 +72,14 @@ export class TurnSettlerRegistry {
     return orphan;
   }
 
+  // The three settle paths below no-op on an undefined `turnId`, and that is the silent-swallow
+  // shape this repository's no-fallback rule refuses — it is how the queued half of RUNTIME-003
+  // once shipped inert. It is still here because removing the guards means making `turnId`
+  // non-optional across `ITurnOptions`, `IQueuedInput` and these three signatures, which is
+  // RUNTIME-006 and a signature change rather than an edit.
+  //
+  // What holds the invariant meanwhile is upstream: `PendingInputQueue.enqueue` THROWS on an entry
+  // with no id, so the one construction site that produced the inert case now cannot.
   /** The turn ended. Settles the caller's handle with the result it produced. */
   settle(turnId: string | undefined, result: IExecutionResult): void {
     if (turnId === undefined) return;
