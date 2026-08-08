@@ -25,11 +25,17 @@
  *
  *   browser-node-subpath: allowed — `src/thing.ts` imports it, and <why it cannot reach the browser build>
  *
- * The name is what bounds the exemption. Granted per PACKAGE — the first version — the phrase
- * switched the check off for the whole `src/` tree the moment it appeared anywhere in the SPEC, so
- * a package justifying one import site silently covered every one added after it. An escape hatch
- * wider than the thing it excuses is a hole, and this scan's entire subject is that nothing stopped
- * the next one. A declaration naming no file excuses nothing.
+ * The name is what bounds the exemption, and it is read from the declaration LINE. Two versions
+ * were wider than the thing they excused, and review found both:
+ *
+ *   per PACKAGE   the phrase switched the check off for the whole `src/` tree the moment it
+ *                 appeared anywhere in the SPEC
+ *   per DOCUMENT  the names were then read from the whole file, so every backticked `src/…` path in
+ *                 it was excused — in `agent-tools` that is eight test files and three other
+ *                 builtins the declaration is not about
+ *
+ * An escape hatch that grows with the length of a document is not an exemption, it is an off switch
+ * with a delay. A declaration naming no file excuses nothing.
  *
  * ## Which way its enumeration fails
  *
@@ -56,15 +62,21 @@ const DECLARED_PATH = /`(src\/[^`\s]+)`/g;
 /**
  * The source files a SPEC's declaration excuses, package-relative.
  *
- * The declaration must NAME them. A declaration that names none excuses none — deliberately, and
- * fail-closed: the alternative is a phrase that switches the check off for a whole package, which
- * is the escape hatch review found and is wider than anything it could be excusing. Naming the file
- * is also what makes the reason checkable, since the reason is always about a specific import.
+ * Read from THE DECLARATION LINE, not from the document. The first version searched the whole
+ * SPEC.md once the phrase appeared anywhere, and review measured what that excuses: every backticked
+ * `src/…` path in the file — in `agent-tools` that is eight test files and three other builtins, none
+ * of which the declaration is about. An escape hatch that grows with the length of a document is
+ * not an exemption, it is an off switch with a delay.
+ *
+ * The declaration must NAME its files, on its own line. One naming none excuses none —
+ * deliberately, and fail-closed. Naming the file is also what makes the reason checkable, since the
+ * reason is always about a specific import.
  */
 function declaredFiles(specText) {
-  if (!DECLARATION.test(specText)) return [];
+  const declaration = specText.split(/\r?\n/).find((line) => DECLARATION.test(line));
+  if (declaration === undefined) return [];
   DECLARED_PATH.lastIndex = 0;
-  return [...specText.matchAll(DECLARED_PATH)].map((match) => match[1]);
+  return [...declaration.matchAll(DECLARED_PATH)].map((match) => match[1]);
 }
 
 /**

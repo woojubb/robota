@@ -210,6 +210,33 @@ describe('what the check considers its subject', () => {
     ]);
   });
 
+  it('does NOT excuse a path merely MENTIONED elsewhere in the SPEC', () => {
+    // Review measured what the whole-document read excuses: every backticked `src/…` path in the
+    // file. `agent-tools` names eight test files and three other builtins, none of which its
+    // declaration is about — an escape hatch that grows with the length of a document is not an
+    // exemption, it is an off switch with a delay.
+    //
+    // The declaration LINE is what is read now.
+    makePackage('agent-thing', {
+      exports: BROWSER_EXPORTS,
+      source: IMPORTS_NODE_SUBPATH,
+      spec: [
+        '# Thing',
+        '',
+        'browser-node-subpath: allowed — `src/excused.ts` is a separate graph.',
+        '',
+        '## Test Strategy',
+        '',
+        'See `src/index.ts` and `src/__tests__/thing.test.ts` for coverage.',
+      ].join('\n'),
+    });
+
+    // `src/index.ts` is named in the SPEC, but NOT in the declaration — so it is still reported.
+    expect(findBrowserNodeSubpathFindings(root).map((f) => f.file)).toEqual([
+      path.join('packages', 'agent-thing', 'src', 'index.ts'),
+    ]);
+  });
+
   it('REFUSES a root with no packages tree rather than reporting it clean', () => {
     const bare = mkdtempSync(path.join(tmpdir(), 'browser-subpath-bare-'));
     scratch.push(bare);
