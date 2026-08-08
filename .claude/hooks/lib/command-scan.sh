@@ -333,18 +333,39 @@ HOOK_INTERP_ARGS='([^ \t;&|(\n"\047./]+[ \t]+)*'
 # space, optional `=`, optional space. Zero-width is safe because each alternative below ends AT the
 # flag — `-config` does not end in `c`, and `--evalX` does not end in `--eval`.
 HOOK_INTERP_SEP='[ \t]*=?[ \t]*'
+# A bundle may only contain that interpreter's BOOLEAN flags, and review measured why `[a-zA-Z]*`
+# could not stay. A flag that takes its value FUSED to it ends in whatever letter its value ends in:
+#
+#   ruby -rdate "some note about git push --force"     BLOCKED, and nothing here is code
+#
+# `-rdate` is `-r date` — require the `date` library — and `-[a-zA-Z]*e` read it as `-e` because the
+# value happens to end in `e`. An ordinary data string was then verb-scanned as a ruby program,
+# which is the over-blocking INFRA-084 exists to remove, reappearing inside its own fix. `node
+# -rdate` had it too.
+#
+# So each interpreter names the letters that carry no value. Anything else fused to a `-` is a flag
+# WITH a value and cannot be the code flag. Value-taking flags written as separate tokens are
+# unaffected — `ruby -rjson -e "…"` still matches, because `HOOK_INTERP_ARGS` consumes `-rjson` and
+# the code flag stands alone.
+HOOK_INTERP_SH_BOOL='[abefhikmnptuvxCHP]*'
+HOOK_INTERP_PY_BOOL='[bBdEhiIOqsSuvVx]*'
+HOOK_INTERP_RB_BOOL='[acdlnpsSUvwWy]*'
+HOOK_INTERP_PL_BOOL='[acdlnpsStTuUvwWx]*'
 HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
 # A shell: `-c`, in a bundle or alone. NOT `--command` — measured, `bash --command` is "invalid
 # option" and `python3 --command` is "unknown option". A flag the tool does not have is a claim this
 # file makes and the tool refuses, which is the same class as everything else on this list.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*c${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_SH_BOOL}c${HOOK_INTERP_SEP}"
 # python: `-c`. `-m` names a MODULE, not code.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*c${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PY_BOOL}c${HOOK_INTERP_SEP}"
 # ruby: `-e` only. `-E` is the encoding flag and `-r` requires a LIBRARY — both would over-block.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*e${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_RB_BOOL}e${HOOK_INTERP_SEP}"
 # node / bun: `-e`/`--eval` and `-p`/`--print`, which evaluates its argument and prints the result.
 # Both long forms confirmed by RUNNING them.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[ep]|--eval|--print)${HOOK_INTERP_SEP}"
+#
+# No bundle: node has no single-letter flag bundling at all, so the short forms are exact. `-[a-zA-Z]*[ep]`
+# was here and read `node -rdate "…"` — require the `date` module — as an eval of its argument.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[ep]|--eval|--print)${HOOK_INTERP_SEP}"
 # `deno eval <code>` / `bun eval <code>` take the code positionally.
 #
 # `eval` is a SUBCOMMAND, so it is the FIRST token after the binary — no `HOOK_INTERP_ARGS` in front
@@ -356,13 +377,15 @@ HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+$
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+eval[ \t]+"
 # perl: `-e` and `-E`, in a bundle (`-ne`, `-lE`) or alone. NOT `--eval` — measured, perl answers
 # "Unrecognized switch: --eval".
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*[eE]${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PL_BOOL}[eE]${HOOK_INTERP_SEP}"
 # php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.
 # `--run` is php's documented long form of `-r`; php is not installed on this host, so that one is
-# from the documentation and is marked as such rather than claimed as measured.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[rRBE]|--run)${HOOK_INTERP_SEP}"
-# expect: `-c` runs commands; a bare positional argument is a script FILE. Single-dash options only.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}expect[ \t]+${HOOK_INTERP_ARGS}-[a-zA-Z]*c${HOOK_INTERP_SEP}"
+# from the documentation and is marked as such rather than claimed as measured. php does not bundle
+# single-letter flags, so these are exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[rRBE]|--run)${HOOK_INTERP_SEP}"
+# expect: `-c` runs commands; a bare positional argument is a script FILE. Single-dash options only,
+# and no bundling, so `-c` is exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}expect[ \t]+${HOOK_INTERP_ARGS}-c${HOOK_INTERP_SEP}"
 # Positional: the code argument carries no flag at all, whatever precedes it.
 #
 # `tclsh` and `expect` were here with `ssh` and `awk`, and review was right that they do not share

@@ -834,6 +834,51 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('does NOT read a value FUSED to a flag as the code flag', () => {
+    // Review traced it against the regex and it reproduced against the real hook: `-[a-zA-Z]*e`
+    // matches any token that happens to END in the code letter, and a flag carrying its value fused
+    // to it ends in whatever the value ends in. MEASURED, before the fix:
+    //
+    //   ruby -rdate "some note about git push --force"    BLOCKED
+    //   node -rdate "notes about git push --force"        BLOCKED
+    //
+    // `-rdate` is `-r date` — require the `date` library — and nothing in either command is code.
+    // That is the over-blocking INFRA-084 exists to remove, reappearing inside its own fix, in the
+    // one branch (`ruby -r`) that had been narrowed specifically to keep require out of the code set.
+    //
+    // On `main`, so the case discriminates: read as code, the `git push --force` would be a push to
+    // a protected branch and the hook would exit 2.
+    const main = scratchRepo('main');
+    const fused = [
+      ['ruby -r fused to its library', 'ruby -rdate "some note about git push --force"'],
+      ['node -r fused to its module', 'node -rdate "notes about git push --force"'],
+      ['perl -M fused to its module', 'perl -Mtime "notes about git push --force"'],
+      ['python -W fused to its action', 'python3 -Wignore "notes about git push --force"'],
+    ];
+    for (const [why, command] of fused) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, why).toBe(0);
+    }
+  });
+
+  it('still reads a BUNDLE of boolean flags ending in the code flag', () => {
+    // The other direction, pinned in the same change: narrowing the bundle to each interpreter's
+    // value-less flags must not stop reading a real one. Every command here RUNS its argument.
+    const main = scratchRepo('main');
+    const code = [
+      ['sh -ec', 'sh -ec "git push --force origin main"'],
+      ['ruby -we', `ruby -we "system 'git push --force origin main'"`],
+      ['perl -ne', `perl -ne "system 'git push --force origin main'"`],
+      ['python -Bc', 'python3 -Bc "import os; os.system(\'git push --force origin main\')"'],
+      [
+        'a separate value flag still leaves the code flag alone',
+        `ruby -rjson -e "system 'git push --force origin main'"`,
+      ],
+    ];
+    for (const [why, command] of code) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, why).toBe(2);
+    }
+  });
+
   it("does not read a SCRIPT's own flag as the interpreter's", () => {
     // Every one of these interpreters stops parsing its own options at the first non-option
     // argument; everything after belongs to the script. RAN:
