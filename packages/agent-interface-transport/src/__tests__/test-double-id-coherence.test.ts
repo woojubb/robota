@@ -24,12 +24,19 @@ describe('every surface of the double names the same session', () => {
     });
 
     expect(session.getExecutionWorkspaceSnapshot().sessionId).toBe('renamed-by-the-test');
-    expect(session.createBackgroundJobGroup({ jobs: [] }).parentSessionId).toBe(
-      'renamed-by-the-test',
-    );
-    expect((await session.spawnAgentJob({ type: 't', prompt: 'p' })).parentSessionId).toBe(
-      'renamed-by-the-test',
-    );
+    expect(
+      session.createBackgroundJobGroup({ waitPolicy: 'detached', taskIds: [] }).parentSessionId,
+    ).toBe('renamed-by-the-test');
+    expect(
+      (
+        await session.spawnAgentJob({
+          agentType: 't',
+          label: 't',
+          mode: 'background',
+          prompt: 'p',
+        })
+      ).parentSessionId,
+    ).toBe('renamed-by-the-test');
   });
 
   it('falls back to its own counter when the override cannot answer', () => {
