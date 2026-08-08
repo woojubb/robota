@@ -352,6 +352,23 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
     expect(stderr).toMatch(/DIFFERENT repository/);
   });
 
+  it('BLOCKS the PATH-QUALIFIED spelling of the same command', () => {
+    // The gate's own trigger required a BARE `git` token, so `/usr/bin/git reset --hard` — the
+    // spelling someone reaching around an alias or a shim actually uses — skipped the whole
+    // ambient comparison while the comment above it promised "any git command at all". Review
+    // found the contradiction; the trigger now accepts a path segment that ENDS in `git`.
+    const elsewhere = initRepo(path.join(root, 'another-clone-for-path'));
+
+    const { status, stderr } = runHook({
+      command: '/usr/bin/git commit -m "ordinary work"',
+      cwd: mainRepo,
+      env: { GIT_DIR: path.join(elsewhere, '.git') },
+    });
+
+    expect(status, 'the path-qualified git skipped the ambient gate').toBe(2);
+    expect(stderr).toMatch(/DIFFERENT repository/);
+  });
+
   it('PERMITS a GIT_DIR naming the SAME repository', () => {
     // The variable being present is ordinary — git sets it whenever it runs a hook — and this guard
     // is built for that: it asks its own questions through a scrubbed environment. Refusing on

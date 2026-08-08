@@ -757,8 +757,14 @@ for _var in $GIT_AMBIENT_ENV_NAMES; do
 done
 AMBIENT_REPO=""
 AMBIENT_TARGET_REPO=""
+# `(/[^[:space:]]*)?git`: the boundary class alone never matches a PATH-QUALIFIED invocation —
+# `/usr/bin/git reset --hard` has `/` before `git`, which is in no boundary set, so the whole
+# ambient comparison was skipped for exactly the spelling someone reaching around an alias or a
+# shim would use. Review found it against the comment above, which promises "any git command at
+# all". The path segment may not contain whitespace, so `echo /tmp/git-notes` still does not match:
+# the token has to END in `git`.
 if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
-  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}git${STASH_END}"; then
+  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}(/?[^[:space:]]*/)?git${STASH_END}"; then
   # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
   # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
   # another clone does not.
