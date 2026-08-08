@@ -238,3 +238,45 @@ describe('two rules added side by side', () => {
     ).toMatch(/A second thing MUST also be declared/);
   });
 });
+
+describe('a heading and its first bullet are one rule', () => {
+  const diff = (lines) =>
+    [
+      'diff --git a/.agents/rules/x.md b/.agents/rules/x.md',
+      '+++ b/.agents/rules/x.md',
+      '@@ -1 +1 @@',
+      ...lines,
+    ].join('\n');
+
+  it('does not report the heading as a second, undeclarable section', () => {
+    // Review walked the shape: `### New Rule` directly followed by its own MUST bullet produced
+    // TWO sections — the heading's body stayed empty forever, so it was reported undeclared no
+    // matter where the author put the declaration.
+    const sections = addedRuleSections(
+      diff([
+        '+### New Rule',
+        '+- **A worker MUST X.**',
+        '+  Enforced by: `scripts/harness/scan-x.mjs`.',
+      ]),
+    );
+
+    expect(sections).toHaveLength(1);
+    expect(judgeSections(sections)).toEqual([]);
+  });
+
+  it('still opens a section for the SECOND bullet under the same heading', () => {
+    // The back-to-back case the earlier round closed: a declaration on the first bullet must not
+    // excuse the second.
+    const sections = addedRuleSections(
+      diff([
+        '+### New Rule',
+        '+- **A worker MUST X.**',
+        '+  Enforced by: `scripts/harness/scan-x.mjs`.',
+        '+- **A worker MUST Y.**',
+      ]),
+    );
+
+    expect(sections).toHaveLength(2);
+    expect(judgeSections(sections)).toHaveLength(1);
+  });
+});

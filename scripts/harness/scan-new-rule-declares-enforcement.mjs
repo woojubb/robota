@@ -133,7 +133,7 @@ export function addedRuleSections(diff) {
 
     const heading = RULE_HEADING.exec(line);
     if (heading) {
-      current = { file, title: heading[1].trim(), body: '' };
+      current = { file, title: heading[1].trim(), body: '', awaitingFirstRule: true };
       sections.push(current);
       continue;
     }
@@ -146,6 +146,17 @@ export function addedRuleSections(diff) {
     // FIRST excused the second. That is the same "a declaration under some other rule is not an
     // answer" this branch was written for, one bullet apart instead of one heading apart.
     if (ADDED_RULE_BULLET.test(line)) {
+      // …EXCEPT when this bullet is the first content under a heading this same hunk just opened.
+      // Review walked the shape: `### New Rule` directly followed by its own `- **MUST …**` bullet
+      // produced TWO sections — the heading's, whose body stayed empty forever, and the bullet's —
+      // so the heading was reported undeclared no matter where the author put the declaration.
+      // A heading and its first bullet are one rule arriving together; a SECOND bullet still opens
+      // its own section, which is the back-to-back case the paragraph above closed.
+      if (current?.awaitingFirstRule && current.body === '') {
+        current.awaitingFirstRule = false;
+        current.body += `${line.slice(1)}\n`;
+        continue;
+      }
       current = { file, title: line.slice(1).trim().slice(0, 80), body: `${line.slice(1)}\n` };
       sections.push(current);
       continue;
