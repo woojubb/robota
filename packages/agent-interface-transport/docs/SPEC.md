@@ -93,10 +93,15 @@ are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*
 | `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
 | `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
 | `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
+| `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
+| `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
+| `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
+| `isTurnNotRunError`            | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
-(`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`):
+(`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the
+`isTurnNotRunError` predicate re-exported from `turn-contracts`:
 
 | Contract group (file)                                         | Exported contracts                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -257,6 +262,50 @@ export interface IPayloadChannelHost {
 Content-neutrality is a hard boundary: nothing here knows about audio, files, or images. Domain
 adapters (a voice app's STT/TTS bridge, a file uploader) are assembled by consumers on top —
 never inside the library (ROOM-001 principle).
+
+## Turn identity
+
+`submit()` returns an `ITurnHandle` — `{ turnId, completed }` — so an answer belongs to the caller
+who asked for it.
+
+Before RUNTIME-003 it returned nothing, and a caller that needed to know when ITS turn ended had
+only the session-global `complete` / `interrupted` / `error` events. Those say that A turn ended and
+never which one. A session runs one turn at a time and queues the rest, so two concurrent `submit`
+calls did not run concurrently: the second waited and then took the RUNNING turn's response as its
+own answer. Both callers were told about one turn; neither was told which.
+
+**The id is minted when a submission is ACCEPTED**, and kept if it waits in the queue. One
+submission is one identity from end to end.
+
+**`completed` ALWAYS settles**, and that is the part the contract turns on. A queued submission is
+not promised a turn — the co-drive queue coalesces a same-driver input into the one behind it, drops
+at capacity, and discards everything when cleared. A handle that settled only for submissions that
+RAN would leave the rest waiting forever, which is a worse failure than the ambiguity it replaces.
+So each of those rejects with a typed `ITurnNotRunError` naming which happened:
+
+| `TTurnNotRunReason` | When                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
+| `coalesced`         | a later same-driver input replaced it in the queue (tail-coalesce)       |
+| `dropped`           | the queue was at capacity when it arrived                                |
+| `cancelled`         | the queue was cleared before it ran — abort, cancel, or session shutdown |
+
+There is deliberately no `shutdown` member: shutdown clears the queue through the same path as a
+cancel, so it reports as `cancelled`. A reason no code path can emit is a reason a consumer would
+write a dead branch for.
+
+**A consumer narrows with `isTurnNotRunError`.** The error is declared here as a shape and
+constructed in `@robota-sdk/agent-framework`, so an `instanceof` check is not available to a package
+that only depends on this one — narrowing is on `name`, and this package exports the predicate that
+does it rather than leaving every consumer to spell it. The distinction it draws is the one that
+matters at a transport boundary: a refusal is an OUTCOME to report to the caller, while anything
+else escaping `completed` is a failure inside the turn and must keep surfacing as one. The MCP
+adapter reported both as a soft tool error for one review round, which hid real failures behind a
+message that read like a queue decision.
+
+**Migration.** A caller that ignores the return value is unaffected — `await session.submit(...)`
+still means what it did, and the direct path still resolves only when the turn is over. An
+IMPLEMENTOR of `IInteractiveSession` must return a handle; `createTestInteractiveSession` already
+returns a conforming one, so a double built on it needs no change.
 
 ## Extension Points
 

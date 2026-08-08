@@ -211,15 +211,14 @@ export interface IToolSummary {
   args: string;
 }
 
-/** Result of a completed prompt execution. */
-export interface IExecutionResult {
-  response: string;
-  history: IHistoryEntry[];
-  toolSummaries: IToolSummary[];
-  contextState: IContextWindowState;
-  usage?: IUsageSnapshot;
-  promptFileReferences?: IPromptFileReferenceRecord[];
-}
+// RUNTIME-003: a submission's identity and the ways it can end live in `./turn-contracts.js`.
+import type { IExecutionResult, ITurnHandle } from './turn-contracts.js';
+export type {
+  IExecutionResult,
+  ITurnHandle,
+  ITurnNotRunError,
+  TTurnNotRunReason,
+} from './turn-contracts.js';
 
 /** Permission handler delegate — clients provide their own UI. */
 export type TInteractivePermissionHandler = (
@@ -342,12 +341,13 @@ export interface IInteractiveSession {
   // Submission
   // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
   // with no id defaults to the owner; an agent-wakeup turn to the agent id). Existing callers omit it.
+  // RUNTIME-003: returns the submission's own identity — see SPEC § Turn identity.
   submit(
     input: string,
     displayInput?: string,
     rawInput?: string,
     options?: ISubmitOptions,
-  ): Promise<void>;
+  ): Promise<ITurnHandle>;
   abort(): void;
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;

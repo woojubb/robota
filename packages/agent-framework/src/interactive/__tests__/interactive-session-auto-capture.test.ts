@@ -175,8 +175,12 @@ describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the
       automaticMemory: AUTO_SAVE,
     });
 
-    // must resolve (not reject) despite the capture store throwing
-    await expect(session.submit(CUE)).resolves.toBeUndefined();
+    // must resolve (not reject) despite the capture store throwing. RUNTIME-003 changed what submit
+    // resolves WITH — the turn's identity rather than nothing — so the case now names what it always
+    // meant: the turn finished. Asserting `toBeUndefined()` would be asserting the old return type.
+    const handle = await session.submit(CUE);
+    expect(handle.turnId).toEqual(expect.any(String));
+    await expect(handle.completed).resolves.toBeDefined();
   });
 });
 
