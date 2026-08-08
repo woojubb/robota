@@ -187,14 +187,37 @@ this change exists to remove.
 Five of the eight cases red-prove against the original defect, all on named assertions; the three
 that do not (release path, failed-turn path, idle abort) say so at their own definitions.
 
+### P2 — a submission has an identity, and its answer belongs to it (100% of P2; 2 of 3 phases, ~67% of the task)
+
+`submit` returns an `ITurnHandle` (`{ turnId, completed }`). The id is minted when the submission is
+ACCEPTED and survives the queue — the drain carries it back as `resumeTurnId` — so one submission is
+one identity end to end, rather than an identity that exists only while a turn happens to be running.
+
+The MCP defect is closed and was red-proved at the seam, over the SDK's in-memory transport pair
+rather than through the server's private handler map: two concurrent `submit` calls returned the same
+text (`expected 'answer to AAAA' to be 'answer to BBBB'`, 321ms, a named assertion). `waitForCompletion`
+no longer listens to session-global events at all — it awaits the handle — so the subscribe/cleanup
+block is gone from `mcp-server.ts` rather than corrected.
+
+`completed` ALWAYS settles, which took more work than the correlation did. A queued submission is not
+promised a turn: the co-drive queue coalesces a same-driver input into the one behind it, drops at
+capacity, and discards everything on clear. A handle settling only for submissions that RAN would
+hang the rest — worse than the ambiguity it replaces — so each rejects with a typed `TurnNotRunError`
+naming which happened. Four cases in `turn-handle-always-settles.test.ts`, each red-proved by
+removing its own settle point. They race a 250ms deadline instead of letting the suite time out,
+because a hang reported as "timed out" names the harness rather than the defect.
+
+The HTTP half moved to its own change: measuring the TOCTOU the route documented showed it does not
+exist, so what came of it is a corrected comment and a labelled regression guard — a documentation
+correction rather than a fix, and pairing it with this one made the red-proof floor read a
+comment-only edit as an unproven regression test.
+
+`abort()` was left alone deliberately: the queue-clear path rejects waiting handles as `cancelled`
+and the RUNNING turn settles through its own `finally` — the same rule P1 landed for `agent-session`,
+that a turn is over when it has stopped and not when it was asked to stop.
+
 ### Remaining
 
-- **P2 — transport correlation.** `agent-transport-mcp/src/mcp-server.ts:130-162` still subscribes to
-  session-global `complete`/`interrupted`/`error` with no request correlation, and
-  `agent-transport-http/src/routes.ts:46-54` still documents its own TOCTOU. Both ride the
-  `InteractiveSession` surface (`execCtrl.executing`), which is a **different** object from the
-  `Session` fixed here — P1 does not close them. They are the LOCAL symptoms this task's synthesis
-  already distinguished from the cause.
 - **P3 — DAG run advancement.** Owned by [DAG-001](DAG-001-running-is-a-terminal-trap.md) and
   [DAG-002](completed/DAG-002-run-contract-typed-on-a-foreign-file-format.md); the floating
   `void this.processRunUntilTerminal(...)` (`prompt-backend.ts:89`) belongs with them.

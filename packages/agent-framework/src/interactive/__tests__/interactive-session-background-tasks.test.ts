@@ -12,31 +12,12 @@ import type {
   IExecutionWorkspaceEvent,
 } from '../../background-tasks/index.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
-import type { Session } from '@robota-sdk/agent-session';
+import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-transport';
-
-function createSessionStub(): Session {
-  return {
-    getSessionId: () => 'session_parent',
-    getHistory: () => [],
-    getSystemMessage: () => 'system',
-    getToolSchemas: () => [],
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 100,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    abort: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-    injectRawMessage: vi.fn(),
-    syncContextFromHistory: vi.fn(),
-  } as unknown as Session;
-}
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();
@@ -80,7 +61,7 @@ function createAgentRequest(prompt: string) {
 describe('InteractiveSession background task integration', () => {
   it('forwards background task manager events through background_task_event', async () => {
     const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
@@ -104,7 +85,7 @@ describe('InteractiveSession background task integration', () => {
 
   it('exposes background task list and close APIs', async () => {
     const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
@@ -123,7 +104,7 @@ describe('InteractiveSession background task integration', () => {
 
   it('projects an execution workspace with main thread and background tasks', async () => {
     const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('done')] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
@@ -165,7 +146,7 @@ describe('InteractiveSession background task integration', () => {
       },
     };
     const manager = new BackgroundTaskManager({ runners: [runner] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
@@ -195,7 +176,7 @@ describe('InteractiveSession background task integration', () => {
       },
     };
     const manager = new BackgroundTaskManager({ runners: [runner] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     const sessionStore = createSessionStoreStub();
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
@@ -227,7 +208,7 @@ describe('InteractiveSession background task integration', () => {
 
   it('persists and emits background job group events', async () => {
     const manager = new BackgroundTaskManager({ runners: [createResolvedRunner('summary')] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     const sessionStore = createSessionStoreStub();
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
@@ -287,7 +268,7 @@ describe('InteractiveSession background task integration', () => {
       },
     };
     const manager = new BackgroundTaskManager({ runners: [runner] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
@@ -308,7 +289,7 @@ describe('InteractiveSession background task integration', () => {
   });
 
   it('marks restored running background tasks as stale when they cannot be reattached', () => {
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     const sessionStore = createSessionStoreStub();
     sessionStore.save({
       id: 'session_stale',
@@ -374,7 +355,7 @@ describe('InteractiveSession background task integration', () => {
       },
     };
     const manager = new BackgroundTaskManager({ runners: [runner] });
-    const sessionStub = createSessionStub();
+    const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
