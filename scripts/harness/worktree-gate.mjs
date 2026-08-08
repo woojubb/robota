@@ -249,7 +249,25 @@ function main() {
 
   if (phase !== 'before' && phase !== 'after') {
     console.error('worktree-gate: --phase must be `before` or `after`.');
-    console.error('  usage: worktree-gate.mjs --phase before|after [--branch <name>]');
+    console.error('  usage: worktree-gate.mjs --phase before|after --branch <name>');
+    process.exit(2);
+  }
+
+  // `--branch` is REQUIRED, and the usage above stopped calling it optional. Review found what the
+  // optional spelling cost: `branchHeldElsewhereFindings` and `headMatchesFindings` both return `[]`
+  // immediately when `branch` is falsy, so running without it skipped at least one of the two core
+  // checks in each phase and still printed `worktree-gate (...) passed.`
+  //
+  // That is the silent green this gate exists to remove — its own stated purpose is that none of
+  // these checks "should depend on someone remembering". A gate whose coverage depends on an
+  // optional argument depends on exactly that.
+  if (branch === undefined || branch === '' || branch.startsWith('--')) {
+    console.error('worktree-gate: --branch <name> is required.');
+    console.error(
+      '  Without it, the branch-held-elsewhere and HEAD-matches checks examine nothing',
+    );
+    console.error('  and this gate would report a pass it did not compute.');
+    console.error('  usage: worktree-gate.mjs --phase before|after --branch <name>');
     process.exit(2);
   }
 

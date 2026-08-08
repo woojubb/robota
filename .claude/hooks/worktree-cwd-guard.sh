@@ -130,20 +130,36 @@ STASH_END='([^-[:alnum:]_]|$)'
 # states, re-derived worse a few lines away. (#1585)
 STASH_GIT='git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*stash'
 
-# The branch a statement moves HEAD to, or nothing.
+# EVERY branch a statement could move HEAD to, one per line. Returns 1 when it names none.
 #
-# Prints the ref and returns 0, or returns 1 when this statement checks nothing out. What git treats
-# as the target, in the three shapes that reach a ref another worktree may hold:
+# ALL of them, and asked of the STATEMENT rather than of one invocation — the same correction the
+# destructive judgement below needed, and review found this function still had the defect after its
+# neighbour was fixed. `hook_statement_all_words` flattens a substitution into the same word stream,
+# so a `git` inside one used to clear the verb and the next word ended the reading:
+#
+#   git checkout $(git config user.name) held-branch; git reset --hard
+#     words: git checkout git config user.name held-branch
+#     old:   the inner `git` cleared the verb, `config` hit the "other subcommand" exit, return 1
+#     now:   `checkout` was seen, so `user.name` and `held-branch` are both candidates
+#
+# Returning every candidate rather than the first is what makes that safe: with a substitution
+# flattened in, which word git will treat as the ref is not decidable here, and a guard that has to
+# guess should check them all. A word that merely coincides with a held branch name costs a
+# refusal; the branch actually held costs the incident this block exists to prevent.
+#
+# The shapes that reach a ref another worktree may hold:
 #
 #   git checkout <ref>            the bare form
 #   git checkout -b|-B <name>     create/reset — `-B` is refused for a held branch exactly as a
 #   git switch   -c|-C <name>     plain checkout is, because HEAD still has to move there
+#   git checkout -t <ref>         `--track` without `-b` derives the branch FROM that ref, so its
+#                                 value is a candidate rather than a throwaway (review)
 #
 # A restore — `git checkout <ref> -- <path>` — is NOT a switch: it succeeds while a sibling worktree
 # holds that ref, so a bare `--` in the statement ends the reading. `git checkout -- .` reaches this
 # same exit, and is the DESTRUCTIVE block's subject rather than this one's.
-checkout_target_in_words() {
-  local seen_git=false verb="" want="" word
+checkout_targets_in_words() {
+  local seen_git=false saw_verb=false want="" word found=false
   # The `--` is decided over the WHOLE statement first, because it comes AFTER the ref it exempts:
   # in `git checkout <ref> -- <path>` the ref is read before the separator is reached. Judged
   # in-line, the reader returned the ref and the guard blocked a restore — a guard firing on correct
@@ -151,12 +167,15 @@ checkout_target_in_words() {
   while IFS= read -r word; do
     [[ "$word" == "--" ]] && return 1
   done <<< "$1"
+
   while IFS= read -r word; do
     case "$want" in
-      # A flag whose value is the branch git will move HEAD to.
+      # A flag whose value is a branch git will move HEAD to.
       target)
-        printf '%s' "$word"
-        return 0
+        want=""
+        printf '%s\n' "$word"
+        found=true
+        continue
         ;;
       # A flag whose value is something else entirely — an upstream, a start point.
       skip)
@@ -167,34 +186,40 @@ checkout_target_in_words() {
     case "$word" in
       git | */git)
         seen_git=true
-        verb=""
         continue
         ;;
     esac
     [[ "$seen_git" == "true" ]] || continue
-    if [[ -z "$verb" ]]; then
+    # BEFORE the verb, `-c`/`-C` are git's global options and consume the next word. AFTER it they
+    # are `switch`'s create flags and the next word is the BRANCH. Ordering these the other way
+    # round made `git switch -c <held>` read the branch as a throwaway config value — measured,
+    # exit 0, a regression this probe caught between one edit and the next.
+    if [[ "$saw_verb" != "true" ]]; then
       case "$word" in
-        -C | -c | --git-dir | --work-tree | --namespace | --exec-path) want=skip ;;
-        checkout | switch) verb="$word" ;;
-        *'>'* | *'<'* | -* | '') ;;
-        # Any other subcommand: this statement is not a checkout.
-        *) return 1 ;;
+        -C | -c | --git-dir | --work-tree | --namespace | --exec-path)
+          want=skip
+          continue
+          ;;
+        checkout | switch)
+          saw_verb=true
+          continue
+          ;;
       esac
       continue
     fi
     case "$word" in
-      -b | -B | --orphan) want=target ;;
-      -c | -C) [[ "$verb" == "switch" ]] && want=target ;;
-      -t | --track | --start-point | --conflict | --pathspec-from-file) want=skip ;;
+      -b | -B | --orphan | -t | --track) want=target ;;
+      -c | -C) want=target ;;
+      --conflict | --pathspec-from-file) want=skip ;;
       -*) ;;
       *'>'* | *'<'* | '') ;;
       *)
-        printf '%s' "$word"
-        return 0
+        printf '%s\n' "$word"
+        found=true
         ;;
     esac
   done <<< "$1"
-  return 1
+  [[ "$found" == "true" ]]
 }
 
 # --- A checkout that fails, in a command that keeps going ---------------------------------------
@@ -209,7 +234,12 @@ checkout_target_in_words() {
 # A NEWLINE is a separator too, and this file already says so where it splits statements — the
 # same reading was re-derived here and came out worse, which is the recurring defect in this file.
 # `grep -c ''` counts lines: more than one means the command continues past the checkout.
-if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
+#
+# A BARE PIPE is a continuation as well, and review found it missing: `git checkout <held> | git
+# reset --hard` never entered this block, and the destructive judgement that would otherwise catch
+# it sits behind the worktree-session gate — so outside such a session neither block saw it. `|` is
+# in the alternation now, and `||` still matches because the alternation tries it first.
+if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|])' ||
   [[ "$(printf '%s' "$COMMAND" | grep -c '')" -gt 1 ]]; then
   # PER STATEMENT, and every one of them. The first version read only the FIRST checkout in the
   # command (`head -1`) and applied the restore exemption to the WHOLE string, so one harmless
@@ -245,6 +275,15 @@ if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
   # checkout <branch held in other's sibling>; git status` was exit 0.
   CHECKOUT_TARGET=""
   CHECKOUT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+  # FAIL-CLOSED on an unsplittable command, like the destructive block below and unlike the first
+  # version of this one. `|| printf ''` alone turned "could not split" into "no statements" and
+  # permitted the whole command — the asymmetry review pointed out, in the file whose repeated line
+  # is that what cannot be measured is not a pass.
+  if [[ -z "${CHECKOUT_RANGES//[[:space:]]/}" ]]; then
+    echo "[worktree-cwd-guard] Blocked: the command could not be split into statements, so which" >&2
+    echo "[worktree-cwd-guard] branch it checks out was never determined. This is not a pass." >&2
+    exit 2
+  fi
   while read -r CO_START CO_LEN; do
     [[ -n "$CO_START" && -n "$CO_LEN" ]] || continue
     if ! CO_WORDS=$(hook_statement_all_words "$COMMAND" "$CO_START" "$CO_LEN" && printf '\001'); then
@@ -254,8 +293,8 @@ if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
     fi
     CO_WORDS=${CO_WORDS%$'\n\001'}
 
-    CANDIDATE=$(checkout_target_in_words "$CO_WORDS") || CANDIDATE=""
-    [[ -n "$CANDIDATE" ]] || continue
+    CANDIDATES=$(checkout_targets_in_words "$CO_WORDS") || CANDIDATES=""
+    [[ -n "$CANDIDATES" ]] || continue
 
     # The `-C` of THIS statement, then the session's own directory.
     CHECKOUT_REPO=$(hook_effective_repo first-nonempty \
@@ -264,11 +303,19 @@ if printf '%s' "$COMMAND" | grep -qE '(&&|\|\||;)' ||
       "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
     [[ -n "${CHECKOUT_REPO:-}" ]] || continue
 
-    hook_git_in "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null |
-      grep -qxF "branch refs/heads/${CANDIDATE}" || continue
-    [[ "$(hook_git_in "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)" == "$CANDIDATE" ]] && continue
-    CHECKOUT_TARGET="$CANDIDATE"
-    break
+    # EVERY candidate this statement names, because with a substitution flattened into the word
+    # stream which one git will treat as the ref is not decidable here. One `worktree list` per
+    # statement, not per candidate.
+    HELD=$(hook_git_in "$CHECKOUT_REPO" worktree list --porcelain 2>/dev/null || printf '')
+    CURRENT=$(hook_git_in "$CHECKOUT_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    while IFS= read -r CANDIDATE; do
+      [[ -n "$CANDIDATE" ]] || continue
+      printf '%s\n' "$HELD" | grep -qxF "branch refs/heads/${CANDIDATE}" || continue
+      [[ "$CURRENT" == "$CANDIDATE" ]] && continue
+      CHECKOUT_TARGET="$CANDIDATE"
+      break
+    done <<< "$CANDIDATES"
+    [[ -n "$CHECKOUT_TARGET" ]] && break
   done <<< "$CHECKOUT_RANGES"
   if [[ -n "$CHECKOUT_TARGET" ]]; then
     echo "[worktree-cwd-guard] Blocked: '${CHECKOUT_TARGET}' is checked out in another worktree, so" >&2

@@ -498,6 +498,56 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status).toBe(0);
   });
 
+  it('BLOCKS a checkout with a git SUBSTITUTION between the verb and the ref', () => {
+    // The defect fixed in `statement_is_destructive` was still present one function over, and
+    // review found it there. `hook_statement_all_words` flattens a substitution into the same word
+    // stream, so the inner `git` cleared the verb and the next word — `config` — hit the "other
+    // subcommand" exit and ended the reading before `held` was ever seen.
+    //
+    // RAN against that version: exit 0. The reader is statement-scoped now and returns EVERY
+    // candidate, because with a substitution flattened in, which word git treats as the ref is not
+    // decidable here — and a guard that has to guess should check them all.
+    const { status } = runHook({
+      command: `git checkout $(git config user.name) ${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('treats a bare PIPE as a continuation, like `;` and `&&`', () => {
+    // The trigger matched `&&`, `||`, `;` and a newline, and review found `|` missing:
+    // `git checkout <held> | git reset --hard` never entered the block. The destructive judgement
+    // that would otherwise catch it sits behind the worktree-session gate, so OUTSIDE such a
+    // session neither block saw it.
+    const { status } = runHook({
+      command: `git checkout ${held} | git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('reads the ref `--track` derives a branch from', () => {
+    // `git checkout -t <ref>` without `-b` derives the new branch FROM that ref, so its value is a
+    // candidate rather than a throwaway. It was in the skip list beside `--start-point`.
+    const { status } = runHook({
+      command: `git checkout -t ${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status).toBe(2);
+  });
+
+  it('REFUSES a command it cannot split into statements', () => {
+    // The block used to turn "could not split" into "no statements" with `|| printf ''` and permit
+    // the whole command — the asymmetry review pointed out beside the destructive block, which
+    // fails closed on the same condition. This asserts the refusal exists rather than reproducing
+    // an unsplittable command, which the tokenizer does not currently produce.
+    const hookText = readFileSync(HOOK, 'utf8');
+    expect(hookText).toMatch(/could not be split into statements, so which/);
+  });
+
   it('leaves `git checkout <ref> -- <path>` alone', () => {
     // Restoring files FROM a ref does not switch to it, so it succeeds even while a sibling worktree
     // holds that branch — the premise behind this block does not apply. Blocking it would be the
