@@ -169,6 +169,14 @@ describe('an unknown phase is an error, not a default', () => {
     expect(() => runGate('befor', 'any-branch', repo)).toThrow(/unknown phase/);
     expect(() => runGate(undefined, 'any-branch', repo)).toThrow(/unknown phase/);
   });
+
+  it('THROWS on a missing branch instead of skipping the checks that need it', () => {
+    // The CLI validates `--branch`; this pins the exported function, where a falsy branch made both
+    // branch-dependent finders return `[]` and the gate reported a pass it never computed — the
+    // silent-partial-check class this PR fixed at the CLI, one level up. Review found the gap.
+    expect(() => runGate('before', '', repo)).toThrow(/branch is required/);
+    expect(() => runGate('after', undefined, repo)).toThrow(/branch is required/);
+  });
 });
 
 describe('a worktree that was never installed', () => {
