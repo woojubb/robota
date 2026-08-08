@@ -147,7 +147,11 @@ function submitHandler(
       // `e.message` to the stream, so the only leak-proof shape is a callback nothing escapes —
       // `relayTurn` catches its own failures and reports them generically. An onError here would be
       // dead code that turns into a leak the day it stops being dead.
-      return streamSSE(
+      // `await`, so the catch below covers a REJECTION as well as a synchronous throw. Today's
+      // Hono returns the Response synchronously and only the sync path is real — but review is
+      // right that a version returning a rejecting promise would sail past a bare `return`, and
+      // the cost of closing that class is one keyword.
+      return await streamSSE(
         c,
         relayTurn(session, body.prompt, () => claims.release(claim), onStreamFailure),
       );
