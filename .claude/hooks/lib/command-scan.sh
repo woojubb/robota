@@ -303,8 +303,25 @@ hook_cwd_of() {
 # utf-8` argument as code and refuse ordinary work — the self-blocking INFRA-084 exists to undo.
 HOOK_INTERP_BOUNDARY='(^|[ \t;&|(\n`])'
 HOOK_INTERP_PATH='([^ \t;&|(\n]*/)?'
-# Any number of non-quoted arguments may sit between the interpreter and its code flag.
-HOOK_INTERP_ARGS='([^ \t;&|(\n"\047]+[ \t]+)*'
+# Any number of non-quoted arguments may sit between the interpreter and its code flag — but NOT a
+# script filename, and review measured why.
+#
+# Every one of these interpreters stops parsing its own options at the first non-option argument;
+# everything after that belongs to the script. RAN:
+#
+#   node <script>.mjs -e 'console.log("EVAL_RAN")'   ->  SCRIPT_RAN: -e console.log("EVAL_RAN")
+#
+# `-e` was the SCRIPT's flag, not node's, and matching it read an ordinary argument as code — the
+# over-blocking INFRA-084 exists to remove, reintroduced by its own fix.
+#
+# A token containing `.` or `/` is treated as that boundary. It is a heuristic and the trade is
+# stated rather than hidden: a value-taking flag whose value looks like a path
+# (`node --require ./setup.js -e "…"`) stops the match, so that code is masked as data — an
+# under-match, which is the direction this file usually refuses. It is accepted here because the
+# alternative measured worse: requiring every preceding token to start with `-` breaks
+# `python3 -W ignore -c "…"`, an ordinary invocation, and a guard that refuses ordinary work is the
+# failure this whole change is about.
+HOOK_INTERP_ARGS='([^ \t;&|(\n"\047./]+[ \t]+)*'
 # What may sit between a code flag and the code, and review found the first spelling too narrow.
 # It was `[ \t]+` — a REQUIRED space — so a fused invocation never matched and its code was masked
 # as data. Both of these RUN, measured:

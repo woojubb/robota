@@ -834,6 +834,34 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it("does not read a SCRIPT's own flag as the interpreter's", () => {
+    // Every one of these interpreters stops parsing its own options at the first non-option
+    // argument; everything after belongs to the script. RAN:
+    //
+    //   node <script>.mjs -e 'console.log("EVAL_RAN")'  ->  SCRIPT_RAN: -e console.log("EVAL_RAN")
+    //
+    // `-e` was the SCRIPT's flag and matching it read an ordinary argument as code — the
+    // over-blocking INFRA-084 exists to remove, reintroduced by its own fix.
+    //
+    // On `main`, so it discriminates: if the argument were read as code, the `git push --force` in
+    // it would be a push to a protected branch and the hook would exit 2.
+    const main = scratchRepo('main');
+    for (const command of [
+      'node script.mjs -e "notes about git push --force origin main"',
+      'python3 tool.py -c "notes about git push --force origin main"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(0);
+    }
+
+    // And the interpreter's OWN flag, before any script, is still read as code.
+    for (const command of [
+      'node -e "git push --force origin main"',
+      'python3 -c "git push --force origin main"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(2);
+    }
+  });
+
   it('sees code FUSED to its flag, with no space', () => {
     // The separator between a code flag and its code was a REQUIRED space, so these never matched
     // and their code was masked as data — a bypass, not a nuisance. Both RUN, measured with the
