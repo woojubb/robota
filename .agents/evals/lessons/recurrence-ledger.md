@@ -39,7 +39,7 @@ turns on a day either way; what it turns on is the file saying which clock it ke
 
 ## L1 — A claim that does not match the code
 
-**Count: 27** · First seen 2026-08-06 · Last seen 2026-08-07 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
+**Count: 28** · First seen 2026-08-06 · Last seen 2026-08-07 · Mechanism: none — undecidable by a machine · Rule: `verification.md` § "Prose Is
 Written Last, Against the Diff"
 
 A comment, SPEC line, PR body, changeset or commit message asserting something the diff does not do.
@@ -55,6 +55,7 @@ A comment, SPEC line, PR body, changeset or commit message asserting something t
 - 2026-08-07 — comment said a length check leaks nothing because the length is "fixed and public"; true only of a minted token (#1655)
 - 2026-08-07 — a test comment said a substitution case was newly caught; RAN against the pre-fix hook, it was already exit 2 (#1654)
 - 2026-08-07 — the PR body's summary table lagged the ledger it summarised: four counts lower than the file's own, on the change that ADDS the rule "Prose Is Written Last, Against the Diff" (#1659)
+- 2026-08-07 — and again, twice more, on the same table in the same PR. THIRD instance: the fix is no longer a corrected number but a removed OWNER — the table carries no counts at all now, and the file is the only place they live (#1659)
 - 2026-08-07 — two scan headers said `main`'s required jobs "declare `needs: []`"; they declare no `needs:` key at all. Functionally identical, and still a claim the code does not make (#1659)
 - (15 further instances of the same shape across #1647–#1658, not itemised)
 
