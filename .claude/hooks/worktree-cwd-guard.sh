@@ -164,8 +164,16 @@ checkout_targets_in_words() {
   # in `git checkout <ref> -- <path>` the ref is read before the separator is reached. Judged
   # in-line, the reader returned the ref and the guard blocked a restore — a guard firing on correct
   # work, which is what gets a guard turned off.
+  #
+  # What exempts is a PATHSPEC after the separator, not the separator. A trailing `--` with nothing
+  # behind it is git's own disambiguation — `git <command> [<revision>...] -- [<file>...]` — and the
+  # command is still an ordinary switch. Reading any bare `--` as a restore meant
+  # `git checkout <held> --; git reset --hard` reproduced this block's exact hazard while bypassing
+  # it entirely. Review found it, and the coverage had only the genuine restore form.
+  local past_separator=false
   while IFS= read -r word; do
-    [[ "$word" == "--" ]] && return 1
+    [[ "$past_separator" == "true" ]] && return 1
+    [[ "$word" == "--" ]] && past_separator=true
   done <<< "$1"
 
   while IFS= read -r word; do

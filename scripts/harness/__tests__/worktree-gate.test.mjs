@@ -309,11 +309,16 @@ describe('build output left behind by another branch', () => {
 });
 
 describe('the gate refuses to run without the argument its checks need', () => {
+  const scratch = [];
+  afterAll(() => {
+    while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
+  });
   const GATE = path.resolve(import.meta.dirname, '../worktree-gate.mjs');
 
   /** Run the gate as a process, the way the skill and the agents invoke it. */
   function runGateProcess(...args) {
-    const result = spawnSync('node', [GATE, ...args], { encoding: 'utf8' });
+    const options = typeof args.at(-1) === 'object' ? args.pop() : {};
+    const result = spawnSync('node', [GATE, ...args], { encoding: 'utf8', ...options });
     return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
   }
 
@@ -334,6 +339,24 @@ describe('the gate refuses to run without the argument its checks need', () => {
       expect(output).toMatch(/--branch <name> is required/);
       expect(output, 'it must not report a pass it did not compute').not.toMatch(/passed\./);
     }
+  });
+
+  it('does not die with a stack trace when the worktree list cannot be read', () => {
+    // `branchHeldElsewhereFindings` was fixed to report `worktrees-unreadable` instead of throwing,
+    // and review pointed out that the fix only helped the library function: `main()` prints the
+    // traffic table BEFORE running any check, so the CLI — the thing the gate agents actually
+    // invoke — still crashed on that line first. A stack trace does not read as the refusal the
+    // rest of this script speaks in.
+    const notARepo = mkdtempSync(path.join(tmpdir(), 'worktree-gate-bare-'));
+    scratch.push(notARepo);
+
+    const { status, output } = runGateProcess('--phase', 'before', '--branch', 'anything', {
+      cwd: notARepo,
+    });
+
+    expect(output, 'the CLI died with a raw stack trace').not.toMatch(/at \w+ \(node:/);
+    expect(output).toMatch(/worktrees-unreadable|Could not list the worktrees/);
+    expect(status, 'an unreadable repository must not read as a pass').not.toBe(0);
   });
 
   it('REFUSES a --branch whose value is the next FLAG', () => {
