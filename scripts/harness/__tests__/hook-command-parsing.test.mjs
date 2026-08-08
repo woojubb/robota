@@ -819,7 +819,10 @@ describe('a hook examines the command that will run', () => {
     // CHARACTER ENCODING for ruby; `-r` is CODE for php and REQUIRE-A-LIBRARY for ruby. A union
     // would read these arguments as code and refuse ordinary work — the self-blocking INFRA-084
     // exists to undo, reintroduced by the fix for its own regression.
-    const cwd = scratchRepo('feat/probe');
+    // On `main`, so the case DISCRIMINATES. `branch-guard` refuses a push by the branch CURRENTLY
+    // CHECKED OUT, not by the one the command names — so on a feature branch these pass whether the
+    // argument is read as code or not, and review found exactly that: the cases proved nothing.
+    const main = scratchRepo('main');
     const data = [
       ['ruby -E is an encoding', 'ruby -E utf-8 script.rb "notes about git push --force"'],
       ['ruby -r requires a library', 'ruby -r json script.rb "notes about git push --force"'],
@@ -827,7 +830,7 @@ describe('a hook examines the command that will run', () => {
       ['php -F takes a file', 'php -F loop.php "notes about git push --force"'],
     ];
     for (const [why, command] of data) {
-      expect(runHook('branch-guard.sh', command, { cwd }).status, why).toBe(0);
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, why).toBe(0);
     }
   });
 
@@ -873,13 +876,15 @@ describe('a hook examines the command that will run', () => {
     // Worth recording that the finding's own reproduction (`deno run build.ts "…"`) does NOT
     // exhibit it, measured: the argument pattern sits BEFORE the flag, so `run` has to be the last
     // token before the quote. The defect was real one form over, and the case uses that form.
-    const cwd = scratchRepo('feat/probe');
+    // On `main` for the same reason as the case above: on a feature branch `branch-guard` exits 0
+    // whether or not the argument was read as code, so the case could not fail. Review found it.
+    const main = scratchRepo('main');
     for (const command of [
       'deno run "notes mentioning git push --force"',
       'bun run "notes mentioning git push --force"',
       'deno run build.ts "notes mentioning git push --force"',
     ]) {
-      expect(runHook('branch-guard.sh', command, { cwd }).status, command).toBe(0);
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(0);
     }
 
     // `deno eval` genuinely does take code positionally, and stays covered.
