@@ -54,6 +54,64 @@ export interface IAgentRoutesOptions {
  * routes and this one carries the admission decision; inlining it made the factory four times the
  * length of every other route in it.
  */
+/**
+ * Admit this request to ONE turn on its session, or answer why not.
+ *
+ * Returns the claim key it HOLDS on success — the caller owes its release — or the refusal
+ * Response. A named unit, and review is why: the admission decision (nameable? busy? claim) is what
+ * this route decides, independently testable from the stream wiring it hands the turn to.
+ */
+function admitTurn(c: Context, session: IInteractiveSession, claims: ITurnClaims) {
+  // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
+  // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
+  //
+  // The route CLAIMS the turn rather than asking whether one is running, and that difference is the
+  // whole fix. `session.isExecuting()` is set inside `submit()` past an `await ensureInitialized()`
+  // — an unconditional suspension point — so two requests both read `false`, both call `submit`, and
+  // the loser coalesces into the pending queue while its HTTP response streams back the WINNER'S
+  // events. One turn delivered to two clients as if each had asked for it, which is worse than the
+  // race the earlier comment described and then wrongly declared absent.
+  //
+  // A synchronous flag on the route closes it because there is no suspension point between reading
+  // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
+  // the route wedged.
+  //
+  // BOTH are asked because neither subsumes the other. The claim is what this ROUTE knows;
+  // `isExecuting()` is what the SESSION knows, including a turn started by another surface — the
+  // TUI, a WS client, a previous process — which the claim cannot see.
+  // A session that cannot name itself is REFUSED, not served racily. The busy check is a guarantee
+  // only while the claim is keyed by a real id: with no id it falls back to `isExecuting()` alone,
+  // which the comment above documents as the racy read this route exists to stop relying on.
+  // Serving anyway would degrade the fix back into the bug for exactly the callers who could not
+  // be told they were affected.
+  //
+  // `getSession(): { getSessionId(): string }` is required by the contract, so this is unreachable
+  // for a conformant session. It is a 500 rather than a 503: the session is not temporarily
+  // unavailable, it does not meet the contract this route is built on, which is a defect on the
+  // server side of the boundary and not a condition that clears on retry.
+  const claim = claims.keyFor(session);
+  if (claim === undefined) {
+    return c.json(
+      {
+        // No internal method signature: this route can be mounted outside a trust boundary, and
+        // the caller cannot act on `getSession().getSessionId()` anyway — it names a contract
+        // they do not implement. The HOST needs the detail and gets it from the comment above
+        // this branch; the client needs to know its request was refused and why in its own terms.
+        error:
+          'concurrent-turn tracking is unavailable for this session, so this request cannot be ' +
+          'served safely. Refusing rather than starting a turn that cannot be guaranteed to be ' +
+          'yours.',
+      },
+      500,
+    );
+  }
+  if (claims.isHeld(claim) || session.isExecuting()) {
+    return c.json({ error: 'session busy — a turn is already in flight' }, 409);
+  }
+  claims.hold(claim);
+  return { claim };
+}
+
 function submitHandler(
   sessionFactory: TSessionFactory,
   claims: ITurnClaims,
@@ -67,64 +125,23 @@ function submitHandler(
       return c.json({ error: 'prompt is required' }, 400);
     }
 
-    // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
-    // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
-    //
-    // The route CLAIMS the turn rather than asking whether one is running, and that difference is the
-    // whole fix. `session.isExecuting()` is set inside `submit()` past an `await ensureInitialized()`
-    // — an unconditional suspension point — so two requests both read `false`, both call `submit`, and
-    // the loser coalesces into the pending queue while its HTTP response streams back the WINNER'S
-    // events. One turn delivered to two clients as if each had asked for it, which is worse than the
-    // race the earlier comment described and then wrongly declared absent.
-    //
-    // A synchronous flag on the route closes it because there is no suspension point between reading
-    // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
-    // the route wedged.
-    //
-    // BOTH are asked because neither subsumes the other. The claim is what this ROUTE knows;
-    // `isExecuting()` is what the SESSION knows, including a turn started by another surface — the
-    // TUI, a WS client, a previous process — which the claim cannot see.
-    // A session that cannot name itself is REFUSED, not served racily. The busy check is a guarantee
-    // only while the claim is keyed by a real id: with no id it falls back to `isExecuting()` alone,
-    // which the comment above documents as the racy read this route exists to stop relying on.
-    // Serving anyway would degrade the fix back into the bug for exactly the callers who could not
-    // be told they were affected.
-    //
-    // `getSession(): { getSessionId(): string }` is required by the contract, so this is unreachable
-    // for a conformant session. It is a 500 rather than a 503: the session is not temporarily
-    // unavailable, it does not meet the contract this route is built on, which is a defect on the
-    // server side of the boundary and not a condition that clears on retry.
-    const claim = claims.keyFor(session);
-    if (claim === undefined) {
-      return c.json(
-        {
-          // No internal method signature: this route can be mounted outside a trust boundary, and
-          // the caller cannot act on `getSession().getSessionId()` anyway — it names a contract
-          // they do not implement. The HOST needs the detail and gets it from the comment above
-          // this branch; the client needs to know its request was refused and why in its own terms.
-          error:
-            'concurrent-turn tracking is unavailable for this session, so this request cannot be ' +
-            'served safely. Refusing rather than starting a turn that cannot be guaranteed to be ' +
-            'yours.',
-        },
-        500,
-      );
+    const admitted = admitTurn(c, session, claims);
+    if (admitted instanceof Response) {
+      return admitted;
     }
-    if (claims.isHeld(claim) || session.isExecuting()) {
-      return c.json({ error: 'session busy — a turn is already in flight' }, 409);
-    }
-    claims.hold(claim);
+    const { claim } = admitted;
 
     // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
     // `finally` — a claim whose release is not in the same protected region is a lock, not a claim,
     // which this file states one level in. If `streamSSE` throws before it ever runs the callback,
     // this releases and rethrows; the callback's own `finally` covers everything after it starts.
     //
-    // NOT REPRODUCED BY A TEST, and that is said here rather than implied by a case that would pass
-    // either way. A throw from `session.on` lands INSIDE the callback, where the inner `finally`
-    // already releases — measured: a case built that way is green with this `catch` removed. Making
-    // `streamSSE` itself throw synchronously would mean stubbing Hono's internals, which tests the
-    // stub rather than the route. This is defensive code for a path Hono does not currently take.
+    // REPRODUCED at the module boundary: `routes-streamsse-throw.test.ts` mocks `hono/streaming`
+    // to throw before the callback ever runs and asserts the second request is not 409 — a leaked
+    // claim is what this catch exists to prevent. Two rounds shipped it as honestly-labelled
+    // unverified code (a throw from `session.on` lands INSIDE the callback, where the inner
+    // `finally` releases — measured, a case built that way is green with this catch removed), and
+    // review supplied the third option: stub the boundary, not Hono's internals.
     try {
       // NO third argument, deliberately: Hono's runner follows any `onError` by writing the raw
       // `e.message` to the stream, so the only leak-proof shape is a callback nothing escapes —
