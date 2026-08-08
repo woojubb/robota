@@ -67,6 +67,14 @@ function repoWithWorktree() {
   for (const lib of readdirSync(path.join(HOOKS_DIR, 'lib')).filter((n) => n.endsWith('.sh'))) {
     copyFileSync(path.join(HOOKS_DIR, 'lib', lib), path.join(hooks, 'lib', lib));
   }
+  // The same lesson one file over: the guard also reads the ambient-variable list it OWNS, resolved
+  // relative to its own location. A worktree without it is a hook whose subject list is unreadable —
+  // it then refuses, correctly, and every case below fails for a reason it does not assert.
+  mkdirSync(path.join(worktree, 'scripts', 'harness'), { recursive: true });
+  copyFileSync(
+    path.join(HOOKS_DIR, '..', 'scripts', 'harness', 'git-ambient-env.json'),
+    path.join(worktree, 'scripts', 'harness', 'git-ambient-env.json'),
+  );
 
   return { main, worktree, hook: path.join(hooks, 'worktree-cwd-guard.sh') };
 }
@@ -134,5 +142,44 @@ describe('the worktree guard is active without anything exporting a marker', () 
     });
 
     expect(verdict.status, 'the guard fired outside a worktree session').toBe(0);
+  });
+});
+
+describe('an ambient GIT_DIR is seen even INSIDE a correct worktree', () => {
+  // Review found this, and it was a real bypass measured before and after. The ambient-repository
+  // check used to defer to the main-checkout judgement whenever the session was worktree-assigned
+  // and the command destructive — but that judgement resolves its directory through the SCRUB, so it
+  // can never see that a `GIT_DIR` would redirect the command. It answers a different question.
+  //
+  // From inside a correctly assigned worktree, this was permitted:
+  //
+  //   GIT_DIR=/somewhere/else/.git git reset --hard
+  //
+  // which is the exact accident this guard exists for, in the one place it was trusted to be safe.
+  it('refuses a destructive command redirected at another repository', () => {
+    const { worktree, hook } = repoWithWorktree();
+    const elsewhere = mkdtempSync(path.join(tmpdir(), 'elsewhere-'));
+    scratch.push(elsewhere);
+    git(elsewhere, 'init', '-q');
+    git(elsewhere, 'commit', '--allow-empty', '-q', '-m', 'init');
+
+    const result = spawnSync('bash', [hook], {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        cwd: worktree,
+        tool_input: { command: 'git reset --hard' },
+      }),
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        CLAUDE_PROJECT_DIR: worktree,
+        ROBOTA_AGENT_WORKTREE: worktree,
+        GIT_DIR: path.join(elsewhere, '.git'),
+      },
+    });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout ?? ''}${result.stderr ?? ''}`).toMatch(/DIFFERENT repository/);
   });
 });

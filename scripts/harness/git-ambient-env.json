@@ -1,0 +1,18 @@
+{
+  "why": "Environment variables that redirect where a git command reads and writes. Git exports these into hooks, so a process that inherits one runs against a DIFFERENT repository than the one it appears to be standing in — which overwrote a shared branch with fixture commits more than once. Three copies of this list existed (the test harness, the worktree gate, the hook) and they had already drifted apart: review found the hook checking seven where the gate checked nine. One file owns it; every reader loads it.",
+  "failDirection": "refuse — this is a DENYLIST, so a variable git adds later is not covered and fails toward permitting. That gap is why the repository-identity checks that read this list are not replaced by it.",
+  "variables": [
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_CEILING_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_NAMESPACE",
+    "GIT_CONFIG",
+    "GIT_CONFIG_GLOBAL",
+    "GIT_CONFIG_SYSTEM"
+  ]
+}
