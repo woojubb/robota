@@ -97,14 +97,29 @@ describe('runPreToolHook — HOOK-003 blocked format', () => {
     expect(result).toBeNull();
   });
 
-  it('returned IToolResult has success: true so PermissionEnforcer records the result in history', async () => {
-    // Option B design: tool result IS added to history (AI sees the block signal)
+  it('returns a result that is recorded in history AND says the call was blocked', async () => {
+    // The Option B design this case protects is "the tool result IS added to history, so the model
+    // sees the block signal" — and that is what it must keep protecting. `success: true` was one way
+    // to get there and not the property itself: `execution-round-tool-results.ts` records a
+    // `success: false` result too, requiring only that it carry an `error`.
+    //
+    // CORE-027: a block is not a success. The result now says so, and still reaches history.
     const executor = makeMockExecutor(2, 'Access denied');
     const input = makeHookInput('bash');
 
-    const result = await runPreToolHook(baseConfig, input, [executor]);
+    const result = (await runPreToolHook(baseConfig, input, [executor])) as unknown as {
+      success: boolean;
+      outcome: string;
+      error: string;
+      data: string;
+    };
+
     expect(result).not.toBeNull();
-    expect(result!.success).toBe(true);
+    expect(result.success, 'a hook block was reported as a successful call').toBe(false);
+    expect(result.outcome).toBe('hook-blocked');
+    // The history path throws when a failed result carries no error message; this is what keeps the
+    // block visible to the model rather than becoming an exception one layer up.
+    expect(result.error.length).toBeGreaterThan(0);
   });
 });
 
