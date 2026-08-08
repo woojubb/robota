@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -13,6 +13,11 @@ import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
 // a worktree one, so spawning it from wherever the suite happens to run makes that input
 // uncontrolled and the main-clone fixtures below unreachable. See the helper.
 const HOOK = path.join(hooksOutsideAWorktree(), 'worktree-cwd-guard.sh');
+
+const cleanupDirs = [];
+afterAll(() => {
+  while (cleanupDirs.length > 0) rmSync(cleanupDirs.pop(), { recursive: true, force: true });
+});
 
 /** git init a repo at `dir` (created if needed) with an initial commit so rev-parse resolves. */
 function initRepo(dir) {
@@ -367,6 +372,30 @@ describe('worktree-cwd-guard: the two accidents that leave no trace', () => {
 
     expect(status, 'the path-qualified git skipped the ambient gate').toBe(2);
     expect(stderr).toMatch(/DIFFERENT repository/);
+  });
+
+  it('does not refuse a NON-git command when the ambient list is unreadable', () => {
+    // The list load ran on every Bash call and its fail-closed refusal with it, so a checkout
+    // where git-ambient-env.json does not exist yet — a worktree cut from an older commit —
+    // refused `ls` and `npm test` in every session. Review scoped it: fail-closed is this check's
+    // rule, but its subject is GIT commands, and a refusal wider than the subject is an outage.
+    // The hook copy runs from a directory with no list beside it and no project dir to fall back
+    // to, so the load fails — and a non-git command must not care.
+    const bare = mkdtempSync(path.join(tmpdir(), 'no-ambient-list-'));
+    cleanupDirs.push(bare);
+    mkdirSync(path.join(bare, 'hooks'), { recursive: true });
+    cpSync(path.dirname(HOOK), path.join(bare, 'hooks'), { recursive: true });
+
+    const run = (command) =>
+      spawnSync('bash', [path.join(bare, 'hooks', 'worktree-cwd-guard.sh')], {
+        input: JSON.stringify({ tool_name: 'Bash', cwd: bare, tool_input: { command } }),
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: bare },
+      });
+
+    expect(run('ls -la').status, 'a non-git command was refused for a missing git list').toBe(0);
+    // A GIT command with no readable list still refuses: the check has a subject it cannot judge.
+    expect(run('git status').status, 'a git command passed with no subject list').toBe(2);
   });
 
   it('PERMITS a GIT_DIR naming the SAME repository', () => {

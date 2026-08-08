@@ -738,7 +738,18 @@ statement_is_destructive() {
 # Found relative to THIS FILE first. The hook is copied into worktrees, and the copy that is
 # running is the one whose repository owns the list — `CLAUDE_PROJECT_DIR` may point elsewhere
 # entirely, which is the situation the guard around it exists for.
+# The whole block — the list load, its fail-closed refusal, and the comparison — runs only for a
+# command that MENTIONS git, and review is why the refusal had to move inside: the load ran on
+# every Bash call, so a checkout where the list file does not exist yet (a worktree cut from an
+# older commit) refused `ls` and `npm test` in every session, git or no git. Fail-closed is this
+# check's rule, but its subject is git commands; a refusal wider than the subject is an outage,
+# not a check. The same path-qualified pattern the gate below uses decides "mentions git".
+COMMAND_MENTIONS_GIT=false
+if printf '%s' "$VERBS" | grep -qE "${STASH_PRE}(/?[^[:space:]]*/)?git${STASH_END}"; then
+  COMMAND_MENTIONS_GIT=true
+fi
 GIT_AMBIENT_ENV_NAMES=""
+if [[ "$COMMAND_MENTIONS_GIT" == "true" ]]; then
 for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
   "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
   "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
@@ -756,11 +767,12 @@ for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
   [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
 done
 if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
-  echo "[worktree-cwd-guard] Blocked: could not read scripts/harness/git-ambient-env.json, so the" >&2
-  echo "[worktree-cwd-guard] ambient-git" >&2
-  echo "[worktree-cwd-guard] check has no subject list. A check that cannot read what it judges" >&2
-  echo "[worktree-cwd-guard] has not run, and must not read as one that found nothing." >&2
+  echo "[worktree-cwd-guard] Blocked: this command mentions git, and the ambient-variable list" >&2
+  echo "[worktree-cwd-guard] (scripts/harness/git-ambient-env.json) could not be read — the check" >&2
+  echo "[worktree-cwd-guard] has no subject list. A check that cannot read what it judges has not" >&2
+  echo "[worktree-cwd-guard] run, and must not read as one that found nothing." >&2
   exit 2
+fi
 fi
 GIT_AMBIENT_ENV_SET=""
 for _var in $GIT_AMBIENT_ENV_NAMES; do
@@ -776,8 +788,7 @@ AMBIENT_TARGET_REPO=""
 # shim would use. Review found it against the comment above, which promises "any git command at
 # all". The path segment may not contain whitespace, so `echo /tmp/git-notes` still does not match:
 # the token has to END in `git`.
-if [[ -n "$GIT_AMBIENT_ENV_SET" ]] &&
-  printf '%s' "$VERBS" | grep -qE "${STASH_PRE}(/?[^[:space:]]*/)?git${STASH_END}"; then
+if [[ -n "$GIT_AMBIENT_ENV_SET" && "$COMMAND_MENTIONS_GIT" == "true" ]]; then
   # Compared by COMMON DIR, not by path: every worktree of one clone shares it, so a hook's own
   # `GIT_DIR` pointing at a sibling worktree compares equal and is permitted, while a variable naming
   # another clone does not.
