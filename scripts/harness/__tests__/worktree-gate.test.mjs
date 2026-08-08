@@ -161,6 +161,16 @@ describe('the environment check runs before any git command', () => {
   });
 });
 
+describe('an unknown phase is an error, not a default', () => {
+  it('THROWS instead of quietly running the after checks', () => {
+    // `phase !== 'before'` meant 'after', so a typo ran the wrong check set and reported a pass it
+    // never computed — an error becoming a default, which the no-fallback rule is about. `main()`
+    // validates its own arguments; this pins the exported function.
+    expect(() => runGate('befor', 'any-branch', repo)).toThrow(/unknown phase/);
+    expect(() => runGate(undefined, 'any-branch', repo)).toThrow(/unknown phase/);
+  });
+});
+
 describe('a worktree that was never installed', () => {
   it('reports the missing install', () => {
     const findings = dependenciesInstalledFindings(repo);

@@ -186,6 +186,23 @@ checkout_targets_in_words() {
         if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         continue
         ;;
+      # `-t <remote>/<branch>` — git DERIVES the local branch name from the tracking ref, and the
+      # derived name is what has to be free. Review supplied the miss: with a sibling holding
+      # `held-branch`, `git checkout -t origin/held-branch; git reset --hard` emitted only
+      # `origin/held-branch` as a candidate, which matches no `refs/heads/…` line, and the exact
+      # accident this block exists for sailed through. Both spellings are candidates now — the raw
+      # value too, because `-t` also accepts a name that is already local-shaped.
+      track)
+        want=""
+        if [[ "$separator_seen" == "true" ]]; then
+          post+=("$word")
+          [[ "$word" == */* ]] && post+=("${word#*/}")
+        else
+          pre+=("$word")
+          [[ "$word" == */* ]] && pre+=("${word#*/}")
+        fi
+        continue
+        ;;
       # A flag whose value is something else entirely — an upstream, a start point.
       skip)
         want=""
@@ -223,7 +240,8 @@ checkout_targets_in_words() {
       --)
         separator_seen=true
         ;;
-      -b | -B | --orphan | -t | --track) want=target ;;
+      -b | -B | --orphan) want=target ;;
+      -t | --track) want=track ;;
       -c | -C) want=target ;;
       --conflict | --pathspec-from-file) want=skip ;;
       -*) ;;
