@@ -188,7 +188,7 @@ checkout_targets_in_words() {
   # `git worktree add <path> <branch>` fails on a held <branch> exactly like a checkout does, and
   # review found it outside this reader entirely — same accident, different verb. The first
   # positional after `worktree add` is the PATH and is skipped; the second is the candidate.
-  local awaiting_worktree_sub=false verb_is_worktree=false worktree_path_skipped=false
+  local awaiting_worktree_sub=false verb_is_worktree=false worktree_positionals=0 worktree_created=false
   # The `--` question is POSITIONAL, and review walked through why twice.
   #
   # In `git checkout <ref> -- <path>` the ref comes BEFORE the separator, so an exemption that ends
@@ -291,7 +291,11 @@ checkout_targets_in_words() {
       # then found `--ignore-other-worktrees` one round later: git's own escape hatch for exactly
       # this refusal, which also succeeds. Both consume the ref as a skip.
       --detach | --ignore-other-worktrees) want=skip ;;
-      -b | -B | --orphan) want=target ;;
+      -b | -B | --orphan)
+        want=target
+        # For `worktree add`, a create flag changes what the positionals MEAN — see below.
+        worktree_created=true
+        ;;
       -t | --track) want=track ;;
       -c | -C) want=target ;;
       --conflict | --pathspec-from-file) want=skip ;;
@@ -301,6 +305,7 @@ checkout_targets_in_words() {
       # in by its own flag syntax. The same fused shapes the interpreter guards just relearned.
       -b?* | -B?*)
         word="${word:2}"
+        worktree_created=true
         if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         ;;
       --orphan=?*)
@@ -320,10 +325,19 @@ checkout_targets_in_words() {
       -*) ;;
       *'>'* | *'<'* | '') ;;
       *)
-        if [[ "$verb_is_worktree" == "true" && "$worktree_path_skipped" != "true" ]]; then
-          # The worktree PATH — a directory, never a branch another worktree can hold.
-          worktree_path_skipped=true
-          continue
+        if [[ "$verb_is_worktree" == "true" ]]; then
+          worktree_positionals=$((worktree_positionals + 1))
+          # 1st positional: the worktree PATH — a directory, never a branch a sibling can hold.
+          [[ "$worktree_positionals" -eq 1 ]] && continue
+          # With `-b`/`-B` the branch was already taken from the FLAG, so the positional after the
+          # path is the START-POINT — a commit-ish that may legitimately be checked out elsewhere.
+          # Review supplied the false positive this closes: `git worktree add -b task-9 ../wt9
+          # develop` is exactly how worktree-parallel-orchestration spawns off the base branch,
+          # and `develop` being held by the main checkout is the normal state, not a hazard.
+          [[ "$worktree_created" == "true" ]] && continue
+          # Without a create flag, only the 2nd positional is the branch; anything after it is a
+          # git usage error, not a candidate.
+          [[ "$worktree_positionals" -gt 2 ]] && continue
         fi
         if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
         ;;

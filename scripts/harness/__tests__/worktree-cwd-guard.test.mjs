@@ -641,6 +641,20 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(ok.status, 'an unheld branch was refused').toBe(0);
   });
 
+  it('does not read a START-POINT as a branch that must be free', () => {
+    // Review supplied the false positive, and it lands on the exact spawn pattern
+    // worktree-parallel-orchestration uses: `git worktree add -b task-9 ../wt9 <base>` bases a NEW
+    // branch on a ref a sibling may legitimately hold — the main checkout being on the base branch
+    // is the normal state, not the hazard. With `-b`/`-B` the branch comes from the FLAG, so the
+    // positional after the path is a commit-ish, not a second branch.
+    const { status } = runHook({
+      command: `git worktree add -b task-9 ../wt9 ${held}; pnpm install`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'basing a new branch on a held ref was refused').toBe(0);
+  });
+
   it('reads a value FUSED to its create flag', () => {
     // `-Bheld` and `--track=origin/held` are ordinary git grammar; the exact-match cases missed
     // both, they fell into the generic-flag skip, and the branch names were never candidates —
