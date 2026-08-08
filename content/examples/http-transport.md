@@ -19,8 +19,16 @@ const transport = createHttpTransport();
 session.attachTransport(transport);
 await transport.start();
 
+// SEC-008: with no `admission` option the transport MINTS a credential rather than serving open.
+// Every request must present it, including your own — so print it, or hand it to whatever you are
+// spawning. `null` here means the transport was deliberately opened; see "Admission" below.
+console.log('token:', transport.getAdmissionToken());
+
 serve({ fetch: transport.getApp().fetch, port: 3000 });
 ```
+
+Every example below sends that token. A request without it gets `401`, and that is the default: a
+transport reaches `session.submit` and `session.executeCommand`, so it is not open unless you say so.
 
 ## Endpoints
 
@@ -38,7 +46,9 @@ serve({ fetch: transport.getApp().fetch, port: 3000 });
 ## SSE Events (POST /submit)
 
 ```bash
+# $TOKEN is what `transport.getAdmissionToken()` printed at startup. Without the header this is 401.
 curl -X POST http://localhost:3000/submit \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Explain this project"}'
 ```
@@ -56,5 +66,21 @@ declare const resolveSessionByToken: TSessionFactory;
 
 const routes = createAgentRoutes({
   sessionFactory: (req) => resolveSessionByToken(req),
+  // SEC-008: required. Every request must present this credential, or the route refuses it before
+  // the session is reached. Pass `{ open: true, openReason: '…' }` only if something in front of
+  // this already decides who may reach it — and say what that is.
+  //
+  // Read the variable STRICTLY. An empty string is not a token: `resolveAdmission` treats it as "no
+  // credential given" and mints a fresh random one per process, so a reader who forgot to set the
+  // variable would believe a fixed shared credential was in effect while every process had its own.
+  // Safe, but silent — and silent is the half this whole change exists to remove.
+  admission: { token: requiredEnv('AGENT_HTTP_TOKEN') },
 });
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value)
+    throw new Error(`${name} is not set — the HTTP transport has no credential to require.`);
+  return value;
+}
 ```

@@ -12,6 +12,7 @@ import {
   SystemCommandExecutor,
 } from '../commands/index.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
+import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 
 import type { TSubmitFn } from './interactive-session-execution-contracts.js';
 import type { ICommandHostContext } from '../command-api/index.js';
@@ -125,25 +126,11 @@ export class SessionSkillRouter {
   }
 
   listCommands(): ICommandListEntry[] {
-    return this.commandExecutor.listCommands().map((cmd) => ({
-      name: cmd.name,
-      ...(cmd.displayName !== undefined ? { displayName: cmd.displayName } : {}),
-      description: cmd.description,
-      ...(cmd.example !== undefined ? { example: cmd.example } : {}),
-    }));
+    return this.commandExecutor.listCommands().map(toCommandListEntry);
   }
 
   listSkills(): ICommandSkillListEntry[] {
-    return this.skillCommandSource.getCommands().map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      source: skill.source,
-      modelInvocable: skill.disableModelInvocation !== true,
-      userInvocable: skill.userInvocable !== false,
-      ...(skill.argumentHint !== undefined ? { argumentHint: skill.argumentHint } : {}),
-      ...(skill.context !== undefined ? { context: skill.context } : {}),
-      ...(skill.agent !== undefined ? { agent: skill.agent } : {}),
-    }));
+    return this.skillCommandSource.getCommands().map(toSkillListEntry);
   }
 
   listModelInvocableCommands(): Array<{ name: string; description: string }> {

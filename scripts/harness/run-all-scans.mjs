@@ -383,6 +383,10 @@ export const SCAN_COMMANDS = [
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
+    name: 'transport-admission',
+    command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
+  },
+  {
     name: 'browser-package-node-subpath',
     command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
   },

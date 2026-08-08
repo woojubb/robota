@@ -1,5 +1,17 @@
 # agent-transport-ws Specification
 
+## Transport Admission (SEC-008)
+
+This transport got the default right — auto-mint unless told to stay open — and its sibling got it
+wrong, which was the whole problem: one question, two answers, because each transport owned its own
+copy of the decision. The behaviour is unchanged; it now comes from `resolveAdmission` in
+`@robota-sdk/agent-transport-protocol`, so there is one place to read and one place to change.
+
+`open` additionally requires a written reason. "No credential" and "nobody thought about it" were
+indistinguishable in the code this replaces, and only one of them is a decision. A caller that opted
+open before that requirement existed is recorded with a reason naming exactly that, so a reader can
+tell an inherited opt-out from a considered one.
+
 ## Scope
 
 WebSocket transport and wire protocol for the Robota SDK. Split out of the consolidated

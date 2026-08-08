@@ -1,5 +1,9 @@
 # agent-transport-protocol Specification
 
+## Transport Admission (SEC-008)
+
+transport-admission: none — transport-neutral wire types and a session bridge, shared by the transports that do the admitting. It binds nothing.
+
 ## Scope
 
 Owns the **transport-neutral session bridge + wire protocol** shared by transport implementations
@@ -81,6 +85,10 @@ abort/...` from inbound `TClientMessage`s) + `cleanup()`. Framework-agnostic: wo
 
 | Export                        | Kind      |
 | ----------------------------- | --------- |
+| `resolveAdmission`            | Function  | SEC-008: the one place a transport asks what credential it requires (secure by default) |
+| `mintTransportToken`          | Function  | SEC-008: mint a per-launch credential; throws rather than returning a weak one          |
+| `credentialMatches`           | Function  | SEC-008: constant-time comparison of a presented credential against the required one    |
+| `bearerCredential`            | Function  | SEC-008: extract a bearer credential from an `Authorization` header value               |
 | `createWsHandler`             | function  |
 | `IWsHandlerOptions`           | interface |
 | `TClientMessage`              | type      |

@@ -32,7 +32,12 @@ afterEach(async () => {
 
 describe('WsTransport lifecycle (ARCH-004 RUNTIME-13)', () => {
   it('stop() resolves promptly with a client still connected (previously hung forever)', async () => {
-    const t = new WsTransport({ port: 17800, maxRetries: 40, open: true });
+    const t = new WsTransport({
+      port: 17800,
+      maxRetries: 40,
+      open: true,
+      openReason: 'SEC-008: this case is about the stop() lifecycle, not admission',
+    });
     t.attach(mockSession());
     await t.start();
     started.push(t);
