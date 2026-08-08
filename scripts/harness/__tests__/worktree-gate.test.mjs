@@ -17,9 +17,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ambientGitEnvFindings,
   branchHeldElsewhereFindings,
+  builtOutputDirs,
   dependenciesInstalledFindings,
   headMatchesFindings,
   listWorktrees,
+  runGate,
   staleBuildFindings,
 } from '../worktree-gate.mjs';
 
@@ -98,6 +100,65 @@ describe('a branch another worktree holds', () => {
     expect(worktrees.length).toBeGreaterThanOrEqual(1);
     expect(worktrees[0].path).toBeTruthy();
   });
+
+  it('reports an unreadable worktree list rather than throwing a stack trace', () => {
+    // `headMatchesFindings` one function down already answers this way — an unreadable HEAD is a
+    // `head-unreadable` finding, not an exception. This path did not, so the same condition
+    // (a directory that is not a work tree, which is what an ambient `GIT_DIR` pointing at a
+    // repository that no longer exists produces) came out of the gate as a Node stack trace
+    // instead of the NON-COMPLIANCE the gate is supposed to speak in. Review found the asymmetry.
+    const notARepo = path.join(root, 'not-a-repo');
+    mkdirSync(notARepo, { recursive: true });
+
+    const findings = branchHeldElsewhereFindings('any-branch', notARepo);
+
+    expect(findings.map((f) => f.check)).toEqual(['worktrees-unreadable']);
+  });
+});
+
+describe('the environment check runs before any git command', () => {
+  /**
+   * The ordering this file's header states, asked of the exported function rather than of `main()`.
+   *
+   * `runGate` evaluated every check inside one array literal, so with `GIT_DIR` set the git calls
+   * below the ambient check still ran — against the repository the variable names. `main()` guarded
+   * this separately, which is why the CLI was safe and the tested, exported function was not.
+   *
+   * The fixture makes the difference visible rather than theoretical: a SECOND repository, holding
+   * the asked-about branch in a worktree of its own. The findings the unguarded version adds are
+   * true of that repository and false of the one the caller is standing in.
+   */
+  let elsewhere;
+  const HELD = 'held-over-there';
+
+  beforeAll(() => {
+    elsewhere = path.join(root, 'elsewhere');
+    mkdirSync(elsewhere, { recursive: true });
+    execFileSync('git', ['init', '-q', elsewhere]);
+    writeFileSync(path.join(elsewhere, 'README.md'), '# other\n');
+    git(elsewhere, 'add', '.');
+    git(elsewhere, 'commit', '-q', '-m', 'init');
+    git(elsewhere, 'branch', HELD);
+    git(elsewhere, 'worktree', 'add', '-q', path.join(root, 'elsewhere-wt'), HELD);
+  });
+
+  function withAmbientGitDir(run) {
+    const before = process.env.GIT_DIR;
+    process.env.GIT_DIR = path.join(elsewhere, '.git');
+    try {
+      return run();
+    } finally {
+      if (before === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = before;
+    }
+  }
+
+  it('answers with the ambient finding ALONE, in both phases', () => {
+    withAmbientGitDir(() => {
+      expect(runGate('before', HELD, repo).map((f) => f.check)).toEqual(['ambient-git-env']);
+      expect(runGate('after', HELD, repo).map((f) => f.check)).toEqual(['ambient-git-env']);
+    });
+  });
 });
 
 describe('a worktree that was never installed', () => {
@@ -131,16 +192,31 @@ describe('the branch being handed off', () => {
 });
 
 describe('build output left behind by another branch', () => {
-  /** A package whose `dist` was built at `builtAt` and whose `src` changed at `changedAt`. */
-  function makePackage(name, builtAt, changedAt) {
-    const pkg = path.join(root, 'ws', 'packages', name);
-    mkdirSync(path.join(pkg, 'src'), { recursive: true });
-    mkdirSync(path.join(pkg, 'dist'), { recursive: true });
-    const dist = path.join(pkg, 'dist', 'index.js');
-    const src = path.join(pkg, 'src', 'index.ts');
-    writeFileSync(dist, '// built\n');
+  /**
+   * A workspace member whose build output was written at `builtAt` and whose source changed at
+   * `changedAt`.
+   *
+   * `output` and `source` are parameters because this repository does not have one answer for
+   * either: `next build` writes `.next` (and `out`, for the exported docs site) while `tsup`,
+   * `tsdown`, `vite` and `astro` write `dist`, and `apps/starter-nextjs` keeps its source in `app/`
+   * rather than `src/`. A fixture that only ever spells them `dist` and `src` is a fixture that
+   * agrees with the bug.
+   */
+  function makePackage(
+    name,
+    builtAt,
+    changedAt,
+    { output = 'dist', source = 'src', family = 'packages', ws = 'ws' } = {},
+  ) {
+    const pkg = path.join(root, ws, family, name);
+    mkdirSync(path.join(pkg, source), { recursive: true });
+    mkdirSync(path.join(pkg, output), { recursive: true });
+    writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ name }));
+    const built = path.join(pkg, output, 'index.js');
+    const src = path.join(pkg, source, 'index.ts');
+    writeFileSync(built, '// built\n');
     writeFileSync(src, '// source\n');
-    utimesSync(dist, builtAt / 1000, builtAt / 1000);
+    utimesSync(built, builtAt / 1000, builtAt / 1000);
     utimesSync(src, changedAt / 1000, changedAt / 1000);
   }
 
@@ -168,9 +244,67 @@ describe('build output left behind by another branch', () => {
     // the state a worktree STARTS in — the check would be noise from its first run.
     const pkg = path.join(root, 'unbuilt', 'packages', 'never-built');
     mkdirSync(path.join(pkg, 'src'), { recursive: true });
+    writeFileSync(path.join(pkg, 'package.json'), JSON.stringify({ name: 'never-built' }));
     writeFileSync(path.join(pkg, 'src', 'index.ts'), '// source\n');
 
     expect(staleBuildFindings(path.join(root, 'unbuilt'))).toEqual([]);
+  });
+
+  it('sees a Next.js app, whose build output is `.next` and never `dist`', () => {
+    // Review measured the coverage this check actually had: it walked `apps` and then looked only
+    // for `<name>/dist`, so every Next.js app in this repository — `agent-web`, `docs`,
+    // `starter-nextjs`, `www` — was walked past in silence. The gate reported a pass over apps it
+    // had not examined, which is the silent green it exists to remove.
+    makePackage('web-thing', EARLIER, LATER, { output: '.next', family: 'apps', ws: 'next-ws' });
+
+    const findings = staleBuildFindings(path.join(root, 'next-ws'));
+
+    expect(findings.map((f) => f.check)).toEqual(['stale-build-output']);
+    expect(findings[0].detail).toContain('.next');
+  });
+
+  it('sees an app whose source is `app/` rather than `src/`', () => {
+    // `apps/starter-nextjs` has no `src/` at all, and the old `if (!existsSync(src)) continue`
+    // skipped it before the output directory was ever considered.
+    makePackage('router-thing', EARLIER, LATER, {
+      output: '.next',
+      source: 'app',
+      family: 'apps',
+      ws: 'app-dir-ws',
+    });
+
+    expect(staleBuildFindings(path.join(root, 'app-dir-ws')).map((f) => f.check)).toEqual([
+      'stale-build-output',
+    ]);
+  });
+
+  it('sees a NESTED package group', () => {
+    // `packages/dag-nodes/*` is a declared workspace group, and a depth-1 `readdirSync` walks past
+    // all of it — the same under-coverage `workspace-packages.mjs` was written to own.
+    makePackage('dag-nodes/file-read', EARLIER, LATER, { ws: 'nested-ws' });
+
+    expect(staleBuildFindings(path.join(root, 'nested-ws')).map((f) => f.check)).toEqual([
+      'stale-build-output',
+    ]);
+  });
+
+  it('names each built output it examined, so an unexamined one is visible', () => {
+    // The gate prints this count. A build directory this repository does not name is read as
+    // "unbuilt" — correct for a package nobody built, and silent for one built somewhere this list
+    // does not know about. The count is what makes that difference showable instead of assumed.
+    rmSync(path.join(root, 'counted-ws'), { recursive: true, force: true });
+    makePackage('counted', LATER, EARLIER, { ws: 'counted-ws' });
+    makePackage('counted-web', LATER, EARLIER, {
+      output: '.next',
+      family: 'apps',
+      ws: 'counted-ws',
+    });
+
+    expect(
+      builtOutputDirs(path.join(root, 'counted-ws'))
+        .map((built) => built.label)
+        .sort(),
+    ).toEqual(['apps/counted-web/.next', 'packages/counted/dist']);
   });
 });
 
@@ -178,7 +312,7 @@ describe('the gate refuses to run without the argument its checks need', () => {
   const GATE = path.resolve(import.meta.dirname, '../worktree-gate.mjs');
 
   /** Run the gate as a process, the way the skill and the agents invoke it. */
-  function runGate(...args) {
+  function runGateProcess(...args) {
     const result = spawnSync('node', [GATE, ...args], { encoding: 'utf8' });
     return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
   }
@@ -195,7 +329,7 @@ describe('the gate refuses to run without the argument its checks need', () => {
       ['--phase', 'before'],
       ['--phase', 'after'],
     ]) {
-      const { status, output } = runGate(...args);
+      const { status, output } = runGateProcess(...args);
       expect(status, args.join(' ')).toBe(2);
       expect(output).toMatch(/--branch <name> is required/);
       expect(output, 'it must not report a pass it did not compute').not.toMatch(/passed\./);
@@ -205,7 +339,7 @@ describe('the gate refuses to run without the argument its checks need', () => {
   it('REFUSES a --branch whose value is the next FLAG', () => {
     // `--branch --phase after` would otherwise take `--phase` as the branch name and check a branch
     // nothing can be holding — a pass computed over a name that does not exist.
-    const { status, output } = runGate('--phase', 'before', '--branch', '--phase');
+    const { status, output } = runGateProcess('--phase', 'before', '--branch', '--phase');
     expect(status).toBe(2);
     expect(output).toMatch(/--branch <name> is required/);
   });
