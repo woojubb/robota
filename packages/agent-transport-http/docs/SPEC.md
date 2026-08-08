@@ -46,7 +46,18 @@ contract already supplies the id. A requirement the type system cannot express a
 catch is not a contract; using what the session already promises removes it instead of documenting
 it.
 
-A session that cannot name itself is not claimed at all, and `isExecuting()` still guards it.
+A session that cannot name itself cannot be claimed, so `/submit` REFUSES it — HTTP 500, with no
+turn started. There is no `isExecuting()` fallback on that path: a fallback would start a turn this
+route cannot guarantee belongs to the caller, which is the concurrency guarantee above stated
+backwards.
+
+`/executing` is the one place the unnameable session still answers, and it answers from
+`isExecuting()` alone — reporting what a session is doing is not the same act as admitting a new
+turn to it.
+
+This paragraph described the fallback design for one round after the code stopped implementing it,
+and review caught the drift against `routes.ts`. A contract document that is one revision behind the
+code is worse than no document, because it is believed.
 
 ## Error Taxonomy
 
