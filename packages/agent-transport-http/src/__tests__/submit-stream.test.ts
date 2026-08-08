@@ -111,11 +111,16 @@ describe('a client disconnect releases the claim even when abort throws', () => 
       },
     });
 
-    const relaying = relayTurn(session, 'prompt', release)(stream);
-    // The registered handler throws through `session.abort()`; the relay must still settle.
-    expect(() => abortHandler()).toThrow('abort blew up');
+    const detail = vi.fn();
+    const relaying = relayTurn(session, 'prompt', release, detail)(stream);
+    // The abort handler runs inside Hono's abort dispatch, OUTSIDE the relay's try/catch — review
+    // traced where a rethrow lands (an unhandled rejection, not a reported failure). So it does not
+    // throw: the detail goes to the injected listener and the relay still settles.
+    expect(() => abortHandler()).not.toThrow();
     await relaying;
 
     expect(release).toHaveBeenCalledTimes(1);
+    expect(detail).toHaveBeenCalledTimes(1);
+    expect(detail.mock.calls[0][0].message).toBe('abort blew up');
   });
 });
