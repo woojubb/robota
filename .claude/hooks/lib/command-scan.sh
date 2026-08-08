@@ -347,10 +347,24 @@ HOOK_INTERP_SEP='[ \t]*=?[ \t]*'
 # WITH a value and cannot be the code flag. Value-taking flags written as separate tokens are
 # unaffected — `ruby -rjson -e "…"` still matches, because `HOOK_INTERP_ARGS` consumes `-rjson` and
 # the code flag stands alone.
-HOOK_INTERP_SH_BOOL='[abefhikmnptuvxCHP]*'
-HOOK_INTERP_PY_BOOL='[bBdEhiIOqsSuvVx]*'
-HOOK_INTERP_RB_BOOL='[acdlnpsSUvwWy]*'
-HOOK_INTERP_PL_BOOL='[acdlnpsStTuUvwWx]*'
+#
+# Written as what a bundle may NOT contain, not as what it may. Review found the first version listing
+# the boolean flags of each interpreter and measured the gap that leaves: `bash -T` (functrace) and
+# `python3 -P` (safe-path) are ordinary boolean flags that were simply missing, so `bash -Tc "git push
+# --force"` matched nothing, fell through to the generic quoted-argument branch, and the push was
+# masked as data. That is the UNDER-block direction, and it is the worse one — an allowlist of flags
+# has to be complete to be safe, and no hand-written list of another program's options stays complete.
+#
+# Inverted, the incompleteness lands on the safe side: a letter nobody listed is treated as a boolean
+# flag, the bundle matches, and the argument is scanned as code. The lists below are therefore the
+# flags that TAKE A VALUE, which is a much shorter and much more stable set — a value fused to its
+# flag is what made `-rdate` look like `-e` in the first place.
+#
+# `-` is excluded from every class so a bundle cannot run past its own token into the next flag.
+HOOK_INTERP_SH_BOOL='[^ \t;&|(\n"\047oO-]*'
+HOOK_INTERP_PY_BOOL='[^ \t;&|(\n"\047WXQm-]*'
+HOOK_INTERP_RB_BOOL='[^ \t;&|(\n"\047rIECFKx-]*'
+HOOK_INTERP_PL_BOOL='[^ \t;&|(\n"\047ImMFCi-]*'
 HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
 # A shell: `-c`, in a bundle or alone. NOT `--command` — measured, `bash --command` is "invalid
 # option" and `python3 --command` is "unknown option". A flag the tool does not have is a claim this
