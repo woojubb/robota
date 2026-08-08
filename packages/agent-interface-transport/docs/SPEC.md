@@ -116,16 +116,12 @@ the other.
 | `OWNER_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for a local/owner turn (display-only attribution, never authorization) |
 | `AGENT_DRIVER_ID`              | Constant  | REMOTE-014 E5 driver id for an autonomous (wakeup/goal) turn — never the owner                 |
 | `createTestInteractiveSession` | Function  | ARCH-012: the conformant `IInteractiveSession` double — see § Session capability members       |
-| <<<<<<< HEAD                   |
 | `ITransportAdmission`          | Interface | SEC-008: the resolved decision — a credential, or `null` with a written `openReason`           |
 | `ITransportAdmissionConfig`    | Interface | SEC-008: how a caller asks for an admission decision                                           |
-| =======                        |
 | `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
 | `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
 | `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
 | `isTurnNotRunError`            | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
-
-> > > > > > > origin/develop
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
