@@ -4,9 +4,81 @@
  * bodies/footers in this repo intentionally include long lines (evidence logs,
  * Co-Authored-By trailers).
  */
+import {
+  judgeMessage,
+  objectIsKnown,
+  pathHasEverExisted,
+  stagedPaths,
+} from './scripts/harness/commit-message-claims.mjs';
+
+/**
+ * A commit message describes the DIFF, not the intent (HARNESS-076).
+ *
+ * Twice in one session a message asserted something that had not happened — an edit whose script had
+ * failed silently, and a commit hash that was typed rather than read. Both were caught by a reader.
+ * A message is the record the next person trusts INSTEAD of reading the diff, so a false one does not
+ * merely fail to inform: it substitutes for looking.
+ *
+ * Only the decidable slice is enforced: a commit-ish token must name an object, and a code-spanned
+ * repository path must exist in the tree or in this commit. Whether the prose is TRUE is not checked
+ * and is not this rule's business.
+ *
+ * It lives here, not in `.husky/`, because the hook directory is closed to changes by `branch-guard`
+ * — and because commitlint is already a REQUIRED status check, so this runs in continuous integration
+ * as well as locally, which a hook alone would not.
+ */
+const claimsResolve = {
+  rules: {
+    'claims-resolve': [
+      2,
+      'always',
+      // The message as commitlint parsed it; `raw` carries body and footers, which is where the
+      // citations live. A rule reading only the subject would check the one line that never has them.
+      undefined,
+    ],
+  },
+  plugins: [
+    {
+      rules: {
+        'claims-resolve': ({ raw }) => {
+          // `stagedPaths()` rather than a local git call: the copy that stood here swallowed every
+          // failure into an empty list, which is the distinction the module it sits beside exists to
+          // make — "git could not answer" is not "git answered no". Review found the two disagreeing.
+          //
+          // LAZY, and once. Eager, it spawned a git subprocess for every commit linted — including
+          // the overwhelming majority whose message cites nothing and never asks `pathKnown` at
+          // all. Review costed it: this rule runs per commit of a pull request, so an unconditional
+          // spawn is a per-commit tax paid mostly for nothing.
+          let staged;
+          const findings = judgeMessage(raw ?? '', {
+            // ANY object, as the rule's own documentation says — a message may cite a tag or a
+            // tree, and refusing those would be the check disagreeing with its own description.
+            // Ambiguity and a shallow clone are both handled there, in one place, so this side and
+            // the path side cannot answer the same question two ways.
+            resolvesObject: (token) => objectIsKnown(token),
+            // History, not the current tree. CI lints every commit of a pull request without
+            // checking any of them out, so `--cached` is empty and the tree is always HEAD's.
+            pathKnown: (token) => pathHasEverExisted(token, { staged: (staged ??= stagedPaths()) }),
+          });
+          if (findings.length === 0) return [true];
+          return [
+            false,
+            findings
+              .map((f) => `\`${f.token}\` ${f.detail}`)
+              .join('\n  ')
+              .concat('\n  Read the tree, then write the message.'),
+          ];
+        },
+      },
+    },
+  ],
+};
+
 export default {
   extends: ['@commitlint/config-conventional'],
+  plugins: claimsResolve.plugins,
   rules: {
+    ...claimsResolve.rules,
     'body-max-line-length': [0],
     'footer-max-line-length': [0],
     // This repo prefixes subjects with uppercase backlog IDs (e.g. "HARNESS-017 — …"),

@@ -2,6 +2,10 @@
 # Before `gh pr merge`: the questions the rules already require, asked mechanically. Two are
 # git-branch.md's; the third, asked first, is finding-depth.md's.
 #
+# fail-direction: refuse — it answers questions about a pull request's state, and every unreadable or
+# unrecognised answer is a question it did not get to ask. An unknown state is not a clean one, so it
+# refuses and names what it could not read.
+#
 # `git-branch.md` § Pre-Merge Code-Review Gate says it plainly: "No CONFIRMED/PLAUSIBLE finding may
 # be left silently unaddressed. **Only after all findings are resolved** may the PR be merged."
 # `pr-finding-resolution-loop` owns the loop that drives a PR to that state, and three agents implement

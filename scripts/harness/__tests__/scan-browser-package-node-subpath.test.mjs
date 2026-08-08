@@ -6,6 +6,11 @@
  * for a workspace-linked consumer — it resolves `source` and then fails on the Node builtins, with a
  * message about `node:fs` rather than about the import that asked for it.
  *
+ * allow-missing-artifact-file: this file documents and exercises a DECLARATION FORMAT, so the
+ * paths inside its examples and fixtures (`src/thing.ts`, `src/excused.ts`, the fixture tree
+ * under a temp dir) are deliberately fictional. Naming a real file in an example would make
+ * the example wrong the moment that file moved.
+ *
  * No package did this. Nothing stopped the next one, and "nothing stopped it" is the state this
  * repository treats as the defect rather than the near miss.
  */
