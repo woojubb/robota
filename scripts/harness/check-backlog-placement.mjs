@@ -74,7 +74,24 @@ export async function findBacklogPlacementFindings(root = WORKSPACE_ROOT) {
     const { status, hasCompletedDate } = readBacklogFrontmatter(
       await fs.readFile(path.join(root, relative), 'utf8'),
     );
-    if (status === null) continue;
+    // A task with no readable `status:` is REPORTED, not skipped, and review found why. `README.md`
+    // requires every task file to carry a `---`-delimited frontmatter block and says outright that
+    // "grep-based tooling and harness scripts rely exclusively on frontmatter for status tracking"
+    // — and this scan, one of that tooling, answered `null` and moved on. A file written with the
+    // status in the BODY therefore passed every placement rule below, which is the rule this scan
+    // enforces being unenforceable against the one shape that breaks it.
+    //
+    // Found the ordinary way: a task file added in this very change had no frontmatter and the scan
+    // reported clean.
+    if (status === null) {
+      findings.push({
+        file: relative,
+        problem:
+          'no `status:` in frontmatter — README.md requires a `---` block, and this scan (and ' +
+          'every other grep over the backlog) reads status from there and nowhere else',
+      });
+      continue;
+    }
     if (TERMINAL_STATUSES.has(status)) {
       findings.push({
         file: relative,

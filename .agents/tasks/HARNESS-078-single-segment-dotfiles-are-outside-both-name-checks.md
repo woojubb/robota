@@ -1,8 +1,15 @@
+---
+title: 'HARNESS-078: a single-segment dotfile is outside both name checks'
+status: todo
+created: 2026-08-07
+priority: medium
+urgency: later
+area: scripts/harness
+depends_on: []
+---
+
 # HARNESS-078 — a single-segment dotfile is outside both name checks
 
-**Type:** INFRA
-**Status:** in progress
-**Filed:** 2026-08-07 (UTC)
 **Source:** review finding on PR #1647
 
 ## The problem

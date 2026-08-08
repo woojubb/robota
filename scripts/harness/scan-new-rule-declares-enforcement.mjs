@@ -61,6 +61,21 @@ const RULE_HEADING = /^\+###\s+(.+)$/;
  * list item carrying a normative keyword. An added sentence that explains, illustrates or softens is
  * not matched, and neither is a bullet that merely mentions one of these words in passing prose
  * after the first clause.
+ *
+ * ## Which way its enumeration fails, and how far
+ *
+ * fail-direction: SILENT — and this is the one place in this file where that is true, so it is
+ * stated with a number rather than left to be discovered. A rule phrased without a listed keyword
+ * ("A rule declares…", "Do not combine…", "X should…") opens no section, so `judgeSections` never
+ * asks it for a declaration. The floor does not report it; it does not see it.
+ *
+ * MEASURED over `.agents/rules/` (review finding, PR #1647): **29 bullets match this pattern and
+ * 104 carry a normative word it misses.** The floor sees roughly a fifth of the rules that exist.
+ *
+ * Widening is not a one-line edit, which is why it is HARNESS-079 rather than a change here: those
+ * 104 are real rules, so admitting them makes this floor red on every rules edit until each one
+ * carries a declaration. That is a migration with a number attached, and doing it inside a PR about
+ * something else would either land it half-done or hold this PR for it.
  */
 const ADDED_RULE_BULLET =
   /^\+\s*[-*]\s+(?:\*\*)?[^.\n]{0,120}?\b(MUST|MUST NOT|NEVER|ALWAYS|PROHIBITED|REQUIRED|is banned|is forbidden)\b/;
