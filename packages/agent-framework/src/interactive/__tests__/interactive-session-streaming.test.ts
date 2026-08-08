@@ -138,3 +138,38 @@ describe('interactive-session-streaming edit diffs', () => {
     });
   });
 });
+
+describe('an `end` with no matching `start` (CORE-027)', () => {
+  // CORE-027 made a crashed tool announce an `end` event, which it never did before. Review asked
+  // the right question: `toolName` is set partway through the wrapper's try block, so a throw BEFORE
+  // that point emits an `end` with no `start`, and a consumer that assumes strict pairing — an
+  // in-flight counter, say — could go negative.
+  //
+  // It cannot here, and this pins why rather than leaving it to a reading: the lookup requires a
+  // RUNNING tool of that name, and finding none it returns null and mutates nothing. The caller
+  // (`handleToolExecution`) emits `tool_end` only when this returns a value.
+  it('changes nothing and reports nothing finished', () => {
+    const state = createState();
+
+    const finished = applyToolEnd(state, {
+      type: 'end',
+      toolName: 'never-started',
+      success: false,
+    });
+
+    expect(finished).toBeNull();
+    expect(state.activeTools).toEqual([]);
+  });
+
+  it('leaves a DIFFERENT running tool untouched', () => {
+    // The lookup matches on name, so the case above would also pass against an implementation that
+    // closed whatever happened to be running first. This one would not.
+    const state = createState();
+    applyToolStart(state, { toolName: 'still-running', toolArgs: {} });
+
+    expect(
+      applyToolEnd(state, { type: 'end', toolName: 'never-started', success: false }),
+    ).toBeNull();
+    expect(state.activeTools[0]?.isRunning).toBe(true);
+  });
+});
