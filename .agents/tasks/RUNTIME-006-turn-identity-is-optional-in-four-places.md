@@ -1,8 +1,15 @@
+---
+title: 'RUNTIME-006: a turn identity that is optional in four places'
+status: in-progress
+created: 2026-08-08
+priority: medium
+urgency: soon
+area: packages/agent-framework, packages/agent-interface-transport
+depends_on: []
+---
+
 # RUNTIME-006 — a turn identity that is optional in four places
 
-**Type:** REFACTOR
-**Status:** in progress
-**Filed:** 2026-08-08 (UTC)
 **Source:** review findings on PR #1653
 
 ## The problem

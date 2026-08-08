@@ -39,6 +39,11 @@
  *
  * ## Which way its enumeration fails
  *
+ * allow-missing-artifact-file: this file documents and exercises a DECLARATION FORMAT, so the
+ * paths inside its examples and fixtures (`src/thing.ts`, `src/excused.ts`, the fixture tree
+ * under a temp dir) are deliberately fictional. Naming a real file in an example would make
+ * the example wrong the moment that file moved.
+ *
  * fail-direction: refuse — the subject list is every package DECLARING a browser condition, read
  * from the manifests rather than from a maintained list, so a new one is in scope the moment it
  * exists. A root with no packages throws rather than reporting a clean pass: nothing-examined must

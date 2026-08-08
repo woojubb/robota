@@ -193,7 +193,7 @@ describe('CI build workflow', () => {
 
 // ---------------------------------------------------------------------------
 // (INFRA-058) The `deploy workflow` block that stood here asserted the build shape of
-// `.github/workflows/deploy.yml` — artifact names, tar invocations, the Vercel working directory.
+// `.github/workflows/deploy.yml` — artifact names, tar invocations, the Vercel working directory. (allow-missing-artifact: INFRA-058 deleted it; records what the case covered)
 // Both assertions passed for eight months while the workflow itself deployed nothing across 206
 // runs, because it referenced `vercel/action`, a repository that does not exist, and died at
 // `Set up job`. Asserting a workflow's TEXT says nothing about whether it runs; these tests were

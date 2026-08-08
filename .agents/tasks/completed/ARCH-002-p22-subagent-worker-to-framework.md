@@ -1,6 +1,15 @@
-# ARCH-002-p22: Extract child-process subagent runner into dedicated package
+---
+title: 'ARCH-002-p22: Extract child-process subagent runner into dedicated package'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-subagent-runner
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p22: Extract child-process subagent runner into dedicated package
 
 ## Problem
 
