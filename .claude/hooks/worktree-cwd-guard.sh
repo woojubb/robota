@@ -583,19 +583,23 @@ case "${CLAUDE_PROJECT_DIR:-}" in */.claude/worktrees/*) IN_WORKTREE_SESSION=tru
 # A bundle is read only up to the first VALUE-TAKING letter, and review supplied the counterexample:
 # `git push -octi.skip=false` is `-o` (push-option) carrying a value that happens to contain an `f`,
 # and `git clean -e*.conf` is `-e` (exclude) the same way. `*f*` over the whole token read both as
-# force. `o` and `e` end the flag reading because everything after them is the VALUE — so `-fo…` is
-# still force (the `f` stands on its own) while `-of…` is an option value that starts with f.
+# force. A value-taking letter ends the flag reading because everything after it is the VALUE — so
+# `-fo…` is still force (the `f` stands on its own) while `-of…` is an option value starting with f.
+#
+# The value-taking letters are the CALLER's ($2), per verb, and review is why: `o` belongs to push
+# and `e` to clean, and one shared set was correct only because each letter is invalid syntax for
+# the other verb — a coincidence standing where a parameter should. The verb that saw the flag
+# knows its own grammar; this function should not have to.
 is_force_flag() {
+  local value_letters="${2:?is_force_flag needs the calling verb value-taking letters}"
   case "$1" in
     --force | --force=* | --force-*) return 0 ;;
     -[!-]*)
       local letters="${1#-}" i ch
       for ((i = 0; i < ${#letters}; i++)); do
         ch="${letters:i:1}"
-        case "$ch" in
-          f) return 0 ;;
-          o | e) return 1 ;;
-        esac
+        if [[ "$ch" == "f" ]]; then return 0; fi
+        if [[ "$value_letters" == *"$ch"* ]]; then return 1; fi
       done
       ;;
   esac
@@ -662,10 +666,10 @@ statement_is_destructive() {
       push) saw_push=true ;;
     esac
     [[ "$saw_reset" == "true" && "$word" == "--hard" ]] && return 0
-    [[ "$saw_clean" == "true" ]] && is_force_flag "$word" && return 0
+    [[ "$saw_clean" == "true" ]] && is_force_flag "$word" e && return 0
     # `git checkout -- <path>` DISCARDS working-tree changes. The bare `--` is the whole signal.
     [[ "$saw_checkout" == "true" && "$word" == "--" ]] && return 0
-    [[ "$saw_push" == "true" ]] && is_force_flag "$word" && return 0
+    [[ "$saw_push" == "true" ]] && is_force_flag "$word" o && return 0
   done <<< "$1"
   return 1
 }
@@ -726,13 +730,16 @@ for _candidate in "$SELF_DIR/../../scripts/harness/git-ambient-env.json" \
   "$SELF_DIR/../scripts/harness/git-ambient-env.json" \
   "${CLAUDE_PROJECT_DIR:-}/scripts/harness/git-ambient-env.json"; do
   [[ -r "$_candidate" ]] || continue
-  # `grep -o` over the whole document, NOT a line-anchored sed. Review pointed at the failure a
-  # line shape invites: a formatter collapsing the short array onto one line would make a
-  # line-per-name pattern come back empty, and the refusal below would then block every git command
-  # in every worktree session — fail-closed, but a repo-wide outage resting on text shape (#1664 is
-  # the same disagreement class). Token extraction reads the names wherever the formatter puts
-  # them; a real JSON parse would need node, which is too heavy for a hook that runs per command.
-  GIT_AMBIENT_ENV_NAMES=$(grep -o '"GIT_[A-Z_]*"' "$_candidate" | tr -d '"')
+  # Anchored to the `"variables"` ARRAY, shape-independently. Two review rounds shaped this line:
+  # a line-anchored sed died on a formatter collapsing the array (fail-closed, but a repo-wide
+  # outage resting on text shape — #1664's class), and the whole-document grep that replaced it
+  # read schema-unaware: a prose field quoting a "GIT_…" name while merely DISCUSSING it would have
+  # become an active check. The newline-strip + range cut reads the array wherever the formatter
+  # puts it and nothing outside it; a real JSON parse would need node, too heavy for a per-command
+  # hook.
+  GIT_AMBIENT_ENV_NAMES=$(tr -d '\n' <"$_candidate" |
+    sed -e 's/.*"variables"[^[]*\[//' -e 's/\].*//' |
+    grep -o '"GIT_[A-Z_]*"' | tr -d '"')
   [[ -n "$GIT_AMBIENT_ENV_NAMES" ]] && break
 done
 if [[ -z "$GIT_AMBIENT_ENV_NAMES" ]]; then
