@@ -331,10 +331,24 @@ describe('SEC-008: an unadmitted request never reaches the session', () => {
     const session = createTestInteractiveSession({
       submit: async (prompt: string) => {
         reached.push(`submit:${prompt}`);
-        // No cast. `submit` returns void on this branch, and the typed override says so — the
-        // earlier `as never` would have accepted a handle here and compiled, which is the blindness
-        // the conformant double exists to remove. (RUNTIME-003 changes this return type; that lands
-        // on its own branch, and the type is what will tell this file about it.)
+        // No cast, and the previous version of this comment predicted this edit: it said RUNTIME-003
+        // would change the return type on its own branch "and the type is what will tell this file
+        // about it". It landed, the compiler told, and the stub answers with the handle the contract
+        // now promises. No case here reads it — `reached` is the observable.
+        return {
+          turnId: 'recorded-turn',
+          completed: Promise.resolve({
+            response: '',
+            history: [],
+            toolSummaries: [],
+            contextState: {
+              usedTokens: 0,
+              maxTokens: 0,
+              usedPercentage: 0,
+              remainingPercentage: 100,
+            },
+          }),
+        };
       },
       executeCommand: async (name: string) => {
         reached.push(`command:${name}`);
