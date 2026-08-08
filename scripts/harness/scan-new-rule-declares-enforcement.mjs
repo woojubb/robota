@@ -146,13 +146,16 @@ export function addedRuleSections(diff) {
     // FIRST excused the second. That is the same "a declaration under some other rule is not an
     // answer" this branch was written for, one bullet apart instead of one heading apart.
     if (ADDED_RULE_BULLET.test(line)) {
-      // …EXCEPT when this bullet is the first content under a heading this same hunk just opened.
-      // Review walked the shape: `### New Rule` directly followed by its own `- **MUST …**` bullet
+      // …EXCEPT when this bullet is the FIRST rule under a heading this same hunk just opened.
+      // Review walked the shape twice. First: `### New Rule` directly followed by its bullet
       // produced TWO sections — the heading's, whose body stayed empty forever, and the bullet's —
       // so the heading was reported undeclared no matter where the author put the declaration.
-      // A heading and its first bullet are one rule arriving together; a SECOND bullet still opens
-      // its own section, which is the back-to-back case the paragraph above closed.
-      if (current?.awaitingFirstRule && current.body === '') {
+      // Then the fix demanded `body === ''`, and review walked the ordinary doc shape through it:
+      // one intro sentence between heading and bullet fills the body first, the merge was skipped,
+      // and the wall was back. What makes the first bullet part of the heading's rule is that no
+      // OTHER rule arrived in between — which is exactly what `awaitingFirstRule` already says.
+      // A SECOND bullet still opens its own section (the back-to-back case above).
+      if (current?.awaitingFirstRule) {
         current.awaitingFirstRule = false;
         current.body += `${line.slice(1)}\n`;
         continue;

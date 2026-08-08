@@ -264,6 +264,23 @@ describe('a heading and its first bullet are one rule', () => {
     expect(judgeSections(sections)).toEqual([]);
   });
 
+  it('lets an intro sentence sit between the heading and its first bullet', () => {
+    // Review round two: the first merge demanded an EMPTY body, so one ordinary intro line filled
+    // it, the merge was skipped, and the heading was a wall again. What makes the first bullet the
+    // heading's rule is that no OTHER rule arrived in between — not that nothing did.
+    const sections = addedRuleSections(
+      diff([
+        '+### New Rule',
+        '+Intro sentence about why this rule exists.',
+        '+- **A worker MUST X.**',
+        '+  Enforced by: `scripts/harness/scan-x.mjs`.',
+      ]),
+    );
+
+    expect(sections).toHaveLength(1);
+    expect(judgeSections(sections)).toEqual([]);
+  });
+
   it('still opens a section for the SECOND bullet under the same heading', () => {
     // The back-to-back case the earlier round closed: a declaration on the first bullet must not
     // excuse the second.
