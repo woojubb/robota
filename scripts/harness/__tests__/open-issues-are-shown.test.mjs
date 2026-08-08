@@ -160,7 +160,17 @@ function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, e
     env,
     timeout: 30_000,
   });
-  return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  // `stdout` is kept SEPARATE, and review is why. On a hook that exits 0 the session pipeline
+  // collects stdout and drops stderr (`fireSessionStartHook` reads `result.stdout` only;
+  // `hook-runner` builds its context from `stdoutParts`), so a property asserted against the two
+  // merged can hold in this file and not hold for the reader the notice exists for. That is what
+  // happened: the timeout case passed on `bounded_gh`'s stderr, which the model never sees.
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+    output: `${result.stdout ?? ''}${result.stderr ?? ''}`,
+  };
 }
 
 const LISTS_TWO = `#!/bin/sh
@@ -192,24 +202,24 @@ describe('open issues are shown where the choice is made', () => {
     // hanging `gh`: under `set -e` the failing substitution KILLED the script, the whole session
     // notice vanished, and the hook exited 0 as if it had nothing to say. Silence on an error is the
     // one thing a hook may not do.
-    const { status, output } = runHook('start', {
+    const { status, stdout, output } = runHook('start', {
       ghScript: `#!/bin/sh\nsleep 30\n`,
       deadlineSeconds: 1,
     });
 
     expect(status).toBe(0);
-    // The refusal itself is `bounded_gh`'s line, and that is deliberate: review found this hook
-    // repeating both of its sentences for the same event. What the hook adds is the part only it
-    // knows — which request went unanswered, and how to stop making it.
-    expect(output).toMatch(/did not answer within/);
-    expect(output, "a timeout must not read as 'none open'").toMatch(/NOT an answer of 'none'/);
-    expect(output, 'the hook must still say what was being asked').toMatch(/open-issue list/);
+    // Asserted on STDOUT, because that is the only stream the model is given for a hook that exits
+    // 0. The wording is still `bounded_gh`'s — the hook re-emits what it wrote rather than
+    // composing a second version of it — but re-emitting is what puts it in front of the reader.
+    expect(stdout).toMatch(/did not answer within/);
+    expect(stdout, "a timeout must not read as 'none open'").toMatch(/NOT an answer of 'none'/);
+    expect(stdout, 'the hook must still say what was being asked').toMatch(/open-issue list/);
     // And the deadline it names is the one this case SET. Review measured that the hook overwrote
     // `HOOK_GH_DEADLINE_SECONDS` unconditionally, so this case ran against the 4s default while
     // claiming to test a 1s one — it passed, for the wrong reason, and the runtime (5.2s, not 2.0s)
     // was the only visible trace. Asserting the number turns that into a failure instead of a
     // slower green.
-    expect(output, 'the deadline this case set was discarded').toMatch(/within 1s/);
+    expect(stdout, 'the deadline this case set was discarded').toMatch(/within 1s/);
   });
 
   it('uses its OWN 4s default, not the shared 10s one', () => {
@@ -221,10 +231,10 @@ describe('open issues are shown where the choice is made', () => {
     // The caller's value is captured BEFORE the source now. This case asserts the NUMBER the
     // refusal names, with nothing exported, so a regression is a failure rather than a slower green
     // — which is what the previous version of this fix lacked.
-    const { output } = runHook('start', { ghScript: `#!/bin/sh\nsleep 30\n` });
+    const { stdout } = runHook('start', { ghScript: `#!/bin/sh\nsleep 30\n` });
 
-    expect(output).toMatch(/did not answer within/);
-    expect(output, 'the shared 10s default leaked back in').toMatch(/within 4s/);
+    expect(stdout).toMatch(/did not answer within/);
+    expect(stdout, 'the shared 10s default leaked back in').toMatch(/within 4s/);
   }, 20_000);
 
   it('reports a gh that FAILED, rather than passing over it', () => {

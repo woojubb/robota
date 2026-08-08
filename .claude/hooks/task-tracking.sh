@@ -125,10 +125,22 @@ if [[ "$MODE" == "start" ]]; then
     # as its author wanted. The cut says it happened: a bound that does not announce itself reads as
     # the whole title, which is the silent-truncation shape this notice already refuses one line
     # below for the issue COUNT.
+    # `bounded_gh` writes its refusal to STDERR, and for a hook that exits 0 the session pipeline
+    # collects STDOUT only — `fireSessionStartHook` reads `result.stdout`, `hook-runner` builds its
+    # context from `stdoutParts`. So the model never saw "GitHub did not answer within Ns" or "no
+    # answer is NOT an answer of 'none'", which are the two sentences the whole branch is for.
+    # Review found it, and found the case that should have caught it merging both streams.
+    #
+    # Captured here and re-emitted on stdout below. The WORDING still has one owner — this hook does
+    # not compose a second version of it — but re-emitting is what puts it in front of the reader.
+    GH_STDERR=$(mktemp)
+    # `set -u` is on and the branches below read this unconditionally; declared empty at the top of
+    # the block so a run that never reaches here does not abort the whole notice on an unset name.
     OPEN_ISSUES=$(bounded_gh issue list --state open --limit "$ISSUE_LIMIT" \
-      --json number,title \
+      --json number,title 2>"$GH_STDERR" \
       --jq '.[] | "  - #\(.number) \(.title | gsub("[[:cntrl:]]"; "") | if (. | length) > 120 then .[:120] + "… (title truncated)" else . end)"') || ISSUE_STATUS=$?
   fi
+  GH_STDERR="${GH_STDERR:-}"
 
   if [[ $ISSUE_STATUS -eq -1 ]]; then
     : # Declined by TASK_TRACKING_SKIP_ISSUES. Saying nothing IS the requested behaviour.
@@ -137,9 +149,13 @@ if [[ "$MODE" == "start" ]]; then
     echo "[task-tracking] This is 'not asked', not 'none open'. Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
   elif [[ $ISSUE_STATUS -eq 2 ]]; then
-    # `bounded_gh` has ALREADY said, on stderr, that GitHub did not answer within the deadline and
-    # that no answer is not an answer of 'none'. Review found this branch saying both again. What is
-    # left is the part only this hook knows: what was being asked for, and how to stop asking.
+    # What `bounded_gh` said, moved onto the stream the model is given. Not restated: a second
+    # wording of the same refusal is a second thing to keep in step, and this branch already had
+    # one that review asked to remove.
+    if [[ -n "$GH_STDERR" && -s "$GH_STDERR" ]]; then
+      while IFS= read -r line; do echo "[task-tracking] ${line#\[hook\] }"; done <"$GH_STDERR"
+    fi
+    # And the part only this hook knows: what was being asked for, and how to stop asking.
     echo "[task-tracking] The unanswered request was the open-issue list — check it manually: gh issue list"
     echo "[task-tracking] Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
@@ -197,6 +213,11 @@ if [[ "$MODE" == "start" ]]; then
       echo "  (showing the first $ISSUE_SHOW — there are more: gh issue list)"
     fi
     echo ""
+  fi
+  # `if`, not `[[ … ]] && …`: under `set -e` a false test as the last statement of the block makes
+  # the block return non-zero and kills the hook before the rest of the notice is printed.
+  if [[ -n "$GH_STDERR" ]]; then
+    rm -f "$GH_STDERR"
   fi
 fi
 
