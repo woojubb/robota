@@ -254,10 +254,14 @@ security-boundary containment check in the monorepo routes through these two fun
 sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the studio HTTP API
 (`dag-cli`) — because two containment checks that can disagree are their own defect.
 
-| Export             | Kind     | Description                                                                                        |
-| ------------------ | -------- | -------------------------------------------------------------------------------------------------- |
-| `isPathInside`     | function | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
-| `canonicalizePath` | function | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
+Both are exported from **`@robota-sdk/agent-core/node`** (CORE-028), not from the main barrel: they
+read the filesystem, and a barrel carrying them puts `node:fs` in every consumer's static import
+graph. The import path is where the Node dependency becomes legible.
+
+| Export             | Kind     | Import from                   | Description                                                                                        |
+| ------------------ | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `isPathInside`     | function | `@robota-sdk/agent-core/node` | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
+| `canonicalizePath` | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
 
 ### Permission Argument Registry Public API (CORE-030)
 
@@ -439,7 +443,7 @@ via override); **posix** → `$SHELL` else `/bin/sh`. The returned `syntaxHint`/
 | `IHookInput`             | type      | JSON input passed to hooks via stdin                                                                                                                                                         |
 | `IHookResult`            | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                                                                                                     |
 
-NOTE: `CommandExecutor` and `HttpExecutor` are exported from `hooks/index.ts` but are **not** re-exported from `src/index.ts`. They are available to packages that import directly from the hooks sub-path; consumers that only import from `@robota-sdk/agent-core` must supply custom executors via the `executors` parameter of `runHooks`. `IRunHooksResult` follows the same export boundary.
+NOTE (CORE-028): `CommandExecutor` and `HttpExecutor` are exported from **`@robota-sdk/agent-core/node`**, not from `hooks/index.ts` and not from `src/index.ts`. They spawn processes and open sockets, so a barrel carrying them puts `node:child_process` in the static import graph of every consumer — including the `browser` build, which is the defect CORE-028 removed. A consumer that only imports from `@robota-sdk/agent-core` must supply custom executors via the `executors` parameter of `runHooks`. `IRunHooksResult` follows the same export boundary.
 
 ### Streaming
 

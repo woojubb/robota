@@ -95,6 +95,13 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it asks every transport package whether it answers the admission question; over a root with no packages there is no transport to ask, and "nobody failed to answer" reads exactly like "everybody answered" — which is the shape that let three transports ship with no trust boundary',
   },
   {
+    // Measured the way this harness calls it — `finder(bare)`: throws `packages missing from <root>`.
+    file: 'scan-browser-package-node-subpath.mjs',
+    finder: 'findBrowserNodeSubpathFindings',
+    tree: 'packages',
+    why: 'it asks which packages promising a browser build import a Node-only subpath; over a root with no packages none does, and "nobody violated it" reads exactly like "the rule holds"',
+  },
+  {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `.github/workflows does not exist`.
     file: 'scan-ci-concurrency-footprint.mjs',

@@ -378,6 +378,10 @@ export const SCAN_COMMANDS = [
     name: 'transport-admission',
     command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
   },
+  {
+    name: 'browser-package-node-subpath',
+    command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
+  },
   { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
   {
     name: 'contract-cast-ratchet',
