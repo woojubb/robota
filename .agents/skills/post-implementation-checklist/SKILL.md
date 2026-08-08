@@ -2,6 +2,7 @@
 name: post-implementation-checklist
 description: Router for the mandatory post-implementation sequence — SPEC sync, build/test, README, commit/PR, publish, content/ docs, docs deploy. Each step's detail lives in its owning skill/rule; this file only fixes the order and the gates. Execute automatically after implementation work; do not wait for the user to request it.
 loop: over=finding-set; escape=no-progress
+invocable: true
 ---
 
 # Post-Implementation Checklist (router)

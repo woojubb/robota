@@ -2,6 +2,7 @@
 name: architecture-refresh
 description: Thin orchestration for the recurring architecture audit→depth→apply→re-audit loop. It holds NO architecture policy — it only sequences five predefined subagents (two auditors, the depth guardian, two appliers), reads their convergence signal, routes each finding on its depth verdict to the applier the auditor named, and re-calls them until every finding of a round is RESOLVED. Every judgement lives in the agents. Use to keep architecture and implementation in sync when a single pass won't finish it.
 loop: over=finding-set; escape=no-progress
+invocable: true
 ---
 
 # Architecture Refresh — pipeline only

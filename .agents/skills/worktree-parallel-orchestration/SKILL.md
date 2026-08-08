@@ -1,6 +1,7 @@
 ---
 name: worktree-parallel-orchestration
 description: Procedure for running multiple independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts — partition file ownership before spawning, isolate each implementer in its own worktree, sequence overlapping work behind occupants, one coherent self-verified PR per agent, and serial orchestrator merge. Use when executing 2 or more independent items concurrently.
+invocable: true
 ---
 
 # Worktree-Parallel Orchestration

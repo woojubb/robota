@@ -268,6 +268,21 @@ export const SCAN_COMMANDS = [
     name: 'action-references',
     command: ['node', 'scripts/harness/scan-action-references.mjs'],
   },
+  {
+    // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
+    // 53 skills on disk, 5 registered, 3 of those dangling, and every project-skill invocation
+    // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
+    name: 'named-mechanism-resolves',
+    command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
+  },
+  {
+    name: 'hook-syntax',
+    command: ['node', 'scripts/harness/scan-hook-syntax.mjs'],
+  },
+  {
+    name: 'skill-registration',
+    command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
+  },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
   {

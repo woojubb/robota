@@ -1,6 +1,7 @@
 ---
 name: lesson-to-harness
 description: Invoke when the user says "turn this session's repeated requests into rules/skills", "교훈 처리해줘", "규칙으로 박아줘", or when the agent detects EITHER a repeated user correction/preference in-session (same kind of correction 2x+, or an explicit "from now on do/don't ...") OR a recurring agent/technical failure class (the same kind of failure hit 2x+ in-session — e.g. fixing the same category of CI failure twice — even with no user correction). Mines lesson candidates from the session, proposes them for approval, and institutionalizes only the approved ones as neutral, universal principles wired into the repo harness (.agents/rules, AGENTS.md, related skills, harness scan / hooks) as a single source — never memory-only. Fixing an instance never closes a recurring mistake; only a mechanical prevention does. Operationalizes learning-loop.md.
+invocable: true
 ---
 
 # Lesson → Harness

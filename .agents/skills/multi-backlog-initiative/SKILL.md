@@ -1,6 +1,7 @@
 ---
 name: multi-backlog-initiative
 description: Sub-orchestration for an initiative that spans several backlog items. Establishes an integration base branch cut from the integration branch, dispatches backlog-execution-orchestrator once per item against that base, keeps the base from drifting mid-flight, and opens the final PR that the user — never this pipeline — decides to merge. Owns only the ordering and routing between items; every branch, PR, and gate constraint is owned by the rules it points at. The entry point for multi-item work; a single item enters backlog-execution-orchestrator directly.
+invocable: true
 ---
 
 # Multi-Backlog Initiative — pipeline only
