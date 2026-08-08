@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -94,20 +96,9 @@ const WORKER_HEAP_MB = positiveIntEnv('VITEST_WORKER_HEAP_MB', 512);
  * inherits — the same reason the resource limits are here. A fix in one test file would protect one
  * test file.
  */
-const GIT_AMBIENT_ENV = [
-  'GIT_DIR',
-  'GIT_WORK_TREE',
-  'GIT_INDEX_FILE',
-  'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
-  'GIT_COMMON_DIR',
-  'GIT_CEILING_DIRECTORIES',
-  'GIT_PREFIX',
-  'GIT_NAMESPACE',
-  'GIT_CONFIG',
-  'GIT_CONFIG_GLOBAL',
-  'GIT_CONFIG_SYSTEM',
-];
+const GIT_AMBIENT_ENV: string[] = JSON.parse(
+  readFileSync(new URL('./scripts/harness/git-ambient-env.json', import.meta.url), 'utf8'),
+).variables;
 
 // DELETED, not set to ''. `GIT_DIR=` (empty) is not the same as absent — git reads the empty value
 // and the fixture's own `git init` then fails, which turned a silent corruption into four red tests

@@ -159,6 +159,18 @@ shared test configuration now removes that ambient context, and a floor asserts 
 is gone. Nothing further is required of you; it is recorded here because the rule above sends you
 into worktrees and the failure was silent while it lasted.
 
+**Worktree hazards are refused at the command, not remembered.** The accidents in this class — a
+command that reaches another repository, a checkout that cannot succeed followed by statements that
+still run, a suite reading build output left by a different branch — are all silent when they happen
+and expensive later, so none of them may depend on anyone reading this paragraph. They are refused by
+`.claude/hooks/worktree-cwd-guard.sh` at the moment the command is issued, measured by
+`scripts/harness/worktree-gate.mjs` in both phases, and judged by the two gates that wrap the work.
+Enforced by: `worktree-cwd-guard` (hook) + `worktree-gate.mjs`, sequenced by
+[`worktree-traffic-control`](../skills/worktree-traffic-control/SKILL.md).
+
+If one of these reaches your work anyway, the first question is why the hook did not refuse it. A gap
+closed at the hook is closed for everyone; a gap closed in prose is closed for whoever read it.
+
 How to do it — partitioning file ownership before starting, worktree isolation, sequencing behind an
 occupant, one self-verified proposal per item — is procedure, owned by
 [`worktree-parallel-orchestration`](../skills/worktree-parallel-orchestration/SKILL.md). This rule

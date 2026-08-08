@@ -26,12 +26,12 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
  * property is real.
  */
 describe('the ambient git context is not inherited (HARNESS-075)', () => {
-  // The set the fence removes. Read from the config rather than restated, so a variable added there
-  // is covered here without anyone remembering to.
-  const config = readFileSync(path.join(WORKSPACE_ROOT, 'vitest.shared.ts'), 'utf8');
-  const declared = [
-    ...(config.match(/const GIT_AMBIENT_ENV = \[([^\]]*)\]/s)?.[1] ?? '').matchAll(/'([A-Z_]+)'/g),
-  ].map((m) => m[1]);
+  // The set the fence removes, read from the file that OWNS it rather than restated. It used to be
+  // parsed out of `vitest.shared.ts`, which was one of three copies of this list; review found them
+  // already disagreeing, so the list moved to `git-ambient-env.json` and every reader loads it.
+  const declared = JSON.parse(
+    readFileSync(path.join(WORKSPACE_ROOT, 'scripts/harness/git-ambient-env.json'), 'utf8'),
+  ).variables;
 
   it('declares a non-empty set, so this file cannot pass over nothing', () => {
     console.log(`::examined:: ${declared.length} ambient git variables`);

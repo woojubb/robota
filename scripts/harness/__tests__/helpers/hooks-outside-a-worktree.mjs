@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -48,12 +48,25 @@ afterAll(() => {
  * bypass the gate that would have caught a real one.
  *
  * The whole directory is copied, not the single file, because hooks source `lib/command-scan.sh`
- * relative to themselves.
+ * relative to themselves — and `scripts/harness/git-ambient-env.json` comes along for the same
+ * reason: the guard resolves the ambient-variable list it OWNS relative to its own location, and a
+ * copy without it is a hook whose subject list is unreadable. It then refuses, correctly, and every
+ * case here fails for a reason that has nothing to do with what it is testing.
  */
 export function hooksOutsideAWorktree() {
   const dir = mkdtempSync(path.join(tmpdir(), 'hooks-main-clone-'));
   copies.push(dir);
   const hooks = path.join(dir, 'hooks');
   cpSync(path.join(WORKSPACE_ROOT, '.claude/hooks'), hooks, { recursive: true });
+  // The parent is created EXPLICITLY. Review read this as a guaranteed ENOENT; measured on this
+  // Node (22), `cpSync` with `recursive: true` does create missing parents for a file copy and
+  // every suite using this helper runs green — but that behaviour is documented only for
+  // directory-to-directory copies, so leaning on it is a fact about one runtime, not a contract.
+  // The mkdir states the intent where the next Node cannot un-state it.
+  mkdirSync(path.join(dir, 'scripts/harness'), { recursive: true });
+  cpSync(
+    path.join(WORKSPACE_ROOT, 'scripts/harness/git-ambient-env.json'),
+    path.join(dir, 'scripts/harness/git-ambient-env.json'),
+  );
   return hooks;
 }
