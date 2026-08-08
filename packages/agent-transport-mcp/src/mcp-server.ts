@@ -64,6 +64,10 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
 
   if (exposeCommands) {
     for (const cmd of session.listCommands()) {
+      // SEC-008: an MCP peer's model calls these, so a command that is not model-invocable is not
+      // offered. `plugin` is the concrete case — it installs and enables code, which is why it
+      // carries the tag — and it was offered here because the list this reads had dropped it.
+      if (!cmd.modelInvocable) continue;
       tools.push({
         name: `command_${cmd.name}`,
         description: cmd.description,
@@ -131,7 +135,19 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
     if (toolName.startsWith('command_')) {
       const cmdName = toolName.slice('command_'.length);
       const args = (toolArgs as Record<string, string>)?.args ?? '';
-      const result = await session.executeCommand(cmdName, args);
+      // SEC-008: not offering a tool is an advertisement, not a gate — a peer can call a name it was
+      // never given. The list is re-consulted here so the refusal is enforced rather than assumed.
+      const offered = session.listCommands().find((cmd) => cmd.name === cmdName);
+      if (!offered?.modelInvocable) {
+        return {
+          content: [{ type: 'text', text: `Command not available over MCP: ${cmdName}` }],
+          isError: true,
+        };
+      }
+      // SEC-008: 'remote', not the default 'user'. An MCP peer is not the person at the keyboard,
+      // and defaulting to the local operator both mis-attributed the call and skipped the 'remote'
+      // policy seam that exists to treat the two differently.
+      const result = await session.executeCommand(cmdName, args, 'remote');
       return {
         content: [
           {

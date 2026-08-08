@@ -220,3 +220,7 @@ export type {
   TPlanPhase,
   IPlanArtifact,
 } from './session-contracts.js';
+
+// SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
+// @robota-sdk/agent-transport-protocol — an interface package carries no runtime dependency edge.
+export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';

@@ -4,6 +4,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { createAgentRoutes } from '../routes.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -39,6 +41,10 @@ describe('HTTP Transport Routes', () => {
     const mockSession = session ?? createMockSession();
     const app = createAgentRoutes({
       sessionFactory: () => mockSession,
+      // SEC-008: these cases predate the trust boundary and are about what each route DOES. They say
+      // so rather than carrying a credential, so a reader can tell "admission is not under test" from
+      // "admission was forgotten" — which is the distinction the boundary exists to make possible.
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
     });
     return { app, mockSession };
   }
@@ -127,7 +133,8 @@ describe('HTTP Transport Routes', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.message).toBe('Conversation cleared.');
-    expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '');
+    // SEC-008: the call now carries its origin — a peer over HTTP is 'remote', not the operator.
+    expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '', 'remote');
   });
 
   it('POST /command returns 400 without name', async () => {
@@ -199,7 +206,10 @@ describe('HTTP Transport Routes', () => {
   }
 
   async function requestSubmit(session: IInteractiveSession): Promise<string> {
-    const app = createAgentRoutes({ sessionFactory: () => session });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -279,7 +289,10 @@ describe('HTTP Transport Routes', () => {
       abort: vi.fn(() => settleSubmit?.()),
     });
 
-    const app = createAgentRoutes({ sessionFactory: () => session });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'SEC-008: this case is about routing, not admission' },
+    });
     const res = await app.request('/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -299,5 +312,182 @@ describe('HTTP Transport Routes', () => {
     const offCount = (session.off as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     expect(offCount).toBe(onCount); // finally teardown removed every listener — no leak
     expect(onCount).toBeGreaterThan(0);
+  });
+});
+
+// ── SEC-008: the route is a trust boundary, not a pass-through ───────────────
+
+describe('SEC-008: an unadmitted request never reaches the session', () => {
+  /**
+   * A session that records whether anything actually got through to it.
+   *
+   * Built on the PUBLISHED conformant double rather than another cast to the contract. A cast is a
+   * partial re-implementation nothing checks against the real thing: it compiles whatever it happens
+   * to contain, so a member the contract gains later is simply missing here and the suite keeps
+   * passing.
+   */
+  function createRecordingSession() {
+    const reached: string[] = [];
+    const session = createTestInteractiveSession({
+      submit: async (prompt: string) => {
+        reached.push(`submit:${prompt}`);
+        // No cast, and the previous version of this comment predicted this edit: it said RUNTIME-003
+        // would change the return type on its own branch "and the type is what will tell this file
+        // about it". It landed, the compiler told, and the stub answers with the handle the contract
+        // now promises. No case here reads it — `reached` is the observable.
+        return {
+          turnId: 'recorded-turn',
+          completed: Promise.resolve({
+            response: '',
+            history: [],
+            toolSummaries: [],
+            contextState: {
+              usedTokens: 0,
+              maxTokens: 0,
+              usedPercentage: 0,
+              remainingPercentage: 100,
+            },
+          }),
+        };
+      },
+      executeCommand: async (name: string) => {
+        reached.push(`command:${name}`);
+        return { message: 'ran', success: true };
+      },
+    });
+    return { session, reached };
+  }
+
+  const CREDENTIAL = 'a'.repeat(64);
+
+  it('refuses POST /submit with no credential, before the prompt runs', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    const res = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'run something' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(401);
+    // The status alone would not be enough. What matters is that the prompt did not execute — a
+    // route that runs the turn and THEN reports 401 has already done the thing it refused.
+    expect(reached, 'the prompt reached the session despite the refusal').toEqual([]);
+  });
+
+  it('refuses POST /command with no credential, before the command runs', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(401);
+    expect(reached, 'the command reached the session despite the refusal').toEqual([]);
+  });
+
+  it('refuses a WRONG credential the same way it refuses a missing one', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    const res = await app.request('/submit', {
+      method: 'POST',
+      body: JSON.stringify({ prompt: 'run something' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${'b'.repeat(64)}` },
+    });
+
+    expect(res.status).toBe(401);
+    expect(reached).toEqual([]);
+  });
+
+  it('attributes an admitted command to a REMOTE source', async () => {
+    // The same defect MCP had, in the transport beside it: `executeCommand` with no `source` defaults
+    // to `'user'` — the local operator — so a remote peer is attributed as the person at the keyboard
+    // and the `'remote'` policy seam is never consulted. Admission decides WHO may reach the session;
+    // it does not say who they are.
+    const executeCommand = vi.fn().mockResolvedValue({ message: 'ran', success: true });
+    const session = createTestInteractiveSession({ executeCommand });
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${CREDENTIAL}` },
+    });
+
+    expect(executeCommand).toHaveBeenCalledWith('clear', '', 'remote');
+  });
+
+  it('admits a correct credential', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${CREDENTIAL}` },
+    });
+
+    // Without this the suite would pass by refusing EVERYTHING, which is a gate nobody can use.
+    expect(res.status).toBe(200);
+    expect(reached).toEqual(['command:clear']);
+  });
+
+  it('admits with no credential only when the host said so, in writing', async () => {
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { open: true, openReason: 'unit test — no boundary under test here' },
+    });
+
+    const res = await app.request('/command', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'clear', args: '' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(200);
+    expect(reached).toEqual(['command:clear']);
+  });
+
+  it('leaves an empty bearer unadmitted whatever the host configured', async () => {
+    // `bearerCredential` requires at least one character after `Bearer `, so a presented credential
+    // is never the empty string — MEASURED, for `Bearer`, `Bearer `, `Bearer  ` and no header at
+    // all. This pins that, because it is what makes the discriminator defect a LOCKOUT rather than
+    // a bypass, and the difference is worth having a case for rather than a claim about.
+    const { session, reached } = createRecordingSession();
+    const app = createAgentRoutes({
+      sessionFactory: () => session,
+      admission: { token: CREDENTIAL },
+    });
+
+    for (const authorization of ['Bearer ', 'Bearer', 'Bearer  ']) {
+      const res = await app.request('/command', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'clear', args: '' }),
+        headers: { 'content-type': 'application/json', authorization },
+      });
+      expect(res.status, authorization).toBe(401);
+    }
+    expect(reached).toEqual([]);
   });
 });
