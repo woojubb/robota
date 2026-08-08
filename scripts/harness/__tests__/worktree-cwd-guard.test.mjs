@@ -563,6 +563,19 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status, 'a backgrounded checkout hid the continuation').toBe(2);
   });
 
+  it('reads the LOCAL name a tracked checkout derives', () => {
+    // `git checkout -t origin/<held>` derives local `<held>` from the tracking ref, and the derived
+    // name is what has to be free. The reader emitted only the raw `origin/<held>`, which matches
+    // no `refs/heads/…` line — so the exact accident this block exists for sailed through. Review
+    // supplied the repro; both spellings are candidates now.
+    const { status } = runHook({
+      command: `git checkout -t origin/${held}; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'the derived local name was never a candidate').toBe(2);
+  });
+
   it('reads the ref `--track` derives a branch from', () => {
     // `git checkout -t <ref>` without `-b` derives the new branch FROM that ref, so its value is a
     // candidate rather than a throwaway. It was in the skip list beside `--start-point`.

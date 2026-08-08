@@ -298,6 +298,13 @@ export function runGate(phase, branch, cwd = process.cwd()) {
   // the repository that variable names. `main()` guarded the ordering separately, so the CLI was
   // safe and this — the exported, tested, importable function — was not. Review found the gap, and
   // "the wrong repository answered" is the accident class this whole file was written for.
+  // Refused HERE, not only at the CLI. `main()` validates its arguments, but this function is
+  // exported and called directly, and `phase !== 'before'` silently meant 'after' — so a caller's
+  // typo ran the wrong check set and reported a pass it never computed. Review pointed at the
+  // repository's no-fallback rule, which is exactly about an error becoming a default.
+  if (phase !== 'before' && phase !== 'after') {
+    throw new Error(`worktree-gate: unknown phase \`${String(phase)}\` — 'before' or 'after'.`);
+  }
   const ambient = ambientGitEnvFindings();
   if (ambient.length > 0) return ambient;
   if (phase === 'before') {
