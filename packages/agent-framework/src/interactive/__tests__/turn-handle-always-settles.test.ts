@@ -22,8 +22,15 @@ import { SessionExecutionController } from '../interactive-session-execution-con
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
 
-function createController(): SessionExecutionController {
-  return new SessionExecutionController(
+/** Exposes the protected drain so a case can reach the resubmission path directly. */
+class DrainableController extends SessionExecutionController {
+  drainNow(submit: Parameters<DrainableController['drainPendingQueue']>[0]): void {
+    this.drainPendingQueue(submit);
+  }
+}
+
+function createController(): DrainableController {
+  return new DrainableController(
     {} as never,
     {} as never,
     {
@@ -141,6 +148,34 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
       };
     }
   }
+
+  it('settles a resubmission that THROWS on its way back in', async () => {
+    // `drainPendingQueue` shifts the head out of `pending` before the timer fires, so nothing else
+    // can settle it — and `submit` throws SYNCHRONOUSLY at the top of `interactive-session.ts` when
+    // `shuttingDown` was set in the meantime. Review found that the caller's `completed` then never
+    // settled at all, which is the one promise `ITurnHandle` makes.
+    const controller = createController();
+    const { turnId, completed } = controller.turns.begin();
+    controller.enqueuePending({ input: 'queued', options: { driverId: 'owner' }, turnId });
+
+    controller.executing = false;
+    controller.drainNow(() => {
+      throw new Error('session is shutting down');
+    });
+
+    // Raced against a deadline for the reason this file already gives above: without the fix this
+    // case fails by HANGING, and a suite timeout reports "timed out" — true, but it names the
+    // harness instead of the defect. RAN against the unguarded resubmission: it hung.
+    const outcome = await Promise.race([
+      completed.then(
+        () => 'settled — the resubmission did not throw',
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      ),
+      new Promise<string>((resolve) => setTimeout(() => resolve('never settled'), 250)),
+    ]);
+
+    expect(outcome).toMatch(/shutting down/);
+  });
 
   it('what submit() enqueues carries the id it minted', async () => {
     const session = new ObservableSession({ session: createSessionStub() });

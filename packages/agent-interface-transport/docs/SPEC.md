@@ -261,6 +261,41 @@ Content-neutrality is a hard boundary: nothing here knows about audio, files, or
 adapters (a voice app's STT/TTS bridge, a file uploader) are assembled by consumers on top —
 never inside the library (ROOM-001 principle).
 
+## Turn identity
+
+`submit()` returns an `ITurnHandle` — `{ turnId, completed }` — so an answer belongs to the caller
+who asked for it.
+
+Before RUNTIME-003 it returned nothing, and a caller that needed to know when ITS turn ended had
+only the session-global `complete` / `interrupted` / `error` events. Those say that A turn ended and
+never which one. A session runs one turn at a time and queues the rest, so two concurrent `submit`
+calls did not run concurrently: the second waited and then took the RUNNING turn's response as its
+own answer. Both callers were told about one turn; neither was told which.
+
+**The id is minted when a submission is ACCEPTED**, and kept if it waits in the queue. One
+submission is one identity from end to end.
+
+**`completed` ALWAYS settles**, and that is the part the contract turns on. A queued submission is
+not promised a turn — the co-drive queue coalesces a same-driver input into the one behind it, drops
+at capacity, and discards everything when cleared. A handle that settled only for submissions that
+RAN would leave the rest waiting forever, which is a worse failure than the ambiguity it replaces.
+So each of those rejects with a typed `ITurnNotRunError` naming which happened:
+
+| `TTurnNotRunReason` | When                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
+| `coalesced`         | a later same-driver input replaced it in the queue (tail-coalesce)       |
+| `dropped`           | the queue was at capacity when it arrived                                |
+| `cancelled`         | the queue was cleared before it ran — abort, cancel, or session shutdown |
+
+There is deliberately no `shutdown` member: shutdown clears the queue through the same path as a
+cancel, so it reports as `cancelled`. A reason no code path can emit is a reason a consumer would
+write a dead branch for.
+
+**Migration.** A caller that ignores the return value is unaffected — `await session.submit(...)`
+still means what it did, and the direct path still resolves only when the turn is over. An
+IMPLEMENTOR of `IInteractiveSession` must return a handle; `createTestInteractiveSession` already
+returns a conforming one, so a double built on it needs no change.
+
 ## Extension Points
 
 This package defines contracts that consumers implement or extend:

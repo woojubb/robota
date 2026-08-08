@@ -227,7 +227,11 @@ export class SessionExecutionController {
     });
   }
 
-  private drainPendingQueue(submit: TSubmitFn): void {
+  // `protected`, not `private`: the queue's resubmission path is what settles a queued caller's
+  // handle, and a case that drives it directly is the only way to reach the throw-on-resubmit
+  // outcome without standing up a whole session and a real shutdown race. A subclass is what the
+  // modifier permits — the same reasoning the settles suite already applies to `enqueuePending`.
+  protected drainPendingQueue(submit: TSubmitFn): void {
     if (!this.shuttingDown && this.pending.size > 0) {
       // Dequeue the HEAD (submission order); resubmit it. Its wakeTaskId is NOT released here — the turn it
       // starts will release it on completion (or `clearPendingQueue` if aborted).
@@ -235,14 +239,29 @@ export class SessionExecutionController {
       // RUNTIME-003: the queued submission keeps its id, so its caller's handle settles for it.
       //
       // ONE source: the entry's own id, which is what every settle point uses (review).
-      setTimeout(
-        () =>
-          void submit(head.input, head.displayInput, head.rawInput, {
-            ...head.options,
-            ...(head.turnId !== undefined ? { resumeTurnId: head.turnId } : {}),
-          }),
-        0,
-      );
+      //
+      // The resubmission is GUARDED, and review found why it has to be. `shift()` removes the entry
+      // from `pending` before this timer fires, so nothing else can settle it — and `submit` throws
+      // SYNCHRONOUSLY at the top of `interactive-session.ts` when `shuttingDown` was set in the
+      // meantime. The caller's `completed` would then never settle at all, which is the one promise
+      // `ITurnHandle` makes. `await`ed rejections are covered by the same catch.
+      setTimeout(() => {
+        void (async () => {
+          try {
+            await submit(head.input, head.displayInput, head.rawInput, {
+              ...head.options,
+              ...(head.turnId !== undefined ? { resumeTurnId: head.turnId } : {}),
+            });
+          } catch (error) {
+            if (head.turnId !== undefined) {
+              this.turns.fail(
+                head.turnId,
+                error instanceof Error ? error : new Error(String(error)),
+              );
+            }
+          }
+        })();
+      }, 0);
     }
   }
 
@@ -336,6 +355,20 @@ export class SessionExecutionController {
           this.callbacks.emit('context_update', this.callbacks.getContextState());
         },
       });
+    } catch (error) {
+      // RUNTIME-003: the REAL error, not the generic fallback below.
+      //
+      // `executePromptTurn` catches its own throws and routes them to `onError`, so `turnError` is
+      // set for anything that happens INSIDE it. Everything before it in this `try` is not covered:
+      // the `checkAndRefreshContextIfStale` await, a synchronous listener on one of the `emit`
+      // calls, the recall block's own rethrow. Review found that such a throw left both
+      // `terminalResult` and `turnError` undefined, so the handle rejected with "the turn ended
+      // without a result" — a message that names the symptom and destroys the cause.
+      //
+      // Rethrown, so callers of `executePrompt` see exactly what they saw before. The only thing
+      // this changes is WHAT the handle rejects with.
+      turnError = error instanceof Error ? error : new Error(String(error));
+      throw error;
     } finally {
       try {
         await this.histTracker.finalizeEditCheckpointTurn();

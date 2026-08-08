@@ -123,4 +123,28 @@ describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
       'answer to BBBB',
     );
   });
+
+  it('reports a REFUSED submission as a tool error, not a protocol failure', async () => {
+    // `completed` rejects with `TurnNotRunError` when the queue coalesced, dropped or cancelled the
+    // submission — an ordinary outcome of asking a busy session, and the whole reason the handle
+    // exists. Review: left to propagate it leaves the request handler as a thrown exception and the
+    // SDK reports a JSON-RPC PROTOCOL failure, so the caller learns the CALL broke rather than that
+    // its turn did not run. That is the ambiguity RUNTIME-003 set out to remove, one layer up.
+    const refusing = {
+      ...createQueueingSession(),
+      submit: () =>
+        Promise.resolve({
+          turnId: 'refused-1',
+          completed: Promise.reject(new Error('dropped: the queue was at capacity')),
+        }),
+    } as unknown as Parameters<typeof connectedClient>[0];
+    const client = await connectedClient(refusing);
+
+    const result = await client.callTool({ name: 'submit', arguments: { prompt: 'CCCC' } });
+
+    expect((result as { isError?: boolean }).isError, 'a refusal was not reported as one').toBe(
+      true,
+    );
+    expect(textOf(result)).toMatch(/dropped: the queue was at capacity/);
+  });
 });

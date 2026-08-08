@@ -93,10 +93,30 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
           isError: true,
         };
       }
-      const result = await waitForCompletion(session, prompt);
-      return {
-        content: [{ type: 'text', text: result.response }],
-      };
+      // A refused submission is a TOOL error, not a protocol one, and review is why. `completed`
+      // rejects with `TurnNotRunError` when the queue coalesced, dropped or cancelled this
+      // submission — an ordinary outcome of asking a busy session, and the whole reason the handle
+      // exists. Left to propagate, it leaves this request handler as a thrown exception and the SDK
+      // reports a JSON-RPC protocol failure: the caller learns the CALL broke rather than that its
+      // turn did not run, which is the ambiguity RUNTIME-003 set out to remove.
+      //
+      // `isError: true` with the reason, matching the `command_*` handler two blocks down.
+      try {
+        const result = await waitForCompletion(session, prompt);
+        return {
+          content: [{ type: 'text', text: result.response }],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
     }
 
     // System commands: command_<name>
