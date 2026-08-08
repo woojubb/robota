@@ -609,7 +609,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
       submit: (() => new Promise(() => {})) as unknown as IInteractiveSession['submit'],
     });
     const app = createAgentRoutes({ sessionFactory: () => session });
-    const post = (prompt: string): Promise<Response> =>
+    const post = async (prompt: string): Promise<Response> =>
       app.request('/submit', {
         method: 'POST',
         body: JSON.stringify({ prompt }),
