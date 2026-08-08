@@ -279,7 +279,11 @@ export function stagedPaths() {
  */
 function isInsideRoot(root, token) {
   const relative = path.relative(path.resolve(root), path.resolve(root, token));
-  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+  // `'..' + path.sep`, not a bare `startsWith('..')` — review: a real name that merely BEGINS with
+  // two dots (`..gitkeep`) never left the tree, and reading it as escaped would have this REQUIRED
+  // check refuse a correct commit. No such name exists here today; the direction is what matters.
+  const escaped = relative === '..' || relative.startsWith(`..${path.sep}`);
+  return relative !== '' && !escaped && !path.isAbsolute(relative);
 }
 
 export function pathHasEverExisted(
