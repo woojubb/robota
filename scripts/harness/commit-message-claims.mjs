@@ -41,7 +41,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { hasStem } from './lib/file-name-shape.mjs';
+import { EXTENSIONS, hasStem } from './lib/file-name-shape.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -77,7 +77,21 @@ const CODE_SPAN = /`([^`\n]+)`/g;
 // and `.turbo` are DIRECTORIES and `.length` is a PROPERTY, all written in backticks constantly,
 // and admitting the shape refused correct documents. The coverage gap is real and is filed rather
 // than closed by making the check noisier. See HARNESS-078.
-const PATHISH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(\/[A-Za-z0-9._/-]+|\.[A-Za-z0-9]+)$/;
+//
+// A SLASHLESS token must end in a KNOWN extension, and that is a false-positive fix this rule found
+// by refusing its own commit. `path.relative` is an API call, not a file, and the loose spelling
+// `\.[A-Za-z0-9]+` read it as one — as it would `path.join`, `fs.existsSync`, `Object.keys`, which
+// commit messages about JavaScript are made of. A token WITH a slash keeps the loose rule: a slash
+// says "path" on its own, and an unknown extension there should still be checked.
+//
+// This narrows in the direction the rule can afford. A slashless file whose extension is missing
+// from the list goes unchecked — a silent pass — but the list is the same one
+// `scripts/harness/lib/file-name-shape.mjs` owns for the artifact scan, so a gap is one edit in one
+// place. Refusing every dotted identifier is the alternative, and it is the shape that gets a
+// required check turned off.
+const PATHISH = new RegExp(
+  String.raw`^([A-Za-z0-9._][A-Za-z0-9._/-]*\/[A-Za-z0-9._/-]+|[A-Za-z0-9._][A-Za-z0-9._-]*\.(?:${EXTENSIONS.join('|')}))$`,
+);
 
 /**
  * Blank out the code spans this message already claims as PATHS.

@@ -223,6 +223,29 @@ describe('which tree the path is judged against', () => {
     expect(pathHasEverExisted('scripts/harness/run-all-scans.mjs')).toBe(true);
   });
 
+  it('does not read a dotted API NAME as a path', () => {
+    // The rule refused its OWN commit over `path.relative`, which is a function call, not a file.
+    // The loose `\.[A-Za-z0-9]+` spelling read every dotted identifier as a path — `path.join`,
+    // `fs.existsSync`, `Object.keys` — and commit messages about JavaScript are made of those.
+    //
+    // A SLASHLESS token must now end in a known extension. A token WITH a slash keeps the loose
+    // rule: a slash says "path" on its own.
+    for (const token of ['path.relative', 'path.join', 'fs.existsSync', 'Object.keys']) {
+      expect(pathClaims(`see \`${token}\` here`), token).toEqual([]);
+    }
+
+    // And the shapes the rule exists for are untouched.
+    for (const token of [
+      'AGENTS.md',
+      'commitlint.config.js',
+      'pnpm-lock.yaml',
+      'scripts/harness/run-all-scans.mjs',
+      'packages/agent-core/src/index.ts',
+    ]) {
+      expect(pathClaims(`see \`${token}\` here`), token).toEqual([token]);
+    }
+  });
+
   it('REFUSES a token that escapes the repository', () => {
     // Review: `PATHISH` allows a leading `.` and inner `/`, and `../../../etc/hosts.conf` has an
     // extension-shaped last segment, so `hasStem` passes it too — and the token then reached
