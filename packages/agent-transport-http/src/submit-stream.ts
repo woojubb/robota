@@ -7,8 +7,12 @@
  * modes, and it was four fifths of the handler.
  */
 
+import { createLogger } from '@robota-sdk/agent-core';
+
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { SSEStreamingApi } from 'hono/streaming';
+
+const logger = createLogger('agent-transport-http');
 
 /**
  * The `streamSSE` callback for one submitted prompt.
@@ -76,8 +80,17 @@ export function relayTurn(
       // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
       // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
       stream.onAbort(() => {
-        session.abort();
-        settle();
+        // `settle` in a `finally`, and review is why the order matters more than it used to: an
+        // `abort()` that throws used to cost a listener leak, and with the claim registry it now
+        // costs the SESSION — `done` never resolves, the teardown never runs, the claim is held
+        // forever, and every future /submit to this session is 409. `abort()` is typed as a
+        // synchronous void and the shipped implementation does not throw; this is what makes that
+        // an implementation detail rather than a load-bearing assumption.
+        try {
+          session.abort();
+        } finally {
+          settle();
+        }
       });
 
       await session.submit(prompt);
@@ -103,18 +116,27 @@ export function relayTurn(
  * By the time this runs, `relayTurn`'s teardown has removed the listeners and released the claim.
  * This handler owes only the telling.
  *
- * IT SENDS `error.message` VERBATIM, and review asked whether that meets the same standard as the
- * 500 branch in `routes.ts`, which deliberately withholds an internal method name. It is a fair
- * question and the answer is that the two have different alternatives available. The 500 branch can
- * withhold because the HOST still learns the detail — the condition is a contract violation
- * described where it is raised. Here there is no second channel: `no-console` is an error in `src/`,
- * this package carries no logger, and the throw is already swallowed to stop it becoming an
- * unhandled rejection. Withholding the message would not move the detail somewhere safer; it would
- * delete it, and leave an operator with a stream that ended for no stated reason.
+ * The CLIENT gets a generic line and the HOST gets the detail, and review moved this twice. The
+ * first version sent `error.message` verbatim; the first answer defended that on "there is no
+ * second channel". There is one — the package logger every sibling transport already carries — and
+ * once it exists the trust-boundary argument wins: this is an exception ESCAPING the stream
+ * callback, not a message anything composed for a client, so it can carry provider internals,
+ * paths, or stack fragments. That is exactly what the 500 branch in `routes.ts` withholds, for the
+ * same boundary.
+ *
+ * The session's own `error` EVENT is different and stays verbatim in `relayTurn` above: that is the
+ * session's client-facing error channel, worded by the session (`humanizeApiError`) and relayed
+ * identically by the WS transport. One is a message meant for the client; this one never was.
  */
 export async function reportStreamFailure(error: Error, stream: SSEStreamingApi): Promise<void> {
+  logger.error('SSE stream callback failed after headers were sent', { message: error.message });
   await stream
-    .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
+    .writeSSE({
+      event: 'error',
+      data: JSON.stringify({
+        message: 'the stream failed on the server after it opened — the turn may not have run',
+      }),
+    })
     .catch(() => {
       // allow-fallback: the stream is already gone, which is the one case where there is nobody
       // left to tell. Rethrowing here would restore the unhandled rejection this exists to remove.

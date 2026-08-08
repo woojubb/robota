@@ -8,7 +8,9 @@ HTTP transport (Hono) for the Robota SDK. Split out of the consolidated `agent-t
 ## Boundaries
 
 - Owns the Hono-based HTTP transport adapter and agent route builder.
-- Depends only on `agent-interface-transport` (transport contracts).
+- Depends on `agent-interface-transport` (transport contracts) and `agent-core` (the shared
+  `createLogger` — the host-side channel for a stream failure whose detail must not cross the trust
+  boundary; see § Error Taxonomy).
 - No other transport package depends on this one.
 
 ## Architecture Overview
@@ -69,6 +71,12 @@ code is worse than no document, because it is believed.
 
 HTTP errors surface as Hono responses; no new error classes.
 
+What crosses the boundary is split by who wrote the message. The session's `error` EVENT is relayed
+verbatim on the SSE `error` channel — it is the session's client-facing wording (`humanizeApiError`)
+and the WS transport relays it identically. An exception ESCAPING the stream callback after the
+headers went out is not a message anything composed for a client: the client gets a generic line and
+the detail goes to the package logger, the same withholding the `/submit` 500 branch practices.
+
 ## Test Strategy
 
 Route + transport unit tests under `src/__tests__`.
@@ -76,4 +84,5 @@ Route + transport unit tests under `src/__tests__`.
 ## Dependencies
 
 - `@robota-sdk/agent-interface-transport`.
+- `@robota-sdk/agent-core` (logger only).
 - External: `hono`.
