@@ -8,6 +8,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface-transport';
 
 import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -97,10 +98,37 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
           isError: true,
         };
       }
-      const result = await waitForCompletion(session, prompt);
-      return {
-        content: [{ type: 'text', text: result.response }],
-      };
+      // A refused submission is a TOOL error, not a protocol one, and review is why. `completed`
+      // rejects with `TurnNotRunError` when the queue coalesced, dropped or cancelled this
+      // submission — an ordinary outcome of asking a busy session, and the whole reason the handle
+      // exists. Left to propagate, it leaves this request handler as a thrown exception and the SDK
+      // reports a JSON-RPC protocol failure: the caller learns the CALL broke rather than that its
+      // turn did not run, which is the ambiguity RUNTIME-003 set out to remove.
+      //
+      // `isError: true` with the reason, matching the `command_*` handler two blocks down.
+      //
+      // ONLY that refusal. The first version of this catch took everything, and review named what
+      // that costs: a provider dying mid-turn came back as a soft tool error carrying a message
+      // that reads like a queue decision, where before this change it surfaced as the protocol
+      // failure it is. Making refusals soft must not make real failures soft with them, so anything
+      // that is not the declared refusal is rethrown and reaches the caller as it did before.
+      try {
+        const result = await waitForCompletion(session, prompt);
+        return {
+          content: [{ type: 'text', text: result.response }],
+        };
+      } catch (error) {
+        if (!isTurnNotRunError(error)) throw error;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
     }
 
     // System commands: command_<name>
@@ -141,39 +169,23 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
 }
 
 /**
- * Submit a prompt and wait for the complete/interrupted/error event.
+ * Submit a prompt and wait for THIS submission's turn.
+ *
+ * The previous version subscribed to the session-global `complete` / `interrupted` / `error` events
+ * and resolved on whichever fired first. A session runs one turn at a time and queues the rest, so
+ * two concurrent `submit` calls did not run concurrently — the second waited and then took the
+ * RUNNING turn's response as its own answer. Both callers were told about one turn, and neither was
+ * told which.
+ *
+ * `submit` now returns the submission's identity, so there is nothing left to correlate by hand: the
+ * handle settles for the turn this call asked for, and for no other. A submission the session
+ * accepted but never ran rejects with `TurnNotRunError`, which is reported as a tool error rather
+ * than left to hang — the failure mode the event-listening version could not even express.
  */
-function waitForCompletion(
+async function waitForCompletion(
   session: IInteractiveSession,
   prompt: string,
 ): Promise<IExecutionResult> {
-  return new Promise((resolve, reject) => {
-    const onComplete = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result);
-    };
-    const onInterrupted = (result: IExecutionResult): void => {
-      cleanup();
-      resolve(result);
-    };
-    const onError = (error: Error): void => {
-      cleanup();
-      reject(error);
-    };
-
-    const cleanup = (): void => {
-      session.off('complete', onComplete);
-      session.off('interrupted', onInterrupted);
-      session.off('error', onError);
-    };
-
-    session.on('complete', onComplete);
-    session.on('interrupted', onInterrupted);
-    session.on('error', onError);
-
-    session.submit(prompt).catch((err) => {
-      cleanup();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    });
-  });
+  const handle = await session.submit(prompt);
+  return handle.completed;
 }

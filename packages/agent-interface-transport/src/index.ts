@@ -71,6 +71,8 @@ export {
   readToolCalls,
   readErrors,
 } from './interaction-contracts.js';
+// RUNTIME-003: the one narrowing for a rejected `ITurnHandle.completed` (a value, not a type).
+export { isTurnNotRunError } from './turn-contracts.js';
 // ── Driver identity + driver-routed event contracts ─────────
 // REMOTE-014 E5: co-drive driver-id constants (values, not types).
 export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
@@ -184,6 +186,9 @@ export type {
   TInteractiveEventName,
   TTurnSource,
   IExecutionResult,
+  ITurnHandle,
+  ITurnNotRunError,
+  TTurnNotRunReason,
   IToolState,
   IDiffLine,
   IToolSummary,

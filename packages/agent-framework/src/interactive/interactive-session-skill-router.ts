@@ -14,6 +14,7 @@ import {
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 
+import type { TSubmitFn } from './interactive-session-execution-contracts.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   ICommand,
@@ -60,11 +61,7 @@ export class SessionSkillRouter {
     commandHostAdapters: ICommandHostAdapters | undefined,
     private readonly getSession: () => ICommandHostContext,
     private readonly getSessionId: () => string,
-    private readonly onSubmit: (
-      prompt: string,
-      displayInput?: string,
-      rawInput?: string,
-    ) => Promise<void>,
+    private readonly onSubmit: TSubmitFn,
     private readonly onApplyResult: (result: string) => Promise<void>,
     private readonly recordSkillActivation: (
       event: ISkillActivationEvent,
