@@ -22,6 +22,16 @@ afterAll(() => {
   while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
 });
 
+/** A project root with no `.agents/tasks/`, created once and reused. */
+let sharedEmptyProject;
+function emptyProjectDir() {
+  if (sharedEmptyProject === undefined) {
+    sharedEmptyProject = mkdtempSync(path.join(tmpdir(), 'no-tasks-default-'));
+    scratch.push(sharedEmptyProject);
+  }
+  return sharedEmptyProject;
+}
+
 /**
  * A stand-in `gh` that HONOURS `--limit`, the way the real one does.
  *
@@ -105,7 +115,14 @@ function runHook(mode, { ghScript, projectDir, deadlineSeconds, env: extraEnv, e
   // rather than waiting it out — otherwise the suite's own timeout fires first and the case reports
   // on the harness instead of on the hook.
   if (deadlineSeconds !== undefined) env.HOOK_GH_DEADLINE_SECONDS = String(deadlineSeconds);
-  if (projectDir !== undefined) env.CLAUDE_PROJECT_DIR = projectDir;
+  // An EMPTY task directory by default, so these cases do not read the repository's real
+  // `.agents/tasks/` — 60+ files whose contents no case here asserts on, changing under every
+  // unrelated commit. Review: correctness was never at risk (the assertions are substring checks),
+  // but a hermetic case that quietly depends on mutable repo state is one that will one day fail
+  // for a reason nobody can see from the case.
+  //
+  // A case that needs the real tree, or a specific one, passes `projectDir` and wins.
+  env.CLAUDE_PROJECT_DIR = projectDir ?? emptyProjectDir();
   if (ghScript !== undefined) {
     const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
     scratch.push(dir);
@@ -205,6 +222,23 @@ describe('open issues are shown where the choice is made', () => {
     const { output } = runHook('start', { ghScript: LISTS_TWO, projectDir: empty });
 
     expect(output).toMatch(/OPEN GitHub issues/);
+  });
+
+  it('strips terminal control sequences out of an issue title', () => {
+    // Two readers, and the label only serves one. The LLM reads this as context, where saying the
+    // text is untrusted is the right answer. The TERMINAL reads it as bytes, where a label does
+    // nothing: anyone who can open an issue controls this text, and a title carrying `ESC [ 2 J`
+    // clears the screen or repositions the cursor over the line that just called it untrusted.
+    //
+    // Every printable character survives, including non-ASCII — a real title has to stay
+    // recognisable, which is the whole reason it is shown verbatim.
+    const { output } = runHook('start', {
+      ghScript: `#!/bin/sh\nprintf '  - #7 \\033[2J\\033[1;31mtitle\\033[0m 한글 ok\\n'\n`,
+    });
+
+    expect(output, 'a control sequence reached the terminal').not.toMatch(/\u001b/);
+    expect(output, 'the readable text was stripped with it').toMatch(/title/);
+    expect(output, 'non-ASCII was stripped').toMatch(/한글 ok/);
   });
 
   it('says so when the list is truncated', () => {
