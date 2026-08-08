@@ -1,6 +1,7 @@
 ---
 name: backlog-writer
 description: Guides authoring of a new spec document. Ensures every required section is present and meets minimum quality before the item enters the gate pipeline. Does not validate gates or make approval decisions.
+invocable: true
 ---
 
 # Backlog Writer

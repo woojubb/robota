@@ -2,6 +2,7 @@
 name: backlog-execution-orchestrator
 description: The state machine for executing ONE backlog item or named work unit end to end. Sequences five phases — recommendation gate, scenario planning, implementation, done gate, completion — dispatching proposal-reviewer and the user-execution-scenario sub-pipeline, and routing on each outcome (advance / repeat / return to an earlier phase / terminate). It holds NO backlog policy: every gate definition, PR contract, status invariant, and stop condition is owned by the project's backlog-execution rule and is pointed at, never restated. Use when working a backlog item; for an initiative spanning several items, multi-backlog-initiative is the entry point and dispatches this once per item.
 loop: over=finding-set; escape=no-progress; bound=2 rounds
+invocable: true
 ---
 
 # Backlog Execution Orchestrator — pipeline only

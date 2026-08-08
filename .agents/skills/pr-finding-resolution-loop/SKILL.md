@@ -2,6 +2,7 @@
 name: pr-finding-resolution-loop
 description: Drives a pull request to convergence by RESOLVING the findings its review automation produces — it does not review. Round A reviews the LOCAL diff once, before the pull request exists and while no reviewer has seen it, where a round costs a minute instead of a CI cycle; Round B reads what the pull request's automation reported, routes each finding to a verdict and a fix, pushes, and re-reads, looping until zero remain — no round cap (owner directive 2026-08-03); the only escape is progress detection. Then hands to the gated merge path. It routes only: it does not review, write, fix, or judge. Dispatching a reviewer on an OPEN pull request is the duplication this skill exists to prevent.
 loop: over=finding-set; escape=no-progress
+invocable: true
 ---
 
 # PR Finding Resolution Loop

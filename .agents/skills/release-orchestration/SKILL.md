@@ -2,6 +2,7 @@
 name: release-orchestration
 description: Top-level orchestrator for a release. Sequences three phases — source-stabilization → version-bump → npm-otp-publish — maintains the release control-plane state artifact across them, and routes on each phase's outcome (advance / repeat / return to an earlier phase / terminate). It holds NO release policy: every command name, gate definition, required field, and prohibition is owned by the project's publish rule and is pointed at, never restated. Use when running a release, a release-level merge, a version bump, or a publish.
 loop: over=attempt; bound=2 re-runs
+invocable: true
 ---
 
 # Release Orchestration — pipeline only
