@@ -20,32 +20,22 @@ import type { SessionExecutionController } from '../interactive-session-executio
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
 import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
-import { EMPTY_TURN_RESULT } from './helpers/session-stub.js';
+import {
+  EMPTY_TURN_RESULT,
+  createSessionStub as createSharedSessionStub,
+} from './helpers/session-stub.js';
 
 function createSessionStub(): Session {
-  return {
+  // Through the shared helper, with the two members this file's cases actually need: a session id
+  // the wake requests name, and an event service the tracker subscribes to. The local copy differed
+  // from the helper by exactly those two and by a `shutdown` stub that returned a TURN HANDLE, which
+  // `Session.shutdown` does not — the disagreement the helper exists to stop. Review pointed out
+  // that leaving this file behind made the helper a fourth copy rather than one fewer, which is the
+  // sentence in its own docstring.
+  return createSharedSessionStub({
     getSessionId: () => 'session_parent',
     getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
-    getHistory: () => [],
-    getSystemMessage: () => 'system',
-    getToolSchemas: () => [],
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 100,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    abort: vi.fn(),
-    // `Session.shutdown(): Promise<void>`. A sweep that gave every mock in this change the new
-    // TURN HANDLE shape reached this one too, and `shutdown` does not return a handle — no case
-    // reads it, so nothing failed. That is precisely the shape `helpers/session-stub.ts` was added
-    // to argue against: a stub that disagrees with the thing it stands in for makes its cases pass
-    // about something that cannot happen. Review caught it here in the same change that wrote the
-    // argument down.
-    shutdown: vi.fn().mockResolvedValue(undefined),
-    injectRawMessage: vi.fn(),
-    syncContextFromHistory: vi.fn(),
-  } as unknown as Session;
+  } as unknown as Partial<Session>);
 }
 
 interface IFakeScheduled {

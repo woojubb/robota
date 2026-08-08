@@ -37,10 +37,7 @@ import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type { SessionSkillRouter } from './interactive-session-skill-router.js';
 import type { IToolState } from './types.js';
 import type { IExecutionResult } from './types.js';
-import type {
-  IExecutionWorkspaceSnapshot,
-  TExecutionWorkspaceUpdateCause,
-} from '../background-tasks/index.js';
+import type { TExecutionWorkspaceUpdateCause } from '../background-tasks/index.js';
 import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
