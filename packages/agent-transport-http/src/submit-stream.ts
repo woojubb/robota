@@ -107,6 +107,18 @@ export function relayTurn(
           // an implementation detail rather than a load-bearing assumption.
           try {
             session.abort();
+          } catch (error) {
+            // allow-fallback: an abort that throws is the HOST's news, not the runner's
+            // Not rethrown, and where the throw would land is why — review traced it: this handler
+            // runs inside Hono's abort dispatch, OUTSIDE the relay's own try/catch, so a rethrow is
+            // an unhandled rejection rather than a reported failure. The detail goes where every
+            // other stream failure's detail goes.
+            try {
+              onFailure?.(error instanceof Error ? error : new Error(String(error)));
+            } catch {
+              // allow-fallback: a listener that throws must not replace the abort path's settle
+              // Same rule as reportStreamFailure: the host's listener failing is the host's to see.
+            }
           } finally {
             settle();
           }
