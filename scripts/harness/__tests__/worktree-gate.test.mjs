@@ -7,7 +7,7 @@
  * its own incident is a check nobody should trust.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -171,5 +171,42 @@ describe('build output left behind by another branch', () => {
     writeFileSync(path.join(pkg, 'src', 'index.ts'), '// source\n');
 
     expect(staleBuildFindings(path.join(root, 'unbuilt'))).toEqual([]);
+  });
+});
+
+describe('the gate refuses to run without the argument its checks need', () => {
+  const GATE = path.resolve(import.meta.dirname, '../worktree-gate.mjs');
+
+  /** Run the gate as a process, the way the skill and the agents invoke it. */
+  function runGate(...args) {
+    const result = spawnSync('node', [GATE, ...args], { encoding: 'utf8' });
+    return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('REFUSES a run with no --branch instead of passing over the checks it needs it for', () => {
+    // Review: `--branch` was validated nowhere and the usage string spelled it `[--branch <name>]`.
+    // `branchHeldElsewhereFindings` and `headMatchesFindings` both return `[]` the moment `branch`
+    // is falsy, so a run without it skipped at least one core check per phase and still printed
+    // `worktree-gate (...) passed.`
+    //
+    // That is the silent green this gate exists to remove, in the gate itself — its own stated
+    // purpose is that none of these checks "should depend on someone remembering".
+    for (const args of [
+      ['--phase', 'before'],
+      ['--phase', 'after'],
+    ]) {
+      const { status, output } = runGate(...args);
+      expect(status, args.join(' ')).toBe(2);
+      expect(output).toMatch(/--branch <name> is required/);
+      expect(output, 'it must not report a pass it did not compute').not.toMatch(/passed\./);
+    }
+  });
+
+  it('REFUSES a --branch whose value is the next FLAG', () => {
+    // `--branch --phase after` would otherwise take `--phase` as the branch name and check a branch
+    // nothing can be holding — a pass computed over a name that does not exist.
+    const { status, output } = runGate('--phase', 'before', '--branch', '--phase');
+    expect(status).toBe(2);
+    expect(output).toMatch(/--branch <name> is required/);
   });
 });
