@@ -44,7 +44,12 @@ const claimsResolve = {
           // `stagedPaths()` rather than a local git call: the copy that stood here swallowed every
           // failure into an empty list, which is the distinction the module it sits beside exists to
           // make — "git could not answer" is not "git answered no". Review found the two disagreeing.
-          const staged = stagedPaths();
+          //
+          // LAZY, and once. Eager, it spawned a git subprocess for every commit linted — including
+          // the overwhelming majority whose message cites nothing and never asks `pathKnown` at
+          // all. Review costed it: this rule runs per commit of a pull request, so an unconditional
+          // spawn is a per-commit tax paid mostly for nothing.
+          let staged;
           const findings = judgeMessage(raw ?? '', {
             // ANY object, as the rule's own documentation says — a message may cite a tag or a
             // tree, and refusing those would be the check disagreeing with its own description.
@@ -53,7 +58,7 @@ const claimsResolve = {
             resolvesObject: (token) => objectIsKnown(token),
             // History, not the current tree. CI lints every commit of a pull request without
             // checking any of them out, so `--cached` is empty and the tree is always HEAD's.
-            pathKnown: (token) => pathHasEverExisted(token, { staged }),
+            pathKnown: (token) => pathHasEverExisted(token, { staged: (staged ??= stagedPaths()) }),
           });
           if (findings.length === 0) return [true];
           return [
