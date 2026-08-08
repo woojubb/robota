@@ -593,8 +593,12 @@ is_force_flag() {
 # at this level, so the per-invocation model cannot be recovered — the statement is the unit.
 #
 # What that trades: a statement holding a destructive verb AND, elsewhere in it, the flag of that
-# verb is judged destructive even if they belong to different invocations. `git reset --soft HEAD &&
-# git log --hard` would be refused. Quoted text cannot cause it (the tokenizer hides it, so
+# verb is judged destructive even if they belong to different invocations. The shape has to live in
+# ONE statement to trip it — `echo $(git reset --soft) --hard` would be refused, the reset verb from
+# the substitution meeting a `--hard` that belongs to nobody. (An earlier version of this comment
+# used `git reset --soft HEAD && git log --hard`, and review pointed out that `&&` SPLITS: each half
+# is judged alone with fresh state and neither is destructive, so the claimed refusal never
+# happens. The trade is real; that example was not.) Quoted text cannot cause it (the tokenizer hides it, so
 # `git commit -m "--hard"` builds `""`), and this guard blocks only in a worktree session whose cwd
 # has fallen back to MAIN — a rare state where refusing too much is the right way to be wrong.
 #
