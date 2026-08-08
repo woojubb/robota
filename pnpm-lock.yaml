@@ -2156,6 +2156,9 @@ importers:
 
   packages/agent-transport-http:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/agent-interface-transport':
         specifier: workspace:*
         version: link:../agent-interface-transport
@@ -10854,7 +10857,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.1)(tsx@4.23.1)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
