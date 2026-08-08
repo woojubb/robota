@@ -240,10 +240,37 @@ checkout_targets_in_words() {
       --)
         separator_seen=true
         ;;
+      # `--detach` succeeds while a sibling holds the ref — HEAD detaches, no branch is taken — so
+      # the premise of this whole block (a checkout that FAILS with statements still to run) does
+      # not apply, and reading its ref as a candidate refused ordinary work. Review found it. The
+      # ref is consumed as a skip.
+      --detach) want=skip ;;
       -b | -B | --orphan) want=target ;;
       -t | --track) want=track ;;
       -c | -C) want=target ;;
       --conflict | --pathspec-from-file) want=skip ;;
+      # Values FUSED to their flags, and review measured what exact-match cases miss: `-Bheld` and
+      # `--track=origin/held` are ordinary git grammar, matched nothing above, fell into `-*)` and
+      # their branch names were never candidates — the accident this function exists for, carried
+      # in by its own flag syntax. The same fused shapes the interpreter guards just relearned.
+      -b?* | -B?*)
+        word="${word:2}"
+        if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
+        ;;
+      --orphan=?*)
+        word="${word#--orphan=}"
+        if [[ "$separator_seen" == "true" ]]; then post+=("$word"); else pre+=("$word"); fi
+        ;;
+      --track=?*)
+        word="${word#--track=}"
+        if [[ "$separator_seen" == "true" ]]; then
+          post+=("$word")
+          [[ "$word" == */* ]] && post+=("${word#*/}")
+        else
+          pre+=("$word")
+          [[ "$word" == */* ]] && pre+=("${word#*/}")
+        fi
+        ;;
       -*) ;;
       *'>'* | *'<'* | '') ;;
       *)
