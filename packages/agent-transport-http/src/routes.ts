@@ -18,8 +18,8 @@ import type { Context } from 'hono';
  * It need NOT return the same object twice for the same logical session. It briefly did: `/submit`
  * keyed its concurrent-turn claim on object identity, so a factory building a fresh wrapper per
  * call — a proxy, an adapter, a `{...session}` copy — defeated the guard in silence. The first
- * answer was to document that as a requirement callers had to keep, and review refused it: a
- * requirement neither the type system nor a test can check is not a contract, it is a hope.
+ * answer was to document that as a requirement callers had to keep, and a requirement neither the
+ * type system nor a test can check is not a contract, it is a hope.
  *
  * What the session already promises is enough. `getSession(): { getSessionId(): string }` names the
  * session, the claim is keyed by that name, and the requirement is gone rather than written down.
@@ -52,23 +52,21 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
 
   // RUNTIME-38: claimed by the route, PER SESSION — see the note at the check below.
   //
-  // A single flag was the first version, and review found what it cost: `sessionFactory` resolves a
-  // session per request (the documented multi-tenant shape), so one tenant's turn refused every
-  // other tenant's. A busy neighbour is not a reason to refuse you — that is a worse defect than the
+  // PER SESSION, not one flag for the router. `sessionFactory` resolves a session per request (the
+  // documented multi-tenant shape), so a single flag made one tenant's turn refuse every other
+  // tenant's — a busy neighbour is not a reason to refuse you, and that is a worse defect than the
   // race it closed.
   //
-  // Keyed by the session's declared ID, not by object identity, and that is a review finding.
+  // Keyed by the session's declared ID, not by object identity.
   //
-  // A `WeakSet<IInteractiveSession>` keyed the claim on the OBJECT. That is a requirement no caller
-  // was told about and nothing could check: a `sessionFactory` returning a fresh wrapper per call
-  // for the same logical session — a proxy, an adapter, a spread copy — defeats it in silence, and
-  // every request then looks unclaimed. The first version of this comment documented that as an
-  // invariant callers had to keep. Review pointed out the contract already supplies what is needed:
-  // `getSession(): { getSessionId(): string }` (`session-contracts.ts`). Asking for the id turns an
-  // unenforceable requirement into no requirement at all.
+  // Keying on the OBJECT makes identity-stability a requirement of every caller that nothing can
+  // check: a `sessionFactory` returning a fresh wrapper per call for the same logical session — a
+  // proxy, an adapter, a spread copy — defeats the guard in silence, and every request looks
+  // unclaimed. `getSession(): { getSessionId(): string }` already names the session, so asking for
+  // the id turns an unenforceable requirement into no requirement at all.
   //
   // Entries are deleted in the stream's `finally`, so this does not grow with the number of
-  // sessions the host has ever served — which is what the weak keying was buying.
+  // sessions the host has ever served — which is what weak keying would otherwise buy.
   const turnsInFlight = new Set<string>();
 
   /**
@@ -80,7 +78,10 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
    */
   const claimKey = (session: IInteractiveSession): string | undefined => {
     try {
-      const id = session.getSession()?.getSessionId();
+      // No `?.`: `getSession(): { getSessionId(): string }` is non-nullable, and optional chaining
+      // here would suggest the contract allows an absent session when it does not. A session that
+      // breaks the contract anyway is caught by the `catch`.
+      const id = session.getSession().getSessionId();
       return typeof id === 'string' && id !== '' ? id : undefined;
     } catch {
       // allow-fallback: a session that throws while naming itself has not told us who it is, and
@@ -114,20 +115,19 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // and setting it. It is released in the stream's `finally`, so a turn that throws does not leave
     // the route wedged.
     //
-    // BOTH are asked, and review is why. The claim is what this route knows; `isExecuting()` is what the
-    // SESSION knows. Dropping the second made a turn started by another surface — the TUI, a WS
-    // client, a previous process — invisible here, and this route would start a second one on a
-    // session already running. Dropping the first is the race at the top of this comment. Neither
-    // subsumes the other, so both are asked.
-    // A session that cannot name itself is REFUSED, not served racily, and review is why. The busy
-    // check is a guarantee only while the claim is keyed by a real id: with no id it falls back to
-    // `isExecuting()` alone, which the comment above documents as the racy read this route exists
-    // to stop relying on. Serving anyway would degrade the fix back into the bug for exactly the
-    // callers who could not be told they were affected.
+    // BOTH are asked because neither subsumes the other. The claim is what this ROUTE knows;
+    // `isExecuting()` is what the SESSION knows, including a turn started by another surface — the
+    // TUI, a WS client, a previous process — which the claim cannot see.
+    // A session that cannot name itself is REFUSED, not served racily. The busy check is a guarantee
+    // only while the claim is keyed by a real id: with no id it falls back to `isExecuting()` alone,
+    // which the comment above documents as the racy read this route exists to stop relying on.
+    // Serving anyway would degrade the fix back into the bug for exactly the callers who could not
+    // be told they were affected.
     //
-    // `getSession(): { getSessionId(): string }` is required by the contract and the published test
-    // double honours it, so this is unreachable for a conformant session. Naming it is what keeps
-    // that true, instead of leaving a non-conformant one quietly half-guarded.
+    // `getSession(): { getSessionId(): string }` is required by the contract, so this is unreachable
+    // for a conformant session. It is a 500 rather than a 503: the session is not temporarily
+    // unavailable, it does not meet the contract this route is built on, which is a defect on the
+    // server side of the boundary and not a condition that clears on retry.
     const claim = claimKey(session);
     if (claim === undefined) {
       return c.json(
@@ -150,10 +150,9 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     turnsInFlight.add(claim);
 
     // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
-    // `finally`. Review pointed at the rule this file already states one level in: a claim whose
-    // release is not in the same protected region is a lock, not a claim. If `streamSSE` throws
-    // before it ever runs the callback, this releases and rethrows; the callback's own `finally`
-    // covers everything after it starts.
+    // `finally` — a claim whose release is not in the same protected region is a lock, not a claim,
+    // which this file states one level in. If `streamSSE` throws before it ever runs the callback,
+    // this releases and rethrows; the callback's own `finally` covers everything after it starts.
     //
     // NOT REPRODUCED BY A TEST, and that is said here rather than implied by a case that would pass
     // either way. A throw from `session.on` lands INSIDE the callback, where the inner `finally`
@@ -164,11 +163,10 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return streamSSE(
         c,
         async (stream) => {
-          // The `try` opens HERE, immediately after the claim, and that placement is a review finding.
-          // It used to open just before `await session.submit`, leaving the subscription setup between
-          // the two: a throw in there — a bad handler, a listener cap — left the session claimed with
-          // nothing to release it, and every later request to it got 409 forever. A claim whose release
-          // is not in the same protected region is a lock, not a claim.
+          // The `try` opens HERE, immediately after the claim. Opened later — just before
+          // `await session.submit` — it leaves the subscription setup outside, and a throw in there
+          // (a bad handler, a listener cap) leaves the session claimed with nothing to release it,
+          // so every later request gets 409 forever.
           const cleanup: Array<() => void> = [];
           try {
             const subscribe = <T>(event: string, handler: (data: T) => void): void => {
@@ -184,15 +182,12 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
                 // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
               });
 
-            // The subscriptions are wired OUTSIDE the promise executor, and that is a review finding.
-            // Inside it, a throw from `session.on` — a bad handler, an EventEmitter listener cap — is
-            // caught by the Promise constructor and turned into an already-rejected `done` instead of
-            // propagating. Execution then fell through to `await session.submit(...)`, so a REAL TURN
-            // was consumed with only some of its listeners attached and nothing to relay it, and the
-            // rejection surfaced afterwards at `await done`. The turn is gone by then.
-            //
-            // Wired here, that throw reaches the `try` synchronously, before anything is submitted: the
-            // claim is released by the `finally` and the request fails having spent nothing.
+            // The subscriptions are wired OUTSIDE the promise executor. Inside it, a throw from
+            // `session.on` — a bad handler, an EventEmitter listener cap — is caught by the Promise
+            // constructor and becomes an already-rejected `done` instead of propagating. Execution then
+            // reaches `await session.submit(...)`, so a REAL TURN is consumed with only some of its
+            // listeners attached and nothing to relay it, and the rejection surfaces afterwards at
+            // `await done` — by which point the turn is gone.
             let settle!: () => void;
             const done = new Promise<void>((resolve) => {
               settle = resolve;
@@ -305,9 +300,9 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // GET /executing — check if currently executing
   //
   // Reports the SAME "busy" that `/submit` refuses on: the route's own claim OR the session's
-  // `isExecuting()`. Review found them diverging — this endpoint asked only the session, so a client
-  // polling here could see `executing: false` and still get a 409 from `/submit`. Two endpoints
-  // disagreeing about one word is a worse answer than either of them alone.
+  // `isExecuting()`. Asking only the session lets a client polling here see `executing: false` and
+  // still get a 409 from `/submit`, and two endpoints disagreeing about one word is a worse answer
+  // than either of them alone.
   app.get('/executing', async (c) => {
     const session = await sessionFactory(c);
     const claim = claimKey(session);
