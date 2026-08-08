@@ -141,6 +141,19 @@ function submitHandler(
       return admitted;
     }
     const { claim } = admitted;
+    // SINGLE-SHOT, and review traced the double-release it prevents: the relay's teardown releases
+    // this claim on the normal path, and if a future Hono ever rejected the outer promise AFTER the
+    // callback completed, the catch below would release the SAME KEY a second time — by which point
+    // another request may hold it, and the second release would free that request's claim, which is
+    // the cross-talk this registry exists to prevent. A release that has happened is not a release
+    // that can happen again.
+    let released = false;
+    const releaseOnce = (): void => {
+      if (!released) {
+        released = true;
+        claims.release(claim);
+      }
+    };
 
     // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
     // `finally` — a claim whose release is not in the same protected region is a lock, not a claim,
@@ -162,12 +175,9 @@ function submitHandler(
       // Hono returns the Response synchronously and only the sync path is real — but review is
       // right that a version returning a rejecting promise would sail past a bare `return`, and
       // the cost of closing that class is one keyword.
-      return await streamSSE(
-        c,
-        relayTurn(session, body.prompt, () => claims.release(claim), onStreamFailure),
-      );
+      return await streamSSE(c, relayTurn(session, body.prompt, releaseOnce, onStreamFailure));
     } catch (error) {
-      claims.release(claim);
+      releaseOnce();
       throw error;
     }
   };
