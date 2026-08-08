@@ -677,10 +677,16 @@ while read -r STMT_START STMT_LEN; do
   fi
 
   if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
+    # Print the corrected command; do not paraphrase the policy. A guard that restates a rule
+    # becomes a second copy of it that drifts — this message once said the opposite of
+    # git-branch.md on both who may delete a branch and which flag to use, and the prohibited
+    # command was retried for weeks because the guard taught the wrong alternative.
+    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed -E 's/[[:space:]]+--delete-branch\b//g')
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
-    echo "[branch-guard] It once deleted the develop integration branch. Merge without it, then delete" >&2
-    echo "[branch-guard] only on explicit user request: git branch -D <name> (local) /" >&2
-    echo "[branch-guard] gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name> (remote)." >&2
+    echo "[branch-guard] Run this instead:" >&2
+    echo "[branch-guard]   $FIXED_COMMAND" >&2
+    echo "[branch-guard] Branch cleanup after the merge is governed by .agents/rules/git-branch.md" >&2
+    echo "[branch-guard] (see 'Deleting a merged branch') — read it there, it is the only copy." >&2
     exit 2
   fi
 
@@ -868,7 +874,8 @@ while read -r STMT_START STMT_LEN; do
       for b in "${UNMERGED_BRANCHES[@]}"; do
         echo "  - $b" >&2
       done
-      echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
+      echo "[branch-guard] Branch cleanup after a merge is governed by .agents/rules/git-branch.md" >&2
+      echo "[branch-guard] (see 'Deleting a merged branch') — read it there, it is the only copy." >&2
       if [[ "$MERGED_REFS_READ" != "true" ]]; then
         echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
         echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
