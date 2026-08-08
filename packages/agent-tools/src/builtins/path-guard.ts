@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { isPathInside } from '@robota-sdk/agent-core';
+import { isPathInside } from '@robota-sdk/agent-core/node';
 
 import type { IToolInvocationResult } from '../types/tool-result.js';
 

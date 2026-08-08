@@ -7,7 +7,7 @@
 
 import { resolve } from 'node:path';
 
-import { isPathInside } from '@robota-sdk/agent-core';
+import { isPathInside } from '@robota-sdk/agent-core/node';
 import { buildValidationError, type IDagError, type TResult } from '@robota-sdk/dag-core';
 
 /**

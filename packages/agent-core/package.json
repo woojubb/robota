@@ -21,6 +21,19 @@
         "require": "./dist/node/index.cjs"
       }
     },
+    "./node": {
+      "types": "./dist/node/node.d.ts",
+      "source": "./src/node.ts",
+      "node": {
+        "import": "./dist/node/node.js",
+        "require": "./dist/node/node.cjs"
+      },
+      "browser": null,
+      "default": {
+        "import": "./dist/node/node.js",
+        "require": "./dist/node/node.cjs"
+      }
+    },
     "./testing": {
       "types": "./dist/node/testing/index.d.ts",
       "source": "./src/testing/index.ts",

@@ -15,9 +15,6 @@
  * - UserPromptSubmit: { decision: "block" } → block; hookSpecificOutput.additionalContext → injected into stdout
  */
 
-import { CommandExecutor } from './executors/command-executor.js';
-import { HttpExecutor } from './executors/http-executor.js';
-
 import type {
   THookEvent,
   THooksConfig,
@@ -26,8 +23,27 @@ import type {
   IHookTypeExecutor,
 } from './types.js';
 
-/** Default set of hook type executors */
-function createDefaultExecutors(): IHookTypeExecutor[] {
+/**
+ * The default executors, loaded only when a caller supplies none (CORE-028).
+ *
+ * `CommandExecutor` imports `node:child_process`, and a STATIC import of it here put that specifier
+ * into the browser build — which declares a `browser` export condition and cannot provide it. The
+ * aliasing workaround made that worse rather than better: `child_process` resolved to an empty
+ * object, so a build-time contract violation became a deferred `TypeError` in a user's page.
+ *
+ * A dynamic import keeps them out of the browser graph while leaving Node behaviour identical: this
+ * function is reached only on the branch where the caller passed no executors, and `runHooks` was
+ * already async, so nothing above changes shape. A browser caller that supplies its own executors
+ * never loads them at all; one that does not gets the same failure it would get from
+ * `node:child_process` itself, which is the honest outcome rather than a silent empty object.
+ */
+async function createDefaultExecutors(): Promise<IHookTypeExecutor[]> {
+  const [{ CommandExecutor }, { HttpExecutor }] = await Promise.all([
+    // eslint-disable-next-line no-restricted-syntax -- CORE-028: keeps `node:child_process` out of the browser build's static graph
+    import('./executors/command-executor.js'),
+    // eslint-disable-next-line no-restricted-syntax -- CORE-028: loaded on the same branch as its sibling above
+    import('./executors/http-executor.js'),
+  ]);
   return [new CommandExecutor(), new HttpExecutor()];
 }
 
@@ -103,7 +119,7 @@ export async function runHooks(
   const groups = config[event];
   if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
-  const resolvedExecutors = executors ?? createDefaultExecutors();
+  const resolvedExecutors = executors ?? (await createDefaultExecutors());
   const executorMap = new Map<string, IHookTypeExecutor>();
   for (const executor of resolvedExecutors) {
     executorMap.set(executor.type, executor);
