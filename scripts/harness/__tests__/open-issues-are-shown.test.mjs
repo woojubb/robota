@@ -202,7 +202,7 @@ describe('open issues are shown where the choice is made', () => {
     // hanging `gh`: under `set -e` the failing substitution KILLED the script, the whole session
     // notice vanished, and the hook exited 0 as if it had nothing to say. Silence on an error is the
     // one thing a hook may not do.
-    const { status, stdout, output } = runHook('start', {
+    const { status, stdout } = runHook('start', {
       ghScript: `#!/bin/sh\nsleep 30\n`,
       deadlineSeconds: 1,
     });
