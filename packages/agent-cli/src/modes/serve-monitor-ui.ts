@@ -14,7 +14,7 @@ import { createServer } from 'node:http';
 import { extname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { isPathInside } from '@robota-sdk/agent-core';
+import { isPathInside } from '@robota-sdk/agent-core/node';
 
 const MONITOR_HOST = '127.0.0.1';
 

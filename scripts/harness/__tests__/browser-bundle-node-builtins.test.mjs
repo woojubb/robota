@@ -20,7 +20,17 @@ const BROWSER_BUNDLE = path.join(WORKSPACE_ROOT, 'packages/agent-core/dist/brows
  * bundle check, so it could never pass in CI: a check placed where its input does not exist. It says
  * so explicitly when it skips rather than passing quietly.
  */
-const KNOWN_REMAINING = ['node:child_process', 'node:fs', 'node:path'];
+/**
+ * EMPTY, as of the CORE-028 fix. It was `['node:child_process', 'node:fs', 'node:path']`.
+ *
+ * `path-containment` and the hook executors moved out of the shared barrel into a `./node` subpath a
+ * consumer asks for by name, and the default hook executors load through `import()` — so the browser
+ * entry's STATIC graph reaches none of them. The lazily-loaded chunk still carries
+ * `node:child_process`, and that is the honest outcome rather than a defect: a browser caller
+ * supplying its own executors never loads it, and one that does not gets a real module-not-found
+ * instead of the empty object an alias would hand it.
+ */
+const KNOWN_REMAINING = [];
 
 /**
  * The modules the BROWSER build actually includes.

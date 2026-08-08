@@ -9,7 +9,7 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
-import { isPathInside } from '@robota-sdk/agent-core';
+import { isPathInside } from '@robota-sdk/agent-core/node';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
