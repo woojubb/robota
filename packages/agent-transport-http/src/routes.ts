@@ -9,6 +9,8 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
+import { createTurnClaims } from './turn-claims.js';
+
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { Context } from 'hono';
 
@@ -50,47 +52,9 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   const { sessionFactory } = options;
   const app = new Hono();
 
-  // RUNTIME-38: claimed by the route, PER SESSION — see the note at the check below.
-  //
-  // PER SESSION, not one flag for the router. `sessionFactory` resolves a session per request (the
-  // documented multi-tenant shape), so a single flag made one tenant's turn refuse every other
-  // tenant's — a busy neighbour is not a reason to refuse you, and that is a worse defect than the
-  // race it closed.
-  //
-  // Keyed by the session's declared ID, not by object identity.
-  //
-  // Keying on the OBJECT makes identity-stability a requirement of every caller that nothing can
-  // check: a `sessionFactory` returning a fresh wrapper per call for the same logical session — a
-  // proxy, an adapter, a spread copy — defeats the guard in silence, and every request looks
-  // unclaimed. `getSession(): { getSessionId(): string }` already names the session, so asking for
-  // the id turns an unenforceable requirement into no requirement at all.
-  //
-  // Entries are deleted in the stream's `finally`, so this does not grow with the number of
-  // sessions the host has ever served — which is what weak keying would otherwise buy.
-  const turnsInFlight = new Set<string>();
-
-  /**
-   * The key one logical session is claimed under, or `undefined` when it will not name itself.
-   *
-   * `undefined` rather than a placeholder: a shared fallback key would collide every unnameable
-   * session into one claim and refuse them all as each other's neighbours. The caller turns it into
-   * a refusal — see the check below for why serving anyway is not the softer option.
-   */
-  const claimKey = (session: IInteractiveSession): string | undefined => {
-    try {
-      // No `?.`: `getSession(): { getSessionId(): string }` is non-nullable, and optional chaining
-      // here would suggest the contract allows an absent session when it does not. A session that
-      // breaks the contract anyway is caught by the `catch`.
-      const id = session.getSession().getSessionId();
-      return typeof id === 'string' && id !== '' ? id : undefined;
-    } catch {
-      // allow-fallback: a session that throws while naming itself has not told us who it is, and
-      // guessing would claim the wrong turn. The caller REFUSES on `undefined` — an earlier version
-      // of this comment said `isExecuting()` still guarded the request, which stopped being true
-      // when the fallback became a refusal two lines down.
-      return undefined;
-    }
-  };
+  // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
+  // is keyed by the session's declared ID rather than by object identity.
+  const claims = createTurnClaims();
 
   // POST /submit — execute prompt, stream events via SSE
   app.post('/submit', async (c) => {
@@ -128,7 +92,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     // for a conformant session. It is a 500 rather than a 503: the session is not temporarily
     // unavailable, it does not meet the contract this route is built on, which is a defect on the
     // server side of the boundary and not a condition that clears on retry.
-    const claim = claimKey(session);
+    const claim = claims.keyFor(session);
     if (claim === undefined) {
       return c.json(
         {
@@ -144,10 +108,10 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         500,
       );
     }
-    if (turnsInFlight.has(claim) || session.isExecuting()) {
+    if (claims.isHeld(claim) || session.isExecuting()) {
       return c.json({ error: 'session busy — a turn is already in flight' }, 409);
     }
-    turnsInFlight.add(claim);
+    claims.hold(claim);
 
     // The claim is taken OUTSIDE the callback, so its release cannot live only in the callback's
     // `finally` — a claim whose release is not in the same protected region is a lock, not a claim,
@@ -228,7 +192,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
             for (const fn of cleanup) fn();
             // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
             // session it claimed.
-            turnsInFlight.delete(claim);
+            claims.release(claim);
           }
         },
         // A stream callback that throws AFTER the response headers are out cannot be turned into an
@@ -250,7 +214,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
         },
       );
     } catch (error) {
-      turnsInFlight.delete(claim);
+      claims.release(claim);
       throw error;
     }
   });
@@ -305,8 +269,8 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // than either of them alone.
   app.get('/executing', async (c) => {
     const session = await sessionFactory(c);
-    const claim = claimKey(session);
-    const claimed = claim !== undefined && turnsInFlight.has(claim);
+    const claim = claims.keyFor(session);
+    const claimed = claim !== undefined && claims.isHeld(claim);
     return c.json({ executing: claimed || session.isExecuting() });
   });
 
