@@ -267,7 +267,14 @@ checkout_targets_in_words() {
 # reset --hard` never entered this block, and the destructive judgement that would otherwise catch
 # it sits behind the worktree-session gate — so outside such a session neither block saw it. `|` is
 # in the alternation now, and `||` still matches because the alternation tries it first.
-if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|])' ||
+#
+# And a BARE `&`, which review found missing one round later — the third separator to be added one
+# at a time. `git checkout <held> & git reset --hard` separates the statements like `;` does, except
+# worse: it does not even wait for the checkout to fail before running what follows. Each of these
+# came from re-deriving "what continues a command" instead of asking the one place that already
+# knows, which is this file's recurring defect; the class is closed by the character class carrying
+# every separator the statement splitter recognises, not by the latest instance.
+if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|&])' ||
   [[ "$(printf '%s' "$COMMAND" | grep -c '')" -gt 1 ]]; then
   # PER STATEMENT, and every one of them. The first version read only the FIRST checkout in the
   # command (`head -1`) and applied the restore exemption to the WHOLE string, so one harmless
@@ -527,10 +534,25 @@ case "${CLAUDE_PROJECT_DIR:-}" in */.claude/worktrees/*) IN_WORKTREE_SESSION=tru
 # `--force`, `--force-with-lease`, `--force-if-includes`, and any short bundle containing `f`
 # (`-f`, `-fd`, `-xf`). The bundle test requires a SHORT flag — a single leading `-` — so
 # `--follow-tags` is not a force push.
+#
+# A bundle is read only up to the first VALUE-TAKING letter, and review supplied the counterexample:
+# `git push -octi.skip=false` is `-o` (push-option) carrying a value that happens to contain an `f`,
+# and `git clean -e*.conf` is `-e` (exclude) the same way. `*f*` over the whole token read both as
+# force. `o` and `e` end the flag reading because everything after them is the VALUE — so `-fo…` is
+# still force (the `f` stands on its own) while `-of…` is an option value that starts with f.
 is_force_flag() {
   case "$1" in
     --force | --force=* | --force-*) return 0 ;;
-    -[!-]*) [[ "$1" == *f* ]] && return 0 ;;
+    -[!-]*)
+      local letters="${1#-}" i ch
+      for ((i = 0; i < ${#letters}; i++)); do
+        ch="${letters:i:1}"
+        case "$ch" in
+          f) return 0 ;;
+          o | e) return 1 ;;
+        esac
+      done
+      ;;
   esac
   return 1
 }

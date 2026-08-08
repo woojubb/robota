@@ -281,6 +281,29 @@ describe('a flag is judged by what git accepts, not by how the rule was spelt', 
     }
   });
 
+  it('does not read an `f` inside a short option VALUE as force', () => {
+    // Review supplied both: `git push -octi.skip=false` is `-o` (push-option) whose VALUE happens
+    // to contain an `f`, and `git clean -e*.conf` is `-e` (exclude) the same way. The bundle test
+    // was `*f*` over the whole token, so both read as force and ordinary work was refused — the
+    // firing-on-correct-work that gets a guard turned off. The bundle is now read only up to the
+    // first value-taking letter.
+    for (const command of ['git push -octi.skip=false origin develop', 'git clean -e*.conf -n']) {
+      const { status } = runHook({ command, cwd: mainRepo, env: inWorktreeSession() });
+      expect(status, command).toBe(0);
+    }
+  });
+
+  it('still reads an `f` that stands BEFORE the value-taking letter', () => {
+    // `-fo…` is force plus an option; only what FOLLOWS `o`/`e` is a value.
+    const { status } = runHook({
+      command: 'git push -fociao origin develop',
+      cwd: mainRepo,
+      env: inWorktreeSession(),
+    });
+
+    expect(status).toBe(2);
+  });
+
   it('leaves a commit message that MENTIONS a force push alone', () => {
     // The false positive the whole word-list approach is judged on. Quoted content is hidden by the
     // tokenizer, so this builds `git|commit|-m|""` and is not a force push.
@@ -526,6 +549,18 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     });
 
     expect(status).toBe(2);
+  });
+
+  it('treats a bare AMPERSAND as a continuation too', () => {
+    // The third separator to be found missing one round at a time — `|` last round, `&` this one.
+    // `git checkout <held> & git reset --hard` separates the statements like `;` does, except worse:
+    // it does not even wait for the checkout to fail before running what follows.
+    const { status } = runHook({
+      command: `git checkout ${held} & git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'a backgrounded checkout hid the continuation').toBe(2);
   });
 
   it('reads the ref `--track` derives a branch from', () => {
