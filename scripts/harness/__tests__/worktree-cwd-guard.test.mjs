@@ -558,6 +558,22 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status, 'a checkout with nothing after it was refused').toBe(0);
   });
 
+  it('reads `git checkout <ref> --` with NOTHING after it as a switch', () => {
+    // A trailing `--` is git's documented way to say "what came before is a revision, not a path"
+    // (`git <command> [<revision>...] -- [<file>...]`), and with no pathspec after it the command is
+    // an ordinary branch switch. The pre-scan treated ANY bare `--` in the statement as a restore,
+    // so `git checkout <held> --; git reset --hard` reproduced the exact hazard this block exists
+    // for — the checkout fails because a sibling holds the branch, and the reset then runs against
+    // whatever is actually checked out — while bypassing detection entirely. Review found it; the
+    // existing coverage only had the genuine restore form, which has a pathspec.
+    const { status } = runHook({
+      command: `git checkout ${held} --; git reset --hard`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'a trailing -- was read as a restore').toBe(2);
+  });
+
   it('leaves `git checkout <ref> -- <path>` alone', () => {
     // Restoring files FROM a ref does not switch to it, so it succeeds even while a sibling worktree
     // holds that branch — the premise behind this block does not apply. Blocking it would be the

@@ -357,14 +357,28 @@ function main() {
     process.exit(1);
   }
 
-  const worktrees = listWorktrees();
   // Traffic control: who holds what, printed whether or not anything is wrong, because the answer to
   // "can I work here" usually depends on what else is open.
-  console.log(`::examined:: ${worktrees.length} worktree(s)`);
-  for (const worktree of worktrees) {
-    console.log(
-      `  ${worktree.detached ? '(detached)' : (worktree.branch ?? '(none)')}  ${worktree.path}`,
-    );
+  //
+  // Guarded for the same reason `branchHeldElsewhereFindings` is, and review found that fix helping
+  // only the library function: this line runs FIRST, so a directory that is not a readable work tree
+  // — the stale-worktree case the gate is written for — died here with a Node stack trace before
+  // any check ran. A stack trace does not read as the refusal the rest of this script speaks in, and
+  // this file's own rule is that it must never pass because a check could not run. It does not pass;
+  // it just failed unintelligibly.
+  try {
+    const worktrees = listWorktrees();
+    console.log(`::examined:: ${worktrees.length} worktree(s)`);
+    for (const worktree of worktrees) {
+      console.log(
+        `  ${worktree.detached ? '(detached)' : (worktree.branch ?? '(none)')}  ${worktree.path}`,
+      );
+    }
+  } catch {
+    // Not fatal by itself — the checks below answer for themselves, and the branch check reports its
+    // own `worktrees-unreadable` finding for this same condition. What is printed here is context.
+    console.error('[worktree-gate] Could not list the worktrees of this repository.');
+    console.error('  The traffic table below is missing, not empty. The checks still ran.');
   }
 
   if (phase === 'after') {
