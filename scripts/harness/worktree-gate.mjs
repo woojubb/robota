@@ -15,7 +15,7 @@
  *  2. **A branch another worktree already holds.** `git checkout` refuses it, and in a compound
  *     command the REST of the line still runs — against whatever branch is actually checked out. A
  *     `reset --hard` meant for one branch landed on another.
- *  3. **Build output from a different branch.** `dist/` is untracked, so switching branches leaves
+ *  3. **Build output from a different branch.** Build output is untracked, so switching branches leaves
  *     artifacts built from other source in place. Tests that read the built bundle then judge the
  *     wrong tree, and the failure surfaces minutes later inside a push hook rather than at the
  *     switch.
@@ -42,6 +42,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+
+// A sibling harness module that imports nothing but node builtins, so this script still runs in a
+// worktree whose dependencies were never installed — one of the states it exists to diagnose.
+import { listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 /**
  * Ambient git variables that redirect where a git command reads and writes.
@@ -111,7 +115,27 @@ export function ambientGitEnvFindings(env = process.env) {
 export function branchHeldElsewhereFindings(branch, cwd = process.cwd()) {
   if (!branch) return [];
   const here = path.resolve(cwd);
-  return listWorktrees(cwd)
+  let worktrees;
+  try {
+    worktrees = listWorktrees(cwd);
+  } catch {
+    // `headMatchesFindings` below already answers this way, and this function did not — an
+    // asymmetry review found. A directory that is not a work tree is the state an ambient `GIT_DIR`
+    // naming a repository that no longer exists produces, and it came out of the gate as a Node
+    // stack trace rather than as the refusal the gate is supposed to speak in.
+    //
+    // Could-not-determine is a finding here, per this file's stated fail-direction.
+    return [
+      {
+        check: 'worktrees-unreadable',
+        detail:
+          'Could not list the worktrees of this repository. Nothing here can be shown to be safe ' +
+          'to check out, so this is a refusal rather than a pass — check that this directory is ' +
+          'inside a git work tree and that no ambient git variable is redirecting it.',
+      },
+    ];
+  }
+  return worktrees
     .filter((worktree) => worktree.branch === branch && path.resolve(worktree.path) !== here)
     .map((worktree) => ({
       check: 'branch-held-elsewhere',
@@ -166,33 +190,77 @@ function newestMtime(dir, skip = new Set(['node_modules', '.git'])) {
 }
 
 /**
+ * Where a build in this repository lands, and where the source that produced it lives.
+ *
+ * Both are lists because this repository does not have one answer for either, and the first version
+ * of this check assumed it did: it looked only for `<name>/dist` beside `<name>/src`. Review
+ * measured what that walked past — `next build` writes `.next` (and `out`, for the exported docs
+ * site), so `apps/agent-web`, `apps/docs`, `apps/starter-nextjs` and `apps/www` were enumerated and
+ * then silently examined for nothing, while `apps/starter-nextjs` keeps its source in `app/` and so
+ * failed the source test as well.
+ *
+ * A name absent from these lists reads as "not built", which is the correct answer for a package
+ * nobody built and a silent one for a package built somewhere unlisted. That is why `main()` prints
+ * the built outputs it examined: the difference between "clean" and "not looked at" has to be
+ * visible in the gate's own output, not inferred from this comment.
+ */
+const BUILD_OUTPUTS = ['dist', '.next', 'out'];
+const SOURCE_DIRS = ['src', 'app', 'pages'];
+
+/**
+ * Every build output present in this tree, with the source directories it should be newer than.
+ *
+ * Exported so the gate can PRINT what it examined. `listWorkspacePackageDirs` is the workspace's own
+ * enumeration rather than a `readdirSync` of `packages` and `apps` — that hand-rolled walk is the
+ * one that misses the declared nested group `packages/dag-nodes/*`, which is exactly the class of
+ * silent under-coverage this function was rewritten to remove.
+ */
+export function builtOutputDirs(cwd = process.cwd()) {
+  const built = [];
+  for (const packageDir of listWorkspacePackageDirs(cwd)) {
+    const sources = SOURCE_DIRS.map((name) => path.join(packageDir, name)).filter((dir) =>
+      existsSync(dir),
+    );
+    if (sources.length === 0) continue;
+    for (const output of BUILD_OUTPUTS) {
+      const dir = path.join(packageDir, output);
+      if (!existsSync(dir)) continue;
+      built.push({
+        dir,
+        output,
+        sources,
+        label: `${path.relative(cwd, packageDir).split(path.sep).join('/')}/${output}`,
+      });
+    }
+  }
+  return built;
+}
+
+/**
  * Build output older than the source beside it.
  *
- * Only packages that HAVE been built are examined: an unbuilt package is not stale, it is unbuilt,
- * and treating the two the same would make this fire on every clean worktree and be turned off.
+ * Only outputs that EXIST are examined: an unbuilt package is not stale, it is unbuilt, and treating
+ * the two the same would make this fire on every clean worktree and be turned off.
+ *
+ * Each output is judged on its own rather than folded together, because a package can carry two of
+ * them — `apps/docs` writes both `.next` and `out` — and a fresh one beside a stale one is still a
+ * stale artifact a test can read.
  */
 export function staleBuildFindings(cwd = process.cwd()) {
   const findings = [];
-  for (const group of ['packages', 'apps']) {
-    const groupDir = path.join(cwd, group);
-    if (!existsSync(groupDir)) continue;
-    for (const name of readdirSync(groupDir)) {
-      const dist = path.join(groupDir, name, 'dist');
-      const src = path.join(groupDir, name, 'src');
-      if (!existsSync(dist) || !existsSync(src)) continue;
-      const builtAt = newestMtime(dist);
-      const changedAt = newestMtime(src);
-      if (builtAt === null || changedAt === null) continue;
-      if (changedAt > builtAt) {
-        findings.push({
-          check: 'stale-build-output',
-          detail:
-            `${group}/${name}: \`src\` is newer than \`dist\`. \`dist\` is untracked, so switching ` +
-            `branches leaves artifacts built from OTHER source in place — a test that reads the ` +
-            `built bundle then judges the wrong tree. Rebuild before handing this off.`,
-        });
-      }
-    }
+  for (const built of builtOutputDirs(cwd)) {
+    const builtAt = newestMtime(built.dir);
+    const changed = built.sources.map((dir) => newestMtime(dir)).filter((at) => at !== null);
+    if (builtAt === null || changed.length === 0) continue;
+    const changedAt = Math.max(...changed);
+    if (changedAt <= builtAt) continue;
+    findings.push({
+      check: 'stale-build-output',
+      detail:
+        `${built.label}: the source beside it is newer. Build output is untracked, so switching ` +
+        `branches leaves artifacts built from OTHER source in place — a test that reads the ` +
+        `built bundle then judges the wrong tree. Rebuild before handing this off.`,
+    });
   }
   return findings;
 }
@@ -223,18 +291,19 @@ export function headMatchesFindings(branch, cwd = process.cwd()) {
 }
 
 export function runGate(phase, branch, cwd = process.cwd()) {
+  // The ordering stated at the top of this file, enforced HERE rather than only in `main()`.
+  //
+  // The first version spread every check into one array literal, and an array literal evaluates all
+  // of its elements: with `GIT_DIR` set, the git calls beside the ambient check still ran, against
+  // the repository that variable names. `main()` guarded the ordering separately, so the CLI was
+  // safe and this — the exported, tested, importable function — was not. Review found the gap, and
+  // "the wrong repository answered" is the accident class this whole file was written for.
+  const ambient = ambientGitEnvFindings();
+  if (ambient.length > 0) return ambient;
   if (phase === 'before') {
-    return [
-      ...ambientGitEnvFindings(),
-      ...branchHeldElsewhereFindings(branch, cwd),
-      ...dependenciesInstalledFindings(cwd),
-    ];
+    return [...branchHeldElsewhereFindings(branch, cwd), ...dependenciesInstalledFindings(cwd)];
   }
-  return [
-    ...ambientGitEnvFindings(),
-    ...headMatchesFindings(branch, cwd),
-    ...staleBuildFindings(cwd),
-  ];
+  return [...headMatchesFindings(branch, cwd), ...staleBuildFindings(cwd)];
 }
 
 function takeOption(argv, name) {
@@ -296,6 +365,16 @@ function main() {
     console.log(
       `  ${worktree.detached ? '(detached)' : (worktree.branch ?? '(none)')}  ${worktree.path}`,
     );
+  }
+
+  if (phase === 'after') {
+    // What the stale-build check actually looked at. A build directory this repository does not
+    // name reads as "not built", and without this line that is indistinguishable in the output from
+    // "built and current" — which is how every Next.js app was walked past in silence until review
+    // measured it.
+    const built = builtOutputDirs();
+    console.log(`::examined:: ${built.length} built output(s)`);
+    for (const output of built) console.log(`  ${output.label}`);
   }
 
   const findings = runGate(phase, branch);
