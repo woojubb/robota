@@ -241,6 +241,25 @@ describe('open issues are shown where the choice is made', () => {
     expect(output, 'non-ASCII was stripped').toMatch(/한글 ok/);
   });
 
+  it('strips a CARRIAGE RETURN, which overwrites the line that labelled it', () => {
+    // The first character class was `\000-\010\013\014\016-\037\177`, which skips TAB, LF AND
+    // CR while the comment beside it claimed every C0 character was stripped. CR is the dangerous
+    // omission: it returns the cursor to column zero, so a title can overwrite the "UNTRUSTED" line
+    // immediately above it. Review measured it:
+    //
+    //   printf 'A\rB\n' | tr -d '\000-\010\013\014\016-\037\177'   ->  A^MB
+    //
+    // Every C0 except the line feed is stripped now, so this case asserts on the bytes rather than
+    // on the escape shape the case above uses.
+    const { output } = runHook('start', {
+      ghScript: `#!/bin/sh\nprintf '  - #8 before\\rAFTER\\ttabbed\\n'\n`,
+    });
+
+    expect(output, 'a carriage return reached the terminal').not.toMatch(/\r/);
+    expect(output, 'a tab reached the terminal').not.toMatch(/\t/);
+    expect(output, 'the text either side of it was lost').toMatch(/beforeAFTERtabbed/);
+  });
+
   it('says so when the list is truncated', () => {
     // A bounded list that does not say it is bounded reads as "that is all of them".
     // 25 open, and the stub honours `--limit`: the hook asks for one more than it shows, sees the
