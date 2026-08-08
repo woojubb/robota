@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createDefaultRemoteCommandPolicy } from '../../commands/index.js';
 import { SessionSkillRouter } from '../interactive-session-skill-router.js';
+import { stubSubmit } from './helpers/session-stub.js';
 
 import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../commands/index.js';
 import type { IRemoteCommandPolicy } from '../../commands/index.js';
@@ -33,7 +34,7 @@ function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): 
     undefined,
     () => stubSession,
     () => 'session-id',
-    async () => {},
+    stubSubmit,
     async () => {},
     () => {},
     async () => '',

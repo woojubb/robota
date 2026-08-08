@@ -245,15 +245,23 @@ hook_cwd_of() {
 #
 # The shells are NAMED. `[^ \t;&|(\n/]*sh` matched any token ending in those two letters —
 # `git stash push -m "…"` read `stash` as an interpreter and opened the message to verb
-# scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`. Any number of arguments
-# may sit between the interpreter and its string, but none of them may itself be quoted: after
-# `python3 -c "x=1"` the NEXT quoted argument is a positional one the interpreter does not run,
-# and treating it as code refused ordinary commands. Allowing exactly one argument meant
-# `bash -x -c "…"`,
-# `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked.
+# scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`.
 #
-# `ssh`, `expect` and `tclsh` are on the list because a closed list is a list of the ways past the
-# guard. `env`, `timeout`, `nohup`, `nice`, `flock`, `sudo`, `su` and `xargs` are deliberately NOT:
+# Any number of arguments may sit between the interpreter and its CODE FLAG, but none of them may
+# itself be quoted: after `python3 -c "x=1"` the NEXT quoted argument is a positional one the
+# interpreter does not run, and treating it as code refused ordinary commands. Allowing exactly one
+# argument meant `bash -x -c "…"`, `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the
+# exception and were masked.
+#
+# "and its CODE FLAG" is the INFRA-084 correction, and this paragraph said "and its string" until
+# review pointed out it still described the pre-fix model — the over-permissive one this change
+# exists to remove, sitting a few lines above the regex that no longer implements it.
+#
+# `ssh` and `awk` are the POSITIONAL members of that list, because a closed list is a list of the
+# ways past the guard. `expect` moved to its `-c` and `tclsh` left the list entirely — it has no
+# inline-code flag at all, so it is not an interpreter for this purpose (see the regex below for
+# what was measured). This sentence named all three as positional until review found it describing
+# a list the code no longer builds. `env`, `timeout`, `nohup`, `nice`, `flock`, `sudo`, `su` and `xargs` are deliberately NOT:
 # they exec an argument vector rather than evaluating a string, so listing them would widen
 # over-blocking for nothing. `timeout 5 bash -c "…"` stays covered — by the `bash -c` inside it.
 #
@@ -264,13 +272,175 @@ hook_cwd_of() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+#
+# INFRA-084: a CODE FLAG is required, and that requirement is the whole point. Any number of
+# arguments could sit before the quoted string, so `node script.mjs --notes "…"` matched and the
+# script's DATA was read as commands — an ordinary argument mentioning `git push` was judged as a
+# push. The rule this file already stated ("the interpreter's first quoted argument is the code it
+# runs") was true of `node -e "…"` and false of everything else, and nothing said so.
+#
+# `ssh` and `eval` keep the older shape: their code argument carries no flag — it is positional.
+#
+# The flag set is PER INTERPRETER, because the interpreters disagree about what a flag means and one
+# flat list cannot be right for all of them. The first version was flat — `-[a-zA-Z]*[ec]|--eval|
+# --command|--exec|eval|run` — and review measured what that missed. RAN, and each of these hid the
+# command inside it from every guard:
+#
+#   php -r "system('git push --force')"      `-r` is php's inline-code flag; it ends in neither e nor c
+#   node -p "…execSync('git push --force')"  `-p`/`--print` evaluates exactly as `-e` does
+#   perl -E "system 'git push --force'"      `-E` is perl's `-e` with features on; `[ec]` is lower-case
+#
+# `node -p` and `perl -E` were confirmed by RUNNING them; `php -r` is documented and php is not
+# installed on this host, which the case says rather than pretending otherwise.
+#
+# The pre-INFRA-084 regex required no flag at all, so it caught all three — this narrowing was a
+# regression in the opposite direction from the one it fixed, and the tests added with it had no
+# case for any of the three. That is the shape to watch for: a rule narrowed to fix over-blocking
+# takes the under-blocking with it unless the narrowing is measured against real invocations.
+#
+# Why per-interpreter and not one wider list: `-E` is CODE for perl and CHARACTER ENCODING for
+# ruby, and `-r` is CODE for php and REQUIRE-A-LIBRARY for ruby. A union list would read a `ruby -E
+# utf-8` argument as code and refuse ordinary work — the self-blocking INFRA-084 exists to undo.
+HOOK_INTERP_BOUNDARY='(^|[ \t;&|(\n`])'
+HOOK_INTERP_PATH='([^ \t;&|(\n]*/)?'
+# Any number of non-quoted arguments may sit between the interpreter and its code flag — but NOT a
+# script filename, and review measured why.
+#
+# Every one of these interpreters stops parsing its own options at the first non-option argument;
+# everything after that belongs to the script. RAN:
+#
+#   node <script>.mjs -e 'console.log("EVAL_RAN")'   ->  SCRIPT_RAN: -e console.log("EVAL_RAN")
+#
+# `-e` was the SCRIPT's flag, not node's, and matching it read an ordinary argument as code — the
+# over-blocking INFRA-084 exists to remove, reintroduced by its own fix.
+#
+# A token containing `.` or `/` is treated as that boundary. It is a heuristic and the trade is
+# stated rather than hidden: a value-taking flag whose value looks like a path
+# (`node --require ./setup.js -e "…"`) stops the match, so that code is masked as data — an
+# under-match, which is the direction this file usually refuses. It is accepted here because the
+# alternative measured worse: requiring every preceding token to start with `-` breaks
+# `python3 -W ignore -c "…"`, an ordinary invocation, and a guard that refuses ordinary work is the
+# failure this whole change is about.
+HOOK_INTERP_ARGS='([^ \t;&|(\n"\047./]+[ \t]+)*'
+# What may sit between a code flag and the code, and review found the first spelling too narrow.
+# It was `[ \t]+` — a REQUIRED space — so a fused invocation never matched and its code was masked
+# as data. Both of these RUN, measured:
+#
+#   python3 -c"import os;os.system('git push --force')"   PY_FUSED_RAN
+#   node --eval="git push --force"                        NODE_FUSED_RAN
+#
+# A short flag may abut its value with nothing between them; a long one takes `=`. So: optional
+# space, optional `=`, optional space. Zero-width is safe because each alternative below ends AT the
+# flag — `-config` does not end in `c`, and `--evalX` does not end in `--eval`.
+HOOK_INTERP_SEP='[ \t]*=?[ \t]*'
+# A bundle may only contain that interpreter's BOOLEAN flags, and review measured why `[a-zA-Z]*`
+# could not stay. A flag that takes its value FUSED to it ends in whatever letter its value ends in:
+#
+#   ruby -rdate "some note about git push --force"     BLOCKED, and nothing here is code
+#
+# `-rdate` is `-r date` — require the `date` library — and `-[a-zA-Z]*e` read it as `-e` because the
+# value happens to end in `e`. An ordinary data string was then verb-scanned as a ruby program,
+# which is the over-blocking INFRA-084 exists to remove, reappearing inside its own fix. `node
+# -rdate` had it too.
+#
+# So each interpreter names the letters that carry no value. Anything else fused to a `-` is a flag
+# WITH a value and cannot be the code flag. Value-taking flags written as separate tokens are
+# unaffected — `ruby -rjson -e "…"` still matches, because `HOOK_INTERP_ARGS` consumes `-rjson` and
+# the code flag stands alone.
+#
+# Written as what a bundle may NOT contain, not as what it may. Review found the first version listing
+# the boolean flags of each interpreter and measured the gap that leaves: `bash -T` (functrace) and
+# `python3 -P` (safe-path) are ordinary boolean flags that were simply missing, so `bash -Tc "git push
+# --force"` matched nothing, fell through to the generic quoted-argument branch, and the push was
+# masked as data. That is the UNDER-block direction, and it is the worse one — an allowlist of flags
+# has to be complete to be safe, and no hand-written list of another program's options stays complete.
+#
+# Inverted, the incompleteness lands on the safe side: a letter nobody listed is treated as a boolean
+# flag, the bundle matches, and the argument is scanned as code. The lists below are therefore the
+# flags that TAKE A VALUE, which is a much shorter and much more stable set — a value fused to its
+# flag is what made `-rdate` look like `-e` in the first place.
+#
+# `-` is excluded from every class so a bundle cannot run past its own token into the next flag.
+HOOK_INTERP_SH_BOOL='[^ \t;&|(\n"\047oO-]*'
+HOOK_INTERP_PY_BOOL='[^ \t;&|(\n"\047WXQm-]*'
+HOOK_INTERP_RB_BOOL='[^ \t;&|(\n"\047rIECFKx-]*'
+HOOK_INTERP_PL_BOOL='[^ \t;&|(\n"\047ImMFCi-]*'
+HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
+# A shell: `-c`, in a bundle or alone. NOT `--command` — measured, `bash --command` is "invalid
+# option" and `python3 --command` is "unknown option". A flag the tool does not have is a claim this
+# file makes and the tool refuses, which is the same class as everything else on this list.
+# The shell alternative is NAMED, because two lists need it and review found the second one
+# carrying a hand-written copy: `HOOK_SHELL_INTERPRETER_RE` below still had `-[a-zA-Z]*c` after this
+# one was narrowed, and the tokenizer tries that list FIRST — so `bash -qc "…"` matched there and the
+# narrowing was dead for every shell. Sharing the parts was not enough; the ALTERNATIVE has to be the
+# same string, or "composed from the same parts" is a claim about the parts nobody made about the whole.
+HOOK_INTERP_SHELL_ALT="${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_SH_BOOL}c${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
+# python: `-c`. `-m` names a MODULE, not code.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PY_BOOL}c${HOOK_INTERP_SEP}"
+# ruby: `-e` only. `-E` is the encoding flag and `-r` requires a LIBRARY — both would over-block.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_RB_BOOL}e${HOOK_INTERP_SEP}"
+# node / bun: `-e`/`--eval` and `-p`/`--print`, which evaluates its argument and prints the result.
+# Both long forms confirmed by RUNNING them.
+#
+# No bundle: node has no single-letter flag bundling at all, so the short forms are exact. `-[a-zA-Z]*[ep]`
+# was here and read `node -rdate "…"` — require the `date` module — as an eval of its argument.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[ep]|--eval|--print)${HOOK_INTERP_SEP}"
+# `deno eval <code>` / `bun eval <code>` take the code positionally.
+#
+# `eval` is a SUBCOMMAND, so it is the FIRST token after the binary — no `HOOK_INTERP_ARGS` in front
+# of it, and review is why. With arguments allowed before it, `deno run cli.ts eval "…"` matched and
+# a data argument was read as code. A flag may be interspersed; a subcommand may not.
+#
+# `run` is NOT here at all: `deno run` and `bun run` take a script FILE or a package.json script
+# NAME, never inline code, and keeping it read a quoted argument as code.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+eval[ \t]+"
+# perl: `-e` and `-E`, in a bundle (`-ne`, `-lE`) or alone. NOT `--eval` — measured, perl answers
+# "Unrecognized switch: --eval".
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PL_BOOL}[eE]${HOOK_INTERP_SEP}"
+# php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.
+# `--run` is php's documented long form of `-r`; php is not installed on this host, so that one is
+# from the documentation and is marked as such rather than claimed as measured. php does not bundle
+# single-letter flags, so these are exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[rRBE]|--run)${HOOK_INTERP_SEP}"
+# expect: `-c` runs commands; a bare positional argument is a script FILE. Single-dash options only,
+# and no bundling, so `-c` is exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}expect[ \t]+${HOOK_INTERP_ARGS}-c${HOOK_INTERP_SEP}"
+# Positional: the code argument carries no flag at all, whatever precedes it.
+#
+# `tclsh` and `expect` were here with `ssh` and `awk`, and review was right that they do not share
+# that grammar — they share `perl`/`php`'s, which this change had just fixed one commit earlier.
+# MEASURED: `tclsh 'puts X'` answers `couldn't read file "puts X"`, the same shape as the perl
+# reading that started INFRA-084. `tclsh` has no inline-code flag at all, so it is not an
+# interpreter for this purpose and is gone from the list entirely; `expect` moved up to its `-c`.
+#
+# `ssh` and `awk` stay: their trailing quoted string genuinely IS the remote command / the program,
+# with no flag, regardless of what precedes it.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(ssh|awk)[ \t]+${HOOK_INTERP_ARGS}"
+# The shell builtin `eval`, which runs its argument. It matches the WORD anywhere, not only in
+# command position — so `deno run cli.ts eval "…"` is read as code even though that `eval` is an
+# argument. MEASURED, and stated rather than left for the next reader: `somecmd arg eval "…"`
+# matches too, and `notaneval` does not, which is how the source was identified.
+#
+# Left as is. Narrowing it needs a notion of command position the tokenizer does not expose, and the
+# over-match fails in the SAFE direction — a data argument read as code costs a false refusal the
+# author sees, where the opposite costs a bypass nobody sees.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|eval[ \t]+)\$"
 
 # The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
 # `awk` run a command too, but not a shell one, so reading their argument with shell quoting
 # rules would be an approximation of a DIFFERENT grammar — the exact mistake this file is a
 # record of. They stay on the list above, kept verbatim; only these are descended into.
-HOOK_SHELL_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+#
+# THE SAME ALTERNATIVE as the list above — `${HOOK_INTERP_SHELL_ALT}`, one string, not a second
+# spelling of it. It was a literal copy carrying its own `--command` and its own required space, and
+# after those were fixed it drifted again: the copy kept `-[a-zA-Z]*c` through the bundle narrowing
+# and, because the tokenizer tries THIS list first, the narrowing never applied to a shell at all.
+# Two corrections, one cause. "Composed from the same parts" says nothing about the whole.
+HOOK_SHELL_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|${HOOK_INTERP_PATH}ssh[ \t]+${HOOK_INTERP_ARGS}"
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|eval[ \t]+)\$"
 
 # A tokenizer for the shell grammar, for the one question the guards ask: which characters of this
 # command will the shell EXECUTE, and which are data it will merely pass along?
