@@ -132,9 +132,22 @@ export function credentialMatches(expected: string, presented: string | undefine
  * The credential itself is untouched — it is not a token in that sense and its case is significant.
  *
  * Separator: one or more spaces or tabs, not exactly one space. That is the same clause's `BWS`.
+ *
+ * PARSED, not matched. `/^Bearer[ \t]+(.+)$/i` said the same thing and CodeQL was right about it: two
+ * adjacent variable-length runs over attacker-controlled input is a polynomial backtrack, and this
+ * input arrives on an unauthenticated request — the one place a slow path is worth reaching for.
+ * Reading the prefix, then trimming, has no backtracking to exploit and says the same thing more
+ * plainly.
  */
+const BEARER_PREFIX = 'bearer';
+
 export function bearerCredential(header: string | undefined | null): string | undefined {
   if (!header) return undefined;
-  const match = /^Bearer[ \t]+(.+)$/i.exec(header);
-  return match?.[1];
+  if (header.slice(0, BEARER_PREFIX.length).toLowerCase() !== BEARER_PREFIX) return undefined;
+  const rest = header.slice(BEARER_PREFIX.length);
+  // A separator is REQUIRED: `Bearerness xyz` starts with the word and is a different scheme, so
+  // `rest` must begin with the whitespace that ends the scheme token.
+  if (rest === '' || (rest[0] !== ' ' && rest[0] !== '\t')) return undefined;
+  const credential = rest.replace(/^[ \t]+/, '');
+  return credential === '' ? undefined : credential;
 }

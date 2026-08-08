@@ -76,7 +76,15 @@ function sourceFiles(packageDir) {
         walk(full);
         continue;
       }
-      if (entry.endsWith('.ts') && !entry.endsWith('.d.ts') && !entry.includes('.test.')) {
+      // `.tsx` too, and review is why: a transport whose admission call sat in a `.tsx` file — a
+      // browser-adjacent one, which is exactly where a remote transport lives — would be invisible
+      // to this walk and would have to satisfy the check through its SPEC declaration instead. Every
+      // `agent-transport-*` package is plain `.ts` today, so this is not a live miss; it is the miss
+      // the next one would hit, and the failure would read as "you did not call the seam" when the
+      // truth was "nobody looked".
+      const isSource =
+        (entry.endsWith('.ts') || entry.endsWith('.tsx')) && !entry.endsWith('.d.ts');
+      if (isSource && !entry.includes('.test.')) {
         found.push(full);
       }
     }
