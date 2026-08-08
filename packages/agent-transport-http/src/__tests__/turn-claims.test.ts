@@ -10,13 +10,23 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
+
 import { createTurnClaims } from '../turn-claims.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
-/** A session that names itself however the case needs it to. */
+/**
+ * A session that names itself however the case needs it to.
+ *
+ * Built on the PUBLISHED conformant double rather than cast to the contract — `contract-cast-ratchet`
+ * refuses another cast, and it is right to: a cast is a partial re-implementation nothing checks
+ * against the real interface, so a member the contract gains later is silently absent from it.
+ */
 function sessionNamed(id: string): IInteractiveSession {
-  return { getSession: () => ({ getSessionId: () => id }) } as unknown as IInteractiveSession;
+  return createTestInteractiveSession({
+    getSession: () => ({ getSessionId: () => id }) as ReturnType<IInteractiveSession['getSession']>,
+  });
 }
 
 describe('the key a session is claimed under', () => {
@@ -38,11 +48,11 @@ describe('the key a session is claimed under', () => {
   });
 
   it('is undefined when the session THROWS while naming itself', () => {
-    const throwing = {
+    const throwing = createTestInteractiveSession({
       getSession: () => {
         throw new Error('no session bound');
       },
-    } as unknown as IInteractiveSession;
+    });
 
     expect(createTurnClaims().keyFor(throwing)).toBeUndefined();
   });
