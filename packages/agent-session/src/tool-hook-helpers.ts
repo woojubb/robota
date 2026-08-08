@@ -5,7 +5,7 @@
 
 import { runHooks, createLogger } from '@robota-sdk/agent-core';
 
-import { MAX_TOOL_OUTPUT_CHARS } from './permission-types.js';
+import { MAX_TOOL_OUTPUT_CHARS, toolFailure } from './permission-types.js';
 
 import type {
   IToolResult,
@@ -67,14 +67,12 @@ export async function runPreToolHook(
     hookTypeExecutors,
   );
   if (hookResult.blocked) {
-    return {
-      success: true,
-      data: JSON.stringify({
-        blocked: true,
-        reason: hookResult.reason ?? 'Blocked by hook',
-      }),
-      metadata: {},
-    };
+    // CORE-027, the third of the three outcomes the failure type names. This path was left behind by
+    // the first pass: `permission-types.ts` declared `hook-blocked` while this still returned
+    // `success: true`, so the type promised a distinction the code did not make — in the file that
+    // exists to end exactly that.
+    const reason = hookResult.reason ?? 'Blocked by hook';
+    return toolFailure('hook-blocked', reason, { blocked: true, reason });
   }
   return null;
 }
