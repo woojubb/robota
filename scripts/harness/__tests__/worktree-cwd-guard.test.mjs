@@ -563,6 +563,32 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(status, 'a backgrounded checkout hid the continuation').toBe(2);
   });
 
+  it('reads a value FUSED to its create flag', () => {
+    // `-Bheld` and `--track=origin/held` are ordinary git grammar; the exact-match cases missed
+    // both, they fell into the generic-flag skip, and the branch names were never candidates —
+    // review supplied both repros, and each was exit 0 before the fix.
+    for (const command of [
+      `git checkout -B${held}; git reset --hard`,
+      `git checkout --track=origin/${held}; git reset --hard`,
+      `git checkout --orphan=${held}; git reset --hard`,
+    ]) {
+      const { status } = runHook({ command, cwd: mainRepo });
+      expect(status, command).toBe(2);
+    }
+  });
+
+  it('leaves a DETACHED checkout of a held ref alone', () => {
+    // `git checkout --detach <held>` SUCCEEDS while a sibling holds the branch — HEAD detaches, no
+    // branch is taken — so this block's premise (a checkout that fails with statements still to
+    // run) does not apply, and refusing it was the guard firing on correct work.
+    const { status } = runHook({
+      command: `git checkout --detach ${held}; git status`,
+      cwd: mainRepo,
+    });
+
+    expect(status, 'a detached checkout was read as a branch switch').toBe(0);
+  });
+
   it('reads the LOCAL name a tracked checkout derives', () => {
     // `git checkout -t origin/<held>` derives local `<held>` from the tracking ref, and the derived
     // name is what has to be free. The reader emitted only the raw `origin/<held>`, which matches
