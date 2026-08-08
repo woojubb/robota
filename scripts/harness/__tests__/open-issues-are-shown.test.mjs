@@ -168,6 +168,21 @@ describe('open issues are shown where the choice is made', () => {
     expect(output, 'the deadline this case set was discarded').toMatch(/\(1s\)/);
   });
 
+  it('uses its OWN 4s default, not the shared 10s one', () => {
+    // Review found the previous fix silently ineffective. `bounded-gh.sh` assigns
+    // `HOOK_GH_DEADLINE_SECONDS="${HOOK_GH_DEADLINE_SECONDS:-10}"` the moment it is sourced, so a
+    // `:-` read AFTER that point can never see an unset variable — the hook-local 4s never applied
+    // and every run used 10. MEASURED: the expression yielded `10`.
+    //
+    // The caller's value is captured BEFORE the source now. This case asserts the NUMBER the
+    // refusal names, with nothing exported, so a regression is a failure rather than a slower green
+    // — which is what the previous version of this fix lacked.
+    const { output } = runHook('start', { ghScript: `#!/bin/sh\nsleep 30\n` });
+
+    expect(output).toMatch(/deadline expired/);
+    expect(output, 'the shared 10s default leaked back in').toMatch(/\(4s\)/);
+  }, 20_000);
+
   it('reports a gh that FAILED, rather than passing over it', () => {
     // The likeliest failure is not a timeout — it is an unauthenticated gh, and the first version
     // passed over it in silence. "Could not ask" and "none open" are different answers, which is the
