@@ -44,6 +44,10 @@ what is being handed off.
    - `ambient-git-env` — always FAIL. A push under one of these can land in another repository.
    - `head-mismatch` — always FAIL. Whatever was verified was verified against a different branch
      than the one leaving, so the verification is about something else.
+   - `head-unreadable` — NON-COMPLIANCE. The check could not read HEAD at all, so nothing about
+     this handoff can be shown correct. Named here for the same reason the entry gate names
+     `worktrees-unreadable`: the category was defined, the name was not, and the mapping should
+     not be the agent's to infer.
    - `stale-build-output` — FAIL when anything in the work's verification reads built output (a
      bundle test, a black-box binary test, a typecheck against `dist`). PASS with the fact recorded
      when nothing does. Say which reading you took and name what you checked to decide it — this is

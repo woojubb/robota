@@ -50,6 +50,10 @@ has cleared nothing.
      there or to pick another branch, not to force anything.
    - `dependencies-missing` — FAIL when the work will build or test anything; PASS with the fact
      recorded when the work is documentation only. Say which reading you took and why.
+   - `worktrees-unreadable` — NON-COMPLIANCE. The check could not run at all: the worktree list
+     itself was unreadable, so nothing here can be shown safe. Review found this name missing from
+     the list while the Output contract already defined its category — the agent should not have to
+     infer the mapping.
 
 3. **Look for what the check cannot see.** The check answers fixed questions. You are also asked
    whether the branch is based on what the work assumes, whether another open worktree is already
