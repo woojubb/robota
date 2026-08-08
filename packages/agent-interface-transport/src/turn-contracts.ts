@@ -6,10 +6,9 @@
  * is inert by rule, so the error is declared as a shape and constructed in `@robota-sdk/agent-framework`.
  */
 
-import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
-
 import type { IPromptFileReferenceRecord } from './event-contracts.js';
 import type { IToolSummary, IUsageSnapshot } from './session-contracts.js';
+import type { IContextWindowState, IHistoryEntry } from '@robota-sdk/agent-core';
 
 /**
  * RUNTIME-003: the identity of one submission, handed back to whoever made it.
@@ -60,6 +59,24 @@ export interface ITurnNotRunError extends Error {
   readonly name: 'TurnNotRunError';
   readonly turnId: string;
   readonly reason: TTurnNotRunReason;
+}
+
+/**
+ * Is this rejection the declared "the turn never ran" outcome, or a real failure?
+ *
+ * The narrowing the comment above prescribes, written ONCE. A consumer that catches
+ * `completed`'s rejection has two different things in hand: an ordinary refusal, which it should
+ * report to its caller as an outcome, and an exception from inside a turn, which it should let
+ * surface. Review found the MCP adapter flattening both into a soft tool error and so hiding real
+ * bugs behind a message that reads like a queue decision.
+ *
+ * A pure predicate over a shape — no class, no runtime dependency edge, the same category as the
+ * event readers this package already exports. Each consumer spelling `error.name ===
+ * 'TurnNotRunError'` for itself is how a second spelling of the same question appears, and then
+ * disagrees.
+ */
+export function isTurnNotRunError(error: unknown): error is ITurnNotRunError {
+  return error instanceof Error && error.name === 'TurnNotRunError';
 }
 
 /** Result of a completed prompt execution. */

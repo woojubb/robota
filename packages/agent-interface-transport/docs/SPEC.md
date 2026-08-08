@@ -96,10 +96,12 @@ are type-only (`import type`), so the package emits zero runtime (`@robota-sdk/*
 | `ITurnHandle`                  | Interface | RUNTIME-003: a submission's identity and a promise for its own turn                            |
 | `ITurnNotRunError`             | Interface | RUNTIME-003: the shape a rejected `completed` carries — constructed in agent-framework         |
 | `TTurnNotRunReason`            | Type      | RUNTIME-003: why a submission never became a turn (coalesced/dropped/cancelled)                |
+| `isTurnNotRunError`            | Function  | RUNTIME-003: the one narrowing for a rejected `completed` — refusal vs. a failure in the turn  |
 
 The package root (`src/index.ts`) additionally re-exports the following contract groups. These
 are type-only except for the four pure accessor functions re-exported from `interaction-contracts`
-(`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`):
+(`readAssistantReplies`, `readLastAssistantText`, `readToolCalls`, `readErrors`) and the
+`isTurnNotRunError` predicate re-exported from `turn-contracts`:
 
 | Contract group (file)                                         | Exported contracts                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -290,6 +292,15 @@ So each of those rejects with a typed `ITurnNotRunError` naming which happened:
 There is deliberately no `shutdown` member: shutdown clears the queue through the same path as a
 cancel, so it reports as `cancelled`. A reason no code path can emit is a reason a consumer would
 write a dead branch for.
+
+**A consumer narrows with `isTurnNotRunError`.** The error is declared here as a shape and
+constructed in `@robota-sdk/agent-framework`, so an `instanceof` check is not available to a package
+that only depends on this one — narrowing is on `name`, and this package exports the predicate that
+does it rather than leaving every consumer to spell it. The distinction it draws is the one that
+matters at a transport boundary: a refusal is an OUTCOME to report to the caller, while anything
+else escaping `completed` is a failure inside the turn and must keep surfacing as one. The MCP
+adapter reported both as a soft tool error for one review round, which hid real failures behind a
+message that read like a queue decision.
 
 **Migration.** A caller that ignores the return value is unaffected — `await session.submit(...)`
 still means what it did, and the direct path still resolves only when the turn is over. An

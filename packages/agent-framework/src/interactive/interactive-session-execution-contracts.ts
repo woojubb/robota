@@ -81,12 +81,16 @@ export interface IQueuedInput {
 /**
  * A submit callback that optionally carries turn options (default = user turn).
  *
- * RUNTIME-003: the handle comes back, but this callback's callers do not want it — the drain
- * re-submits an input whose handle its original submitter already holds.
+ * RUNTIME-003: the handle comes back and this callback's callers do not read it — the drain
+ * re-submits an input whose handle its original submitter already holds. Not reading a value is not
+ * a reason to declare that it might not exist: `| void` was the old `Promise<void>` signature left
+ * behind by this change, and it described a submission that answers with nothing, which no longer
+ * happens on either path. Review found it. An ignored return is the caller's business; a wider type
+ * is everyone's.
  */
 export type TSubmitFn = (
   prompt: string,
   displayInput?: string,
   rawInput?: string,
   options?: ITurnOptions,
-) => Promise<ITurnHandle | void>;
+) => Promise<ITurnHandle>;

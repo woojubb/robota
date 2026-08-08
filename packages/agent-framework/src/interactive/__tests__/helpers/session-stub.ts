@@ -16,15 +16,29 @@
 
 import { vi } from 'vitest';
 
+import type { TSubmitFn } from '../../interactive-session-execution-contracts.js';
+import type { IExecutionResult } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 
 /** What a turn resolves to when a case does not care about the content. */
-export const EMPTY_TURN_RESULT = {
+export const EMPTY_TURN_RESULT: IExecutionResult = {
   response: '',
   history: [],
   toolSummaries: [],
   contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
 };
+
+/**
+ * A `TSubmitFn` for a case that does not exercise submission.
+ *
+ * `TSubmitFn` promises a handle — narrowed from `ITurnHandle | void` once every path actually
+ * returned one — so `async () => {}` no longer stands in for it. That is the point of the narrowing:
+ * a stub that answers with nothing was describing a submission shape the code no longer has.
+ */
+export const stubSubmit: TSubmitFn = async () => ({
+  turnId: 'stub-turn',
+  completed: Promise.resolve(EMPTY_TURN_RESULT),
+});
 
 export function createSessionStub(overrides: Partial<Session> = {}): Session {
   return {

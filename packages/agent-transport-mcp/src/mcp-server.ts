@@ -8,6 +8,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface-transport';
 
 import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
@@ -101,12 +102,19 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
       // turn did not run, which is the ambiguity RUNTIME-003 set out to remove.
       //
       // `isError: true` with the reason, matching the `command_*` handler two blocks down.
+      //
+      // ONLY that refusal. The first version of this catch took everything, and review named what
+      // that costs: a provider dying mid-turn came back as a soft tool error carrying a message
+      // that reads like a queue decision, where before this change it surfaced as the protocol
+      // failure it is. Making refusals soft must not make real failures soft with them, so anything
+      // that is not the declared refusal is rethrown and reaches the caller as it did before.
       try {
         const result = await waitForCompletion(session, prompt);
         return {
           content: [{ type: 'text', text: result.response }],
         };
       } catch (error) {
+        if (!isTurnNotRunError(error)) throw error;
         return {
           content: [
             {

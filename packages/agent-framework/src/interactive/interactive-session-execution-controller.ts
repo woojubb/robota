@@ -14,9 +14,8 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
-import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
-import { TurnSettlerRegistry } from './turn-settler-registry.js';
+import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn } from './interactive-session-prompt.js';
 import {
   STREAMING_FLUSH_INTERVAL_MS,
@@ -24,8 +23,15 @@ import {
   applyToolStart,
   applyToolEnd,
 } from './interactive-session-streaming.js';
+import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
+import type {
+  IExecutionControllerCallbacks,
+  ITurnOptions,
+  IQueuedInput,
+  TSubmitFn,
+} from './interactive-session-execution-contracts.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type { SessionSkillRouter } from './interactive-session-skill-router.js';
@@ -50,12 +56,6 @@ export type { TTurnSource };
 // The contracts moved to their own file when this one grew past its size baseline; re-exported so
 // every existing importer keeps working and the split is not a breaking change to the package.
 export type {
-  IExecutionControllerCallbacks,
-  ITurnOptions,
-  IQueuedInput,
-  TSubmitFn,
-} from './interactive-session-execution-contracts.js';
-import type {
   IExecutionControllerCallbacks,
   ITurnOptions,
   IQueuedInput,
@@ -359,7 +359,7 @@ export class SessionExecutionController {
     displayInput: string | undefined,
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
-    submit: (p: string, d?: string, r?: string) => Promise<ITurnHandle | void>,
+    submit: TSubmitFn,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -400,7 +400,7 @@ export class SessionExecutionController {
 
   async executeForegroundCommand(
     execute: () => Promise<ICommandResult>,
-    submit: (p: string, d?: string, r?: string) => Promise<ITurnHandle | void>,
+    submit: TSubmitFn,
   ): Promise<ICommandResult> {
     this.executing = true;
     this.clearStreaming();

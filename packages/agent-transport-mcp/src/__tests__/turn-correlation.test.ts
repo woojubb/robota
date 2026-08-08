@@ -14,8 +14,10 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import { isTurnNotRunError } from '@robota-sdk/agent-interface-transport';
 import { describe, expect, it, vi } from 'vitest';
+
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
@@ -123,22 +125,39 @@ describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
       'answer to BBBB',
     );
   });
+});
 
+/** A session whose one submission is accepted and then rejected with `rejection`. */
+function createRejectingSession(rejection: unknown): IInteractiveSession {
+  return {
+    ...createQueueingSession(),
+    submit: () =>
+      Promise.resolve({
+        turnId: 'refused-1',
+        // Constructed rejected: nothing else is listening, and an unhandled-rejection warning here
+        // would be noise about the fixture rather than about the case.
+        completed: Promise.reject(rejection),
+      }),
+  } as unknown as IInteractiveSession;
+}
+
+/** The declared shape of a submission that never ran, as `@robota-sdk/agent-framework` builds it. */
+function turnNotRun(reason: string, message: string): Error {
+  const error = new Error(message);
+  error.name = 'TurnNotRunError';
+  return Object.assign(error, { turnId: 'refused-1', reason });
+}
+
+describe('what the MCP adapter treats as a tool error', () => {
   it('reports a REFUSED submission as a tool error, not a protocol failure', async () => {
     // `completed` rejects with `TurnNotRunError` when the queue coalesced, dropped or cancelled the
     // submission — an ordinary outcome of asking a busy session, and the whole reason the handle
     // exists. Review: left to propagate it leaves the request handler as a thrown exception and the
     // SDK reports a JSON-RPC PROTOCOL failure, so the caller learns the CALL broke rather than that
     // its turn did not run. That is the ambiguity RUNTIME-003 set out to remove, one layer up.
-    const refusing = {
-      ...createQueueingSession(),
-      submit: () =>
-        Promise.resolve({
-          turnId: 'refused-1',
-          completed: Promise.reject(new Error('dropped: the queue was at capacity')),
-        }),
-    } as unknown as Parameters<typeof connectedClient>[0];
-    const client = await connectedClient(refusing);
+    const client = await connectedClient(
+      createRejectingSession(turnNotRun('dropped', 'dropped: the queue was at capacity')),
+    );
 
     const result = await client.callTool({ name: 'submit', arguments: { prompt: 'CCCC' } });
 
@@ -146,5 +165,31 @@ describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
       true,
     );
     expect(textOf(result)).toMatch(/dropped: the queue was at capacity/);
+  });
+
+  it('does NOT downgrade a failure from inside the turn to a tool error', async () => {
+    // The catch that made the case above pass caught everything, so a provider blowing up mid-turn
+    // came back as `isError: true` with a message that reads exactly like a queue decision. Before
+    // this PR that exception surfaced as a protocol failure; making refusals soft must not make
+    // real bugs soft with them, which is what review caught.
+    //
+    // The fixture's own message is deliberately the kind a caller might mistake for a refusal.
+    const client = await connectedClient(
+      createRejectingSession(new Error('dropped: the provider connection died mid-turn')),
+    );
+
+    await expect(
+      client.callTool({ name: 'submit', arguments: { prompt: 'DDDD' } }),
+    ).rejects.toThrow();
+  });
+
+  it('narrows on the declared NAME, not on the constructor', async () => {
+    // The refusal is declared in `@robota-sdk/agent-interface-transport` as a SHAPE and constructed
+    // in `@robota-sdk/agent-framework` — a package this one does not depend on and must not. An
+    // `instanceof` check against a class it cannot import would send every real refusal down the
+    // branch above.
+    expect(isTurnNotRunError(turnNotRun('cancelled', 'cancelled'))).toBe(true);
+    expect(isTurnNotRunError(new Error('cancelled'))).toBe(false);
+    expect(isTurnNotRunError('TurnNotRunError')).toBe(false);
   });
 });

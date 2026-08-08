@@ -13,6 +13,7 @@ import {
 } from '../commands/index.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
 
+import type { TSubmitFn } from './interactive-session-execution-contracts.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   ICommand,
@@ -31,7 +32,7 @@ import type {
 } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
-import type { ITurnHandle, TDriverId } from '@robota-sdk/agent-interface-transport';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
@@ -59,11 +60,7 @@ export class SessionSkillRouter {
     commandHostAdapters: ICommandHostAdapters | undefined,
     private readonly getSession: () => ICommandHostContext,
     private readonly getSessionId: () => string,
-    private readonly onSubmit: (
-      prompt: string,
-      displayInput?: string,
-      rawInput?: string,
-    ) => Promise<ITurnHandle | void>,
+    private readonly onSubmit: TSubmitFn,
     private readonly onApplyResult: (result: string) => Promise<void>,
     private readonly recordSkillActivation: (
       event: ISkillActivationEvent,
