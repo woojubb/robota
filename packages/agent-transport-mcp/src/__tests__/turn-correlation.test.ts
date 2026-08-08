@@ -129,6 +129,9 @@ describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
 
 /** A session whose one submission is accepted and then rejected with `rejection`. */
 function createRejectingSession(rejection: unknown): IInteractiveSession {
+  // Spread over the conformant double rather than cast to the contract: a cast is a partial
+  // re-implementation nothing checks against the real interface, and `scan-contract-cast-ratchet`
+  // refuses another one — correctly, since only `submit` differs here.
   return {
     ...createQueueingSession(),
     submit: () =>
@@ -138,7 +141,7 @@ function createRejectingSession(rejection: unknown): IInteractiveSession {
         // would be noise about the fixture rather than about the case.
         completed: Promise.reject(rejection),
       }),
-  } as unknown as IInteractiveSession;
+  };
 }
 
 /** The declared shape of a submission that never ran, as `@robota-sdk/agent-framework` builds it. */
