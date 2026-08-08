@@ -22,6 +22,18 @@
 # marker, it does NOT block — ordinary destructive work in the main clone (no marker) and destructive
 # work inside the assigned worktree both pass untouched.
 #
+# TWO CHECKS STAND OUTSIDE THAT GATE, deliberately, and review held this header to what the file
+# does until it said so:
+#   - the AMBIENT git-environment check (GIT_DIR and kin naming a DIFFERENT repository) judges
+#     every session and every git command — the variable outranks the working directory, so the
+#     accident it catches does not care which kind of session it happens in;
+#   - the HELD-BRANCH compound check (a checkout a sibling worktree makes fail, with statements
+#     still to run) likewise: the failed checkout and the reset that lands on the wrong branch are
+#     the same accident from the main clone as from anywhere else.
+# Both refuse on what they can PROVE about the command itself, so the marker gate — which exists
+# because "destructive in the main checkout" is only wrong for a session assigned elsewhere — has
+# nothing to add to either.
+#
 # Inline override (same convention as branch-guard): prefix the command with
 # `WORKTREE_CWD_GUARD_ALLOW_MAIN=1` for a deliberate main-checkout destructive op.
 #
