@@ -46,6 +46,12 @@ contract already supplies the id. A requirement the type system cannot express a
 catch is not a contract; using what the session already promises removes it instead of documenting
 it.
 
+The guard is only as good as the id. Two sessions that report the SAME `getSessionId()` are one
+session to this route, and they will 409 each other until whichever holds the claim finishes or
+disconnects. That is a contract violation upstream — `getSessionId()` names a session — but the
+consequence is worth stating for anyone mounting this route across a trust boundary where the ids
+come from somewhere they do not control.
+
 A session that cannot name itself cannot be claimed, so `/submit` REFUSES it — HTTP 500, with no
 turn started. There is no `isExecuting()` fallback on that path: a fallback would start a turn this
 route cannot guarantee belongs to the caller, which is the concurrency guarantee above stated

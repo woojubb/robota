@@ -9,9 +9,11 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
+import { relayTurn, reportStreamFailure } from './submit-stream.js';
 import { createTurnClaims } from './turn-claims.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { ITurnClaims } from './turn-claims.js';
 import type { Context } from 'hono';
 
 /**
@@ -39,25 +41,14 @@ export interface IAgentRoutesOptions {
 }
 
 /**
- * Create a Hono router with all agent HTTP endpoints.
+ * `POST /submit` — admit one turn, or refuse, and hand the admitted one to the relay.
  *
- * Usage:
- * ```typescript
- * const routes = createAgentRoutes({ sessionFactory });
- * app.route('/agent', routes);          // mount on existing app
- * export default routes;                // or use standalone (CF Workers)
- * ```
+ * A named function rather than an inline callback because the route factory below is a list of
+ * routes and this one carries the admission decision; inlining it made the factory four times the
+ * length of every other route in it.
  */
-export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
-  const { sessionFactory } = options;
-  const app = new Hono();
-
-  // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
-  // is keyed by the session's declared ID rather than by object identity.
-  const claims = createTurnClaims();
-
-  // POST /submit — execute prompt, stream events via SSE
-  app.post('/submit', async (c) => {
+function submitHandler(sessionFactory: TSessionFactory, claims: ITurnClaims) {
+  return async (c: Context) => {
     const session = await sessionFactory(c);
     const body = await c.req.json<{ prompt: string }>();
 
@@ -126,98 +117,36 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     try {
       return streamSSE(
         c,
-        async (stream) => {
-          // The `try` opens HERE, immediately after the claim. Opened later — just before
-          // `await session.submit` — it leaves the subscription setup outside, and a throw in there
-          // (a bad handler, a listener cap) leaves the session claimed with nothing to release it,
-          // so every later request gets 409 forever.
-          const cleanup: Array<() => void> = [];
-          try {
-            const subscribe = <T>(event: string, handler: (data: T) => void): void => {
-              session.on(event as 'text_delta', handler as () => void);
-              cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
-            };
-
-            // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
-            // not an unhandled rejection (post-headers errors bypass Hono's onError).
-            const write = (event: string, data: unknown): Promise<void> =>
-              stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
-                // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-                // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
-              });
-
-            // The subscriptions are wired OUTSIDE the promise executor. Inside it, a throw from
-            // `session.on` — a bad handler, an EventEmitter listener cap — is caught by the Promise
-            // constructor and becomes an already-rejected `done` instead of propagating. Execution then
-            // reaches `await session.submit(...)`, so a REAL TURN is consumed with only some of its
-            // listeners attached and nothing to relay it, and the rejection surfaces afterwards at
-            // `await done` — by which point the turn is gone.
-            let settle!: () => void;
-            const done = new Promise<void>((resolve) => {
-              settle = resolve;
-            });
-
-            subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-            subscribe('tool_start', (state) => void write('tool_start', state));
-            subscribe('tool_end', (state) => void write('tool_end', state));
-            subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
-
-            subscribe('complete', async (result) => {
-              // Flush the terminal event before resolving, so the resolve → cleanup →
-              // stream-close continuation cannot race ahead of the write.
-              await write('complete', result);
-              settle();
-            });
-            subscribe('interrupted', async (result) => {
-              await write('interrupted', result);
-              settle();
-            });
-            subscribe('error', async (error: Error) => {
-              await write('error', { message: error.message });
-              settle();
-            });
-
-            // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-            // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-            stream.onAbort(() => {
-              session.abort();
-              settle();
-            });
-
-            await session.submit(body.prompt);
-            await done;
-          } finally {
-            // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
-            // event listeners can never leak.
-            for (const fn of cleanup) fn();
-            // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
-            // session it claimed.
-            claims.release(claim);
-          }
-        },
-        // A stream callback that throws AFTER the response headers are out cannot be turned into an
-        // error status — the client already has a 200 and an open stream. Without this handler the
-        // throw is an UNHANDLED rejection: it left the process silently in a browser and turned the
-        // `quality` job red under vitest, which is how it was found.
-        //
-        // So it is reported on the channel the client is actually listening to, and the stream is
-        // closed. The teardown in the `finally` above has already run by the time this is called, so
-        // the listeners are gone and the claim is released — this handler owes only the telling.
-        async (error, stream) => {
-          await stream
-            .writeSSE({ event: 'error', data: JSON.stringify({ message: error.message }) })
-            .catch(() => {
-              // allow-fallback: the stream is already gone, which is the one case where there is
-              // nobody left to tell. Rethrowing here would restore the unhandled rejection this
-              // handler exists to remove.
-            });
-        },
+        relayTurn(session, body.prompt, () => claims.release(claim)),
+        reportStreamFailure,
       );
     } catch (error) {
       claims.release(claim);
       throw error;
     }
-  });
+  };
+}
+
+/**
+ * Create a Hono router with all agent HTTP endpoints.
+ *
+ * Usage:
+ * ```typescript
+ * const routes = createAgentRoutes({ sessionFactory });
+ * app.route('/agent', routes);          // mount on existing app
+ * export default routes;                // or use standalone (CF Workers)
+ * ```
+ */
+export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
+  const { sessionFactory } = options;
+  const app = new Hono();
+
+  // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
+  // is keyed by the session's declared ID rather than by object identity.
+  const claims = createTurnClaims();
+
+  // POST /submit — execute prompt, stream events via SSE
+  app.post('/submit', submitHandler(sessionFactory, claims));
 
   // POST /command — execute system command
   app.post('/command', async (c) => {
