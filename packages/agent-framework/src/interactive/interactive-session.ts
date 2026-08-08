@@ -1,10 +1,11 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
+import { acceptSubmission } from './interactive-session-accept-submission.js';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
-import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-execution-controller.js';
+import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-pending-queue.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
@@ -74,6 +75,7 @@ import type { ISession } from '@robota-sdk/agent-core';
 import type {
   ITransportAdapter,
   IGoalState,
+  ITurnHandle,
   IPlanArtifact,
   ITerminalHandoff,
   TTurnSource,
@@ -481,24 +483,15 @@ export class InteractiveSession
     displayInput?: string,
     rawInput?: string,
     options: ITurnOptions = {},
-  ): Promise<void> {
+  ): Promise<ITurnHandle> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
-    // REMOTE-014 E5: resolve the SERVER-ASSIGNED driver id (display-only). A human turn defaults to the owner;
-    // an agent-wakeup/goal turn to the reserved agent id (never the owner — an autonomous action must not be
-    // mis-attributed to the operator).
-    const driverId =
-      options.driverId ??
-      (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
-    const resolvedOptions: ITurnOptions = { ...options, driverId };
+    // REMOTE-014 E5 attribution + RUNTIME-003 identity, resolved together because both are decided
+    // at ACCEPTANCE and both travel on the same options object.
+    const { driverId, turnId, completed, resolvedOptions, queueBehindRunningTurn } =
+      acceptSubmission(options, this.execCtrl);
     if (this.execCtrl.executing) {
-      // Same-driver coalesces to the tail (1-deep = today); a different driver appends (no clobber).
-      const outcome = this.execCtrl.enqueuePending({
-        input,
-        displayInput,
-        rawInput,
-        options: resolvedOptions,
-      });
+      const outcome = queueBehindRunningTurn({ input, displayInput, rawInput });
       if (outcome === 'dropped') {
         this.emit(
           'user_message',
@@ -506,7 +499,8 @@ export class InteractiveSession
             `(max ${MAX_PENDING_QUEUE_DEPTH}). Try again after the current work settles.`,
         );
       }
-      return;
+      // The queued path returns on acceptance, as before; the handle is how a caller waits.
+      return { turnId, completed };
     }
     await this.execCtrl.executePrompt(
       input,
@@ -523,6 +517,7 @@ export class InteractiveSession
       (p, d, r, o) => this.submit(p, d, r, o),
       resolvedOptions,
     );
+    return { turnId, completed };
   }
 
   /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at emit time for attribution. */

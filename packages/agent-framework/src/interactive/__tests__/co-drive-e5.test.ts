@@ -7,10 +7,10 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  MAX_PENDING_QUEUE_DEPTH,
   SessionExecutionController,
   type IQueuedInput,
 } from '../interactive-session-execution-controller.js';
+import { MAX_PENDING_QUEUE_DEPTH } from '../interactive-session-pending-queue.js';
 import { SessionPromptRegistry } from '../session-prompt-registry.js';
 
 /**
@@ -23,8 +23,22 @@ function controller(): SessionExecutionController {
   return new SessionExecutionController({} as never, {} as never, { emit: vi.fn() } as never);
 }
 
+/**
+ * A queue entry, WITH the identity a real one always carries.
+ *
+ * These fixtures built entries without a `turnId`, which the queue now refuses at `enqueue` — an
+ * entry with no identity cannot be settled by any refusal, so its caller waits forever, and that
+ * defect shipped once in RUNTIME-003. The fixtures were the only place such an entry existed; a
+ * double that cannot be built the way the real thing is built tests something else.
+ */
+let mintedTurns = 0;
 function entry(input: string, driverId: string, wakeTaskId?: string): IQueuedInput {
-  return { input, options: { driverId, ...(wakeTaskId ? { wakeTaskId } : {}) } };
+  mintedTurns += 1;
+  return {
+    input,
+    turnId: `co-drive-turn-${mintedTurns}`,
+    options: { driverId, ...(wakeTaskId ? { wakeTaskId } : {}) },
+  };
 }
 
 describe('co-drive queue (REMOTE-014 TC-01)', () => {
@@ -37,7 +51,7 @@ describe('co-drive queue (REMOTE-014 TC-01)', () => {
 
     expect(c.enqueuePending(entry('b1', 'device-B'))).toBe('queued'); // different driver → append
     expect(c.pendingCount()).toBe(2);
-    expect(c.pendingQueue.map((e) => e.input)).toEqual(['a2', 'b1']); // submission order preserved
+    expect(c.pending.contents.map((e) => e.input)).toEqual(['a2', 'b1']); // submission order preserved
   });
 
   it('drops-newest at MAX_PENDING_QUEUE_DEPTH (attributed notice is the caller’s job)', () => {

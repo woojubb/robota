@@ -20,25 +20,22 @@ import type { SessionExecutionController } from '../interactive-session-executio
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
 import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
+import {
+  EMPTY_TURN_RESULT,
+  createSessionStub as createSharedSessionStub,
+} from './helpers/session-stub.js';
 
 function createSessionStub(): Session {
-  return {
+  // Through the shared helper, with the two members this file's cases actually need: a session id
+  // the wake requests name, and an event service the tracker subscribes to. The local copy differed
+  // from the helper by exactly those two and by a `shutdown` stub that returned a TURN HANDLE, which
+  // `Session.shutdown` does not — the disagreement the helper exists to stop. Review pointed out
+  // that leaving this file behind made the helper a fourth copy rather than one fewer, which is the
+  // sentence in its own docstring.
+  return createSharedSessionStub({
     getSessionId: () => 'session_parent',
     getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
-    getHistory: () => [],
-    getSystemMessage: () => 'system',
-    getToolSchemas: () => [],
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 100,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    abort: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-    injectRawMessage: vi.fn(),
-    syncContextFromHistory: vi.fn(),
-  } as unknown as Session;
+  } as unknown as Partial<Session>);
 }
 
 interface IFakeScheduled {
@@ -106,7 +103,9 @@ async function setupSession(): Promise<{
 describe('FLOW-002 session wake injection', () => {
   it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const submitSpy = vi
+      .spyOn(session, 'submit')
+      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
 
     const created = await manager.spawn(scheduledWakeRequest('check the build'));
     await Promise.resolve();
@@ -121,7 +120,9 @@ describe('FLOW-002 session wake injection', () => {
 
   it('TC-03: duplicate wakes for the same task id coalesce to a single turn', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const submitSpy = vi
+      .spyOn(session, 'submit')
+      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
 
     await manager.spawn(scheduledWakeRequest('do X'));
     await Promise.resolve();
@@ -145,7 +146,7 @@ describe('FLOW-002 session wake injection', () => {
 
     expect(execCtrl.pendingPrompt).toBe('queued instruction');
     // REMOTE-014 E5: the queue entry preserves the wake's turn options (agent-wakeup source).
-    expect(execCtrl.pendingQueue[0]?.options.turnSource).toBe('agent-wakeup');
+    expect(execCtrl.pending.contents[0]?.options.turnSource).toBe('agent-wakeup');
   });
 
   it('RUNTIME-19: aborting a queued wake evicts its id so a future wake is not locked out', async () => {
