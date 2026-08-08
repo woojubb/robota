@@ -12,6 +12,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transp
 
 import { relayTurn, reportStreamFailure } from '../submit-stream.js';
 
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
 import type { SSEStreamingApi } from 'hono/streaming';
 
 function fakeStream(overrides: Partial<SSEStreamingApi> = {}): {
@@ -51,6 +52,39 @@ describe('what a client learns from a stream that failed after it opened', () =>
     });
 
     await expect(reportStreamFailure(new Error('x'), stream)).resolves.toBeUndefined();
+  });
+});
+
+describe('a failure in the callback never escapes to the runner', () => {
+  it('reports generically, hands the detail to the injected listener, and does not throw', async () => {
+    // Hono's runner follows any `onError` by writing the raw `e.message` to the stream — measured:
+    // the body carried the generic line AND the leak. So the boundary holds only if the callback
+    // catches its own failures, which is what this pins.
+    const detail = vi.fn();
+    const session = createTestInteractiveSession({
+      on: ((event: string) => {
+        if (event === 'text_delta') throw new Error('ENOENT /home/op/.robota/key.json');
+      }) as IInteractiveSession['on'],
+    });
+    const { stream, written } = fakeStream();
+
+    await expect(relayTurn(session, 'p', () => {}, detail)(stream)).resolves.toBeUndefined();
+
+    expect(detail).toHaveBeenCalledTimes(1);
+    expect(detail.mock.calls[0][0].message).toContain('key.json');
+    expect(written.map((w) => w.data).join('\n')).not.toContain('key.json');
+    expect(written.map((w) => w.data).join('\n')).toContain('the stream failed on the server');
+  });
+
+  it('still tells the client when the listener itself throws', async () => {
+    const { stream, written } = fakeStream();
+
+    await reportStreamFailure(new Error('detail'), stream, () => {
+      throw new Error('the host listener is broken');
+    });
+
+    expect(written).toHaveLength(1);
+    expect(written[0].data).toContain('the stream failed on the server');
   });
 });
 

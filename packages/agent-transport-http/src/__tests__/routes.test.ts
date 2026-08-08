@@ -487,7 +487,15 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
 
     expect(response.status).toBe(200);
     expect(body, 'the stream closed without telling the client anything').toContain('event: error');
-    expect(body).toContain('listener cap reached');
+    // The GENERIC line, and NOT the exception — review caught this assertion contradicting the
+    // trust-boundary design, and measuring it found a real leak: Hono's runner follows any
+    // `onError` by writing the raw `e.message` to the stream, so the body carried TWO error events,
+    // the generic one and the leak. The callback catches its own failures now, so the runner's
+    // write is unreachable.
+    expect(body).toContain('the stream failed on the server');
+    expect(body, 'the raw exception crossed the trust boundary').not.toContain(
+      'listener cap reached',
+    );
   });
 
   it('refuses when the session is busy from SOMEWHERE ELSE', async () => {
@@ -603,7 +611,7 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
     // This one holds the window: `submit` never resolves and never sets `executing`, which is what
     // the real session looks like between the route's claim and the flag flipping past
     // `await ensureInitialized()`.
-    let executing = false;
+    const executing = false;
     const session = createTestInteractiveSession({
       isExecuting: () => executing,
       submit: (() => new Promise(() => {})) as unknown as IInteractiveSession['submit'],
