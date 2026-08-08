@@ -124,3 +124,18 @@ export function hasStem(name) {
   }
   return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9]+$/.test(base);
 }
+
+/**
+ * A token that names a FORM rather than a file — a template slot nobody has filled in.
+ *
+ * `ADR-NNN-short-title.md` is a naming convention being EXPLAINED, not a file being cited; reading
+ * it as a citation refuses the document that documents the convention. Owned here because review
+ * found the answer forked twice already (the named-artifact scan and the resolving-claims scan each
+ * carried a private copy, and they had drifted: one knew `NNN`, the other only `<>*`), and then
+ * found `commit-message-claims` with NO copy — the same convention string in a commit message was
+ * a refusal on a required check.
+ */
+export function isTemplateSlot(name) {
+  // `NNN`, `XXX`, `nnn` and friends stand for a number nobody has chosen yet.
+  return /[<>*?{}]|\.\.\.|\b(NNN|XXX|YYYY|MM|DD)\b/.test(name);
+}

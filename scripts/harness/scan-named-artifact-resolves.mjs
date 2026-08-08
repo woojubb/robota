@@ -41,7 +41,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-import { EXTENSIONS, hasStem } from './lib/file-name-shape.mjs';
+import { EXTENSIONS, hasStem, isTemplateSlot } from './lib/file-name-shape.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -103,14 +103,8 @@ export function hasAllowedReason(line) {
   return Boolean((match[1] ?? match[2] ?? '').trim());
 }
 
-/** A token that names a FORM rather than a file. */
-export { hasStem };
-
-/** A token that names a FORM rather than a file. */
-export function isTemplateSlot(name) {
-  // `NNN`, `XXX`, `nnn` and friends stand for a number nobody has chosen yet.
-  return /[<>*?{}]|\.\.\.|\b(NNN|XXX|YYYY|MM|DD)\b/.test(name);
-}
+/** A token that names a FORM rather than a file. Both owned by `lib/file-name-shape.mjs`. */
+export { hasStem, isTemplateSlot };
 
 /**
  * Names claimed by one document, with the lines they sit on.

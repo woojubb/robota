@@ -41,7 +41,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { EXTENSIONS, hasStem } from './lib/file-name-shape.mjs';
+import { EXTENSIONS, hasStem, isTemplateSlot } from './lib/file-name-shape.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -166,6 +166,12 @@ export function pathClaims(message) {
     // refused the commit that shipped the first half of this rule. Shared with the named-artifact
     // scan so the two cannot answer differently.
     if (!hasStem(token)) continue;
+    // A template slot is a FORM being explained, not a file being cited. Review supplied the live
+    // case: `ADR-NNN-short-title.md` — the naming convention string a skill documents — passes
+    // PATHISH and hasStem, and a commit message explaining that convention was a refusal on a
+    // required check. The sibling named-artifact scan already excluded slots; this one did not,
+    // which is the answered-differently fork the shared lib exists to prevent.
+    if (isTemplateSlot(token)) continue;
     found.add(token);
   }
   return [...found];

@@ -401,3 +401,19 @@ describe('what the citation shape refuses to read as a commit', () => {
     expect(cite('the bundle index-a1b2c3d4.js grew')).toEqual([]);
   });
 });
+
+describe('a template slot is a form, not a citation', () => {
+  it('does not read a documented naming convention as a path claim', () => {
+    // The live case review supplied: `ADR-NNN-short-title.md` is the convention string
+    // `.agents/skills/architecture-decision-records/SKILL.md` documents, and a commit message
+    // explaining it was refused on this REQUIRED check. The sibling named-artifact scan already
+    // excluded slots; this module did not — the answered-differently fork the shared lib exists
+    // to prevent, and `isTemplateSlot` now lives there with one spelling.
+    expect(pathClaims('docs follow `ADR-NNN-short-title.md` from now on')).toEqual([]);
+    expect(pathClaims('name it `<package>.config.json` per convention')).toEqual([]);
+  });
+
+  it('still reads a real backticked file as a claim', () => {
+    expect(pathClaims('see `commitlint.config.js` for the rule')).toEqual(['commitlint.config.js']);
+  });
+});
