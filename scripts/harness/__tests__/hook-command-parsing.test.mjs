@@ -834,6 +834,64 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('sees code FUSED to its flag, with no space', () => {
+    // The separator between a code flag and its code was a REQUIRED space, so these never matched
+    // and their code was masked as data — a bypass, not a nuisance. Both RUN, measured with the
+    // real binaries: `PY_FUSED_RAN` and `NODE_FUSED_RAN`.
+    const main = scratchRepo('main');
+    for (const command of [
+      'python3 -c"import os;os.system(\'git push --force origin main\')"',
+      'node --eval="run(\'git push --force origin main\')"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(2);
+    }
+  });
+
+  it('does not invent flags the tool refuses', () => {
+    // `--command` was listed for the shells, python and expect. MEASURED: `bash --command` is
+    // "invalid option", `python3 --command` is "unknown option", and expect takes single-dash
+    // options only. `perl --eval` is "Unrecognized switch". A flag the tool does not have is a
+    // claim this file makes and the tool refuses.
+    // On `main`, so it discriminates: a wrongly-recognised flag makes the quoted `git push --force`
+    // code, and a push to a protected branch is exit 2. On a feature branch it is exit 0 either way
+    // — measured, and that is the THIRD time this trap has caught a case in this file.
+    const main = scratchRepo('main');
+    for (const command of [
+      'bash --command "notes about git push --force origin main"',
+      'python3 --command "notes about git push --force origin main"',
+      'perl --eval "notes about git push --force origin main"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(0);
+    }
+  });
+
+  it('reads `deno eval` as code and a deno SCRIPT argument as data', () => {
+    // What this pins, and what it does NOT.
+    //
+    // The deno alternative was `(deno|bun) ARGS eval` — arguments allowed before a SUBCOMMAND,
+    // which only a flag may be. It is `(deno|bun) eval` now. That narrowing has NO OBSERVABLE
+    // EFFECT, and saying so is the point: the shell-builtin `eval` rule matches the word ANYWHERE,
+    // so `deno run cli.ts eval "…"` unmasks through that rule whichever way this one is written.
+    // MEASURED — the case I first wrote for the narrowing passed with it reverted.
+    //
+    // So these two assert the behaviour that IS observable, and the narrowing stands on the
+    // argument rather than on a test: a subcommand is not a flag, and a rule that says otherwise is
+    // wrong even where a second rule happens to cover for it.
+    expect(
+      runHook('branch-guard.sh', 'deno run cli.ts "notes about git push --force origin main"', {
+        cwd: scratchRepo('main'),
+      }).status,
+      'a deno script argument was read as code',
+    ).toBe(0);
+
+    expect(
+      runHook('branch-guard.sh', 'deno eval "git push --force origin main"', {
+        cwd: scratchRepo('main'),
+      }).status,
+      'deno eval stopped being read as code',
+    ).toBe(2);
+  });
+
   it('does NOT read a `tclsh` / `expect` script FILE as code', () => {
     // `tclsh` and `expect` sat in the no-flag bucket with `ssh` and `awk`, and review was right
     // that they do not share that grammar — they share `perl`/`php`'s, which the commit before this
