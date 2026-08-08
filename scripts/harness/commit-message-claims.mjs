@@ -312,5 +312,19 @@ export function objectIsKnown(token, { root = WORKSPACE_ROOT, isShallowOverride 
 
 /** Whether the checkout has a truncated history, in which case the log cannot answer. */
 export function isShallow(root = WORKSPACE_ROOT) {
-  return gitLines(['rev-parse', '--is-shallow-repository'], root)[0] === 'true';
+  // Through `gitAnswered`, like every other git call in this file. `gitLines` THROWS
+  // `GitUnavailableError` when git could not run at all, and this was the one caller that did not
+  // catch it — so on a machine without git the whole check died with a stack trace instead of the
+  // graceful degradation the two calls beside it already have. Review found it.
+  //
+  // `true` when git cannot answer, because that is the CONSERVATIVE reading here: shallow means
+  // "history cannot be searched", and a host where git will not run cannot search history either.
+  // The caller's shallow branch then reports on stderr and does not refuse, which is the behaviour
+  // this whole path exists to provide.
+  return (
+    gitAnswered(['rev-parse', '--is-shallow-repository'], {
+      onUnavailable: ['true'],
+      cwd: root,
+    })[0] === 'true'
+  );
 }

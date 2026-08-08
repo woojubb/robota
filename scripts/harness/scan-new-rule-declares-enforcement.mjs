@@ -109,7 +109,12 @@ export function addedRuleSections(diff) {
     // A rule added under a heading that already existed. It opens its own section, because the
     // declaration has to arrive WITH it — a declaration already in the file, under some other rule,
     // is exactly what this floor exists to stop counting as an answer.
-    if (!current && ADDED_RULE_BULLET.test(line)) {
+    //
+    // ALWAYS, not only when no section is open, and review found what the `!current` guard cost:
+    // two rule bullets added back to back in one hunk shared a section, so a declaration on the
+    // FIRST excused the second. That is the same "a declaration under some other rule is not an
+    // answer" this branch was written for, one bullet apart instead of one heading apart.
+    if (ADDED_RULE_BULLET.test(line)) {
       current = { file, title: line.slice(1).trim().slice(0, 80), body: `${line.slice(1)}\n` };
       sections.push(current);
       continue;

@@ -197,3 +197,30 @@ describe('a rule added under a heading that already existed', () => {
     expect(judgeSections(addedRuleSections(diff))).toEqual([]);
   });
 });
+
+describe('two rules added side by side', () => {
+  it("does not let the FIRST bullet's declaration excuse the second", () => {
+    // Review: sections only opened when none was already open, so two rule bullets added back to
+    // back in one hunk shared a section — and a declaration on the first covered the second. That
+    // is the same "a declaration under some other rule is not an answer" the branch was written
+    // for, one bullet apart instead of one heading apart.
+    const diff = [
+      'diff --git a/.agents/rules/thing.md b/.agents/rules/thing.md',
+      '--- a/.agents/rules/thing.md',
+      '+++ b/.agents/rules/thing.md',
+      '@@ -1,2 +1,4 @@',
+      ' ## Existing heading',
+      '+- **A thing MUST be declared.** Enforced by: `scan-thing`.',
+      '+- **A second thing MUST also be declared.**',
+    ].join('\n');
+
+    const sections = addedRuleSections(diff);
+
+    expect(sections, 'the two bullets shared one section').toHaveLength(2);
+    const undeclared = judgeSections(sections);
+    expect(
+      undeclared.map((s) => s.title).join(' '),
+      "the second rule was excused by the first rule's declaration",
+    ).toMatch(/A second thing MUST also be declared/);
+  });
+});
