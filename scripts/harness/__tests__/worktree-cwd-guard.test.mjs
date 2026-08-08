@@ -548,6 +548,16 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     expect(hookText).toMatch(/could not be split into statements, so which/);
   });
 
+  it('leaves a held checkout that is the LAST statement alone', () => {
+    // The block's own premise is "the statements after it still run" — and the bare-command case at
+    // the top already says that a checkout with nothing after it is git's own error and the whole
+    // outcome. The loop judged every statement regardless, so `echo build; git checkout <held>` was
+    // refused although nothing runs after it. RAN before the fix: exit 2.
+    const { status } = runHook({ command: `echo build; git checkout ${held}`, cwd: mainRepo });
+
+    expect(status, 'a checkout with nothing after it was refused').toBe(0);
+  });
+
   it('leaves `git checkout <ref> -- <path>` alone', () => {
     // Restoring files FROM a ref does not switch to it, so it succeeds even while a sibling worktree
     // holds that branch — the premise behind this block does not apply. Blocking it would be the

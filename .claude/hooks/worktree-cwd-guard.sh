@@ -275,6 +275,11 @@ if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|])' ||
   # checkout <branch held in other's sibling>; git status` was exit 0.
   CHECKOUT_TARGET=""
   CHECKOUT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+  # How many statements there are, so the loop can tell a checkout that has something AFTER it from
+  # one that is simply last. The block's own premise is "the statements after it still run"; a
+  # held-branch checkout with nothing after it fails and that failure IS the whole outcome, which is
+  # what the bare-command case at the top already says. Review found the loop refusing it anyway.
+  CHECKOUT_STATEMENT_COUNT=$(printf '%s\n' "$CHECKOUT_RANGES" | grep -c '[^[:space:]]' || printf '0')
   # FAIL-CLOSED on an unsplittable command, like the destructive block below and unlike the first
   # version of this one. `|| printf ''` alone turned "could not split" into "no statements" and
   # permitted the whole command — the asymmetry review pointed out, in the file whose repeated line
@@ -284,8 +289,14 @@ if printf '%s' "$COMMAND" | grep -qE '(\|\||&&|[;|])' ||
     echo "[worktree-cwd-guard] branch it checks out was never determined. This is not a pass." >&2
     exit 2
   fi
+  CHECKOUT_STATEMENT_INDEX=0
   while read -r CO_START CO_LEN; do
     [[ -n "$CO_START" && -n "$CO_LEN" ]] || continue
+    CHECKOUT_STATEMENT_INDEX=$((CHECKOUT_STATEMENT_INDEX + 1))
+    # Nothing runs after the LAST statement, so a held checkout there is git's own error and no
+    # more. Judging it would refuse `echo build; git checkout <held>` — correct work, and the shape
+    # that gets a guard turned off.
+    [[ "$CHECKOUT_STATEMENT_INDEX" -ge "$CHECKOUT_STATEMENT_COUNT" ]] && break
     if ! CO_WORDS=$(hook_statement_all_words "$COMMAND" "$CO_START" "$CO_LEN" && printf '\001'); then
       echo "[worktree-cwd-guard] Blocked: a statement could not be split into words, so which branch" >&2
       echo "[worktree-cwd-guard] it checks out was never read. This is not a pass." >&2
