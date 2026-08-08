@@ -579,8 +579,53 @@ describe('RUNTIME-003: two submissions in the same tick', () => {
       headers: { 'content-type': 'application/json' },
     });
 
+    // Read ONCE — a Response body is not re-readable, and asserting twice off `await json()` throws
+    // `Body is unusable` rather than failing the assertion it was written for.
+    const body = (await response.json()) as { error: string };
+
     expect(response.status).toBe(500);
-    expect((await response.json()).error).toMatch(/session identity unavailable/);
+    expect(body.error).toMatch(/concurrent-turn tracking is unavailable/);
+    // And it names no internal method: this route can be mounted outside a trust boundary, and a
+    // client cannot act on a contract it does not implement. Review asked for the call; this is it.
+    expect(body.error, 'the internal signature leaked').not.toMatch(/getSessionId/);
+  });
+
+  it('reports the SAME busy from /executing as /submit refuses on', async () => {
+    // Review: `/executing` asked only `session.isExecuting()`, so a client polling it could see
+    // `executing: false` and still get a 409 from `/submit` — two endpoints disagreeing about one
+    // word, which is a worse answer than either alone.
+    //
+    // The divergence needs a session whose turn is CLAIMED but not yet EXECUTING, and the honest
+    // double cannot hold that open: it sets `executing` inside `submit`, so both are true at the
+    // same moment and the case passes either way. Measured — my first version of this case was
+    // green with the fix reverted.
+    //
+    // This one holds the window: `submit` never resolves and never sets `executing`, which is what
+    // the real session looks like between the route's claim and the flag flipping past
+    // `await ensureInitialized()`.
+    let executing = false;
+    const session = createTestInteractiveSession({
+      isExecuting: () => executing,
+      submit: (() => new Promise(() => {})) as unknown as IInteractiveSession['submit'],
+    });
+    const app = createAgentRoutes({ sessionFactory: () => session });
+    const post = (prompt: string): Promise<Response> =>
+      app.request('/submit', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+        headers: { 'content-type': 'application/json' },
+      });
+
+    void post('holds the claim, never executes');
+    // The 409 establishes that the claim IS held — one microtask is not enough for `/submit` to
+    // reach it, so querying before that measures the wrong moment.
+    const refused = await post('arrives while claimed');
+    await refused.text();
+    const busy = await (await app.request('/executing')).json();
+
+    expect(refused.status, 'the second submission was not refused').toBe(409);
+    expect(executing, 'the fixture was executing, so it cannot show the divergence').toBe(false);
+    expect(busy, '/executing said idle while /submit said busy').toEqual({ executing: true });
   });
 
   it('starts exactly one turn, and answers the other 409', async () => {

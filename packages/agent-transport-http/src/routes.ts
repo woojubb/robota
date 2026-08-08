@@ -84,7 +84,9 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return typeof id === 'string' && id !== '' ? id : undefined;
     } catch {
       // allow-fallback: a session that throws while naming itself has not told us who it is, and
-      // guessing would claim the wrong turn. `isExecuting()` still guards this request.
+      // guessing would claim the wrong turn. The caller REFUSES on `undefined` — an earlier version
+      // of this comment said `isExecuting()` still guarded the request, which stopped being true
+      // when the fallback became a refusal two lines down.
       return undefined;
     }
   };
@@ -130,10 +132,14 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
     if (claim === undefined) {
       return c.json(
         {
+          // No internal method signature: this route can be mounted outside a trust boundary, and
+          // the caller cannot act on `getSession().getSessionId()` anyway — it names a contract
+          // they do not implement. The HOST needs the detail and gets it from the comment above
+          // this branch; the client needs to know its request was refused and why in its own terms.
           error:
-            'session identity unavailable — getSession().getSessionId() returned nothing, so a ' +
-            'concurrent turn on this session cannot be refused. Refusing rather than serving a ' +
-            'turn this route cannot guarantee belongs to this caller.',
+            'concurrent-turn tracking is unavailable for this session, so this request cannot be ' +
+            'served safely. Refusing rather than starting a turn that cannot be guaranteed to be ' +
+            'yours.',
         },
         500,
       );
@@ -297,9 +303,16 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   });
 
   // GET /executing — check if currently executing
+  //
+  // Reports the SAME "busy" that `/submit` refuses on: the route's own claim OR the session's
+  // `isExecuting()`. Review found them diverging — this endpoint asked only the session, so a client
+  // polling here could see `executing: false` and still get a 409 from `/submit`. Two endpoints
+  // disagreeing about one word is a worse answer than either of them alone.
   app.get('/executing', async (c) => {
     const session = await sessionFactory(c);
-    return c.json({ executing: session.isExecuting() });
+    const claim = claimKey(session);
+    const claimed = claim !== undefined && turnsInFlight.has(claim);
+    return c.json({ executing: claimed || session.isExecuting() });
   });
 
   // GET /pending — get pending queued prompt
