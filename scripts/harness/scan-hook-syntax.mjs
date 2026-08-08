@@ -15,6 +15,8 @@
  *
  * Usage: `node scripts/harness/scan-hook-syntax.mjs`
  * Exit 0 = clean, 1 = blocking findings.
+ *
+ * fail-direction: refuse — an empty hook directory THROWS rather than reporting a clean pass.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -35,8 +37,18 @@ function shellScripts(dir) {
   return out.sort();
 }
 
-export function collectHookSyntaxFindings() {
-  const scripts = shellScripts(HOOKS_DIR);
+export function collectHookSyntaxFindings(hooksDir = HOOKS_DIR) {
+  const scripts = shellScripts(hooksDir);
+  // Nothing-examined is not nothing-wrong. With no hooks found this printed a clean pass, and the
+  // one state that produces it — the hook directory moved, renamed or emptied — is the state in
+  // which every guard in this repository is already gone.
+  if (scripts.length === 0) {
+    throw new Error(
+      `[hook-syntax] no shell scripts under ${path.relative(WORKSPACE_ROOT, hooksDir)}. ` +
+        'This scan judges the guards; with none present it has examined nothing, and reporting a ' +
+        'pass over nothing is the failure it exists to catch.',
+    );
+  }
   const broken = [];
 
   for (const file of scripts) {

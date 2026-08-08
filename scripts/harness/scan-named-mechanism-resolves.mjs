@@ -25,6 +25,9 @@
  *
  * Usage: `node scripts/harness/scan-named-mechanism-resolves.mjs`
  * Exit 0 = clean, 1 = blocking findings.
+ *
+ * fail-direction: refuse — an empty document scope, an absent root manifest, or a missing
+ * `run-all-scans.mjs` each THROW rather than reporting a clean pass over what could not be read.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -57,7 +60,15 @@ const MATCHERS = [
     pattern: /`(?:pnpm|npm) run ([\w:-]+)`/g,
     resolves: (name) => {
       const pkg = path.join(WORKSPACE_ROOT, 'package.json');
-      if (!existsSync(pkg)) return true;
+      // No manifest means the question cannot be answered, and answering `true` made every
+      // `pnpm run …` claim in every rule resolve by default — the scan reporting clean precisely
+      // when it could see nothing.
+      if (!existsSync(pkg)) {
+        throw new Error(
+          '[named-mechanism-resolves] no package.json at the workspace root, so no `pnpm run` ' +
+            'claim can be checked. Refusing rather than resolving them all by default.',
+        );
+      }
       return Boolean(JSON.parse(readFileSync(pkg, 'utf8')).scripts?.[name]);
     },
     hint: 'Add the script to package.json, or name an existing one.',
@@ -108,8 +119,18 @@ function documents() {
 
 export function collectNamedMechanismFindings() {
   const findings = [];
+  const scope = documents();
+  // The binding documents are mandatory in this repository, so an empty scope is a broken checkout
+  // rather than a repository with nothing to check. Reporting "no findings" here would mean
+  // "nothing was examined".
+  if (scope.length === 0) {
+    throw new Error(
+      '[named-mechanism-resolves] no binding documents found (.agents/rules/*.md, AGENTS.md). ' +
+        'Refusing rather than reporting a pass over nothing.',
+    );
+  }
 
-  for (const doc of documents()) {
+  for (const doc of scope) {
     const text = readFileSync(doc.full, 'utf8');
     const lines = text.split('\n');
 
@@ -132,10 +153,15 @@ export function collectNamedMechanismFindings() {
 
   // A scan that is not registered cannot report that it is not registered.
   const runner = path.join(WORKSPACE_ROOT, 'scripts/harness/run-all-scans.mjs');
-  if (
-    existsSync(runner) &&
-    !readFileSync(runner, 'utf8').includes('scan-named-mechanism-resolves.mjs')
-  ) {
+  // An `existsSync(runner) &&` guard stood here, which turned a missing runner into a silently
+  // skipped registration check — the same shape the check itself is about.
+  if (!existsSync(runner)) {
+    throw new Error(
+      '[named-mechanism-resolves] run-all-scans.mjs is missing, so registration cannot be ' +
+        'checked. That is the condition this check exists to report, not one to skip it for.',
+    );
+  }
+  if (!readFileSync(runner, 'utf8').includes('scan-named-mechanism-resolves.mjs')) {
     findings.push(
       'scan-named-mechanism-resolves.mjs is absent from run-all-scans.mjs — it would never run, ' +
         'which is the failure class it exists to catch.',
@@ -149,7 +175,7 @@ export function collectNamedMechanismFindings() {
     return findings;
   }
 
-  console.log(`[named-mechanism-resolves] clean — ${documents().length} documents examined.`);
+  console.log(`[named-mechanism-resolves] clean — ${scope.length} documents examined.`);
   return findings;
 }
 

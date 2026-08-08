@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { collectHookSyntaxFindings } from '../scan-hook-syntax.mjs';
 
@@ -30,6 +31,11 @@ function shellScripts(dir) {
   return out;
 }
 
+const scratch = [];
+afterAll(() => {
+  while (scratch.length > 0) rmSync(scratch.pop(), { recursive: true, force: true });
+});
+
 describe('scan-hook-syntax', () => {
   it('is registered in run-all-scans.mjs', () => {
     const runner = readFileSync(
@@ -45,6 +51,16 @@ describe('scan-hook-syntax', () => {
 
   it('examines something — a pass over nothing is not a pass', () => {
     expect(shellScripts(HOOKS_DIR).length).toBeGreaterThan(0);
+  });
+
+  it('REFUSES a hook directory with nothing in it', () => {
+    // The empty-tree case, and the reason it is a throw rather than a pass: the one state that
+    // produces "0 shell scripts" is the state in which every guard in this repository is already
+    // gone. Reporting clean there is the scan agreeing with its own worst outcome.
+    const bare = mkdtempSync(path.join(tmpdir(), 'no-hooks-'));
+    scratch.push(bare);
+
+    expect(() => collectHookSyntaxFindings(bare)).toThrow(/examined nothing/);
   });
 
   it('covers lib/, which registration floors deliberately exclude', () => {
