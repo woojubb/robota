@@ -594,6 +594,19 @@ describe('worktree-cwd-guard: what review found the first version missing', () =
     }
   });
 
+  it("leaves git's own escape hatch for a held ref alone too", () => {
+    // `--ignore-other-worktrees` is git's documented way to say "I know a sibling holds it, do it
+    // anyway" — the checkout SUCCEEDS, so this block's failed-checkout premise does not apply, and
+    // refusing it turned git's escape hatch into this guard's wall. Same class as `--detach`, one
+    // round later.
+    const { status } = runHook({
+      command: `git checkout --ignore-other-worktrees ${held}; git status`,
+      cwd: mainRepo,
+    });
+
+    expect(status, "git's escape hatch was read as a branch switch").toBe(0);
+  });
+
   it('leaves a DETACHED checkout of a held ref alone', () => {
     // `git checkout --detach <held>` SUCCEEDS while a sibling holds the branch — HEAD detaches, no
     // branch is taken — so this block's premise (a checkout that fails with statements still to

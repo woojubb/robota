@@ -242,9 +242,10 @@ checkout_targets_in_words() {
         ;;
       # `--detach` succeeds while a sibling holds the ref — HEAD detaches, no branch is taken — so
       # the premise of this whole block (a checkout that FAILS with statements still to run) does
-      # not apply, and reading its ref as a candidate refused ordinary work. Review found it. The
-      # ref is consumed as a skip.
-      --detach) want=skip ;;
+      # not apply, and reading its ref as a candidate refused ordinary work. Review found it, and
+      # then found `--ignore-other-worktrees` one round later: git's own escape hatch for exactly
+      # this refusal, which also succeeds. Both consume the ref as a skip.
+      --detach | --ignore-other-worktrees) want=skip ;;
       -b | -B | --orphan) want=target ;;
       -t | --track) want=track ;;
       -c | -C) want=target ;;
@@ -827,7 +828,16 @@ if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   # The command could not be split, so nothing in it can be attributed to a repository. FAIL-SAFE is
   # this guard's rule everywhere else, but not here: refusing to split is not the same as finding
   # nothing, and the whole command is still in hand to ask the cheaper question of.
-  if statement_is_destructive "$(hook_statement_all_words "$COMMAND" || printf '')"; then
+  # The tokenizer's own failure is a REFUSAL, not an empty word list. `|| printf ''` stood here and
+  # review held it against the per-statement loop below, which already treats the same failure as
+  # exit 2: an unreadable command judged "not destructive" is this file's fail-open shape, restated
+  # at the one place the command was already known to be unsplittable.
+  if ! UNSPLIT_WORDS=$(hook_statement_all_words "$COMMAND"); then
+    echo "[worktree-cwd-guard] Blocked: the command could not be read AT ALL — the splitter and the" >&2
+    echo "[worktree-cwd-guard] tokenizer both refused it. What cannot be read cannot be judged safe." >&2
+    exit 2
+  fi
+  if statement_is_destructive "$UNSPLIT_WORDS"; then
     echo "[worktree-cwd-guard] Blocked: the command is destructive and could not be split into" >&2
     echo "[worktree-cwd-guard] statements, so which repository it targets was never determined." >&2
     echo "[worktree-cwd-guard] This is not a pass." >&2
