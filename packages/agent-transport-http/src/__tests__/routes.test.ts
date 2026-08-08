@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-transport/testing';
 
 import { createAgentRoutes } from '../routes.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-transport';
 
 /**
  * Built on the PUBLISHED conformant double, not a cast.
@@ -21,6 +21,24 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport'
  * The overrides are typed at their own sites for the same reason `createHonestSession` narrows
  * each: `as never` or a blanket cast would defeat what the published double is for.
  */
+/**
+ * RUNTIME-003 landed while this PR was in review: `submit` now answers with a TURN HANDLE whose
+ * `completed` always settles. The honest stubs answer with one too — an empty result, since no case
+ * here reads the handle (the route relays EVENTS) — so the suite keeps compiling against the
+ * contract rather than against the shape it had last month.
+ */
+function stubHandle(turnId: string): ITurnHandle {
+  return {
+    turnId,
+    completed: Promise.resolve({
+      response: '',
+      history: [],
+      toolSummaries: [],
+      contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
+    }),
+  };
+}
+
 function createMockSession(overrides?: Partial<IInteractiveSession>) {
   return createTestInteractiveSession({
     submit: vi.fn() as unknown as IInteractiveSession['submit'],
@@ -74,7 +92,7 @@ function createHonestSession() {
       // busy flag. A stub without that suspension point cannot express the window, and the first
       // version of this file did not have it — which is why it reported no race.
       await Promise.resolve();
-      if (executing) return; // the real session queues here
+      if (executing) return stubHandle('queued'); // the real session queues here
       started += 1;
       executing = true;
       await new Promise((r) => setTimeout(r, 20));
@@ -83,6 +101,7 @@ function createHonestSession() {
       // would hang the request and the case would fail on a TIMEOUT — a red for the wrong reason,
       // which proves as little as a green for the wrong reason.
       emit('complete', { success: true, content: 'done' });
+      return stubHandle(`turn-${started}`);
     },
     on: ((event: string, handler: (data: unknown) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
@@ -254,6 +273,7 @@ describe('HTTP Transport Routes', () => {
         for (const handler of handlers.get(terminalEvent) ?? []) {
           handler(terminalData);
         }
+        return stubHandle('emitter-turn');
       }),
     });
     return session;
