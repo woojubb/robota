@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -58,10 +58,15 @@ export function hooksOutsideAWorktree() {
   copies.push(dir);
   const hooks = path.join(dir, 'hooks');
   cpSync(path.join(WORKSPACE_ROOT, '.claude/hooks'), hooks, { recursive: true });
+  // The parent is created EXPLICITLY. Review read this as a guaranteed ENOENT; measured on this
+  // Node (22), `cpSync` with `recursive: true` does create missing parents for a file copy and
+  // every suite using this helper runs green — but that behaviour is documented only for
+  // directory-to-directory copies, so leaning on it is a fact about one runtime, not a contract.
+  // The mkdir states the intent where the next Node cannot un-state it.
+  mkdirSync(path.join(dir, 'scripts/harness'), { recursive: true });
   cpSync(
     path.join(WORKSPACE_ROOT, 'scripts/harness/git-ambient-env.json'),
     path.join(dir, 'scripts/harness/git-ambient-env.json'),
-    { recursive: true },
   );
   return hooks;
 }

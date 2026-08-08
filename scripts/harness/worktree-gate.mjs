@@ -305,6 +305,16 @@ export function runGate(phase, branch, cwd = process.cwd()) {
   if (phase !== 'before' && phase !== 'after') {
     throw new Error(`worktree-gate: unknown phase \`${String(phase)}\` — 'before' or 'after'.`);
   }
+  // And the branch, for the same reason one round later: review pointed out that fixing the CLI's
+  // argument validation left this exported function skipping the same two core checks — both
+  // branch-dependent finders return `[]` on a falsy branch — and reporting a pass it never
+  // computed to any caller that is not `main()`.
+  if (typeof branch !== 'string' || branch === '') {
+    throw new Error(
+      'worktree-gate: a branch is required — without it the branch-held-elsewhere and ' +
+        'HEAD-matches checks examine nothing, and a pass over nothing is not a pass.',
+    );
+  }
   const ambient = ambientGitEnvFindings();
   if (ambient.length > 0) return ambient;
   if (phase === 'before') {
