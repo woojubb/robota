@@ -52,6 +52,10 @@ const SUFFIX_SEGMENTS = new Set([
  * file name, so it is checked as a path and REFUSES visibly with the reason. The cost of a gap is
  * a false refusal someone fixes, not a silent pass.
  */
+// The BOUNDARY of what the artifact checks can see: a slashless token with an extension not on
+// this list is no claim at all, so a doc naming a nonexistent `styles.css` goes unchecked. That is
+// a deliberate bound, not an oversight — widening it widens two checks over 482 documents at once,
+// which is a measured sweep, not a list edit. HARNESS-080 owns the widening.
 export const EXTENSIONS = ['mjs', 'cjs', 'js', 'ts', 'tsx', 'md', 'sh', 'yml', 'yaml', 'json'];
 
 /**
