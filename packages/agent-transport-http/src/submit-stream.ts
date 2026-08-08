@@ -117,7 +117,19 @@ export function relayTurn(
       } finally {
         // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
         // event listeners can never leak.
-        for (const fn of cleanup) fn();
+        //
+        // Each entry individually, and review is why: these are `session.off` calls, and one that
+        // throws inside a bare loop would end the `finally` before `release()` ran — the same
+        // claim-held-forever the `abort()` guard above closes, reintroduced two lines down. A
+        // failed unsubscribe forfeits one listener; taking the release with it forfeits the session.
+        for (const fn of cleanup) {
+          try {
+            fn();
+          } catch {
+            // allow-fallback: a failed unsubscribe must not take the claim release with it
+            // The listener stays attached — the lesser loss, and the one the next turn can survive.
+          }
+        }
         // RUNTIME-38: released here for the same reason — a turn that throws must not wedge the
         // session it claimed.
         release();
