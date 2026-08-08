@@ -113,8 +113,21 @@ if [[ "$MODE" == "start" ]]; then
     # non-zero exit from the substitution KILLS the script — measured with a hanging `gh`, the
     # whole session notice vanished and the hook exited 0 as if it had nothing to say. Silence on
     # an error is the one thing a hook may not do (enforcement-architecture.md).
+    #
+    # The title is stripped of control characters HERE, per title, and that placement is the whole
+    # point: a line feed inside a title is indistinguishable from the separator between entries once
+    # the records are assembled, so one issue could inject a second `  - #NNN …`-looking line into
+    # this notice — which is also what the agent reads at session start. Review found it. `tr` below
+    # cannot fix that, because by the time it runs the fabricated line IS a line.
+    #
+    # The same template bounds the LENGTH of one title. Only the NUMBER of lines was bounded, so a
+    # single very long title could take as much of this notice — and of the agent's opening context —
+    # as its author wanted. The cut says it happened: a bound that does not announce itself reads as
+    # the whole title, which is the silent-truncation shape this notice already refuses one line
+    # below for the issue COUNT.
     OPEN_ISSUES=$(bounded_gh issue list --state open --limit "$ISSUE_LIMIT" \
-      --json number,title --jq '.[] | "  - #\(.number) \(.title)"') || ISSUE_STATUS=$?
+      --json number,title \
+      --jq '.[] | "  - #\(.number) \(.title | gsub("[[:cntrl:]]"; "") | if (. | length) > 120 then .[:120] + "… (title truncated)" else . end)"') || ISSUE_STATUS=$?
   fi
 
   if [[ $ISSUE_STATUS -eq -1 ]]; then
@@ -124,8 +137,10 @@ if [[ "$MODE" == "start" ]]; then
     echo "[task-tracking] This is 'not asked', not 'none open'. Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
   elif [[ $ISSUE_STATUS -eq 2 ]]; then
-    echo "[task-tracking] Could not list open GitHub issues: the deadline expired (${HOOK_GH_DEADLINE_SECONDS}s)."
-    echo "[task-tracking] This is 'not asked', not 'none open' — check manually: gh issue list"
+    # `bounded_gh` has ALREADY said, on stderr, that GitHub did not answer within the deadline and
+    # that no answer is not an answer of 'none'. Review found this branch saying both again. What is
+    # left is the part only this hook knows: what was being asked for, and how to stop asking.
+    echo "[task-tracking] The unanswered request was the open-issue list — check it manually: gh issue list"
     echo "[task-tracking] Silence it: TASK_TRACKING_SKIP_ISSUES=1"
     echo ""
   elif [[ $ISSUE_STATUS -ne 0 ]]; then
@@ -156,6 +171,13 @@ if [[ "$MODE" == "start" ]]; then
     #
     # So EVERY C0 control character except the line feed is stripped, plus DEL. The line feed is the
     # separator between entries and is the one this loop needs; nothing else belongs in a title.
+    #
+    # This is the SECOND of two passes and they divide by what they can see. The `--jq` template
+    # above strips control characters from each TITLE, which is the only place a line feed can still
+    # be told apart from the separator. This one strips them from the assembled STREAM, so anything
+    # that reaches here by another route — a different formatter, a `gh` whose `--jq` did not run —
+    # is still cleaned before a terminal sees it. Neither is redundant with the other; the pass that
+    # can tell a title from a record boundary cannot be this one.
     #
     # `\000-\011\013-\037\177`, and the exact ranges matter — the first version was
     # `\000-\010\013\014\016-\037\177`, which skips TAB, LF *and CR* while the comment beside it
