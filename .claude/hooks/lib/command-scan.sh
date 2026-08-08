@@ -319,8 +319,19 @@ HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+$
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[eE]|--eval)[ \t]+"
 # php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*[rRBE]|--run)[ \t]+"
-# Positional: the code argument carries no flag at all.
-HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(ssh|awk|expect|tclsh)[ \t]+${HOOK_INTERP_ARGS}"
+# expect: `-c` runs commands; a bare positional argument is a script FILE.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}expect[ \t]+${HOOK_INTERP_ARGS}(-[a-zA-Z]*c|--command)[ \t]+"
+# Positional: the code argument carries no flag at all, whatever precedes it.
+#
+# `tclsh` and `expect` were here with `ssh` and `awk`, and review was right that they do not share
+# that grammar — they share `perl`/`php`'s, which this change had just fixed one commit earlier.
+# MEASURED: `tclsh 'puts X'` answers `couldn't read file "puts X"`, the same shape as the perl
+# reading that started INFRA-084. `tclsh` has no inline-code flag at all, so it is not an
+# interpreter for this purpose and is gone from the list entirely; `expect` moved up to its `-c`.
+#
+# `ssh` and `awk` stay: their trailing quoted string genuinely IS the remote command / the program,
+# with no flag, regardless of what precedes it.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(ssh|awk)[ \t]+${HOOK_INTERP_ARGS}"
 HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|eval[ \t]+)\$"
 
 # The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and

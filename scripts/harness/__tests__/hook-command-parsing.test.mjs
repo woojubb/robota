@@ -831,6 +831,38 @@ describe('a hook examines the command that will run', () => {
     }
   });
 
+  it('does NOT read a `tclsh` / `expect` script FILE as code', () => {
+    // `tclsh` and `expect` sat in the no-flag bucket with `ssh` and `awk`, and review was right
+    // that they do not share that grammar — they share `perl`/`php`'s, which the commit before this
+    // one had just fixed. MEASURED with the real binary:
+    //
+    //   tclsh 'puts TCL_INLINE_RAN'  ->  couldn't read file "puts TCL_INLINE_RAN"
+    //
+    // the same shape as the perl reading that started INFRA-084. `tclsh` has NO inline-code flag at
+    // all, so it is not an interpreter for this purpose and is off the list; `expect` moved to its
+    // `-c`.
+    // On `main`, so the case DISCRIMINATES: if the argument were read as code, the `git push` in it
+    // would be a push to a protected branch and the hook would exit 2. Measured on a feature branch
+    // first, where a push is not protected either way — the case passed with the defect restored,
+    // proving nothing.
+    const main = scratchRepo('main');
+    for (const command of [
+      'tclsh script.tcl "notes mentioning git push --force"',
+      'expect script.exp "notes mentioning git push --force"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(0);
+    }
+
+    // `expect -c` genuinely runs its argument, and `ssh`/`awk` keep the positional grammar they
+    // actually have.
+    for (const command of [
+      'expect -c "spawn git push --force origin main"',
+      'ssh host "git push --force origin main"',
+    ]) {
+      expect(runHook('branch-guard.sh', command, { cwd: main }).status, command).toBe(2);
+    }
+  });
+
   it('does NOT read a `deno run` / `bun run` argument as code', () => {
     // `run` was grouped with `eval` on the assumption that both take their code positionally. They
     // do not: `deno run` takes a script FILE and `bun run` a package.json script NAME. Review
