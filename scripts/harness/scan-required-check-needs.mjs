@@ -15,9 +15,12 @@
  * fetch. It did not touch the MECHANISM, which is reachable from any other way `changes` can
  * fail: a checkout failure, a runner OOM, a syntax error in the classifier, a Node crash.
  *
- * `scan-main-required-checks.mjs`'s R6 asserts the adjacent property on `main` only, and only
- * for a dependency excluded by its own `if:`. This scan covers every declared branch and the
- * other half of the shape: a dependency that RUNS and FAILS.
+ * This scan is the SOLE owner of the `needs:` graph. `scan-main-required-checks.mjs` used to assert
+ * an adjacent property as its R6 — on `main` only, and only for a dependency excluded by its own
+ * `if:` — and a harness audit measured that rule down to zero live subjects, because none of `main`'s
+ * three required jobs declares a `needs:` key at all. This scan covers every declared branch, the other half
+ * of the shape (a dependency that RUNS AND FAILS), and the one case R6 held alone: a `needs:` naming
+ * a job its workflow does not declare, which landed here before R6 was removed.
  *
  * The rule, applied per branch in `.github/required-status-checks.json`:
  *
@@ -137,7 +140,25 @@ export function findRequiredCheckNeedsFindings(root = WORKSPACE_ROOT) {
       for (const need of jobNeeds(job.text)) {
         edges += 1;
         const dependency = jobs.find((candidate) => candidate.name === need);
-        const dependencyContext = dependency ? jobContextName(need, dependency.text) : need;
+        if (!dependency) {
+          // `needs:` resolves within the job's OWN workflow. Falling back to the raw job id here
+          // and comparing THAT against the required-context names made a dangling edge look
+          // satisfied whenever another workflow happened to publish a required context of the
+          // same name — the edge took the `continue` below and was reported clean. GitHub refuses
+          // a workflow whose `needs:` does not resolve, so the required check never reports at
+          // all: the permanent-pending shape #1436 rolled back for.
+          findings.push({
+            branch: branch.name,
+            context,
+            detail:
+              `needs \`${need}\`, which no job in \`${workflow}\` declares. A \`needs:\` names a job in ` +
+              `the same workflow, so GitHub cannot build this graph and \`${context}\` never reports — ` +
+              `it stays pending forever rather than going red. Either declare \`${need}\` in ` +
+              `\`${workflow}\` or remove the edge.`,
+          });
+          continue;
+        }
+        const dependencyContext = jobContextName(need, dependency.text);
         if (requiredContexts.has(dependencyContext)) continue;
         if (isFailSafeFor(condition, need)) continue;
 
