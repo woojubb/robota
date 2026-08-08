@@ -1,6 +1,10 @@
 #!/bin/bash
 # pre-push-check.sh
 # Before git push: cheap, fast branch-hygiene + lockfile gates ONLY.
+#
+# fail-direction: refuse — its checks are cheap and its subject is the branch and the lockfile, both
+# of which it can always read. An unrecognised state means it could not establish the property it
+# gates on, and a push that proceeds on that is the one nobody looks at again.
 # 1. Branch-base hygiene (no foreign merge commits over origin/develop)
 # 2. Verify pnpm-lock.yaml is committed and in sync
 # The heavy typecheck/lint/test re-runs were removed (HARNESS-DIET-006):

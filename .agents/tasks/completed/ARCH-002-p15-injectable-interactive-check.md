@@ -1,6 +1,15 @@
-# ARCH-002-p15: Make isInteractiveTerminal injectable in agent-command
+---
+title: 'ARCH-002-p15: Make isInteractiveTerminal injectable in agent-command'
+status: done
+created: 2026-08-01
+completed: 2026-08-01
+priority: medium
+urgency: later
+area: packages/agent-command, packages/agent-cli
+depends_on: []
+---
 
-## Status: done
+# ARCH-002-p15: Make isInteractiveTerminal injectable in agent-command
 
 ## Problem
 

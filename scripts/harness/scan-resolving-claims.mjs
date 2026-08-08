@@ -45,10 +45,17 @@ const ARCHIVED = ['completed', 'done', 'rejected', 'archive', 'daily-reports'];
 
 const ALLOW = /<!--\s*allow-unresolved:\s*([^]*?)-->/;
 
-/** A target naming a FORM rather than a file. */
-export function isTemplateSlot(target) {
-  return /[<>*]/.test(target);
-}
+/**
+ * A target naming a FORM rather than a file — `lib/file-name-shape.mjs` owns the question.
+ *
+ * This scan carried a private, NARROWER copy (`<>*` only) that had already drifted from its
+ * sibling's; a link target written `ADR-NNN-short-title.md` was a finding here and a non-finding
+ * there. One answer now. The wider set only EXCUSES more, and what it excuses is a form, which was
+ * never this scan's subject.
+ */
+import { isTemplateSlot } from './lib/file-name-shape.mjs';
+
+export { isTemplateSlot };
 
 export function hasAllowedReason(line) {
   const match = ALLOW.exec(line);
