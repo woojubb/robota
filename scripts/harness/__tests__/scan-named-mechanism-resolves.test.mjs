@@ -61,7 +61,11 @@ describe('scan-named-mechanism-resolves', () => {
 
   it('does not read a package-manager builtin as a script name', () => {
     const scripts = MATCHERS.find((m) => m.kind === 'package script');
-    for (const text of ['Run `pnpm install` first.', 'Use `pnpm run` to list them.', 'pnpm install --frozen-lockfile']) {
+    for (const text of [
+      'Run `pnpm install` first.',
+      'Use `pnpm run` to list them.',
+      'pnpm install --frozen-lockfile',
+    ]) {
       scripts.pattern.lastIndex = 0;
       expect(scripts.pattern.exec(text), `${text} was read as a script`).toBeNull();
     }
