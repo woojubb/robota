@@ -8,6 +8,7 @@ import {
   judgeExaminedAdoption,
   parseSkips,
   runScans,
+  writeAdoptionBaseline,
 } from '../run-all-scans.mjs';
 
 function stubScan(name, exitCode) {
@@ -311,30 +312,92 @@ describe('how much did you look at', () => {
 
   it('holds adoption as a SET ratchet: a frozen scan may not stop declaring; a new one must be added', () => {
     const frozen = () => ['a', 'b'];
+    const known = ['a', 'b', 'c'];
     // All frozen scans ran and declared; an extra non-frozen, non-declaring scan is fine.
-    expect(judgeExaminedAdoption(['a', 'b'], ['a', 'b', 'c'], frozen).ok).toBe(true);
+    expect(judgeExaminedAdoption(['a', 'b'], ['a', 'b', 'c'], known, frozen).ok).toBe(true);
     // A frozen scan ran but stopped declaring → FELL, naming it.
-    expect(judgeExaminedAdoption(['a'], ['a', 'b'], frozen).message).toMatch(/FELL.*\bb\b/);
+    expect(judgeExaminedAdoption(['a'], ['a', 'b'], known, frozen).message).toMatch(/FELL.*\bb\b/);
     // A new scan declares but is not frozen → ROSE, naming it.
-    expect(judgeExaminedAdoption(['a', 'b', 'c'], ['a', 'b', 'c'], frozen).message).toMatch(
+    expect(judgeExaminedAdoption(['a', 'b', 'c'], ['a', 'b', 'c'], known, frozen).message).toMatch(
       /ROSE.*\bc\b/,
     );
     // No baseline at all → refuse.
-    expect(judgeExaminedAdoption(['a'], ['a'], () => null).message).toMatch(/no frozen/);
+    expect(judgeExaminedAdoption(['a'], ['a'], known, () => null).message).toMatch(/no frozen/);
+  });
+
+  it('reports FELL and ROSE together, not one round at a time', () => {
+    // A set diff can carry both at once; surfacing only the first would spend a review round per
+    // finding. `a` stopped declaring (FELL); `c` newly declares (ROSE).
+    const verdict = judgeExaminedAdoption(['b', 'c'], ['a', 'b', 'c'], ['a', 'b', 'c'], () => [
+      'a',
+      'b',
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/FELL.*\ba\b/);
+    expect(verdict.message).toMatch(/ROSE.*\bc\b/);
+  });
+
+  it('flags a frozen scan that is no longer a registered scan at all (GONE — the SET blind spot)', () => {
+    // A previously-declaring scan deleted/renamed out of the registry never appears in
+    // `evaluableNames` again, so FELL alone would never catch it and the baseline would rot. The
+    // GONE check keys off `knownNames`. `ghost` is frozen but absent from the registry.
+    const verdict = judgeExaminedAdoption(['a'], ['a'], ['a'], () => ['a', 'ghost']);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/GONE.*ghost/);
+  });
+
+  it('skips the GONE check when the registry is not supplied (fixture callers)', () => {
+    // knownNames === null → GONE is not judged, so a fixture caller does not fault a name it never
+    // claimed to know about.
+    expect(judgeExaminedAdoption(['a'], ['a'], null, () => ['a', 'ghost']).ok).toBe(true);
   });
 
   it('a --skip does not disarm the ratchet, nor falsely fault the skipped scan (HARNESS-081)', () => {
     // The defect: the old count-over-the-whole-registry check only ran with nothing skipped, so
-    // CI (which always `--skip`s dist/build-contracts) never evaluated it. A skipped scan is simply
-    // absent from `evaluableNames`, so it is neither judged nor faulted — while a NON-skipped scan
-    // that stops declaring is still caught. Here `skipped-one` is frozen but did not run; `b` ran
-    // and stopped declaring.
-    const frozen = () => ['a', 'b', 'skipped-one'];
-    const verdict = judgeExaminedAdoption(['a'], ['a', 'b'], frozen);
+    // CI (which always `--skip`s dist/build-contracts) never evaluated it. A skipped scan is still
+    // REGISTERED (in knownNames) but absent from `evaluableNames`, so it is neither judged nor
+    // faulted as FELL/GONE — while a NON-skipped scan that stops declaring is still caught. Here
+    // `skipped-one` is frozen and registered but did not run; `b` ran and stopped declaring.
+    const known = ['a', 'b', 'skipped-one'];
+    const verdict = judgeExaminedAdoption(['a'], ['a', 'b'], known, () => [
+      'a',
+      'b',
+      'skipped-one',
+    ]);
     expect(verdict.ok).toBe(false);
     expect(verdict.message).toMatch(/FELL/);
     expect(verdict.message).toMatch(/\bb\b/);
     expect(verdict.message).not.toMatch(/skipped-one/);
+  });
+
+  it('writeAdoptionBaseline merges: keeps unevaluated, adds newly-declaring, prunes deleted', () => {
+    let written = null;
+    const result = writeAdoptionBaseline(
+      ['a', 'c'], // declaring this pass: a (kept), c (new)
+      ['a', 'b', 'c'], // evaluable: a, b, c (b was frozen but did not declare → dropped)
+      ['a', 'b', 'c'], // known registry (ghost is absent → pruned)
+      () => ['a', 'b', 'ghost'], // frozen
+      (names) => {
+        written = names;
+      },
+    );
+    // a: kept (declared). b: dropped (evaluated, not declaring). c: added (newly declaring).
+    // ghost: pruned (not in the registry). Result is sorted.
+    expect(result).toEqual(['a', 'c']);
+    expect(written).toEqual(['a', 'c']);
+  });
+
+  it('writeAdoptionBaseline keeps a frozen entry the pass did NOT evaluate (e.g. --skip)', () => {
+    // `skipped-one` is frozen, still registered, and not evaluated this pass → neither confirmed nor
+    // refuted, so it is kept rather than dropped.
+    const result = writeAdoptionBaseline(
+      ['a'],
+      ['a'],
+      ['a', 'skipped-one'],
+      () => ['a', 'skipped-one'],
+      () => {},
+    );
+    expect(result).toEqual(['a', 'skipped-one']);
   });
 });
 

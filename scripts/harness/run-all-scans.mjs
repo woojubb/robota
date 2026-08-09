@@ -194,6 +194,7 @@ export const EXAMINED_ADOPTION_BASELINE_PATH = path.join(
 export function judgeExaminedAdoption(
   declaringNames,
   evaluableNames,
+  knownNames = null,
   readBaseline = defaultReadAdoption,
 ) {
   const frozen = readBaseline();
@@ -206,28 +207,44 @@ export function judgeExaminedAdoption(
   const frozenSet = new Set(frozen);
   const declaring = new Set(declaringNames);
   const evaluable = new Set(evaluableNames);
-  // FELL: a scan the frozen set expects to declare, which ran with a subject this pass but did not.
+  // `knownNames` is the full scan registry when the caller has it. A frozen name absent from it was
+  // deleted or renamed OUT of existence — it can never run again, so it would otherwise sit in the
+  // baseline forever, un-FELL and un-pruned (the SET's blind spot the old count caught as a shrink).
+  // When it is not supplied (fixture callers), the GONE check is simply skipped.
+  const known = knownNames === null ? null : new Set(knownNames);
+  const rel = path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH);
+  // FELL: a scan the frozen set expects to declare, which ran this pass but did not.
   const fell = [...frozenSet].filter((name) => evaluable.has(name) && !declaring.has(name)).sort();
   // ROSE: a scan that declared this pass but is not yet frozen.
   const rose = [...declaring].filter((name) => !frozenSet.has(name)).sort();
+  // GONE: a frozen scan that is no longer a registered scan at all.
+  const gone = known === null ? [] : [...frozenSet].filter((name) => !known.has(name)).sort();
+  // All three are reported TOGETHER — a set diff can carry more than one, and surfacing only the
+  // first would spend a review round per finding, the waste this repo's culture is closing.
+  const parts = [];
   if (fell.length > 0) {
-    return {
-      ok: false,
-      message:
-        `✗ examined-size adoption FELL: ${fell.length} scan(s) stopped declaring what they examined ` +
-        `(${fell.join(', ')}). A scan that stopped saying how much it looked at is a scan whose green ` +
-        'stopped meaning anything measurable. Restore the declaration, or drop it from ' +
-        `${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)} in the SAME change with a reason.`,
-    };
+    parts.push(
+      `FELL: ${fell.length} scan(s) stopped declaring what they examined (${fell.join(', ')}) — a ` +
+        'scan whose declaration vanished has a green that no longer means anything measurable. ' +
+        `Restore it, or drop it from ${rel} in the SAME change with a reason.`,
+    );
   }
   if (rose.length > 0) {
-    return {
-      ok: false,
-      message:
-        `✗ examined-size adoption ROSE: ${rose.length} newly-declaring scan(s) (${rose.join(', ')}) not ` +
-        `in the frozen set. Add them to ${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)} ` +
-        'in the SAME change (or run with --write-adoption-baseline), or the gain is a licence to slide back.',
-    };
+    parts.push(
+      `ROSE: ${rose.length} newly-declaring scan(s) (${rose.join(', ')}) not in the frozen set. Add ` +
+        `them to ${rel} in the SAME change (or run --write-adoption-baseline), or the gain is a ` +
+        'licence to slide back.',
+    );
+  }
+  if (gone.length > 0) {
+    parts.push(
+      `GONE: ${gone.length} frozen scan(s) (${gone.join(', ')}) are no longer registered scans at ` +
+        `all. Prune them from ${rel} (or run --write-adoption-baseline) so the set cannot rot around ` +
+        'a name nothing can ever satisfy.',
+    );
+  }
+  if (parts.length > 0) {
+    return { ok: false, message: `✗ examined-size adoption drift —\n  ${parts.join('\n  ')}` };
   }
   return { ok: true, message: null };
 }
@@ -251,13 +268,19 @@ function defaultReadAdoption() {
 export function writeAdoptionBaseline(
   declaringNames,
   evaluableNames,
+  knownNames = null,
   readBaseline = defaultReadAdoption,
   writeFile = defaultWriteAdoption,
 ) {
   const frozen = new Set(readBaseline() ?? []);
   const evaluable = new Set(evaluableNames);
-  // Keep frozen entries for scans this pass did not evaluate; they are neither confirmed nor refuted.
-  const kept = [...frozen].filter((name) => !evaluable.has(name));
+  const known = knownNames === null ? null : new Set(knownNames);
+  // Keep frozen entries for scans this pass did not evaluate — they are neither confirmed nor
+  // refuted — EXCEPT a name that is no longer a registered scan at all, which is pruned: keeping it
+  // would re-freeze a name nothing can ever satisfy.
+  const kept = [...frozen].filter(
+    (name) => !evaluable.has(name) && (known === null || known.has(name)),
+  );
   const merged = [...new Set([...kept, ...declaringNames])].sort();
   writeFile(merged);
   return merged;
@@ -677,7 +700,7 @@ export async function runScans(
   // with a subject is held to whether it declared. `checkAdoption` gates whether the ratchet runs at
   // all (a caller passing three fixtures wants none); `writeAdoption` re-freezes the set from this
   // pass instead of judging it.
-  { checkAdoption = false, writeAdoption = false } = {},
+  { checkAdoption = false, writeAdoption = false, knownNames = null } = {},
 ) {
   const results = new Array(scans.length);
   let next = 0;
@@ -749,14 +772,14 @@ export async function runScans(
   const evaluableNames = examined.map((e) => e.name);
   let adoption = { ok: true, message: null };
   if (writeAdoption) {
-    const frozen = writeAdoptionBaseline(declaringNames, evaluableNames);
+    const frozen = writeAdoptionBaseline(declaringNames, evaluableNames, knownNames);
     write('');
     write(
       `✎ re-froze examined-size adoption: ${frozen.length} scan(s) in ` +
         `${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
     );
   } else if (checkAdoption) {
-    adoption = judgeExaminedAdoption(declaringNames, evaluableNames);
+    adoption = judgeExaminedAdoption(declaringNames, evaluableNames, knownNames);
   }
 
   if (unearnedZeros.length > 0) {
@@ -826,6 +849,9 @@ export async function main() {
   process.exitCode = await runScans(scans, undefined, undefined, {
     checkAdoption: true,
     writeAdoption,
+    // The full registry — so a frozen scan deleted/renamed OUT of it is caught (GONE) instead of
+    // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
+    knownNames: SCAN_COMMANDS.map((scan) => scan.name),
   });
 }
 
