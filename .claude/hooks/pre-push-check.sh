@@ -314,18 +314,24 @@ while read -r PS_START PS_LEN; do
     PUSH_SEEN=true
     PUSH_DIR="$PS_DIR"
   else
-    # A statement can only change directory if it contains a `cd`, `pushd`, or `popd` token. Reading
-    # the RAW slice (not the mask, which hides a quoted `"cd"`) for that token first lets a chain of
-    # ordinary commands — `echo a && echo b && … && git push`, the shape that made this hook take
-    # seconds — skip the per-statement word tokenization entirely. The check is CONSERVATIVE: it
-    # matches a `cd`-shaped substring anywhere (a false positive only costs the fork it would have
-    # done anyway), and it reads the raw text so a quoted-builtin `"cd" /x` is not missed. A
-    # statement with no such token changes no directory, so skipping the walk for it is equivalent.
+    # A statement can only change directory if it runs `cd`, `pushd`, or `popd`. Skipping the word
+    # tokenization for statements that cannot is what makes a long ordinary chain — `echo a && echo
+    # b && … && git push`, the shape that made this hook take seconds — cost no per-statement fork.
     # (HARNESS-083)
+    #
+    # The skip is only safe when the raw text CANNOT be hiding the builtin. It can hide it two ways,
+    # and both are checked:
+    #   - a `cd`-shaped token is present at all (read from the RAW slice, not the mask, so a quoted
+    #     `"cd" /x` still counts — the mask would hide it);
+    #   - a SPLICE assembles the name out of pieces: `"c""d" /repo` and `c\d /repo` are `cd` to the
+    #     shell and carry no `cd`-shaped substring. Measured: skipping that statement let a push
+    #     resolve to the session repo while the real cd moved elsewhere — a wrong-repository
+    #     fail-open, exit 0 where this hook had refused. A quote or a backslash is what a splice
+    #     needs, so their mere presence disqualifies the skip and the full walk runs. (#1681 review)
     PS_RAW_STMT="${COMMAND:$((PS_START - 1)):$PS_LEN}"
-    # A bash-native match, no subprocess — one `[[ =~ ]]` per statement instead of a piped grep, so
-    # a long chain of non-directory statements costs no forks at all here.
-    if ! [[ "$PS_RAW_STMT" =~ (^|[^[:alnum:]_-])(cd|pushd|popd)([^[:alnum:]_-]|$) ]]; then
+    # Bash-native matches, no subprocess — a long chain of ordinary statements costs no forks here.
+    if ! [[ "$PS_RAW_STMT" =~ (^|[^[:alnum:]_-])(cd|pushd|popd)([^[:alnum:]_-]|$) ]] \
+      && ! [[ "$PS_RAW_STMT" == *'"'* || "$PS_RAW_STMT" == *"'"* || "$PS_RAW_STMT" == *'\'* ]]; then
       continue
     fi
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides

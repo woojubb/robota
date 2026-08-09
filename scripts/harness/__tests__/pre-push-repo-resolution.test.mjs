@@ -10,7 +10,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -148,6 +148,70 @@ describe('which repository the push verdict is about', () => {
     );
 
     expect(status, `a cd late in a long chain was skipped:\n${output}`).toBe(0);
+  });
+
+  it('does not re-tokenize per statement: awk forks stay CONSTANT as the chain grows', () => {
+    // The regression guard for this task, measured deterministically rather than by wall clock: a
+    // PATH shim counts real `awk` invocations and delegates to the real one. Timing in CI is noisy
+    // and a slow runner would either flake or force slack so generous it catches nothing; the fork
+    // COUNT is exactly what the acceptance names ("no longer scales O(N²) in awk forks") and is
+    // immune to load. Measured on the version this task replaced: 6 forks at N=1 and 204 at N=100 —
+    // one whole-command re-tokenization per statement. Here it must not grow with N. (HARNESS-083)
+    const repo = repoOn('feat/forks', { recorded: true });
+    const shim = mkdtempSync(path.join(tmpdir(), 'awk-shim-'));
+    scratch.push(shim);
+    const counter = path.join(shim, 'count');
+    writeFileSync(
+      path.join(shim, 'awk'),
+      `#!/usr/bin/env bash\necho x >> ${JSON.stringify(counter)}\nexec /usr/bin/awk "$@"\n`,
+      { mode: 0o755 },
+    );
+
+    const forksFor = (statements) => {
+      writeFileSync(counter, '');
+      const chain = Array.from({ length: statements }, (_, i) => `echo s${i}`).join(' && ');
+      spawnSync('bash', [HOOK], {
+        input: JSON.stringify({
+          tool_name: 'Bash',
+          cwd: repo,
+          tool_input: { command: `${chain} && git push origin feat/forks` },
+        }),
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: repo, PATH: `${shim}:${process.env.PATH}` },
+      });
+      return readFileSync(counter, 'utf8').split('\n').filter(Boolean).length;
+    };
+
+    const few = forksFor(1);
+    const many = forksFor(100);
+
+    expect(few, 'the shim counted no awk at all — the probe measured nothing').toBeGreaterThan(0);
+    // A small constant of slack, so a future change may add a fixed reading without failing here;
+    // what must never return is a count that TRACKS the statement count.
+    expect(
+      many,
+      `awk forks grew with the chain: ${few} at N=1, ${many} at N=100`,
+    ).toBeLessThanOrEqual(few + 2);
+  });
+
+  it('does not let a SPLICED `cd` slip past the skip — `"c""d" <dir>`', () => {
+    // The word-fork skip keys on a raw `cd`-shaped token, but a splice assembles the builtin out of
+    // pieces: `"c""d"` and `c\d` are `cd` to the shell and carry no such token. Measured while
+    // building the skip: the statement was skipped, the push resolved to the SESSION repo (which has
+    // a clean record) while the real cd moved elsewhere, and the hook exited 0 where it had refused
+    // — a wrong-repository fail-open. A quote or backslash now disqualifies the skip, so the full
+    // walk runs and the unreadable target refuses. The parked repo is the RECORDED one here, so a
+    // skip would PASS and only the correct behaviour refuses. (HARNESS-083 / #1681 review)
+    const target = repoOn('feat/target');
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`"c""d" ${target} && git push origin x`, parked);
+
+    expect(
+      status,
+      `a spliced cd was skipped and the push judged the session repo:\n${output}`,
+    ).toBe(2);
+    expect(output).toMatch(/cannot read/);
   });
 
   it('does not flag a trailing-slash spelling of the same repo as two repositories', () => {
