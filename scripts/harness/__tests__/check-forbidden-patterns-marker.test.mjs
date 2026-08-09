@@ -128,6 +128,39 @@ describe('the allow-fallback marker, in the places the formatter leaves it', () 
     expect(status, `the late-opening brace cut the marker scope:\n${output}`).toBe(0);
   });
 
+  it('a brace inside a STRING does not hold the block open past its real end', () => {
+    // Textual counting read `"missing key {"` as an opening brace, so depth never closed, the
+    // scope grew past the real block, and an unrelated marker beyond it was absorbed — the
+    // fail-open the counter was claimed not to have.
+    const stringBrace = `try {
+  risky();
+} catch {
+  logger.warn("missing key {");
+  return undefined;
+}
+
+// allow-fallback: about something else entirely
+cache.clear();
+`;
+    const { status } = writeThrough(stringBrace);
+
+    expect(status, "a string's brace let a foreign marker excuse the catch").toBe(2);
+  });
+
+  it('still accepts a marked catch whose body quotes a brace', () => {
+    const marked = `try {
+  risky();
+} catch {
+  // allow-fallback: reason, body logs a brace
+  logger.warn("missing key {");
+  return undefined;
+}
+`;
+    const { status, output } = writeThrough(marked);
+
+    expect(status, `the quoted brace broke a correctly marked body:\n${output}`).toBe(0);
+  });
+
   it('does not let a marker AFTER the block end excuse the catch, even inside the window', () => {
     // A catch shorter than the look-ahead window ends before the window does. A marker attached
     // to whatever unrelated code follows the closing brace is inside the window but outside the

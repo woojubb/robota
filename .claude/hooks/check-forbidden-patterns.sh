@@ -193,9 +193,22 @@ while IFS= read -r match; do
   # beyond the closing brace's line.
   marker_start=$((line_num > 1 ? line_num - 1 : 1))
   marker_block=$(echo "$CONTENT" | sed -n "$((marker_start)),$((line_num + 40))p")
+  # Braces are counted with per-line string/comment stripping — a `{` inside a quoted literal or
+  # a `//` comment is prose, not structure, and counting it kept `depth` from ever closing, so the
+  # scope grew past the real block and could absorb an unrelated marker beyond it. A MULTI-LINE
+  # template literal is the stated residue: its inner lines cannot be told from code without a
+  # parser, and the 40-line cap bounds what that residue can reach.
   marker_scope=$(echo "$marker_block" | awk -v lead="$((line_num - marker_start))" '
     NR <= lead { print; next }   # the line above the catch: scope, but not brace arithmetic
-    { n = gsub(/{/, "{"); m = gsub(/}/, "}") }
+    {
+      line = $0
+      gsub(/\\./, "", line)                # escapes first, so \" does not end a string early
+      gsub(/"[^"]*"/, "", line)
+      gsub(/\047[^\047]*\047/, "", line)
+      gsub(/`[^`]*`/, "", line)
+      sub(/\/\/.*$/, "", line)
+      n = gsub(/{/, "{", line); m = gsub(/}/, "}", line)
+    }
     NR == lead + 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
     NR > lead + 1  { depth += n - m }
     { opened += n; print }
