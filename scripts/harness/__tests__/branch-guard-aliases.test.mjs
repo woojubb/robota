@@ -295,6 +295,19 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the -C behind a global was invisible:\n${output}`).toBe(2);
   });
 
+  it('does not let a =-glued global donate the alias token to a fake -C', () => {
+    // `git --git-dir=.git ci -C HEAD -n -m x`: the prefix regex's optional trailing token could
+    // swallow `ci` after the glued global, so the SUBCOMMAND's own `-C HEAD` (reuse-message)
+    // read as the global directory switch — alias resolution then queried `HEAD` as a repo,
+    // got nothing, and the `-n` kill switch sailed through unexpanded. (#1666 review)
+    const repo = scratchRepo('feat/x', { ci: 'commit' });
+
+    const { status, output } = runHook('git --git-dir=.git ci -C HEAD -n -m x', repo);
+
+    expect(status, `the glued global donated the alias to a fake -C:\n${output}`).toBe(2);
+    expect(output).toMatch(/-n/);
+  });
+
   it('reads an aliased remote-branch DELETE — the verb the delete gate greps for', () => {
     // `hook_deleted_branch` pattern-matches the literal `git push … --delete <name>`. With
     // `alias.pd "push origin --delete"` those words exist only in the expansion, so the gate

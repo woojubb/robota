@@ -65,6 +65,15 @@
 #
 # The path is passed as `--arg`, not interpolated into the filter: a field name is data, and the
 # reduce below is total, so no shape of path or payload makes this arm error where the other returns.
+
+# ONE spelling of git's value-taking global options — the single source every hook derives from
+# (branch-guard's GITPFX, its alias-substitution gate and verb latch via git_global_takes_value(),
+# and hook_git_c_path below). It lives in this LIBRARY because a sourced function cannot rely on a
+# definition its sourcing hook makes later — and a second hand-kept copy is the drift this list
+# exists to end (#1666 review). SANS_C is DERIVED, for the one reader whose target is -C itself.
+GIT_VALUE_GLOBALS_SANS_C='-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env'
+GIT_VALUE_GLOBALS="-C|${GIT_VALUE_GLOBALS_SANS_C}"
+
 hook_json_string() {
   local json="$1" path="$2"
   if command -v jq >/dev/null 2>&1; then
@@ -1069,7 +1078,7 @@ hook_statement_all_words() {
 # itself also names a repository and is NOT extracted here — this reads `-C` only, and a caller
 # that must honour `--git-dir` as identity needs its own reader.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=[^ \t\n]+)?[ \t]+([^ \t\n]+[ \t]+)?)*-C[ \t]+' "${2:-}" "${3:-}"
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS_SANS_C"')(=[^ \t\n]+|[ \t]+[^ \t\n]+)[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.

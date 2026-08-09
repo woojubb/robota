@@ -100,15 +100,19 @@ stmt_override() {
 # ONE spelling of git's value-taking global options. Four hand-kept copies of this list existed
 # (GITPFX, the head finder's case, the alias-substitution prefix, the verb latch), and the copies
 # are how GITPFX went stale at (-C|-c) while the rest had moved on — every reader below derives
-# from this variable or asks git_global_takes_value(), which is built from it.
-GIT_VALUE_GLOBALS='-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env'
+# from GIT_VALUE_GLOBALS or asks git_global_takes_value(), which is built from it. The variable
+# itself is DEFINED in lib/command-scan.sh (sourced above): the library's own reader
+# (hook_git_c_path) needs the same list, and a copy here was the fifth hand-kept spelling.
+# (#1666 review)
 # EVERY value-taking global, in both spellings (`--git-dir .git` and `--git-dir=.git`) — the
 # (-C|-c)-only tolerance made `git --git-dir=.git commit` invisible to every action regex built on
 # this prefix, aliased or typed out, and the alias substitution (#1666 review) made that gap
-# reachable in one visible command. The value group is optional so the `=` form does not demand a
-# second token; a match that "borrows" the verb as a value cannot stick, because the verb then has
-# nothing left to match and the engine backs off the optional group.
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+(('"$GIT_VALUE_GLOBALS"')(=\S+)?\s+(\S+\s+)?)*'
+# reachable in one visible command. Each iteration consumes the option AND its value, as exactly
+# one of the two spellings — the earlier optional trailing token could swallow the word AFTER a
+# `=`-glued global (the alias, or the verb), which misread a subcommand's own `-C` as the global
+# directory switch. A global git will not accept without a value (bare `--exec-path` prints and
+# exits) is not a command prefix, so demanding the value is the accurate reading. (#1666 review)
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+(('"$GIT_VALUE_GLOBALS"')(=\S+|\s+\S+)\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -416,7 +420,7 @@ while read -r STMT_START STMT_LEN; do
       # ci` unsubstituted, so the statement matched no action regex and took no check at all,
       # the exact class this substitution exists to end. One prefix expression, used by the gate
       # and both substitutions. (#1666 review)
-      _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+)?[[:space:]]+([^[:space:]]+[[:space:]]+)?)"
+      _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)[[:space:]]+)"
       printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
       _aexp=$(git_alias_expansion_chain "$_an") || continue
       # The replacement text is config-controlled: escape sed's specials so an expansion cannot
@@ -424,8 +428,8 @@ while read -r STMT_START STMT_LEN; do
       # Backslash FIRST, then sed's own specials — an expansion carrying `\1` would otherwise be
       # reinterpreted as a backreference inside the substitution it rides in. (#1666 review)
       _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/\\/\\\\/g' -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/g")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/g")
     done <<< "$GIT_ALIASES"
   fi
 
@@ -662,15 +666,17 @@ while read -r STMT_START STMT_LEN; do
         # here, where the words decide SKIP_HOOKS and the verb. (#1666 review)
         set -f
         for _AXW in $_ALIAS_EXP; do
-          if [[ "$_PAST_VERB" != "true" ]]; then
-            [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
-          fi
           # A word a preceding option announced is that option's VALUE, not a flag — the same
           # skip the statement loop applies, or `alias.ci "commit -m -n"` reads its message text
-          # as the kill switch and refuses ordinary work. (#1666 review)
+          # as the kill switch and refuses ordinary work. Consumed BEFORE the verb comparison:
+          # a global's value that happens to spell the verb (`-C commit`) must not latch
+          # _PAST_VERB a token early. (#1666 review, both rounds)
           if [[ "$_AX_EXPECT" == "true" ]]; then
             _AX_EXPECT=false
             continue
+          fi
+          if [[ "$_PAST_VERB" != "true" ]]; then
+            [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
           fi
           if git_global_takes_value "$_AXW" && [[ "$_PAST_VERB" != "true" ]]; then
             _AX_EXPECT=true
@@ -957,10 +963,17 @@ while read -r STMT_START STMT_LEN; do
   # line-oriented pass, which looked for a heredoc opener with a regex that did not know about quoting:
   # a `<<EOF` inside a quoted string opened a body that never closed, and the real delete that followed
   # it was deleted from the string this check reads. (INFRA-075, #1572)
-  # Read from the SUBSTITUTED statement: an aliased delete (`alias.pd "push origin --delete"`)
-  # spells its verb only after expansion, and the raw command carried no `git push … --delete`
-  # for the pattern to see. Offsets are 1-based over the effective slice. (#1666 review)
-  DELETE_BRANCH_NAME=$(hook_deleted_branch "$STMT_RAW_EFFECTIVE" 1 "${#STMT_RAW_EFFECTIVE}" || true)
+  # Read from the SUBSTITUTED statement when an alias resolved (`alias.pd "push origin
+  # --delete"` spells its verb only after expansion), and from the FULL command otherwise:
+  # hook_deleted_branch's tokenizer needs the surrounding text to know a heredoc body from a
+  # statement — handed only the slice, it read `cat <<'EOF' … git push --delete … EOF` data as a
+  # live delete. A data statement is never substituted (its mask shows no git verb for the alias
+  # gate to match), so the two branches cannot disagree about the same text. (#1666 review)
+  if [[ "$STMT_RAW_EFFECTIVE" != "${COMMAND:$((STMT_START - 1)):$STMT_LEN}" ]]; then
+    DELETE_BRANCH_NAME=$(hook_deleted_branch "$STMT_RAW_EFFECTIVE" 1 "${#STMT_RAW_EFFECTIVE}" || true)
+  else
+    DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  fi
 
   if [[ -n "$DELETE_BRANCH_NAME" ]] && ! stmt_override BRANCH_GUARD_ALLOW_DELETE; then
     if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
