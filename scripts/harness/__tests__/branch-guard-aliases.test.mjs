@@ -342,6 +342,22 @@ describe('the verb checks see through an alias', () => {
     expect(status, `a quoted decoy skewed the creation verdict:\n${output}`).toBe(0);
   });
 
+  it('sees the verb behind a value-LESS boolean global — typed and aliased', () => {
+    // `--no-pager`/`--bare`/`-p` take no value, so GITPFX's value-globals-only prefix did not
+    // match them and `git --no-pager commit` matched no action regex — the protected-branch
+    // check was skipped entirely. Both the typed form and an alias body carrying the boolean
+    // global must be seen. (#1666 review)
+    const typed = scratchRepo('develop');
+    const r1 = runHook('git --no-pager commit -m x', typed);
+    expect(r1.status, `a boolean global hid the commit verb (typed):\n${r1.output}`).toBe(2);
+    expect(r1.output).toMatch(/protected branch/);
+
+    const aliased = scratchRepo('develop', { qc: '--no-pager commit' });
+    const r2 = runHook('git qc -m x', aliased);
+    expect(r2.status, `a boolean global in an alias body hid the commit verb:\n${r2.output}`).toBe(2);
+    expect(r2.output).toMatch(/protected branch/);
+  });
+
   it('refuses an alias chain that does not resolve within the hop bound', () => {
     // 11 aliases each pointing at the next, the last carrying `commit -n`: single-level or
     // half-flattened resolution leaves GIT_VERB an alias name, so the -n kill switch fires no

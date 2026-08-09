@@ -112,7 +112,15 @@ stmt_override() {
 # `=`-glued global (the alias, or the verb), which misread a subcommand's own `-C` as the global
 # directory switch. A global git will not accept without a value (bare `--exec-path` prints and
 # exits) is not a command prefix, so demanding the value is the accurate reading. (#1666 review)
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+(('"$GIT_VALUE_GLOBALS"')(=\S+|\s+\S+)\s+)*'
+#
+# A VALUE-LESS boolean global (`--no-pager`, `--bare`, `--paginate`/`-p`, `--literal-pathspecs`)
+# between `git` and the verb is tolerated too — a bare `-\S+` alternative, the same catch-all the
+# branch-NAME extraction regexes below already use. Without it `git --no-pager commit` matched no
+# action regex and skipped the protected-branch check entirely, and the alias substitution made
+# that reachable through an alias body as well. Value-globals stay matched WITH their value (the
+# first alternative), so leftmost-longest consumes `--git-dir x` as one option+value rather than
+# reading `x` as the verb; the verb itself is never `-\S+`, so it cannot be borrowed. (#1666 review)
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((('"$GIT_VALUE_GLOBALS"')(=\S+|\s+\S+)|-\S+)\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -444,7 +452,7 @@ while read -r STMT_START STMT_LEN; do
       # ci` unsubstituted, so the statement matched no action regex and took no check at all,
       # the exact class this substitution exists to end. One prefix expression, used by the gate
       # and both substitutions. (#1666 review)
-      _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)[[:space:]]+)"
+      _GOPT="(((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)|-[^[:space:]]+)[[:space:]]+)"
       printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
       # `if var=$(cmd)` not `var=$(cmd); rc=$?`: under set -e a plain assignment from a command
       # substitution that exits non-zero ABORTS the hook before $? is ever read (line 496's
