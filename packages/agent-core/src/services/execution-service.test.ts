@@ -924,12 +924,11 @@ describe('ExecutionService', () => {
       );
 
       // CLI-064 exit-code contract: a round ending in a provider failure must NOT
-      // report success — the masked "Request failed:" assistant message marks the
-      // result failed so transports surface a non-zero exit.
+      // report success — transports surface a non-zero exit from it.
+      // CORE-027: result.error is the ORIGINAL thrown error, not a reconstruction from the
+      // "Request failed:" display message — so its message is the provider's own, unprefixed.
       expect(result.success).toBe(false);
-      expect(result.error?.message).toContain(
-        'Request failed: Provider call idle timeout after 10ms',
-      );
+      expect(result.error?.message).toBe('Provider call idle timeout after 10ms');
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 

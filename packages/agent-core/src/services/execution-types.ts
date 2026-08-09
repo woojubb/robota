@@ -76,6 +76,15 @@ export interface IExecutionRoundState {
   forcedSummaryInstruction?: string;
   /** Tracks how many times each (toolName, inputHash) pair has been called this turn. */
   sameToolInputCounts: Map<string, number>;
+  /**
+   * The ORIGINAL value a provider call threw, when a round ended in a provider failure.
+   *
+   * CORE-027: the failure used to survive only as `Request failed: ${message}` prose in the
+   * conversation store, and the final result's `error` was rebuilt from that display string —
+   * class, `code`, `category`, `recoverable`, stack and `cause` all destroyed by the round trip.
+   * Carrying the thrown value itself is the only representation that loses nothing.
+   */
+  providerFailure?: unknown;
 }
 
 /**

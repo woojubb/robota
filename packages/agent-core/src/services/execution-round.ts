@@ -169,6 +169,9 @@ export async function executeRound(
     logger,
     wrappedOnTextDelta,
     wrappedOnProviderNativeRawPayload,
+    (error) => {
+      roundState.providerFailure = error;
+    },
   );
   if (response === null) return true;
 

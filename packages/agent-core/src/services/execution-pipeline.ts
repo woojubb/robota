@@ -215,7 +215,13 @@ export async function finalizeExecution(
   eventEmitter: ExecutionEventEmitter,
 ): Promise<ICoreExecutionResult> {
   const result = {
-    ...buildFinalResult(conversationStore, executionId, startTime, roundState.toolsExecuted),
+    ...buildFinalResult(
+      conversationStore,
+      executionId,
+      startTime,
+      roundState.toolsExecuted,
+      roundState.providerFailure,
+    ),
     interrupted,
   };
 

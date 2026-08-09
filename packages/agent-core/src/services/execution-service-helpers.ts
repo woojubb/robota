@@ -202,6 +202,7 @@ export function buildFinalResult(
   executionId: string,
   startTime: Date,
   toolsExecuted: string[],
+  providerFailure?: unknown,
 ): ICoreExecutionResult {
   const finalMessages = conversationStore.getMessages();
   // Find last assistant message with actual content (skip stripped tool-round messages)
@@ -249,7 +250,20 @@ export function buildFinalResult(
       }, 0),
     toolsExecuted,
     success: !!lastAssistantMessage && !endedWithProviderError,
-    ...(endedWithProviderError ? { error: new Error(response) } : {}),
+    // CORE-027: the ORIGINAL thrown value, by identity — class, code, category, recoverable,
+    // stack and cause intact. `new Error(response)` here was the prose round trip: the display
+    // string went in and a classless error came out. The reconstruction remains ONLY for a store
+    // whose failure round predates the carried value (a restored session).
+    ...(endedWithProviderError
+      ? {
+          error:
+            providerFailure instanceof Error
+              ? providerFailure
+              : providerFailure !== undefined
+                ? new Error(String(providerFailure))
+                : new Error(response),
+        }
+      : {}),
   };
 }
 
