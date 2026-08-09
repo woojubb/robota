@@ -84,11 +84,21 @@ jobs:
       # (the analysis it reports on succeeded), but it says what went wrong — recovery falling back
       # to the watcher is the pre-#1660 state, and the log names it.
       #
-      # Two accepted costs, recorded rather than discovered: `actions: write` widens this job's
-      # blast radius to rerunning/cancelling runs (justified in scan-workflow-permissions.mjs;
-      # JS/TS autobuild is a no-op, so PR code does not execute in this job), and the head_sha
-      # query can pick up a same-SHA run from another PR — a rerun is idempotent, so the cost of
-      # that rarity is a wasted rerun, not a wrong verdict.
+      # Accepted costs, recorded rather than discovered:
+      #   - `actions: write` widens this job's blast radius to rerunning/cancelling runs
+      #     (justified in scan-workflow-permissions.mjs). JS/TS autobuild is a no-op, so PR code
+      #     does not execute in the analysis steps; the recovery step below runs only what this
+      #     workflow file states — and a FORK pull request receives a read-only GITHUB_TOKEN
+      #     regardless of this block, so the widened scope never reaches untrusted code.
+      #   - The head_sha query can pick up a same-SHA run from another PR — a rerun is
+      #     idempotent, so the cost of that rarity is a wasted rerun, not a wrong verdict.
+      #   - The rerun restores the REQUIRED CHECK, not auto-merge: a first failure has already
+      #     disarmed auto-merge (review-gate.yml's disarm job), and re-arming stays a human
+      #     decision by design — the disarm exists to force a look, and this step must not
+      #     un-force it.
+      #   - SARIF upload completing and the code-scanning API serving the alerts are not the
+      #     same instant; a rerun racing that propagation re-fails and falls back to the
+      #     stays-red watcher, the pre-#1660 state.
       - name: Re-run a review-gate that read this analysis too early (#1660)
         if: github.event_name == 'pull_request'
         env:
