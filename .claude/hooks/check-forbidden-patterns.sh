@@ -15,10 +15,10 @@
 # Reads tool_input.content (Write) or tool_input.new_string (Edit) from stdin —
 # NOT the existing file — so only newly introduced violations are caught.
 #
-# Escape mechanism: `// allow-fallback: <reason>` on the catch line OR inside the block (within
-# the same 6-line window the fallback judgement reads). Same-line-only was #1664: prettier moves a
-# comment after `{` to the next line unconditionally, so hook and formatter could not both be
-# satisfied. `scan-no-fallback.mjs` accepts the in-block form; the hook matches the rule it fronts.
+# Escape mechanism: `// allow-fallback: <reason>` anywhere `scan-no-fallback.mjs` (the CI
+# authority) reads it — the line above the catch, the catch line, or inside the block up to its
+# closing brace. Same-line-only was #1664: prettier moves a comment after `{` to the next line
+# unconditionally, so hook and formatter could not both be satisfied.
 #
 # Exit codes: 0 = pass, 2 = hard block
 
@@ -220,7 +220,7 @@ if [ "$BLOCKED" = true ]; then
   echo "Rules:" >&2
   echo "  try-catch-fallback → common-mistakes #9: no fallback; terminal failures stay terminal" >&2
   echo "" >&2
-  echo "Escape: // allow-fallback: <reason> — on the catch line, or on a line inside the block" >&2
+  echo "Escape: // allow-fallback: <reason> — the line above the catch, the catch line, or inside the block" >&2
   echo "" >&2
   exit 2
 fi
