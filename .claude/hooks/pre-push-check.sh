@@ -151,7 +151,13 @@ while read -r PS_START PS_LEN; do
   else
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides
     # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
-    PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    # A statement whose words cannot be READ is a statement whose directory changes cannot be
+    # seen — the same answer every other unknowable gets, not a silent skip that leaves a later
+    # push trusting a stale base. (#1667 review)
+    if ! PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
     PS_FIRST=""
     PS_SECOND=""
     PS_THIRD=""
