@@ -345,9 +345,15 @@ git_expansion_head() {
 # The FULL expansion of an alias chain, flattened, bounded at 10 hops. `alias.a1 ci` on top of
 # `alias.ci commit` is a commit as truly as its tail is, and single-level reading left the head
 # entirely unclassified — no refusal, no message. Each hop replaces the expansion's head word with
-# what it resolves to, keeping the flags on either side; the bound is a cycle guard, and a chain
-# that exceeds it simply stops flattening, which fails toward the next hop staying visible as an
-# unexpanded word rather than toward silence about the words already flattened. (#1666 review)
+# what it resolves to, keeping the flags on either side; the bound is a cycle guard.
+#
+# Exit codes: 0 with the flattened text (chain resolved to a real verb, or no head to resolve);
+# 1 if `$1` is not an alias at all; 2 if the chain did NOT terminate within the bound — the head
+# is STILL an alias after 10 hops. Handing that half-flattened head back would set GIT_VERB to an
+# alias name matching none of commit|push|rm|mv, so every gated check silently never fires: an
+# 11-deep chain topped with `commit -n` would pass where the literal is blocked. The bound is a
+# cycle guard, not a licence to bypass, so non-termination refuses — the file's fail-direction
+# (an unresolved shape is judged, never waved through). (#1666 review)
 git_alias_expansion_chain() {
   local exp next head depth=0 rest pre w expect
   exp=$(git_alias_expansion "$1") || return 1
@@ -371,7 +377,25 @@ git_alias_expansion_chain() {
     done
     exp="${pre}${pre:+ }${next}${rest:+ }${rest}"
   done
+  # Did the chain actually terminate? A head that STILL resolves to an alias means the bound cut
+  # the flattening short, and the caller must refuse rather than judge the alias name as a verb.
+  # `if` not `&&`: under `set -e` a bare `cmd && return` aborts the hook the moment cmd fails
+  # (the common no-longer-an-alias case), exiting 1 with nothing said. (#1666 review)
+  head=$(git_expansion_head "$exp") || { printf '%s' "$exp"; return 0; }
+  if git_alias_expansion "$head" >/dev/null 2>&1; then
+    return 2
+  fi
   printf '%s' "$exp"
+}
+
+# Refuse a command whose alias chain did not resolve within the hop bound. Shared by both
+# consumers so the message and the exit are identical. (#1666 review)
+refuse_unresolved_alias_chain() {
+  echo "[branch-guard] Blocked: the alias chain for '$1' does not resolve within 10 hops." >&2
+  echo "[branch-guard] An unresolved chain hides the real verb from every check — refusing rather" >&2
+  echo "[branch-guard] than judging an alias name as a git subcommand. Flatten the aliases, or run" >&2
+  echo "[branch-guard] the underlying git command directly." >&2
+  exit 2
 }
 
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
@@ -422,7 +446,12 @@ while read -r STMT_START STMT_LEN; do
       # and both substitutions. (#1666 review)
       _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)[[:space:]]+)"
       printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
-      _aexp=$(git_alias_expansion_chain "$_an") || continue
+      # `if var=$(cmd)` not `var=$(cmd); rc=$?`: under set -e a plain assignment from a command
+      # substitution that exits non-zero ABORTS the hook before $? is ever read (line 496's
+      # warning). The if-form captures both the output and the code. (#1666 review)
+      if _aexp=$(git_alias_expansion_chain "$_an"); then _aexp_rc=0; else _aexp_rc=$?; fi
+      if [[ "$_aexp_rc" -eq 2 ]]; then refuse_unresolved_alias_chain "$_an"; fi
+      if [[ "$_aexp_rc" -ne 0 ]]; then continue; fi
       # Both texts are rewritten at offsets found on the MASK, never re-matched on raw text.
       # Quoted regions are fill in the mask, so an alias name inside an ordinary string
       # (`git ci -m "see git ci in the docs"`) cannot match there — but a second, independent
@@ -673,7 +702,10 @@ while read -r STMT_START STMT_LEN; do
       # INFRA-085: the word about to become the verb may be an alias, and the checks below ask
       # about the verb it EXPANDS to. The expansion's own flags count too — `alias.ci "commit -n"`
       # carries the kill switch inside the alias, where no statement word will ever show it.
-      if _ALIAS_EXP=$(git_alias_expansion_chain "$W"); then
+      # if-form for the same set -e reason as the mask-splice call above. (#1666 review)
+      if _ALIAS_EXP=$(git_alias_expansion_chain "$W"); then _alias_rc=0; else _alias_rc=$?; fi
+      if [[ "$_alias_rc" -eq 2 ]]; then refuse_unresolved_alias_chain "$W"; fi
+      if [[ "$_alias_rc" -eq 0 ]]; then
         # The verb is the expansion's HEAD — global options and their values skipped — not its
         # literal first word: `-c commit.gpgsign=false commit` is a commit, and reading `-c` as
         # the verb silenced every check keyed on `commit`. A GLOBALS-ONLY expansion has no head:
@@ -706,6 +738,17 @@ while read -r STMT_START STMT_LEN; do
           if git_global_takes_value "$_AXW" && [[ "$_PAST_VERB" != "true" ]]; then
             _AX_EXPECT=true
             continue
+          fi
+          # Past the verb, a long option that TAKES a value consumes the next word — the same
+          # rule the statement latch applies at its `--message|--file|…) EXPECT_VALUE=true`.
+          # Without it, `alias.ci "commit --reuse-message -n"` reads `-n` as the standalone kill
+          # switch instead of as --reuse-message's value, over-refusing an alias body that never
+          # passes -n to git. Fails toward refusal, but the class is the one INFRA-085 fixes.
+          # (#1666 review)
+          if [[ "$_PAST_VERB" == "true" ]]; then
+            case "$_AXW" in
+              --message | --file | --reuse-message | --reedit-message | --template) _AX_EXPECT=true; continue ;;
+            esac
           fi
           [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
           [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"

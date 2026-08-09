@@ -126,13 +126,17 @@ describe('the verb checks see through an alias', () => {
     expect(status, `ordinary chained-alias work was refused:\n${output}`).toBe(0);
   });
 
-  it('a SELF-REFERENTIAL alias cannot loop the resolver', () => {
-    // The chain is bounded; a cycle stops flattening rather than hanging the hook.
+  it('a SELF-REFERENTIAL alias is refused, not silently waved through', () => {
+    // The chain is bounded so the hook never hangs; a cycle never resolves to a real verb, and
+    // an unresolved chain refuses rather than judging the alias name as a subcommand — the same
+    // rule an over-long chain now follows. (git itself rejects a self-referential alias at
+    // runtime too.) (#1666 review)
     const repo = scratchRepo('feat/x', { loop: 'loop' });
 
-    const { status } = runHook('git loop', repo);
+    const { status, output } = runHook('git loop', repo);
 
-    expect(status).toBe(0);
+    expect(status, `a self-referential alias was not refused:\n${output}`).toBe(2);
+    expect(output).toMatch(/does not resolve within 10 hops/);
   });
 
   it('reads the SPACE form of core.hooksPath folded into an alias', () => {
@@ -336,6 +340,33 @@ describe('the verb checks see through an alias', () => {
     );
 
     expect(status, `a quoted decoy skewed the creation verdict:\n${output}`).toBe(0);
+  });
+
+  it('refuses an alias chain that does not resolve within the hop bound', () => {
+    // 11 aliases each pointing at the next, the last carrying `commit -n`: single-level or
+    // half-flattened resolution leaves GIT_VERB an alias name, so the -n kill switch fires no
+    // check and passes where the literal `git commit -n` is blocked. A chain that does not
+    // terminate within the bound refuses. (#1666 review)
+    const chain = {};
+    for (let i = 1; i <= 11; i++) chain[`hop${i}`] = `hop${i + 1}`;
+    chain.hop12 = 'commit -n';
+    const repo = scratchRepo('feat/x', chain);
+
+    const { status, output } = runHook('git hop1 -m x', repo);
+
+    expect(status, `an over-long alias chain was waved through:\n${output}`).toBe(2);
+    expect(output).toMatch(/does not resolve within 10 hops/);
+  });
+
+  it('reads --reuse-message inside an alias body as taking a value, not passing -n', () => {
+    // `alias.ci "commit --reuse-message -n"`: -n is the value of --reuse-message, not the
+    // no-verify kill switch. Without value-consumption the latch over-refuses ordinary use of
+    // the alias. (#1666 review)
+    const repo = scratchRepo('feat/x', { ci: 'commit --reuse-message -n' });
+
+    const { status } = runHook('git ci', repo);
+
+    expect(status, 'the value of --reuse-message was misread as -n').toBe(0);
   });
 
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
