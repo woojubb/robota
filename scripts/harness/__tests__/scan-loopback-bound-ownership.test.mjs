@@ -102,6 +102,24 @@ describe('a rule or spec-doc does not restate a skill’s bound', () => {
     expect(findings[0].file).toBe('.agents/rules/some-rule.md');
   });
 
+  it('flags the HYPHENATED spelling — `max-3` is the same restatement', () => {
+    // Measured in the live tree: a draft spec's implementation log wrote `max-3 + progress
+    // detection` beside the skill's name, and the space-only regex walked past it — the scan's
+    // green then meant "nothing this regex could see", not "no restatement".
+    const root = world({
+      mapRows: [
+        '| **PR review** | `pr-finding-resolution-loop` | w | g → S | auto → bounded | floor |',
+      ],
+      ruleLines: [
+        'Landed the route-only `pr-finding-resolution-loop` skill (synchronous loop, max-3 + progress detection).',
+      ],
+    });
+
+    const { findings } = collectFindings(root);
+
+    expect(findings, 'the hyphenated bound walked past the scan').toHaveLength(1);
+  });
+
   it('does not flag a bound with no skill name beside it', () => {
     // A rule stating ITS OWN bound about its own subject is not a restatement of anyone's.
     const root = world({

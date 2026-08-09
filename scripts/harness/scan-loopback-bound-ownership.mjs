@@ -42,13 +42,9 @@ const MAP_PATH = '.agents/specs/orchestration-map.md';
  * bound and must not fire this.
  */
 export const QUANTIFIED_BOUND =
-  /\b(max(?:imum)?\s+\d+|\d+\s+(?:[a-z][a-z-]*\s+)?(?:re-?(?:run|runs|cut|cuts|specification|specifications|verify\s+rounds?|review\s+rounds?)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?))\b/i;
+  /\b(max(?:imum)?[\s-]+\d+|\d+\s+(?:[a-z][a-z-]*\s+)?(?:re-?(?:run|runs|cut|cuts|specification|specifications|verify\s+rounds?|review\s+rounds?)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?))\b/i;
 
 const ALLOW = /allow-restated-bound:\s*\S/;
-
-function read(relative) {
-  return readFileSync(path.join(WORKSPACE_ROOT, relative), 'utf8');
-}
 
 /** The pipeline table: rows between the `| Pipeline` header and the next non-table line. */
 export function mapLoopbackCells(mapSource) {

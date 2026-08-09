@@ -190,7 +190,7 @@ INFRA-018a..e above.
   INFRA-018a..e. (One trivial doc-count nit — skills/index.md registration row — fixed here.)
 - 2026-07-16 — **GATE-IMPLEMENT (018b + 018c).** Landed the three agents (`pr-review-reviewer` [read-only guardian,
   emits `ACTIONABLE FINDINGS: <n>`], `pr-review-writer` [worker, posts to PR], `pr-review-fixer` [edit-capable worker])
-  and the route-only `pr-finding-resolution-loop` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
+  and the route-only `pr-finding-resolution-loop` skill (synchronous loop, max-3 + progress detection on `file:line+severity`, <!-- allow-restated-bound: a dated implementation log recording the count as it landed; the live bound is the skill's, and the count was later removed by owner directive -->
   → gated merge path). All conform to `agent-def-convention`; all 51 harness scans pass. Remaining: 018d (merge-gate
   wiring + merge-verifier), 018e (scan floor + ci.yml extension), 018a (async firing, prerequisite for non-blocking).
 - 2026-07-16 — **GATE-IMPLEMENT (018e + 018d + 018a) — epic implementation complete.** 018e: `scan-review-findings.mjs`
