@@ -120,6 +120,20 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the ordinary case broke:\n${output}`).toBe(0);
   });
 
+  it('does not flag a trailing-slash spelling of the same repo as two repositories', () => {
+    // `git -C <A> push; git -C <A>/ push`: the same repo, two spellings. A raw string compare read
+    // them as a two-repo conflict and over-refused. The comparison normalizes trailing slashes.
+    // (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+
+    const { status, output } = runHook(
+      `git -C ${a} push origin feat/a; git -C ${a}/ push origin feat/a`,
+      a,
+    );
+
+    expect(status, `a trailing-slash spelling was read as a second repo:\n${output}`).toBe(0);
+  });
+
   it('resolves a SECOND relative cd against the first, not the declared cwd', () => {
     // `cd .. && cd <sibling> && git push` — every hop used to resolve against the declared cwd,
     // so the second landed on a path that does not exist and the fallback judged the main clone:

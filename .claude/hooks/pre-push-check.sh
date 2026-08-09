@@ -92,9 +92,9 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # because this line is the whole file's entry point, the branch-hygiene check, the lockfile-sync
 # check and the local-review record were all skipped for that shape. Two guards reading one command
 # must reach one reading of it.
-# ONE spelling of "this statement is a push", shared with the per-statement walk below — a second
-# copy of the pattern is a second answer waiting to disagree (#1667 review; lib/command-scan.sh
-# carries this file's history of exactly that).
+# ONE spelling of "this statement is a push", reused by the per-statement walk AND by the
+# override/ACK counting below (PUSH_RE) — a second copy of the pattern is a second answer waiting
+# to disagree (#1667 review; lib/command-scan.sh carries this file's history of exactly that).
 RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 printf '%s' "$COMMAND_VERBS" | grep -qE "$RE_PUSH_STMT" || exit 0
 
@@ -203,7 +203,15 @@ while read -r PS_START PS_LEN; do
       [[ -n "$LAST_CD" ]] && PS_DIR_EXPLICIT=true
       PS_DIR="${LAST_CD:-$HOOK_CWD}"
     fi
-    if [[ "$PUSH_SEEN" == "true" && "$PS_DIR" != "$PUSH_DIR" ]]; then
+    # Compare on a trailing-slash-normalized form so `-C /repo` and `-C /repo/` are not read as two
+    # different repositories (fail-closed over-refusal). STATED LIMIT: this is a string compare, so
+    # two spellings that only a filesystem could equate — a relative `-C ../repo` vs a cd-absolutized
+    # path, or a symlink — can still over-refuse. Canonicalizing would mean a rev-parse per push on a
+    # directory that may not exist yet (the mkdir case), so the cheap normalization covers the common
+    # spelling and the rest stays a documented fail-closed edge. (#1667 review)
+    _PS_DIR_NORM="$PS_DIR"; while [[ "$_PS_DIR_NORM" == */ && "$_PS_DIR_NORM" != "/" ]]; do _PS_DIR_NORM="${_PS_DIR_NORM%/}"; done
+    _PUSH_DIR_NORM="$PUSH_DIR"; while [[ "$_PUSH_DIR_NORM" == */ && "$_PUSH_DIR_NORM" != "/" ]]; do _PUSH_DIR_NORM="${_PUSH_DIR_NORM%/}"; done
+    if [[ "$PUSH_SEEN" == "true" && "$_PS_DIR_NORM" != "$_PUSH_DIR_NORM" ]]; then
       PUSH_DIR_CONFLICT=true
     fi
     PUSH_SEEN=true
@@ -560,8 +568,13 @@ esac
 # whole command through would grant an unearned bypass to the second — the one direction this file
 # never trades in. When some pushes are unprefixed the override does not apply and the record check
 # below decides for all of them.
-PUSH_RE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push\b'
-ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'
+# The push detector IS RE_PUSH_STMT — the same spelling the per-statement walk uses, so the two
+# cannot disagree. The earlier `push\b` copy differed from RE_PUSH_STMT's `push([^-[:alnum:]_]|$)`
+# on `git push-x`: `\b` treats the `-` as a word boundary and matched, the explicit class does not.
+# ACK_RE carries the `PRE_PUSH_ALLOW_UNREVIEWED=1` prefix so it cannot simply be RE_PUSH_STMT, but
+# its push token uses the SAME boundary class now, not `\b`. (#1667 review)
+PUSH_RE="$RE_PUSH_STMT"
+ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 PUSH_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$PUSH_RE" | grep -c . || true)
 ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || true)
 
