@@ -1,7 +1,7 @@
 # CORE-027 — a provider failure exits non-zero as itself (agent-run evidence)
 
 The user-execution scenarios from
-[CORE-027](../../tasks/CORE-027-failure-contract-destroys-the-failure.md), run by the agent against
+[CORE-027](../../tasks/completed/CORE-027-failure-contract-destroys-the-failure.md), run by the agent against
 the built CLI on 2026-08-09.
 
 ## S-CORE027-1 — print mode against a failing provider endpoint

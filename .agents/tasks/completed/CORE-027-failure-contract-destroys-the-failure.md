@@ -1,6 +1,7 @@
 ---
 title: 'CORE-027: the failure contract destroys the failure — a provider error is rendered to prose and re-parsed, a tool crash is reported as `success: true`, and an error whose message contains "abort" is returned as a successful interrupted run'
-status: todo
+status: done
+completed: 2026-08-09
 created: 2026-08-02
 priority: critical
 urgency: now
