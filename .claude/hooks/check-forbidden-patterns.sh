@@ -15,8 +15,10 @@
 # Reads tool_input.content (Write) or tool_input.new_string (Edit) from stdin —
 # NOT the existing file — so only newly introduced violations are caught.
 #
-# Escape mechanism (per-line):
-#   } catch (e) {             // allow-fallback: <reason>
+# Escape mechanism: `// allow-fallback: <reason>` on the catch line OR inside the block (within
+# the same 6-line window the fallback judgement reads). Same-line-only was #1664: prettier moves a
+# comment after `{` to the next line unconditionally, so hook and formatter could not both be
+# satisfied. `scan-no-fallback.mjs` accepts the in-block form; the hook matches the rule it fronts.
 #
 # Exit codes: 0 = pass, 2 = hard block
 
@@ -174,6 +176,14 @@ while IFS= read -r match; do
   echo "$line_content" | grep -q '//[[:space:]]*allow-fallback:' && continue
   # Read ahead 6 lines from CONTENT (not disk)
   block=$(echo "$CONTENT" | sed -n "$((line_num)),$((line_num + 6))p")
+  # The marker may also be the first thing INSIDE the block, and #1664 is why the same-line demand
+  # alone cannot stand: prettier unconditionally moves a comment that follows `{` onto the next
+  # line — not a width decision — so the two requirements were individually satisfiable and jointly
+  # not, for any file the repository also formats. `scan-no-fallback.mjs`, the CI authority for
+  # this rule, reads the marker anywhere in the catch body; this hook now agrees with the rule it
+  # fronts for. The look-ahead window is the same 6 lines the fallback judgement already reads, so
+  # the two readings cannot disagree about scope.
+  echo "$block" | grep -q '//[[:space:]]*allow-fallback:' && continue
   if ! echo "$block" | grep -qE '\bthrow\b|\bPromise\.reject\b|return.*[Ee]rr'; then
     append_block "try-catch-fallback" "$line_num" "$line_content"
   fi
@@ -190,7 +200,7 @@ if [ "$BLOCKED" = true ]; then
   echo "Rules:" >&2
   echo "  try-catch-fallback → common-mistakes #9: no fallback; terminal failures stay terminal" >&2
   echo "" >&2
-  echo "Escape (same line): // allow-fallback: <reason>" >&2
+  echo "Escape: // allow-fallback: <reason> — on the catch line, or on a line inside the block" >&2
   echo "" >&2
   exit 2
 fi
