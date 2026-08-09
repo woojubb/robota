@@ -163,7 +163,16 @@ while read -r PS_START PS_LEN; do
     '||'* | '&&'*) : ;;
     '|'* | '&'*) PS_SUBSHELLED=true ;;
   esac
-  PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN")
+  # Guarded like its siblings below: a bare `PS_MASK=$(…)` aborts the whole hook under set -e if
+  # hook_verb_scan returns non-zero on a statement slice, exiting 1 with nothing said — which the
+  # protocol reads as non-blocking (fail-OPEN, a push-review gate silently skipped). An unreadable
+  # statement is refused: whether it is a push, and which repository it targets, is unknown. (#1667)
+  if ! PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
+    echo "[pre-push-check] Blocked: a statement in this command could not be read, so whether it" >&2
+    echo "[pre-push-check] is a push — and which repository it would act on — is unknown. This is" >&2
+    echo "[pre-push-check] not a pass." >&2
+    exit 2
+  fi
   if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
     # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
     # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
