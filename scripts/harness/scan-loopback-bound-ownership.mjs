@@ -41,7 +41,7 @@ const MAP_PATH = '.agents/specs/orchestration-map.md';
  * deliberately about looping (rounds, retries, revisions…) — "2 files" or "3 packages" is not a
  * bound and must not fire this.
  */
-const QUANTIFIED_BOUND =
+export const QUANTIFIED_BOUND =
   /\b(max(?:imum)?\s+\d+|\d+\s+(?:[a-z][a-z-]*\s+)?(?:re-?(?:run|runs|cut|cuts|specification|specifications|verify\s+rounds?|review\s+rounds?)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?))\b/i;
 
 const ALLOW = /allow-restated-bound:\s*\S/;

@@ -40,6 +40,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { asScalar, splitFrontmatter } from './frontmatter.mjs';
+import { QUANTIFIED_BOUND } from './scan-loopback-bound-ownership.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const SKILLS_DIR = '.agents/skills';
@@ -210,7 +211,12 @@ export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
     // original. The sibling `loopback-bound-ownership` scan now refuses a quantified bound in the
     // map at all; what remains THIS check's business is a cell that states a DIFFERENT number —
     // which is no longer drift waiting to happen but a live disagreement.
-    const mapNumber = /(\d+)/.exec(mapBound)?.[1];
+    // The number is read out of a QUANTIFIED BOUND, never out of the first digits in the cell —
+    // `readMapBounds`' own history is a date's digits standing in for a bound, and a bare
+    // `/(\d+)/` over the whole cell re-imports that class: an `owner directive 2026-08-03`
+    // parenthetical would make the cell "say" 2026. One expression owns what counts as a
+    // quantified bound; this clause reads the number from its match alone.
+    const mapNumber = /(\d+)/.exec(QUANTIFIED_BOUND.exec(mapBound)?.[0] ?? '')?.[1];
     if (declaredNumber && mapNumber && mapNumber !== declaredNumber) {
       findings.push({
         skill: name,

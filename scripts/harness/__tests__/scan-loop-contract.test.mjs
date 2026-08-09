@@ -188,6 +188,37 @@ describe('the map and the skill state one bound', () => {
 
     expect(found.map((f) => f.kind)).toEqual(['map-disagrees-on-the-bound']);
   });
+
+  it("does not read a DATE's digits as the map's bound", () => {
+    // `readMapBounds`' own history is a date standing in for a bound; a bare first-digits
+    // extraction re-imports that class one clause over. The real map's PR-review cell carries
+    // `owner directive 2026-08-03`, so the first number in the cell is 2026 — which is not a
+    // bound, and must not turn a numberless cell into a disagreement with any declared count.
+    const found = judgeSkill({
+      name: 'probe',
+      text: skill(
+        'loop: over=attempt; bound=3 requests',
+        'Ask again, bounded at 3 requests; then halt for the user.',
+      ),
+      mapBound: 'auto → no cap (owner directive 2026-08-03); halts for the user',
+    });
+
+    expect(found, 'a date was read as the bound').toEqual([]);
+  });
+
+  it('still flags a real quantified disagreement standing next to a date', () => {
+    const found = judgeSkill({
+      name: 'probe',
+      text: skill(
+        'loop: over=attempt; bound=3 requests',
+        'Ask again, bounded at 3 requests; then halt for the user.',
+      ),
+      mapBound: 'auto → bounded, 2 requests (owner directive 2026-08-03)',
+    });
+
+    expect(found.map((f) => f.kind)).toEqual(['map-disagrees-on-the-bound']);
+    expect(found[0].detail).toContain('says 2');
+  });
 });
 
 describe('a rule that states a loop is bound by the same contract', () => {
