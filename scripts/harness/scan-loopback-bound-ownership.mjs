@@ -73,9 +73,18 @@ export function skillNames(root = WORKSPACE_ROOT) {
         'against anything. Refusing rather than reporting a pass over nothing.',
     );
   }
-  return readdirSync(dir, { withFileTypes: true })
+  const names = readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
+  // An EMPTY tree is the same nothing as a missing one — the docstring promises a refusal, and a
+  // directory with zero skills would let the restatement sweep pass over nothing to compare with.
+  if (names.length === 0) {
+    throw new Error(
+      '[loopback-bound-ownership] .agents/skills contains no skill directories, so restatements ' +
+        'cannot be judged against anything. Refusing rather than reporting a pass over nothing.',
+    );
+  }
+  return names;
 }
 
 export function collectFindings(root = WORKSPACE_ROOT) {

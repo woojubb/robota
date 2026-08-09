@@ -147,6 +147,21 @@ describe('a rule or spec-doc does not restate a skill’s bound', () => {
 });
 
 describe('what it refuses to pass over', () => {
+  it('throws on a skills tree that exists but is EMPTY — the docstring promises this refusal', () => {
+    // A directory with zero skills is the same nothing as a missing one: the restatement sweep
+    // would have nothing to compare against and pass over it silently.
+    const root = mkdtempSync(path.join(tmpdir(), 'loopback-empty-skills-'));
+    scratch.push(root);
+    mkdirSync(path.join(root, '.agents/specs'), { recursive: true });
+    mkdirSync(path.join(root, '.agents/skills'), { recursive: true });
+    writeFileSync(
+      path.join(root, '.agents/specs/orchestration-map.md'),
+      '| Pipeline | Orchestrator | Workers | Guardians | Loop-back | Floor |\n| - | - | - | - | - | - |\n| **P** | `alpha` | w | g | auto → bounded | f |\n',
+    );
+
+    expect(() => collectFindings(root)).toThrow(/no skill directories/);
+  });
+
   it('throws on a map with no pipeline table', () => {
     const root = mkdtempSync(path.join(tmpdir(), 'loopback-bare-'));
     scratch.push(root);
