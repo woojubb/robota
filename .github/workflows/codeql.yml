@@ -193,5 +193,5 @@ jobs:
           if gh run rerun "${run_id}" --failed --repo "${GITHUB_REPOSITORY}"; then
             echo "::notice::#1660 recovery: re-ran Review Gate run ${run_id} — it now reads a completed analysis."
           else
-            echo "::warning::#1660 recovery FAILED to re-run Review Gate run ${run_id}. The gate stays red until re-run by hand — the pre-#1660 state. Check the actions: write permission and the run id."
+            echo "::warning::#1660 recovery FAILED to re-run Review Gate run ${run_id}. The gate stays red until re-run by hand — the pre-#1660 state. On a FORK pull request this is expected: the token is read-only regardless of this workflow's permissions. Same-repo: check the actions: write permission and the run id."
           fi
