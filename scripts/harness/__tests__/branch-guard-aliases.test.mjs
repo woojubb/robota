@@ -389,6 +389,18 @@ describe('the verb checks see through an alias', () => {
     expect(r2.output).toMatch(/protected branch/);
   });
 
+  it('resolves an INLINE alias defined with `-c alias.NAME=…` in the same invocation', () => {
+    // `git -c alias.ci=commit ci -n`: the alias has no config-file trace, so the persisted-config
+    // lookup missed it, the verb latch left GIT_VERB="ci" (matching no gated verb), and the -n
+    // kill switch sailed past every check. The inline definition is registered now. (#1666 review)
+    const repo = scratchRepo('develop'); // no persisted alias.ci
+
+    const { status, output } = runHook('git -c alias.ci=commit ci -n -m x', repo);
+
+    expect(status, `the inline -c alias bypassed the kill-switch check:\n${output}`).toBe(2);
+    expect(output).toMatch(/-n/);
+  });
+
   it('refuses an alias chain that does not resolve within the hop bound', () => {
     // 11 aliases each pointing at the next, the last carrying `commit -n`: single-level or
     // half-flattened resolution leaves GIT_VERB an alias name, so the -n kill switch fires no

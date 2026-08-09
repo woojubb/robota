@@ -317,6 +317,35 @@ git_global_takes_value() {
   [[ "$1" =~ ^(${GIT_VALUE_GLOBALS})$ ]]
 }
 
+# ONE list of `git commit`'s value-taking LONG options — the words after which the next token is a
+# message/file/template, not a flag. The statement latch and the alias-expansion latch both need
+# it, and two hand-kept copies had already forked (the alias copy gained `--template`, the
+# statement copy had not) — the exact "second spelling waiting to disagree" this file keeps
+# fixing. Asked through commit_opt_takes_value(): a `|` from a variable is NOT `case` alternation
+# (only a literal source `|` is), so this must be a regex test, like git_global_takes_value.
+# (#1666 review)
+COMMIT_VALUE_LONG_OPTS='--message|--file|--reuse-message|--reedit-message|--template'
+commit_opt_takes_value() {
+  [[ "$1" =~ ^(${COMMIT_VALUE_LONG_OPTS})$ ]]
+}
+
+# ONE reading of a `git commit` SHORT-flag cluster, shared by both latches so the kill-switch
+# letters cannot be updated in only one copy. Prints two words: whether `-n` (no-verify) appears
+# BEFORE any value-taking letter, and whether the cluster's LAST letter takes a value (so the next
+# token is that value, not a flag). The caller applies the `-n` result only for a commit. (#1666)
+commit_cluster_flags() {
+  local cluster="${1#-}" kill=false value=false
+  while [[ -n "$cluster" ]]; do
+    case "${cluster:0:1}" in
+      n) kill=true; break ;;
+      m | F | C | c) break ;;
+    esac
+    cluster="${cluster:1}"
+  done
+  case "$1" in *[mFCc]) value=true ;; esac
+  printf '%s %s' "$kill" "$value"
+}
+
 # The head of an expansion: the word the next hop resolves, found the way the verb latch finds a
 # verb — a value-taking global consumes its value, any other flag is skipped, the first remaining
 # word is the head. Reading the LITERAL first word reproduced, inside the alias, the exact bug the
@@ -438,6 +467,32 @@ while read -r STMT_START STMT_LEN; do
   GIT_ALIASES="$GIT_ALIASES_SESSION"
   if [[ -n "$GIT_C_PATH" ]]; then
     GIT_ALIASES=$(hook_git_in "$GIT_C_PATH" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+  fi
+  # INLINE aliases: `git -c alias.NAME=EXPANSION … NAME` defines and uses an alias in ONE
+  # invocation, with no config-file trace at all — so `--get-regexp` never saw it. The verb latch
+  # consumed `-c <pair>` as -c's value, looked NAME up in the persisted set, found nothing, and
+  # left GIT_VERB the alias NAME — matching no gated verb, so every check went silent. Register
+  # each inline definition into GIT_ALIASES so the statement is judged as if NAME were configured.
+  # The value is read from words-mode, so an unquoted single-word expansion (the natural bypass
+  # `git -c alias.ci=commit ci -n`) is covered; a quoted multi-word value is masked (stated limit,
+  # like the newline-alias case above). (#1666 review)
+  if _INLINE_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN" 2>/dev/null); then
+    _expect_c_pair=false
+    while IFS= read -r _iw; do
+      if [[ "$_expect_c_pair" == "true" ]]; then
+        _expect_c_pair=false
+        if [[ "$_iw" == alias.*=* ]]; then
+          _ia_body="${_iw#alias.}"
+          _ia_name="${_ia_body%%=*}"
+          _ia_exp="${_ia_body#*=}"
+          if [[ "$_ia_name" =~ ^[A-Za-z0-9_-]+$ && -n "$_ia_exp" ]]; then
+            GIT_ALIASES="${_ia_name} ${_ia_exp}"$'\n'"${GIT_ALIASES}"
+          fi
+        fi
+      elif [[ "$_iw" == "-c" ]]; then
+        _expect_c_pair=true
+      fi
+    done <<< "$_INLINE_WORDS"
   fi
   # STATED LIMIT: an alias whose VALUE contains a literal newline (a `\n` escape in the config
   # file) prints across several lines, and `--get-regexp`'s continuation lines carry no
@@ -772,10 +827,9 @@ while read -r STMT_START STMT_LEN; do
           # switch instead of as --reuse-message's value, over-refusing an alias body that never
           # passes -n to git. Fails toward refusal, but the class is the one INFRA-085 fixes.
           # (#1666 review)
-          if [[ "$_PAST_VERB" == "true" ]]; then
-            case "$_AXW" in
-              --message | --file | --reuse-message | --reedit-message | --template) _AX_EXPECT=true; continue ;;
-            esac
+          if [[ "$_PAST_VERB" == "true" ]] && commit_opt_takes_value "$_AXW"; then
+            _AX_EXPECT=true
+            continue
           fi
           [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
           [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
@@ -793,16 +847,9 @@ while read -r STMT_START STMT_LEN; do
             fi
           fi
           if [[ "$_PAST_VERB" == "true" && "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
-            _ACL="${_AXW#-}"
-            while [[ -n "$_ACL" ]]; do
-              case "${_ACL:0:1}" in
-                n) SKIP_HOOKS=true; SKIP_WHAT="git commit -n (via alias $W)"; break ;;
-                m | F | C | c) break ;;
-              esac
-              _ACL="${_ACL:1}"
-            done
-            # A value-taking letter LAST in the cluster takes the next expansion word.
-            case "$_AXW" in *[mFCc]) _AX_EXPECT=true ;; esac
+            read -r _AX_KILL _AX_VALUE <<< "$(commit_cluster_flags "$_AXW")"
+            [[ "$_AX_KILL" == "true" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n (via alias $W)"
+            [[ "$_AX_VALUE" == "true" ]] && _AX_EXPECT=true
           fi
         done
         set +f
@@ -813,9 +860,10 @@ while read -r STMT_START STMT_LEN; do
       continue
     fi
     # Past the verb: these are this invocation's own options.
-    case "$W" in
-      --message|--file|--reuse-message|--reedit-message) EXPECT_VALUE=true; continue ;;
-    esac
+    if commit_opt_takes_value "$W"; then
+      EXPECT_VALUE=true
+      continue
+    fi
     [[ "$W" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify"
     # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
     # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling here refused
@@ -837,16 +885,9 @@ while read -r STMT_START STMT_LEN; do
     #   git push   -h  ->  -n, --[no-]dry-run
     # so `-n` is a kill switch on a commit and a harmless rehearsal on a push.
     if [[ "$W" == -[!-]* ]]; then
-      CLUSTER="${W#-}"
-      while [[ -n "$CLUSTER" ]]; do
-        case "${CLUSTER:0:1}" in
-          n) [[ "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"; break ;;
-          m|F|C|c) break ;;
-        esac
-        CLUSTER="${CLUSTER:1}"
-      done
-      # A value-taking letter LAST in the cluster has no value attached, so it takes the next word.
-      case "$W" in *[mFCc]) EXPECT_VALUE=true ;; esac
+      read -r _ST_KILL _ST_VALUE <<< "$(commit_cluster_flags "$W")"
+      [[ "$_ST_KILL" == "true" && "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"
+      [[ "$_ST_VALUE" == "true" ]] && EXPECT_VALUE=true
     fi
   done <<< "$STMT_WORDS"
   # Now that the verb is known: the husky kill switch counts only in front of a gated command.
