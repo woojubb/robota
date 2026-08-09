@@ -290,9 +290,12 @@ jobs:
           # (#1669 review, three rounds)
           # allow-unpaginated: reads the newest page of this gate's own comments — an older
           # BLOCKED beyond it means at worst a skipped courtesy note, never a wrong verdict.
+          # Matched on the comment's HEADER, not a substring: the supersession text below quotes
+          # the word BLOCKED, so a substring test would match the supersession itself and every
+          # later green run would re-post it — a self-feeding loop. (#1669 review)
           last_gate_comment=$(gh pr view "$PR_NUMBER" --json comments \
             --jq '[.comments[] | select(.body | startswith("**Review gate:"))] | last | .body // ""' || echo "")
-          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | grep -q 'BLOCKED'; then
+          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
           EOF

@@ -68,12 +68,19 @@ jobs:
   recover-review-gate:
     name: Re-run a review-gate that read this analysis too early
     needs: analyze
-    if: github.event_name == 'pull_request'
+    # An explicit success(): a custom `if:` REPLACES the implicit success() gate `needs` carries,
+    # so without it this job would also run when analyze failed or was cancelled — and there is
+    # no completed analysis to recover with there. (#1669 review)
+    if: success() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       # #1660: re-running a workflow run needs actions: write; the token is same-repo, and a fork
-      # pull request receives a read-only token regardless of this block.
+      # pull request receives a read-only token regardless of this block. A job-level block
+      # ZEROES every unlisted scope, so the head-moved check's PR read is granted explicitly —
+      # without it, `gh api pulls/<n>` 403s on every run and the recovery never reruns anything,
+      # silently restoring the stays-red state this job exists to end. (#1669 review)
+      pull-requests: read
       actions: write
     steps:
       # ── #1660: recovery for the review-gate ordering artefact ─────────────────────────────────
