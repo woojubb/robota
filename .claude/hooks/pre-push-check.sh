@@ -94,20 +94,95 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # must reach one reading of it.
 printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)' || exit 0
 
-# Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
-# in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
+# Worktree-aware context resolution — the repository the push will ACTUALLY act on (#1662).
+#
+# The previous resolution took `git -C` from the whole command, then the DECLARED tool cwd, then the
+# project dir. For the shape pushes are actually written in here — `cd <worktree> && git push` —
+# that is exactly wrong: the `cd` runs after the hook has read the payload, there is no `-C`, and
+# the declared cwd is the MAIN clone. Measured (issue #1662): five worktree pushes, each with a
+# fresh 0-finding review recorded IN the worktree, all refused against the record of a sixth,
+# already-merged branch the main checkout happened to be parked on. And the mirror direction is the
+# one this hook exists for: a main checkout parked on a branch with a CURRENT record would wave an
+# unreviewed worktree push straight through.
+#
+# So the resolution follows the PUSH STATEMENT:
+#   1. that statement's own `git -C <path>`;
+#   2. else the LAST `cd <path>` in a statement BEFORE it, resolved against the declared cwd;
+#   3. else the declared cwd.
+# A `cd` whose target cannot be read (quoted away, a variable, `cd -`) REFUSES: the hook then knows
+# the push runs somewhere other than anywhere it can name, and a guard that cannot tell which
+# repository is being pushed has not verified anything about it. Two push statements resolving to
+# different repositories refuse for the same reason.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
-# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
-# redirect this guard at another repository. The RAW command goes in: `hook_git_c_path` masks it
-# itself, by the grammar, and handing it a string a second reader had already mangled was the
-# bypass above. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
-# One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
-# `validated`: it must name SOME repository, because its verdict is about the branch that
-# repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
-# it (worktree-cwd-guard's first-nonempty fail-safe, and this hook's own `session` base check) stay
-# decisions with a reason instead of four copies that drift apart.
-PROJECT_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
+RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
+PUSH_DIR=""
+PUSH_DIR_CONFLICT=false
+LAST_CD=""
+LAST_CD_UNREADABLE=false
+STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
+  echo "[pre-push-check] Blocked: the command could not be split into statements, so which" >&2
+  echo "[pre-push-check] repository this push acts on was never read. This is not a pass." >&2
+  exit 2
+fi
+while read -r PS_START PS_LEN; do
+  PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN")
+  if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
+    # 1. This statement's own `git -C`.
+    PS_DIR=$(hook_git_c_path "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    if [[ -z "$PS_DIR" ]]; then
+      # 2. The last `cd` seen before this statement.
+      if [[ "$LAST_CD_UNREADABLE" == "true" ]]; then
+        echo "[pre-push-check] Blocked: a \`cd\` earlier in this command has a target this hook" >&2
+        echo "[pre-push-check] cannot read (quoted, a variable, or bare), so which repository the" >&2
+        echo "[pre-push-check] push acts on is unknown. Name it: git -C <path> push …" >&2
+        exit 2
+      fi
+      PS_DIR="${LAST_CD:-$HOOK_CWD}"
+    fi
+    if [[ -n "$PUSH_DIR" && "$PS_DIR" != "$PUSH_DIR" ]]; then
+      PUSH_DIR_CONFLICT=true
+    fi
+    PUSH_DIR="$PS_DIR"
+  else
+    # Track directory changes so a later push statement is judged where it runs. Words-mode hides
+    # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
+    PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    PS_FIRST=""
+    PS_SECOND=""
+    PS_INDEX=0
+    while IFS= read -r PS_W; do
+      [[ -n "$PS_W" || "$PS_INDEX" -gt 0 ]] || continue
+      case "$PS_W" in *=*) [[ "$PS_INDEX" -eq 0 ]] && continue ;; esac
+      PS_INDEX=$((PS_INDEX + 1))
+      [[ "$PS_INDEX" -eq 1 ]] && PS_FIRST="$PS_W"
+      [[ "$PS_INDEX" -eq 2 ]] && PS_SECOND="$PS_W"
+      [[ "$PS_INDEX" -ge 3 ]] && break
+    done <<< "$PS_WORDS"
+    if [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
+      # A target this hook cannot resolve: empty (quoted away), `-`/flags, a variable or
+      # substitution (`$DIR`), or `~` (the hook does not expand another process's home).
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        case "$PS_SECOND" in
+          /*) LAST_CD="$PS_SECOND" ;;
+          *) LAST_CD="${HOOK_CWD:-.}/$PS_SECOND" ;;
+        esac
+        LAST_CD_UNREADABLE=false
+      fi
+    fi
+  fi
+done <<< "$STATEMENT_RANGES"
+if [[ "$PUSH_DIR_CONFLICT" == "true" ]]; then
+  echo "[pre-push-check] Blocked: this command pushes from two different repositories, and one" >&2
+  echo "[pre-push-check] verdict cannot be about both. Split the pushes into separate commands." >&2
+  exit 2
+fi
+# `validated` still applies its work-tree test to what the statement walk produced; the project dir
+# stays as the final fallback ONLY when neither a `-C`, a `cd`, nor the declared cwd named a work
+# tree — the bare-`git push`-in-the-session case, which is the one that fallback was for.
+PROJECT_DIR=$(hook_effective_repo validated "" "$PUSH_DIR" "${CLAUDE_PROJECT_DIR:-}")
 
 # A guard fails CLOSED, and two guards taking the same resolution must answer this the same way.
 # branch-guard refuses when nothing resolvable is a repository; this hook took the identical
