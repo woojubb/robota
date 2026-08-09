@@ -77,9 +77,10 @@ describe('the allow-fallback marker, in the places the formatter leaves it', () 
     expect(status, 'the formatter-placed marker was refused').toBe(0);
   });
 
-  it('does not let a marker BEYOND the judged window excuse the catch', () => {
-    // The marker is read within the same 6-line window the fallback judgement reads, so the two
-    // readings cannot disagree about scope — a marker further away is a comment about something else.
+  it('accepts a marker DEEP in a long catch body — CI scans to the closing brace, so this must too', () => {
+    // The 6-line cap on the marker scope was the hook being stricter than the CI authority for a
+    // placement CI accepts: anywhere inside the real block. The FALLBACK judgement keeps its own
+    // window; only where a marker may sit follows the block.
     const far = `try {
   risky();
 } catch {
@@ -89,13 +90,26 @@ describe('the allow-fallback marker, in the places the formatter leaves it', () 
   d();
   e();
   f();
-  // allow-fallback: too far away to be about this catch
+  // allow-fallback: a reason deep in a long body, valid to the CI authority
   return undefined;
 }
 `;
-    const { status } = writeThrough(far);
+    const { status, output } = writeThrough(far);
 
-    expect(status, 'a distant marker excused the catch').toBe(2);
+    expect(status, `a CI-valid deep marker was refused:\n${output}`).toBe(0);
+  });
+
+  it('accepts a marker on the line ABOVE the catch — the leading-comment convention CI reads', () => {
+    const above = `try {
+  risky();
+  // allow-fallback: stated before the catch, the leading-comment convention
+} catch {
+  return undefined;
+}
+`;
+    const { status, output } = writeThrough(above);
+
+    expect(status, `the leading-comment placement was refused:\n${output}`).toBe(0);
   });
 
   it('accepts a marker when the brace opens on the NEXT line — pre-formatter content', () => {

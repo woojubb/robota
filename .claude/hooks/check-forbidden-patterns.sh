@@ -179,15 +179,25 @@ while IFS= read -r match; do
   # alone cannot stand: prettier unconditionally moves a comment that follows `{` onto the next
   # line — not a width decision — so the two requirements were individually satisfiable and jointly
   # not, for any file the repository also formats. `scan-no-fallback.mjs`, the CI authority for
-  # this rule, reads the marker anywhere in the catch body; this hook now agrees with the rule it
-  # fronts for. But the body ENDS at the block's closing brace, not at the window's edge: a catch
-  # shorter than the window would otherwise borrow a marker from whatever unrelated code follows
-  # it — a marker the CI authority, which matches braces, still refuses. So the marker scope is
-  # the window truncated at the line where the catch's brace depth returns to zero.
-  marker_scope=$(echo "$block" | awk '
+  # this rule, accepts every placement the codebase uses — the line ABOVE the catch
+  # (leading-comment convention), the catch line, anywhere in the body, and the closing-brace
+  # line — so the marker scope here matches: one line back, then forward to the block's real
+  # closing brace (a generous cap, since a hook reads a bounded window where CI parses the file).
+  # The body ENDS at that brace: a shorter catch must not borrow a marker from whatever unrelated
+  # code follows it — a marker the CI authority, which matches braces, still refuses.
+  #
+  # STATED LIMIT, the same one both readers accept differently: this count is textual, so a
+  # `{`/`}` inside a string literal in the body skews the depth and can end the marker scope a
+  # line early or late. CI's parser ignores those; telling them apart here needs a parser too.
+  # The cost lands fail-closed — a marked fallback over-refused, never an unmarked one excused
+  # beyond the closing brace's line.
+  marker_start=$((line_num > 1 ? line_num - 1 : 1))
+  marker_block=$(echo "$CONTENT" | sed -n "$((marker_start)),$((line_num + 40))p")
+  marker_scope=$(echo "$marker_block" | awk -v lead="$((line_num - marker_start))" '
+    NR <= lead { print; next }   # the line above the catch: scope, but not brace arithmetic
     { n = gsub(/{/, "{"); m = gsub(/}/, "}") }
-    NR == 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
-    NR > 1  { depth += n - m }
+    NR == lead + 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
+    NR > lead + 1  { depth += n - m }
     { opened += n; print }
     # Truncate only once the block has OPENED and closed. A `{` on the line after the catch
     # (pre-formatter content is what this hook reads) would otherwise cut the scope at the
