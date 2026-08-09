@@ -244,6 +244,33 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the -C repo's local alias was invisible:\n${output}`).toBe(2);
   });
 
+  it('a GLOB in an alias value stays a refspec, not the files in the CWD', () => {
+    // git tokenizes alias values itself and never globs; an unquoted bash split expanded
+    // `*:*` (a push-all refspec) against the hook process directory, replacing the refspec
+    // word with matching FILENAMES. The hook is spawned IN a directory holding a matching file
+    // so the expansion class is exercised. PINS the verdict rather than red-proving it: no
+    // constructed expansion flipped a verdict pre-fix (the mangled words did not carry the
+    // decision), so this guards the set -f class fix against regression, not a measured flip.
+    const repo = scratchRepo('feat/x', { pa: 'push origin *:*' });
+    writeFileSync(path.join(repo, 'a:b'), '');
+    const payload = JSON.stringify({
+      tool_name: 'Bash',
+      cwd: repo,
+      tool_input: { command: 'git pa --no-verify' },
+    });
+    const result = spawnSync('bash', [HOOK], {
+      input: payload,
+      encoding: 'utf8',
+      cwd: repo,
+      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    });
+
+    expect(
+      result.status,
+      `the glob in the alias value derailed the checks:\n${result.stdout}${result.stderr}`,
+    ).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

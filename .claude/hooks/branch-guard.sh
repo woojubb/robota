@@ -312,6 +312,11 @@ git_global_takes_value() {
 # every check keyed on `commit` went silent. (#1666 review)
 git_expansion_head() {
   local w expect=false
+  # Word-splitting WITHOUT pathname expansion: git tokenizes alias values itself and never globs,
+  # so a value containing `*`/`?`/`[` (a push-all refspec, a pathspec) must not be replaced by
+  # whatever files happen to sit in the CWD. This function runs in a command-substitution
+  # subshell, so the flag change stays local. (#1666 review)
+  set -f
   for w in $1; do
     if [[ "$expect" == "true" ]]; then expect=false; continue; fi
     if git_global_takes_value "$w"; then
@@ -342,6 +347,8 @@ git_alias_expansion_chain() {
     # Rebuild: everything before the head, the hop's expansion, everything after.
     pre=""; rest=""; expect=false
     local seen=false
+    # set -f for the same reason as git_expansion_head — subshell-local, git never globs these.
+    set -f
     for w in $exp; do
       if [[ "$seen" == "true" ]]; then rest="${rest}${rest:+ }${w}"; continue; fi
       if [[ "$w" == "$head" && "$expect" != "true" ]]; then seen=true; continue; fi
@@ -612,10 +619,10 @@ while read -r STMT_START STMT_LEN; do
       # as the subcommand. Measured: `git --work-tree /x commit -n -m y` set the verb to `/x`, which
       # silenced both the `-n` check and the HUSKY=0 check — they ask whether the verb is `commit`.
       # Only `-c`/`-C` were consumed before. (#1588 review)
-      case "$W" in
-        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
-          EXPECT_VALUE=true; continue ;;
-      esac
+      if git_global_takes_value "$W"; then
+        EXPECT_VALUE=true
+        continue
+      fi
       case "$W" in
         -*) continue ;;
       esac
@@ -642,6 +649,10 @@ while read -r STMT_START STMT_LEN; do
         fi
         _PAST_VERB=false
         _AX_EXPECT=false
+        # This loop runs in the MAIN shell: disable pathname expansion for the split and restore
+        # after — a glob in the alias value must not be replaced by CWD filenames, least of all
+        # here, where the words decide SKIP_HOOKS and the verb. (#1666 review)
+        set -f
         for _AXW in $_ALIAS_EXP; do
           if [[ "$_PAST_VERB" != "true" ]]; then
             [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
@@ -685,6 +696,7 @@ while read -r STMT_START STMT_LEN; do
             case "$_AXW" in *[mFCc]) _AX_EXPECT=true ;; esac
           fi
         done
+        set +f
       else
         GIT_VERB="$W"
       fi
