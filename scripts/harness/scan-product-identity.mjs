@@ -198,12 +198,11 @@ function main() {
   // found nothing to look at. Declaring the occurrence count would report success as the subject
   // shrinks toward the goal, which is the reading this marker exists to prevent.
   const packagesWalked = Object.keys(counts).length;
-  console.log(
-    packagesWalked === 0
-      ? '::examined:: 0 library packages ::expected-empty:: no library package matched the walk, ' +
-          'which is a tree with no libraries rather than a clean one'
-      : `::examined:: ${packagesWalked} library packages`,
-  );
+  // No expected-empty branch: `main` returns early when the configured package list is empty, and
+  // every remaining package either lands in `counts` or throws for a missing `src`, so zero cannot
+  // reach this line. A branch for it would be dead code claiming a state the scan cannot be in.
+  // (#1684 review)
+  console.log(`::examined:: ${packagesWalked} library packages`);
   console.log(
     `product-identity ratchet passed (${packagesWalked} library package(s), ` +
       `${total} occurrence(s) at baseline).`,

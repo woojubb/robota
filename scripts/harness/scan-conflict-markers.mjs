@@ -93,8 +93,10 @@ export function findGitConflictMarkers(root = WORKSPACE_ROOT) {
       `governed tree(s) absent under ${root}: ${missing.join(', ')}. This scan will not report a ` +
         'pass over source it could not read.',
     );
+  examinedSourceFiles = 0;
   for (const dir of MARKER_SCAN_ROOTS) {
     for (const rel of walkSourceFiles(root, dir, [])) {
+      examinedSourceFiles++;
       const lines = readFileSync(path.join(root, rel), 'utf8').split('\n');
       for (let i = 0; i < lines.length; i++) {
         if (GIT_CONFLICT_MARKER.test(lines[i])) {
@@ -107,16 +109,28 @@ export function findGitConflictMarkers(root = WORKSPACE_ROOT) {
 }
 
 /**
- * How many documents the last walk read — HARNESS-057. A module-level holder set where the walk
- * happens and read where the line is printed, so the finder's return shape (and every test that
- * asserts on its findings) is untouched. Reset at the top of each run, before the early paths, or a
- * run that examined nothing would report the previous run's number.
+ * How much the last run read — HARNESS-057. Module-level holders set where each walk happens and
+ * read where the lines are printed, so the finders' return shapes (and every test that asserts on
+ * their findings) stay untouched. Reset at the top of each walk, or a run that examined nothing
+ * would report the previous run's number.
+ *
+ * TWO holders, because this scan has TWO subjects and they are different sizes: the conflict-debris
+ * walk reads source across `packages`/`apps`/`scripts`, while the forbidden-phrase walk reads only
+ * the governance markdown. The first version of this line counted the markdown alone and printed it
+ * as the whole subject — under-reporting the larger walk by an order of magnitude, which is the very
+ * defect this marker exists to expose ("the number must come from the walk"). Review caught it.
  */
 let examinedDocuments = 0;
+let examinedSourceFiles = 0;
 
 /** What the last `findConflictMarkerFindings` run actually read — exported so it can be asserted. */
 export function examinedDocumentCount() {
   return examinedDocuments;
+}
+
+/** What the last `findGitConflictMarkers` walk actually read — exported so it can be asserted. */
+export function examinedSourceFileCount() {
+  return examinedSourceFiles;
 }
 
 export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
@@ -148,10 +162,12 @@ export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
 export function main() {
   const findings = findConflictMarkerFindings();
   if (findings.length === 0) {
-    // HARNESS-057: the size of the subject, on the channel the runner reads. Zero documents means
-    // the walk found no markdown at all — a pass over nothing, not a clean tree — so it is declared
-    // without an expected-empty excuse and the runner fails the suite on it.
-    process.stdout.write(`::examined:: ${examinedDocuments} markdown documents\n`);
+    // HARNESS-057: the size of the subject, on the channel the runner reads — ONE LINE PER SUBJECT,
+    // because this scan walks two of them and a single number would have to misreport one. A zero in
+    // either means that walk found nothing, which is a pass over nothing rather than a clean tree, so
+    // neither carries an expected-empty excuse and the runner fails the suite on it.
+    process.stdout.write(`::examined:: ${examinedSourceFiles} source files\n`);
+    process.stdout.write(`::examined:: ${examinedDocuments} governance documents\n`);
     process.stdout.write('conflict marker scan passed.\n');
   } else {
     process.stdout.write('conflict marker scan failed:\n');
