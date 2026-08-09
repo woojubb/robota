@@ -28,8 +28,12 @@ const COMPOUND_FORMS = [
   // no fixture here contained one, which is how that gap stayed invisible (HARNESS-061).
   (verb) => `echo "starting" && ${verb}`,
   (verb) => verb,
-  (verb) => `cd ${WORKSPACE_ROOT}\n${verb}`,
-  (verb) => `cd ${WORKSPACE_ROOT} && ${verb}`,
+  // The cd forms target the SCRATCH project, not the real workspace. pre-push-check now follows a
+  // `cd` to decide WHICH repository it judges (#1662/#1667), so a cd into the real tree made the
+  // probe's verdict depend on the real tree's review-record state — exactly the dependence this
+  // file's header forswears, surfaced the day the walk started honouring the cd.
+  (verb, dir) => `cd ${dir}\n${verb}`,
+  (verb, dir) => `cd ${dir} && ${verb}`,
   (verb) => `git status; ${verb}`,
 ];
 
@@ -119,7 +123,8 @@ describe('hooks are reachable from the command forms actually used', () => {
     // which is the whole question.
     it(`${hook} recognises its verb in every compound form`, { timeout: 120_000 }, () => {
       const reactions = COMPOUND_FORMS.map((shape) => {
-        const result = runHook(hook, shape(verb));
+        const projectDir = scratchProject();
+        const result = runHook(hook, shape(verb, projectDir), projectDir);
         // "Reacted" = said something or refused. Silence with status 0 is the bypass being measured.
         return result.output.trim().length > 0 || result.status !== 0;
       });

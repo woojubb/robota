@@ -92,22 +92,463 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # because this line is the whole file's entry point, the branch-hygiene check, the lockfile-sync
 # check and the local-review record were all skipped for that shape. Two guards reading one command
 # must reach one reading of it.
-printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)' || exit 0
+# ONE spelling of "this statement is a push", reused by the per-statement walk AND by the
+# override/ACK counting below (PUSH_RE) — a second copy of the pattern is a second answer waiting
+# to disagree (#1667 review; lib/command-scan.sh carries this file's history of exactly that).
+RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
+printf '%s' "$COMMAND_VERBS" | grep -qE "$RE_PUSH_STMT" || exit 0
 
-# Worktree-aware context resolution (parallel-wave lesson): judge the repo the command actually runs
-# in — `git -C <path>` in the command > hook-input `cwd` > project dir — never blindly the main clone.
+# Worktree-aware context resolution — the repository the push will ACTUALLY act on (#1662).
+#
+# The previous resolution took `git -C` from the whole command, then the DECLARED tool cwd, then the
+# project dir. For the shape pushes are actually written in here — `cd <worktree> && git push` —
+# that is exactly wrong: the `cd` runs after the hook has read the payload, there is no `-C`, and
+# the declared cwd is the MAIN clone. Measured (issue #1662): five worktree pushes, each with a
+# fresh 0-finding review recorded IN the worktree, all refused against the record of a sixth,
+# already-merged branch the main checkout happened to be parked on. And the mirror direction is the
+# one this hook exists for: a main checkout parked on a branch with a CURRENT record would wave an
+# unreviewed worktree push straight through.
+#
+# So the resolution follows the PUSH STATEMENT:
+#   1. that statement's own `git -C <path>`;
+#   2. else the LAST `cd <path>` in a statement BEFORE it, resolved against the declared cwd;
+#   3. else the declared cwd.
+# A `cd` whose target cannot be read (quoted away, a variable, `cd -`) REFUSES: the hook then knows
+# the push runs somewhere other than anywhere it can name, and a guard that cannot tell which
+# repository is being pushed has not verified anything about it. Two push statements resolving to
+# different repositories refuse for the same reason.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
-# One extractor, matched against a masked command so a quoted mention of `git -C` cannot
-# redirect this guard at another repository. The RAW command goes in: `hook_git_c_path` masks it
-# itself, by the grammar, and handing it a string a second reader had already mangled was the
-# bypass above. See lib/command-scan.sh.
-GIT_C_PATH=$(hook_git_c_path "$COMMAND" || true)
-# One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
-# `validated`: it must name SOME repository, because its verdict is about the branch that
-# repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
-# it (worktree-cwd-guard's first-nonempty fail-safe, and this hook's own `session` base check) stay
-# decisions with a reason instead of four copies that drift apart.
-PROJECT_DIR=$(hook_effective_repo validated "$GIT_C_PATH" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}")
+PUSH_DIR=""
+# A SEEN flag, not `-n "$PUSH_DIR"`, decides whether a prior push exists: the first push can
+# legitimately resolve to the EMPTY string (no cwd in the payload — "Absence is normal" — no `cd`,
+# no `-C`, the bare-push-in-session case that falls back to the project dir). Testing `-n` then
+# read that empty first push as "no push yet", so a second push to a DIFFERENT repo overwrote it
+# with no conflict and the first push went unverified. (#1667 review)
+PUSH_SEEN=false
+PUSH_DIR_EXPLICIT=false
+PUSH_DIR_CONFLICT=false
+LAST_CD=""
+LAST_CD_UNREADABLE=false
+# Whether the cd that set LAST_CD was itself CONDITIONAL (`&&`-guarded) — its effect is certain
+# only if the push is `&&`-chained back to it. (#1667 review)
+LAST_CD_CONDITIONAL=false
+PUSHD_STACK=()
+# Subshell scope. A `cd` inside `( … )` applies to commands WITHIN that subshell but NEVER to the
+# parent shell after the `)` — `(cd /w && npm ci); git push` runs the push in the ORIGINAL dir, not
+# /w. A single-statement `PS_TAIL` check saw only a `)` in the same statement as the cd; a subshell
+# spanning statements (`(cd /w`, then `npm ci)`) leaked its cd past the close entirely. So the dir
+# state is SAVED at every `(` and RESTORED at every `)`: a cd done inside is visible until the close
+# and discarded after. Closes are applied at the TOP of the NEXT statement (and after the loop), so
+# a push in the SAME statement as its own closing `)` — `(cd /w && git push)` — still resolves
+# against the in-subshell dir before the restore. (#1667 review)
+SUBSHELL_STACK_CD=()
+SUBSHELL_STACK_UNREAD=()
+SUBSHELL_STACK_COND=()
+PENDING_CLOSES=0
+STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
+if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
+  echo "[pre-push-check] Blocked: the command could not be split into statements, so which" >&2
+  echo "[pre-push-check] repository this push acts on was never read. This is not a pass." >&2
+  exit 2
+fi
+PREV_STMT_END=0
+while read -r PS_START PS_LEN; do
+  # The connector JOINING this statement to the previous one — the text in the gap the ranges
+  # discard. `A || B` runs B only when A FAILED, so the linear walk (every statement runs, in
+  # order) is wrong for a `||`-guarded statement: `cd /a || cd /b && git push` lands the push in
+  # /a when /a exists (|| short-circuits, cd /b never runs) but the walk would carry /b forward,
+  # judging the wrong repository — the #1662 defect in its more dangerous under-refusing form. A
+  # `||`-guarded directory change is therefore UNCERTAIN, not a definite base. (#1667 review)
+  PS_CONNECTOR="${COMMAND:$PREV_STMT_END:$((PS_START - 1 - PREV_STMT_END))}"
+  PS_STMT_END=$((PS_START - 1 + PS_LEN))
+  PREV_STMT_END="$PS_STMT_END"
+  PS_OR_GUARDED=false
+  [[ "$PS_CONNECTOR" == *'||'* ]] && PS_OR_GUARDED=true
+  # `&&` before a statement means it runs only if the PRIOR command succeeded — conditional, just
+  # like `||`, but in the other direction. A cd so guarded is CERTAIN to have taken effect only
+  # when the push is itself reached through an unbroken `&&` chain from it (push runs ⟹ every
+  # `&&`-linked command before it, including the cd, succeeded). If a `;` or `||` breaks that chain
+  # between the cd and the push, the cd may not have run while the push still does. Tracked here and
+  # resolved at the push. (#1667 review)
+  PS_AND_GUARDED=false
+  [[ "$PS_CONNECTOR" == *'&&'* ]] && PS_AND_GUARDED=true
+  # A `cd` that runs in a SUBSHELL never propagates its directory to a later statement, so its
+  # effect must be IGNORED, not carried forward. Both sides of a pipe run in subshells, and a
+  # backgrounded (`&`) command does too. The connector AFTER a statement is the operator that
+  # applies to IT — a background `&` and a pipe `|` bind to the command on their LEFT — while a
+  # pipe on the connector BEFORE binds to the command on its right. `||`/`&&` are two-char and
+  # must not be mistaken for the single `|`/`&`. (#1667 review)
+  PS_AFTER="${COMMAND:$PS_STMT_END}"
+  PS_AFTER="${PS_AFTER#"${PS_AFTER%%[![:space:]]*}"}"
+  PS_SUBSHELLED=false
+  [[ "$PS_CONNECTOR" != *'||'* && "$PS_CONNECTOR" == *'|'* ]] && PS_SUBSHELLED=true
+  case "$PS_AFTER" in
+    '||'* | '&&'*) : ;;
+    '|'* | '&'*) PS_SUBSHELLED=true ;;
+  esac
+  # Guarded like its siblings below: a bare `PS_MASK=$(…)` aborts the whole hook under set -e if
+  # hook_verb_scan returns non-zero on a statement slice, exiting 1 with nothing said — which the
+  # protocol reads as non-blocking (fail-OPEN, a push-review gate silently skipped). An unreadable
+  # statement is refused: whether it is a push, and which repository it targets, is unknown. (#1667)
+  if ! PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
+    echo "[pre-push-check] Blocked: a statement in this command could not be read, so whether it" >&2
+    echo "[pre-push-check] is a push — and which repository it would act on — is unknown. This is" >&2
+    echo "[pre-push-check] not a pass." >&2
+    exit 2
+  fi
+  # Subshell CLOSES pending from the previous statement are applied HERE, before this statement runs
+  # — restoring the dir state saved at the matching `(`. Deferring to the next statement's top (not
+  # the end of the closing statement) means a push sharing a statement with its own `)` has already
+  # resolved against the in-subshell dir. (#1667 review)
+  while (( PENDING_CLOSES > 0 )); do
+    if (( ${#SUBSHELL_STACK_CD[@]} > 0 )); then
+      _SS_TOP=$(( ${#SUBSHELL_STACK_CD[@]} - 1 ))
+      LAST_CD="${SUBSHELL_STACK_CD[$_SS_TOP]}"
+      LAST_CD_UNREADABLE="${SUBSHELL_STACK_UNREAD[$_SS_TOP]}"
+      LAST_CD_CONDITIONAL="${SUBSHELL_STACK_COND[$_SS_TOP]}"
+      unset "SUBSHELL_STACK_CD[$_SS_TOP]" "SUBSHELL_STACK_UNREAD[$_SS_TOP]" "SUBSHELL_STACK_COND[$_SS_TOP]"
+    fi
+    PENDING_CLOSES=$((PENDING_CLOSES - 1))
+  done
+  # This statement's own SUBSHELL-GROUP parens, counted on the MASK (quoted parens are fill). A
+  # command/process substitution — `$( … )`, `<( … )`, `>( … )` — is NOT a subshell that scopes the
+  # surrounding cd: `cd /pre$(x)post` runs the cd in the CURRENT shell, the `$( )` only produces
+  # part of the argument. Its parens are balanced within the one statement, so they are subtracted
+  # from both the open and close counts and never trigger a save/restore (which would erase the
+  # target-is-unreadable verdict the `$` earns). STATED LIMIT: arithmetic `$(( … ))` / `(( … ))` is
+  # not special-cased — rare on a push command line, and its extra paren fails toward a refusal, not
+  # a bypass. (#1667 review)
+  _SS_ALLOPEN="${PS_MASK//[^(]/}"
+  _SS_ALLCLOSE="${PS_MASK//[^)]/}"
+  _SS_CMDSUB=0
+  for _SS_PAT in '$(' '<(' '>('; do
+    _SS_STRIPPED="${PS_MASK//"$_SS_PAT"/}"
+    _SS_CMDSUB=$(( _SS_CMDSUB + (${#PS_MASK} - ${#_SS_STRIPPED}) / 2 ))
+  done
+  _SS_OPENS_N=$(( ${#_SS_ALLOPEN} - _SS_CMDSUB ))
+  _SS_CLOSES_N=$(( ${#_SS_ALLCLOSE} - _SS_CMDSUB ))
+  if (( _SS_OPENS_N < 0 )); then _SS_OPENS_N=0; fi
+  if (( _SS_CLOSES_N < 0 )); then _SS_CLOSES_N=0; fi
+  _SS_I=0
+  while (( _SS_I < _SS_OPENS_N )); do
+    SUBSHELL_STACK_CD+=("$LAST_CD")
+    SUBSHELL_STACK_UNREAD+=("$LAST_CD_UNREADABLE")
+    SUBSHELL_STACK_COND+=("$LAST_CD_CONDITIONAL")
+    _SS_I=$((_SS_I + 1))
+  done
+  PENDING_CLOSES=$_SS_CLOSES_N
+  if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
+    # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
+    # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
+    # turns out not to be a work tree is refused below; the fallback keeps its existing handling.
+    PS_DIR_EXPLICIT=false
+    # 1. This statement's own `git -C`.
+    PS_DIR=$(hook_git_c_path "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    [[ -n "$PS_DIR" ]] && PS_DIR_EXPLICIT=true
+    # A `||`-guarded push with no `-C` of its own runs only when the prior command FAILED — so
+    # the directory the walk tracked (from the branch that succeeded) is not where this push
+    # lands. Its base is unknowable; refuse rather than judge the wrong repository. (#1667 review)
+    if [[ -z "$PS_DIR" && "$PS_OR_GUARDED" == "true" ]]; then
+      echo "[pre-push-check] Blocked: this push runs only if a preceding command failed (\`||\`)," >&2
+      echo "[pre-push-check] so which directory it lands in depends on that failure and cannot be" >&2
+      echo "[pre-push-check] read here. Name the repository explicitly: git -C <path> push …" >&2
+      exit 2
+    fi
+    if [[ -z "$PS_DIR" ]]; then
+      # 2. The last `cd` seen before this statement.
+      if [[ "$LAST_CD_UNREADABLE" == "true" ]]; then
+        echo "[pre-push-check] Blocked: a \`cd\` earlier in this command has a target this hook" >&2
+        echo "[pre-push-check] cannot read (quoted, a variable, or bare), so which repository the" >&2
+        echo "[pre-push-check] push acts on is unknown. Name it: git -C <path> push …" >&2
+        exit 2
+      fi
+      # The tracked `cd` was CONDITIONAL (`&&`-guarded) and this push is not `&&`-chained back to
+      # it — a `;` or `||` sits between, so the push runs even if that cd never did, landing
+      # somewhere other than the dir the walk carried. `cd /A && git push` (push `&&`-chained) is
+      # certain and passes; `false && cd /A ; git push` (push `;`-separated) is not. Refuse the
+      # uncertain shape rather than judge the wrong repository. (#1667 review)
+      if [[ -n "$LAST_CD" && "$LAST_CD_CONDITIONAL" == "true" && "$PS_CONNECTOR" != *'&&'* ]]; then
+        echo "[pre-push-check] Blocked: a \`cd\` this push relies on runs only if a preceding" >&2
+        echo "[pre-push-check] command succeeded (\`&&\`), but this push is not chained to that" >&2
+        echo "[pre-push-check] success — it would run even where the cd did not. Which repository" >&2
+        echo "[pre-push-check] it lands in is unknown; name it: git -C <path> push …" >&2
+        exit 2
+      fi
+      # A tracked `cd` named this directory (explicit); an empty LAST_CD means the HOOK_CWD
+      # fallback (bare push in session), which is NOT explicit.
+      [[ -n "$LAST_CD" ]] && PS_DIR_EXPLICIT=true
+      PS_DIR="${LAST_CD:-$HOOK_CWD}"
+    fi
+    # Compare on a trailing-slash-normalized form so `-C /repo` and `-C /repo/` are not read as two
+    # different repositories (fail-closed over-refusal). STATED LIMIT: this is a string compare, so
+    # two spellings that only a filesystem could equate — a relative `-C ../repo` vs a cd-absolutized
+    # path, or a symlink — can still over-refuse. Canonicalizing would mean a rev-parse per push on a
+    # directory that may not exist yet (the mkdir case), so the cheap normalization covers the common
+    # spelling and the rest stays a documented fail-closed edge. (#1667 review)
+    _PS_DIR_NORM="$PS_DIR"; while [[ "$_PS_DIR_NORM" == */ && "$_PS_DIR_NORM" != "/" ]]; do _PS_DIR_NORM="${_PS_DIR_NORM%/}"; done
+    _PUSH_DIR_NORM="$PUSH_DIR"; while [[ "$_PUSH_DIR_NORM" == */ && "$_PUSH_DIR_NORM" != "/" ]]; do _PUSH_DIR_NORM="${_PUSH_DIR_NORM%/}"; done
+    if [[ "$PUSH_SEEN" == "true" && "$_PS_DIR_NORM" != "$_PUSH_DIR_NORM" ]]; then
+      PUSH_DIR_CONFLICT=true
+    fi
+    # OR-latch the "was any push to this dir EXPLICIT?" invariant rather than overwriting it with
+    # the last statement's value. Two pushes to the same normalized dir where one is explicit
+    # (`cd`/`-C`) and one is the HOOK_CWD fallback would otherwise let the fallback's `false` flip
+    # it off, skipping the not-a-work-tree refusal below. No current bypass (the shapes converge on
+    # the already-permitted bare-push-in-session path), but the invariant should not hinge on
+    # statement order. (#1667 review)
+    if [[ "$PUSH_SEEN" == "true" ]]; then
+      if [[ "$PS_DIR_EXPLICIT" == "true" ]]; then PUSH_DIR_EXPLICIT=true; fi
+    else
+      PUSH_DIR_EXPLICIT="$PS_DIR_EXPLICIT"
+    fi
+    PUSH_SEEN=true
+    PUSH_DIR="$PS_DIR"
+  else
+    # Track directory changes so a later push statement is judged where it runs. Words-mode hides
+    # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
+    # A statement whose words cannot be READ is a statement whose directory changes cannot be
+    # seen — the same answer every other unknowable gets, not a silent skip that leaves a later
+    # push trusting a stale base. (#1667 review)
+    #
+    if ! PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
+    PS_FIRST=""
+    PS_SECOND=""
+    PS_THIRD=""
+    PS_FOURTH=""
+    PS_FIFTH=""
+    PS_INDEX=0
+    while IFS= read -r PS_W; do
+      [[ -n "$PS_W" || "$PS_INDEX" -gt 0 ]] || continue
+      case "$PS_W" in *=*) [[ "$PS_INDEX" -eq 0 ]] && continue ;; esac
+      PS_INDEX=$((PS_INDEX + 1))
+      [[ "$PS_INDEX" -eq 1 ]] && PS_FIRST="$PS_W"
+      [[ "$PS_INDEX" -eq 2 ]] && PS_SECOND="$PS_W"
+      [[ "$PS_INDEX" -eq 3 ]] && PS_THIRD="$PS_W"
+      [[ "$PS_INDEX" -eq 4 ]] && PS_FOURTH="$PS_W"
+      [[ "$PS_INDEX" -eq 5 ]] && PS_FIFTH="$PS_W"
+      [[ "$PS_INDEX" -ge 6 ]] && break
+    done <<< "$PS_WORDS"
+    # A subshell opener `(` glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
+    # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
+    # against the declared cwd, the exact wrong-repository answer this walk exists to end. Only `(`
+    # is stripped here: it is a shell metacharacter that always tokenizes on its own, so `(cd` is
+    # genuinely a cd.
+    PS_FIRST="${PS_FIRST#"${PS_FIRST%%[!(]*}"}"
+    # A BRACE group is different: `{` opens a group ONLY as its own space-delimited word (`{ cd
+    # dir; …`), where the first word is bare `{` and the cd sits one word later — shift. A GLUED
+    # `{cd` is NOT a group: bash runs it as the command `{cd`, which fails and changes no
+    # directory, so it must stay a non-cd token, not be stripped to `cd`. Stripping `{` in the
+    # same class as `(` read `{cd /reviewed-repo; git push` as a valid brace-group cd and judged
+    # /reviewed-repo while the real push ran in the unreviewed cwd (fail-open). The empty case is
+    # a bare `(` that stripped to nothing (`( cd dir …`). (#1667 review)
+    if [[ -z "$PS_FIRST" || "$PS_FIRST" == "{" ]]; then
+      PS_FIRST="$PS_SECOND"
+      PS_SECOND="$PS_THIRD"
+      PS_THIRD="$PS_FOURTH"
+      PS_FOURTH="$PS_FIFTH"
+      PS_FIFTH=""
+    fi
+    # `builtin cd`, `command cd` and `\cd` are the cd builtin wearing a bypass prefix — valid
+    # ways to skip a shell function or alias, and each left the walk blind to a real directory
+    # change: the push after one was judged where the shell no longer stood. STACKED prefixes
+    # (`command builtin cd`) unwrap one per loop turn, or the second prefix re-blinded the walk
+    # one word later. (#1667 review)
+    while [[ "$PS_FIRST" == "builtin" || "$PS_FIRST" == "command" ]]; do
+      PS_FIRST="$PS_SECOND"
+      PS_SECOND="$PS_THIRD"
+      PS_THIRD="$PS_FOURTH"
+      PS_FOURTH="$PS_FIFTH"
+      PS_FIFTH=""
+    done
+    PS_FIRST="${PS_FIRST#\\}"
+    # A `||`-guarded directory change runs only if the prior command failed, so whether it took
+    # effect is unknowable — the base is uncertain, not the value it names. Only a cd/pushd/popd
+    # matters here: a `||`-guarded NON-directory command (`foo || bar`) changes no directory, so
+    # the base is unaffected and must not be poisoned. (#1667 review)
+    if [[ "$PS_OR_GUARDED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
+      # A `||`-guarded pushd/popd MIGHT have run, or might not — unlike a subshell'd one, which
+      # certainly did not. Leaving the stack untouched let a later UNCONDITIONAL popd resolve a
+      # frame with false confidence:
+      #   `pushd /A; false || pushd /B; popd; git push`  — the pushd may have pushed a frame, and
+      #   `pushd /A; pushd /B; false || popd; popd; git push` — the popd may have consumed one.
+      # A `?` poison carries the uncertainty forward: a guarded pushd APPENDS one (the frame it may
+      # have added), a guarded popd REPLACES the top (the frame it may have consumed), and either
+      # way the next popd inherits the `?` and reads unreadable. (#1667 review)
+      if [[ "$PS_FIRST" == "pushd" ]]; then
+        PUSHD_STACK+=("?")
+      elif [[ "$PS_FIRST" == "popd" && ${#PUSHD_STACK[@]} -gt 0 ]]; then
+        PUSHD_STACK[$(( ${#PUSHD_STACK[@]} - 1 ))]="?"
+      fi
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
+    # A subshell'd cd/pushd/popd (either side of a `|`, or backgrounded with `&`) changed a
+    # directory the parent shell never saw, so it is IGNORED — the base stays what it was, and a
+    # later push resolves to that, not to this phantom. Distinct from `||` above, which is
+    # UNCERTAIN (refuse): this one is certainly-no-effect. (#1667 review)
+    if [[ "$PS_SUBSHELLED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
+      continue
+    fi
+    if [[ "$PS_FIRST" == "popd" ]]; then
+      # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
+      # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
+      # real shell knows — unreadable, the same answer every other unknowable target gets.
+      if [[ -n "$PS_SECOND" ]] || [[ ${#PUSHD_STACK[@]} -eq 0 ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        # Indexed from the length, not a negative subscript: bash gained negative array indices
+        # in 4.3, and macOS ships /bin/bash at 3.2 — where the negative form is a fatal expansion
+        # error that, under set -e, kills the hook with a non-2 exit the protocol reads as PASS.
+        # A guard whose newest line fail-opens an entire platform is the exact silence it exists
+        # to refuse. (#1667 review)
+        _PUSHD_TOP=$(( ${#PUSHD_STACK[@]} - 1 ))
+        LAST_CD="${PUSHD_STACK[$_PUSHD_TOP]}"
+        unset "PUSHD_STACK[$_PUSHD_TOP]"
+        if [[ "$LAST_CD" == "?" ]]; then
+          LAST_CD=""
+          LAST_CD_UNREADABLE=true
+        else
+          # A `&&`-guarded popd is conditional like a `&&`-guarded cd. (#1667 review)
+          LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
+          LAST_CD_UNREADABLE=false
+        fi
+      fi
+    elif [[ "$PS_FIRST" == "pushd" && -z "$PS_SECOND" ]]; then
+      # A bare `pushd` (no argument) does NOT go somewhere unknowable: bash swaps the top two
+      # directory-stack entries and cd's to the new top — a directory this walk already knows.
+      # Its model holds LAST_CD (the current dir) and PUSHD_STACK (the saved pre-pushd dirs),
+      # so the swap exchanges LAST_CD with the stack top. Bash errors on a bare pushd with fewer
+      # than two dirs on the stack (no prior pushd here), and a poisoned top or an unreadable
+      # LAST_CD leaves the destination unknown — those refuse. Otherwise this is the ordinary
+      # `pushd /a && pushd && git push` idiom that lands back where it began, and refusing it
+      # was an over-refusal not covered by any earlier case. (#1667 review)
+      if [[ ${#PUSHD_STACK[@]} -eq 0 || "$LAST_CD_UNREADABLE" == "true" ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        _PUSHD_TOP=$(( ${#PUSHD_STACK[@]} - 1 ))
+        _PUSHD_SWAP="${PUSHD_STACK[$_PUSHD_TOP]}"
+        if [[ "$_PUSHD_SWAP" == "?" ]]; then
+          LAST_CD_UNREADABLE=true
+        else
+          PUSHD_STACK[$_PUSHD_TOP]="${LAST_CD:-${HOOK_CWD:-.}}"
+          LAST_CD="$_PUSHD_SWAP"
+          LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
+          LAST_CD_UNREADABLE=false
+        fi
+      fi
+    elif [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
+      # `cd -- <path>`: the end-of-options marker is not the target — the next word is.
+      [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
+      # A substitution EMBEDDED in the target is invisible to words-mode: `cd /pre$(x)post`
+      # yields the word `/prepost`, the inner content AND its delimiters dropped — a clean-looking
+      # literal that is not where the shell will land. The raw TARGET TOKEN still carries the
+      # `$`/backtick — and it is the token that is scanned, not the whole statement, or an
+      # env-var prefix (`V=$(x) cd ../sibling`) would refuse a perfectly literal target.
+      # (#1667 review, both rounds)
+      PS_RAW="${COMMAND:$((PS_START - 1)):$PS_LEN}"
+      # EVERY raw occurrence is tested, not the first: `head -1` locked onto a decoy `cd `
+      # inside an env-prefix substitution (`V=$(cd /tmp) cd /repo$(echo evil)path`), and the
+      # real, substitution-bearing target was never inspected. The walk cannot know which
+      # occurrence is the live command word, so a `$`/backtick in ANY of them refuses —
+      # a decoy can only add a refusal, never launder a hidden target past one. (#1667 review)
+      RAW_TGT=$(printf '%s' "$PS_RAW" | grep -oE "(^|[^[:alnum:]_-])${PS_FIRST}[[:space:]]+(--[[:space:]]+)?[^[:space:]]+") || RAW_TGT=""
+      TARGET_HIDDEN=false
+      if [[ "$RAW_TGT" == *'$'* || "$RAW_TGT" == *'`'* ]]; then
+        TARGET_HIDDEN=true
+      fi
+      # NO raw occurrence at all is its own refusal: words-mode said this statement is a cd,
+      # so a raw slice in which `cd `-followed-by-a-target cannot be found (`"cd" /x` — the
+      # quoted builtin name breaks the adjacency the pattern needs) is a shape this reader
+      # does not understand, and the target it failed to find is exactly the one it exists
+      # to inspect. Measured: `"cd" /repo\`evil\`/path && git push` walked through with a
+      # clean-looking PS_SECOND and a silently wrong LAST_CD. (#1667 review)
+      if [[ -z "$RAW_TGT" ]]; then
+        TARGET_HIDDEN=true
+      fi
+      # A target this hook cannot resolve, decided BEFORE the stack is touched: empty (quoted
+      # away), `-`/flags, a variable or substitution (`$DIR`, or one EMBEDDED in the token —
+      # TARGET_HIDDEN above), `~` (the hook does not expand another process's home), a `pushd`
+      # stack rotation (`+N`/`-N`), a word still carrying a subshell paren — `(cd x) && push`
+      # changes no directory the push will see — or a quote character, the tokenizer's mark of
+      # hidden content (a quoted target with inner spaces words as bare quote marks).
+      #
+      # Closing a subshell is handled globally by the SUBSHELL_STACK save/restore above — a cd
+      # inside `( … )`, however many statements the group spans, is discarded at its `)`. So the
+      # per-target `)` tail check that used to live here is gone; what remains is the target itself
+      # carrying a `(`/`)`, which is hidden content in the token, not a subshell boundary. (#1667)
+      UNREADABLE_TARGET="$TARGET_HIDDEN"
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
+        || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
+        UNREADABLE_TARGET=true
+      fi
+      # `pushd` remembers where the shell stood, or that it could not tell (`?`), so a later
+      # `popd` restores exactly what this walk knew at the push. The frame is pushed for EVERY
+      # pushd, poisoned when the target is unreadable: the real pushd moved the stack one frame
+      # (or failed and moved it none — unknowable), and a stack one frame short handed popd the
+      # wrong directory with full confidence. (#1667 review)
+      if [[ "$PS_FIRST" == "pushd" ]]; then
+        if [[ "$LAST_CD_UNREADABLE" == "true" || "$UNREADABLE_TARGET" == "true" ]]; then
+          PUSHD_STACK+=("?")
+        else
+          PUSHD_STACK+=("${LAST_CD:-${HOOK_CWD:-.}}")
+        fi
+      fi
+      if [[ "$UNREADABLE_TARGET" == "true" ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        case "$PS_SECOND" in
+          /*)
+            LAST_CD="$PS_SECOND"
+            LAST_CD_UNREADABLE=false
+            # An ABSOLUTE cd does not depend on the base, so its conditionality is its OWN
+            # connector alone — reset, not inherited. (#1667 review)
+            LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
+            ;;
+          *)
+            # A RELATIVE hop resolves against where the shell already stands: the last tracked
+            # `cd`, or the declared cwd when none. Resolving every hop against the declared cwd
+            # sent the second hop of `cd .. && cd sibling && git push` to the wrong path — and
+            # the fallback then judged the main clone, the exact pre-#1662 resolution, silently.
+            # After an UNREADABLE cd the base is unknown, so a relative hop stays unreadable.
+            if [[ "$LAST_CD_UNREADABLE" != "true" ]]; then
+              LAST_CD="${LAST_CD:-${HOOK_CWD:-.}}/$PS_SECOND"
+              # A relative hop INHERITS the base's conditionality — if the base cd may not have
+              # run, neither did this hop off it — and adds its own. Never resets to certain.
+              [[ "$PS_AND_GUARDED" == "true" ]] && LAST_CD_CONDITIONAL=true
+            fi
+            ;;
+        esac
+      fi
+    fi
+  fi
+done <<< "$STATEMENT_RANGES"
+if [[ "$PUSH_DIR_CONFLICT" == "true" ]]; then
+  echo "[pre-push-check] Blocked: this command pushes from two different repositories, and one" >&2
+  echo "[pre-push-check] verdict cannot be about both. Split the pushes into separate commands." >&2
+  exit 2
+fi
+# A push whose directory was named EXPLICITLY — a `-C` or a tracked `cd` — but which is not a git
+# work tree at hook time is refused, not silently retargeted at the session checkout. `mkdir /x &&
+# cd /x && git init && git push` names /x; `validated` mode, finding /x is not (yet) a repository,
+# would fall back to CLAUDE_PROJECT_DIR and judge the MAIN checkout's branch and record — a false
+# pass for a push that lands in an unreviewed new repo, the #1662 direction this hook exists to
+# close. Every other unresolvable case here refuses; this one must too. Gated on PUSH_DIR_EXPLICIT
+# so the bare-`git push`-in-session case (PUSH_DIR is only the HOOK_CWD fallback) keeps the
+# existing "no git repository" handling at the PROJECT_DIR check below. (#1667 review)
+if [[ "$PUSH_DIR_EXPLICIT" == "true" ]] && ! hook_is_work_tree "$PUSH_DIR"; then
+  echo "[pre-push-check] Blocked: this push targets '$PUSH_DIR', which is not a git repository the" >&2
+  echo "[pre-push-check] hook can read now (it may be created later in the same command). Its branch" >&2
+  echo "[pre-push-check] and review record cannot be verified, and falling back to the session" >&2
+  echo "[pre-push-check] checkout would judge the wrong repository. Push from an existing checkout." >&2
+  exit 2
+fi
+# `validated` still applies its work-tree test to what the statement walk produced; the project dir
+# stays as the final fallback ONLY when neither a `-C`, a `cd`, nor the declared cwd named a work
+# tree — the bare-`git push`-in-the-session case, which is the one that fallback was for.
+PROJECT_DIR=$(hook_effective_repo validated "" "$PUSH_DIR" "${CLAUDE_PROJECT_DIR:-}")
 
 # A guard fails CLOSED, and two guards taking the same resolution must answer this the same way.
 # branch-guard refuses when nothing resolvable is a repository; this hook took the identical
@@ -231,8 +672,13 @@ esac
 # whole command through would grant an unearned bypass to the second — the one direction this file
 # never trades in. When some pushes are unprefixed the override does not apply and the record check
 # below decides for all of them.
-PUSH_RE='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push\b'
-ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push\b'
+# The push detector IS RE_PUSH_STMT — the same spelling the per-statement walk uses, so the two
+# cannot disagree. The earlier `push\b` copy differed from RE_PUSH_STMT's `push([^-[:alnum:]_]|$)`
+# on `git push-x`: `\b` treats the `-` as a word boundary and matched, the explicit class does not.
+# ACK_RE carries the `PRE_PUSH_ALLOW_UNREVIEWED=1` prefix so it cannot simply be RE_PUSH_STMT, but
+# its push token uses the SAME boundary class now, not `\b`. (#1667 review)
+PUSH_RE="$RE_PUSH_STMT"
+ACK_RE='(^|[[:space:];&|(])PRE_PUSH_ALLOW_UNREVIEWED=1([[:space:]]+[[:alnum:]_]+=[^[:space:]]+)*[[:space:]]+git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 PUSH_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$PUSH_RE" | grep -c . || true)
 ACK_COUNT=$(printf '%s' "$COMMAND_VERBS" | grep -oE "$ACK_RE" | grep -c . || true)
 
