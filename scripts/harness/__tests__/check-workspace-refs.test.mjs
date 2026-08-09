@@ -5,7 +5,11 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { findWorkspaceRefFindings } from '../check-workspace-refs.mjs';
+import {
+  examinedHelperScriptCount,
+  examinedManifestCount,
+  findWorkspaceRefFindings,
+} from '../check-workspace-refs.mjs';
 
 async function createFixture(files) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-workspace-refs-'));
@@ -74,5 +78,50 @@ describe('check-workspace-refs', () => {
     const findings = await findWorkspaceRefFindings(root);
     expect(findings).toHaveLength(1);
     expect(findings[0].detail).toContain('@robota-sdk/ghost');
+  });
+});
+
+describe('the examined-size counters measure both walks, and only this run (HARNESS-057)', () => {
+  /**
+   * An unverified counter is a scan claiming a size nothing checked — the defect this migration
+   * exists to prevent, one level up. Both halves are covered because a single number would have to
+   * misreport one subject, which is how the sibling `conflict-markers` line first shipped wrong.
+   */
+  it('counts each walk against its own subject', async () => {
+    const root = await createFixture({
+      'package.json': JSON.stringify({ name: 'root', scripts: { build: 'echo ok' } }),
+      'packages/foo/package.json': JSON.stringify({ name: '@x/foo', scripts: { t: 'echo ok' } }),
+      'apps/bar/package.json': JSON.stringify({ name: '@x/bar', scripts: {} }),
+      'scripts/one.mjs': 'export const a = 1;\n',
+      'scripts/nested/two.mjs': 'export const b = 2;\n',
+    });
+
+    await findWorkspaceRefFindings(root);
+
+    expect(examinedManifestCount(), 'the manifest walk was miscounted').toBeGreaterThanOrEqual(3);
+    expect(examinedHelperScriptCount(), 'the helper-script walk was miscounted').toBe(2);
+  });
+
+  it('RESETS between runs, so a later run cannot inherit an earlier tree size', async () => {
+    const big = await createFixture({
+      'package.json': JSON.stringify({ name: 'root', scripts: {} }),
+      'packages/foo/package.json': JSON.stringify({ name: '@x/foo', scripts: {} }),
+      'scripts/one.mjs': 'export const a = 1;\n',
+      'scripts/two.mjs': 'export const b = 2;\n',
+    });
+    // `packages/` must exist: this scan fails CLOSED without it, because resolution is relative to
+    // the workspace package set and "nothing was examined" is not a pass (HARNESS-052). The first
+    // version of this fixture omitted it and the guard said so — correctly.
+    const small = await createFixture({
+      'package.json': JSON.stringify({ name: 'root', scripts: {} }),
+      'packages/only/package.json': JSON.stringify({ name: '@x/only', scripts: {} }),
+    });
+
+    await findWorkspaceRefFindings(big);
+    expect(examinedHelperScriptCount()).toBe(2);
+
+    await findWorkspaceRefFindings(small);
+
+    expect(examinedHelperScriptCount(), 'the helper-script count carried over').toBe(0);
   });
 });

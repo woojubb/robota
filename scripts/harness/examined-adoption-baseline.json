@@ -57,6 +57,7 @@
     "test-selection-tolerance",
     "transport-admission",
     "vitest-resource-ceiling",
-    "workflow-permissions"
+    "workflow-permissions",
+    "workspace-refs"
   ]
 }
