@@ -37,12 +37,14 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const MAP_PATH = '.agents/specs/orchestration-map.md';
 
 /**
- * A QUANTIFIED loop bound: a count attached to an iteration noun, or `max N`. The noun list is
- * deliberately about looping (rounds, retries, revisions…) — "2 files" or "3 packages" is not a
- * bound and must not fire this.
+ * A QUANTIFIED loop bound: a count attached to an iteration noun, or `max N` where what follows
+ * is an iteration noun, punctuation or the end — never a plain word. The noun list is
+ * deliberately about looping (rounds, retries, revisions…) — "2 files", "3 packages" and
+ * "max 72 chars" are not bounds and must not fire this; "max 3", "max-3 + progress detection"
+ * and "max 3 iterations" are.
  */
 export const QUANTIFIED_BOUND =
-  /\b(max(?:imum)?[\s-]+\d+|\d+\s+(?:[a-z][a-z-]*\s+)?(?:re-?(?:run|runs|cut|cuts|specification|specifications|verify\s+rounds?|review\s+rounds?)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?))\b/i;
+  /\b(max(?:imum)?[\s-]+\d+(?=\s*(?:$|[^a-z\s])|\s+(?:re-?(?:run|runs|cut|cuts|specification|specifications)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?)\b)|\d+\s+(?:[a-z][a-z-]*\s+)?(?:re-?(?:run|runs|cut|cuts|specification|specifications|verify\s+rounds?|review\s+rounds?)|rounds?|iterations?|revisions?|redesigns?|attempts?|retries|triages?|requests?))\b/i;
 
 const ALLOW = /allow-restated-bound:\s*\S/;
 

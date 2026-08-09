@@ -119,6 +119,21 @@ describe('a rule or spec-doc does not restate a skill’s bound', () => {
     expect(findings, 'the hyphenated bound walked past the scan').toHaveLength(1);
   });
 
+  it('does not read `max N <plain-noun>` as a loop bound', () => {
+    // `max 72 chars` is a formatting cap, not an iteration bound — the max branch demands an
+    // iteration noun, punctuation or the end after the number, like the noun branch always did.
+    const root = world({
+      mapRows: [
+        '| **PR review** | `pr-finding-resolution-loop` | w | g → S | auto → bounded | floor |',
+      ],
+      ruleLines: [
+        'Messages follow `pr-finding-resolution-loop` guidance with subject lines max 72 chars long.',
+      ],
+    });
+
+    expect(collectFindings(root).findings, 'a formatting cap was read as a bound').toEqual([]);
+  });
+
   it('does not flag a bound with no skill name beside it', () => {
     // A rule stating ITS OWN bound about its own subject is not a restatement of anyone's.
     const root = world({
