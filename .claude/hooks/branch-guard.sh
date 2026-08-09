@@ -97,13 +97,18 @@ stmt_override() {
 # subshell — puts one immediately before the verb, and without them the region survived masking and
 # still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
 # false positive it sits beside.
+# ONE spelling of git's value-taking global options. Four hand-kept copies of this list existed
+# (GITPFX, the head finder's case, the alias-substitution prefix, the verb latch), and the copies
+# are how GITPFX went stale at (-C|-c) while the rest had moved on — every reader below derives
+# from this variable or asks git_global_takes_value(), which is built from it.
+GIT_VALUE_GLOBALS='-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env'
 # EVERY value-taking global, in both spellings (`--git-dir .git` and `--git-dir=.git`) — the
 # (-C|-c)-only tolerance made `git --git-dir=.git commit` invisible to every action regex built on
 # this prefix, aliased or typed out, and the alias substitution (#1666 review) made that gap
 # reachable in one visible command. The value group is optional so the `=` form does not demand a
 # second token; a match that "borrows" the verb as a value cannot stick, because the verb then has
 # nothing left to match and the engine backs off the optional group.
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=\S+)?\s+(\S+\s+)?)*'
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+(('"$GIT_VALUE_GLOBALS"')(=\S+)?\s+(\S+\s+)?)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -290,10 +295,7 @@ git_alias_expansion() {
 # places (the head finder, the chain rebuild, the verb latch), and three copies of one fact is the
 # defect this file keeps writing down about itself. (#1666 review)
 git_global_takes_value() {
-  case "$1" in
-    -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env) return 0 ;;
-  esac
-  return 1
+  [[ "$1" =~ ^(${GIT_VALUE_GLOBALS})$ ]]
 }
 
 # The head of an expansion: the word the next hop resolves, found the way the verb latch finds a
@@ -381,14 +383,16 @@ while read -r STMT_START STMT_LEN; do
       # ci` unsubstituted, so the statement matched no action regex and took no check at all,
       # the exact class this substitution exists to end. One prefix expression, used by the gate
       # and both substitutions. (#1666 review)
-      _GOPT='((-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=[^[:space:]]+)?[[:space:]]+([^[:space:]]+[[:space:]]+)?)'
-      printf '%s' "$STMT_MASK" | grep -qE "git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
+      _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+)?[[:space:]]+([^[:space:]]+[[:space:]]+)?)"
+      printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
       _aexp=$(git_alias_expansion_chain "$_an") || continue
       # The replacement text is config-controlled: escape sed's specials so an expansion cannot
       # edit the pattern it rides in.
-      _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/(git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/(git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/")
+      # Backslash FIRST, then sed's own specials — an expansion carrying `\1` would otherwise be
+      # reinterpreted as a backreference inside the substitution it rides in. (#1666 review)
+      _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/\\/\\\\/g' -e 's/[&\/]/\\&/g')
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/")
     done <<< "$GIT_ALIASES"
   fi
 
