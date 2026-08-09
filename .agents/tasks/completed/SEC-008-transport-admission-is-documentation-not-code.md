@@ -1,6 +1,7 @@
 ---
 title: 'SEC-008: the trust boundary is documentation rather than code — two shipped transports have no authentication, two more chose opposite defaults, and the server dev fallback authenticates any three-part string'
-status: todo
+status: done
+completed: 2026-08-10
 created: 2026-08-02
 priority: critical
 urgency: now
@@ -135,5 +136,38 @@ request to a running Robota transport does.
 - **Expected observable result (before the fix, for contrast):** step 2 executes the prompt and is
   indistinguishable from step 3.
 - **Cleanup:** stop the served transport.
-- **Evidence (fill in after implementation):** the two responses (status + body) and the session
-  transcript showing no execution for the unauthenticated call.
+- **Evidence:** run by the agent on 2026-08-10 —
+  [`.agents/evals/scenarios/sec-008-transport-admission-agent-run.md`](../../evals/scenarios/sec-008-transport-admission-agent-run.md).
+  Served over a real loopback socket: step 2 (no credential) answered **401
+  `{"error":"unauthorized"}`** with the session transcript **empty** — the prompt never reached
+  `session.submit`; step 3 (with the minted 64-char credential) answered **200** with the SSE
+  `complete` event and exactly that one prompt in the transcript. The contrast case
+  (`admission: { open: true, openReason: … }`) answered **200 with no credential** and executed the
+  prompt, which is what the absent gate used to do for every caller.
+
+## Resolution
+
+**The work had already landed; this Task was stale at `status: todo`.** Verified item by item on
+2026-08-10 rather than assumed:
+
+| Test Plan item                                                         | State on `develop`                                                                                                                                                                                     |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| HTTP `POST /submit` gated before `session.submit`                      | `IHttpTransportOptions.admission`; omission means SECURE (mints a credential). Covered by `packages/agent-transport-http/src/__tests__/`.                                                              |
+| MCP must not strip `modelInvocable`/`safety`…                          | `mcp-server.ts:70` — `if (!cmd.modelInvocable) continue;`. Covered by `remote-command-admission.test.ts`.                                                                                              |
+| MCP must not default the call source to `'user'`                       | `mcp-server.ts:150` — `executeCommand(cmdName, args, 'remote')`. Same test file.                                                                                                                       |
+| WebRTC must not wire the channel without a secret                      | `webrtc-transport.ts` resolves admission; a `secret` with `open: true` is refused as contradictory. Covered by `admission-secure-by-default.test.ts`.                                                  |
+| `apps/agent-server` JWT fallback + identity from the verified claim    | `authenticate-playground-client.ts` (a pure function, so the transport cannot reach past it) with `authenticate-playground-client.test.ts` asserting `"a.b.c"` is rejected when `JWT_SECRET` is unset. |
+| A parity check so a new transport cannot ship with no admission answer | `scripts/harness/scan-transport-admission.mjs` — passes, `::examined:: 9 transport package(s)`.                                                                                                        |
+
+Suites re-run for this closure: **10 files / 73 tests green**. The one item that was genuinely
+outstanding was the **user-execution evidence**, which the scenario section had left as
+"fill in after implementation". It is now filled from an agent-run — and the runner is CHECKED IN as
+`admission-loopback-scenario.test.ts`, a real loopback round-trip asserting the session transcript,
+after review pointed out that closing a task about "the boundary is documentation rather than code"
+on prose evidence repeats the very shape the task is about.
+
+The FOUNDATIONAL half named in "Why this is foundational" — making admission a member of the
+transport contract itself rather than a per-transport decision — is what
+`scan-transport-admission.mjs` now enforces mechanically: the parity check is the mechanism that
+stops the next transport from re-deciding it. The contract-level axis on `ITransportAdapter` remains
+ARCH-011's subject, as this Task's own note said it should be.

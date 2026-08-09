@@ -74,6 +74,11 @@ export function collectHookSyntaxFindings(hooksDir = HOOKS_DIR) {
     return broken;
   }
 
+  // HARNESS-057: the size of the subject, on the channel the runner reads. No expected-empty branch,
+  // and no zero branch at all: `collectHookSyntaxFindings` already THROWS on an empty script list
+  // before this line is reached, so a ternary here would be dead code asserting a state that cannot
+  // occur — which is its own way of misdescribing the scan. (#1684 review)
+  console.log(`::examined:: ${scripts.length} shell scripts`);
   console.log(`[hook-syntax] clean — ${scripts.length} shell scripts parse.`);
 
   return broken;

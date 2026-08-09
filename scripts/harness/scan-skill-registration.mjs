@@ -203,9 +203,16 @@ export function collectSkillRegistrationFindings() {
     return findings;
   }
 
+  // HARNESS-057: the size of the subject, on the channel the runner reads. TWO subjects, so two
+  // lines: the skills ON DISK are what the walk reads, and the REGISTERED entries are the other
+  // side this scan reconciles them against — a single number would have to misreport one of them,
+  // and the registered count is the smaller of the two (12 against 55 on the real tree).
+  const onDisk = listDirs(SOURCE_DIR).length;
+  console.log(`::examined:: ${onDisk} skill directories`);
+  console.log(`::examined:: ${resolved.length} registered skill entries`);
   console.log(
     `[skill-registration] clean — ${resolved.length} registered, ` +
-      `${listDirs(SOURCE_DIR).length} on disk, ${total} B of description ` +
+      `${onDisk} on disk, ${total} B of description ` +
       `(budget ${DESCRIPTION_BUDGET_BYTES}).`,
   );
 
