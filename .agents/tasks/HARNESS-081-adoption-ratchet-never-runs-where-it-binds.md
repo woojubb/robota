@@ -1,5 +1,5 @@
 ---
-title: 'HARNESS-078: the examined-adoption ratchet never runs where it binds'
+title: 'HARNESS-081: the examined-adoption ratchet never runs where it binds'
 status: todo
 created: 2026-08-09
 priority: high
@@ -9,7 +9,7 @@ depends_on: []
 issue: https://github.com/woojubb/robota/issues/1673
 ---
 
-# HARNESS-078: the examined-adoption ratchet never runs where it binds
+# HARNESS-081: the examined-adoption ratchet never runs where it binds
 
 ## Problem
 
