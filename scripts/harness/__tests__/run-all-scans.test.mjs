@@ -291,28 +291,50 @@ describe('how much did you look at', () => {
     expect(judgeExamined('probe', 'ordinary output').problems).toEqual([]);
   });
 
-  it('judges adoption only when the WHOLE registry ran', async () => {
-    // A ratchet over a subset counts a number that means nothing: a `--skip` run, or a caller
-    // passing three fixtures, would report a fall that is only a smaller list. Found by the runner's
-    // existing cases going red the moment the ratchet was added unconditionally.
+  it('does not run the ratchet for an arbitrary caller (checkAdoption defaults off)', () => {
+    // A caller passing three fixtures wants the unearned-zero half, not the adoption ratchet. The
+    // runner's own fixture-based cases below rely on this default staying off.
     const scan = { name: 'probe', run: async () => ({ code: 0, output: 'no declaration here' }) };
     const lines = [];
 
-    expect(await runScans([scan], (l) => lines.push(l), 1)).toBe(0);
-    expect(lines.join('\n')).not.toMatch(/adoption/);
+    return runScans([scan], (l) => lines.push(l), 1).then((code) => {
+      expect(code).toBe(0);
+      expect(lines.join('\n')).not.toMatch(/adoption/);
+    });
   });
 
   it('fails an unearned zero even on a subset run', () => {
-    // The condition above is about the RATCHET only. A scan claiming a pass over nothing is wrong
-    // however few of them ran, so that half carries no such exemption.
+    // A scan claiming a pass over nothing is wrong however few of them ran, so that half carries no
+    // exemption for a partial run.
     expect(judgeExamined('probe', '::examined:: 0 workflows').problems).toHaveLength(1);
   });
 
-  it('holds adoption as a ratchet that may only rise, and must be re-frozen when it does', () => {
-    expect(judgeExaminedAdoption(10, 97, () => 10).ok).toBe(true);
-    expect(judgeExaminedAdoption(9, 97, () => 10).message).toMatch(/FELL/);
-    expect(judgeExaminedAdoption(11, 97, () => 10).message).toMatch(/ROSE/);
-    expect(judgeExaminedAdoption(10, 97, () => null).message).toMatch(/no frozen/);
+  it('holds adoption as a SET ratchet: a frozen scan may not stop declaring; a new one must be added', () => {
+    const frozen = () => ['a', 'b'];
+    // All frozen scans ran and declared; an extra non-frozen, non-declaring scan is fine.
+    expect(judgeExaminedAdoption(['a', 'b'], ['a', 'b', 'c'], frozen).ok).toBe(true);
+    // A frozen scan ran but stopped declaring → FELL, naming it.
+    expect(judgeExaminedAdoption(['a'], ['a', 'b'], frozen).message).toMatch(/FELL.*\bb\b/);
+    // A new scan declares but is not frozen → ROSE, naming it.
+    expect(judgeExaminedAdoption(['a', 'b', 'c'], ['a', 'b', 'c'], frozen).message).toMatch(
+      /ROSE.*\bc\b/,
+    );
+    // No baseline at all → refuse.
+    expect(judgeExaminedAdoption(['a'], ['a'], () => null).message).toMatch(/no frozen/);
+  });
+
+  it('a --skip does not disarm the ratchet, nor falsely fault the skipped scan (HARNESS-081)', () => {
+    // The defect: the old count-over-the-whole-registry check only ran with nothing skipped, so
+    // CI (which always `--skip`s dist/build-contracts) never evaluated it. A skipped scan is simply
+    // absent from `evaluableNames`, so it is neither judged nor faulted — while a NON-skipped scan
+    // that stops declaring is still caught. Here `skipped-one` is frozen but did not run; `b` ran
+    // and stopped declaring.
+    const frozen = () => ['a', 'b', 'skipped-one'];
+    const verdict = judgeExaminedAdoption(['a'], ['a', 'b'], frozen);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/FELL/);
+    expect(verdict.message).toMatch(/\bb\b/);
+    expect(verdict.message).not.toMatch(/skipped-one/);
   });
 });
 
