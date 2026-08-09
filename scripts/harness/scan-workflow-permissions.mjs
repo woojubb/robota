@@ -24,6 +24,11 @@
  *      write scope appearing in a workflow is a finding; so is a justification for a scope no
  *      workflow actually asks for any more (anti-rot — a stale excuse outlives what it excused).
  *
+ * Deliberately NOT checked: JOB-level `permissions:` blocks. `parsePermissions` reads only the
+ * top-level block, so a job-scoped grant (review-gate.yml's disarm job, codeql.yml's recovery
+ * job) is structurally invisible here — those grants are justified in prose beside themselves,
+ * and widening this scan to job scopes is its own change, not a side effect.
+ *
  * Deliberately NOT checked: that every workflow declares a block. That would fire on every
  * read-only workflow in the repository — noise, and a noisy guard gets suppressed, which costs more
  * than it catches. The same reasoning `review-gate`'s severity split rests on.

@@ -124,6 +124,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -u
           # An API failure is not "no run yet". `|| true` folded rate limits and network errors
@@ -134,8 +135,11 @@ jobs:
           # jq parse (empty run_id, benign narrative) or ride into the conclusion word, which is
           # the same wrong-reason silence through a side door. (#1669 review, both rounds)
           err_file=$(mktemp)
-          # allow-unpaginated: one head SHA accumulates Review Gate runs only by rerun; a page of
-          # 100 outlives any plausible rerun count, and a miss past it costs one manual rerun.
+          # allow-unpaginated: the listing returns EVERY pull_request-triggered run for this head
+          # SHA — all ~6 workflows per push, plus reruns — so the page holds roughly fifteen
+          # pushes' worth of runs for one SHA, which does not recur; a miss past it costs one
+          # manual rerun. (#1669 review corrected the earlier phrasing, which read as Review
+          # Gate-only.)
           if ! runs_json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" 2>"${err_file}"); then
             echo "::warning::#1660 recovery: could not LIST workflow runs for ${HEAD_SHA} ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
             exit 0
@@ -170,6 +174,20 @@ jobs:
           fi
           if [ "${conclusion}" != "failure" ]; then
             echo "::notice::#1660 recovery: Review Gate run ${run_id} concluded ${conclusion} — nothing to recover."
+            exit 0
+          fi
+          # SUPERSEDED analyses do not rerun the gate. review-gate's concurrency group is keyed
+          # by PR number with cancel-in-progress, so a rerun issued for an old SHA after a new
+          # push would CANCEL the new push's in-flight gate — trading a stale red for a missing
+          # check on the SHA that matters. If the PR's head has moved on, this analysis's rerun
+          # right has lapsed. (#1669 review)
+          # allow-unpaginated: a single-record read of one pull request by number.
+          if ! current_head=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha' 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: could not read the PR's current head ($(cat "${err_file}")). Not rerunning against an unverifiable head — the stays-red watcher covers it."
+            exit 0
+          fi
+          if [ "${current_head}" != "${HEAD_SHA}" ]; then
+            echo "::notice::#1660 recovery: the PR's head moved on (${current_head} != ${HEAD_SHA}) — the newer push's own analysis owns the recovery now."
             exit 0
           fi
           if gh run rerun "${run_id}" --failed --repo "${GITHUB_REPOSITORY}"; then

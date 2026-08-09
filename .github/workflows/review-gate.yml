@@ -283,12 +283,14 @@ jobs:
           # refusal: the #1660 recovery reruns this gate the moment the analysis completes, which
           # makes the transient BLOCKED comment routine — and a reader scanning comments would
           # keep meeting a verdict the checks page no longer agrees with. Only posted when a
-          # BLOCKED comment exists, so an ordinarily green PR gains no noise. (#1669 review)
+          # BLOCKED comment exists AND this pass actually read an analysis: on the docs-only
+          # path nothing was re-read, and the supersession sentence would claim a read that
+          # never happened. (#1669 review, both rounds)
           # allow-unpaginated: reads the newest page of this gate's own comments — an older
           # BLOCKED beyond it means at worst a skipped courtesy note, never a wrong verdict.
           last_gate_comment=$(gh pr view "$PR_NUMBER" --json comments \
             --jq '[.comments[] | select(.body | startswith("**Review gate:"))] | last | .body // ""' || echo "")
-          if printf '%s' "$last_gate_comment" | grep -q 'BLOCKED'; then
+          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | grep -q 'BLOCKED'; then
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: PASS** — the earlier BLOCKED verdict above is superseded (the gate re-read a completed analysis).
           EOF
