@@ -289,7 +289,7 @@ describe('SchedulerTriggerService', () => {
     }
   });
 
-  it('batch returns error directly when first item fails', async () => {
+  it('batch reports a FIRST-item failure in the same shape as any other (CORE-027)', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
@@ -306,7 +306,14 @@ describe('SchedulerTriggerService', () => {
       ],
     });
 
-    expect(batch.ok).toBe(false);
+    // CORE-027: the same shape as a later-item failure — one outcome, one representation. This
+    // used to be `ok: false` while the identical failure one position later was `ok: true` with
+    // a partial error, so a caller keyed its handling on the failure's POSITION.
+    expect(batch.ok).toBe(true);
+    if (batch.ok) {
+      expect(batch.value.startedRuns).toHaveLength(0);
+      expect(batch.value.partialError?.code).toBeTruthy();
+    }
   });
 
   it('batch returns partial result when second item fails', async () => {
