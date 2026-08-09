@@ -90,19 +90,32 @@ async function serve(app: {
 }): Promise<string> {
   const server = createServer((req, res) => {
     void (async () => {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      const address = server.address();
-      const port = typeof address === 'object' && address ? address.port : 0;
-      const response = await app.fetch(
-        new Request(`http://127.0.0.1:${port}${req.url ?? '/'}`, {
-          method: req.method,
-          headers: req.headers as HeadersInit,
-          body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks),
-        }),
-      );
-      res.statusCode = response.status;
-      res.end(await response.text());
+      // Everything inside is guarded: an unhandled rejection here would leave `res.end()` uncalled,
+      // so the client-side `fetch` below would hang to the test timeout instead of failing with a
+      // cause. In a file whose whole subject is a gate that refuses LEGIBLY, an illegible hang is
+      // the wrong failure mode to build the harness on. (#1684 review)
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        const address = server.address();
+        const port = typeof address === 'object' && address ? address.port : 0;
+        const response = await app.fetch(
+          new Request(`http://127.0.0.1:${port}${req.url ?? '/'}`, {
+            method: req.method,
+            headers: req.headers as HeadersInit,
+            body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks),
+          }),
+        );
+        res.statusCode = response.status;
+        res.end(await response.text());
+      } catch (error) {
+        // 500 with the cause in the body, so a broken harness reads as a broken harness rather than
+        // as a transport that answered nothing.
+        res.statusCode = 500;
+        res.end(
+          `scenario harness failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     })();
   });
   servers.push(server);

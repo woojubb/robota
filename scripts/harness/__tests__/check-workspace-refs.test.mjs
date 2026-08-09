@@ -106,6 +106,7 @@ describe('the examined-size counters measure both walks, and only this run (HARN
     const big = await createFixture({
       'package.json': JSON.stringify({ name: 'root', scripts: {} }),
       'packages/foo/package.json': JSON.stringify({ name: '@x/foo', scripts: {} }),
+      'apps/bar/package.json': JSON.stringify({ name: '@x/bar', scripts: {} }),
       'scripts/one.mjs': 'export const a = 1;\n',
       'scripts/two.mjs': 'export const b = 2;\n',
     });
@@ -118,10 +119,15 @@ describe('the examined-size counters measure both walks, and only this run (HARN
     });
 
     await findWorkspaceRefFindings(big);
+    expect(examinedManifestCount()).toBe(3);
     expect(examinedHelperScriptCount()).toBe(2);
 
     await findWorkspaceRefFindings(small);
 
+    // BOTH counters, symmetrically with the sibling reset cases in this PR. The smaller fixture has
+    // FEWER manifests rather than none, so an accumulating counter would read 5 here — a bug a
+    // same-size fixture could not have distinguished from a correct reset. (#1684 review)
+    expect(examinedManifestCount(), 'the manifest count carried over').toBe(2);
     expect(examinedHelperScriptCount(), 'the helper-script count carried over').toBe(0);
   });
 });
