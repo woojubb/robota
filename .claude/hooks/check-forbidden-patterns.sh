@@ -196,9 +196,11 @@ while IFS= read -r match; do
   # Braces are counted with string/comment stripping — a `{` inside a quoted literal or a `//`
   # comment (line or block, across lines) is prose, not structure, and counting it kept `depth` from ever closing, so the scope
   # grew past the real block and could absorb an unrelated marker beyond it. Template literals
-  # are tracked ACROSS lines: inside one, text is prose until the closing backtick. The residue a
-  # parser would still catch — a backtick inside a regex literal, nested template interpolation
-  # re-opening code — is bounded by the 40-line cap.
+  # are tracked ACROSS lines: inside one, text is prose until the closing backtick, and a bracket
+  # expression strips whole so a brace inside a regex character class is not structure. The
+  # residue a parser would still catch — a backtick inside a regex literal, a brace in a regex
+  # OUTSIDE a character class, nested template interpolation re-opening code — is bounded by the
+  # 40-line cap.
   marker_scope=$(echo "$marker_block" | awk -v lead="$((line_num - marker_start))" '
     NR <= lead { print; next }   # the line above the catch: scope, but not brace arithmetic
     {
@@ -218,6 +220,10 @@ while IFS= read -r match; do
       gsub(/\047[^\047]*\047/, "", line)
       gsub(/\/\*[^*]*([^*]|\*+[^*\/])*\*+\//, "", line)
       sub(/\/\/.*$/, "", line)
+      # A bracket expression is stripped whole: a brace inside a regex character class
+      # (/[{]/ and kin) is prose to the block structure, and balanced [ ] content in code
+      # removes both sides of any brace pair it contains, so the depth is unchanged either way.
+      gsub(/\[[^\]]*\]/, "", line)
       if (line ~ /`/) { sub(/`.*$/, "", line); intpl = 1 }
       if (line ~ /\/\*/) { sub(/\/\*.*$/, "", line); incmt = 1 }
       n = gsub(/{/, "{", line); m = gsub(/}/, "}", line)

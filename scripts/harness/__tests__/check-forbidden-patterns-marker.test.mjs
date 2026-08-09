@@ -188,6 +188,25 @@ cache.clear();
     expect(status, "a block comment's brace let a foreign marker excuse the catch").toBe(2);
   });
 
+  it('a brace inside a regex CHARACTER CLASS does not hold the block open', () => {
+    // /[{]/ is prose to the block structure; counting its brace kept depth from closing.
+    const regexClass = [
+      'try {',
+      '  risky();',
+      '} catch {',
+      '  if (/[{]/.test(x)) mark();',
+      '  return undefined;',
+      '}',
+      '',
+      '// allow-fallback: about something else entirely',
+      'cache.clear();',
+      '',
+    ].join('\n');
+    const { status } = writeThrough(regexClass);
+
+    expect(status, "a character class's brace let a foreign marker excuse the catch").toBe(2);
+  });
+
   it('still accepts a marked catch whose body quotes a brace', () => {
     const marked = `try {
   risky();
