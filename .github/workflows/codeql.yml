@@ -100,6 +100,8 @@ jobs:
           # into the empty answer the may-not-have-started notice narrates, which is the exact
           # wrong-reason silence this step's own header forswears — so the two are separated:
           # an unreadable listing warns as itself and stops. (#1669 review)
+          # allow-unpaginated: one head SHA accumulates Review Gate runs only by rerun; a page of
+          # 100 outlives any plausible rerun count, and missing a run past it costs one manual rerun.
           if ! runs_json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" 2>&1); then
             echo "::warning::#1660 recovery: could not LIST workflow runs for ${HEAD_SHA} (${runs_json}). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
             exit 0
@@ -109,6 +111,7 @@ jobs:
             echo "::notice::#1660 recovery: no Review Gate run found for ${HEAD_SHA} — nothing to recover (it may not have started yet; when it starts it will read a completed analysis)."
             exit 0
           fi
+          # allow-unpaginated: a single-record read by id — there is no collection to truncate.
           if ! status_conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" \
             --jq '"\(.status) \(.conclusion // "")"' 2>&1); then
             echo "::warning::#1660 recovery: could not READ Review Gate run ${run_id} (${status_conclusion}). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
