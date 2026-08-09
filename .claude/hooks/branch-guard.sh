@@ -244,6 +244,66 @@ UNMERGED_CHECKED=false
 # fine". Measured against origin/develop with awk hidden from PATH: `git push origin main` ON `main`
 # left the guard at exit 127, which the hook protocol treats as NON-blocking, so the push was
 # allowed. Every reachable command has at least one statement, so an empty list is a broken guard.
+# ── INFRA-085: a git alias is the verb it expands to ────────────────────────────────────────────
+# Every verb check below keys off the literal subcommand, and #1589 measured what that leaves open:
+# with `alias.ci commit`, `git ci -n -m x` and `HUSKY=0 git ci -m x` both sailed past checks that
+# ask "is the verb commit". An agent that has learned a flag is refused has an obvious next move,
+# and `git config alias.ci commit` is refused by nothing.
+#
+# Resolved ONCE per invocation (the issue's own cost analysis: one subprocess per hook run, not per
+# statement), from the SESSION's repository — aliases are per-repository state and the statement
+# loop below re-resolves directories per statement, but an alias set differing between a session's
+# own worktrees is not a real configuration. Read through the scrub like every other git question.
+#
+# STATED GAP: a shell alias (`!…`) is opaque here — its expansion is arbitrary shell, not a git
+# verb, and classifying it would mean parsing shell inside git config. It stays invisible to the
+# verb checks exactly as before this change.
+GIT_ALIASES=""
+_ALIAS_DIR=$(hook_effective_repo session "" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
+if [[ -n "$_ALIAS_DIR" ]]; then
+  GIT_ALIASES=$(hook_git_in "$_ALIAS_DIR" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+fi
+
+# The expansion for one alias name, or failure. Shell (`!`) aliases fail — see the stated gap.
+git_alias_expansion() {
+  local line name
+  [[ -n "$GIT_ALIASES" ]] || return 1
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    name="${line%% *}"
+    [[ "$name" == "$1" ]] || continue
+    [[ "${line#* }" == "$line" ]] && return 1
+    [[ "${line#* }" == '!'* ]] && return 1
+    printf '%s' "${line#* }"
+    return 0
+  done <<< "$GIT_ALIASES"
+  return 1
+}
+
+# Classify each alias ONCE by asking the action regexes about `git <expansion>` — the same
+# expressions the statements are judged with, so an alias and its expansion cannot be classified
+# differently. Only word-safe names join the alternations; an alias named with regex metacharacters
+# would corrupt the pattern, and git itself only runs alphanumeric alias names.
+ALIAS_COMMIT_ALT=""
+ALIAS_PUSH_ALT=""
+ALIAS_MERGE_ALT=""
+ALIAS_CREATE_ALT=""
+if [[ -n "$GIT_ALIASES" ]]; then
+  while IFS= read -r _alias_line; do
+    [[ -z "$_alias_line" ]] && continue
+    _alias_name="${_alias_line%% *}"
+    _alias_exp="${_alias_line#* }"
+    [[ "$_alias_exp" == "$_alias_line" ]] && continue
+    [[ "$_alias_exp" == '!'* ]] && continue
+    [[ "$_alias_name" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+    _alias_synth="git $_alias_exp"
+    printf '%s' "$_alias_synth" | grep -qE "$RE_COMMIT" && ALIAS_COMMIT_ALT="${ALIAS_COMMIT_ALT}${ALIAS_COMMIT_ALT:+|}${_alias_name}"
+    printf '%s' "$_alias_synth" | grep -qE "$RE_PUSH" && ALIAS_PUSH_ALT="${ALIAS_PUSH_ALT}${ALIAS_PUSH_ALT:+|}${_alias_name}"
+    printf '%s' "$_alias_synth" | grep -qE "$RE_MERGE" && ALIAS_MERGE_ALT="${ALIAS_MERGE_ALT}${ALIAS_MERGE_ALT:+|}${_alias_name}"
+    printf '%s' "$_alias_synth" | grep -qE "$RE_CREATE" && ALIAS_CREATE_ALT="${ALIAS_CREATE_ALT}${ALIAS_CREATE_ALT:+|}${_alias_name}"
+  done <<< "$GIT_ALIASES"
+fi
+
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[branch-guard] Blocked: the command could not be split into statements, so nothing in it" >&2
@@ -315,6 +375,20 @@ while read -r STMT_START STMT_LEN; do
   printf '%s' "$STMT_MASK" | grep -qE "$RE_PUSH" && IS_PUSH=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_MERGE" && IS_MERGE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
+  # INFRA-085: an alias classified above IS its expansion to these checks. The alternation carries
+  # only names classified against the same regexes, so the two readings cannot disagree.
+  if [[ -n "$ALIAS_COMMIT_ALT" ]]; then
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_COMMIT_ALT})${GITEND}" && IS_COMMIT=true
+  fi
+  if [[ -n "$ALIAS_PUSH_ALT" ]]; then
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_PUSH_ALT})${GITEND}" && IS_PUSH=true
+  fi
+  if [[ -n "$ALIAS_MERGE_ALT" ]]; then
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_MERGE_ALT})${GITEND}" && IS_MERGE=true
+  fi
+  if [[ -n "$ALIAS_CREATE_ALT" ]]; then
+    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_CREATE_ALT})${GITEND}" && IS_BRANCH_CREATE=true
+  fi
   printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_COPY" && IS_BRANCH_COPY=true
   # …unless the statement is one of the `git branch` forms that operate on an existing branch or
   # list with a value. Their argument sits exactly where a new branch's name would, so the shape
@@ -464,8 +538,31 @@ while read -r STMT_START STMT_LEN; do
       case "$W" in
         */*|.*|*.*) continue ;;
       esac
-      GIT_VERB="$W"
-      case "$W" in commit|push) IS_GATED_STMT=true ;; esac
+      # INFRA-085: the word about to become the verb may be an alias, and the checks below ask
+      # about the verb it EXPANDS to. The expansion's own flags count too — `alias.ci "commit -n"`
+      # carries the kill switch inside the alias, where no statement word will ever show it.
+      if _ALIAS_EXP=$(git_alias_expansion "$W"); then
+        GIT_VERB="${_ALIAS_EXP%% *}"
+        if [[ "$_ALIAS_EXP" == *" "* ]]; then
+          for _AXW in ${_ALIAS_EXP#* }; do
+            [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
+            [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
+            if [[ "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
+              _ACL="${_AXW#-}"
+              while [[ -n "$_ACL" ]]; do
+                case "${_ACL:0:1}" in
+                  n) SKIP_HOOKS=true; SKIP_WHAT="git commit -n (via alias $W)"; break ;;
+                  m | F | C | c) break ;;
+                esac
+                _ACL="${_ACL:1}"
+              done
+            fi
+          done
+        fi
+      else
+        GIT_VERB="$W"
+      fi
+      case "$GIT_VERB" in commit|push) IS_GATED_STMT=true ;; esac
       continue
     fi
     # Past the verb: these are this invocation's own options.
