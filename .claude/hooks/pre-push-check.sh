@@ -244,6 +244,15 @@ while read -r PS_START PS_LEN; do
       if [[ "$RAW_TGT" == *'$'* || "$RAW_TGT" == *'`'* ]]; then
         TARGET_HIDDEN=true
       fi
+      # NO raw occurrence at all is its own refusal: words-mode said this statement is a cd,
+      # so a raw slice in which `cd `-followed-by-a-target cannot be found (`"cd" /x` — the
+      # quoted builtin name breaks the adjacency the pattern needs) is a shape this reader
+      # does not understand, and the target it failed to find is exactly the one it exists
+      # to inspect. Measured: `"cd" /repo\`evil\`/path && git push` walked through with a
+      # clean-looking PS_SECOND and a silently wrong LAST_CD. (#1667 review)
+      if [[ -z "$RAW_TGT" ]]; then
+        TARGET_HIDDEN=true
+      fi
       # A target this hook cannot resolve, decided BEFORE the stack is touched: empty (quoted
       # away), `-`/flags, a variable or substitution (`$DIR`, or one EMBEDDED in the token —
       # TARGET_HIDDEN above), `~` (the hook does not expand another process's home), a `pushd`

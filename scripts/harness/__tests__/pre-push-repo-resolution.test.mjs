@@ -210,6 +210,20 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('a QUOTED builtin name cannot slip a hidden target past the raw inspection', () => {
+    // `"cd" /repo\`evil\`/path && git push` — words-mode resolves PS_FIRST to cd, but the raw
+    // pattern needs `cd ` followed by a target, and the quote glued to the builtin name breaks
+    // that adjacency: RAW_TGT came back empty and the hidden-target test never ran. An empty
+    // RAW_TGT on a cd statement now refuses — the target it failed to find is the one it
+    // exists to inspect. (#1667 review)
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('"cd" /repo`evil`/path && git push origin x', parked);
+
+    expect(status, 'the quoted builtin name laundered the hidden target').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('returns to where the shell stood when a pushd is popd-ed', () => {
     // pushd/popd bracketing an errand elsewhere: the push after popd runs where the shell began.
     const pushed = repoOn('feat/target', { recorded: true });
