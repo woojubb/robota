@@ -237,6 +237,31 @@ describe('which repository the push verdict is about', () => {
     expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
   });
 
+  it('does not carry a `||`-guarded cd forward as a definite base', () => {
+    // `cd <A> || cd <B> && git push`: bash runs `cd <B>` only if `cd <A>` FAILED, so with <A>
+    // present the push lands in <A> — but the linear walk carried <B> forward and judged the
+    // wrong repo (the #1662 defect, under-refusing). A `||`-guarded cd is now uncertain. (#1667)
+    const a = repoOn('feat/a', { recorded: true });
+    const b = repoOn('feat/b', { recorded: true });
+
+    const { status, output } = runHook(`cd ${a} || cd ${b} && git push origin feat/a`, a);
+
+    expect(status, `a ||-guarded cd was carried forward as certain:\n${output}`).toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('refuses a `||`-guarded push whose landing directory depends on a failure', () => {
+    // `cd <A> || git push`: the push runs only if `cd <A>` failed, so it lands in the ORIGINAL
+    // dir, not <A>. The walk tracked <A>; judging against it is the wrong repo. No own -C, so the
+    // base is unknowable and refuses. (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+
+    const { status, output } = runHook(`cd ${a} || git push origin x`, a);
+
+    expect(status, 'a ||-guarded push was judged against the succeeded-branch dir').toBe(2);
+    expect(output).toMatch(/preceding command failed/);
+  });
+
   it('detects a two-repo conflict even when the FIRST push resolves to the empty base', () => {
     // No payload cwd (absence is normal), so the first `git push` resolves to the empty string —
     // the bare-push-in-session case. A `-n "$PUSH_DIR"` conflict test read that as "no push yet",

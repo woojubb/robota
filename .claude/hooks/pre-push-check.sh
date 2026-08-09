@@ -135,11 +135,31 @@ if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[pre-push-check] repository this push acts on was never read. This is not a pass." >&2
   exit 2
 fi
+PREV_STMT_END=0
 while read -r PS_START PS_LEN; do
+  # The connector JOINING this statement to the previous one — the text in the gap the ranges
+  # discard. `A || B` runs B only when A FAILED, so the linear walk (every statement runs, in
+  # order) is wrong for a `||`-guarded statement: `cd /a || cd /b && git push` lands the push in
+  # /a when /a exists (|| short-circuits, cd /b never runs) but the walk would carry /b forward,
+  # judging the wrong repository — the #1662 defect in its more dangerous under-refusing form. A
+  # `||`-guarded directory change is therefore UNCERTAIN, not a definite base. (#1667 review)
+  PS_CONNECTOR="${COMMAND:$PREV_STMT_END:$((PS_START - 1 - PREV_STMT_END))}"
+  PREV_STMT_END=$((PS_START - 1 + PS_LEN))
+  PS_OR_GUARDED=false
+  [[ "$PS_CONNECTOR" == *'||'* ]] && PS_OR_GUARDED=true
   PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN")
   if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
     # 1. This statement's own `git -C`.
     PS_DIR=$(hook_git_c_path "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    # A `||`-guarded push with no `-C` of its own runs only when the prior command FAILED — so
+    # the directory the walk tracked (from the branch that succeeded) is not where this push
+    # lands. Its base is unknowable; refuse rather than judge the wrong repository. (#1667 review)
+    if [[ -z "$PS_DIR" && "$PS_OR_GUARDED" == "true" ]]; then
+      echo "[pre-push-check] Blocked: this push runs only if a preceding command failed (\`||\`)," >&2
+      echo "[pre-push-check] so which directory it lands in depends on that failure and cannot be" >&2
+      echo "[pre-push-check] read here. Name the repository explicitly: git -C <path> push …" >&2
+      exit 2
+    fi
     if [[ -z "$PS_DIR" ]]; then
       # 2. The last `cd` seen before this statement.
       if [[ "$LAST_CD_UNREADABLE" == "true" ]]; then
@@ -161,6 +181,7 @@ while read -r PS_START PS_LEN; do
     # A statement whose words cannot be READ is a statement whose directory changes cannot be
     # seen — the same answer every other unknowable gets, not a silent skip that leaves a later
     # push trusting a stale base. (#1667 review)
+    #
     if ! PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
       LAST_CD_UNREADABLE=true
       continue
@@ -209,6 +230,14 @@ while read -r PS_START PS_LEN; do
       PS_FIFTH=""
     done
     PS_FIRST="${PS_FIRST#\\}"
+    # A `||`-guarded directory change runs only if the prior command failed, so whether it took
+    # effect is unknowable — the base is uncertain, not the value it names. Only a cd/pushd/popd
+    # matters here: a `||`-guarded NON-directory command (`foo || bar`) changes no directory, so
+    # the base is unaffected and must not be poisoned. (#1667 review)
+    if [[ "$PS_OR_GUARDED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
     if [[ "$PS_FIRST" == "popd" ]]; then
       # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
       # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
