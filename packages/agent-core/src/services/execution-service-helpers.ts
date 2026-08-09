@@ -2,7 +2,6 @@ import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
-  type ICoreExecutionResult,
   ID_RADIX,
   ID_RANDOM_LENGTH,
 } from './execution-types';

@@ -16,7 +16,7 @@
   "packages/agent-core/src/managers/agent-factory.ts": 301,
   "packages/agent-core/src/plugins/event-emitter-plugin.ts": 310,
   "packages/agent-core/src/services/execution-round.ts": 308,
-  "packages/agent-core/src/services/execution-service-helpers.ts": 314,
+  "packages/agent-core/src/services/execution-service-helpers.ts": 313,
   "packages/agent-core/src/services/execution-service.ts": 310,
   "packages/agent-core/src/services/execution-stream.ts": 317,
   "packages/agent-core/src/utils/errors.ts": 315,
