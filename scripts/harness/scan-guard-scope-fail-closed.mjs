@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `collectFindings(bare)`: throws
+    // `orchestration-map.md is missing`.
+    file: 'scan-loopback-bound-ownership.mjs',
+    finder: 'collectFindings',
+    tree: '.agents/specs',
+    why: 'it keeps the orchestration map from restating the bounds the skills own; over a root with no map there is nothing to keep honest, and "no restatements" would read as "the map defers correctly"',
+  },
+  {
     // Measured the way this harness calls it — `finder(bare)`: throws
     // `packages missing from <root>`.
     file: 'scan-transport-admission.mjs',

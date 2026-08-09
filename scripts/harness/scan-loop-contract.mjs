@@ -202,11 +202,20 @@ export function judgeSkill({ name, text, mapBound, ownerExists = () => true }) {
     // Matched on a WORD BOUNDARY, not as a substring. `'12'.includes('1')` is true, so a skill
     // declaring 1 round would have agreed with a map cell saying 12 — a silent disagreement, which is
     // the one thing this check exists to make impossible.
-    if (declaredNumber && !new RegExp(`\\b${declaredNumber}\\b`).test(mapBound)) {
+    //
+    // A cell with NO number is the PREFERRED form, not a disagreement — HARNESS-072 (#1617). This
+    // clause used to demand the map carry the skill's number, which is the two-copies design that
+    // produced #1615's contradictions: a checker keeping two statements equal still leaves two
+    // statements, and the round-8 incident was exactly the copy surviving an owner's change to the
+    // original. The sibling `loopback-bound-ownership` scan now refuses a quantified bound in the
+    // map at all; what remains THIS check's business is a cell that states a DIFFERENT number —
+    // which is no longer drift waiting to happen but a live disagreement.
+    const mapNumber = /(\d+)/.exec(mapBound)?.[1];
+    if (declaredNumber && mapNumber && mapNumber !== declaredNumber) {
       findings.push({
         skill: name,
         kind: 'map-disagrees-on-the-bound',
-        detail: `the skill declares \`bound=${declared.bound}\`; the map's cell — "${mapBound}" — does not carry ${declaredNumber}.`,
+        detail: `the skill declares \`bound=${declared.bound}\`; the map's cell — "${mapBound}" — says ${mapNumber}.`,
       });
     }
   }
