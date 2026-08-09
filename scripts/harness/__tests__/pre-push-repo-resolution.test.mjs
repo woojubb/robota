@@ -120,6 +120,36 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the ordinary case broke:\n${output}`).toBe(0);
   });
 
+  it('resolves a LONG chain of ordinary statements correctly (HARNESS-083 scale)', () => {
+    // 200 non-directory statements before the push. The per-statement mask/words re-tokenization
+    // that used to run for EVERY one made this shape take ~10s (O(N²)); the whole-command mask is
+    // now sliced and a non-cd statement skips the word fork, so the walk is flat in N. This is the
+    // large-N fixture the acceptance asks for: correctness at scale (the push still resolves to the
+    // in-session repo), not a timing assertion. (HARNESS-083)
+    const repo = repoOn('feat/long', { recorded: true });
+    const chain = Array.from({ length: 200 }, (_, i) => `echo step${i}`).join(' && ');
+
+    const { status, output } = runHook(`${chain} && git push origin feat/long`, repo);
+
+    expect(status, `a long ordinary chain broke the resolution:\n${output}`).toBe(0);
+  });
+
+  it('still tracks a cd buried deep in a LONG chain (the skip is conservative)', () => {
+    // The word-fork skip keys on a raw `cd`/`pushd`/`popd` token, so a real cd late in a long chain
+    // is still tracked — the push is judged against <target>, not the session. Proves the
+    // optimization did not blind the walk to a directory change. (HARNESS-083)
+    const target = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+    const prefix = Array.from({ length: 150 }, (_, i) => `echo step${i}`).join(' && ');
+
+    const { status, output } = runHook(
+      `${prefix} && cd ${target} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `a cd late in a long chain was skipped:\n${output}`).toBe(0);
+  });
+
   it('does not flag a trailing-slash spelling of the same repo as two repositories', () => {
     // `git -C <A> push; git -C <A>/ push`: the same repo, two spellings. A raw string compare read
     // them as a two-repo conflict and over-refused. The comparison normalizes trailing slashes.

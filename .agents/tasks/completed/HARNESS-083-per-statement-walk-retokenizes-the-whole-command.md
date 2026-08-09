@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-083: the pre-push per-statement walk re-tokenizes the whole command O(N) times'
-status: todo
+status: done
+completed: 2026-08-09
 created: 2026-08-09
 priority: medium
 urgency: later
@@ -46,3 +47,27 @@ covered by the existing `pre-push-repo-resolution` / `pre-push-sequence` suites 
       statement count.
 - [ ] All existing pre-push resolution/sequence tests stay green (behavior unchanged).
 - [ ] A micro-benchmark (or a large-N fixture) shows the walk no longer scales O(N²) in awk forks.
+
+## Resolution
+
+Landed on branch `fix/harness-083-tokenize-once`. The whole-command mask is tokenized ONCE
+(`COMMAND_VERBS`, already computed and now guarded fail-closed), and each statement's mask is a
+byte-aligned SLICE of it — no `hook_verb_scan` fork per statement. A non-directory statement (its
+raw slice carries no `cd`/`pushd`/`popd` token, matched bash-natively) skips the `hook_statement_words`
+fork entirely, and the push-detection grep is short-circuited by a bash `*push*` pre-filter. So an
+ordinary long chain (`echo a && … && git push`) spends no per-statement fork; the exact grep/awk
+engines still DECIDE the statements that could be pushes or directory changes, so behavior is
+unchanged (all 82 pre-push/hook-facts tests pass untouched).
+
+Measured (200 ordinary statements before a push):
+
+| N   | develop | fixed   |
+| --- | ------- | ------- |
+| 1   | 2705 ms | 2719 ms |
+| 60  | 3567 ms | 2702 ms |
+| 200 | 9547 ms | 2788 ms |
+
+develop grows super-linearly; the fixed hook is flat in N. Large-N correctness fixtures added to
+`pre-push-repo-resolution.test.mjs` (a 200-statement chain resolves correctly; a cd buried 150
+statements deep is still tracked — the skip is conservative). The remaining ~2.7s is the fixed
+baseline of the hook's git operations against the resolved repo, unrelated to the statement count.
