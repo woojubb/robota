@@ -30,7 +30,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
 - Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
-- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — it runs the same `harness:verify` over the affected scopes, plus the build, the scan suite, the e2e suites and commitlint. If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
+- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — what it runs is owned by [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, and is not restated here. If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
@@ -115,20 +115,20 @@ probe, stub or fixture is allowed to settle a question about the real code, run 
 real subject and confirm it reproduces a state you already know. If it cannot, the fixture is the
 thing under test, and its answer is about the fixture.
 
-This is not a style preference. Four conclusions were reversed in one session, each drawn from a
-fixture that did not behave like the thing it stood in for:
+This is not a style preference. The ways a fixture lies are few and recognizable, and each reverses
+a conclusion when trusted:
 
-- a `submit` stub with no suspension point "proved" a race did not exist — the real one opens with
-  an `await`, and the race is real;
-- a `gh` stub that ignored `--limit` made a truncation check pass while the check had lost the
-  property;
-- a test file run from the wrong directory "proved" fifteen cases never ran — under its own package
-  config they all did;
-- a positional-argument grammar was assumed for an interpreter that reads that argument as a
-  filename.
+- a stub with no suspension point "proves" a race does not exist — when the real path opens with an
+  `await`, the race is real and the stub cannot exhibit it;
+- a stub that ignores a flag lets the check for the property that flag carries keep passing after
+  the check has lost the property;
+- a test run from the wrong directory "proves" its cases never ran — under the config that actually
+  governs them, they all do;
+- a probe built on an assumed argument grammar measures a different invocation than the one the
+  interpreter actually performs.
 
-In every one the code was fine and the instrument was wrong, and in every one the wrong answer was
-reported as a property of the code.
+In each shape the code is fine and the instrument is wrong — and the wrong answer is reported as a
+property of the code.
 
 **How to apply.** State, in the change, what the fixture was checked against. A fixture that cannot
 be checked against reality is a reason to measure differently, not a reason to proceed.

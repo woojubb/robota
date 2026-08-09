@@ -1,6 +1,6 @@
 ---
 title: 'HARNESS-073: the rules tree carries case narrative and repository specifics that belong elsewhere'
-status: todo
+status: done
 issue: https://github.com/woojubb/robota/issues/1618
 created: 2026-08-03
 priority: high
@@ -272,21 +272,52 @@ sentence explaining the split cited `HARNESS-073` by number, inside a rule docum
 citable narrative this item exists to remove. The rules cannot carry the reason for their own
 cleanup; the reason lives here.
 
+### Sweep 4 — the line-by-line pass, and the cross-file duplications
+
+The two classes the citable sweeps could not reach, done by reading all 24 documents rather than by
+following identifiers.
+
+**Undated narrative.** The class concentrated where the audit predicted — in files whose history had
+lost its citation and read as invariant. Each came out the same way the load-bearing citations did:
+the incident's MECHANISM was written as the rule's force, and the retelling stopped being needed.
+
+- The two helper-reuse instances kept their shapes (an output-trimming helper right for a hash and
+  wrong for a patch; an advisory-grade approximation reused for a blocking verdict) and lost the
+  repository function names and the session framing.
+- The four fixture-lie bullets became the recognizable shapes a fixture lies in — a stub with no
+  suspension point, a stub that ignores a flag, a test run under the wrong config, an assumed
+  argument grammar — stated as what happens, not as what happened.
+- The worktree-ban history block came out whole: the guardrails above it already state every failure
+  mode it retold. Rule self-history ("the first version…", "it once ran neither…") was restated as
+  the design reason the current form is what it is, in five places. Incident-shaped `**Why:**` lines
+  became mechanism statements or, where the section body already carried the mechanism, were deleted
+  as restatements.
+- Two provenance citations to session-memory slugs that resolve to nothing in the repository were
+  replaced with the fact they encoded (an owner directive) — the unresolvable-identifier defect, in
+  the one form the resolving-link scan cannot see because the slug is not link-shaped.
+
+Measurements kept their numbers where the number is the force (parallel bypasses in a day, the
+false-positive rates, the green-runs-reviewing-nothing count), which is the same line the earlier
+sweeps drew.
+
+**Cross-file duplications, resolved by deleting the restatement and naming the owner:**
+
+- The CI-equivalent entry point's stage list was written in two files — one of which bans keeping a
+  second list. The gate-owner file keeps it; the other now points.
+- Pre-push gating contradicted between two files: one said the full entry point runs before every
+  push, the other designs the push gate as fast-and-scoped with the full run opt-in. The moment each
+  file owns is now explicit — full verification before MERGING or reporting green; push-time gating
+  owned by the verification rules.
+- The feature-documentation list restated the package-change documentation gate's items; it now
+  points, and keeps only the two obligations the gate does not carry.
+- The memory-mirroring rule was restated in full inside the lesson-capture rule; it now points.
+
 ## What is NOT done
 
-The citable class is closed and held. Two classes named in the evidence above are not, and this item
-stays open for them:
-
-- **Undated narrative.** Out of the checker's reach by construction — a paragraph retelling an
-  incident with every proper noun removed reads as an invariant. The audit measured one file with zero
-  identifier matches and the highest narrative count. Only a line-by-line pass finds these, and this
-  sweep did not do one; it followed the citations.
-- **Repository-specific naming.** DONE. The illustrative kind was genericised, the worked-example kind
-  is correct as it stands, and the two pieces of genuinely repository-specific policy moved to the
-  document that owns that kind of rule, by owner decision. 44 → 37 references, and the remainder is
-  not the class.
-- **The cross-file duplications** the audits found: one invariant stated in two rule files is what
-  diverges later, and they are still stated twice.
+Nothing — the three classes (citable, undated narrative, repository-specific naming) and the
+cross-file duplications are all swept, and the citable class is held at zero by the ratchet. What no
+sweep can close is recurrence: new narrative arrives with new rules, the checker bounds only the
+citable class, and the index's "How a rule is written" section is what binds the next writer.
 
 ## Test Plan
 
