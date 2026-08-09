@@ -99,6 +99,7 @@ import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/legacy-typescript-baseline.json');
@@ -445,10 +446,17 @@ export function findLegacyDependencies(manifest) {
  * than it was asked to is the vacuity this suite is elsewhere measuring.
  */
 export function gitTrackedFiles(root, notices = []) {
+  // Ambient git context is scrubbed, or the reading is not about `root` at all. A git hook exports
+  // GIT_DIR into everything it launches, so under `git push` from a linked worktree this listing
+  // answered from THAT repository while `cwd` pointed at a probe directory — every listed path was
+  // then absent from disk, the finder returned an empty, noticed result over a tree it never read,
+  // and the fail-closed ledger measured it `vacuous`. The same redirection, aimed at a real
+  // repository, is how fixture commits have overwritten a shared branch (git-ambient-env.json).
   const listed = execFileSync('git', ['ls-files'], {
     cwd: root,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
+    env: envWithoutGitVars(),
   })
     .split('\n')
     .filter(Boolean);
