@@ -83,6 +83,12 @@ jobs:
       # NON-FATAL by decision, not by silence: a failed redispatch must not turn the SAST job red
       # (the analysis it reports on succeeded), but it says what went wrong — recovery falling back
       # to the watcher is the pre-#1660 state, and the log names it.
+      #
+      # Two accepted costs, recorded rather than discovered: `actions: write` widens this job's
+      # blast radius to rerunning/cancelling runs (justified in scan-workflow-permissions.mjs;
+      # JS/TS autobuild is a no-op, so PR code does not execute in this job), and the head_sha
+      # query can pick up a same-SHA run from another PR — a rerun is idempotent, so the cost of
+      # that rarity is a wasted rerun, not a wrong verdict.
       - name: Re-run a review-gate that read this analysis too early (#1660)
         if: github.event_name == 'pull_request'
         env:
@@ -90,14 +96,24 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -u
-          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" \
-            --jq '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty' || true)
+          # An API failure is not "no run yet". `|| true` folded rate limits and network errors
+          # into the empty answer the may-not-have-started notice narrates, which is the exact
+          # wrong-reason silence this step's own header forswears — so the two are separated:
+          # an unreadable listing warns as itself and stops. (#1669 review)
+          if ! runs_json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" 2>&1); then
+            echo "::warning::#1660 recovery: could not LIST workflow runs for ${HEAD_SHA} (${runs_json}). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
+          run_id=$(printf '%s' "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty')
           if [ -z "${run_id}" ]; then
             echo "::notice::#1660 recovery: no Review Gate run found for ${HEAD_SHA} — nothing to recover (it may not have started yet; when it starts it will read a completed analysis)."
             exit 0
           fi
-          status_conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" \
-            --jq '"\(.status) \(.conclusion // "")"' || echo "unreadable")
+          if ! status_conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" \
+            --jq '"\(.status) \(.conclusion // "")"' 2>&1); then
+            echo "::warning::#1660 recovery: could not READ Review Gate run ${run_id} (${status_conclusion}). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
           status=${status_conclusion%% *}
           conclusion=${status_conclusion#* }
           if [ "${status}" != "completed" ]; then
