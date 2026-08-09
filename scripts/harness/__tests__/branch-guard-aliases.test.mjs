@@ -295,6 +295,19 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the -C behind a global was invisible:\n${output}`).toBe(2);
   });
 
+  it('reads an aliased remote-branch DELETE — the verb the delete gate greps for', () => {
+    // `hook_deleted_branch` pattern-matches the literal `git push … --delete <name>`. With
+    // `alias.pd "push origin --delete"` those words exist only in the expansion, so the gate
+    // must read the substituted statement, not the raw command. The scratch repo has no
+    // resolvable PR state, and "cannot confirm" is a refusal by design.
+    const repo = scratchRepo('feat/x', { pd: 'push origin --delete' });
+
+    const { status, output } = runHook('git pd feat/other', repo);
+
+    expect(status, `the aliased --delete never reached the delete gate:\n${output}`).toBe(2);
+    expect(output).toMatch(/feat\/other/);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

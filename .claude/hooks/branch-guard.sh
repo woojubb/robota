@@ -424,8 +424,8 @@ while read -r STMT_START STMT_LEN; do
       # Backslash FIRST, then sed's own specials — an expansion carrying `\1` would otherwise be
       # reinterpreted as a backreference inside the substitution it rides in. (#1666 review)
       _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/\\/\\\\/g' -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
     done <<< "$GIT_ALIASES"
   fi
 
@@ -957,7 +957,10 @@ while read -r STMT_START STMT_LEN; do
   # line-oriented pass, which looked for a heredoc opener with a regex that did not know about quoting:
   # a `<<EOF` inside a quoted string opened a body that never closed, and the real delete that followed
   # it was deleted from the string this check reads. (INFRA-075, #1572)
-  DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  # Read from the SUBSTITUTED statement: an aliased delete (`alias.pd "push origin --delete"`)
+  # spells its verb only after expansion, and the raw command carried no `git push … --delete`
+  # for the pattern to see. Offsets are 1-based over the effective slice. (#1666 review)
+  DELETE_BRANCH_NAME=$(hook_deleted_branch "$STMT_RAW_EFFECTIVE" 1 "${#STMT_RAW_EFFECTIVE}" || true)
 
   if [[ -n "$DELETE_BRANCH_NAME" ]] && ! stmt_override BRANCH_GUARD_ALLOW_DELETE; then
     if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
