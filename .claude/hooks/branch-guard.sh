@@ -696,14 +696,16 @@ while read -r STMT_START STMT_LEN; do
     STMT_RAW="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
     if [[ $(printf '%s' "$STMT_RAW" | grep -o -- '--delete-branch' | grep -c .) -eq 1 ]]; then
-      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch\b//')
+      # An explicit boundary class, not \b: `-` is not a word character, so \b matched inside
+      # `--delete-branch-like` names and the sed would strip a prefix of a different flag.
+      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch([^-[:alnum:]_]|$)/\1/')
       echo "[branch-guard] Run this instead:" >&2
       echo "[branch-guard]   $FIXED_COMMAND" >&2
     else
       echo "[branch-guard] Re-run this statement without '--delete-branch'." >&2
     fi
     echo "[branch-guard] Branch cleanup after the merge is governed by .agents/rules/git-branch.md" >&2
-    echo "[branch-guard] (see 'Deleting a merged branch') — read it there, it is the only copy." >&2
+    echo "[branch-guard] (see 'Delete Merged Branches') — read it there, it is the only copy." >&2
     exit 2
   fi
 
@@ -892,7 +894,7 @@ while read -r STMT_START STMT_LEN; do
         echo "  - $b" >&2
       done
       echo "[branch-guard] Branch cleanup after a merge is governed by .agents/rules/git-branch.md" >&2
-      echo "[branch-guard] (see 'Deleting a merged branch') — read it there, it is the only copy." >&2
+      echo "[branch-guard] (see 'Delete Merged Branches') — read it there, it is the only copy." >&2
       if [[ "$MERGED_REFS_READ" != "true" ]]; then
         echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
         echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2

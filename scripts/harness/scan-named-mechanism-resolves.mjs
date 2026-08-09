@@ -61,9 +61,11 @@ export const MATCHERS = [
     // binding documents actually use (AGENTS.md's Harness Entrypoints carries no `run`), so a
     // matcher demanding `run` could not see the most-load-bearing command list it exists for.
     // Package-manager BUILT-INS are not package scripts and are excluded, or `pnpm install`
-    // would be flagged for not appearing in `scripts`.
+    // would be flagged for not appearing in `scripts`. `test` and `start` are NOT in that list:
+    // like `build`, they resolve through the scripts field, and excluding them would leave the
+    // most ordinary commands documents name permanently unchecked.
     pattern:
-      /`(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|test|start|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)`/g,
+      /`(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)`/g,
     resolves: (name) => {
       const pkg = path.join(WORKSPACE_ROOT, 'package.json');
       // No manifest means the question cannot be answered, and answering `true` made every
