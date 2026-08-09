@@ -9,14 +9,14 @@ When a second consumer arrives whose consequences are heavier, **the function do
 nothing in the diff signals anything, and review sees a reuse, which reads as good practice. The
 defect is invisible in the code and shows up only in behaviour, usually much later.
 
-Two instances, measured in one session:
+Two shapes of the same defect:
 
-- `git()` trimmed its output. Right for a sha; wrong for a patch. Reused to produce the input to
-  `git apply -R`, it stripped the final newline, git called every patch corrupt, and the red-proof
-  gate's mutation step threw for its entire life — twelve CI runs, zero verdicts, no error anyone saw.
-- `testExecutesHook` was a grep-level relation for an ADVISORY coverage floor whose own docstring
-  called it "structural rather than exact". Reused to pick which tests may set a red-proof VERDICT,
-  the same imprecision can hand a verdict to a test that never ran the hook.
+- A helper that trims its output is right for a hash and wrong for a patch. Reused to feed a patch
+  applier, the stripped final newline makes every patch read as corrupt — and the gate consuming
+  those verdicts can throw for its entire life without an error anyone sees.
+- A grep-level approximation documented as "structural rather than exact" is exactly right for an
+  ADVISORY coverage floor. Reused to pick which tests may set a BLOCKING verdict, the same
+  imprecision hands the verdict to a test that never ran the subject.
 
 ## The rule
 

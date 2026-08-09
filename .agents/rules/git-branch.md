@@ -10,11 +10,11 @@ agent works in its own isolated worktree, so their file edits never collide and 
 serialization does not throttle independent work. Prefer the Claude Code `Agent` tool's `isolation: "worktree"`
 parameter — it creates the worktree in an isolated path and auto-removes it when unchanged.
 
-**Guardrails (these prevent the folder-confusion failures that originally motivated a ban):**
+**Guardrails (each closes a real failure mode of shared working trees):**
 
 - **One working tree per session.** Never edit or commit the MAIN clone's working tree from inside a worktree
   session, and never touch a worktree from the main-clone session. Operate in exactly one working tree at a time
-  (this is the #1 rule — the historical breakage was edits leaking between trees).
+  (this is the #1 rule — edits leaking between trees is the breakage the others exist to prevent).
 - **Isolated location only.** Create worktrees in the `Agent` tool's managed path or a directory OUTSIDE the
   repo — never nest one inside the repo's own tracked `packages/`/`apps/` tree.
 - **Each worktree gets its own branch** cut from a freshly-fetched `origin/develop`; all the branch rules in this
@@ -24,11 +24,6 @@ parameter — it creates the worktree in an isolated path and auto-removes it wh
 
 **Automated safeguard (non-blocking):** `scripts/harness/pre-push.mjs` runs `pruneAndWarnStaleWorktrees()` — it
 prunes administrative junk and WARNS about locked/stale leftover worktrees, but no longer blocks the push.
-
-**History:** worktrees were previously banned after (1) edits leaked between working trees, (2) a pre-push hook
-ran in the wrong directory, (3) symlink issues, and (4) locked worktrees were left behind. The guardrails above
-(one-working-tree-at-a-time, isolated location, cleanup + the prune-and-warn hook) address those modes; the
-parallel-agent speedup is worth it.
 
 ### Clean Working Tree Before Every Commit and Push
 
@@ -47,16 +42,18 @@ git status --short
 belong to the branch). `scripts/harness/pre-push.mjs` calls `assertCleanWorkingTree()` — any push
 with uncommitted modifications or staged changes is blocked with exit code 1.
 
-**Before pushing or merging, run `pnpm harness:verify-like-ci`** — the single entry that reproduces
-the required status checks of `protect-develop`, the ruleset a feature branch's PR must satisfy
-(`scripts/harness/verify-like-ci.mjs`). A bare `run-all-scans` is not that gate, and neither is any
-narrower command.
+**Before merging — and before reporting a branch green — run `pnpm harness:verify-like-ci`** — the
+single entry that reproduces the required status checks of `protect-develop`, the ruleset a feature
+branch's PR must satisfy (`scripts/harness/verify-like-ci.mjs`). A bare `run-all-scans` is not that
+gate, and neither is any narrower command. Which local gate runs at PUSH time — the fast scoped
+`pnpm harness:pre-push` by default, the full entry point opt-in — is owned by
+[verification.md](verification.md) § Pre-Push Local Verification Requirement, not here.
 
 - It runs the monorepo **build** and the affected packages' **test** suites, gated on exactly the
-  conditions CI gates its own jobs on. It once ran neither, while being named here as the
-  CI mirror — so "I ran the CI-equivalent check" was a much weaker claim than it read as. Do not
-  re-add a separate "plus build and tests" instruction anywhere: the entry point owns that, and a
-  second list is how the two drift.
+  conditions CI gates its own jobs on. Do not re-add a separate "plus build and tests" instruction
+  anywhere: the entry point owns that, and a second list is how the two drift — an entry point named
+  as the CI mirror while running less makes "I ran the CI-equivalent check" a much weaker claim than
+  it reads as.
 - It does NOT run two required contexts and says so in its own summary: `dependency audit` (needs
   network and an external binary) and `windows-shell` (needs a Windows runner). Nothing local covers
   those.
@@ -104,18 +101,19 @@ The banned set is every documented kill switch, not one flag:
 | removing, emptying, or dropping the execute bit on anything under `.husky/` | —            |
 | opening a hook in an editor, or writing one from `node`/`python3`           | —            |
 
-The first version of this rule banned `--no-verify` alone. Measuring it immediately found **six other
-routes walking straight through** — closing the instance and leaving the class, which is the mistake
-this rule exists to stop repeating.
+Banning a single route closes the instance and leaves the class — every route the ban does not name
+walks straight through it, silently. The table is maintained as the class, and a newly published
+kill switch joins it rather than earning its own rule.
 
 Reading, listing and editing a hook are untouched; only destroying one is refused. Emptying a hook
 through `Write`/`Edit`/`MultiEdit` is refused separately, in `check-forbidden-patterns.sh` — a body
 left with nothing to run is a removal wearing an edit's clothes.
 
 Changing a hook through `Write`/`Edit`/`MultiEdit` requires `HOOK_EDIT_ACK=1`. That is not an escape
-from a check — it IS the check: a hook may be changed, it may not be changed in passing. The first
-version asked whether the new content was empty and was wrong in both directions, refusing an
-ordinary partial deletion while passing `exit 0`.
+from a check — it IS the check: a hook may be changed, it may not be changed in passing. A content
+test ("is the new body empty?") is wrong in both directions — it refuses an ordinary partial
+deletion and passes a body of `exit 0` — which is why the check demands the acknowledgement instead
+of judging the edit.
 
 **One stated limit:** an in-place shell editor can still empty a hook (`sed -i 's/.*//'`). Telling
 that apart from an ordinary substitution means evaluating the editor's program, and being wrong
@@ -136,9 +134,8 @@ pnpm install --frozen-lockfile && pnpm build   # a fresh worktree owes this once
 ```
 
 **Measured: four parallel agents bypassed this way in a single day.** The cause was real — the gate
-could not go green in a worktree — and fixing it was necessary. It was not sufficient. The agents were
-then _told_ not to bypass, which worked, and being told is not a mechanism: the identical shape had
-already been written down for years about a different destructive command, and an agent did it anyway.
+could not go green in a worktree — and fixing it was necessary. It was not sufficient: being told
+not to bypass works until it doesn't, and being told is not a mechanism.
 
 There is deliberately no override token. An override for an override is the next bypass. **If a check
 is wrong, unrunnable, or fires on correct work, the check is what changes** — a gate that trains
@@ -193,7 +190,7 @@ Override for an intentional abandon: `BRANCH_GUARD_ALLOW_DELETE=1` **inline in t
 (`BRANCH_GUARD_ALLOW_DELETE=1 git push origin --delete <name>`) — the guard reads the command string,
 so an `export` in an earlier statement does not reach it.
 
-**Why:** `--delete-branch` once deleted the `develop` integration branch, and a blind delete after a _failed_ merge once closed an unmerged PR (cherry-pick recovery). The merged-PR half alone is not enough: a branch name reused across several PRs carries their merges, so a count of merged PRs reads greater than zero while the CURRENT PR is still open — and the deletion proceeds and closes it. Deletion is safe only after the merge is confirmed, never for integration branches. Note the two hazards differ in cost: a deleted `develop` is **recoverable** (re-cut it from `main`), whereas a branch deleted while its PR is unmerged **orphans work**. That asymmetry is why the ban targets the blind, automatic form — not deletion itself, which the agent should do routinely once a merge is confirmed.
+**Why:** the automatic form fires before any of the judgement conditions can be read — it can take an integration branch, and after a _failed_ merge it closes the unmerged PR it was cleaning up after. The merged-PR half alone is not enough: a branch name reused across several PRs carries their merges, so a count of merged PRs reads greater than zero while the CURRENT PR is still open — and the deletion proceeds and closes it. Deletion is safe only after the merge is confirmed, never for integration branches. Note the two hazards differ in cost: a deleted `develop` is **recoverable** (re-cut it from `main`), whereas a branch deleted while its PR is unmerged **orphans work**. That asymmetry is why the ban targets the blind, automatic form — not deletion itself, which the agent should do routinely once a merge is confirmed.
 
 ### Branch Policy
 
@@ -212,10 +209,10 @@ so an `export` in an earlier statement does not reach it.
   a branch cut from `main` after a promotion drags `Merge pull request …` commits into the PR range and fails
   `commitlint`. A clean feature/docs branch has **zero merge commits** in its `origin/develop..HEAD` range.
   **Enforced at creation** by `branch-guard`, over every spelling that CREATES a branch —
-  `git checkout -b`, `git switch -c`, and `git branch <name> [<start-point>]`. The third was
-  detected by nothing while the rule named only the first two, so `git branch x main && git checkout x`
-  reached neither the base check nor the name check: a rule true on paper and reachable around in
-  practice. Listing, deleting and renaming (`git branch`, `-a`, `-r`, `-v`, `--list`, `-d`/`-D`,
+  `git checkout -b`, `git switch -c`, and `git branch <name> [<start-point>]`. All three spellings,
+  because a rule that names only some of them is true on paper and reachable around in practice —
+  `git branch x main && git checkout x` reaches neither the base check nor the name check when only
+  the first two are covered. Listing, deleting and renaming (`git branch`, `-a`, `-r`, `-v`, `--list`, `-d`/`-D`,
   `-m`/`-M`) are not creations and pass silently. The copy forms — `git branch -c`/`-C`/`--copy`/
   `--force-copy` — DO create a branch and are **refused**, not judged: their arguments run the other
   way round (`-c <old> <new>` names the new branch SECOND), so reading a name and a base out of the
@@ -242,13 +239,12 @@ so an `export` in an earlier statement does not reach it.
 
 **A promotion must CARRY `main`'s ancestry. Squashing a sync merge is prohibited in both directions.**
 
-A squash copies content across but records **no ancestry link**. After `main -> develop` squash-merged as
-`bc0ee64ff` (single parent), `git merge-base --is-ancestor origin/main origin/develop` still failed, so the
-next promotion re-computed against the **old merge base** and re-conflicted on the same five `package.json`
-files plus `pnpm-lock.yaml` the back-merge had just reconciled. The cost is not
-the conflict — it is that a human re-derives the resolution every cycle, and **both wholesale directions are
-wrong**: toward `main` reverts develop's dependency patch bumps; toward `develop` un-archives backlog items
-and drops changesets.
+A squash copies content across but records **no ancestry link**. After a squashed sync merge (a single
+parent), `git merge-base --is-ancestor origin/main origin/develop` still fails, so the next promotion
+re-computes against the **old merge base** and re-conflicts on exactly the files the back-merge just
+reconciled. The cost is not the conflict — it is that a human re-derives the resolution every cycle,
+and **both wholesale directions are wrong**: toward `main` reverts develop's dependency patch bumps;
+toward `develop` un-archives backlog items and drops changesets.
 
 **Build the promotion branch with the tool, not by hand:**
 
@@ -308,7 +304,7 @@ This rule applies even when:
 - The existing branch "looks complete"
 - The new task seems unrelated to the open branch
 
-**Why:** a second open branch silently diverges — by rebase time the first branch's content is already in develop, producing mass conflicts (repeated incidents).
+**Why:** a second open branch silently diverges — by rebase time the first branch's content is already in develop, producing mass conflicts.
 
 **Exceptions:**
 
@@ -342,8 +338,8 @@ implementation PR still carries its User Execution Test Scenarios).
 
 A merge is not "done" the moment `gh pr merge` returns. **Independently verify the merge actually landed
 before treating the work as complete** — the merge command can report success while the change is absent
-from the target's remote head, or while a required CI gate was still red (a red-`quality` PR has merged
-before). Verification comes **first** in the post-merge sequence, before any branch deletion.
+from the target's remote head, or while a required CI gate was still red. Verification comes **first**
+in the post-merge sequence, before any branch deletion.
 
 - The read-only `merge-verifier` agent (`.claude/agents/merge-verifier.md`, signal `MERGE VERIFIED`) owns
   the checks and is the mechanism for this. **Dispatch it after a merge rather than eyeballing it** — its
@@ -353,7 +349,8 @@ before). Verification comes **first** in the post-merge sequence, before any bra
 - A required gate counts as green only if it actually passed: explicitly check `quality`/build, and
   **never treat "pending" or "not-required-skipped" as pass**.
 
-**Why:** a PR once merged despite a red quality gate and shipped a broken build to `main`.
+**Why:** a merge that lands past a red required gate ships the failure to the integration branch, and
+nothing after the merge announces it — only an independent landing check sees it.
 
 ### Delete Merged Branches (mandatory)
 
@@ -371,7 +368,7 @@ the branch is merged:
 
 **Never delete `develop` or `main`.**
 
-**Why:** stale merged branches obscure the active set; the safe per-branch delete (never merge-time `--delete-branch`) avoids the incident that deleted `develop`.
+**Why:** stale merged branches obscure the active set; the confirmed per-branch delete (never merge-time `--delete-branch`) is the form that cannot take an integration branch or an unmerged PR with it.
 
 ### Post-Merge Branch Cycle (mandatory)
 
@@ -392,8 +389,6 @@ After a branch is merged, the next feature branch must start from a correct base
 
 **Ordering and per-failure routing for the whole post-merge sequence** — verify the landing, then delete the
 branch, then re-base — are owned by [`post-merge-cycle`](../skills/post-merge-cycle/SKILL.md).
-
-**Why:** uncommitted evals churn once blocked `git checkout develop`, so a new branch silently forked off the previous feature branch.
 
 **Stash hygiene.** Never use a bare `git stash` / blind `git stash pop` for known auto-generated churn —
 stashes accumulate across sessions and `pop` restores the wrong entry. Discard churn with
@@ -455,10 +450,9 @@ The hook deliberately does NOT judge whether a prose finding was addressed; that
 call, and a hook guessing at it would be a check measuring the wrong thing. It establishes only that
 CI is green and that a current review exists to be read.
 
-This exists because the sentence above was not enough on its own: with this rule, the orchestration
-skill and its three agents all in place, two pull requests were merged past unread findings in a
-single session, and each needed a follow-up pull request to fix what the unread review had already
-found.
+The hook exists because the prose alone does not hold the gate: with the rule and the orchestration
+in place but nothing refusing the command, a merge can still happen past unread findings — and every
+one costs a follow-up pull request to fix what the unread review had already found.
 
 The loop that drives a PR to that state is owned by
 [`pr-finding-resolution-loop`](../skills/pr-finding-resolution-loop/SKILL.md) (review → record → fix, to

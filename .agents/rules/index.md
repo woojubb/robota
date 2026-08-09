@@ -64,11 +64,6 @@ knowing any history, and it must hold for a repository that shares none of this 
 - Adding a rule replaces prose only when nothing mechanical can carry it — see
   [learning-loop.md](learning-loop.md) § Enforcement Preference.
 
-> **Contained — [HARNESS-073](../tasks/HARNESS-073-rules-carry-case-narrative-and-repo-specifics.md).**
-> Most documents in this tree do not yet meet the form above; the measurement, its method and its
-> limits live in that item. The form is stated at its intended strength and the gap is filed rather
-> than deferred in silence — a document not yet corrected is behind, not exempt.
-
 ## Top-Level Rules
 
 | Group             | Document                                                   | Scope                                                                                             |

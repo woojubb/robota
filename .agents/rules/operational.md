@@ -30,12 +30,11 @@ Parent: [rules index](index.md)
 ### Feature Documentation Requirement
 
 - When a new feature is implemented (new tool, new API, new command, new capability), documentation MUST be updated in the same commit or PR.
-- Follow [documentation-sync.md](documentation-sync.md) for the exact package README and robota.io source paths that must be checked.
-- Required documentation updates:
-  1. **SPEC.md** of the affected package — add or update the feature description.
-  2. **README.md** of the affected package — add usage examples if the package is published.
-  3. **Backlog/task cleanup** — move completed backlog items to `completed/`.
-  4. **Stale content** — any existing documentation that contradicts the new feature MUST be corrected.
+- WHICH documents a package change must update (SPEC.md, READMEs, robota.io source pages) is owned by
+  [documentation-sync.md](documentation-sync.md) § Package Change Documentation Gate — it is not
+  restated here. This rule adds the two obligations that gate does not carry:
+  1. **Backlog/task cleanup** — move completed backlog items to `completed/`.
+  2. **Stale content** — any existing documentation that contradicts the new feature MUST be corrected.
 - A feature without documentation updates is an incomplete feature.
 - This rule is enforced by `harness:scan:specs` which checks that SPEC.md exists and is non-empty for all published packages.
 
@@ -91,8 +90,8 @@ mid-conversation, when work moves to another machine.
 - **Read the platform before recommending or writing a shell command.** The session environment
   states it; `uname -s` confirms it. Never carry a platform assumption over from an earlier session,
   an earlier message, or from what a checked-in script happens to contain.
-- **A command handed to the user must run on THEIR current platform.** These differ, and each has
-  produced a real failure:
+- **A command handed to the user must run on THEIR current platform.** The divergent commands, each
+  of which fails or silently misbehaves on the other OS:
 
   | Task            | GNU / Linux           | BSD / macOS                                 |
   | --------------- | --------------------- | ------------------------------------------- |
@@ -153,11 +152,10 @@ itself can be instrumented; until then this rule is read, not checked, and says 
 reading like a rule something enforces.
 
 **One thing to know about running the suite in a worktree.** A git hook exports `GIT_DIR` into
-everything it launches, so for a while every test spawned by a pre-push gate wrote to the repository
-being pushed from rather than to its own fixture — moving branch refs, and pushing the result. The
-shared test configuration now removes that ambient context, and a floor asserts at run time that it
-is gone. Nothing further is required of you; it is recorded here because the rule above sends you
-into worktrees and the failure was silent while it lasted.
+everything it launches, so a test spawned by a push-time gate can silently write to the repository
+being pushed from rather than to its own fixture. The shared test configuration removes that ambient
+context, and a floor asserts at run time that it is gone. Nothing further is required of you; it is
+stated here because the rule above sends you into worktrees, where this failure mode is silent.
 
 **Worktree hazards are refused at the command, not remembered.** The accidents in this class — a
 command that reaches another repository, a checkout that cannot succeed followed by statements that
