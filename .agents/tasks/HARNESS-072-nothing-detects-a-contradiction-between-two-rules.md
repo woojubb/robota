@@ -11,6 +11,23 @@ depends_on: []
 
 # HARNESS-072: the conflict scan reads words, not claims
 
+## Progress (2026-08-09)
+
+Subsets 1 and 2 landed as `scripts/harness/scan-loopback-bound-ownership.mjs` (registered, red-proved
+against the historical map text at `4cc72938f` and the rounds-9/10/12 draft-spec shape):
+
+- the map's Loop-back cells may not carry a quantified bound — the owning skill states the number,
+  the map says "bounded" and points. All four live restatements were REMOVED rather than checked
+  (the issue's stated preference), and the two numbers only the map carried (per-signature triages,
+  OTP requests) moved into `source-stabilization` and `npm-otp-publish`, which now own them.
+- a rule or spec-doc line naming a skill beside a quantified iteration bound is a finding, with
+  `allow-restated-bound: <reason>` designed before the check.
+- `scan-loop-contract`'s map clause was the two-copies design itself — it DEMANDED the map carry the
+  skill's number — and now flags only a cell stating a DIFFERENT number.
+
+Remaining: subset 3 (rule-to-rule — a MUST about a named subject vs a weaker bound elsewhere),
+which needs its suppression design first per the direction above.
+
 ## Problem
 
 Owner directive, 2026-08-03: **"규칙의 모순은 지속적으로 개선해 나가야 합니다"** — contradictions between

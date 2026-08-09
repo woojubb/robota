@@ -383,6 +383,12 @@ export const SCAN_COMMANDS = [
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
+    // HARNESS-072 tractable subset: a quantified loop bound has one owner (the skill); the map and
+    // the rules point rather than restate. #1615 produced five contradictions this way in one PR.
+    name: 'loopback-bound-ownership',
+    command: ['node', 'scripts/harness/scan-loopback-bound-ownership.mjs'],
+  },
+  {
     name: 'transport-admission',
     command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
   },
