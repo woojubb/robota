@@ -125,6 +125,33 @@ peer`) and assert the run is reported as **failed**, not `success: true, interru
 - Print-mode exit code: a provider failure must exit non-zero.
 - `pnpm harness:verify-like-ci` green.
 
+## Progress
+
+On `fix/core-027-tool-result-can-express-failure`, each red-proved at its own layer:
+
+- **Cancellation is classified from facts, not prose.** `isAbortFailure` (exported, SPEC'd) reads
+  the caller's `AbortSignal` and the error's own `name`; the substring sites are gone, including
+  the framework copy and — last — the http-request node, whose timeout now reads its own
+  controller's signal.
+- **`IToolResult` distinguishes thrown / denied / hook-blocked / succeeded** (the earlier session
+  commits on this branch), keeping L1's framing: never-throw stays, encode-failure-as-success goes.
+- **The provider failure survives by identity.** The streaming catch hands the thrown value out,
+  `IExecutionRoundState.providerFailure` carries it, and `buildFinalResult` puts the ORIGINAL
+  object in `result.error` — class, code, category, recoverable, stack, cause intact. The prose
+  reconstruction remains only for a restored store predating the carried value.
+- **DAG: one shape per outcome.** `triggerScheduledBatch` reports every stop as the partial shape
+  wherever it stopped; `NoopDeadLetterReinject` reports the absent capability as absent
+  (`DAG_VALIDATION_DLQ_REINJECT_UNSUPPORTED`), never as an empty queue.
+- **Exit codes:** the execution-level abort-prose regression (`connection aborted by peer` →
+  failed, original error by identity) and the headless-transport scenario test (exit 1, failure on
+  stderr) both run in the suites.
+- SPECs updated where the contracts changed (agent-core result contract, dag-scheduler batch,
+  dag-framework reinject).
+
+Remaining before done: the agent-run CLI evidence for the two User Execution scenarios below
+(print-mode run against a dropping endpoint; interactive tool-throw vs denial transcript), the
+scenario catalog entry, and the PR.
+
 ## User Execution Test Scenarios
 
 **Applies.** Exit codes and error text on the CLI's hottest path are user-facing.
