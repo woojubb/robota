@@ -932,6 +932,37 @@ describe('ExecutionService', () => {
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
     });
 
+    it('reports a failure whose message merely SAYS "abort" as a failure, not an interrupted run (CORE-027)', async () => {
+      // The sharpest silent wrong answer the audit named: the classification read the error's
+      // PROSE, so `connection aborted by peer` — a real network failure, no signal aborted —
+      // came back `success: true, interrupted: true`, and nothing downstream, including the
+      // print-mode exit code, could tell it from a user interruption.
+      const proseError = new Error('connection aborted by peer');
+      mockProvider.chat = vi.fn().mockRejectedValue(proseError);
+
+      const result = await executionService.execute(
+        'Hello',
+        [],
+        {
+          name: 'test-agent',
+          aiProviders: [mockProvider],
+          defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+          },
+          systemMessage: 'You are a helpful assistant.',
+        },
+        {
+          conversationId: 'abort-prose-test',
+        },
+      );
+
+      expect(result.interrupted, 'prose was read as a cancellation').not.toBe(true);
+      expect(result.success).toBe(false);
+      // And the failure survives as itself — class, message, identity.
+      expect(result.error).toBe(proseError);
+    });
+
     // Timings are in milliseconds and are raced against REAL timers, so the margin between a delta
     // and the deadline it refreshes is the whole test. The original spacing — deltas at 10ms and
     // 25ms against a 30ms idle timeout, resolving at 40ms — left 15ms of slack, and a loaded CI
