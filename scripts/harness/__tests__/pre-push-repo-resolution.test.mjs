@@ -181,16 +181,31 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the subshell cd was invisible to the walk:\n${output}`).toBe(0);
   });
 
+  it('does not let a MULTI-command subshell leak its cd past the close', () => {
+    // `(cd <A> && npm ci); git push`: the subshell spans two statement ranges — `(cd <A>` opens
+    // it, `npm ci)` closes it — so a single-statement `)` check never saw the close and the cd
+    // leaked to the push. The subshell-scope save/restore discards it at the `)` in the later
+    // statement; the push runs in the session dir (recorded → pass), not the unrecorded <A> the
+    // subshell cd'd to. This is the finding that motivated the depth model. (#1667 review)
+    const a = repoOn('feat/a');
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`(cd ${a} && npm ci); git push origin x`, parked);
+
+    expect(status, `a multi-command subshell leaked its cd:\n${output}`).toBe(0);
+  });
+
   it('does not let a CLOSED subshell cd leak into a later push', () => {
-    // `(cd x) && git push` changes no directory the push will see. The still-parenthesised
-    // target reads as unreadable rather than as a base the push never had.
+    // `(cd <other>) && git push` changes no directory the push will see — the subshell cd is
+    // discarded at its `)`, so the push runs in the ORIGINAL (session) dir. The subshell-scope
+    // save/restore judges the session repo (recorded → pass); it does NOT judge <other>, which is
+    // unrecorded and would refuse if the cd had leaked. (#1667 review)
     const parked = repoOn('feat/parked', { recorded: true });
     const other = repoOn('feat/other');
 
     const { status, output } = runHook(`(cd ${other}) && git push origin x`, parked);
 
-    expect(status, 'a closed subshell cd was carried into the push').toBe(2);
-    expect(output).toMatch(/cannot read/);
+    expect(status, `a closed subshell cd was carried into the push:\n${output}`).toBe(0);
   });
 
   it('a decoy cd in an env-prefix substitution does not launder the real hidden target', () => {
@@ -212,16 +227,14 @@ describe('which repository the push verdict is about', () => {
   });
 
   it('does not let a SPACED closed subshell cd leak either — `( cd x ) && push`', () => {
-    // With spaces the closing paren tokenizes as its own word, which no per-word test sees.
-    // The raw-slice test catches it: a `)` in a cd statement whose target read clean means
-    // the subshell closed before the push. (#1667 review)
+    // Same as above with spaces: the subshell-scope save/restore discards the cd at the `)`, so
+    // the push runs in the session dir (recorded → pass), never in the unrecorded <other>. (#1667)
     const parked = repoOn('feat/parked', { recorded: true });
     const other = repoOn('feat/other');
 
     const { status, output } = runHook(`( cd ${other} ) && git push origin x`, parked);
 
-    expect(status, 'a spaced closed subshell cd was carried into the push').toBe(2);
-    expect(output).toMatch(/cannot read/);
+    expect(status, `a spaced closed subshell cd was carried into the push:\n${output}`).toBe(0);
   });
 
   it('a QUOTED builtin name cannot slip a hidden target past the raw inspection', () => {
@@ -354,17 +367,17 @@ describe('which repository the push verdict is about', () => {
     expect(status, `a backgrounded cd was carried forward as the base:\n${output}`).toBe(2);
   });
 
-  it('sees a subshell close even when the target path repeats in a redirection', () => {
-    // `( cd <A> ) 2><A> && git push`: the target text repeats in the redirection, so cutting the
-    // tail at the LAST occurrence hid the real closing `)` right after the cd arg. Cutting at the
-    // FIRST occurrence sees it — the closed subshell's cd must not leak. (#1667 review)
-    const a = repoOn('feat/a', { recorded: true });
+  it('closes the subshell even when the target path repeats in a redirection', () => {
+    // `( cd <A> ) 2><A> && git push`: the target text repeats in the redirection, but the
+    // subshell-scope save/restore counts the `(`/`)` on the mask and discards the cd at the `)`
+    // regardless of where the path text repeats. The push runs in the session dir (recorded →
+    // pass), never in the unrecorded <A> the subshell cd'd to. (#1667 review)
+    const a = repoOn('feat/a');
     const parked = repoOn('feat/parked', { recorded: true });
 
     const { status, output } = runHook(`( cd ${a} ) 2>${a} && git push origin x`, parked);
 
-    expect(status, `a repeated path hid the subshell close:\n${output}`).toBe(2);
-    expect(output).toMatch(/cannot read/);
+    expect(status, `a repeated path leaked the subshell cd:\n${output}`).toBe(0);
   });
 
   it('does not carry a `||`-guarded cd forward as a definite base', () => {

@@ -133,6 +133,18 @@ LAST_CD_UNREADABLE=false
 # only if the push is `&&`-chained back to it. (#1667 review)
 LAST_CD_CONDITIONAL=false
 PUSHD_STACK=()
+# Subshell scope. A `cd` inside `( … )` applies to commands WITHIN that subshell but NEVER to the
+# parent shell after the `)` — `(cd /w && npm ci); git push` runs the push in the ORIGINAL dir, not
+# /w. A single-statement `PS_TAIL` check saw only a `)` in the same statement as the cd; a subshell
+# spanning statements (`(cd /w`, then `npm ci)`) leaked its cd past the close entirely. So the dir
+# state is SAVED at every `(` and RESTORED at every `)`: a cd done inside is visible until the close
+# and discarded after. Closes are applied at the TOP of the NEXT statement (and after the loop), so
+# a push in the SAME statement as its own closing `)` — `(cd /w && git push)` — still resolves
+# against the in-subshell dir before the restore. (#1667 review)
+SUBSHELL_STACK_CD=()
+SUBSHELL_STACK_UNREAD=()
+SUBSHELL_STACK_COND=()
+PENDING_CLOSES=0
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[pre-push-check] Blocked: the command could not be split into statements, so which" >&2
@@ -184,6 +196,47 @@ while read -r PS_START PS_LEN; do
     echo "[pre-push-check] not a pass." >&2
     exit 2
   fi
+  # Subshell CLOSES pending from the previous statement are applied HERE, before this statement runs
+  # — restoring the dir state saved at the matching `(`. Deferring to the next statement's top (not
+  # the end of the closing statement) means a push sharing a statement with its own `)` has already
+  # resolved against the in-subshell dir. (#1667 review)
+  while (( PENDING_CLOSES > 0 )); do
+    if (( ${#SUBSHELL_STACK_CD[@]} > 0 )); then
+      _SS_TOP=$(( ${#SUBSHELL_STACK_CD[@]} - 1 ))
+      LAST_CD="${SUBSHELL_STACK_CD[$_SS_TOP]}"
+      LAST_CD_UNREADABLE="${SUBSHELL_STACK_UNREAD[$_SS_TOP]}"
+      LAST_CD_CONDITIONAL="${SUBSHELL_STACK_COND[$_SS_TOP]}"
+      unset "SUBSHELL_STACK_CD[$_SS_TOP]" "SUBSHELL_STACK_UNREAD[$_SS_TOP]" "SUBSHELL_STACK_COND[$_SS_TOP]"
+    fi
+    PENDING_CLOSES=$((PENDING_CLOSES - 1))
+  done
+  # This statement's own SUBSHELL-GROUP parens, counted on the MASK (quoted parens are fill). A
+  # command/process substitution — `$( … )`, `<( … )`, `>( … )` — is NOT a subshell that scopes the
+  # surrounding cd: `cd /pre$(x)post` runs the cd in the CURRENT shell, the `$( )` only produces
+  # part of the argument. Its parens are balanced within the one statement, so they are subtracted
+  # from both the open and close counts and never trigger a save/restore (which would erase the
+  # target-is-unreadable verdict the `$` earns). STATED LIMIT: arithmetic `$(( … ))` / `(( … ))` is
+  # not special-cased — rare on a push command line, and its extra paren fails toward a refusal, not
+  # a bypass. (#1667 review)
+  _SS_ALLOPEN="${PS_MASK//[^(]/}"
+  _SS_ALLCLOSE="${PS_MASK//[^)]/}"
+  _SS_CMDSUB=0
+  for _SS_PAT in '$(' '<(' '>('; do
+    _SS_STRIPPED="${PS_MASK//"$_SS_PAT"/}"
+    _SS_CMDSUB=$(( _SS_CMDSUB + (${#PS_MASK} - ${#_SS_STRIPPED}) / 2 ))
+  done
+  _SS_OPENS_N=$(( ${#_SS_ALLOPEN} - _SS_CMDSUB ))
+  _SS_CLOSES_N=$(( ${#_SS_ALLCLOSE} - _SS_CMDSUB ))
+  if (( _SS_OPENS_N < 0 )); then _SS_OPENS_N=0; fi
+  if (( _SS_CLOSES_N < 0 )); then _SS_CLOSES_N=0; fi
+  _SS_I=0
+  while (( _SS_I < _SS_OPENS_N )); do
+    SUBSHELL_STACK_CD+=("$LAST_CD")
+    SUBSHELL_STACK_UNREAD+=("$LAST_CD_UNREADABLE")
+    SUBSHELL_STACK_COND+=("$LAST_CD_CONDITIONAL")
+    _SS_I=$((_SS_I + 1))
+  done
+  PENDING_CLOSES=$_SS_CLOSES_N
   if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
     # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
     # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
@@ -412,22 +465,12 @@ while read -r PS_START PS_LEN; do
       # changes no directory the push will see — or a quote character, the tokenizer's mark of
       # hidden content (a quoted target with inner spaces words as bare quote marks).
       #
-      # The closing paren need not glue to the target: `( cd x ) && push` tokenizes the `)` as
-      # its own word, so the slice AFTER the target is tested too — a `)` there means the
-      # subshell closed before the push, and the outer directory is not what this walk just
-      # read. Only the tail is tested, because a paren BEFORE the target is a different fact:
-      # an env-prefix substitution (`V=$(x) cd /repo`) closes ITS paren before `cd`, and the
-      # target is still literal. The residue is a `)` in a trailing comment, which refuses —
-      # fail-closed, and the shape is not one an agent writes.
-      #
-      # Cut at the FIRST occurrence of the target (`#`, not `##`): the target text can repeat
-      # later in the statement — most plausibly a redirection to the same path, `( cd /r ) 2>/r`
-      # — and cutting at the LAST occurrence put the real subshell-closing `)` (right after the
-      # cd arg) BEFORE the cut, leaving an empty tail that hid the close. The cd arg is the first
-      # occurrence. (#1667 review)
-      PS_TAIL="${PS_RAW#*"$PS_SECOND"}"
+      # Closing a subshell is handled globally by the SUBSHELL_STACK save/restore above — a cd
+      # inside `( … )`, however many statements the group spans, is discarded at its `)`. So the
+      # per-target `)` tail check that used to live here is gone; what remains is the target itself
+      # carrying a `(`/`)`, which is hidden content in the token, not a subshell boundary. (#1667)
       UNREADABLE_TARGET="$TARGET_HIDDEN"
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* || "$PS_TAIL" == *')'* ]] \
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
         || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
         UNREADABLE_TARGET=true
       fi
