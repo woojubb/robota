@@ -156,6 +156,7 @@ while read -r PS_START PS_LEN; do
     PS_SECOND=""
     PS_THIRD=""
     PS_FOURTH=""
+    PS_FIFTH=""
     PS_INDEX=0
     while IFS= read -r PS_W; do
       [[ -n "$PS_W" || "$PS_INDEX" -gt 0 ]] || continue
@@ -165,7 +166,8 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 2 ]] && PS_SECOND="$PS_W"
       [[ "$PS_INDEX" -eq 3 ]] && PS_THIRD="$PS_W"
       [[ "$PS_INDEX" -eq 4 ]] && PS_FOURTH="$PS_W"
-      [[ "$PS_INDEX" -ge 5 ]] && break
+      [[ "$PS_INDEX" -eq 5 ]] && PS_FIFTH="$PS_W"
+      [[ "$PS_INDEX" -ge 6 ]] && break
     done <<< "$PS_WORDS"
     # A subshell opener glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
@@ -178,7 +180,8 @@ while read -r PS_START PS_LEN; do
       PS_FIRST="$PS_SECOND"
       PS_SECOND="$PS_THIRD"
       PS_THIRD="$PS_FOURTH"
-      PS_FOURTH=""
+      PS_FOURTH="$PS_FIFTH"
+      PS_FIFTH=""
     fi
     # `builtin cd`, `command cd` and `\cd` are the cd builtin wearing a bypass prefix — valid
     # ways to skip a shell function or alias, and each left the walk blind to a real directory
@@ -189,7 +192,8 @@ while read -r PS_START PS_LEN; do
       PS_FIRST="$PS_SECOND"
       PS_SECOND="$PS_THIRD"
       PS_THIRD="$PS_FOURTH"
-      PS_FOURTH=""
+      PS_FOURTH="$PS_FIFTH"
+      PS_FIFTH=""
     done
     PS_FIRST="${PS_FIRST#\\}"
     if [[ "$PS_FIRST" == "popd" ]]; then
@@ -239,7 +243,10 @@ while read -r PS_START PS_LEN; do
       # substitution (`$DIR`), `~` (the hook does not expand another process's home), a `pushd`
       # stack rotation (`+N`/`-N`), or a word still carrying a subshell paren — `(cd x) && push`
       # changes no directory the push will see, and guessing would judge the wrong repository.
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* ]] \
+      # A quoted target with INNER SPACES words as bare quote characters (`""`), the tokenizer
+      # hiding the content — resolving that literally would judge a path of quote marks. Any
+      # quote character in the word means the real target is partly hidden. (#1667 review)
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
         || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
         LAST_CD_UNREADABLE=true
       else

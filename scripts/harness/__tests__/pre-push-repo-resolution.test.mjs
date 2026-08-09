@@ -251,6 +251,30 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the stacked prefixes re-blinded the walk:\n${output}`).toBe(0);
   });
 
+  it('treats a quoted target with inner spaces as unreadable', () => {
+    // Words-mode hides quoted content with spaces, leaving bare quote marks — resolving that
+    // literally would judge a path of quote characters.
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('cd "/path with space" && git push origin x', parked);
+
+    expect(status, 'a space-bearing quoted target resolved as quote marks').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('keeps the target through prefixes AND the end-of-options marker together', () => {
+    // `command builtin cd -- <path>` needs five words; a four-word capture dropped the path.
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(
+      `command builtin cd -- ${pushed} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `the fifth word (the path) was dropped:\n${output}`).toBe(0);
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });
