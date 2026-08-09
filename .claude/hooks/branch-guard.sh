@@ -695,7 +695,11 @@ while read -r STMT_START STMT_LEN; do
     # Ranges are 1-based (awk substr); bash slicing is 0-based.
     STMT_RAW="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
-    if [[ $(printf '%s' "$STMT_RAW" | grep -o -- '--delete-branch' | grep -c .) -eq 1 ]]; then
+    # Counted with the SAME boundary the sed strips with — a bare substring count read
+    # `--delete-branch-like` (a different flag) as an occurrence, chose the single-occurrence
+    # branch, and the sed then stripped nothing, so "Run this instead" repeated the refused
+    # command verbatim. (#1672 review)
+    if [[ $(printf '%s' "$STMT_RAW" | grep -oE -- '--delete-branch(=[^[:space:]]*)?([^-[:alnum:]_]|$)' | grep -c .) -eq 1 ]]; then
       # An explicit boundary class, not \b: `-` is not a word character, so \b matched inside
       # `--delete-branch-like` names and the sed would strip a prefix of a different flag. The
       # `=value` spelling is consumed WITH the flag — keeping the boundary alone turned
