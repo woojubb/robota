@@ -148,7 +148,7 @@ On `fix/core-027-tool-result-can-express-failure`, each red-proved at its own la
 - SPECs updated where the contracts changed (agent-core result contract, dag-scheduler batch,
   dag-framework reinject).
 
-Remaining before done: the agent-run CLI evidence for the two User Execution scenarios below
+Remaining before done: the agent-run CLI evidence for the two User Execution Test Scenarios below
 (print-mode run against a dropping endpoint; interactive tool-throw vs denial transcript), the
 scenario catalog entry, and the PR.
 
