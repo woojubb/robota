@@ -1,6 +1,6 @@
 import { EXECUTION_EVENTS } from './execution-constants';
+import { buildFinalResult } from './execution-failure';
 import { executeRound } from './execution-round';
-import { buildFinalResult } from './execution-service-helpers';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
@@ -215,7 +215,13 @@ export async function finalizeExecution(
   eventEmitter: ExecutionEventEmitter,
 ): Promise<ICoreExecutionResult> {
   const result = {
-    ...buildFinalResult(conversationStore, executionId, startTime, roundState.toolsExecuted),
+    ...buildFinalResult(
+      conversationStore,
+      executionId,
+      startTime,
+      roundState.toolsExecuted,
+      roundState.providerFailure,
+    ),
     interrupted,
   };
 

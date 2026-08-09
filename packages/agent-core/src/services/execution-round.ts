@@ -15,6 +15,7 @@ import {
   type IExecutionContext,
   SHORT_PREVIEW_LENGTH,
   LAST_MESSAGES_SLICE,
+  MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS,
 } from './execution-types';
 import { collectAssistantUsageMetadata } from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
@@ -43,8 +44,6 @@ export {
   type IContextCapacityDecision,
   getContextCapacityDecision,
 } from './execution-round-context';
-
-const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
 
 /** Dependencies required by the round executor */
 export interface IRoundDependencies {
@@ -169,6 +168,7 @@ export async function executeRound(
     logger,
     wrappedOnTextDelta,
     wrappedOnProviderNativeRawPayload,
+    (error) => void (roundState.providerFailure = error),
   );
   if (response === null) return true;
 

@@ -65,6 +65,7 @@ export async function callRoundProviderWithEvents(
   logger: ILogger,
   wrappedOnTextDelta: (delta: string) => void,
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
+  onProviderFailure?: (error: unknown) => void,
 ): Promise<TUniversalMessage | null> {
   try {
     fullContext.onExecutionEvent?.('provider_request', {
@@ -128,6 +129,10 @@ export async function callRoundProviderWithEvents(
       throw providerError;
     }
     conversationStore.discardPending();
+    // CORE-027: the message below is DISPLAY, not the failure's representation. The thrown value
+    // itself is handed out so the final result can carry it with class, code, category, stack and
+    // cause intact — rebuilding it from this prose is the round trip that destroyed all of them.
+    onProviderFailure?.(providerError);
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {

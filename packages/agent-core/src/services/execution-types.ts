@@ -60,6 +60,9 @@ export interface IResolvedProviderInfo {
   availableTools: ReturnType<IToolManager['getTools']>;
 }
 
+/** Consecutive model rounds with an unavailable tool call before the loop force-summarizes. */
+export const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
+
 /**
  * Mutable state tracked across execution rounds
  */
@@ -76,6 +79,15 @@ export interface IExecutionRoundState {
   forcedSummaryInstruction?: string;
   /** Tracks how many times each (toolName, inputHash) pair has been called this turn. */
   sameToolInputCounts: Map<string, number>;
+  /**
+   * The ORIGINAL value a provider call threw, when a round ended in a provider failure.
+   *
+   * CORE-027: the failure used to survive only as `Request failed: ${message}` prose in the
+   * conversation store, and the final result's `error` was rebuilt from that display string —
+   * class, `code`, `category`, `recoverable`, stack and `cause` all destroyed by the round trip.
+   * Carrying the thrown value itself is the only representation that loses nothing.
+   */
+  providerFailure?: unknown;
 }
 
 /**

@@ -81,6 +81,12 @@ export class SchedulerTriggerService {
   /**
    * Triggers a batch of scheduled runs sequentially. If a failure occurs
    * mid-batch, returns successfully started runs with a partial error.
+   *
+   * CORE-027: ONE shape for "the batch stopped at a failure", wherever it stopped. A first-item
+   * failure used to come back as `ok: false` while the identical failure one position later came
+   * back as `ok: true` with a partial error — the same outcome in two shapes, keyed on nothing
+   * but position, so every caller either handled both or silently mishandled one. `startedRuns`
+   * says what started (possibly nothing) and `partialError` says where and why it stopped.
    * @param request - The batch request containing multiple trigger items.
    * @returns The batch result with started runs and optional partial error.
    */
@@ -92,16 +98,13 @@ export class SchedulerTriggerService {
     for (const item of request.items) {
       const started = await this.triggerScheduledRun(item);
       if (!started.ok) {
-        if (startedRuns.length > 0) {
-          return {
-            ok: true,
-            value: {
-              startedRuns,
-              partialError: started.error,
-            },
-          };
-        }
-        return started;
+        return {
+          ok: true,
+          value: {
+            startedRuns,
+            partialError: started.error,
+          },
+        };
       }
       startedRuns.push(started.value);
     }
