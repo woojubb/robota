@@ -119,6 +119,12 @@ printf '%s' "$COMMAND_VERBS" | grep -qE "$RE_PUSH_STMT" || exit 0
 # different repositories refuse for the same reason.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
 PUSH_DIR=""
+# A SEEN flag, not `-n "$PUSH_DIR"`, decides whether a prior push exists: the first push can
+# legitimately resolve to the EMPTY string (no cwd in the payload — "Absence is normal" — no `cd`,
+# no `-C`, the bare-push-in-session case that falls back to the project dir). Testing `-n` then
+# read that empty first push as "no push yet", so a second push to a DIFFERENT repo overwrote it
+# with no conflict and the first push went unverified. (#1667 review)
+PUSH_SEEN=false
 PUSH_DIR_CONFLICT=false
 LAST_CD=""
 LAST_CD_UNREADABLE=false
@@ -144,9 +150,10 @@ while read -r PS_START PS_LEN; do
       fi
       PS_DIR="${LAST_CD:-$HOOK_CWD}"
     fi
-    if [[ -n "$PUSH_DIR" && "$PS_DIR" != "$PUSH_DIR" ]]; then
+    if [[ "$PUSH_SEEN" == "true" && "$PS_DIR" != "$PUSH_DIR" ]]; then
       PUSH_DIR_CONFLICT=true
     fi
+    PUSH_SEEN=true
     PUSH_DIR="$PS_DIR"
   else
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides

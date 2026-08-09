@@ -237,6 +237,25 @@ describe('which repository the push verdict is about', () => {
     expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
   });
 
+  it('detects a two-repo conflict even when the FIRST push resolves to the empty base', () => {
+    // No payload cwd (absence is normal), so the first `git push` resolves to the empty string —
+    // the bare-push-in-session case. A `-n "$PUSH_DIR"` conflict test read that as "no push yet",
+    // so a second push to a DIFFERENT repo overwrote it silently and the first went unverified. A
+    // SEEN flag distinguishes "no push" from "a push whose dir is empty". (#1667 review)
+    const other = repoOn('feat/other', { recorded: true });
+
+    const { status, output } = runHook(
+      `git push origin main && git -C ${other} push origin feat/other`,
+      undefined,
+    );
+
+    expect(
+      status,
+      `the first empty-resolved push was overwritten with no conflict:\n${output}`,
+    ).toBe(2);
+    expect(output).toMatch(/two different repositories/);
+  });
+
   it('follows a bare `pushd` swap back to the directory the shell began in', () => {
     // `cd <pushed> && pushd <other> && pushd && git push`: real bash's bare pushd swaps the top
     // two stack entries and cd's back to <pushed>. Treating an argument-less pushd as unreadable
