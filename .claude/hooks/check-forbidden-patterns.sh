@@ -15,8 +15,10 @@
 # Reads tool_input.content (Write) or tool_input.new_string (Edit) from stdin —
 # NOT the existing file — so only newly introduced violations are caught.
 #
-# Escape mechanism (per-line):
-#   } catch (e) {             // allow-fallback: <reason>
+# Escape mechanism: `// allow-fallback: <reason>` anywhere `scan-no-fallback.mjs` (the CI
+# authority) reads it — the line above the catch, the catch line, or inside the block up to its
+# closing brace. Same-line-only was #1664: prettier moves a comment after `{` to the next line
+# unconditionally, so hook and formatter could not both be satisfied.
 #
 # Exit codes: 0 = pass, 2 = hard block
 
@@ -171,9 +173,69 @@ while IFS= read -r match; do
   [ -z "$match" ] && continue
   line_num=$(echo "$match" | cut -d: -f1)
   line_content=$(echo "$match" | cut -d: -f2-)
-  echo "$line_content" | grep -q '//[[:space:]]*allow-fallback:' && continue
   # Read ahead 6 lines from CONTENT (not disk)
   block=$(echo "$CONTENT" | sed -n "$((line_num)),$((line_num + 6))p")
+  # The marker may be on the catch line or INSIDE the block, and #1664 is why the same-line demand
+  # alone cannot stand: prettier unconditionally moves a comment that follows `{` onto the next
+  # line — not a width decision — so the two requirements were individually satisfiable and jointly
+  # not, for any file the repository also formats. `scan-no-fallback.mjs`, the CI authority for
+  # this rule, accepts every placement the codebase uses — the line ABOVE the catch
+  # (leading-comment convention), the catch line, anywhere in the body, and the closing-brace
+  # line — so the marker scope here matches: one line back, then forward to the block's real
+  # closing brace (a generous cap, since a hook reads a bounded window where CI parses the file).
+  # The body ENDS at that brace: a shorter catch must not borrow a marker from whatever unrelated
+  # code follows it — a marker the CI authority, which matches braces, still refuses.
+  #
+  # STATED LIMIT, the same one both readers accept differently: this count is textual, so a
+  # `{`/`}` inside a string literal in the body skews the depth and can end the marker scope a
+  # line early or late. CI's parser ignores those; telling them apart here needs a parser too.
+  # The cost lands fail-closed — a marked fallback over-refused, never an unmarked one excused
+  # beyond the closing brace's line.
+  marker_start=$((line_num > 1 ? line_num - 1 : 1))
+  marker_block=$(echo "$CONTENT" | sed -n "$((marker_start)),$((line_num + 40))p")
+  # Braces are counted with string/comment stripping — a `{` inside a quoted literal or a `//`
+  # comment (line or block, across lines) is prose, not structure, and counting it kept `depth` from ever closing, so the scope
+  # grew past the real block and could absorb an unrelated marker beyond it. Template literals
+  # are tracked ACROSS lines: inside one, text is prose until the closing backtick, and a bracket
+  # expression strips whole so a brace inside a regex character class is not structure. The
+  # residue a parser would still catch — a backtick inside a regex literal, a brace in a regex
+  # OUTSIDE a character class, nested template interpolation re-opening code — is bounded by the
+  # 40-line cap.
+  marker_scope=$(echo "$marker_block" | awk -v lead="$((line_num - marker_start))" '
+    NR <= lead { print; next }   # the line above the catch: scope, but not brace arithmetic
+    {
+      line = $0
+      gsub(/\\./, "", line)                # escapes first, so \" does not end a string early
+      # A template literal is tracked ACROSS lines: inside one, everything up to the closing
+      # backtick is prose; a line that opens one without closing it strips its tail and arms the
+      # state. Same-line pairs and quoted strings strip as before.
+      if (intpl) {
+        if (line ~ /`/) { sub(/^[^`]*`/, "", line); intpl = 0 } else { line = "" }
+      }
+      if (incmt) {
+        if (line ~ /\*\//) { sub(/^.*\*\//, "", line); incmt = 0 } else { line = "" }
+      }
+      gsub(/`[^`]*`/, "", line)
+      gsub(/"[^"]*"/, "", line)
+      gsub(/\047[^\047]*\047/, "", line)
+      gsub(/\/\*[^*]*([^*]|\*+[^*\/])*\*+\//, "", line)
+      sub(/\/\/.*$/, "", line)
+      # A bracket expression is stripped whole: a brace inside a regex character class
+      # (/[{]/ and kin) is prose to the block structure, and balanced [ ] content in code
+      # removes both sides of any brace pair it contains, so the depth is unchanged either way.
+      gsub(/\[[^\]]*\]/, "", line)
+      if (line ~ /`/) { sub(/`.*$/, "", line); intpl = 1 }
+      if (line ~ /\/\*/) { sub(/\/\*.*$/, "", line); incmt = 1 }
+      n = gsub(/{/, "{", line); m = gsub(/}/, "}", line)
+    }
+    NR == lead + 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
+    NR > lead + 1  { depth += n - m }
+    { opened += n; print }
+    # Truncate only once the block has OPENED and closed. A `{` on the line after the catch
+    # (pre-formatter content is what this hook reads) would otherwise cut the scope at the
+    # signature line and refuse a correctly marked body.
+    opened > 0 && depth <= 0 { exit }')
+  echo "$marker_scope" | grep -q '//[[:space:]]*allow-fallback:' && continue
   if ! echo "$block" | grep -qE '\bthrow\b|\bPromise\.reject\b|return.*[Ee]rr'; then
     append_block "try-catch-fallback" "$line_num" "$line_content"
   fi
@@ -190,7 +252,7 @@ if [ "$BLOCKED" = true ]; then
   echo "Rules:" >&2
   echo "  try-catch-fallback → common-mistakes #9: no fallback; terminal failures stay terminal" >&2
   echo "" >&2
-  echo "Escape (same line): // allow-fallback: <reason>" >&2
+  echo "Escape: // allow-fallback: <reason> — the line above the catch, the catch line, or inside the block" >&2
   echo "" >&2
   exit 2
 fi
