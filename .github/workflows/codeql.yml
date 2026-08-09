@@ -87,9 +87,12 @@ jobs:
       # Accepted costs, recorded rather than discovered:
       #   - `actions: write` widens this job's blast radius to rerunning/cancelling runs
       #     (justified in scan-workflow-permissions.mjs). JS/TS autobuild is a no-op, so PR code
-      #     does not execute in the analysis steps; the recovery step below runs only what this
-      #     workflow file states — and a FORK pull request receives a read-only GITHUB_TOKEN
-      #     regardless of this block, so the widened scope never reaches untrusted code.
+      #     does not execute in the analysis steps. A FORK pull request receives a read-only
+      #     GITHUB_TOKEN regardless of this block, so the widened scope never reaches untrusted
+      #     code. A SAME-REPO branch does run its own edit of this file — and gains nothing by
+      #     it: pushing a branch here requires repo write access, which already carries the
+      #     Actions re-run/cancel rights this token grants. The scope widens what this WORKFLOW
+      #     may do, not what any contributor may.
       #   - The head_sha query can pick up a same-SHA run from another PR — a rerun is
       #     idempotent, so the cost of that rarity is a wasted rerun, not a wrong verdict.
       #   - The rerun restores the REQUIRED CHECK, not auto-merge: a first failure has already
@@ -101,6 +104,10 @@ jobs:
       #     stays-red watcher, the pre-#1660 state.
       - name: Re-run a review-gate that read this analysis too early (#1660)
         if: github.event_name == 'pull_request'
+        # Non-fatal MECHANICALLY, not by convention: every branch of the script exits 0 on
+        # purpose, but a future edit or a `set -u` unbound variable would flip the SAST job red —
+        # the exact outcome the header forswears. The runner enforces what the comment promised.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
