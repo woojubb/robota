@@ -22,7 +22,26 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createHttpTransport } from '../http-transport.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
+import type { IInteractiveSession, ITurnHandle } from '@robota-sdk/agent-interface-transport';
+
+/**
+ * A CONFORMANT turn handle. Not `{ status: 'started' }` behind a cast: `ITurnHandle` is
+ * `{ turnId, completed }`, and a double that answers a different shape is a partial
+ * re-implementation the compiler was told to stop checking. The route only awaits the terminal
+ * event today, so the difference is invisible — until a call site reads `.completed`, at which
+ * point the double would misrepresent the contract silently. (#1684 review)
+ */
+function stubHandle(turnId: string): ITurnHandle {
+  return {
+    turnId,
+    completed: Promise.resolve({
+      response: '',
+      history: [],
+      toolSummaries: [],
+      contextState: { usedTokens: 0, maxTokens: 0, usedPercentage: 0, remainingPercentage: 100 },
+    }),
+  };
+}
 
 /** A session that RECORDS what actually reached it — the transcript the scenario asserts on. */
 function createRecordingSession(): { session: IInteractiveSession; transcript: string[] } {
@@ -38,8 +57,8 @@ function createRecordingSession(): { session: IInteractiveSession; transcript: s
       // The route's SSE stream ends on the terminal event; a session that never emits one leaves
       // the request hanging, so the case would fail on a timeout — a red for the wrong reason.
       queueMicrotask(() => emit('complete', { success: true, content: 'done' }));
-      return { turnId: 'scenario-turn', status: 'started' };
-    }) as unknown as IInteractiveSession['submit'],
+      return stubHandle('scenario-turn');
+    }) as IInteractiveSession['submit'],
     on: ((event: string, handler: (data: unknown) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)?.add(handler);
