@@ -92,7 +92,11 @@ COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
 # because this line is the whole file's entry point, the branch-hygiene check, the lockfile-sync
 # check and the local-review record were all skipped for that shape. Two guards reading one command
 # must reach one reading of it.
-printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)' || exit 0
+# ONE spelling of "this statement is a push", shared with the per-statement walk below — a second
+# copy of the pattern is a second answer waiting to disagree (#1667 review; lib/command-scan.sh
+# carries this file's history of exactly that).
+RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
+printf '%s' "$COMMAND_VERBS" | grep -qE "$RE_PUSH_STMT" || exit 0
 
 # Worktree-aware context resolution — the repository the push will ACTUALLY act on (#1662).
 #
@@ -114,7 +118,6 @@ printf '%s' "$COMMAND_VERBS" | grep -qE '(^|[;&|({"'"'"'`]|[[:space:]])[[:space:
 # repository is being pushed has not verified anything about it. Two push statements resolving to
 # different repositories refuse for the same reason.
 HOOK_CWD=$(hook_cwd_of "$INPUT" || true)
-RE_PUSH_STMT='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+[[:space:]]+)*git[[:space:]]+((-C|-c)[[:space:]]+\S+[[:space:]]+)*push([^-[:alnum:]_]|$)'
 PUSH_DIR=""
 PUSH_DIR_CONFLICT=false
 LAST_CD=""
@@ -150,6 +153,7 @@ while read -r PS_START PS_LEN; do
     PS_WORDS=$(hook_statement_words "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
     PS_FIRST=""
     PS_SECOND=""
+    PS_THIRD=""
     PS_INDEX=0
     while IFS= read -r PS_W; do
       [[ -n "$PS_W" || "$PS_INDEX" -gt 0 ]] || continue
@@ -157,19 +161,35 @@ while read -r PS_START PS_LEN; do
       PS_INDEX=$((PS_INDEX + 1))
       [[ "$PS_INDEX" -eq 1 ]] && PS_FIRST="$PS_W"
       [[ "$PS_INDEX" -eq 2 ]] && PS_SECOND="$PS_W"
-      [[ "$PS_INDEX" -ge 3 ]] && break
+      [[ "$PS_INDEX" -eq 3 ]] && PS_THIRD="$PS_W"
+      [[ "$PS_INDEX" -ge 4 ]] && break
     done <<< "$PS_WORDS"
     if [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
+      # `cd -- <path>`: the end-of-options marker is not the target — the next word is.
+      [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
       # A target this hook cannot resolve: empty (quoted away), `-`/flags, a variable or
-      # substitution (`$DIR`), or `~` (the hook does not expand another process's home).
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* ]]; then
+      # substitution (`$DIR`), `~` (the hook does not expand another process's home), or a
+      # `pushd` stack rotation (`+N`/`-N`), which lands on a directory only the shell's stack knows.
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* ]] \
+        || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
         LAST_CD_UNREADABLE=true
       else
         case "$PS_SECOND" in
-          /*) LAST_CD="$PS_SECOND" ;;
-          *) LAST_CD="${HOOK_CWD:-.}/$PS_SECOND" ;;
+          /*)
+            LAST_CD="$PS_SECOND"
+            LAST_CD_UNREADABLE=false
+            ;;
+          *)
+            # A RELATIVE hop resolves against where the shell already stands: the last tracked
+            # `cd`, or the declared cwd when none. Resolving every hop against the declared cwd
+            # sent the second hop of `cd .. && cd sibling && git push` to the wrong path — and
+            # the fallback then judged the main clone, the exact pre-#1662 resolution, silently.
+            # After an UNREADABLE cd the base is unknown, so a relative hop stays unreadable.
+            if [[ "$LAST_CD_UNREADABLE" != "true" ]]; then
+              LAST_CD="${LAST_CD:-${HOOK_CWD:-.}}/$PS_SECOND"
+            fi
+            ;;
         esac
-        LAST_CD_UNREADABLE=false
       fi
     fi
   fi

@@ -119,4 +119,49 @@ describe('which repository the push verdict is about', () => {
 
     expect(status, `the ordinary case broke:\n${output}`).toBe(0);
   });
+
+  it('resolves a SECOND relative cd against the first, not the declared cwd', () => {
+    // `cd .. && cd <sibling> && git push` — every hop used to resolve against the declared cwd,
+    // so the second landed on a path that does not exist and the fallback judged the main clone:
+    // the pre-#1662 resolution, silently, for exactly this shape. (#1667 review)
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(
+      `cd .. && cd ${path.basename(pushed)} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `the chained relative cd was judged against the wrong repo:\n${output}`).toBe(0);
+  });
+
+  it('keeps a relative cd AFTER an unreadable one unreadable', () => {
+    // The base of the hop is unknown, so the hop is too — resolving it against the declared cwd
+    // would be the same silent regression one directory later.
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('cd "$SOMEWHERE" && cd sub && git push origin x', parked);
+
+    expect(status, 'a relative cd laundered the unreadable base').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('reads the target after a `--` end-of-options marker', () => {
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`cd -- ${pushed} && git push origin feat/target`, parked);
+
+    expect(status, `cd -- <path> was treated as unreadable:\n${output}`).toBe(0);
+  });
+
+  it('treats a pushd stack rotation as a target it cannot read', () => {
+    // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('pushd +1 && git push origin x', parked);
+
+    expect(status, 'a stack rotation was concatenated onto the cwd as a directory name').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
 });
