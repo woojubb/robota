@@ -147,6 +147,25 @@ cache.clear();
     expect(status, "a string's brace let a foreign marker excuse the catch").toBe(2);
   });
 
+  it('a MULTI-LINE template with unbalanced braces does not hold the block open', () => {
+    // Inside a template literal, text is prose until the closing backtick — a net-positive brace
+    // count across its lines kept depth from closing and grew the scope past the real block.
+    const template = 'try {\n' +
+      '  risky();\n' +
+      '} catch {\n' +
+      '  logger.warn(`missing {\n' +
+      '    key {\n' +
+      '  `);\n' +
+      '  return undefined;\n' +
+      '}\n' +
+      '\n' +
+      '// allow-fallback: about something else entirely\n' +
+      'cache.clear();\n';
+    const { status } = writeThrough(template);
+
+    expect(status, "a template's braces let a foreign marker excuse the catch").toBe(2);
+  });
+
   it('still accepts a marked catch whose body quotes a brace', () => {
     const marked = `try {
   risky();
