@@ -120,7 +120,13 @@ jobs:
             echo "::warning::#1660 recovery: could not LIST workflow runs for ${HEAD_SHA} ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
             exit 0
           fi
-          run_id=$(printf '%s' "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty')
+          # The PARSE is checked like the calls around it: gh can exit 0 with a body that has no
+          # .workflow_runs (rate-limit payload on a 200, schema drift), and an unchecked pipe let
+          # that fall into the benign no-run narrative. (#1669 review)
+          if ! run_id=$(printf '%s' "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty' 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: the run listing for ${HEAD_SHA} did not parse as expected ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
           if [ -z "${run_id}" ]; then
             echo "::notice::#1660 recovery: no Review Gate run found for ${HEAD_SHA} — nothing to recover (it may not have started yet; when it starts it will read a completed analysis)."
             exit 0
