@@ -32,12 +32,25 @@ const STUB_MARKERS = [
   'placeholder for actual',
 ];
 
+/**
+ * How many publishable source files the last walk read — HARNESS-057. A module-level holder set
+ * where the walk happens and read where the line is printed, so the finder's return shape and the
+ * tests that assert on its findings stay untouched.
+ */
+let examinedSourceFiles = 0;
+
+/** What the last `findStubMarkerFindings` run actually read — exported so it can be asserted. */
+export function examinedSourceFileCount() {
+  return examinedSourceFiles;
+}
+
 export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'stub-markers',
     why: 'Stub markers are searched in shipped package source; no packages/ means no search, not a clean search.',
   });
   const findings = [];
+  examinedSourceFiles = 0;
 
   // Nesting-aware: covers depth-1 packages and nested group members (e.g. packages/dag-nodes/<name>).
   for (const packageDir of listManifestPackageDirs(root)) {
@@ -49,6 +62,7 @@ export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
     // so a file under `src/dist/` was source here and invisible to `no-fake-in-src`. One lister,
     // one exclusion set. Measured on the real tree when routed: 1620 files before, 1620 after.
     for (const sourcePath of listSourceFiles(path.join(packageDir, 'src'))) {
+      examinedSourceFiles++;
       const content = readFileSync(sourcePath, 'utf8');
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
@@ -71,6 +85,11 @@ export async function findStubMarkerFindings(root = WORKSPACE_ROOT) {
 export async function main() {
   const findings = await findStubMarkerFindings(WORKSPACE_ROOT);
   if (findings.length === 0) {
+    // HARNESS-057: the size of the subject — publishable source files, which is what the walk reads
+    // and therefore what a reader can check against the workspace at a glance. Zero of them would
+    // mean the package walk found nothing publishable, which is a pass over nothing rather than a
+    // tree with no stubs, so it carries no expected-empty excuse.
+    process.stdout.write(`::examined:: ${examinedSourceFiles} publishable source files\n`);
     process.stdout.write('stub marker scan passed.\n');
     return;
   }

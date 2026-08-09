@@ -193,8 +193,19 @@ function main() {
   }
 
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  // HARNESS-057: the subject is the LIBRARY PACKAGES walked, not the occurrences found inside them —
+  // a tree with zero occurrences is this ratchet's goal state, while zero packages means the walk
+  // found nothing to look at. Declaring the occurrence count would report success as the subject
+  // shrinks toward the goal, which is the reading this marker exists to prevent.
+  const packagesWalked = Object.keys(counts).length;
   console.log(
-    `product-identity ratchet passed (${Object.keys(counts).length} library package(s), ` +
+    packagesWalked === 0
+      ? '::examined:: 0 library packages ::expected-empty:: no library package matched the walk, ' +
+          'which is a tree with no libraries rather than a clean one'
+      : `::examined:: ${packagesWalked} library packages`,
+  );
+  console.log(
+    `product-identity ratchet passed (${packagesWalked} library package(s), ` +
       `${total} occurrence(s) at baseline).`,
   );
 }

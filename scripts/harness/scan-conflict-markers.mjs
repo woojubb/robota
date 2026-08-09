@@ -106,10 +106,25 @@ export function findGitConflictMarkers(root = WORKSPACE_ROOT) {
   return findings;
 }
 
+/**
+ * How many documents the last walk read — HARNESS-057. A module-level holder set where the walk
+ * happens and read where the line is printed, so the finder's return shape (and every test that
+ * asserts on its findings) is untouched. Reset at the top of each run, before the early paths, or a
+ * run that examined nothing would report the previous run's number.
+ */
+let examinedDocuments = 0;
+
+/** What the last `findConflictMarkerFindings` run actually read — exported so it can be asserted. */
+export function examinedDocumentCount() {
+  return examinedDocuments;
+}
+
 export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
+  examinedDocuments = 0;
   const findings = findGitConflictMarkers(root);
   for (const target of SCAN_TARGETS) {
     for (const file of walkMarkdown(root, target)) {
+      examinedDocuments++;
       const lines = readFileSync(file, 'utf8').split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -133,6 +148,10 @@ export function findConflictMarkerFindings(root = WORKSPACE_ROOT) {
 export function main() {
   const findings = findConflictMarkerFindings();
   if (findings.length === 0) {
+    // HARNESS-057: the size of the subject, on the channel the runner reads. Zero documents means
+    // the walk found no markdown at all — a pass over nothing, not a clean tree — so it is declared
+    // without an expected-empty excuse and the runner fails the suite on it.
+    process.stdout.write(`::examined:: ${examinedDocuments} markdown documents\n`);
     process.stdout.write('conflict marker scan passed.\n');
   } else {
     process.stdout.write('conflict marker scan failed:\n');

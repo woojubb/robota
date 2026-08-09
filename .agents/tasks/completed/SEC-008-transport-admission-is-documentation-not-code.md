@@ -161,7 +161,10 @@ request to a running Robota transport does.
 
 Suites re-run for this closure: **10 files / 73 tests green**. The one item that was genuinely
 outstanding was the **user-execution evidence**, which the scenario section had left as
-"fill in after implementation" — it is now filled from an agent-run, above.
+"fill in after implementation". It is now filled from an agent-run — and the runner is CHECKED IN as
+`admission-loopback-scenario.test.ts`, a real loopback round-trip asserting the session transcript,
+after review pointed out that closing a task about "the boundary is documentation rather than code"
+on prose evidence repeats the very shape the task is about.
 
 The FOUNDATIONAL half named in "Why this is foundational" — making admission a member of the
 transport contract itself rather than a per-transport decision — is what

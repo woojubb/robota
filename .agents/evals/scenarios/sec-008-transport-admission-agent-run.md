@@ -45,19 +45,34 @@ So the difference between "reaches the host with no gate" and "rejected before t
 admission decision itself — which is now made by omission being SECURE, and reachable only by an
 explicit, explained opt-out.
 
-## How to re-run
+## How to re-run — the scenario is CODE, not a report of a run
 
-The runner used for this evidence is not checked in (it is a stand-in session plus a loopback
-server, both a few lines). The behaviour it demonstrates is pinned by the package's own suites, which
-are the durable guard:
+The first version of this file described a run whose runner was not checked in. Review named the
+irony: SEC-008 is about a trust boundary that is documentation rather than code, and its closing
+evidence was documentation rather than code. So the scenario lives in the suite, where anyone can
+re-run it and where CI runs it on every change:
 
 ```bash
-pnpm --filter @robota-sdk/agent-transport-http build
+npx vitest run packages/agent-transport-http/src/__tests__/admission-loopback-scenario.test.ts
+# 3 passed — the three rows above, over a real loopback socket
+```
+
+It is deliberately not an `app.fetch()` test like its siblings: the claim is about what an
+unauthenticated **remote request** does to a **served** transport, so the request actually travels
+over a socket. And the assertion is the session TRANSCRIPT, not just the status code — "answered
+401" and "never executed" are different claims, and only the second is the security property.
+
+Mutation-proved: constructing the transport with `admission: { open: true, … }` in the first case
+makes it fail on `the unauthenticated prompt reached the session`, so the case is guarding the gate
+rather than the status code.
+
+The surrounding suites remain the coverage for the other three transports and the server:
+
+```bash
 npx vitest run packages/agent-transport-http/src/__tests__ \
   packages/agent-transport-mcp/src/__tests__ \
   packages/agent-transport-webrtc/src/__tests__/admission-secure-by-default.test.ts \
   apps/agent-server/src/__tests__/authenticate-playground-client.test.ts
-# 10 files, 73 tests, all passing (2026-08-10)
 
 node scripts/harness/scan-transport-admission.mjs
 # ::examined:: 9 transport package(s) — transport-admission scan passed
