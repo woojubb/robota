@@ -223,31 +223,40 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
       # A substitution EMBEDDED in the target is invisible to words-mode: `cd /pre$(x)post`
       # yields the word `/prepost`, the inner content AND its delimiters dropped — a clean-looking
-      # literal that is not where the shell will land. The raw statement text still carries the
-      # `$`/backtick, so the raw slice is what says this target cannot be read. (#1667 review)
+      # literal that is not where the shell will land. The raw TARGET TOKEN still carries the
+      # `$`/backtick — and it is the token that is scanned, not the whole statement, or an
+      # env-var prefix (`V=$(x) cd ../sibling`) would refuse a perfectly literal target.
+      # (#1667 review, both rounds)
       PS_RAW="${COMMAND:$((PS_START - 1)):$PS_LEN}"
-      if [[ "$PS_RAW" == *'$'* || "$PS_RAW" == *'`'* ]]; then
-        LAST_CD_UNREADABLE=true
-        continue
+      RAW_TGT=$(printf '%s' "$PS_RAW" | grep -oE "(^|[^[:alnum:]_-])${PS_FIRST}[[:space:]]+(--[[:space:]]+)?[^[:space:]]+" | head -1 | awk '{print $NF}') || RAW_TGT=""
+      TARGET_HIDDEN=false
+      if [[ "$RAW_TGT" == *'$'* || "$RAW_TGT" == *'`'* ]]; then
+        TARGET_HIDDEN=true
+      fi
+      # A target this hook cannot resolve, decided BEFORE the stack is touched: empty (quoted
+      # away), `-`/flags, a variable or substitution (`$DIR`, or one EMBEDDED in the token —
+      # TARGET_HIDDEN above), `~` (the hook does not expand another process's home), a `pushd`
+      # stack rotation (`+N`/`-N`), a word still carrying a subshell paren — `(cd x) && push`
+      # changes no directory the push will see — or a quote character, the tokenizer's mark of
+      # hidden content (a quoted target with inner spaces words as bare quote marks).
+      UNREADABLE_TARGET="$TARGET_HIDDEN"
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
+        || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
+        UNREADABLE_TARGET=true
       fi
       # `pushd` remembers where the shell stood, or that it could not tell (`?`), so a later
-      # `popd` restores exactly what this walk knew at the push.
+      # `popd` restores exactly what this walk knew at the push. The frame is pushed for EVERY
+      # pushd, poisoned when the target is unreadable: the real pushd moved the stack one frame
+      # (or failed and moved it none — unknowable), and a stack one frame short handed popd the
+      # wrong directory with full confidence. (#1667 review)
       if [[ "$PS_FIRST" == "pushd" ]]; then
-        if [[ "$LAST_CD_UNREADABLE" == "true" ]]; then
+        if [[ "$LAST_CD_UNREADABLE" == "true" || "$UNREADABLE_TARGET" == "true" ]]; then
           PUSHD_STACK+=("?")
         else
           PUSHD_STACK+=("${LAST_CD:-${HOOK_CWD:-.}}")
         fi
       fi
-      # A target this hook cannot resolve: empty (quoted away), `-`/flags, a variable or
-      # substitution (`$DIR`), `~` (the hook does not expand another process's home), a `pushd`
-      # stack rotation (`+N`/`-N`), or a word still carrying a subshell paren — `(cd x) && push`
-      # changes no directory the push will see, and guessing would judge the wrong repository.
-      # A quoted target with INNER SPACES words as bare quote characters (`""`), the tokenizer
-      # hiding the content — resolving that literally would judge a path of quote marks. Any
-      # quote character in the word means the real target is partly hidden. (#1667 review)
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
-        || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
+      if [[ "$UNREADABLE_TARGET" == "true" ]]; then
         LAST_CD_UNREADABLE=true
       else
         case "$PS_SECOND" in

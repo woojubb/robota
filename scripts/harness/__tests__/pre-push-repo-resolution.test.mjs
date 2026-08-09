@@ -275,6 +275,35 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the fifth word (the path) was dropped:\n${output}`).toBe(0);
   });
 
+  it('an unreadable pushd still costs a stack frame — popd after it is unreadable', () => {
+    // Real bash moved the stack one frame (or failed and moved none — unknowable); a model one
+    // frame short handed popd the PREVIOUS directory with full confidence.
+    const parked = repoOn('feat/parked');
+    const known = repoOn('feat/known', { recorded: true });
+
+    const { status, output } = runHook(
+      `pushd ${known} && pushd "$UNKNOWN" && popd && git push origin x`,
+      parked,
+    );
+
+    expect(status, 'popd after an unreadable pushd resolved with confidence').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('an env-var prefix does not make a literal cd target unreadable', () => {
+    // The raw check is scoped to the TARGET TOKEN: `V=$(x) cd <literal>` carries its $ in the
+    // prefix, not the target.
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(
+      `SOME_VAR=$(echo hi) cd ${pushed} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `a prefix substitution refused a literal target:\n${output}`).toBe(0);
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });
