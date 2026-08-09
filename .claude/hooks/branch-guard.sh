@@ -326,6 +326,12 @@ git_expansion_head() {
     case "$w" in
       -*) continue ;;
     esac
+    # The same defense the statement latch carries: the global list cannot be complete (git
+    # gains flags), and a token shaped like a path or dotted value is the VALUE of an option
+    # this list has not heard of, not a subcommand. (#1666 review)
+    case "$w" in
+      */* | .* | *.*) continue ;;
+    esac
     printf '%s' "$w"
     return 0
   done

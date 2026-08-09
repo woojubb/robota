@@ -283,6 +283,18 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the extraction lost the creation behind the global:\n${output}`).toBe(2);
   });
 
+  it('finds the -C behind another global, and reads THAT repo aliases', () => {
+    // hook_git_c_path skipped only `-c <pair>` prefixes, so `--work-tree=. -C <repo>` hid the
+    // -C from every consumer — the statement's aliases and branch were judged in the session
+    // repo instead.
+    const session = scratchRepo('feat/session');
+    const other = scratchRepo('feat/x', { ci: 'commit' });
+
+    const { status, output } = runHook(`git --work-tree=. -C ${other} ci -n -m x`, session);
+
+    expect(status, `the -C behind a global was invisible:\n${output}`).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

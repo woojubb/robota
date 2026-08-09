@@ -1063,8 +1063,13 @@ hook_statement_all_words() {
 # `[ \t]+` right after a token and a newline never satisfies that. Recorded as unproven rather than
 # dressed in a test that would pass either way.
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
+# The prefix skip accepts EVERY value-taking global in both spellings, or a `--git-dir=X` (or a
+# space-valued `--work-tree /x`) standing before the `-C` hid it from every consumer of this
+# extractor and the command was judged against the wrong repository. STATED LIMIT: `--git-dir`
+# itself also names a repository and is NOT extracted here — this reads `-C` only, and a caller
+# that must honour `--git-dir` as identity needs its own reader.
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=[^ \t\n]+)?[ \t]+([^ \t\n]+[ \t]+)?)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
