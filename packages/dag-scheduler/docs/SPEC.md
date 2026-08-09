@@ -20,7 +20,7 @@ Single-service architecture:
 
 - **SchedulerTriggerService** (`services/scheduler-trigger-service.ts`): Accepts a `RunOrchestratorService` instance via constructor injection. Provides three operations:
   1. `triggerScheduledRun` -- triggers a single scheduled run with a logical date.
-  2. `triggerScheduledBatch` -- triggers multiple scheduled runs sequentially, failing fast on any error.
+  2. `triggerScheduledBatch` -- triggers multiple scheduled runs sequentially, stopping at the first failure. Every stop has ONE shape (CORE-027): `ok: true` with `startedRuns` listing what started — possibly nothing — and `partialError` naming where and why it stopped. A first-item failure is not a differently-shaped outcome from a later one.
   3. `triggerCatchup` -- computes time slots over a date range at a given interval and triggers a run for each slot. Validates date parsing, interval positivity, slot count limits, and range ordering.
 
 ### Behavioral Contracts
