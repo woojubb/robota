@@ -43,18 +43,25 @@ describe('scan-named-mechanism-resolves', () => {
     expect(hooks.resolves('.claude/hooks/does-not-exist.sh')).toBe(false);
   });
 
-  it('reads the bare `pnpm <script>` shorthand the binding documents actually use', () => {
-    // AGENTS.md's Harness Entrypoints carry no `run`; a matcher demanding it could not see the
-    // most-load-bearing command list it exists for.
+  it('reads the shorthand in both homes — inline backticks and bare at line start', () => {
+    // AGENTS.md's Harness Entrypoints carry no `run` AND no backticks (a fenced block); the
+    // matcher must see both, or the most-load-bearing command list goes unchecked.
     const scripts = MATCHERS.find((m) => m.kind === 'package script');
-    scripts.pattern.lastIndex = 0;
-    const hit = scripts.pattern.exec('Run `pnpm harness:scan` before pushing.');
-    expect(hit?.[1]).toBe('harness:scan');
+    const name = (text) => {
+      scripts.pattern.lastIndex = 0;
+      const hit = scripts.pattern.exec(text);
+      return hit ? (hit[1] ?? hit[2]) : null;
+    };
+    expect(name('Run `pnpm harness:scan` before pushing.')).toBe('harness:scan');
+    expect(name('pnpm harness:scan')).toBe('harness:scan');
+    expect(name('  pnpm harness:record -- --scope x')).toBe('harness:record');
+    // Bare mid-sentence is prose, not a command.
+    expect(name('this pnpm monorepo uses workspaces')).toBeNull();
   });
 
   it('does not read a package-manager builtin as a script name', () => {
     const scripts = MATCHERS.find((m) => m.kind === 'package script');
-    for (const text of ['Run `pnpm install` first.', 'Use `pnpm run` to list them.']) {
+    for (const text of ['Run `pnpm install` first.', 'Use `pnpm run` to list them.', 'pnpm install --frozen-lockfile']) {
       scripts.pattern.lastIndex = 0;
       expect(scripts.pattern.exec(text), `${text} was read as a script`).toBeNull();
     }

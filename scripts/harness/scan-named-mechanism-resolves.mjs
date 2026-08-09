@@ -57,15 +57,17 @@ export const MATCHERS = [
   },
   {
     kind: 'package script',
-    // Both spellings: `pnpm run x` and the bare `pnpm x` shorthand — the shorthand is what the
-    // binding documents actually use (AGENTS.md's Harness Entrypoints carries no `run`), so a
-    // matcher demanding `run` could not see the most-load-bearing command list it exists for.
+    // Both spellings (`pnpm run x` and the bare `pnpm x` shorthand), in both homes: inline
+    // backticks anywhere, and BARE at line start — which is where fenced command blocks put
+    // them, and where the most-load-bearing lists live (AGENTS.md's Harness Entrypoints, the
+    // release runbooks). Bare mid-sentence stays unmatched, or prose like "this pnpm monorepo"
+    // reads as a script name.
     // Package-manager BUILT-INS are not package scripts and are excluded, or `pnpm install`
     // would be flagged for not appearing in `scripts`. `test` and `start` are NOT in that list:
     // like `build`, they resolve through the scripts field, and excluding them would leave the
     // most ordinary commands documents name permanently unchecked.
     pattern:
-      /`(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)`/g,
+      /(?:^\s*(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)(?=$|[^\w:-])|`(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)`)/g,
     resolves: (name) => {
       const pkg = path.join(WORKSPACE_ROOT, 'package.json');
       // No manifest means the question cannot be answered, and answering `true` made every
@@ -151,7 +153,7 @@ export function collectNamedMechanismFindings() {
         matcher.pattern.lastIndex = 0;
         let match;
         while ((match = matcher.pattern.exec(line)) !== null) {
-          const name = match[1];
+          const name = match[1] ?? match[2];
           if (matcher.resolves(name)) continue;
           findings.push(
             `${doc.label}:${index + 1} names the ${matcher.kind} \`${name}\`, which does not ` +
