@@ -98,7 +98,7 @@ describe('the examined-size counters measure both walks, and only this run (HARN
 
     await findWorkspaceRefFindings(root);
 
-    expect(examinedManifestCount(), 'the manifest walk was miscounted').toBeGreaterThanOrEqual(3);
+    expect(examinedManifestCount(), 'the manifest walk was miscounted').toBe(3);
     expect(examinedHelperScriptCount(), 'the helper-script walk was miscounted').toBe(2);
   });
 
