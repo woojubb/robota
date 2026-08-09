@@ -306,12 +306,19 @@ while read -r PS_START PS_LEN; do
     # matters here: a `||`-guarded NON-directory command (`foo || bar`) changes no directory, so
     # the base is unaffected and must not be poisoned. (#1667 review)
     if [[ "$PS_OR_GUARDED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
-      # A `||`-guarded pushd MIGHT have run and pushed a frame, or might not — unlike a subshell'd
-      # pushd, which certainly did not. Leaving the stack untouched let a later popd pop an EARLIER
-      # real frame with false confidence: `pushd /A; false || pushd /B; popd; git push` would popd
-      # back to /A's saved dir as if certain. A `?` poison frame carries the uncertainty forward so
-      # that popd inherits it. (#1667 review)
-      [[ "$PS_FIRST" == "pushd" ]] && PUSHD_STACK+=("?")
+      # A `||`-guarded pushd/popd MIGHT have run, or might not — unlike a subshell'd one, which
+      # certainly did not. Leaving the stack untouched let a later UNCONDITIONAL popd resolve a
+      # frame with false confidence:
+      #   `pushd /A; false || pushd /B; popd; git push`  — the pushd may have pushed a frame, and
+      #   `pushd /A; pushd /B; false || popd; popd; git push` — the popd may have consumed one.
+      # A `?` poison carries the uncertainty forward: a guarded pushd APPENDS one (the frame it may
+      # have added), a guarded popd REPLACES the top (the frame it may have consumed), and either
+      # way the next popd inherits the `?` and reads unreadable. (#1667 review)
+      if [[ "$PS_FIRST" == "pushd" ]]; then
+        PUSHD_STACK+=("?")
+      elif [[ "$PS_FIRST" == "popd" && ${#PUSHD_STACK[@]} -gt 0 ]]; then
+        PUSHD_STACK[$(( ${#PUSHD_STACK[@]} - 1 ))]="?"
+      fi
       LAST_CD_UNREADABLE=true
       continue
     fi

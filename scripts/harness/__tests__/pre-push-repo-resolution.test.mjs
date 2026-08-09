@@ -312,6 +312,24 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('poisons the stack for a `||`-guarded popd so a later popd inherits the uncertainty', () => {
+    // `pushd <A>; pushd <B>; false || popd; popd; git push`: the `||`-guarded popd MIGHT have
+    // consumed a frame. Leaving the stack untouched let the unconditional popd confidently pop
+    // <B>'s saved dir and judge it, while the real cwd was one level further out. The guarded popd
+    // now replaces the top with `?`, so the next popd reads unreadable → refuse. (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const b = repoOn('feat/b', { recorded: true });
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(
+      `pushd ${a}; pushd ${b}; false || popd; popd; git push origin x`,
+      parked,
+    );
+
+    expect(status, `a ||-guarded popd let a later popd resolve confidently:\n${output}`).toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('does not carry a PIPED cd forward — it ran in a subshell', () => {
     // `cd <A> | cat; git push`: the cd is the left of a pipe, so bash runs it in a subshell and
     // the parent cwd never changes — the push lands in the ORIGINAL dir, not <A>. The walk used
