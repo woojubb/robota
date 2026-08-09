@@ -97,7 +97,30 @@ stmt_override() {
 # subshell — puts one immediately before the verb, and without them the region survived masking and
 # still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
 # false positive it sits beside.
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+# ONE spelling of git's value-taking global options. Four hand-kept copies of this list existed
+# (GITPFX, the head finder's case, the alias-substitution prefix, the verb latch), and the copies
+# are how GITPFX went stale at (-C|-c) while the rest had moved on — every reader below derives
+# from GIT_VALUE_GLOBALS or asks git_global_takes_value(), which is built from it. The variable
+# itself is DEFINED in lib/command-scan.sh (sourced above): the library's own reader
+# (hook_git_c_path) needs the same list, and a copy here was the fifth hand-kept spelling.
+# (#1666 review)
+# EVERY value-taking global, in both spellings (`--git-dir .git` and `--git-dir=.git`) — the
+# (-C|-c)-only tolerance made `git --git-dir=.git commit` invisible to every action regex built on
+# this prefix, aliased or typed out, and the alias substitution (#1666 review) made that gap
+# reachable in one visible command. Each iteration consumes the option AND its value, as exactly
+# one of the two spellings — the earlier optional trailing token could swallow the word AFTER a
+# `=`-glued global (the alias, or the verb), which misread a subcommand's own `-C` as the global
+# directory switch. A global git will not accept without a value (bare `--exec-path` prints and
+# exits) is not a command prefix, so demanding the value is the accurate reading. (#1666 review)
+#
+# A VALUE-LESS boolean global (`--no-pager`, `--bare`, `--paginate`/`-p`, `--literal-pathspecs`)
+# between `git` and the verb is tolerated too — a bare `-\S+` alternative, the same catch-all the
+# branch-NAME extraction regexes below already use. Without it `git --no-pager commit` matched no
+# action regex and skipped the protected-branch check entirely, and the alias substitution made
+# that reachable through an alias body as well. Value-globals stay matched WITH their value (the
+# first alternative), so leftmost-longest consumes `--git-dir x` as one option+value rather than
+# reading `x` as the verb; the verb itself is never `-\S+`, so it cannot be borrowed. (#1666 review)
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((('"$GIT_VALUE_GLOBALS"')(=\S+|\s+\S+)|-\S+)\s+)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -244,6 +267,174 @@ UNMERGED_CHECKED=false
 # fine". Measured against origin/develop with awk hidden from PATH: `git push origin main` ON `main`
 # left the guard at exit 127, which the hook protocol treats as NON-blocking, so the push was
 # allowed. Every reachable command has at least one statement, so an empty list is a broken guard.
+# ── INFRA-085: a git alias is the verb it expands to ────────────────────────────────────────────
+# Every verb check below keys off the literal subcommand, and #1589 measured what that leaves open:
+# with `alias.ci commit`, `git ci -n -m x` and `HUSKY=0 git ci -m x` both sailed past checks that
+# ask "is the verb commit". An agent that has learned a flag is refused has an obvious next move,
+# and `git config alias.ci commit` is refused by nothing.
+#
+# Resolved ONCE per invocation (the issue's own cost analysis: one subprocess per hook run, not per
+# statement), from the SESSION's repository — aliases are per-repository state and the statement
+# loop below re-resolves directories per statement, but an alias set differing between a session's
+# own worktrees is not a real configuration. Read through the scrub like every other git question.
+#
+# STATED GAP: a shell alias (`!…`) is opaque here — its expansion is arbitrary shell, not a git
+# verb, and classifying it would mean parsing shell inside git config. It stays invisible to the
+# verb checks exactly as before this change.
+GIT_ALIASES_SESSION=""
+_ALIAS_DIR=$(hook_effective_repo session "" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
+if [[ -n "$_ALIAS_DIR" ]]; then
+  GIT_ALIASES_SESSION=$(hook_git_in "$_ALIAS_DIR" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+fi
+# The statement loop swaps this per statement (a `git -C` statement reads that repo's aliases).
+GIT_ALIASES="$GIT_ALIASES_SESSION"
+
+# The expansion for one alias name, or failure. Shell (`!`) aliases fail — see the stated gap.
+# STATED LIMIT: the value is word-split by IFS, not shell-tokenized, so a QUOTED argument inside
+# an alias value (`commit -m "quick fix"`) yields pseudo-words carrying literal quote characters.
+# A kill switch hidden inside such a value fails toward a wrong-shaped word that can over-match a
+# flag test — a refusal someone sees — never toward a silent pass; telling them apart needs the
+# shell-aware extraction filed as HARNESS-061.
+git_alias_expansion() {
+  local line name
+  [[ -n "$GIT_ALIASES" ]] || return 1
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    name="${line%% *}"
+    [[ "$name" == "$1" ]] || continue
+    [[ "${line#* }" == "$line" ]] && return 1
+    [[ "${line#* }" == '!'* ]] && return 1
+    printf '%s' "${line#* }"
+    return 0
+  done <<< "$GIT_ALIASES"
+  return 1
+}
+
+# ONE list of git's value-taking global options, asked as a question. It was hardcoded in three
+# places (the head finder, the chain rebuild, the verb latch), and three copies of one fact is the
+# defect this file keeps writing down about itself. (#1666 review)
+git_global_takes_value() {
+  [[ "$1" =~ ^(${GIT_VALUE_GLOBALS})$ ]]
+}
+
+# ONE list of `git commit`'s value-taking LONG options — the words after which the next token is a
+# message/file/template, not a flag. The statement latch and the alias-expansion latch both need
+# it, and two hand-kept copies had already forked (the alias copy gained `--template`, the
+# statement copy had not) — the exact "second spelling waiting to disagree" this file keeps
+# fixing. Asked through commit_opt_takes_value(): a `|` from a variable is NOT `case` alternation
+# (only a literal source `|` is), so this must be a regex test, like git_global_takes_value.
+# (#1666 review)
+COMMIT_VALUE_LONG_OPTS='--message|--file|--reuse-message|--reedit-message|--template'
+commit_opt_takes_value() {
+  [[ "$1" =~ ^(${COMMIT_VALUE_LONG_OPTS})$ ]]
+}
+
+# ONE reading of a `git commit` SHORT-flag cluster, shared by both latches so the kill-switch
+# letters cannot be updated in only one copy. Prints two words: whether `-n` (no-verify) appears
+# BEFORE any value-taking letter, and whether the cluster's LAST letter takes a value (so the next
+# token is that value, not a flag). The caller applies the `-n` result only for a commit. (#1666)
+commit_cluster_flags() {
+  local cluster="${1#-}" kill=false value=false
+  while [[ -n "$cluster" ]]; do
+    case "${cluster:0:1}" in
+      n) kill=true; break ;;
+      m | F | C | c) break ;;
+    esac
+    cluster="${cluster:1}"
+  done
+  case "$1" in *[mFCc]) value=true ;; esac
+  printf '%s %s' "$kill" "$value"
+}
+
+# The head of an expansion: the word the next hop resolves, found the way the verb latch finds a
+# verb — a value-taking global consumes its value, any other flag is skipped, the first remaining
+# word is the head. Reading the LITERAL first word reproduced, inside the alias, the exact bug the
+# latch already fixed at the top level: `-c commit.gpgsign=false commit` read as verb `-c`, and
+# every check keyed on `commit` went silent. (#1666 review)
+git_expansion_head() {
+  local w expect=false
+  # Word-splitting WITHOUT pathname expansion: git tokenizes alias values itself and never globs,
+  # so a value containing `*`/`?`/`[` (a push-all refspec, a pathspec) must not be replaced by
+  # whatever files happen to sit in the CWD. This function runs in a command-substitution
+  # subshell, so the flag change stays local. (#1666 review)
+  set -f
+  for w in $1; do
+    if [[ "$expect" == "true" ]]; then expect=false; continue; fi
+    if git_global_takes_value "$w"; then
+      expect=true
+      continue
+    fi
+    case "$w" in
+      -*) continue ;;
+    esac
+    # The same defense the statement latch carries: the global list cannot be complete (git
+    # gains flags), and a token shaped like a path or dotted value is the VALUE of an option
+    # this list has not heard of, not a subcommand. (#1666 review)
+    case "$w" in
+      */* | .* | *.*) continue ;;
+    esac
+    printf '%s' "$w"
+    return 0
+  done
+  return 1
+}
+
+# The FULL expansion of an alias chain, flattened, bounded at 10 hops. `alias.a1 ci` on top of
+# `alias.ci commit` is a commit as truly as its tail is, and single-level reading left the head
+# entirely unclassified — no refusal, no message. Each hop replaces the expansion's head word with
+# what it resolves to, keeping the flags on either side; the bound is a cycle guard.
+#
+# Exit codes: 0 with the flattened text (chain resolved to a real verb, or no head to resolve);
+# 1 if `$1` is not an alias at all; 2 if the chain did NOT terminate within the bound — the head
+# is STILL an alias after 10 hops. Handing that half-flattened head back would set GIT_VERB to an
+# alias name matching none of commit|push|rm|mv, so every gated check silently never fires: an
+# 11-deep chain topped with `commit -n` would pass where the literal is blocked. The bound is a
+# cycle guard, not a licence to bypass, so non-termination refuses — the file's fail-direction
+# (an unresolved shape is judged, never waved through). (#1666 review)
+git_alias_expansion_chain() {
+  local exp next head depth=0 rest pre w expect
+  exp=$(git_alias_expansion "$1") || return 1
+  while (( depth++ < 10 )); do
+    head=$(git_expansion_head "$exp") || break
+    next=$(git_alias_expansion "$head") || break
+    # Rebuild: everything before the head, the hop's expansion, everything after.
+    pre=""; rest=""; expect=false
+    local seen=false
+    # set -f for the same reason as git_expansion_head — subshell-local, git never globs these.
+    set -f
+    for w in $exp; do
+      if [[ "$seen" == "true" ]]; then rest="${rest}${rest:+ }${w}"; continue; fi
+      if [[ "$w" == "$head" && "$expect" != "true" ]]; then seen=true; continue; fi
+      if [[ "$expect" == "true" ]]; then
+        expect=false
+      elif git_global_takes_value "$w"; then
+        expect=true
+      fi
+      pre="${pre}${pre:+ }${w}"
+    done
+    exp="${pre}${pre:+ }${next}${rest:+ }${rest}"
+  done
+  # Did the chain actually terminate? A head that STILL resolves to an alias means the bound cut
+  # the flattening short, and the caller must refuse rather than judge the alias name as a verb.
+  # `if` not `&&`: under `set -e` a bare `cmd && return` aborts the hook the moment cmd fails
+  # (the common no-longer-an-alias case), exiting 1 with nothing said. (#1666 review)
+  head=$(git_expansion_head "$exp") || { printf '%s' "$exp"; return 0; }
+  if git_alias_expansion "$head" >/dev/null 2>&1; then
+    return 2
+  fi
+  printf '%s' "$exp"
+}
+
+# Refuse a command whose alias chain did not resolve within the hop bound. Shared by both
+# consumers so the message and the exit are identical. (#1666 review)
+refuse_unresolved_alias_chain() {
+  echo "[branch-guard] Blocked: the alias chain for '$1' does not resolve within 10 hops." >&2
+  echo "[branch-guard] An unresolved chain hides the real verb from every check — refusing rather" >&2
+  echo "[branch-guard] than judging an alias name as a git subcommand. Flatten the aliases, or run" >&2
+  echo "[branch-guard] the underlying git command directly." >&2
+  exit 2
+}
+
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[branch-guard] Blocked: the command could not be split into statements, so nothing in it" >&2
@@ -253,6 +444,130 @@ fi
 
 while read -r STMT_START STMT_LEN; do
   STMT_MASK=$(hook_verb_scan "$COMMAND" "$STMT_START" "$STMT_LEN")
+
+  # INFRA-085: the statement is judged AS IF the alias were typed out. The expansion is
+  # substituted into the MASK, so every existing check — the action regexes, the not-create and
+  # copy corrections, the branch-NAME and base extraction — reads the real verb TOGETHER with the
+  # call-site flags. Classifying aliases into per-action name lists could not do that: a create
+  # flag typed at the call site (`git co -b x` over `alias.co checkout`) matched no list, and the
+  # copy forms had no list at all — both "matched neither, passed through the guard entirely",
+  # the failure this file names as the worst one. (#1666 review)
+  # The RAW slice gets the same substitution: the branch-NAME and start-point extractions read
+  # original text (a masked read returns fill for a quoted name), and their patterns name the
+  # literal verbs — over `git co -b x` they matched nothing, so an aliased creation was detected
+  # and then never judged.
+  # Ranges are 1-based (awk substr); bash slicing is 0-based.
+  STMT_RAW_EFFECTIVE="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
+  # Aliases resolve where the STATEMENT runs: a statement carrying `git -C <path>` reads that
+  # repository's config, exactly as the branch it is judged on does — the session repo's alias
+  # set judged another checkout's names, and missed the local ones. Extracted here (the branch
+  # resolution below re-extracts for its own comment trail) so the substitution and the verb
+  # latch both read the right set. (#1666 review)
+  GIT_C_PATH=$(hook_git_c_path "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  GIT_ALIASES="$GIT_ALIASES_SESSION"
+  if [[ -n "$GIT_C_PATH" ]]; then
+    GIT_ALIASES=$(hook_git_in "$GIT_C_PATH" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+  fi
+  # INLINE aliases: `git -c alias.NAME=EXPANSION … NAME` defines and uses an alias in ONE
+  # invocation, with no config-file trace at all — so `--get-regexp` never saw it. The verb latch
+  # consumed `-c <pair>` as -c's value, looked NAME up in the persisted set, found nothing, and
+  # left GIT_VERB the alias NAME — matching no gated verb, so every check went silent. Register
+  # each inline definition into GIT_ALIASES so the statement is judged as if NAME were configured.
+  # The value is read from words-mode, so an unquoted single-word expansion (the natural bypass
+  # `git -c alias.ci=commit ci -n`) is covered; a quoted multi-word value is masked (stated limit,
+  # like the newline-alias case above). (#1666 review)
+  if _INLINE_WORDS=$(hook_statement_words "$COMMAND" "$STMT_START" "$STMT_LEN" 2>/dev/null); then
+    _expect_c_pair=false
+    while IFS= read -r _iw; do
+      if [[ "$_expect_c_pair" == "true" ]]; then
+        _expect_c_pair=false
+        if [[ "$_iw" == alias.*=* ]]; then
+          _ia_body="${_iw#alias.}"
+          _ia_name="${_ia_body%%=*}"
+          _ia_exp="${_ia_body#*=}"
+          if [[ "$_ia_name" =~ ^[A-Za-z0-9_-]+$ && -n "$_ia_exp" ]]; then
+            GIT_ALIASES="${_ia_name} ${_ia_exp}"$'\n'"${GIT_ALIASES}"
+          fi
+        fi
+      elif [[ "$_iw" == "-c" ]]; then
+        _expect_c_pair=true
+      fi
+    done <<< "$_INLINE_WORDS"
+  fi
+  # STATED LIMIT: an alias whose VALUE contains a literal newline (a `\n` escape in the config
+  # file) prints across several lines, and `--get-regexp`'s continuation lines carry no
+  # `alias.<name>` prefix — read line-by-line here, a continuation is skipped as a name mismatch
+  # and the expansion is truncated to its first line. Vanishingly rare, and it fails toward safety:
+  # a truncated expansion whose head stays an alias now hits the chain-refuse path. (#1666 review)
+  if [[ -n "$GIT_ALIASES" ]]; then
+    while IFS= read -r _alias_line; do
+      [[ -z "$_alias_line" ]] && continue
+      _an="${_alias_line%% *}"
+      [[ "$_an" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+      # A cheap containment test before the anchored grep: with a large global alias set this
+      # loop runs per configured alias per statement, and most names appear nowhere. (#1666)
+      [[ "$STMT_MASK" == *"$_an"* ]] || continue
+      # EVERY value-taking global may stand between `git` and the alias, in either spelling
+      # (`--git-dir .git` or `--git-dir=.git`) — the (-C|-c)-only prefix left `git --git-dir=.git
+      # ci` unsubstituted, so the statement matched no action regex and took no check at all,
+      # the exact class this substitution exists to end. One prefix expression, used by the gate
+      # and both substitutions. (#1666 review)
+      _GOPT="(((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)|-[^[:space:]]+)[[:space:]]+)"
+      printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
+      # `if var=$(cmd)` not `var=$(cmd); rc=$?`: under set -e a plain assignment from a command
+      # substitution that exits non-zero ABORTS the hook before $? is ever read (line 496's
+      # warning). The if-form captures both the output and the code. (#1666 review)
+      if _aexp=$(git_alias_expansion_chain "$_an"); then _aexp_rc=0; else _aexp_rc=$?; fi
+      if [[ "$_aexp_rc" -eq 2 ]]; then refuse_unresolved_alias_chain "$_an"; fi
+      if [[ "$_aexp_rc" -ne 0 ]]; then continue; fi
+      # Both texts are rewritten at offsets found on the MASK, never re-matched on raw text.
+      # Quoted regions are fill in the mask, so an alias name inside an ordinary string
+      # (`git ci -m "see git ci in the docs"`) cannot match there — but a second, independent
+      # `sed …/g` over the raw slice matched exactly that, rewrote the message, and handed the
+      # extractions below corrupted text: the unmasked-message bug class (#1572/#1588) rebuilt
+      # for the raw-effective path. The mask is byte-aligned with the raw slice (fill is 1:1),
+      # so a mask offset IS a raw offset; splicing plain strings also retires the sed-escaping
+      # of the config-controlled expansion. Two calls, one deterministic match sequence — the
+      # mask drives both. (#1666 review)
+      _alias_splice() {
+        SRC="$1" M="$STMT_MASK" AN="$_an" EXPN="$_aexp" \
+          RE="(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" awk '
+          BEGIN {
+            mask = ENVIRON["M"]; src = ENVIRON["SRC"]; re = ENVIRON["RE"]
+            an = ENVIRON["AN"]; expn = ENVIRON["EXPN"]
+            if (length(mask) != length(src)) { printf "%s", src; exit }
+            out = ""
+            while (match(mask, re)) {
+              m = substr(mask, RSTART, RLENGTH)
+              b = (substr(m, length(m)) ~ /[[:alnum:]_-]/) ? 0 : 1
+              apos = RSTART + RLENGTH - length(an) - b
+              if (substr(mask, apos, length(an)) != an) { break }
+              out = out substr(src, 1, apos - 1) expn
+              mask = substr(mask, apos + length(an))
+              src = substr(src, apos + length(an))
+            }
+            printf "%s%s", out, src
+          }'
+      }
+      _new_raw=$(_alias_splice "$STMT_RAW_EFFECTIVE")
+      STMT_MASK=$(_alias_splice "$STMT_MASK")
+      STMT_RAW_EFFECTIVE="$_new_raw"
+    done <<< "$GIT_ALIASES"
+  fi
+
+  # The source and window every per-statement EXTRACTION reads (NEW_BRANCH, START_POINT,
+  # DELETE_BRANCH_NAME). When an alias resolved, the verb exists only in the substituted slice, so
+  # that slice is read at 1-based offsets. When NOTHING was substituted, the extraction reads the
+  # WHOLE command at this statement's offsets — the tokenizer needs the surrounding text to tell a
+  # heredoc body or a quoted argument from a live command, and a `git checkout -b`/`git branch`/
+  # `git push --delete` sitting inside a heredoc body would otherwise be read as a real one from
+  # the bare slice. One decision, shared by all three extractions rather than repeated (and
+  # divergently) at each. (#1666 review)
+  if [[ "$STMT_RAW_EFFECTIVE" != "${COMMAND:$((STMT_START - 1)):$STMT_LEN}" ]]; then
+    EXTRACT_SRC="$STMT_RAW_EFFECTIVE"; EXTRACT_START=1; EXTRACT_LEN="${#STMT_RAW_EFFECTIVE}"
+  else
+    EXTRACT_SRC="$COMMAND"; EXTRACT_START="$STMT_START"; EXTRACT_LEN="$STMT_LEN"
+  fi
 
   # Resolve the git context THIS STATEMENT will actually run in (worktree-aware — parallel-wave
   # lesson): a worktree agent's commit/push was judged against the MAIN clone's branch
@@ -271,7 +586,9 @@ while read -r STMT_START STMT_LEN; do
   # a single check runs. That is a total bypass wearing the costume of a passing guard.
   # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
   # redirect this guard at another repository. See lib/command-scan.sh.
-  GIT_C_PATH=$(hook_git_c_path "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  # GIT_C_PATH was already read for this statement above (the alias-source resolution); the
+  # inputs cannot have changed between there and here, and a second subprocess would only be a
+  # second reading to drift. (#1666 review)
   # One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
   # `validated`: it must name SOME repository, because its verdict is about the branch that
   # repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
@@ -450,10 +767,10 @@ while read -r STMT_START STMT_LEN; do
       # as the subcommand. Measured: `git --work-tree /x commit -n -m y` set the verb to `/x`, which
       # silenced both the `-n` check and the HUSKY=0 check — they ask whether the verb is `commit`.
       # Only `-c`/`-C` were consumed before. (#1588 review)
-      case "$W" in
-        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
-          EXPECT_VALUE=true; continue ;;
-      esac
+      if git_global_takes_value "$W"; then
+        EXPECT_VALUE=true
+        continue
+      fi
       case "$W" in
         -*) continue ;;
       esac
@@ -464,14 +781,89 @@ while read -r STMT_START STMT_LEN; do
       case "$W" in
         */*|.*|*.*) continue ;;
       esac
-      GIT_VERB="$W"
-      case "$W" in commit|push) IS_GATED_STMT=true ;; esac
+      # INFRA-085: the word about to become the verb may be an alias, and the checks below ask
+      # about the verb it EXPANDS to. The expansion's own flags count too — `alias.ci "commit -n"`
+      # carries the kill switch inside the alias, where no statement word will ever show it.
+      # if-form for the same set -e reason as the mask-splice call above. (#1666 review)
+      if _ALIAS_EXP=$(git_alias_expansion_chain "$W"); then _alias_rc=0; else _alias_rc=$?; fi
+      if [[ "$_alias_rc" -eq 2 ]]; then refuse_unresolved_alias_chain "$W"; fi
+      if [[ "$_alias_rc" -eq 0 ]]; then
+        # The verb is the expansion's HEAD — global options and their values skipped — not its
+        # literal first word: `-c commit.gpgsign=false commit` is a commit, and reading `-c` as
+        # the verb silenced every check keyed on `commit`. A GLOBALS-ONLY expansion has no head:
+        # falling back to its first word latched `-c` as the verb, and the loop then never read
+        # the REAL verb typed after the alias — so `git q commit -n` (alias.q a config pair)
+        # carried its kill switch past every check keyed on `commit`. No head means the verb is
+        # still unknown and the walk keeps looking. (#1666 review)
+        if ! GIT_VERB=$(git_expansion_head "$_ALIAS_EXP"); then
+          GIT_VERB=""
+        fi
+        _PAST_VERB=false
+        _AX_EXPECT=false
+        # This loop runs in the MAIN shell: disable pathname expansion for the split and restore
+        # after — a glob in the alias value must not be replaced by CWD filenames, least of all
+        # here, where the words decide SKIP_HOOKS and the verb. (#1666 review)
+        set -f
+        for _AXW in $_ALIAS_EXP; do
+          # A word a preceding option announced is that option's VALUE, not a flag — the same
+          # skip the statement loop applies, or `alias.ci "commit -m -n"` reads its message text
+          # as the kill switch and refuses ordinary work. Consumed BEFORE the verb comparison:
+          # a global's value that happens to spell the verb (`-C commit`) must not latch
+          # _PAST_VERB a token early. (#1666 review, both rounds)
+          if [[ "$_AX_EXPECT" == "true" ]]; then
+            _AX_EXPECT=false
+            continue
+          fi
+          if [[ "$_PAST_VERB" != "true" ]]; then
+            [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
+          fi
+          if git_global_takes_value "$_AXW" && [[ "$_PAST_VERB" != "true" ]]; then
+            _AX_EXPECT=true
+            continue
+          fi
+          # Past the verb, a long option that TAKES a value consumes the next word — the same
+          # rule the statement latch applies at its `--message|--file|…) EXPECT_VALUE=true`.
+          # Without it, `alias.ci "commit --reuse-message -n"` reads `-n` as the standalone kill
+          # switch instead of as --reuse-message's value, over-refusing an alias body that never
+          # passes -n to git. Fails toward refusal, but the class is the one INFRA-085 fixes.
+          # (#1666 review)
+          if [[ "$_PAST_VERB" == "true" ]] && commit_opt_takes_value "$_AXW"; then
+            _AX_EXPECT=true
+            continue
+          fi
+          [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
+          [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
+          # The SPACE form of the assignment, inside the expansion: `alias.dh "config
+          # core.hooksPath /dev/null"`. The statement loop's two-word machine never sees these
+          # words, so the machine runs here too — the key remembered, only a following
+          # POSITIONAL (the value) disabling anything, and a key left dangling in the expansion
+          # arms the statement-loop machine for a value typed after the alias. (#1666 review)
+          if [[ "$GIT_VERB" == "config" && "$_PAST_VERB" == "true" ]]; then
+            if [[ "$_AXW" == *core.hooksPath* && "$_AXW" != *=* ]]; then
+              SAW_HOOKSPATH_KEY=true
+            elif [[ "$SAW_HOOKSPATH_KEY" == "true" && "$_AXW" != -* && "$_AXW" != "config" ]]; then
+              SKIP_HOOKS=true
+              SKIP_WHAT="core.hooksPath (via alias $W)"
+            fi
+          fi
+          if [[ "$_PAST_VERB" == "true" && "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
+            read -r _AX_KILL _AX_VALUE <<< "$(commit_cluster_flags "$_AXW")"
+            [[ "$_AX_KILL" == "true" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n (via alias $W)"
+            [[ "$_AX_VALUE" == "true" ]] && _AX_EXPECT=true
+          fi
+        done
+        set +f
+      else
+        GIT_VERB="$W"
+      fi
+      case "$GIT_VERB" in commit|push) IS_GATED_STMT=true ;; esac
       continue
     fi
     # Past the verb: these are this invocation's own options.
-    case "$W" in
-      --message|--file|--reuse-message|--reedit-message) EXPECT_VALUE=true; continue ;;
-    esac
+    if commit_opt_takes_value "$W"; then
+      EXPECT_VALUE=true
+      continue
+    fi
     [[ "$W" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify"
     # `git config core.hooksPath <path>` sets it with no `=` anywhere, so the assignment check above
     # cannot see it. What disables the gate is the ASSIGNMENT, and the first spelling here refused
@@ -493,16 +885,9 @@ while read -r STMT_START STMT_LEN; do
     #   git push   -h  ->  -n, --[no-]dry-run
     # so `-n` is a kill switch on a commit and a harmless rehearsal on a push.
     if [[ "$W" == -[!-]* ]]; then
-      CLUSTER="${W#-}"
-      while [[ -n "$CLUSTER" ]]; do
-        case "${CLUSTER:0:1}" in
-          n) [[ "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"; break ;;
-          m|F|C|c) break ;;
-        esac
-        CLUSTER="${CLUSTER:1}"
-      done
-      # A value-taking letter LAST in the cluster has no value attached, so it takes the next word.
-      case "$W" in *[mFCc]) EXPECT_VALUE=true ;; esac
+      read -r _ST_KILL _ST_VALUE <<< "$(commit_cluster_flags "$W")"
+      [[ "$_ST_KILL" == "true" && "$GIT_VERB" == "commit" ]] && SKIP_HOOKS=true && SKIP_WHAT="git commit -n"
+      [[ "$_ST_VALUE" == "true" ]] && EXPECT_VALUE=true
     fi
   done <<< "$STMT_WORDS"
   # Now that the verb is known: the husky kill switch counts only in front of a gated command.
@@ -669,6 +1054,18 @@ while read -r STMT_START STMT_LEN; do
       { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }
     printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(rm|mv)${GITEND}" &&
       { SKIP_HOOKS=true; SKIP_WHAT="removing a hook from git"; }
+    # The ALIASED spelling of the same removal: with `alias.wipe rm` already in config,
+    # `git wipe -f .husky/pre-push` deleted the hook while the whitelist read `git` and the
+    # pattern above read `wipe`. The verb latch has already resolved the chain, so the verb is
+    # asked beside the literal pattern. (Aliases are read from config ONCE at hook start, so an
+    # alias configured earlier in the same tool call is not visible until the next one — setting
+    # it is itself a visible command.) (#1666 review)
+    case "$GIT_VERB" in
+      rm | mv)
+        SKIP_HOOKS=true
+        SKIP_WHAT="removing a hook from git (via alias)"
+        ;;
+    esac
     # A redirection writes wherever it points, whatever the command in front of it is.
     printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*[^[:space:]]*\.husky" &&
       { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
@@ -727,7 +1124,12 @@ while read -r STMT_START STMT_LEN; do
   # line-oriented pass, which looked for a heredoc opener with a regex that did not know about quoting:
   # a `<<EOF` inside a quoted string opened a body that never closed, and the real delete that followed
   # it was deleted from the string this check reads. (INFRA-075, #1572)
-  DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  # EXTRACT_SRC/START/LEN carry the substituted-vs-whole decision computed once above: the
+  # substituted slice when an alias resolved (`alias.pd "push origin --delete"` spells its verb
+  # only after expansion), the whole command otherwise so hook_deleted_branch's tokenizer keeps
+  # the surrounding text that tells a heredoc body (`cat <<'EOF' … git push --delete … EOF`) from
+  # a live delete. (#1666 review)
+  DELETE_BRANCH_NAME=$(hook_deleted_branch "$EXTRACT_SRC" "$EXTRACT_START" "$EXTRACT_LEN" || true)
 
   if [[ -n "$DELETE_BRANCH_NAME" ]] && ! stmt_override BRANCH_GUARD_ALLOW_DELETE; then
     if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
@@ -928,16 +1330,16 @@ while read -r STMT_START STMT_LEN; do
     # Read the name from the ORIGINAL, positioned by a match in the masked text — the same rule the
     # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
     # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
-    NEW_BRANCH=$(hook_match_extract "$COMMAND" \
-      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
-        "$STMT_START" "$STMT_LEN" || true)
+    NEW_BRANCH=$(hook_match_extract "$EXTRACT_SRC" \
+      '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
+        "$EXTRACT_START" "$EXTRACT_LEN" || true)
     # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
     # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
     # extraction found nothing, because a statement is one creation and the first match is its name.
     if [[ -z "$NEW_BRANCH" ]]; then
-      NEW_BRANCH=$(hook_match_extract "$COMMAND" \
-        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
-          "$STMT_START" "$STMT_LEN" || true)
+      NEW_BRANCH=$(hook_match_extract "$EXTRACT_SRC" \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
+          "$EXTRACT_START" "$EXTRACT_LEN" || true)
     fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
     #
@@ -961,17 +1363,17 @@ while read -r STMT_START STMT_LEN; do
       # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
       # instead and passed while the branch came from `origin/main` — the exact creation this exists to
       # refuse, waved through by one common flag.
-      START_POINT=$(hook_match_extract "$COMMAND" \
-        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-          "$STMT_START" "$STMT_LEN" || true)
+      START_POINT=$(hook_match_extract "$EXTRACT_SRC" \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+          "$EXTRACT_START" "$EXTRACT_LEN" || true)
       # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
       # is the form the item was filed for: it names its base explicitly, so leaving this unread would
       # have widened the DETECTION while leaving the base check comparing against HEAD — a creation
       # judged, and judged against the wrong thing.
       if [[ -z "$START_POINT" ]]; then
-        START_POINT=$(hook_match_extract "$COMMAND" \
-          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-            "$STMT_START" "$STMT_LEN" || true)
+        START_POINT=$(hook_match_extract "$EXTRACT_SRC" \
+          '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+            "$EXTRACT_START" "$EXTRACT_LEN" || true)
       fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
       #

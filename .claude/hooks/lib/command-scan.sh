@@ -65,6 +65,15 @@
 #
 # The path is passed as `--arg`, not interpolated into the filter: a field name is data, and the
 # reduce below is total, so no shape of path or payload makes this arm error where the other returns.
+
+# ONE spelling of git's value-taking global options — the single source every hook derives from
+# (branch-guard's GITPFX, its alias-substitution gate and verb latch via git_global_takes_value(),
+# and hook_git_c_path below). It lives in this LIBRARY because a sourced function cannot rely on a
+# definition its sourcing hook makes later — and a second hand-kept copy is the drift this list
+# exists to end (#1666 review). SANS_C is DERIVED, for the one reader whose target is -C itself.
+GIT_VALUE_GLOBALS_SANS_C='-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env'
+GIT_VALUE_GLOBALS="-C|${GIT_VALUE_GLOBALS_SANS_C}"
+
 hook_json_string() {
   local json="$1" path="$2"
   if command -v jq >/dev/null 2>&1; then
@@ -1063,8 +1072,18 @@ hook_statement_all_words() {
 # `[ \t]+` right after a token and a newline never satisfies that. Recorded as unproven rather than
 # dressed in a test that would pass either way.
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
+# The prefix skip accepts EVERY value-taking global in both spellings, or a `--git-dir=X` (or a
+# space-valued `--work-tree /x`) standing before the `-C` hid it from every consumer of this
+# extractor and the command was judged against the wrong repository. STATED LIMIT: `--git-dir`
+# itself also names a repository and is NOT extracted here — this reads `-C` only, and a caller
+# that must honour `--git-dir` as identity needs its own reader.
+#
+# A value-LESS boolean global (`--no-pager`, `--bare`, `-p`) may also stand before the `-C`
+# (`git --no-pager -C /repo status`); the prefix skips those too via a bare `-[^ \t\n]+` flag, the
+# same tolerance GITPFX/_GOPT carry in branch-guard. Value-globals stay matched WITH their value so
+# leftmost-longest does not read a space-form value as the flag. (#1666 review)
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((('"$GIT_VALUE_GLOBALS_SANS_C"')(=[^ \t\n]+|[ \t]+[^ \t\n]+)|-[^ \t\nC][^ \t\n]*)[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
