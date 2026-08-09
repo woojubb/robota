@@ -228,6 +228,29 @@ describe('which repository the push verdict is about', () => {
     }
   });
 
+  it('treats a target with an EMBEDDED substitution as unreadable', () => {
+    // `cd /pre$(x)post` words as the clean-looking literal `/prepost` — the substitution and its
+    // delimiters are dropped by words-mode — which is not where the shell will land.
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('cd /pre$(x)post && git push origin x', parked);
+
+    expect(status, 'an embedded substitution resolved as a literal path').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('unwraps STACKED bypass prefixes — `command builtin cd`', () => {
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(
+      `command builtin cd ${pushed} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `the stacked prefixes re-blinded the walk:\n${output}`).toBe(0);
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });

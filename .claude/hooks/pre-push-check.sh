@@ -155,6 +155,7 @@ while read -r PS_START PS_LEN; do
     PS_FIRST=""
     PS_SECOND=""
     PS_THIRD=""
+    PS_FOURTH=""
     PS_INDEX=0
     while IFS= read -r PS_W; do
       [[ -n "$PS_W" || "$PS_INDEX" -gt 0 ]] || continue
@@ -163,7 +164,8 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 1 ]] && PS_FIRST="$PS_W"
       [[ "$PS_INDEX" -eq 2 ]] && PS_SECOND="$PS_W"
       [[ "$PS_INDEX" -eq 3 ]] && PS_THIRD="$PS_W"
-      [[ "$PS_INDEX" -ge 4 ]] && break
+      [[ "$PS_INDEX" -eq 4 ]] && PS_FOURTH="$PS_W"
+      [[ "$PS_INDEX" -ge 5 ]] && break
     done <<< "$PS_WORDS"
     # A subshell opener glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
@@ -175,16 +177,20 @@ while read -r PS_START PS_LEN; do
     if [[ -z "$PS_FIRST" ]]; then
       PS_FIRST="$PS_SECOND"
       PS_SECOND="$PS_THIRD"
-      PS_THIRD=""
+      PS_THIRD="$PS_FOURTH"
+      PS_FOURTH=""
     fi
     # `builtin cd`, `command cd` and `\cd` are the cd builtin wearing a bypass prefix — valid
     # ways to skip a shell function or alias, and each left the walk blind to a real directory
-    # change: the push after one was judged where the shell no longer stood. (#1667 review)
-    if [[ "$PS_FIRST" == "builtin" || "$PS_FIRST" == "command" ]]; then
+    # change: the push after one was judged where the shell no longer stood. STACKED prefixes
+    # (`command builtin cd`) unwrap one per loop turn, or the second prefix re-blinded the walk
+    # one word later. (#1667 review)
+    while [[ "$PS_FIRST" == "builtin" || "$PS_FIRST" == "command" ]]; do
       PS_FIRST="$PS_SECOND"
       PS_SECOND="$PS_THIRD"
-      PS_THIRD=""
-    fi
+      PS_THIRD="$PS_FOURTH"
+      PS_FOURTH=""
+    done
     PS_FIRST="${PS_FIRST#\\}"
     if [[ "$PS_FIRST" == "popd" ]]; then
       # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
@@ -211,6 +217,15 @@ while read -r PS_START PS_LEN; do
     elif [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
       # `cd -- <path>`: the end-of-options marker is not the target — the next word is.
       [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
+      # A substitution EMBEDDED in the target is invisible to words-mode: `cd /pre$(x)post`
+      # yields the word `/prepost`, the inner content AND its delimiters dropped — a clean-looking
+      # literal that is not where the shell will land. The raw statement text still carries the
+      # `$`/backtick, so the raw slice is what says this target cannot be read. (#1667 review)
+      PS_RAW="${COMMAND:$((PS_START - 1)):$PS_LEN}"
+      if [[ "$PS_RAW" == *'$'* || "$PS_RAW" == *'`'* ]]; then
+        LAST_CD_UNREADABLE=true
+        continue
+      fi
       # `pushd` remembers where the shell stood, or that it could not tell (`?`), so a later
       # `popd` restores exactly what this walk knew at the push.
       if [[ "$PS_FIRST" == "pushd" ]]; then
