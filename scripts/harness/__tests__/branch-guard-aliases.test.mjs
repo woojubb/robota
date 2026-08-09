@@ -188,6 +188,29 @@ describe('the verb checks see through an alias', () => {
     expect(status, `a message value was read as a flag:\n${output}`).toBe(0);
   });
 
+  it('reads a create flag typed at the CALL SITE of a verb-only alias', () => {
+    // `alias.co checkout` carries no flag, so no per-action classification of the alias alone
+    // could see `git co -b <name>` as a creation — the flag lives in the statement. Substituting
+    // the expansion into the statement mask reads them together, and the base/name checks fire.
+    const repo = scratchRepo('feat/x', { co: 'checkout' });
+
+    const { status, output } = runHook('git co -b feat/call-site-flag main', repo);
+
+    expect(status, `the call-site -b was invisible to the checks:\n${output}`).toBe(2);
+  });
+
+  it('refuses the COPY forms through an alias, as the literal spelling is refused', () => {
+    // `alias.bc "branch -c"`: neither a create (excluded) nor the literal copy pattern (the word
+    // is `bc`), so it matched neither and passed through the guard entirely — the failure this
+    // file names as the worst one.
+    const repo = scratchRepo('feat/x', { bc: 'branch -c' });
+    execFileSync('git', ['-C', repo, 'branch', 'old-twig'], { encoding: 'utf8' });
+
+    const { status, output } = runHook('git bc old-twig new-twig', repo);
+
+    expect(status, `the aliased copy form passed through:\n${output}`).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

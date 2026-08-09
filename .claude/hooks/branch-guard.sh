@@ -342,38 +342,6 @@ git_alias_expansion_chain() {
   printf '%s' "$exp"
 }
 
-# Classify each alias ONCE by asking the action regexes about `git <expansion>` — the same
-# expressions the statements are judged with, so an alias and its expansion cannot be classified
-# differently. Only word-safe names join the alternations; an alias named with regex metacharacters
-# would corrupt the pattern, and git itself only runs alphanumeric alias names.
-ALIAS_COMMIT_ALT=""
-ALIAS_PUSH_ALT=""
-ALIAS_MERGE_ALT=""
-ALIAS_CREATE_ALT=""
-if [[ -n "$GIT_ALIASES" ]]; then
-  while IFS= read -r _alias_line; do
-    [[ -z "$_alias_line" ]] && continue
-    _alias_name="${_alias_line%% *}"
-    [[ "$_alias_name" =~ ^[A-Za-z0-9_-]+$ ]] || continue
-    # The CHAIN expansion, not the single hop: `alias.a1 ci` classifies as whatever `ci` finally
-    # is, or the head alias joins no alternation and its statement is judged as nothing at all.
-    _alias_exp=$(git_alias_expansion_chain "$_alias_name") || continue
-    _alias_synth="git $_alias_exp"
-    printf '%s' "$_alias_synth" | grep -qE "$RE_COMMIT" && ALIAS_COMMIT_ALT="${ALIAS_COMMIT_ALT}${ALIAS_COMMIT_ALT:+|}${_alias_name}"
-    printf '%s' "$_alias_synth" | grep -qE "$RE_PUSH" && ALIAS_PUSH_ALT="${ALIAS_PUSH_ALT}${ALIAS_PUSH_ALT:+|}${_alias_name}"
-    printf '%s' "$_alias_synth" | grep -qE "$RE_MERGE" && ALIAS_MERGE_ALT="${ALIAS_MERGE_ALT}${ALIAS_MERGE_ALT:+|}${_alias_name}"
-    # The same corrections the statement path applies: `branch -d`/`--list` and the copy forms
-    # match RE_CREATE first and are excluded after. An alias classified without them turned
-    # `alias.bd "branch -d"` into a phantom branch-creation, and the unmerged-branch network check
-    # then ran — and could refuse — a deletion. (#1666 review)
-    if printf '%s' "$_alias_synth" | grep -qE "$RE_CREATE" &&
-      ! printf '%s' "$_alias_synth" | grep -qE "$RE_BRANCH_NOT_CREATE" &&
-      ! printf '%s' "$_alias_synth" | grep -qE "$RE_BRANCH_COPY"; then
-      ALIAS_CREATE_ALT="${ALIAS_CREATE_ALT}${ALIAS_CREATE_ALT:+|}${_alias_name}"
-    fi
-  done <<< "$GIT_ALIASES"
-fi
-
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[branch-guard] Blocked: the command could not be split into statements, so nothing in it" >&2
@@ -383,6 +351,34 @@ fi
 
 while read -r STMT_START STMT_LEN; do
   STMT_MASK=$(hook_verb_scan "$COMMAND" "$STMT_START" "$STMT_LEN")
+
+  # INFRA-085: the statement is judged AS IF the alias were typed out. The expansion is
+  # substituted into the MASK, so every existing check — the action regexes, the not-create and
+  # copy corrections, the branch-NAME and base extraction — reads the real verb TOGETHER with the
+  # call-site flags. Classifying aliases into per-action name lists could not do that: a create
+  # flag typed at the call site (`git co -b x` over `alias.co checkout`) matched no list, and the
+  # copy forms had no list at all — both "matched neither, passed through the guard entirely",
+  # the failure this file names as the worst one. (#1666 review)
+  # The RAW slice gets the same substitution: the branch-NAME and start-point extractions read
+  # original text (a masked read returns fill for a quoted name), and their patterns name the
+  # literal verbs — over `git co -b x` they matched nothing, so an aliased creation was detected
+  # and then never judged.
+  # Ranges are 1-based (awk substr); bash slicing is 0-based.
+  STMT_RAW_EFFECTIVE="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
+  if [[ -n "$GIT_ALIASES" ]]; then
+    while IFS= read -r _alias_line; do
+      [[ -z "$_alias_line" ]] && continue
+      _an="${_alias_line%% *}"
+      [[ "$_an" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+      printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}${_an}${GITEND}" || continue
+      _aexp=$(git_alias_expansion_chain "$_an") || continue
+      # The replacement text is config-controlled: escape sed's specials so an expansion cannot
+      # edit the pattern it rides in.
+      _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/[&\/]/\\&/g')
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/(git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\4/")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/(git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\4/")
+    done <<< "$GIT_ALIASES"
+  fi
 
   # Resolve the git context THIS STATEMENT will actually run in (worktree-aware — parallel-wave
   # lesson): a worktree agent's commit/push was judged against the MAIN clone's branch
@@ -445,20 +441,6 @@ while read -r STMT_START STMT_LEN; do
   printf '%s' "$STMT_MASK" | grep -qE "$RE_PUSH" && IS_PUSH=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_MERGE" && IS_MERGE=true
   printf '%s' "$STMT_MASK" | grep -qE "$RE_CREATE" && IS_BRANCH_CREATE=true
-  # INFRA-085: an alias classified above IS its expansion to these checks. The alternation carries
-  # only names classified against the same regexes, so the two readings cannot disagree.
-  if [[ -n "$ALIAS_COMMIT_ALT" ]]; then
-    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_COMMIT_ALT})${GITEND}" && IS_COMMIT=true
-  fi
-  if [[ -n "$ALIAS_PUSH_ALT" ]]; then
-    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_PUSH_ALT})${GITEND}" && IS_PUSH=true
-  fi
-  if [[ -n "$ALIAS_MERGE_ALT" ]]; then
-    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_MERGE_ALT})${GITEND}" && IS_MERGE=true
-  fi
-  if [[ -n "$ALIAS_CREATE_ALT" ]]; then
-    printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(${ALIAS_CREATE_ALT})${GITEND}" && IS_BRANCH_CREATE=true
-  fi
   printf '%s' "$STMT_MASK" | grep -qE "$RE_BRANCH_COPY" && IS_BRANCH_COPY=true
   # …unless the statement is one of the `git branch` forms that operate on an existing branch or
   # list with a value. Their argument sits exactly where a new branch's name would, so the shape
@@ -868,10 +850,12 @@ while read -r STMT_START STMT_LEN; do
       { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }
     printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(rm|mv)${GITEND}" &&
       { SKIP_HOOKS=true; SKIP_WHAT="removing a hook from git"; }
-    # The ALIASED spelling of the same removal: the mask says `git wipe`, but the verb latch has
-    # already resolved the alias chain, so the verb is asked instead of the literal word — or
-    # `git config alias.wipe rm && git wipe -f .husky/pre-push` deletes the hook while the
-    # whitelist reads `git` and the pattern above reads `wipe`. (#1666 review)
+    # The ALIASED spelling of the same removal: with `alias.wipe rm` already in config,
+    # `git wipe -f .husky/pre-push` deleted the hook while the whitelist read `git` and the
+    # pattern above read `wipe`. The verb latch has already resolved the chain, so the verb is
+    # asked beside the literal pattern. (Aliases are read from config ONCE at hook start, so an
+    # alias configured earlier in the same tool call is not visible until the next one — setting
+    # it is itself a visible command.) (#1666 review)
     case "$GIT_VERB" in
       rm | mv)
         SKIP_HOOKS=true
@@ -1111,16 +1095,16 @@ while read -r STMT_START STMT_LEN; do
     # Read the name from the ORIGINAL, positioned by a match in the masked text — the same rule the
     # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
     # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
-    NEW_BRANCH=$(hook_match_extract "$COMMAND" \
+    NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
-        "$STMT_START" "$STMT_LEN" || true)
+        1 "${#STMT_RAW_EFFECTIVE}" || true)
     # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
     # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
     # extraction found nothing, because a statement is one creation and the first match is its name.
     if [[ -z "$NEW_BRANCH" ]]; then
-      NEW_BRANCH=$(hook_match_extract "$COMMAND" \
+      NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
-          "$STMT_START" "$STMT_LEN" || true)
+          1 "${#STMT_RAW_EFFECTIVE}" || true)
     fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
     #
@@ -1144,17 +1128,17 @@ while read -r STMT_START STMT_LEN; do
       # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
       # instead and passed while the branch came from `origin/main` — the exact creation this exists to
       # refuse, waved through by one common flag.
-      START_POINT=$(hook_match_extract "$COMMAND" \
+      START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-          "$STMT_START" "$STMT_LEN" || true)
+          1 "${#STMT_RAW_EFFECTIVE}" || true)
       # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
       # is the form the item was filed for: it names its base explicitly, so leaving this unread would
       # have widened the DETECTION while leaving the base check comparing against HEAD — a creation
       # judged, and judged against the wrong thing.
       if [[ -z "$START_POINT" ]]; then
-        START_POINT=$(hook_match_extract "$COMMAND" \
+        START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
           '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-            "$STMT_START" "$STMT_LEN" || true)
+            1 "${#STMT_RAW_EFFECTIVE}" || true)
       fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
       #
