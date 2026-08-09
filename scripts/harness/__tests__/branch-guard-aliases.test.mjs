@@ -211,6 +211,28 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the aliased copy form passed through:\n${output}`).toBe(2);
   });
 
+  it('substitutes past ANY value-taking global before the alias, = form included', () => {
+    // The (-C|-c)-only prefix left `git --git-dir=.git ci` unsubstituted: the mask kept `ci`,
+    // IS_COMMIT stayed false, and a commit ON A PROTECTED BRANCH took no check at all — the
+    // protected-branch refusal is mask-driven, so it isolates the substitution from the latch.
+    const repo = scratchRepo('develop', { ci: 'commit' });
+
+    const { status, output } = runHook('git --git-dir=.git ci -m x', repo);
+
+    expect(status, `a non-(-c|-C) global before the alias skipped every check:\n${output}`).toBe(2);
+  });
+
+  it('keeps looking for the verb when an alias expands to GLOBALS ONLY', () => {
+    // `alias.q "-c advice.pushNonFastForward=false"`: the expansion has no head, and falling
+    // back to its first word latched `-c` as the verb — the real verb typed after the alias was
+    // never read, and its kill switch sailed past every check keyed on `commit`.
+    const repo = scratchRepo('feat/x', { q: '-c advice.pushNonFastForward=false' });
+
+    const { status, output } = runHook('git q commit -n -m x', repo);
+
+    expect(status, `the globals-only alias froze the verb as a flag:\n${output}`).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

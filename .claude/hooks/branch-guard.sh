@@ -97,7 +97,13 @@ stmt_override() {
 # subshell — puts one immediately before the verb, and without them the region survived masking and
 # still matched nothing. Quoted payloads are masked before this runs, so this cannot resurrect the
 # false positive it sits beside.
-GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c)\s+\S+\s+)*'
+# EVERY value-taking global, in both spellings (`--git-dir .git` and `--git-dir=.git`) — the
+# (-C|-c)-only tolerance made `git --git-dir=.git commit` invisible to every action regex built on
+# this prefix, aliased or typed out, and the alias substitution (#1666 review) made that gap
+# reachable in one visible command. The value group is optional so the `=` form does not demand a
+# second token; a match that "borrows" the verb as a value cannot stick, because the verb then has
+# nothing left to match and the engine backs off the optional group.
+GITPFX='(^|[;&|({"'"'"'`]|[[:space:]])[[:space:]]*(\S+=\S+\s+)*git\s+((-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=\S+)?\s+(\S+\s+)?)*'
 # Trailing boundary: anything that is not a word character or `-`. `\b` alone let `git merge-base`
 # read as a merge and `git commit-tree` as a commit — false positives that, now that the leading
 # match is loose, would block ordinary read-only work on a protected branch. It also covers the verb
@@ -370,13 +376,19 @@ while read -r STMT_START STMT_LEN; do
       [[ -z "$_alias_line" ]] && continue
       _an="${_alias_line%% *}"
       [[ "$_an" =~ ^[A-Za-z0-9_-]+$ ]] || continue
-      printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}${_an}${GITEND}" || continue
+      # EVERY value-taking global may stand between `git` and the alias, in either spelling
+      # (`--git-dir .git` or `--git-dir=.git`) — the (-C|-c)-only prefix left `git --git-dir=.git
+      # ci` unsubstituted, so the statement matched no action regex and took no check at all,
+      # the exact class this substitution exists to end. One prefix expression, used by the gate
+      # and both substitutions. (#1666 review)
+      _GOPT='((-C|-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)(=[^[:space:]]+)?[[:space:]]+([^[:space:]]+[[:space:]]+)?)'
+      printf '%s' "$STMT_MASK" | grep -qE "git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
       _aexp=$(git_alias_expansion_chain "$_an") || continue
       # The replacement text is config-controlled: escape sed's specials so an expansion cannot
       # edit the pattern it rides in.
       _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/(git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\4/")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/(git[[:space:]]+((-C|-c)[[:space:]]+[^[:space:]]+[[:space:]]+)*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\4/")
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/(git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/(git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/")
     done <<< "$GIT_ALIASES"
   fi
 
@@ -596,8 +608,14 @@ while read -r STMT_START STMT_LEN; do
       if _ALIAS_EXP=$(git_alias_expansion_chain "$W"); then
         # The verb is the expansion's HEAD — global options and their values skipped — not its
         # literal first word: `-c commit.gpgsign=false commit` is a commit, and reading `-c` as
-        # the verb silenced every check keyed on `commit`. (#1666 review)
-        GIT_VERB=$(git_expansion_head "$_ALIAS_EXP") || GIT_VERB="${_ALIAS_EXP%% *}"
+        # the verb silenced every check keyed on `commit`. A GLOBALS-ONLY expansion has no head:
+        # falling back to its first word latched `-c` as the verb, and the loop then never read
+        # the REAL verb typed after the alias — so `git q commit -n` (alias.q a config pair)
+        # carried its kill switch past every check keyed on `commit`. No head means the verb is
+        # still unknown and the walk keeps looking. (#1666 review)
+        if ! GIT_VERB=$(git_expansion_head "$_ALIAS_EXP"); then
+          GIT_VERB=""
+        fi
         _PAST_VERB=false
         _AX_EXPECT=false
         for _AXW in $_ALIAS_EXP; do
