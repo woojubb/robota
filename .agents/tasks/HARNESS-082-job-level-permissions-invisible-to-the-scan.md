@@ -27,9 +27,10 @@ the exact "excused-but-unchecked" drift the scan exists to prevent.
 
 Measured 2026-08-09, during #1669 review:
 
-- `codeql.yml` had to be REMOVED from the scan's checked list entirely, because the scan cannot
-  see that the workflow-level grant stayed read-only while one job adds `actions: write` — the
-  parser reads only the top-level block and would have judged the whole file by it.
+- `codeql.yml` STAYS in the scan's checked list, but only its workflow-level grant
+  (`security-events`) is what the scan actually judges — the recovery job's `actions: write`
+  is structurally invisible to `parsePermissions`, and the PR could record that fact only as a
+  comment beside the entry, not as anything the scan enforces.
 - `review-gate.yml` precedent: `disarm-auto-merge`'s `pull-requests: write` is documented in a
   comment, verified by nobody.
 - The #1669 review round named the pattern: "the second job-level `write` grant now excused only
@@ -40,8 +41,9 @@ Measured 2026-08-09, during #1669 review:
 Extend `parsePermissions` to walk `jobs.<id>.permissions` blocks and judge each job's effective
 grant (job block overrides workflow block; absence inherits). Then:
 
-- restore `codeql.yml` to the checked list, with the recovery job's `actions: write` carried as
-  a structured allowlist entry (file + job + permission + reason), not a prose comment;
+- carry the recovery job's `actions: write` as a structured allowlist entry
+  (file + job + permission + reason) in `codeql.yml`'s existing entry, replacing the prose
+  comment;
 - convert `review-gate.yml`'s `disarm-auto-merge` excuse to the same structured entry;
 - fail on any job-level write grant not in the allowlist, so the category stops growing
   silently.
