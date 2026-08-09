@@ -439,6 +439,11 @@ while read -r STMT_START STMT_LEN; do
   if [[ -n "$GIT_C_PATH" ]]; then
     GIT_ALIASES=$(hook_git_in "$GIT_C_PATH" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
   fi
+  # STATED LIMIT: an alias whose VALUE contains a literal newline (a `\n` escape in the config
+  # file) prints across several lines, and `--get-regexp`'s continuation lines carry no
+  # `alias.<name>` prefix — read line-by-line here, a continuation is skipped as a name mismatch
+  # and the expansion is truncated to its first line. Vanishingly rare, and it fails toward safety:
+  # a truncated expansion whose head stays an alias now hits the chain-refuse path. (#1666 review)
   if [[ -n "$GIT_ALIASES" ]]; then
     while IFS= read -r _alias_line; do
       [[ -z "$_alias_line" ]] && continue
