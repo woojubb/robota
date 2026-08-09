@@ -194,7 +194,7 @@ while IFS= read -r match; do
   marker_start=$((line_num > 1 ? line_num - 1 : 1))
   marker_block=$(echo "$CONTENT" | sed -n "$((marker_start)),$((line_num + 40))p")
   # Braces are counted with string/comment stripping — a `{` inside a quoted literal or a `//`
-  # comment is prose, not structure, and counting it kept `depth` from ever closing, so the scope
+  # comment (line or block, across lines) is prose, not structure, and counting it kept `depth` from ever closing, so the scope
   # grew past the real block and could absorb an unrelated marker beyond it. Template literals
   # are tracked ACROSS lines: inside one, text is prose until the closing backtick. The residue a
   # parser would still catch — a backtick inside a regex literal, nested template interpolation
@@ -210,11 +210,16 @@ while IFS= read -r match; do
       if (intpl) {
         if (line ~ /`/) { sub(/^[^`]*`/, "", line); intpl = 0 } else { line = "" }
       }
+      if (incmt) {
+        if (line ~ /\*\//) { sub(/^.*\*\//, "", line); incmt = 0 } else { line = "" }
+      }
       gsub(/`[^`]*`/, "", line)
       gsub(/"[^"]*"/, "", line)
       gsub(/\047[^\047]*\047/, "", line)
+      gsub(/\/\*[^*]*([^*]|\*+[^*\/])*\*+\//, "", line)
       sub(/\/\/.*$/, "", line)
       if (line ~ /`/) { sub(/`.*$/, "", line); intpl = 1 }
+      if (line ~ /\/\*/) { sub(/\/\*.*$/, "", line); incmt = 1 }
       n = gsub(/{/, "{", line); m = gsub(/}/, "}", line)
     }
     NR == lead + 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block

@@ -150,7 +150,8 @@ cache.clear();
   it('a MULTI-LINE template with unbalanced braces does not hold the block open', () => {
     // Inside a template literal, text is prose until the closing backtick — a net-positive brace
     // count across its lines kept depth from closing and grew the scope past the real block.
-    const template = 'try {\n' +
+    const template =
+      'try {\n' +
       '  risky();\n' +
       '} catch {\n' +
       '  logger.warn(`missing {\n' +
@@ -164,6 +165,27 @@ cache.clear();
     const { status } = writeThrough(template);
 
     expect(status, "a template's braces let a foreign marker excuse the catch").toBe(2);
+  });
+
+  it('a BLOCK comment with an unmatched brace does not hold the block open', () => {
+    // /* ... */ text is prose too — inline or spanning lines — and an unmatched brace inside one
+    // inflated depth past the real closing brace.
+    const block = [
+      'try {',
+      '  risky();',
+      '} catch {',
+      '  /* see the { section',
+      '     of the docs */',
+      '  return undefined;',
+      '}',
+      '',
+      '// allow-fallback: about something else entirely',
+      'cache.clear();',
+      '',
+    ].join('\n');
+    const { status } = writeThrough(block);
+
+    expect(status, "a block comment's brace let a foreign marker excuse the catch").toBe(2);
   });
 
   it('still accepts a marked catch whose body quotes a brace', () => {
