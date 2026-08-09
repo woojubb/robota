@@ -51,14 +51,15 @@ grant (job block overrides workflow block; absence inherits). Then:
 
 ## Acceptance
 
-- [ ] `parsePermissions` resolves the EFFECTIVE permissions per job (job-level override,
-      workflow-level inheritance).
-- [ ] Job-level write grants require a structured allowlist entry; a reason-less entry fails
-      (anti-rot, same shape as scan-no-fallback).
-- [ ] `codeql.yml` and `review-gate.yml` are both back under the scan with their two job-level
-      grants allowlisted.
-- [ ] Red-proof: a fixture (or temporary mutation) with an unlisted job-level `write` makes the
-      scan fail before the fix to the allowlist, pass after.
+- [x] Every write grant a job holds is checked: `parseJobPermissions` reads job-level blocks, and
+      a job with no block inherits the workflow-level grant `parsePermissions` already checks.
+- [x] Job-level write grants require a structured `JUSTIFIED_JOB_WRITE_SCOPES` entry; the anti-rot
+      half flags a listed grant the job no longer requests (same bidirectional shape as the
+      workflow-level table).
+- [x] `codeql.yml` and `review-gate.yml` stay under the scan with their two job-level grants
+      allowlisted (`recover-review-gate: actions`, `disarm-auto-merge: contents/pull-requests`).
+- [x] Red-proof: HEAD's scan returns `[]` for an unlisted job-level `contents: write`; the fix
+      flags it (behavioral proof), and `parseJobPermissions`/allowlist checks are unit-tested.
 
 ## Resolution
 

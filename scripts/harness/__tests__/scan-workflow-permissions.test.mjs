@@ -177,6 +177,13 @@ describe('parseJobPermissions (HARNESS-082)', () => {
     const source = withJob('  broad:\n    permissions: write-all\n    steps:\n      - run: true\n');
     expect(parseJobPermissions(source)).toEqual({ broad: { all: 'write' } });
   });
+
+  it('parses an inline flow-mapping `permissions: {contents: write}` — no syntax blind spot', () => {
+    const source = withJob(
+      '  flow:\n    permissions: { contents: write, actions: read }\n    steps:\n      - run: true\n',
+    );
+    expect(parseJobPermissions(source)).toEqual({ flow: { contents: 'write', actions: 'read' } });
+  });
 });
 
 describe('job-level write grants are held to JUSTIFIED_JOB_WRITE_SCOPES (HARNESS-082)', () => {

@@ -138,9 +138,10 @@ export function parsePermissions(source) {
  * Parse the JOB-level `permissions:` blocks — `jobs.<id>.permissions` — into `{ jobId: {scope: level} }`.
  * Only jobs that DECLARE a block appear; a job without one inherits the workflow-level grant (which
  * `parsePermissions` already covers) and is not repeated here. Block form only (`permissions:` then
- * indented `scope: level`); an inline `permissions: write-all` is caught as a synthetic `all: write`
- * so the broad grant is not silently missed. Indent widths are read from the file, not assumed, so a
- * 2- or 4-space workflow parses the same.
+ * indented `scope: level`); an inline `permissions: write-all` is caught as a synthetic `all: write`,
+ * and an inline flow-mapping `permissions: {contents: write}` has each scope parsed — so no inline
+ * shape is a blind spot the block form would have caught. Indent widths are read from the file, not
+ * assumed, so a 2- or 4-space workflow parses the same.
  */
 export function parseJobPermissions(source) {
   const lines = source.split('\n');
@@ -165,10 +166,23 @@ export function parseJobPermissions(source) {
       continue;
     }
     if (!currentJob) continue;
-    // Inline form: `permissions: write-all` / `read-all` / `{}`.
+    // Inline form: `permissions: write-all` / `read-all` / a flow-mapping `{contents: write, …}`.
     const inline = /^\s+permissions:\s*(\S.*)$/.exec(line);
     if (inline) {
-      if (/write-all/.test(inline[1])) (result[currentJob] ??= {}).all = 'write';
+      const value = inline[1];
+      if (/\bwrite-all\b/.test(value)) (result[currentJob] ??= {}).all = 'write';
+      // A flow-mapping declares scopes on one line — parse each `scope: level` so a job written as
+      // `permissions: {contents: write}` is not a blind spot the block form would have caught.
+      const flow = /^\{(.*)\}$/.exec(value.trim());
+      if (flow) {
+        for (const pair of flow[1].split(',')) {
+          const m = /\s*([a-z-]+)\s*:\s*(\S+)\s*/.exec(pair);
+          if (!m) continue;
+          const [, scope, level] = m;
+          (result[currentJob] ??= {})[scope] =
+            result[currentJob][scope] === 'write' || level === 'write' ? 'write' : level;
+        }
+      }
       inPerms = false;
       continue;
     }
