@@ -245,8 +245,17 @@ while read -r PS_START PS_LEN; do
       # stack rotation (`+N`/`-N`), a word still carrying a subshell paren — `(cd x) && push`
       # changes no directory the push will see — or a quote character, the tokenizer's mark of
       # hidden content (a quoted target with inner spaces words as bare quote marks).
+      #
+      # The closing paren need not glue to the target: `( cd x ) && push` tokenizes the `)` as
+      # its own word, so the slice AFTER the target is tested too — a `)` there means the
+      # subshell closed before the push, and the outer directory is not what this walk just
+      # read. Only the tail is tested, because a paren BEFORE the target is a different fact:
+      # an env-prefix substitution (`V=$(x) cd /repo`) closes ITS paren before `cd`, and the
+      # target is still literal. The residue is a `)` in a trailing comment, which refuses —
+      # fail-closed, and the shape is not one an agent writes. (#1667 review)
+      PS_TAIL="${PS_RAW##*"$PS_SECOND"}"
       UNREADABLE_TARGET="$TARGET_HIDDEN"
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* ]] \
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* || "$PS_TAIL" == *')'* ]] \
         || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
         UNREADABLE_TARGET=true
       fi

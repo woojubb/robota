@@ -179,6 +179,19 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('does not let a SPACED closed subshell cd leak either — `( cd x ) && push`', () => {
+    // With spaces the closing paren tokenizes as its own word, which no per-word test sees.
+    // The raw-slice test catches it: a `)` in a cd statement whose target read clean means
+    // the subshell closed before the push. (#1667 review)
+    const parked = repoOn('feat/parked', { recorded: true });
+    const other = repoOn('feat/other');
+
+    const { status, output } = runHook(`( cd ${other} ) && git push origin x`, parked);
+
+    expect(status, 'a spaced closed subshell cd was carried into the push').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('returns to where the shell stood when a pushd is popd-ed', () => {
     // pushd/popd bracketing an errand elsewhere: the push after popd runs where the shell began.
     const pushed = repoOn('feat/target', { recorded: true });
