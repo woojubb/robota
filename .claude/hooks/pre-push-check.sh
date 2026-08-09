@@ -234,7 +234,12 @@ while read -r PS_START PS_LEN; do
       # env-var prefix (`V=$(x) cd ../sibling`) would refuse a perfectly literal target.
       # (#1667 review, both rounds)
       PS_RAW="${COMMAND:$((PS_START - 1)):$PS_LEN}"
-      RAW_TGT=$(printf '%s' "$PS_RAW" | grep -oE "(^|[^[:alnum:]_-])${PS_FIRST}[[:space:]]+(--[[:space:]]+)?[^[:space:]]+" | head -1 | awk '{print $NF}') || RAW_TGT=""
+      # EVERY raw occurrence is tested, not the first: `head -1` locked onto a decoy `cd `
+      # inside an env-prefix substitution (`V=$(cd /tmp) cd /repo$(echo evil)path`), and the
+      # real, substitution-bearing target was never inspected. The walk cannot know which
+      # occurrence is the live command word, so a `$`/backtick in ANY of them refuses —
+      # a decoy can only add a refusal, never launder a hidden target past one. (#1667 review)
+      RAW_TGT=$(printf '%s' "$PS_RAW" | grep -oE "(^|[^[:alnum:]_-])${PS_FIRST}[[:space:]]+(--[[:space:]]+)?[^[:space:]]+") || RAW_TGT=""
       TARGET_HIDDEN=false
       if [[ "$RAW_TGT" == *'$'* || "$RAW_TGT" == *'`'* ]]; then
         TARGET_HIDDEN=true

@@ -179,6 +179,24 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('a decoy cd in an env-prefix substitution does not launder the real hidden target', () => {
+    // The first `cd `-shaped substring is the harmless decoy inside the env prefix's
+    // substitution; locking onto it (`head -1`) left the real target's substitution
+    // uninspected, and LAST_CD silently became a path bash never resolves. Every occurrence is
+    // tested now, so the hidden one refuses. The backtick spelling is the one that leaked:
+    // a `$( )` decoy carries `)`, which the closed-subshell tail test already refuses, and a
+    // plain `$VAR` target survives words-mode into PS_SECOND's own `$` check. (#1667 review)
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(
+      'V=`cd /tmp ` cd /repo`evil`/path && git push origin x',
+      parked,
+    );
+
+    expect(status, 'the decoy cd laundered the substitution-bearing target').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('does not let a SPACED closed subshell cd leak either — `( cd x ) && push`', () => {
     // With spaces the closing paren tokenizes as its own word, which no per-word test sees.
     // The raw-slice test catches it: a `)` in a cd statement whose target read clean means
