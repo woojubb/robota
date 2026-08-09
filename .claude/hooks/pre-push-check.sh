@@ -319,19 +319,24 @@ while read -r PS_START PS_LEN; do
     # b && … && git push`, the shape that made this hook take seconds — cost no per-statement fork.
     # (HARNESS-083)
     #
-    # The skip is only safe when the raw text CANNOT be hiding the builtin. It can hide it two ways,
-    # and both are checked:
-    #   - a `cd`-shaped token is present at all (read from the RAW slice, not the mask, so a quoted
-    #     `"cd" /x` still counts — the mask would hide it);
-    #   - a SPLICE assembles the name out of pieces: `"c""d" /repo` and `c\d /repo` are `cd` to the
-    #     shell and carry no `cd`-shaped substring. Measured: skipping that statement let a push
-    #     resolve to the session repo while the real cd moved elsewhere — a wrong-repository
-    #     fail-open, exit 0 where this hook had refused. A quote or a backslash is what a splice
-    #     needs, so their mere presence disqualifies the skip and the full walk runs. (#1681 review)
+    # The skip is only safe when the raw text CANNOT be hiding the builtin, and the shell has many
+    # ways to hide it. A SPLICE assembles the name from pieces that no `cd`-shaped substring shows:
+    # `"c""d"`, `c\d`, `c$()d`, a pair of empty backticks, `c${UNSET}d`, `c{d,x}` — and a glob
+    # (`c?`) can even match a file named `cd`. Each was measured as a wrong-repository fail-open:
+    # the statement was skipped, the push resolved to the session repo while the real cd moved
+    # elsewhere, exit 0 where this hook had refused.
+    #
+    # So the second condition is an ALLOWLIST, not a blocklist of splice characters — enumerating
+    # the ways a shell can splice is the whack-a-mole that produced two rounds of this same defect
+    # (#1681 review, twice). The skip is taken ONLY for a statement built from inert characters:
+    # letters, digits, whitespace and a few literal path/argument punctuation marks. Anything else —
+    # any quote, backslash, dollar, backtick, brace, bracket, glob — forces the full walk, which is
+    # what the ordinary long chain (`echo step1 && echo step2 && …`) does not contain, so the
+    # perf win this task exists for is kept while the fail-open class is closed by construction.
     PS_RAW_STMT="${COMMAND:$((PS_START - 1)):$PS_LEN}"
     # Bash-native matches, no subprocess — a long chain of ordinary statements costs no forks here.
     if ! [[ "$PS_RAW_STMT" =~ (^|[^[:alnum:]_-])(cd|pushd|popd)([^[:alnum:]_-]|$) ]] \
-      && ! [[ "$PS_RAW_STMT" == *'"'* || "$PS_RAW_STMT" == *"'"* || "$PS_RAW_STMT" == *'\'* ]]; then
+      && [[ "$PS_RAW_STMT" =~ ^[[:alnum:][:space:]_./:=+@,%-]*$ ]]; then
       continue
     fi
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides

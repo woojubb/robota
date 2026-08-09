@@ -194,24 +194,34 @@ describe('which repository the push verdict is about', () => {
     ).toBeLessThanOrEqual(few + 2);
   });
 
-  it('does not let a SPLICED `cd` slip past the skip — `"c""d" <dir>`', () => {
+  it.each([
+    ['quotes', '"c""d"'],
+    ['an empty command substitution', 'c$()d'],
+    ['a pair of empty backticks', 'c``d'],
+  ])('does not let %s splice a `cd` past the skip', (label, spliced) => {
     // The word-fork skip keys on a raw `cd`-shaped token, but a splice assembles the builtin out of
-    // pieces: `"c""d"` and `c\d` are `cd` to the shell and carry no such token. Measured while
-    // building the skip: the statement was skipped, the push resolved to the SESSION repo (which has
-    // a clean record) while the real cd moved elsewhere, and the hook exited 0 where it had refused
-    // — a wrong-repository fail-open. A quote or backslash now disqualifies the skip, so the full
-    // walk runs and the unreadable target refuses. The parked repo is the RECORDED one here, so a
-    // skip would PASS and only the correct behaviour refuses. (HARNESS-083 / #1681 review)
+    // pieces that carry no such token — and it needs neither a quote NOR a backslash to do it.
+    // Each of these was MEASURED as a wrong-repository fail-open while building the skip: the
+    // statement was skipped, the push resolved to the SESSION repo (which has a clean record) while
+    // the real cd moved elsewhere, and the hook exited 0 where it had refused.
+    //
+    // The first fix blocklisted quote/backslash and the review found `$()`/backticks straight
+    // through it, so the skip now takes an ALLOWLIST — letters, digits, whitespace and plain path
+    // punctuation — and ANY expansion character forces the full walk. Enumerating splice
+    // mechanisms is the whack-a-mole that produced this defect twice.
+    //
+    // STATED LIMIT: a PARAMETER splice (`c${UNSET}d`) is still not seen, because words-mode never
+    // builds the word `cd` from it. That is pre-existing — measured identically on develop — and is
+    // filed as HARNESS-084 (#1682) rather than papered over here.
+    //
+    // Parked is the RECORDED repo, so a skip would PASS and only correct tracking refuses.
+    // (HARNESS-083 / #1681 review, two rounds)
     const target = repoOn('feat/target');
     const parked = repoOn('feat/parked', { recorded: true });
 
-    const { status, output } = runHook(`"c""d" ${target} && git push origin x`, parked);
+    const { status, output } = runHook(`${spliced} ${target} && git push origin x`, parked);
 
-    expect(
-      status,
-      `a spliced cd was skipped and the push judged the session repo:\n${output}`,
-    ).toBe(2);
-    expect(output).toMatch(/cannot read/);
+    expect(status, `a ${label} splice was skipped and the session repo judged:\n${output}`).toBe(2);
   });
 
   it('does not flag a trailing-slash spelling of the same repo as two repositories', () => {

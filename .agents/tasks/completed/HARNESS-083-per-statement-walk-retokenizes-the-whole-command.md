@@ -45,8 +45,10 @@ covered by the existing `pre-push-repo-resolution` / `pre-push-sequence` suites 
 
 - [x] The whole command is tokenized ONCE (`COMMAND_VERBS`); every per-statement mask is a slice of
       it, so tokenization is independent of the statement count.
-- [x] All existing pre-push resolution/sequence/hook-facts tests stay green, untouched (85 pass) —
-      the equivalence evidence that behaviour did not change.
+- [x] Every pre-existing pre-push resolution/sequence/hook-facts case stays green, untouched — the
+      equivalence evidence that behaviour did not change. The suite now reports 88 because this
+      change ADDS cases (large-N, spliced-cd ×3, the fork-count guard); none of the pre-existing
+      ones were edited.
 - [x] Large-N fixtures in `pre-push-repo-resolution.test.mjs` (200-statement chain resolves; a cd
       150 statements deep is still tracked; a spliced `"c""d"` still refuses) plus the measured
       table below: develop 9547 ms at N=200 versus 2788 ms, and flat in N.
@@ -54,12 +56,17 @@ covered by the existing `pre-push-repo-resolution` / `pre-push-sequence` suites 
 ## Test Plan
 
 - Red-first is not applicable in its usual form: this is a PERFORMANCE change whose contract is
-  that behaviour does not change, so the evidence is the inverse — the 85 existing pre-push,
-  sequence and hook-facts cases pass UNTOUCHED against the rewritten walk.
-- One genuine regression WAS found this way and is now pinned: the raw-token skip let a spliced
-  `"c""d" <dir>` through (no `cd`-shaped substring), so the push resolved to the session repo and
-  exited 0 where the hook had refused. `does not let a SPLICED cd slip past the skip` reproduces it
-  — it fails against the intermediate version and passes now.
+  that behaviour does not change, so the evidence is the inverse — every pre-existing pre-push,
+  sequence and hook-facts case passes UNTOUCHED against the rewritten walk (88 total with the cases
+  this change adds).
+- Two rounds of a genuine regression WERE found this way and are now pinned: the raw-token skip let
+  a spliced `cd` through (no `cd`-shaped substring), so the push resolved to the session repo and
+  exited 0 where the hook had refused. The first fix blocklisted quote/backslash and review found
+  `c$()d` and ` c`d `` straight through it, so the skip now takes an ALLOWLIST of inert characters
+  and any expansion character forces the full walk. All three vectors are pinned as cases.
+- STATED LIMIT, measured: a PARAMETER splice (`c${UNSET}d`) is still not tracked, because words-mode
+  never builds the word `cd` from it. It behaves identically on develop, so this change neither
+  introduced nor reopened it; filed as HARNESS-084 (#1682).
 - Scale fixtures: a 200-statement chain resolves correctly, and a `cd` buried 150 statements deep is
   still tracked (the skip is conservative).
 - `pnpm harness:scan` and the full harness suite (3092) green.
@@ -71,7 +78,8 @@ covered by the existing `pre-push-repo-resolution` / `pre-push-sequence` suites 
 "harness-internal" label is not automatic. It qualifies because the change is defined by preserving
 observable behaviour: there is no new user-facing surface, no new refusal, and no new permitted
 shape. What a user would "run to see it" is any push — and the correct outcome is that it behaves
-exactly as before, only faster. That invariance is what the 85 untouched tests assert, which is
+exactly as before, only faster. That invariance is what the untouched pre-existing tests assert,
+which is
 stronger evidence than a scripted scenario would be. The one behavioural difference the work did
 produce (the spliced-`cd` fail-open) was a defect, and it is fixed and pinned rather than shipped.
 
@@ -84,7 +92,8 @@ raw slice carries no `cd`/`pushd`/`popd` token, matched bash-natively) skips the
 fork entirely, and the push-detection grep is short-circuited by a bash `*push*` pre-filter. So an
 ordinary long chain (`echo a && … && git push`) spends no per-statement fork; the exact grep/awk
 engines still DECIDE the statements that could be pushes or directory changes, so behavior is
-unchanged (all 82 pre-push/hook-facts tests pass untouched).
+unchanged (every pre-existing pre-push/hook-facts case passes untouched; the suite reports 88
+with the cases this change adds).
 
 Measured (200 ordinary statements before a push):
 
