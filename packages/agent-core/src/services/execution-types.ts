@@ -63,6 +63,9 @@ export interface IResolvedProviderInfo {
 /**
  * Mutable state tracked across execution rounds
  */
+/** Consecutive model rounds with an unavailable tool call before the loop force-summarizes. */
+export const MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS = 2;
+
 export interface IExecutionRoundState {
   toolsExecuted: string[];
   currentRound: number;

@@ -1,6 +1,6 @@
 import { EXECUTION_EVENTS } from './execution-constants';
+import { buildFinalResult } from './execution-failure';
 import { executeRound } from './execution-round';
-import { buildFinalResult } from './execution-service-helpers';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,

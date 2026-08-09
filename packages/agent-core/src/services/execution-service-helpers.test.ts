@@ -10,9 +10,9 @@ import { describe, expect, it } from 'vitest';
 
 import { ConversationStore } from '../managers/conversation-history-manager';
 
+import { buildFinalResult } from './execution-failure';
 import {
   assertToolChoiceValid,
-  buildFinalResult,
   initializeConversationStore,
   resolveToolChoiceForRound,
 } from './execution-service-helpers';
