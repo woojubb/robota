@@ -176,8 +176,14 @@ while read -r PS_START PS_LEN; do
       if [[ -n "$PS_SECOND" ]] || [[ ${#PUSHD_STACK[@]} -eq 0 ]]; then
         LAST_CD_UNREADABLE=true
       else
-        LAST_CD="${PUSHD_STACK[-1]}"
-        unset 'PUSHD_STACK[-1]'
+        # Indexed from the length, not a negative subscript: bash gained negative array indices
+        # in 4.3, and macOS ships /bin/bash at 3.2 — where the negative form is a fatal expansion
+        # error that, under set -e, kills the hook with a non-2 exit the protocol reads as PASS.
+        # A guard whose newest line fail-opens an entire platform is the exact silence it exists
+        # to refuse. (#1667 review)
+        _PUSHD_TOP=$(( ${#PUSHD_STACK[@]} - 1 ))
+        LAST_CD="${PUSHD_STACK[$_PUSHD_TOP]}"
+        unset "PUSHD_STACK[$_PUSHD_TOP]"
         if [[ "$LAST_CD" == "?" ]]; then
           LAST_CD=""
           LAST_CD_UNREADABLE=true
