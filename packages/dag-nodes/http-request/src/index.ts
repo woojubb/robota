@@ -116,9 +116,12 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
       // allow-fallback: network errors converted to structured Result
       clearTimeout(timeoutId);
 
+      // CORE-027: classified from the node's OWN timeout signal and the platform's abort name,
+      // never from the error's prose. The substring test that stood here read any failure whose
+      // message contained "abort" — a 5xx body quoting the word, a proxy's phrasing — as this
+      // node's timeout, and mislabelled a retryable network error with the timeout's code.
       const isTimeout =
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.toLowerCase().includes('abort'));
+        controller.signal.aborted || (error instanceof Error && error.name === 'AbortError');
 
       return {
         ok: false,
