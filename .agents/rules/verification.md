@@ -14,8 +14,12 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 ### Browser Verification Requirement
 
 - After changes to a web app or any package whose output is rendered in a browser, you MUST verify in a browser before reporting completion.
-- Use Playwright MCP to navigate to the app URL, take a screenshot, and verify the UI renders correctly.
-- Check for: page loads without error, key elements visible, no console errors.
+- Drive a real browser against the running app. Whatever driver is configured, the obligation is
+  the same and the evidence is the same: the page loaded, the elements the change concerns are
+  present, and the console is clean. Name the driver you used in the report.
+- If no browser driver is configured in this repository, that is a missing capability, not an
+  exemption. File it and say plainly that the change is unverified — an unverified change reported
+  as done is the failure this rule exists to prevent.
 - If the dev server is not running, start it and wait for it to be ready before checking.
 - This is non-negotiable — do NOT claim UI changes work without browser verification.
 

@@ -683,10 +683,35 @@ while read -r STMT_START STMT_LEN; do
   fi
 
   if [[ "$IS_GH_DELETE_BRANCH" == "true" ]]; then
+    # Print the corrected command; do not paraphrase the policy. A guard that restates a rule
+    # becomes a second copy of it that drifts — this message once said the opposite of
+    # git-branch.md on both who may delete a branch and which flag to use, and the prohibited
+    # command was retried for weeks because the guard taught the wrong alternative.
+    # Correct THIS STATEMENT, not the whole raw command: a sed over the full command also strips
+    # the flag's name out of quoted text — a commit message, a PR body — and the "corrected"
+    # suggestion is then a different command than the user meant. The statement slice bounds it,
+    # and a statement where the flag appears more than once (one of them necessarily quoted text)
+    # gets an instruction instead of a synthesis that would guess which one to drop.
+    # Ranges are 1-based (awk substr); bash slicing is 0-based.
+    STMT_RAW="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
-    echo "[branch-guard] It once deleted the develop integration branch. Merge without it, then delete" >&2
-    echo "[branch-guard] only on explicit user request: git branch -D <name> (local) /" >&2
-    echo "[branch-guard] gh api -X DELETE repos/<owner>/<repo>/git/refs/heads/<name> (remote)." >&2
+    # Counted with the SAME boundary the sed strips with — a bare substring count read
+    # `--delete-branch-like` (a different flag) as an occurrence, chose the single-occurrence
+    # branch, and the sed then stripped nothing, so "Run this instead" repeated the refused
+    # command verbatim. (#1672 review)
+    if [[ $(printf '%s' "$STMT_RAW" | grep -oE -- '--delete-branch(=[^[:space:]]*)?([^-[:alnum:]_]|$)' | grep -c .) -eq 1 ]]; then
+      # An explicit boundary class, not \b: `-` is not a word character, so \b matched inside
+      # `--delete-branch-like` names and the sed would strip a prefix of a different flag. The
+      # `=value` spelling is consumed WITH the flag — keeping the boundary alone turned
+      # `--delete-branch=false` into a stray `=false` glued to the previous word. (#1672 review)
+      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch(=[^[:space:]]*)?([^-=[:alnum:]_]|$)/\2/')
+      echo "[branch-guard] Run this instead:" >&2
+      echo "[branch-guard]   $FIXED_COMMAND" >&2
+    else
+      echo "[branch-guard] Re-run this statement without '--delete-branch'." >&2
+    fi
+    echo "[branch-guard] Branch cleanup after the merge is governed by .agents/rules/git-branch.md" >&2
+    echo "[branch-guard] (see 'Delete Merged Branches') — read it there, it is the only copy." >&2
     exit 2
   fi
 
@@ -874,7 +899,8 @@ while read -r STMT_START STMT_LEN; do
       for b in "${UNMERGED_BRANCHES[@]}"; do
         echo "  - $b" >&2
       done
-      echo "[branch-guard] After squash-merge via PR, delete the local branch: git branch -D <name>" >&2
+      echo "[branch-guard] Branch cleanup after a merge is governed by .agents/rules/git-branch.md" >&2
+      echo "[branch-guard] (see 'Delete Merged Branches') — read it there, it is the only copy." >&2
       if [[ "$MERGED_REFS_READ" != "true" ]]; then
         echo "[branch-guard] NOTE: merged PRs could not be read, so squash-merged branches are listed" >&2
         echo "[branch-guard] here as unmerged. The list is longer than the real backlog." >&2
