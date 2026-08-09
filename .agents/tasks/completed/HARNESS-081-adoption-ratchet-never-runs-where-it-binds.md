@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-081: the examined-adoption ratchet never runs where it binds'
-status: todo
+status: done
+completed: 2026-08-09
 created: 2026-08-09
 priority: high
 urgency: next
@@ -56,3 +57,23 @@ frozen.
 ## User Execution Test Scenarios
 
 **Does not apply.** Harness-internal ratchet; no user-facing surface.
+
+## Resolution
+
+Landed on branch `fix/harness-081-adoption-set`. The baseline is now a frozen SET of declaring scan
+names (`{ "declaring": [ … ] }`), not a single count:
+
+- `judgeExaminedAdoption(declaringNames, evaluableNames, …)` compares SETS. FELL = a frozen scan
+  that RAN this pass but stopped emitting `::examined::`; ROSE = a scan that declared but is not
+  frozen. A `--skip`'d scan is absent from `evaluableNames`, so it is neither judged nor faulted —
+  which is exactly what lets the ratchet bind under CI's `--skip dist --skip build-contracts`.
+- The `checkAdoption: scans.length === SCAN_COMMANDS.length` gate is gone; the ratchet always runs
+  (CI included). A new `--write-adoption-baseline` flag re-freezes the set, MERGING so a run under
+  `--skip` keeps the frozen entries for the scans it did not evaluate.
+- An earned zero (`::examined:: 0 … ::expected-empty::`) counts as a declaration (marker adopted),
+  so a dormant-by-design scan is not read as a fall.
+
+Verified: the CI-shaped invocation evaluates the ratchet (a frozen-but-non-declaring scan FELLs
+under `--skip dist --skip build-contracts` — red-proved by hand); the set-semantics and the
+skip-does-not-disarm case are unit-tested in `run-all-scans.test.mjs`; full harness suite (3086)
+and `pnpm harness:scan` green.

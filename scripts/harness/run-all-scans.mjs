@@ -13,7 +13,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -162,22 +162,41 @@ export function judgeExamined(name, output) {
 }
 
 /**
- * How many scans declare what they examined — a ratchet, and the reason it is one.
+ * WHICH scans declare what they examined — a ratchet, and the reason it is one.
  *
- * Seventy-nine of ninety-seven declare nothing today. Demanding a declaration from all of them at
- * once turns the suite red on arrival, and a suite that is red on arrival is skipped rather than
- * fixed. So the count is frozen: it may RISE, and it must never fall. A fall is re-frozen in the
- * same change, or the gain is a licence to grow back.
+ * Most scans declare nothing today. Demanding a declaration from all of them at once turns the suite
+ * red on arrival, and a suite that is red on arrival is skipped rather than fixed. So the SET of
+ * declaring scans is frozen: a scan may JOIN it, and one already in it must never stop declaring. A
+ * change is re-frozen in the same commit, or the gain is a licence to slide back.
  *
- * The baseline lives beside the runner rather than inside it, so raising it is a reviewable one-line
- * diff and not an edit to the thing doing the judging.
+ * A frozen SET, not a single count, because the population is variable (HARNESS-081): the CI `scans`
+ * job runs `--skip dist --skip build-contracts`, and a no-build local run self-skips the same
+ * dist-dependent scans. A count over a shifting population can only be checked when the population is
+ * whole — which is never, in CI — so the check that existed never bound where it mattered. A set is
+ * SUBTRACTABLE: a scan that did not run (or self-skipped for want of a subject) is simply not judged
+ * this pass, while every scan that DID run is held to whether the frozen set expected it to declare.
+ *
+ * The baseline lives beside the runner rather than inside it, so changing it is a reviewable diff and
+ * not an edit to the thing doing the judging.
  */
 export const EXAMINED_ADOPTION_BASELINE_PATH = path.join(
   WORKSPACE_ROOT,
   'scripts/harness/examined-adoption-baseline.json',
 );
 
-export function judgeExaminedAdoption(declaring, total, readBaseline = defaultReadAdoption) {
+/**
+ * @param declaringNames  scans that RAN and emitted `::examined::` (an earned zero counts)
+ * @param evaluableNames  scans that RAN (the population this pass can judge)
+ * A `--skip`'d scan never reaches here, so a frozen scan absent this pass is not a regression — only
+ * a frozen scan that RAN and stopped emitting the marker is. An earned-zero declarer stays in
+ * `declaringNames`, so a dormant-by-design scan is not read as a fall.
+ */
+export function judgeExaminedAdoption(
+  declaringNames,
+  evaluableNames,
+  knownNames = null,
+  readBaseline = defaultReadAdoption,
+) {
   const frozen = readBaseline();
   if (frozen === null) {
     return {
@@ -185,32 +204,93 @@ export function judgeExaminedAdoption(declaring, total, readBaseline = defaultRe
       message: `✗ no frozen examined-size adoption baseline — write ${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
     };
   }
-  if (declaring < frozen) {
-    return {
-      ok: false,
-      message:
-        `✗ examined-size adoption FELL: ${declaring} of ${total} scans declare what they examined, ` +
-        `down from a frozen ${frozen}. A scan that stopped saying how much it looked at is a scan ` +
-        'whose green stopped meaning anything measurable.',
-    };
+  const frozenSet = new Set(frozen);
+  const declaring = new Set(declaringNames);
+  const evaluable = new Set(evaluableNames);
+  // `knownNames` is the full scan registry when the caller has it. A frozen name absent from it was
+  // deleted or renamed OUT of existence — it can never run again, so it would otherwise sit in the
+  // baseline forever, un-FELL and un-pruned (the SET's blind spot the old count caught as a shrink).
+  // When it is not supplied (fixture callers), the GONE check is simply skipped.
+  const known = knownNames === null ? null : new Set(knownNames);
+  const rel = path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH);
+  // FELL: a scan the frozen set expects to declare, which ran this pass but did not.
+  const fell = [...frozenSet].filter((name) => evaluable.has(name) && !declaring.has(name)).sort();
+  // ROSE: a scan that declared this pass but is not yet frozen.
+  const rose = [...declaring].filter((name) => !frozenSet.has(name)).sort();
+  // GONE: a frozen scan that is no longer a registered scan at all.
+  const gone = known === null ? [] : [...frozenSet].filter((name) => !known.has(name)).sort();
+  // All three are reported TOGETHER — a set diff can carry more than one, and surfacing only the
+  // first would spend a review round per finding, the waste this repo's culture is closing.
+  const parts = [];
+  if (fell.length > 0) {
+    parts.push(
+      `FELL: ${fell.length} scan(s) stopped declaring what they examined (${fell.join(', ')}) — a ` +
+        'scan whose declaration vanished has a green that no longer means anything measurable. ' +
+        `Restore it, or drop it from ${rel} in the SAME change with a reason.`,
+    );
   }
-  if (declaring > frozen) {
-    return {
-      ok: false,
-      message:
-        `✗ examined-size adoption ROSE: ${declaring} of ${total} (frozen ${frozen}). Re-freeze it in ` +
-        'the SAME change, or the gain is a licence to slide back.',
-    };
+  if (rose.length > 0) {
+    parts.push(
+      `ROSE: ${rose.length} newly-declaring scan(s) (${rose.join(', ')}) not in the frozen set. Add ` +
+        `them to ${rel} in the SAME change (or run --write-adoption-baseline), or the gain is a ` +
+        'licence to slide back.',
+    );
+  }
+  if (gone.length > 0) {
+    parts.push(
+      `GONE: ${gone.length} frozen scan(s) (${gone.join(', ')}) are no longer registered scans at ` +
+        `all. Prune them from ${rel} (or run --write-adoption-baseline) so the set cannot rot around ` +
+        'a name nothing can ever satisfy.',
+    );
+  }
+  if (parts.length > 0) {
+    return { ok: false, message: `✗ examined-size adoption drift —\n  ${parts.join('\n  ')}` };
   }
   return { ok: true, message: null };
 }
 
 function defaultReadAdoption() {
   try {
-    return JSON.parse(readFileSync(EXAMINED_ADOPTION_BASELINE_PATH, 'utf8')).declaring ?? null;
+    const parsed = JSON.parse(readFileSync(EXAMINED_ADOPTION_BASELINE_PATH, 'utf8')).declaring;
+    return Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Re-freeze the baseline from an observed pass (invoked by `--write-adoption-baseline`). MERGES: for
+ * scans that were evaluable this pass, take the observed declaring status; for scans NOT evaluated
+ * (skipped or subject-less this run — e.g. dist scans under `--skip dist`), KEEP their frozen entry.
+ * So the baseline stays correct whichever invocation regenerates it, rather than dropping the
+ * dist-dependent scans whenever it is written from a CI-shaped run.
+ */
+export function writeAdoptionBaseline(
+  declaringNames,
+  evaluableNames,
+  knownNames = null,
+  readBaseline = defaultReadAdoption,
+  writeFile = defaultWriteAdoption,
+) {
+  const frozen = new Set(readBaseline() ?? []);
+  const evaluable = new Set(evaluableNames);
+  const known = knownNames === null ? null : new Set(knownNames);
+  // Keep frozen entries for scans this pass did not evaluate — they are neither confirmed nor
+  // refuted — EXCEPT a name that is no longer a registered scan at all, which is pruned: keeping it
+  // would re-freeze a name nothing can ever satisfy.
+  const kept = [...frozen].filter(
+    (name) => !evaluable.has(name) && (known === null || known.has(name)),
+  );
+  const merged = [...new Set([...kept, ...declaringNames])].sort();
+  writeFile(merged);
+  return merged;
+}
+
+function defaultWriteAdoption(names) {
+  writeFileSync(
+    EXAMINED_ADOPTION_BASELINE_PATH,
+    `${JSON.stringify({ declaring: names }, null, 2)}\n`,
+  );
 }
 
 /**
@@ -615,11 +695,12 @@ export async function runScans(
   scans,
   write = (line) => process.stdout.write(`${line}\n`),
   concurrency = DEFAULT_SCAN_CONCURRENCY,
-  // Adoption is judged only when the WHOLE registry ran. A ratchet over a subset counts a number
-  // that means nothing: a `--skip` run, or a caller passing three fixtures, would report a fall that
-  // is only a smaller list. The unearned-zero check below has no such condition — a scan claiming a
-  // pass over nothing is wrong however few of them ran.
-  { checkAdoption = false } = {},
+  // Adoption is a frozen SET, so it can be judged over whatever subset RAN (HARNESS-081): a scan the
+  // set expects but that did not run this pass is simply not judged, while every scan that did run
+  // with a subject is held to whether it declared. `checkAdoption` gates whether the ratchet runs at
+  // all (a caller passing three fixtures wants none); `writeAdoption` re-freezes the set from this
+  // pass instead of judging it.
+  { checkAdoption = false, writeAdoption = false, knownNames = null } = {},
 ) {
   const results = new Array(scans.length);
   let next = 0;
@@ -679,13 +760,27 @@ export async function runScans(
   }
 
   // HOW MUCH DID EACH ONE LOOK AT (HARNESS-057). An unearned zero fails the suite outright; the
-  // ADOPTION count is a ratchet, because 79 of 97 declare nothing today and a check that is red on
+  // ADOPTION set is a ratchet, because most scans declare nothing today and a check that is red on
   // arrival gets suppressed rather than obeyed.
   const unearnedZeros = examined.flatMap((e) => e.problems);
   const declaring = examined.filter((e) => e.declared).length;
-  const adoption = checkAdoption
-    ? judgeExaminedAdoption(declaring, results.length)
-    : { ok: true, message: null };
+  // The set-based ratchet judges NAMES. A scan DECLARES if it emitted `::examined::` at all — an
+  // earned zero (`::examined:: 0 … ::expected-empty::`) is an adoption of the marker as much as a
+  // positive count, so those belong in the set. EVALUABLE = every scan that ran; a `--skip`'d scan
+  // never reaches here and so is neither judged nor faulted. (HARNESS-081)
+  const declaringNames = examined.filter((e) => e.declared).map((e) => e.name);
+  const evaluableNames = examined.map((e) => e.name);
+  let adoption = { ok: true, message: null };
+  if (writeAdoption) {
+    const frozen = writeAdoptionBaseline(declaringNames, evaluableNames, knownNames);
+    write('');
+    write(
+      `✎ re-froze examined-size adoption: ${frozen.length} scan(s) in ` +
+        `${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
+    );
+  } else if (checkAdoption) {
+    adoption = judgeExaminedAdoption(declaringNames, evaluableNames, knownNames);
+  }
 
   if (unearnedZeros.length > 0) {
     write('');
@@ -743,13 +838,20 @@ export async function main() {
   for (const name of skips) {
     process.stdout.write(`skipped: ${name} (--skip)\n`);
   }
+  const writeAdoption = process.argv.slice(2).includes('--write-adoption-baseline');
   const scans = SCAN_COMMANDS.filter(({ name }) => !skips.has(name)).map(({ name, command }) => ({
     name,
     run: () => spawnScan(command),
   }));
-  // The full registry ran only when nothing was skipped; adoption is judged just then.
+  // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
+  // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
+  // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
   process.exitCode = await runScans(scans, undefined, undefined, {
-    checkAdoption: scans.length === SCAN_COMMANDS.length,
+    checkAdoption: true,
+    writeAdoption,
+    // The full registry — so a frozen scan deleted/renamed OUT of it is caught (GONE) instead of
+    // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
+    knownNames: SCAN_COMMANDS.map((scan) => scan.name),
   });
 }
 
