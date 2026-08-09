@@ -145,6 +145,12 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     // The user-execution scenario, run by the harness: a provider failure of exactly the
     // shape 'connection aborted by peer' used to come back success: true, interrupted: true —
     // empty response, exit 0, nothing downstream able to tell it from a user interruption.
+    //
+    // SCENARIO COVERAGE, not a red-proof of this change: measured against develop's sources
+    // this case already passes (the abort-prose misclassification fell to the earlier
+    // isAbortFailure fix). What it pins is the end-to-end exit contract through a real
+    // InteractiveSession and headless transport; the identity-preservation red-proofs live in
+    // the agent-core unit tests beside execution-failure.ts.
     cwd = mkdtempSync(join(tmpdir(), 'robota-headless-fail-'));
     const provider = createAuthFailingProvider();
     provider.chat = async () => {
