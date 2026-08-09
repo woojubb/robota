@@ -713,6 +713,16 @@ while read -r STMT_START STMT_LEN; do
   # next word, which is what keeps `git commit -mn "x"` — a message of "n" — from reading as the
   # short skip-hooks flag, and `-m "--no-verify"` from reading as the long one.
   IS_GATED_STMT=false
+  # An expansion this hook cannot resolve, sitting where the COMMAND or the SUBCOMMAND goes, makes
+  # the statement's identity unknown — and `g${UNSET}it commit`, `$GIT commit` and
+  # `git c${UNSET}ommit` are all real gated actions to bash. Measured on develop: each walked past
+  # the protected-branch check with exit 0, the same evasion class as the alias bypass INFRA-085
+  # closed. Tracked here and judged after the walk, where the gated-verb evidence is complete.
+  # (HARNESS-084, #1682)
+  CMD_UNRESOLVED=false
+  VERB_UNRESOLVED=false
+  SAW_CMD_WORD=false
+  SAW_GATED_WORD=false
   GIT_VERB=""
   SKIP_HOOKS=false
   SKIP_WHAT=""
@@ -751,6 +761,14 @@ while read -r STMT_START STMT_LEN; do
         SKIP_WHAT="core.hooksPath"
       fi
     fi
+    # An EMPTY word at the COMMAND position is a whole command substitution: words-mode collapses
+    # `$(echo git)` to nothing, so the command is unknown. Judged BEFORE the empty-word filter below,
+    # or the substitution is dropped and the NEXT word — `commit` in `$(echo git) commit -m x` — is
+    # mistaken for the command, which reads clean and lets the statement through. (#1683 review)
+    if [[ "$SEEN_GIT" == "false" && "$SAW_CMD_WORD" == "false" && -z "$W" ]]; then
+      SAW_CMD_WORD=true
+      CMD_UNRESOLVED=true
+    fi
     [[ -n "$W" ]] || continue
     # Recorded, not acted on yet: `HUSKY=0 pnpm install` is ordinary work in a fresh clone. The
     # variable only disables a GATE when the statement it prefixes is the gated one, which is not
@@ -758,7 +776,27 @@ while read -r STMT_START STMT_LEN; do
     case "$W" in
       HUSKY=0) [[ "$SEEN_GIT" == "false" ]] && HAS_HUSKY0=true ;;
     esac
+    # Any word that spells a gated subcommand, wherever it sits — the evidence that an unresolvable
+    # command position could be hiding a gated action rather than an editor. (HARNESS-084)
+    case "$W" in
+      commit | push | merge | rm | mv | config | checkout | switch | branch) SAW_GATED_WORD=true ;;
+    esac
     if [[ "$SEEN_GIT" == "false" ]]; then
+      # The COMMAND position: the first word that is not an env-var prefix. If it carries an
+      # expansion this hook cannot resolve, the command is unknown — `$GIT` and `g${UNSET}it` are
+      # `git` when the variable says so. Only the first such word is the command; a `$HOME` in a
+      # later ARGUMENT changes nothing about which command runs. (HARNESS-084)
+      if [[ "$SAW_CMD_WORD" == "false" ]]; then
+        case "$W" in
+          *=*) : ;;
+          *)
+            SAW_CMD_WORD=true
+            case "$W" in
+              *'$'* | *'`'*) CMD_UNRESOLVED=true ;;
+            esac
+            ;;
+        esac
+      fi
       [[ "$W" == "git" ]] && SEEN_GIT=true
       continue
     fi
@@ -780,6 +818,13 @@ while read -r STMT_START STMT_LEN; do
       # in the permissive direction is what the finding above measured.
       case "$W" in
         */*|.*|*.*) continue ;;
+      esac
+      # The VERB position, reached: `git` is established and this word is the subcommand. An
+      # expansion here leaves the action unknown — `git c${UNSET}ommit` is a commit. Recorded rather
+      # than refused inline, so the walk still finishes and the message below can name the whole
+      # statement's evidence. (HARNESS-084)
+      case "$W" in
+        *'$'* | *'`'*) VERB_UNRESOLVED=true ;;
       esac
       # INFRA-085: the word about to become the verb may be an alias, and the checks below ask
       # about the verb it EXPANDS to. The expansion's own flags count too — `alias.ci "commit -n"`
@@ -890,6 +935,40 @@ while read -r STMT_START STMT_LEN; do
       [[ "$_ST_VALUE" == "true" ]] && EXPECT_VALUE=true
     fi
   done <<< "$STMT_WORDS"
+
+  # An unknowable gated action, refused where this hook actually gates — and NOT anywhere else.
+  #
+  # The command position being an expansion is only dangerous if the action it hides is one this
+  # guard would refuse spelled out, so the refusal is scoped to exactly that:
+  #   - a PROTECTED branch, where the literal `git commit`/`git push` are refused. On a feature
+  #     branch they are ordinary work, so refusing their spliced twin would be pure over-refusal.
+  #   - or a statement naming `.husky`/`core.hooksPath`, the two gates that bind on ANY branch, so a
+  #     spliced `g${X}it rm .husky/pre-push` cannot slip through by moving off `develop` first.
+  #
+  # Without that scope the check fired on `$EDITOR commit` — opening a file that happens to be NAMED
+  # `commit` — on every branch, which is ordinary work and precisely the "guard that fires on correct
+  # work is one people learn to route around" failure this file argues against. (#1683 review)
+  #
+  # Judged HERE, before the four-booleans-false `continue` below: none of the action regexes matches
+  # a statement whose verb is an expansion, so a check placed after that early exit never runs — the
+  # first arrangement of this block did exactly that and refused nothing. The branch is read from
+  # EFFECTIVE_DIR, which this statement already resolved, and only when the flag is set, so ordinary
+  # statements pay no extra subprocess. The remedy in the message is to write the command literally
+  # rather than a new override token: the legitimate surface is a variable standing in for `git`, and
+  # spelling it out costs nothing. (HARNESS-084)
+  if [[ "$VERB_UNRESOLVED" == "true" ]] || [[ "$CMD_UNRESOLVED" == "true" && "$SAW_GATED_WORD" == "true" ]]; then
+    _UNKNOWABLE_SCOPE=false
+    _UNKNOWABLE_BRANCH=$(hook_current_branch "$EFFECTIVE_DIR" "")
+    case "$_UNKNOWABLE_BRANCH" in main | master | develop) _UNKNOWABLE_SCOPE=true ;; esac
+    case "$STMT_MASK" in *.husky* | *core.hooksPath*) _UNKNOWABLE_SCOPE=true ;; esac
+    if [[ "$_UNKNOWABLE_SCOPE" == "true" ]]; then
+      echo "[branch-guard] Blocked: this statement builds its command or subcommand from an expansion" >&2
+      echo "[branch-guard] this hook cannot resolve, so whether it is a gated git action is unknown —" >&2
+      echo "[branch-guard] and \`\$GIT commit\` / \`git c\${X}ommit\` are commits when the variable says so." >&2
+      echo "[branch-guard] Unable to determine is not the same as safe. Spell the command out literally." >&2
+      exit 2
+    fi
+  fi
   # Now that the verb is known: the husky kill switch counts only in front of a gated command.
   [[ "$HAS_HUSKY0" == "true" && "$IS_GATED_STMT" == "true" ]] && SKIP_HOOKS=true && SKIP_WHAT="HUSKY=0"
 
@@ -1211,6 +1290,7 @@ while read -r STMT_START STMT_LEN; do
   # three were dead code. THIS caller wants the empty value: the checks below key on emptiness to
   # recognise a detached HEAD, which is why the default is the caller's to name.
   CURRENT_BRANCH=$(hook_current_branch "$PROJECT_DIR" "")
+
 
   # A detached HEAD has no branch name, so the protected-branch checks below have nothing to compare
   # and the guard used to stop here. Branch CREATION is different: creating `feat/x` while detached at

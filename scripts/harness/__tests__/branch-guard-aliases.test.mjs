@@ -438,3 +438,87 @@ describe('the verb checks see through an alias', () => {
     expect(status).toBe(0);
   });
 });
+
+describe('a command or subcommand built from an expansion is unknowable, not permitted', () => {
+  /**
+   * HARNESS-084 (#1682). The verb latch keys on the literal words `git` and `commit`, so an
+   * expansion in either position walked past every gate: measured on develop, each of the three
+   * shapes below exited 0 on a PROTECTED branch where the literal spelling exits 2. It is the same
+   * evasion class INFRA-085 closed for aliases — one visible command that nothing refuses, with an
+   * obvious next move for an agent that has learned the literal form is blocked.
+   *
+   * The guard cannot resolve the variable, and guessing would be worse than declining: `c${HOME}d`
+   * is not a cd. So it declines — and the refusal is kept NARROW, which the second block asserts.
+   */
+  it.each([
+    ['the command is a variable', '$GIT commit -m x'],
+    ['the command is spliced', 'g${UNSET}it commit -m x'],
+    ['the command is a whole substitution', '$(echo git) commit -m x'],
+    ['the SUBCOMMAND is spliced', 'git c${UNSET}ommit -m x'],
+  ])('refuses on a protected branch when %s', (_label, command) => {
+    // `$(echo git)` collapses to an EMPTY word, so it has to be caught BEFORE the empty-word filter
+    // — otherwise the next word (`commit`) is mistaken for the command, reads clean, and the
+    // statement walks through. That was a review finding on the first version. (#1683)
+    const repo = scratchRepo('develop');
+
+    const { status, output } = runHook(command, repo);
+
+    expect(status, `an unresolvable gated action was permitted:\n${output}`).toBe(2);
+  });
+
+  it.each([
+    ['an editor', '$EDITOR notes.md'],
+    ['a pager', '${PAGER} log.txt'],
+    ['a substitution command', '$(which node) build.js'],
+    ['an expansion in an ARGUMENT only', 'echo $HOME'],
+  ])('leaves %s alone even on a protected branch', (_label, command) => {
+    // A guard that fires on correct work is one people learn to route around, and this file makes
+    // that argument about itself. None of these spells a gated subcommand, so none is refused —
+    // the trigger is an unknown command PLUS gated-action evidence, not the mere presence of `$`.
+    const repo = scratchRepo('develop');
+
+    const { status, output } = runHook(command, repo);
+
+    expect(status, `an ordinary command was refused:\n${output}`).toBe(0);
+  });
+
+  it.each([
+    ['an editor opening a file named like a verb', '$EDITOR commit'],
+    ['a pager on a file named like a verb', '${PAGER} config'],
+    ['a substitution command with a verb-shaped argument', '$(which vim) branch'],
+  ])('leaves %s alone on a FEATURE branch', (_label, command) => {
+    // The scope that keeps the refusal honest: on a feature branch the literal `git commit` is
+    // ordinary work, so refusing its spliced twin would be pure over-refusal. Refusing these
+    // everywhere was a review finding on the first version. (#1683)
+    const repo = scratchRepo('feat/x');
+
+    const { status, output } = runHook(command, repo);
+
+    expect(status, `ordinary work on a feature branch was refused:\n${output}`).toBe(0);
+  });
+
+  it('ACCEPTED COST: an unknown command plus a verb-shaped argument refuses on a protected branch', () => {
+    // `$EDITOR commit` and `$GIT commit` are textually IDENTICAL to this hook — an unresolvable
+    // command followed by the word `commit`. On a protected branch, where the literal `git commit`
+    // is refused, the guard cannot tell them apart and fails closed. That is a real false positive
+    // and it is the deliberate trade: the alternative is letting `$GIT commit` through, which is the
+    // evasion this whole change exists to close. The message names the remedy — spell the command
+    // literally — and the cost only lands on a protected branch, where a commit was refused anyway.
+    const repo = scratchRepo('develop');
+
+    const { status, output } = runHook('$EDITOR commit', repo);
+
+    expect(status).toBe(2);
+    expect(output).toMatch(/cannot resolve/);
+  });
+
+  it('refuses a spliced husky removal on ANY branch — that gate does not depend on the branch', () => {
+    // The husky/hooksPath gates bind everywhere, so scoping the refusal to protected branches alone
+    // would let `g${X}it rm .husky/pre-push` through by moving to a feature branch first.
+    const repo = scratchRepo('feat/x');
+
+    const { status, output } = runHook('g${UNSET}it rm .husky/pre-push', repo);
+
+    expect(status, `a spliced husky removal was permitted off develop:\n${output}`).toBe(2);
+  });
+});
