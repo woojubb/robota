@@ -280,6 +280,54 @@ git_alias_expansion() {
   return 1
 }
 
+# The head of an expansion: the word the next hop resolves, found the way the verb latch finds a
+# verb — a value-taking global consumes its value, any other flag is skipped, the first remaining
+# word is the head. Reading the LITERAL first word reproduced, inside the alias, the exact bug the
+# latch already fixed at the top level: `-c commit.gpgsign=false commit` read as verb `-c`, and
+# every check keyed on `commit` went silent. (#1666 review)
+git_expansion_head() {
+  local w expect=false
+  for w in $1; do
+    if [[ "$expect" == "true" ]]; then expect=false; continue; fi
+    case "$w" in
+      -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
+        expect=true; continue ;;
+      -*) continue ;;
+    esac
+    printf '%s' "$w"
+    return 0
+  done
+  return 1
+}
+
+# The FULL expansion of an alias chain, flattened, bounded at 10 hops. `alias.a1 ci` on top of
+# `alias.ci commit` is a commit as truly as its tail is, and single-level reading left the head
+# entirely unclassified — no refusal, no message. Each hop replaces the expansion's head word with
+# what it resolves to, keeping the flags on either side; the bound is a cycle guard, and a chain
+# that exceeds it simply stops flattening, which fails toward the next hop staying visible as an
+# unexpanded word rather than toward silence about the words already flattened. (#1666 review)
+git_alias_expansion_chain() {
+  local exp next head depth=0 rest pre w expect
+  exp=$(git_alias_expansion "$1") || return 1
+  while (( depth++ < 10 )); do
+    head=$(git_expansion_head "$exp") || break
+    next=$(git_alias_expansion "$head") || break
+    # Rebuild: everything before the head, the hop's expansion, everything after.
+    pre=""; rest=""; expect=false
+    local seen=false
+    for w in $exp; do
+      if [[ "$seen" == "true" ]]; then rest="${rest}${rest:+ }${w}"; continue; fi
+      if [[ "$w" == "$head" && "$expect" != "true" ]]; then seen=true; continue; fi
+      [[ "$expect" == "true" ]] && expect=false || case "$w" in
+        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env) expect=true ;;
+      esac
+      pre="${pre}${pre:+ }${w}"
+    done
+    exp="${pre}${pre:+ }${next}${rest:+ }${rest}"
+  done
+  printf '%s' "$exp"
+}
+
 # Classify each alias ONCE by asking the action regexes about `git <expansion>` — the same
 # expressions the statements are judged with, so an alias and its expansion cannot be classified
 # differently. Only word-safe names join the alternations; an alias named with regex metacharacters
@@ -292,10 +340,10 @@ if [[ -n "$GIT_ALIASES" ]]; then
   while IFS= read -r _alias_line; do
     [[ -z "$_alias_line" ]] && continue
     _alias_name="${_alias_line%% *}"
-    _alias_exp="${_alias_line#* }"
-    [[ "$_alias_exp" == "$_alias_line" ]] && continue
-    [[ "$_alias_exp" == '!'* ]] && continue
     [[ "$_alias_name" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+    # The CHAIN expansion, not the single hop: `alias.a1 ci` classifies as whatever `ci` finally
+    # is, or the head alias joins no alternation and its statement is judged as nothing at all.
+    _alias_exp=$(git_alias_expansion_chain "$_alias_name") || continue
     _alias_synth="git $_alias_exp"
     printf '%s' "$_alias_synth" | grep -qE "$RE_COMMIT" && ALIAS_COMMIT_ALT="${ALIAS_COMMIT_ALT}${ALIAS_COMMIT_ALT:+|}${_alias_name}"
     printf '%s' "$_alias_synth" | grep -qE "$RE_PUSH" && ALIAS_PUSH_ALT="${ALIAS_PUSH_ALT}${ALIAS_PUSH_ALT:+|}${_alias_name}"
@@ -541,24 +589,29 @@ while read -r STMT_START STMT_LEN; do
       # INFRA-085: the word about to become the verb may be an alias, and the checks below ask
       # about the verb it EXPANDS to. The expansion's own flags count too — `alias.ci "commit -n"`
       # carries the kill switch inside the alias, where no statement word will ever show it.
-      if _ALIAS_EXP=$(git_alias_expansion "$W"); then
-        GIT_VERB="${_ALIAS_EXP%% *}"
-        if [[ "$_ALIAS_EXP" == *" "* ]]; then
-          for _AXW in ${_ALIAS_EXP#* }; do
-            [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
-            [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
-            if [[ "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
-              _ACL="${_AXW#-}"
-              while [[ -n "$_ACL" ]]; do
-                case "${_ACL:0:1}" in
-                  n) SKIP_HOOKS=true; SKIP_WHAT="git commit -n (via alias $W)"; break ;;
-                  m | F | C | c) break ;;
-                esac
-                _ACL="${_ACL:1}"
-              done
-            fi
-          done
-        fi
+      if _ALIAS_EXP=$(git_alias_expansion_chain "$W"); then
+        # The verb is the expansion's HEAD — global options and their values skipped — not its
+        # literal first word: `-c commit.gpgsign=false commit` is a commit, and reading `-c` as
+        # the verb silenced every check keyed on `commit`. (#1666 review)
+        GIT_VERB=$(git_expansion_head "$_ALIAS_EXP") || GIT_VERB="${_ALIAS_EXP%% *}"
+        _PAST_VERB=false
+        for _AXW in $_ALIAS_EXP; do
+          if [[ "$_PAST_VERB" != "true" ]]; then
+            [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
+          fi
+          [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
+          [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
+          if [[ "$_PAST_VERB" == "true" && "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
+            _ACL="${_AXW#-}"
+            while [[ -n "$_ACL" ]]; do
+              case "${_ACL:0:1}" in
+                n) SKIP_HOOKS=true; SKIP_WHAT="git commit -n (via alias $W)"; break ;;
+                m | F | C | c) break ;;
+              esac
+              _ACL="${_ACL:1}"
+            done
+          fi
+        done
       else
         GIT_VERB="$W"
       fi

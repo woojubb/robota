@@ -97,6 +97,44 @@ describe('the verb checks see through an alias', () => {
     expect(status, `ordinary aliased work was refused:\n${output}`).toBe(0);
   });
 
+  it('reads the verb PAST a global option inside the expansion', () => {
+    // `-c commit.gpgsign=false commit` opens with a value-taking global; taking the literal first
+    // word set the verb to `-c`, and every check keyed on `commit` — the -n cluster, HUSKY=0 —
+    // went silent. The same skip the top-level latch applies must apply inside the alias.
+    const repo = scratchRepo('feat/x', { aci: '-c commit.gpgsign=false commit' });
+
+    const { status, output } = runHook('git aci -n -m x', repo);
+
+    expect(status, `the global option inside the alias hid the verb:\n${output}`).toBe(2);
+  });
+
+  it('resolves a CHAINED alias to the verb at the end of the chain', () => {
+    // `alias.a1 ci` over `alias.ci commit`: single-level resolution classified `a1` as `git ci`,
+    // which matches no action regex, so the statement was judged as nothing at all.
+    const repo = scratchRepo('feat/x', { ci: 'commit', a1: 'ci' });
+
+    const { status, output } = runHook('git a1 -n -m x', repo);
+
+    expect(status, `the chained alias went unclassified:\n${output}`).toBe(2);
+  });
+
+  it('a chained alias still passes as ordinary work without a kill switch', () => {
+    const repo = scratchRepo('feat/x', { ci: 'commit', a1: 'ci' });
+
+    const { status, output } = runHook('git a1 -m "ordinary work"', repo);
+
+    expect(status, `ordinary chained-alias work was refused:\n${output}`).toBe(0);
+  });
+
+  it('a SELF-REFERENTIAL alias cannot loop the resolver', () => {
+    // The chain is bounded; a cycle stops flattening rather than hanging the hook.
+    const repo = scratchRepo('feat/x', { loop: 'loop' });
+
+    const { status } = runHook('git loop', repo);
+
+    expect(status).toBe(0);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.
