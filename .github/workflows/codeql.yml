@@ -36,6 +36,9 @@ on:
 permissions:
   contents: read
   security-events: write
+  # #1660: the last step re-runs a review-gate that went red only because it read this analysis
+  # before it finished. Re-running a workflow run needs actions: write; the token is same-repo.
+  actions: write
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -60,3 +63,53 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
+      # ── #1660: recovery for the review-gate ordering artefact ─────────────────────────────────
+      # `review-gate` reads this analysis ONCE, with no wait — the wait was moved off the billed
+      # runner deliberately, and that part stays. What was never paid for was the recovery: both
+      # workflows fire on the same pull_request event, so the gate's read almost always lands while
+      # this analysis is still running, goes red with `verdict-unavailable`, and STAYS red until a
+      # human re-runs it. Measured on 2026-08-08: all eight open code PRs red simultaneously on a
+      # gate that had found nothing, each turned green by a bare re-run.
+      #
+      # This step is the alternative the gate's own comment names as removing the watcher without
+      # re-introducing the wait: the moment the analysis completes, re-run the same-SHA gate run if
+      # it failed. It keys the gate to the analysis completing WITHOUT changing the gate's own
+      # trigger — the workflow_run route would report against the default branch's workflow file
+      # and its ability to satisfy the required context name is unverified (#1660 discusses why).
+      #
+      # A rerun of a gate that failed on a REAL finding is harmless: it re-reads and goes red with
+      # the same verdict. There is no loop — rerunning review-gate triggers nothing here.
+      #
+      # NON-FATAL by decision, not by silence: a failed redispatch must not turn the SAST job red
+      # (the analysis it reports on succeeded), but it says what went wrong — recovery falling back
+      # to the watcher is the pre-#1660 state, and the log names it.
+      - name: Re-run a review-gate that read this analysis too early (#1660)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -u
+          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" \
+            --jq '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty' || true)
+          if [ -z "${run_id}" ]; then
+            echo "::notice::#1660 recovery: no Review Gate run found for ${HEAD_SHA} — nothing to recover (it may not have started yet; when it starts it will read a completed analysis)."
+            exit 0
+          fi
+          status_conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" \
+            --jq '"\(.status) \(.conclusion // "")"' || echo "unreadable")
+          status=${status_conclusion%% *}
+          conclusion=${status_conclusion#* }
+          if [ "${status}" != "completed" ]; then
+            echo "::notice::#1660 recovery: Review Gate run ${run_id} is ${status} — it started after this analysis and will read it completed."
+            exit 0
+          fi
+          if [ "${conclusion}" != "failure" ]; then
+            echo "::notice::#1660 recovery: Review Gate run ${run_id} concluded ${conclusion} — nothing to recover."
+            exit 0
+          fi
+          if gh run rerun "${run_id}" --failed --repo "${GITHUB_REPOSITORY}"; then
+            echo "::notice::#1660 recovery: re-ran Review Gate run ${run_id} — it now reads a completed analysis."
+          else
+            echo "::warning::#1660 recovery FAILED to re-run Review Gate run ${run_id}. The gate stays red until re-run by hand — the pre-#1660 state. Check the actions: write permission and the run id."
+          fi

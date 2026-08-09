@@ -149,14 +149,15 @@ jobs:
           # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
           # self-recovering: most pull requests resolved inside a single run without anyone acting.
           # Now the first read almost always finds the analysis still running — the two workflows are
-          # triggered by the same event — so this check goes red and STAYS red until it is re-run.
-          # Nothing in this repository re-runs it automatically; recovery is the watcher's job, and on
-          # a pull request nobody is watching, a required check sits red until a human notices.
+          # triggered by the same event — so this check goes red until it is re-run. The RECOVERY is
+          # codeql.yml's last step (#1660): when the analysis completes, it re-runs a same-SHA gate
+          # run that failed, so the red is transient without anyone watching and without changing
+          # this workflow's trigger or holding a runner. Measured before that step existed: all
+          # eight open code PRs red simultaneously on a gate that had found nothing.
           #
-          # That is the accepted shape, not an oversight. The alternative that removes both the wait
-          # and the dependency on a watcher is a `workflow_run` trigger keyed to the analysis
-          # completing, which is a larger change to a required check than this one and is not made
-          # here.
+          # The `workflow_run` alternative is deliberately NOT taken: such a run reports against the
+          # default branch's workflow file, and whether it can satisfy branch protection as the same
+          # required context name is unverified — #1660 records the constraint.
           runs="$(node scripts/harness/github-api.mjs \
                     "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
                     --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
