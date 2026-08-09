@@ -290,9 +290,19 @@ while read -r PS_START PS_LEN; do
     if [[ "$PUSH_SEEN" == "true" && "$_PS_DIR_NORM" != "$_PUSH_DIR_NORM" ]]; then
       PUSH_DIR_CONFLICT=true
     fi
+    # OR-latch the "was any push to this dir EXPLICIT?" invariant rather than overwriting it with
+    # the last statement's value. Two pushes to the same normalized dir where one is explicit
+    # (`cd`/`-C`) and one is the HOOK_CWD fallback would otherwise let the fallback's `false` flip
+    # it off, skipping the not-a-work-tree refusal below. No current bypass (the shapes converge on
+    # the already-permitted bare-push-in-session path), but the invariant should not hinge on
+    # statement order. (#1667 review)
+    if [[ "$PUSH_SEEN" == "true" ]]; then
+      if [[ "$PS_DIR_EXPLICIT" == "true" ]]; then PUSH_DIR_EXPLICIT=true; fi
+    else
+      PUSH_DIR_EXPLICIT="$PS_DIR_EXPLICIT"
+    fi
     PUSH_SEEN=true
     PUSH_DIR="$PS_DIR"
-    PUSH_DIR_EXPLICIT="$PS_DIR_EXPLICIT"
   else
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides
     # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
