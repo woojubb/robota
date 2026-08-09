@@ -692,7 +692,8 @@ while read -r STMT_START STMT_LEN; do
     # suggestion is then a different command than the user meant. The statement slice bounds it,
     # and a statement where the flag appears more than once (one of them necessarily quoted text)
     # gets an instruction instead of a synthesis that would guess which one to drop.
-    STMT_RAW="${COMMAND:$STMT_START:$STMT_LEN}"
+    # Ranges are 1-based (awk substr); bash slicing is 0-based.
+    STMT_RAW="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
     if [[ $(printf '%s' "$STMT_RAW" | grep -o -- '--delete-branch' | grep -c .) -eq 1 ]]; then
       FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch\b//')
