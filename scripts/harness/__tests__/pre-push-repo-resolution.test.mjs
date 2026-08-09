@@ -213,6 +213,21 @@ describe('which repository the push verdict is about', () => {
     expect(status, `the brace-group cd was invisible to the walk:\n${output}`).toBe(0);
   });
 
+  it('follows the cd behind a BYPASS prefix — `builtin cd`, `command cd`, `\\cd`', () => {
+    // Each is the cd builtin skipping a function or alias; each left the walk blind, so the
+    // push was judged where the shell no longer stood.
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    for (const spelling of ['builtin cd', 'command cd', '\\cd']) {
+      const { status, output } = runHook(
+        `${spelling} ${pushed} && git push origin feat/target`,
+        parked,
+      );
+      expect(status, `'${spelling}' was invisible to the walk:\n${output}`).toBe(0);
+    }
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });

@@ -177,6 +177,15 @@ while read -r PS_START PS_LEN; do
       PS_SECOND="$PS_THIRD"
       PS_THIRD=""
     fi
+    # `builtin cd`, `command cd` and `\cd` are the cd builtin wearing a bypass prefix — valid
+    # ways to skip a shell function or alias, and each left the walk blind to a real directory
+    # change: the push after one was judged where the shell no longer stood. (#1667 review)
+    if [[ "$PS_FIRST" == "builtin" || "$PS_FIRST" == "command" ]]; then
+      PS_FIRST="$PS_SECOND"
+      PS_SECOND="$PS_THIRD"
+      PS_THIRD=""
+    fi
+    PS_FIRST="${PS_FIRST#\\}"
     if [[ "$PS_FIRST" == "popd" ]]; then
       # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
       # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
