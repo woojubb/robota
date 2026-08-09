@@ -36,9 +36,6 @@ on:
 permissions:
   contents: read
   security-events: write
-  # #1660: the last step re-runs a review-gate that went red only because it read this analysis
-  # before it finished. Re-running a workflow run needs actions: write; the token is same-repo.
-  actions: write
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -63,6 +60,22 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
+
+  # ── #1660: recovery in its OWN job — the analyze job must not hold the write token ────────────
+  # review-gate.yml sets the pattern for this exact class (its disarm-auto-merge job): a job that
+  # checks out and analyzes PR-controlled content never shares a token that writes. This job
+  # checks nothing out and runs only the script below, with the workflow's only actions: write.
+  recover-review-gate:
+    name: Re-run a review-gate that read this analysis too early
+    needs: analyze
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # #1660: re-running a workflow run needs actions: write; the token is same-repo, and a fork
+      # pull request receives a read-only token regardless of this block.
+      actions: write
+    steps:
       # ── #1660: recovery for the review-gate ordering artefact ─────────────────────────────────
       # `review-gate` reads this analysis ONCE, with no wait — the wait was moved off the billed
       # runner deliberately, and that part stays. What was never paid for was the recovery: both

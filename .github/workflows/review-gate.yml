@@ -279,6 +279,20 @@ jobs:
             echo "::error::review-gate blocked this PR. See the job summary."
             exit 1
           fi
+          # A PASS after a BLOCKED comment says so, or the last word on the PR stays a stale
+          # refusal: the #1660 recovery reruns this gate the moment the analysis completes, which
+          # makes the transient BLOCKED comment routine — and a reader scanning comments would
+          # keep meeting a verdict the checks page no longer agrees with. Only posted when a
+          # BLOCKED comment exists, so an ordinarily green PR gains no noise. (#1669 review)
+          # allow-unpaginated: reads the newest page of this gate's own comments — an older
+          # BLOCKED beyond it means at worst a skipped courtesy note, never a wrong verdict.
+          last_gate_comment=$(gh pr view "$PR_NUMBER" --json comments \
+            --jq '[.comments[] | select(.body | startswith("**Review gate:"))] | last | .body // ""' || echo "")
+          if printf '%s' "$last_gate_comment" | grep -q 'BLOCKED'; then
+            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: PASS** — the earlier BLOCKED verdict above is superseded (the gate re-read a completed analysis).
+          EOF
+          fi
 
   # INFRA-057. Disarming an armed auto-merge is INFRA-048's stated lever for the #1409 hole: a red
   # NON-REQUIRED check does not stop an auto-merge by itself. It had never once worked. Measured on

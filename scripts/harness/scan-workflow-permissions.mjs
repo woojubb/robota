@@ -53,8 +53,9 @@ export const JUSTIFIED_WRITE_SCOPES = {
   },
   'codeql.yml': {
     'security-events': 'uploads the SARIF analysis that becomes the code-scanning alerts',
-    actions:
-      're-runs a same-SHA Review Gate that read this analysis before it existed (#1660 recovery)',
+    // The #1660 recovery's `actions: write` is JOB-level (recover-review-gate), like
+    // review-gate.yml's disarm job — outside this scan's workflow-level vision, justified in the
+    // workflow beside the grant.
   },
   'dependency-review.yml': {
     'pull-requests': 'comments the dependency-review summary on failure (comment-summary-in-pr)',
