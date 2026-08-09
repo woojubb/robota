@@ -288,13 +288,19 @@ jobs:
           # by re-reading a completed analysis OR by the acknowledge label (a human override
           # with findings still real), and naming the wrong one would misreport the second.
           # (#1669 review, three rounds)
-          # allow-unpaginated: reads the newest page of this gate's own comments — an older
-          # BLOCKED beyond it means at worst a skipped courtesy note, never a wrong verdict.
+          # Read PAGINATED, oldest→newest, because whether `gh pr view --json comments` returns
+          # the newest or the oldest page on a >100-comment PR is not documented and could not
+          # be measured here (no PR in this repository has crossed 100 yet) — and this repo's
+          # review process is exactly the kind that will cross it. Per REST page, jq keeps the
+          # FIRST LINE of the last matching gate comment (the header is all the test below
+          # reads, and one line per page keeps multiline bodies from breaking the line-based
+          # tail); the last non-empty line across pages is therefore the newest gate header.
           # Matched on the comment's HEADER, not a substring: the supersession text below quotes
           # the word BLOCKED, so a substring test would match the supersession itself and every
-          # later green run would re-post it — a self-feeding loop. (#1669 review)
-          last_gate_comment=$(gh pr view "$PR_NUMBER" --json comments \
-            --jq '[.comments[] | select(.body | startswith("**Review gate:"))] | last | .body // ""' || echo "")
+          # later green run would re-post it — a self-feeding loop. (#1669 review, two rounds)
+          last_gate_comment=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' \
+            | grep -v '^$' | tail -1 || echo "")
           if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
