@@ -237,6 +237,32 @@ describe('which repository the push verdict is about', () => {
     expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
   });
 
+  it('follows a bare `pushd` swap back to the directory the shell began in', () => {
+    // `cd <pushed> && pushd <other> && pushd && git push`: real bash's bare pushd swaps the top
+    // two stack entries and cd's back to <pushed>. Treating an argument-less pushd as unreadable
+    // refused this ordinary idiom; the swap now lands where bash does. (#1667 review)
+    const pushed = repoOn('feat/target', { recorded: true });
+    const other = repoOn('feat/other');
+
+    const { status, output } = runHook(
+      `cd ${pushed} && pushd ${other} && pushd && git push origin feat/target`,
+      pushed,
+    );
+
+    expect(status, `the bare pushd swap was treated as unreadable:\n${output}`).toBe(0);
+  });
+
+  it('treats a bare `pushd` with no tracked pushd as a base it cannot read', () => {
+    // Bash errors on a bare pushd with fewer than two stack entries; this walk has nothing to
+    // swap, so the destination is unknown and refuses. (#1667 review)
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('pushd && git push origin x', parked);
+
+    expect(status, 'a bare pushd with no prior pushd was not refused').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('treats a popd with no tracked pushd as a base it cannot read', () => {
     // The real shell may have a directory stack this walk never saw filled.
     const parked = repoOn('feat/parked', { recorded: true });

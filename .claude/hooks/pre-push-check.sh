@@ -224,6 +224,28 @@ while read -r PS_START PS_LEN; do
           LAST_CD_UNREADABLE=false
         fi
       fi
+    elif [[ "$PS_FIRST" == "pushd" && -z "$PS_SECOND" ]]; then
+      # A bare `pushd` (no argument) does NOT go somewhere unknowable: bash swaps the top two
+      # directory-stack entries and cd's to the new top — a directory this walk already knows.
+      # Its model holds LAST_CD (the current dir) and PUSHD_STACK (the saved pre-pushd dirs),
+      # so the swap exchanges LAST_CD with the stack top. Bash errors on a bare pushd with fewer
+      # than two dirs on the stack (no prior pushd here), and a poisoned top or an unreadable
+      # LAST_CD leaves the destination unknown — those refuse. Otherwise this is the ordinary
+      # `pushd /a && pushd && git push` idiom that lands back where it began, and refusing it
+      # was an over-refusal not covered by any earlier case. (#1667 review)
+      if [[ ${#PUSHD_STACK[@]} -eq 0 || "$LAST_CD_UNREADABLE" == "true" ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        _PUSHD_TOP=$(( ${#PUSHD_STACK[@]} - 1 ))
+        _PUSHD_SWAP="${PUSHD_STACK[$_PUSHD_TOP]}"
+        if [[ "$_PUSHD_SWAP" == "?" ]]; then
+          LAST_CD_UNREADABLE=true
+        else
+          PUSHD_STACK[$_PUSHD_TOP]="${LAST_CD:-${HOOK_CWD:-.}}"
+          LAST_CD="$_PUSHD_SWAP"
+          LAST_CD_UNREADABLE=false
+        fi
+      fi
     elif [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
       # `cd -- <path>`: the end-of-options marker is not the target — the next word is.
       [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
