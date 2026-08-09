@@ -122,6 +122,7 @@ PUSH_DIR=""
 PUSH_DIR_CONFLICT=false
 LAST_CD=""
 LAST_CD_UNREADABLE=false
+PUSHD_STACK=()
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
   echo "[pre-push-check] Blocked: the command could not be split into statements, so which" >&2
@@ -164,13 +165,43 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 3 ]] && PS_THIRD="$PS_W"
       [[ "$PS_INDEX" -ge 4 ]] && break
     done <<< "$PS_WORDS"
-    if [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
+    # A subshell opener glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
+    # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
+    # against the declared cwd, the exact wrong-repository answer this walk exists to end.
+    PS_FIRST="${PS_FIRST#"${PS_FIRST%%[!({]*}"}"
+    if [[ "$PS_FIRST" == "popd" ]]; then
+      # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
+      # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
+      # real shell knows — unreadable, the same answer every other unknowable target gets.
+      if [[ -n "$PS_SECOND" ]] || [[ ${#PUSHD_STACK[@]} -eq 0 ]]; then
+        LAST_CD_UNREADABLE=true
+      else
+        LAST_CD="${PUSHD_STACK[-1]}"
+        unset 'PUSHD_STACK[-1]'
+        if [[ "$LAST_CD" == "?" ]]; then
+          LAST_CD=""
+          LAST_CD_UNREADABLE=true
+        else
+          LAST_CD_UNREADABLE=false
+        fi
+      fi
+    elif [[ "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" ]]; then
       # `cd -- <path>`: the end-of-options marker is not the target — the next word is.
       [[ "$PS_SECOND" == "--" && -n "$PS_THIRD" ]] && PS_SECOND="$PS_THIRD"
+      # `pushd` remembers where the shell stood, or that it could not tell (`?`), so a later
+      # `popd` restores exactly what this walk knew at the push.
+      if [[ "$PS_FIRST" == "pushd" ]]; then
+        if [[ "$LAST_CD_UNREADABLE" == "true" ]]; then
+          PUSHD_STACK+=("?")
+        else
+          PUSHD_STACK+=("${LAST_CD:-${HOOK_CWD:-.}}")
+        fi
+      fi
       # A target this hook cannot resolve: empty (quoted away), `-`/flags, a variable or
-      # substitution (`$DIR`), `~` (the hook does not expand another process's home), or a
-      # `pushd` stack rotation (`+N`/`-N`), which lands on a directory only the shell's stack knows.
-      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* ]] \
+      # substitution (`$DIR`), `~` (the hook does not expand another process's home), a `pushd`
+      # stack rotation (`+N`/`-N`), or a word still carrying a subshell paren — `(cd x) && push`
+      # changes no directory the push will see, and guessing would judge the wrong repository.
+      if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* ]] \
         || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then
         LAST_CD_UNREADABLE=true
       else

@@ -155,6 +155,53 @@ describe('which repository the push verdict is about', () => {
     expect(status, `cd -- <path> was treated as unreadable:\n${output}`).toBe(0);
   });
 
+  it('follows the cd INSIDE a subshell — `(cd <dir> && git push)`', () => {
+    // The parenthesis glues to the first word, so `(cd` was not `cd` and the whole idiom — the
+    // usual way to push without moving the parent shell — fell back to the declared cwd: the
+    // pre-#1662 resolution, for the shape people actually write. (#1667 review)
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`(cd ${pushed} && git push origin feat/target)`, parked);
+
+    expect(status, `the subshell cd was invisible to the walk:\n${output}`).toBe(0);
+  });
+
+  it('does not let a CLOSED subshell cd leak into a later push', () => {
+    // `(cd x) && git push` changes no directory the push will see. The still-parenthesised
+    // target reads as unreadable rather than as a base the push never had.
+    const parked = repoOn('feat/parked', { recorded: true });
+    const other = repoOn('feat/other');
+
+    const { status, output } = runHook(`(cd ${other}) && git push origin x`, parked);
+
+    expect(status, 'a closed subshell cd was carried into the push').toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
+  it('returns to where the shell stood when a pushd is popd-ed', () => {
+    // pushd/popd bracketing an errand elsewhere: the push after popd runs where the shell began.
+    const pushed = repoOn('feat/target', { recorded: true });
+    const other = repoOn('feat/other');
+
+    const { status, output } = runHook(
+      `cd ${pushed} && pushd ${other} && ls && popd && git push origin feat/target`,
+      pushed,
+    );
+
+    expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
+  });
+
+  it('treats a popd with no tracked pushd as a base it cannot read', () => {
+    // The real shell may have a directory stack this walk never saw filled.
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook('popd && git push origin x', parked);
+
+    expect(status, "an unseen stack's popd was guessed at").toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });
