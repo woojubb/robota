@@ -269,9 +269,8 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-action-references.mjs'],
   },
   {
-    // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
-    // 53 skills on disk, 5 registered, 3 of those dangling, and every project-skill invocation
-    // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
+    // A rule or routing document that names a mechanism (a harness script, a hook, a package
+    // script, an MCP server) must name one that resolves — a phantom name reads as satisfiable.
     name: 'named-mechanism-resolves',
     command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
   },
@@ -280,6 +279,9 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-hook-syntax.mjs'],
   },
   {
+    // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
+    // 53 skills on disk, 5 registered, 3 of those dangling, and every project-skill invocation
+    // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
     name: 'skill-registration',
     command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
   },
