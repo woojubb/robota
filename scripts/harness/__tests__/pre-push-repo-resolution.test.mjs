@@ -268,6 +268,50 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/not a git repository/);
   });
 
+  it('does not read a GLUED `{cd` as a brace-group cd', () => {
+    // `{cd <A>; git push; }`: `{` opens a group ONLY as its own word; glued `{cd` is the command
+    // `{cd`, which bash fails, leaving cwd unchanged so the push runs in the session dir. Stripping
+    // `{` like `(` read it as a valid cd and judged <A> (fail-open). The glued form is ignored, so
+    // the push resolves to the declared cwd (here unrecorded → refuse). (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`{cd ${a}; git push origin x; }`, parked);
+
+    expect(status, `a glued {cd was read as a brace-group cd:\n${output}`).toBe(2);
+  });
+
+  it('does not trust a `&&`-guarded cd that the push is not `&&`-chained to', () => {
+    // `false && cd <A> ; git push`: cd <A> runs only if `false` succeeded (it never does), so the
+    // push runs in the session dir — but the walk treated cd <A> as definite and judged <A>
+    // (fail-open). The push is `;`-separated, not `&&`-chained to the cd, so the cd is uncertain.
+    // (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`false && cd ${a} ; git push origin x`, parked);
+
+    expect(status, `a &&-guarded cd was trusted for a ;-separated push:\n${output}`).toBe(2);
+    expect(output).toMatch(/only if a preceding/);
+  });
+
+  it('poisons the stack for a `||`-guarded pushd so a later popd inherits the uncertainty', () => {
+    // `pushd <B>; false || pushd <C>; popd; git push`: the `||`-guarded pushd MIGHT have run.
+    // Leaving the stack untouched let the popd confidently pop pushd <B>'s saved dir and judge it.
+    // A `?` poison frame makes the popd unreadable → refuse. (#1667 review)
+    const b = repoOn('feat/b', { recorded: true });
+    const c = repoOn('feat/c', { recorded: true });
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(
+      `pushd ${b}; false || pushd ${c}; popd; git push origin x`,
+      parked,
+    );
+
+    expect(status, `a ||-guarded pushd let a later popd resolve confidently:\n${output}`).toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('does not carry a PIPED cd forward — it ran in a subshell', () => {
     // `cd <A> | cat; git push`: the cd is the left of a pipe, so bash runs it in a subshell and
     // the parent cwd never changes — the push lands in the ORIGINAL dir, not <A>. The walk used

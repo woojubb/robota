@@ -129,6 +129,9 @@ PUSH_DIR_EXPLICIT=false
 PUSH_DIR_CONFLICT=false
 LAST_CD=""
 LAST_CD_UNREADABLE=false
+# Whether the cd that set LAST_CD was itself CONDITIONAL (`&&`-guarded) — its effect is certain
+# only if the push is `&&`-chained back to it. (#1667 review)
+LAST_CD_CONDITIONAL=false
 PUSHD_STACK=()
 STATEMENT_RANGES=$(hook_statement_ranges "$COMMAND" || printf '')
 if [[ -z "${STATEMENT_RANGES//[[:space:]]/}" ]]; then
@@ -149,6 +152,14 @@ while read -r PS_START PS_LEN; do
   PREV_STMT_END="$PS_STMT_END"
   PS_OR_GUARDED=false
   [[ "$PS_CONNECTOR" == *'||'* ]] && PS_OR_GUARDED=true
+  # `&&` before a statement means it runs only if the PRIOR command succeeded — conditional, just
+  # like `||`, but in the other direction. A cd so guarded is CERTAIN to have taken effect only
+  # when the push is itself reached through an unbroken `&&` chain from it (push runs ⟹ every
+  # `&&`-linked command before it, including the cd, succeeded). If a `;` or `||` breaks that chain
+  # between the cd and the push, the cd may not have run while the push still does. Tracked here and
+  # resolved at the push. (#1667 review)
+  PS_AND_GUARDED=false
+  [[ "$PS_CONNECTOR" == *'&&'* ]] && PS_AND_GUARDED=true
   # A `cd` that runs in a SUBSHELL never propagates its directory to a later statement, so its
   # effect must be IGNORED, not carried forward. Both sides of a pipe run in subshells, and a
   # backgrounded (`&`) command does too. The connector AFTER a statement is the operator that
@@ -198,6 +209,18 @@ while read -r PS_START PS_LEN; do
         echo "[pre-push-check] push acts on is unknown. Name it: git -C <path> push …" >&2
         exit 2
       fi
+      # The tracked `cd` was CONDITIONAL (`&&`-guarded) and this push is not `&&`-chained back to
+      # it — a `;` or `||` sits between, so the push runs even if that cd never did, landing
+      # somewhere other than the dir the walk carried. `cd /A && git push` (push `&&`-chained) is
+      # certain and passes; `false && cd /A ; git push` (push `;`-separated) is not. Refuse the
+      # uncertain shape rather than judge the wrong repository. (#1667 review)
+      if [[ -n "$LAST_CD" && "$LAST_CD_CONDITIONAL" == "true" && "$PS_CONNECTOR" != *'&&'* ]]; then
+        echo "[pre-push-check] Blocked: a \`cd\` this push relies on runs only if a preceding" >&2
+        echo "[pre-push-check] command succeeded (\`&&\`), but this push is not chained to that" >&2
+        echo "[pre-push-check] success — it would run even where the cd did not. Which repository" >&2
+        echo "[pre-push-check] it lands in is unknown; name it: git -C <path> push …" >&2
+        exit 2
+      fi
       # A tracked `cd` named this directory (explicit); an empty LAST_CD means the HOOK_CWD
       # fallback (bare push in session), which is NOT explicit.
       [[ -n "$LAST_CD" ]] && PS_DIR_EXPLICIT=true
@@ -245,14 +268,20 @@ while read -r PS_START PS_LEN; do
       [[ "$PS_INDEX" -eq 5 ]] && PS_FIFTH="$PS_W"
       [[ "$PS_INDEX" -ge 6 ]] && break
     done <<< "$PS_WORDS"
-    # A subshell opener glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
+    # A subshell opener `(` glues to the first word — `(cd <dir> && git push)` reads as `(cd` — and
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
-    # against the declared cwd, the exact wrong-repository answer this walk exists to end.
-    PS_FIRST="${PS_FIRST#"${PS_FIRST%%[!({]*}"}"
-    # A BRACE group is different: `{` must be its own space-delimited word (`{ cd dir; …`), so the
-    # stripped first word comes back empty and the `cd` sits one word later — shift, or the walk
-    # silently falls back to the declared cwd for a form bash itself accepts. (#1667 review)
-    if [[ -z "$PS_FIRST" ]]; then
+    # against the declared cwd, the exact wrong-repository answer this walk exists to end. Only `(`
+    # is stripped here: it is a shell metacharacter that always tokenizes on its own, so `(cd` is
+    # genuinely a cd.
+    PS_FIRST="${PS_FIRST#"${PS_FIRST%%[!(]*}"}"
+    # A BRACE group is different: `{` opens a group ONLY as its own space-delimited word (`{ cd
+    # dir; …`), where the first word is bare `{` and the cd sits one word later — shift. A GLUED
+    # `{cd` is NOT a group: bash runs it as the command `{cd`, which fails and changes no
+    # directory, so it must stay a non-cd token, not be stripped to `cd`. Stripping `{` in the
+    # same class as `(` read `{cd /reviewed-repo; git push` as a valid brace-group cd and judged
+    # /reviewed-repo while the real push ran in the unreviewed cwd (fail-open). The empty case is
+    # a bare `(` that stripped to nothing (`( cd dir …`). (#1667 review)
+    if [[ -z "$PS_FIRST" || "$PS_FIRST" == "{" ]]; then
       PS_FIRST="$PS_SECOND"
       PS_SECOND="$PS_THIRD"
       PS_THIRD="$PS_FOURTH"
@@ -277,6 +306,12 @@ while read -r PS_START PS_LEN; do
     # matters here: a `||`-guarded NON-directory command (`foo || bar`) changes no directory, so
     # the base is unaffected and must not be poisoned. (#1667 review)
     if [[ "$PS_OR_GUARDED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
+      # A `||`-guarded pushd MIGHT have run and pushed a frame, or might not — unlike a subshell'd
+      # pushd, which certainly did not. Leaving the stack untouched let a later popd pop an EARLIER
+      # real frame with false confidence: `pushd /A; false || pushd /B; popd; git push` would popd
+      # back to /A's saved dir as if certain. A `?` poison frame carries the uncertainty forward so
+      # that popd inherits it. (#1667 review)
+      [[ "$PS_FIRST" == "pushd" ]] && PUSHD_STACK+=("?")
       LAST_CD_UNREADABLE=true
       continue
     fi
@@ -306,6 +341,8 @@ while read -r PS_START PS_LEN; do
           LAST_CD=""
           LAST_CD_UNREADABLE=true
         else
+          # A `&&`-guarded popd is conditional like a `&&`-guarded cd. (#1667 review)
+          LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
           LAST_CD_UNREADABLE=false
         fi
       fi
@@ -328,6 +365,7 @@ while read -r PS_START PS_LEN; do
         else
           PUSHD_STACK[$_PUSHD_TOP]="${LAST_CD:-${HOOK_CWD:-.}}"
           LAST_CD="$_PUSHD_SWAP"
+          LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
           LAST_CD_UNREADABLE=false
         fi
       fi
@@ -405,6 +443,9 @@ while read -r PS_START PS_LEN; do
           /*)
             LAST_CD="$PS_SECOND"
             LAST_CD_UNREADABLE=false
+            # An ABSOLUTE cd does not depend on the base, so its conditionality is its OWN
+            # connector alone — reset, not inherited. (#1667 review)
+            LAST_CD_CONDITIONAL="$PS_AND_GUARDED"
             ;;
           *)
             # A RELATIVE hop resolves against where the shell already stands: the last tracked
@@ -414,6 +455,9 @@ while read -r PS_START PS_LEN; do
             # After an UNREADABLE cd the base is unknown, so a relative hop stays unreadable.
             if [[ "$LAST_CD_UNREADABLE" != "true" ]]; then
               LAST_CD="${LAST_CD:-${HOOK_CWD:-.}}/$PS_SECOND"
+              # A relative hop INHERITS the base's conditionality — if the base cd may not have
+              # run, neither did this hop off it — and adds its own. Never resets to certain.
+              [[ "$PS_AND_GUARDED" == "true" ]] && LAST_CD_CONDITIONAL=true
             fi
             ;;
         esac
