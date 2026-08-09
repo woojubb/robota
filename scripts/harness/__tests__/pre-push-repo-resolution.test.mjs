@@ -202,6 +202,17 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('follows the cd inside a BRACE group — `{ cd <dir>; git push; }`', () => {
+    // Unlike `(`, a brace opener must be its own word, so the cd sits one word later and an
+    // unshifted read fell back to the declared cwd for a form bash itself accepts.
+    const pushed = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`{ cd ${pushed}; git push origin feat/target; }`, parked);
+
+    expect(status, `the brace-group cd was invisible to the walk:\n${output}`).toBe(0);
+  });
+
   it('treats a pushd stack rotation as a target it cannot read', () => {
     // `pushd +1` lands wherever the shell's directory stack says — a place only that shell knows.
     const parked = repoOn('feat/parked', { recorded: true });

@@ -169,6 +169,14 @@ while read -r PS_START PS_LEN; do
     # an unstripped paren made the whole idiom invisible to this tracking: the push was judged
     # against the declared cwd, the exact wrong-repository answer this walk exists to end.
     PS_FIRST="${PS_FIRST#"${PS_FIRST%%[!({]*}"}"
+    # A BRACE group is different: `{` must be its own space-delimited word (`{ cd dir; …`), so the
+    # stripped first word comes back empty and the `cd` sits one word later — shift, or the walk
+    # silently falls back to the declared cwd for a form bash itself accepts. (#1667 review)
+    if [[ -z "$PS_FIRST" ]]; then
+      PS_FIRST="$PS_SECOND"
+      PS_SECOND="$PS_THIRD"
+      PS_THIRD=""
+    fi
     if [[ "$PS_FIRST" == "popd" ]]; then
       # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
       # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
