@@ -269,13 +269,20 @@ UNMERGED_CHECKED=false
 # STATED GAP: a shell alias (`!…`) is opaque here — its expansion is arbitrary shell, not a git
 # verb, and classifying it would mean parsing shell inside git config. It stays invisible to the
 # verb checks exactly as before this change.
-GIT_ALIASES=""
+GIT_ALIASES_SESSION=""
 _ALIAS_DIR=$(hook_effective_repo session "" "$HOOK_CWD" "${CLAUDE_PROJECT_DIR:-}" 2>/dev/null || printf '')
 if [[ -n "$_ALIAS_DIR" ]]; then
-  GIT_ALIASES=$(hook_git_in "$_ALIAS_DIR" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+  GIT_ALIASES_SESSION=$(hook_git_in "$_ALIAS_DIR" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
 fi
+# The statement loop swaps this per statement (a `git -C` statement reads that repo's aliases).
+GIT_ALIASES="$GIT_ALIASES_SESSION"
 
 # The expansion for one alias name, or failure. Shell (`!`) aliases fail — see the stated gap.
+# STATED LIMIT: the value is word-split by IFS, not shell-tokenized, so a QUOTED argument inside
+# an alias value (`commit -m "quick fix"`) yields pseudo-words carrying literal quote characters.
+# A kill switch hidden inside such a value fails toward a wrong-shaped word that can over-match a
+# flag test — a refusal someone sees — never toward a silent pass; telling them apart needs the
+# shell-aware extraction filed as HARNESS-061.
 git_alias_expansion() {
   local line name
   [[ -n "$GIT_ALIASES" ]] || return 1
@@ -373,11 +380,24 @@ while read -r STMT_START STMT_LEN; do
   # and then never judged.
   # Ranges are 1-based (awk substr); bash slicing is 0-based.
   STMT_RAW_EFFECTIVE="${COMMAND:$((STMT_START - 1)):$STMT_LEN}"
+  # Aliases resolve where the STATEMENT runs: a statement carrying `git -C <path>` reads that
+  # repository's config, exactly as the branch it is judged on does — the session repo's alias
+  # set judged another checkout's names, and missed the local ones. Extracted here (the branch
+  # resolution below re-extracts for its own comment trail) so the substitution and the verb
+  # latch both read the right set. (#1666 review)
+  GIT_C_PATH=$(hook_git_c_path "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  GIT_ALIASES="$GIT_ALIASES_SESSION"
+  if [[ -n "$GIT_C_PATH" ]]; then
+    GIT_ALIASES=$(hook_git_in "$GIT_C_PATH" config --get-regexp '^alias\.' 2>/dev/null | sed 's/^alias\.//' || true)
+  fi
   if [[ -n "$GIT_ALIASES" ]]; then
     while IFS= read -r _alias_line; do
       [[ -z "$_alias_line" ]] && continue
       _an="${_alias_line%% *}"
       [[ "$_an" =~ ^[A-Za-z0-9_-]+$ ]] || continue
+      # A cheap containment test before the anchored grep: with a large global alias set this
+      # loop runs per configured alias per statement, and most names appear nowhere. (#1666)
+      [[ "$STMT_MASK" == *"$_an"* ]] || continue
       # EVERY value-taking global may stand between `git` and the alias, in either spelling
       # (`--git-dir .git` or `--git-dir=.git`) — the (-C|-c)-only prefix left `git --git-dir=.git
       # ci` unsubstituted, so the statement matched no action regex and took no check at all,

@@ -233,6 +233,17 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the globals-only alias froze the verb as a flag:\n${output}`).toBe(2);
   });
 
+  it("reads a -C statement's aliases from THAT repository", () => {
+    // The session repo has no alias; the -C target defines alias.ci = commit locally. Resolving
+    // aliases only from the session repo missed it, and the kill switch rode through.
+    const session = scratchRepo('feat/session');
+    const other = scratchRepo('feat/x', { ci: 'commit' });
+
+    const { status, output } = runHook(`git -C ${other} ci -n -m x`, session);
+
+    expect(status, `the -C repo's local alias was invisible:\n${output}`).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.
