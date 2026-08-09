@@ -165,6 +165,7 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
   // then pinned it as the mandatory guard of `packages` — certifying coverage it did not have.
   // Falsified: `export class MockToolClient {}` in `packages/dag-nodes/tool/src/index.ts` left this
   // scan printing `no-fake-in-src scan passed.`
+  examinedShippableFiles = 0;
   for (const pkgDir of listManifestPackageDirs(root)) {
     const srcRel = path.relative(root, path.join(pkgDir, 'src'));
     if (!existsSync(path.join(root, srcRel)) || !statSync(path.join(root, srcRel)).isDirectory()) {
@@ -173,6 +174,11 @@ export function findFakeInSrc(root = WORKSPACE_ROOT) {
     for (const absolute of walkFiles(path.join(root, srcRel))) {
       const rel = path.relative(root, absolute);
       if (!isShippableSrc(rel)) continue;
+      // Counted HERE — after the shippable filter, before the pre-existing allowlist. The allowlist
+      // exempts a file from JUDGEMENT, not from the subject: counting after it would make the
+      // reported size shrink as the tracked debt grows, which reads as a smaller responsibility
+      // exactly when it widens. (HARNESS-057)
+      examinedShippableFiles++;
       if (KNOWN_PREEXISTING.has(rel.replace(/\\/g, '/'))) continue; // pre-existing, tracked by HARNESS-033
       findings.push(
         ...findFakeDeclarationsInSource(readFileSync(path.join(root, rel), 'utf8'), rel),
@@ -194,9 +200,25 @@ function walkFiles(srcDir) {
   return listSourceFiles(srcDir, { excludeTests: false, extensions: null });
 }
 
+/**
+ * How many shippable source files the last walk read — HARNESS-057. A module-level holder set where
+ * the walk happens and read where the line is printed, so the finder's return shape and the tests
+ * that assert on its findings stay untouched.
+ */
+let examinedShippableFiles = 0;
+
+/** What the last `findFakeInSrc` run actually walked — exported so it can be asserted. */
+export function examinedShippableFileCount() {
+  return examinedShippableFiles;
+}
+
 function main() {
   const findings = findFakeInSrc();
   if (findings.length === 0) {
+    // The size of the subject, on the channel the runner reads. Zero would mean the package walk
+    // found no shippable source at all — a pass over nothing rather than a tree with no fakes — so
+    // it carries no expected-empty excuse.
+    console.log(`::examined:: ${examinedShippableFiles} shippable source files`);
     console.log('no-fake-in-src scan passed.');
     process.exit(0);
   }
