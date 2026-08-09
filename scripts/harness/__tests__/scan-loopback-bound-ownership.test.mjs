@@ -4,8 +4,7 @@
  * embedded rather than read from history so a shallow clone judges the same thing CI does.
  */
 
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -173,12 +172,9 @@ describe('what it refuses to pass over', () => {
   });
 
   it('parses the LIVE map and finds its cells', () => {
-    const source = execFileSync(
-      'cat',
-      [path.join(WORKSPACE_ROOT, '.agents/specs/orchestration-map.md')],
-      {
-        encoding: 'utf8',
-      },
+    const source = readFileSync(
+      path.join(WORKSPACE_ROOT, '.agents/specs/orchestration-map.md'),
+      'utf8',
     );
     expect(mapLoopbackCells(source).length).toBeGreaterThanOrEqual(7);
   });
