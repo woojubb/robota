@@ -271,6 +271,18 @@ describe('the verb checks see through an alias', () => {
     ).toBe(2);
   });
 
+  it('judges a creation behind a NON-(-c|-C) global all the way to the base check', () => {
+    // RE_CREATE was widened to see past --git-dir, but the name/base EXTRACTIONS still
+    // tolerated only -C/-c (the space-separated value form is the gap; an =-glued global reads
+    // as a plain flag) — a detected creation whose name could not be read skipped the
+    // naming and base checks entirely.
+    const repo = scratchRepo('feat/x', { co: 'checkout' });
+
+    const { status, output } = runHook('git --git-dir .git co -b feat/wide-globals main', repo);
+
+    expect(status, `the extraction lost the creation behind the global:\n${output}`).toBe(2);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

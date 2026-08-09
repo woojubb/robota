@@ -418,8 +418,8 @@ while read -r STMT_START STMT_LEN; do
       # Backslash FIRST, then sed's own specials — an expansion carrying `\1` would otherwise be
       # reinterpreted as a backreference inside the substitution it rides in. (#1666 review)
       _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/\\/\\\\/g' -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/")
+      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
+      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;\&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\7/g")
     done <<< "$GIT_ALIASES"
   fi
 
@@ -440,7 +440,9 @@ while read -r STMT_START STMT_LEN; do
   # a single check runs. That is a total bypass wearing the costume of a passing guard.
   # One extractor, matched against a masked command so a quoted mention of `git -C` cannot
   # redirect this guard at another repository. See lib/command-scan.sh.
-  GIT_C_PATH=$(hook_git_c_path "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
+  # GIT_C_PATH was already read for this statement above (the alias-source resolution); the
+  # inputs cannot have changed between there and here, and a second subprocess would only be a
+  # second reading to drift. (#1666 review)
   # One resolution, four callers, three NAMED modes — see lib/hook-facts.sh. This caller takes
   # `validated`: it must name SOME repository, because its verdict is about the branch that
   # repository is on. The mode is named rather than inlined so the two DELIBERATE divergences beside
@@ -1150,14 +1152,14 @@ while read -r STMT_START STMT_LEN; do
     # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
     # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
     NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
-      '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
+      '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
         1 "${#STMT_RAW_EFFECTIVE}" || true)
     # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
     # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
     # extraction found nothing, because a statement is one creation and the first match is its name.
     if [[ -z "$NEW_BRANCH" ]]; then
       NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
-        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
           1 "${#STMT_RAW_EFFECTIVE}" || true)
     fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
@@ -1183,7 +1185,7 @@ while read -r STMT_START STMT_LEN; do
       # instead and passed while the branch came from `origin/main` — the exact creation this exists to
       # refuse, waved through by one common flag.
       START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
-        '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+        '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
           1 "${#STMT_RAW_EFFECTIVE}" || true)
       # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
       # is the form the item was filed for: it names its base explicitly, so leaving this unread would
@@ -1191,7 +1193,7 @@ while read -r STMT_START STMT_LEN; do
       # judged, and judged against the wrong thing.
       if [[ -z "$START_POINT" ]]; then
         START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
-          '(^|[ \t;&|({\n"\047`])git[ \t]+((-C|-c)[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
+          '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
             1 "${#STMT_RAW_EFFECTIVE}" || true)
       fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
