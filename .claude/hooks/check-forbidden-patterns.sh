@@ -188,8 +188,11 @@ while IFS= read -r match; do
     { n = gsub(/{/, "{"); m = gsub(/}/, "}") }
     NR == 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
     NR > 1  { depth += n - m }
-    { print }
-    depth <= 0 { exit }')
+    { opened += n; print }
+    # Truncate only once the block has OPENED and closed. A `{` on the line after the catch
+    # (pre-formatter content is what this hook reads) would otherwise cut the scope at the
+    # signature line and refuse a correctly marked body.
+    opened > 0 && depth <= 0 { exit }')
   echo "$marker_scope" | grep -q '//[[:space:]]*allow-fallback:' && continue
   if ! echo "$block" | grep -qE '\bthrow\b|\bPromise\.reject\b|return.*[Ee]rr'; then
     append_block "try-catch-fallback" "$line_num" "$line_content"

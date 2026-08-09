@@ -11,12 +11,22 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/check-forbidden-patterns.sh');
+
+// The hook appends every refusal to `$CLAUDE_PROJECT_DIR/.agents/evals/local-metrics/blocks.jsonl`.
+// Left unset, that falls back to the real workspace, and every status-2 case here writes a
+// synthetic block record into the log the lessons pipeline reads. The isolation convention is
+// hook-boundary-parity.test.mjs's: point the project dir at a scratch directory.
+const SCRATCH = mkdtempSync(path.join(tmpdir(), 'forbidden-marker-'));
+mkdirSync(path.join(SCRATCH, '.agents/evals/local-metrics'), { recursive: true });
+afterAll(() => rmSync(SCRATCH, { recursive: true, force: true }));
 
 function writeThrough(content) {
   const payload = JSON.stringify({
@@ -24,7 +34,11 @@ function writeThrough(content) {
     cwd: WORKSPACE_ROOT,
     tool_input: { file_path: path.join(WORKSPACE_ROOT, 'packages/x/src/probe.ts'), content },
   });
-  const result = spawnSync('bash', [HOOK], { input: payload, encoding: 'utf8' });
+  const result = spawnSync('bash', [HOOK], {
+    input: payload,
+    encoding: 'utf8',
+    env: { ...process.env, CLAUDE_PROJECT_DIR: SCRATCH },
+  });
   return { status: result.status, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
@@ -82,6 +96,22 @@ describe('the allow-fallback marker, in the places the formatter leaves it', () 
     const { status } = writeThrough(far);
 
     expect(status, 'a distant marker excused the catch').toBe(2);
+  });
+
+  it('accepts a marker when the brace opens on the NEXT line — pre-formatter content', () => {
+    // The hook reads tool_input content BEFORE prettier runs, so an Allman-style catch is
+    // reachable. Cutting the scope at the signature line would refuse a correctly marked body.
+    const allman = `try {
+  risky();
+} catch (error)
+{
+  // allow-fallback: reason on a body the brace opens late for
+  return undefined;
+}
+`;
+    const { status, output } = writeThrough(allman);
+
+    expect(status, `the late-opening brace cut the marker scope:\n${output}`).toBe(0);
   });
 
   it('does not let a marker AFTER the block end excuse the catch, even inside the window', () => {
