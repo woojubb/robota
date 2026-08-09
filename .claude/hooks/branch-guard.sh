@@ -697,8 +697,10 @@ while read -r STMT_START STMT_LEN; do
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
     if [[ $(printf '%s' "$STMT_RAW" | grep -o -- '--delete-branch' | grep -c .) -eq 1 ]]; then
       # An explicit boundary class, not \b: `-` is not a word character, so \b matched inside
-      # `--delete-branch-like` names and the sed would strip a prefix of a different flag.
-      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch([^-[:alnum:]_]|$)/\1/')
+      # `--delete-branch-like` names and the sed would strip a prefix of a different flag. The
+      # `=value` spelling is consumed WITH the flag — keeping the boundary alone turned
+      # `--delete-branch=false` into a stray `=false` glued to the previous word. (#1672 review)
+      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch(=[^[:space:]]*)?([^-=[:alnum:]_]|$)/\2/')
       echo "[branch-guard] Run this instead:" >&2
       echo "[branch-guard]   $FIXED_COMMAND" >&2
     else
