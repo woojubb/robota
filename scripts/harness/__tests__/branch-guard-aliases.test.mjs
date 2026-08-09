@@ -135,6 +135,59 @@ describe('the verb checks see through an alias', () => {
     expect(status).toBe(0);
   });
 
+  it('reads the SPACE form of core.hooksPath folded into an alias', () => {
+    // `git config core.hooksPath /dev/null` sets the key with no `=` anywhere, and the two-word
+    // state machine that catches it lives in the statement loop — which never sees the words
+    // inside an expansion. `git dh` disabled the hooks and nothing refused it.
+    const repo = scratchRepo('feat/x', { dh: 'config core.hooksPath /dev/null' });
+
+    const { status, output } = runHook('git dh', repo);
+
+    expect(status, `the aliased space-form hooksPath assignment walked through:\n${output}`).toBe(
+      2,
+    );
+  });
+
+  it('reads a hooksPath VALUE typed after an alias that ends on the key', () => {
+    // The expansion arms the machine; the value arrives as a statement word.
+    const repo = scratchRepo('feat/x', { dh: 'config core.hooksPath' });
+
+    const { status } = runHook('git dh /dev/null', repo);
+
+    expect(status, 'the split-across-the-alias assignment walked through').toBe(2);
+  });
+
+  it('reads an aliased `git rm` against a hook as destruction', () => {
+    // The husky block scans literal words: the whitelist read `git`, the (rm|mv) pattern read
+    // `wipe`, and the hook file deleted without a refusal.
+    const repo = scratchRepo('feat/x', { wipe: 'rm' });
+
+    const { status, output } = runHook('git wipe -f .husky/pre-push', repo);
+
+    expect(status, `the aliased rm deleted a hook unchallenged:\n${output}`).toBe(2);
+  });
+
+  it('does not classify an aliased `branch -d` as a branch CREATION', () => {
+    // RE_CREATE matches `branch -d` first and the statement path excludes it after; the alias
+    // classification skipped the exclusions, so `git bd old` ran the unmerged-branch network
+    // check on a deletion.
+    const repo = scratchRepo('feat/x', { bd: 'branch -d' });
+    execFileSync('git', ['-C', repo, 'branch', 'old-twig'], { encoding: 'utf8' });
+
+    const { status, output } = runHook('git bd old-twig', repo);
+
+    expect(status, `an aliased deletion was judged as a creation:\n${output}`).toBe(0);
+  });
+
+  it("does not read a message VALUE of '-n' as the kill switch", () => {
+    // `-m`'s value is whatever follows it, inside the expansion as in the statement.
+    const repo = scratchRepo('feat/x', { ci: 'commit -m -n' });
+
+    const { status, output } = runHook('git ci', repo);
+
+    expect(status, `a message value was read as a flag:\n${output}`).toBe(0);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

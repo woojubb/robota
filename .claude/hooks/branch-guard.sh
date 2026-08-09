@@ -280,6 +280,16 @@ git_alias_expansion() {
   return 1
 }
 
+# ONE list of git's value-taking global options, asked as a question. It was hardcoded in three
+# places (the head finder, the chain rebuild, the verb latch), and three copies of one fact is the
+# defect this file keeps writing down about itself. (#1666 review)
+git_global_takes_value() {
+  case "$1" in
+    -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env) return 0 ;;
+  esac
+  return 1
+}
+
 # The head of an expansion: the word the next hop resolves, found the way the verb latch finds a
 # verb — a value-taking global consumes its value, any other flag is skipped, the first remaining
 # word is the head. Reading the LITERAL first word reproduced, inside the alias, the exact bug the
@@ -289,9 +299,11 @@ git_expansion_head() {
   local w expect=false
   for w in $1; do
     if [[ "$expect" == "true" ]]; then expect=false; continue; fi
+    if git_global_takes_value "$w"; then
+      expect=true
+      continue
+    fi
     case "$w" in
-      -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env)
-        expect=true; continue ;;
       -*) continue ;;
     esac
     printf '%s' "$w"
@@ -318,9 +330,11 @@ git_alias_expansion_chain() {
     for w in $exp; do
       if [[ "$seen" == "true" ]]; then rest="${rest}${rest:+ }${w}"; continue; fi
       if [[ "$w" == "$head" && "$expect" != "true" ]]; then seen=true; continue; fi
-      [[ "$expect" == "true" ]] && expect=false || case "$w" in
-        -c|-C|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env) expect=true ;;
-      esac
+      if [[ "$expect" == "true" ]]; then
+        expect=false
+      elif git_global_takes_value "$w"; then
+        expect=true
+      fi
       pre="${pre}${pre:+ }${w}"
     done
     exp="${pre}${pre:+ }${next}${rest:+ }${rest}"
@@ -348,7 +362,15 @@ if [[ -n "$GIT_ALIASES" ]]; then
     printf '%s' "$_alias_synth" | grep -qE "$RE_COMMIT" && ALIAS_COMMIT_ALT="${ALIAS_COMMIT_ALT}${ALIAS_COMMIT_ALT:+|}${_alias_name}"
     printf '%s' "$_alias_synth" | grep -qE "$RE_PUSH" && ALIAS_PUSH_ALT="${ALIAS_PUSH_ALT}${ALIAS_PUSH_ALT:+|}${_alias_name}"
     printf '%s' "$_alias_synth" | grep -qE "$RE_MERGE" && ALIAS_MERGE_ALT="${ALIAS_MERGE_ALT}${ALIAS_MERGE_ALT:+|}${_alias_name}"
-    printf '%s' "$_alias_synth" | grep -qE "$RE_CREATE" && ALIAS_CREATE_ALT="${ALIAS_CREATE_ALT}${ALIAS_CREATE_ALT:+|}${_alias_name}"
+    # The same corrections the statement path applies: `branch -d`/`--list` and the copy forms
+    # match RE_CREATE first and are excluded after. An alias classified without them turned
+    # `alias.bd "branch -d"` into a phantom branch-creation, and the unmerged-branch network check
+    # then ran — and could refuse — a deletion. (#1666 review)
+    if printf '%s' "$_alias_synth" | grep -qE "$RE_CREATE" &&
+      ! printf '%s' "$_alias_synth" | grep -qE "$RE_BRANCH_NOT_CREATE" &&
+      ! printf '%s' "$_alias_synth" | grep -qE "$RE_BRANCH_COPY"; then
+      ALIAS_CREATE_ALT="${ALIAS_CREATE_ALT}${ALIAS_CREATE_ALT:+|}${_alias_name}"
+    fi
   done <<< "$GIT_ALIASES"
 fi
 
@@ -595,12 +617,37 @@ while read -r STMT_START STMT_LEN; do
         # the verb silenced every check keyed on `commit`. (#1666 review)
         GIT_VERB=$(git_expansion_head "$_ALIAS_EXP") || GIT_VERB="${_ALIAS_EXP%% *}"
         _PAST_VERB=false
+        _AX_EXPECT=false
         for _AXW in $_ALIAS_EXP; do
           if [[ "$_PAST_VERB" != "true" ]]; then
             [[ "$_AXW" == "$GIT_VERB" ]] && _PAST_VERB=true
           fi
+          # A word a preceding option announced is that option's VALUE, not a flag — the same
+          # skip the statement loop applies, or `alias.ci "commit -m -n"` reads its message text
+          # as the kill switch and refuses ordinary work. (#1666 review)
+          if [[ "$_AX_EXPECT" == "true" ]]; then
+            _AX_EXPECT=false
+            continue
+          fi
+          if git_global_takes_value "$_AXW" && [[ "$_PAST_VERB" != "true" ]]; then
+            _AX_EXPECT=true
+            continue
+          fi
           [[ "$_AXW" == "--no-verify" ]] && SKIP_HOOKS=true && SKIP_WHAT="--no-verify (via alias $W)"
           [[ "$_AXW" == *core.hooksPath*=* ]] && SKIP_HOOKS=true && SKIP_WHAT="core.hooksPath (via alias $W)"
+          # The SPACE form of the assignment, inside the expansion: `alias.dh "config
+          # core.hooksPath /dev/null"`. The statement loop's two-word machine never sees these
+          # words, so the machine runs here too — the key remembered, only a following
+          # POSITIONAL (the value) disabling anything, and a key left dangling in the expansion
+          # arms the statement-loop machine for a value typed after the alias. (#1666 review)
+          if [[ "$GIT_VERB" == "config" && "$_PAST_VERB" == "true" ]]; then
+            if [[ "$_AXW" == *core.hooksPath* && "$_AXW" != *=* ]]; then
+              SAW_HOOKSPATH_KEY=true
+            elif [[ "$SAW_HOOKSPATH_KEY" == "true" && "$_AXW" != -* && "$_AXW" != "config" ]]; then
+              SKIP_HOOKS=true
+              SKIP_WHAT="core.hooksPath (via alias $W)"
+            fi
+          fi
           if [[ "$_PAST_VERB" == "true" && "$_AXW" == -[!-]* && "$GIT_VERB" == "commit" ]]; then
             _ACL="${_AXW#-}"
             while [[ -n "$_ACL" ]]; do
@@ -610,6 +657,8 @@ while read -r STMT_START STMT_LEN; do
               esac
               _ACL="${_ACL:1}"
             done
+            # A value-taking letter LAST in the cluster takes the next expansion word.
+            case "$_AXW" in *[mFCc]) _AX_EXPECT=true ;; esac
           fi
         done
       else
@@ -819,6 +868,16 @@ while read -r STMT_START STMT_LEN; do
       { SKIP_HOOKS=true; SKIP_WHAT="deleting a hook"; }
     printf '%s' "$STMT_MASK" | grep -qE "${GITPFX}(rm|mv)${GITEND}" &&
       { SKIP_HOOKS=true; SKIP_WHAT="removing a hook from git"; }
+    # The ALIASED spelling of the same removal: the mask says `git wipe`, but the verb latch has
+    # already resolved the alias chain, so the verb is asked instead of the literal word — or
+    # `git config alias.wipe rm && git wipe -f .husky/pre-push` deletes the hook while the
+    # whitelist reads `git` and the pattern above reads `wipe`. (#1666 review)
+    case "$GIT_VERB" in
+      rm | mv)
+        SKIP_HOOKS=true
+        SKIP_WHAT="removing a hook from git (via alias)"
+        ;;
+    esac
     # A redirection writes wherever it points, whatever the command in front of it is.
     printf '%s' "$STMT_MASK" | grep -qE ">[[:space:]]*[^[:space:]]*\.husky" &&
       { SKIP_HOOKS=true; SKIP_WHAT="overwriting a hook"; }
