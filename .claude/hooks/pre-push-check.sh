@@ -125,6 +125,7 @@ PUSH_DIR=""
 # read that empty first push as "no push yet", so a second push to a DIFFERENT repo overwrote it
 # with no conflict and the first push went unverified. (#1667 review)
 PUSH_SEEN=false
+PUSH_DIR_EXPLICIT=false
 PUSH_DIR_CONFLICT=false
 LAST_CD=""
 LAST_CD_UNREADABLE=false
@@ -164,8 +165,13 @@ while read -r PS_START PS_LEN; do
   esac
   PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN")
   if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
+    # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
+    # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
+    # turns out not to be a work tree is refused below; the fallback keeps its existing handling.
+    PS_DIR_EXPLICIT=false
     # 1. This statement's own `git -C`.
     PS_DIR=$(hook_git_c_path "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null || printf '')
+    [[ -n "$PS_DIR" ]] && PS_DIR_EXPLICIT=true
     # A `||`-guarded push with no `-C` of its own runs only when the prior command FAILED — so
     # the directory the walk tracked (from the branch that succeeded) is not where this push
     # lands. Its base is unknowable; refuse rather than judge the wrong repository. (#1667 review)
@@ -183,6 +189,9 @@ while read -r PS_START PS_LEN; do
         echo "[pre-push-check] push acts on is unknown. Name it: git -C <path> push …" >&2
         exit 2
       fi
+      # A tracked `cd` named this directory (explicit); an empty LAST_CD means the HOOK_CWD
+      # fallback (bare push in session), which is NOT explicit.
+      [[ -n "$LAST_CD" ]] && PS_DIR_EXPLICIT=true
       PS_DIR="${LAST_CD:-$HOOK_CWD}"
     fi
     if [[ "$PUSH_SEEN" == "true" && "$PS_DIR" != "$PUSH_DIR" ]]; then
@@ -190,6 +199,7 @@ while read -r PS_START PS_LEN; do
     fi
     PUSH_SEEN=true
     PUSH_DIR="$PS_DIR"
+    PUSH_DIR_EXPLICIT="$PS_DIR_EXPLICIT"
   else
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides
     # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
@@ -397,6 +407,21 @@ done <<< "$STATEMENT_RANGES"
 if [[ "$PUSH_DIR_CONFLICT" == "true" ]]; then
   echo "[pre-push-check] Blocked: this command pushes from two different repositories, and one" >&2
   echo "[pre-push-check] verdict cannot be about both. Split the pushes into separate commands." >&2
+  exit 2
+fi
+# A push whose directory was named EXPLICITLY — a `-C` or a tracked `cd` — but which is not a git
+# work tree at hook time is refused, not silently retargeted at the session checkout. `mkdir /x &&
+# cd /x && git init && git push` names /x; `validated` mode, finding /x is not (yet) a repository,
+# would fall back to CLAUDE_PROJECT_DIR and judge the MAIN checkout's branch and record — a false
+# pass for a push that lands in an unreviewed new repo, the #1662 direction this hook exists to
+# close. Every other unresolvable case here refuses; this one must too. Gated on PUSH_DIR_EXPLICIT
+# so the bare-`git push`-in-session case (PUSH_DIR is only the HOOK_CWD fallback) keeps the
+# existing "no git repository" handling at the PROJECT_DIR check below. (#1667 review)
+if [[ "$PUSH_DIR_EXPLICIT" == "true" ]] && ! hook_is_work_tree "$PUSH_DIR"; then
+  echo "[pre-push-check] Blocked: this push targets '$PUSH_DIR', which is not a git repository the" >&2
+  echo "[pre-push-check] hook can read now (it may be created later in the same command). Its branch" >&2
+  echo "[pre-push-check] and review record cannot be verified, and falling back to the session" >&2
+  echo "[pre-push-check] checkout would judge the wrong repository. Push from an existing checkout." >&2
   exit 2
 fi
 # `validated` still applies its work-tree test to what the statement walk produced; the project dir

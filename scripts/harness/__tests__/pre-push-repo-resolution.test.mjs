@@ -237,6 +237,23 @@ describe('which repository the push verdict is about', () => {
     expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
   });
 
+  it('refuses a cd to a readable path that is not (yet) a git work tree', () => {
+    // `mkdir <x> && cd <x> && git init && git push`: the hook runs before the command, so <x> is
+    // readable but not a repo at hook time. `validated` mode would fall back to the declared cwd
+    // (the main checkout) and judge ITS record — a false pass for a push into an unreviewed new
+    // repo. The resolved-but-not-a-work-tree case now refuses. (#1667 review)
+    const parked = repoOn('feat/parked', { recorded: true });
+    const notARepo = mkdtempSync(path.join(tmpdir(), 'pre-push-notrepo-'));
+    scratch.push(notARepo);
+
+    const { status, output } = runHook(`cd ${notARepo} && git push origin x`, parked);
+
+    expect(status, `a non-work-tree cd target fell back to the session checkout:\n${output}`).toBe(
+      2,
+    );
+    expect(output).toMatch(/not a git repository/);
+  });
+
   it('does not carry a PIPED cd forward — it ran in a subshell', () => {
     // `cd <A> | cat; git push`: the cd is the left of a pipe, so bash runs it in a subshell and
     // the parent cwd never changes — the push lands in the ORIGINAL dir, not <A>. The walk used
