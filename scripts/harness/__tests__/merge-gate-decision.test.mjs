@@ -93,7 +93,10 @@ function stubbedPath({
       '  const m = /test\\("(.*?)"\\)/.exec(jq);',
       '  const re = new RegExp(m ? m[1].replace(/\\\\\\\\/g, "\\\\") : "^$");',
       '  if (jq.includes("unique")) {',
-      '    console.log([...new Set(f.comments.map((c) => c.author.login))].join(", "));',
+      '    // The diagnostic reads BOTH channels too (#1668 review) — a stub answering only the',
+      '    // comments would keep the misdiagnosis this widening removed invisible.',
+      '    const logins = [...f.comments, ...(f.reviews ?? [])].map((c) => c.author.login);',
+      '    console.log([...new Set(logins)].join(", "));',
       '    process.exit(0);',
       '  }',
       '  // #1661: the hook selects the newest VERDICT across comments AND reviews. The stub',
@@ -217,6 +220,50 @@ describe('the merge gate decides on CI and on a current review', () => {
 
     expect(verdict.status, 'an uncountable review was merged past').toBe(2);
     expect(verdict.output).toMatch(/never delivered a verdict/);
+  });
+
+  it('diagnoses a verdict-less REVIEWS-channel entry as the same third silence', () => {
+    // The diagnostic reads both channels like the selection does (#1668 review): a reviewer that
+    // spoke only through a pull-request review with no marker is "spoke, no verdict" — not the
+    // generic "carries no review comment" that misnames what happened.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [],
+      reviews: [
+        {
+          author: { login: 'github-actions' },
+          submittedAt: '2026-07-28T10:05:00Z',
+          body: 'prose only, no marker',
+        },
+      ],
+    });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output, 'a reviews-only silence was misdiagnosed').toMatch(
+      /never delivered a verdict/,
+    );
+  });
+
+  it('routes a login merely CONTAINING the reviewer name to "wrong reviewer"', () => {
+    // The diagnostic judges logins with the same anchored pattern the selection uses — an
+    // unanchored substring match sent `not-github-actions-fan` into "never delivered a verdict".
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        {
+          author: { login: 'not-github-actions-fan' },
+          createdAt: '2026-07-28T10:05:00Z',
+          body: 'prose',
+        },
+      ],
+    });
+
+    expect(verdict.status).toBe(2);
+    expect(verdict.output, 'a containing login was read as the reviewer').toMatch(
+      /no comment on #\d+ is from the reviewer/,
+    );
   });
 
   // ── #1661: the newest comment is not the verdict ──────────────────────────────────────────────
@@ -581,5 +628,92 @@ describe('the jq program the hook actually sends', () => {
       thread('github-actions', false, 1),
     ];
     expect(run(threads)).toBe('3 1');
+  });
+});
+
+describe('the verdict-selection jq program the hook actually sends', () => {
+  /**
+   * Same reasoning as the thread-query block above (#1668 review): every verdict case stubs `gh`
+   * with a JS reimplementation of the filter, so a syntax or escaping regression in the hook's own
+   * jq program would stay invisible while the cases stayed green. This reads the program OUT OF
+   * THE HOOK and runs it under the real jq.
+   */
+  const HOOK_SOURCE = readFileSync(HOOK, 'utf8');
+  const REVIEWER_RE = /^REVIEWER_RE='(.*)'$/m.exec(HOOK_SOURCE)?.[1] ?? '';
+
+  function verdictFilterFromHook() {
+    const start = HOOK_SOURCE.indexOf('--jq "([.comments[]');
+    expect(
+      start,
+      'the hook no longer contains the verdict query — this case is reading nothing',
+    ).toBeGreaterThan(-1);
+    const end = HOOK_SOURCE.indexOf('" || echo', start);
+    // The program sits in shell double quotes: `\"` is a literal quote, and $REVIEWER_RE splices
+    // its (jq-escaped) value in place. Undo exactly those two.
+    return HOOK_SOURCE.slice(start + '--jq "'.length, end)
+      .replace(/\\"/g, '"')
+      .replace(/\$REVIEWER_RE/g, REVIEWER_RE);
+  }
+
+  function pick(payload) {
+    const result = spawnSync('jq', ['-c', verdictFilterFromHook()], {
+      input: JSON.stringify(payload),
+      encoding: 'utf8',
+    });
+    expect(result.status, `jq rejected the hook's own program: ${result.stderr}`).toBe(0);
+    return JSON.parse(result.stdout.trim());
+  }
+
+  it('selects the newest MARKED entry across both channels, not the newest entry', () => {
+    const out = pick({
+      comments: [
+        {
+          author: { login: 'github-actions' },
+          createdAt: '2026-08-01T10:00:00Z',
+          body: 'ACTIONABLE FINDINGS: 0',
+        },
+        {
+          author: { login: 'github-actions' },
+          createdAt: '2026-08-01T12:00:00Z',
+          body: 'a gate notice, no marker',
+        },
+      ],
+      reviews: [
+        {
+          author: { login: 'github-actions' },
+          submittedAt: '2026-08-01T11:00:00Z',
+          body: 'fine\nACTIONABLE FINDINGS: 2',
+        },
+      ],
+    });
+
+    expect(out.at).toBe('2026-08-01T11:00:00Z');
+    expect(out.body).toMatch(/ACTIONABLE FINDINGS: 2/);
+  });
+
+  it('matches the [bot] login spelling through the spliced pattern', () => {
+    const out = pick({
+      comments: [
+        {
+          author: { login: 'github-actions[bot]' },
+          createdAt: '2026-08-01T10:00:00Z',
+          body: 'ACTIONABLE FINDINGS: 0',
+        },
+      ],
+      reviews: [],
+    });
+
+    expect(out.at).toBe('2026-08-01T10:00:00Z');
+  });
+
+  it('returns an empty object when nothing carries the marker', () => {
+    const out = pick({
+      comments: [
+        { author: { login: 'github-actions' }, createdAt: '2026-08-01T10:00:00Z', body: 'silence' },
+      ],
+      reviews: [],
+    });
+
+    expect(out).toEqual({});
   });
 });

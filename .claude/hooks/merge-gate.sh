@@ -216,12 +216,30 @@ LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.at // ""' 2>/dev/null || e
 if [[ -z "$LAST_REVIEW_AT" ]]; then
   # Distinguish three silences, because they are diagnosed differently: nobody spoke at all; the
   # reviewer is not who this gate thinks it is; the reviewer spoke and never delivered a verdict.
-  AUTHORS=$(bounded_gh pr view "$PR" --json comments --jq '[.comments[].author.login] | unique | join(", ")' || echo "")
+  # BOTH channels, like the verdict selection above — the reviewer sometimes posts only a
+  # pull-request review, and a diagnostic that reads one channel misdiagnoses exactly the third
+  # silence this branch exists to name. (#1668 review)
+  AUTHORS=$(bounded_gh pr view "$PR" --json comments,reviews --jq '([.comments[].author.login] + [.reviews[].author.login]) | unique | join(", ")' || echo "")
   if [[ -n "$AUTHORS" ]]; then
-    if printf '%s' "$AUTHORS" | grep -qE 'github-actions'; then
+    # Judged login by login against the SAME anchored expression the selection uses — an
+    # unanchored substring would route a login merely containing the reviewer's name into
+    # "never delivered a verdict" instead of "wrong reviewer" below. (#1668 review)
+    # REVIEWER_RE doubles its backslashes because it is written for embedding in a jq string;
+    # grep reads them singly, so the doubled form is collapsed here rather than copied by hand.
+    REVIEWER_RE_GREP="${REVIEWER_RE//\\\\/\\}"
+    REVIEWER_SPOKE=false
+    # A herestring, not a piped printf: without the trailing newline the herestring supplies,
+    # `read` returns non-zero on the final login and the loop never judges it at all.
+    while IFS= read -r _AUTHOR; do
+      _AUTHOR="${_AUTHOR# }"
+      [[ -z "$_AUTHOR" ]] && continue
+      printf '%s' "$_AUTHOR" | grep -qE "$REVIEWER_RE_GREP" && REVIEWER_SPOKE=true
+    done <<< "${AUTHORS//,/$'\n'}"
+    if [[ "$REVIEWER_SPOKE" == "true" ]]; then
       echo "[merge-gate] Blocked: the reviewer has commented on #$PR but never delivered a verdict" >&2
       echo "[merge-gate] ('ACTIONABLE FINDINGS: <n>'). Gate notices and replies are not reviews." >&2
-      echo "[merge-gate] Run the review, or read the PR and override: MERGE_GATE_ACK=1 …" >&2
+      echo "[merge-gate] Run the review, or read the PR yourself and override inline:" >&2
+      echo "[merge-gate]   MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
       exit 2
     fi
     echo "[merge-gate] Blocked: no comment on #$PR is from the reviewer this gate looks for." >&2
