@@ -17,7 +17,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   examinedWriteScopeCount,
   findWorkflowPermissionFindings,
+  JUSTIFIED_JOB_WRITE_SCOPES,
   JUSTIFIED_WRITE_SCOPES,
+  parseJobPermissions,
   parsePermissions,
 } from '../scan-workflow-permissions.mjs';
 
@@ -132,6 +134,99 @@ describe('the real repository', () => {
       0,
     );
     expect(total).toBeGreaterThan(0);
+  });
+
+  it('the JOB-level justification table is non-empty (the real repo has job-level grants)', () => {
+    const total = Object.values(JUSTIFIED_JOB_WRITE_SCOPES).reduce(
+      (sum, jobs) =>
+        sum + Object.values(jobs).reduce((jt, scopes) => jt + Object.keys(scopes).length, 0),
+      0,
+    );
+    expect(total).toBeGreaterThan(0);
+  });
+});
+
+describe('parseJobPermissions (HARNESS-082)', () => {
+  const withJob = (jobBlock) =>
+    `name: x\non:\n  push:\npermissions:\n  contents: read\njobs:\n${jobBlock}`;
+
+  it('reads a job-level block and returns it keyed by job id', () => {
+    const source = withJob(
+      '  build:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: read\n      actions: write\n    steps:\n      - run: true\n',
+    );
+    expect(parseJobPermissions(source)).toEqual({ build: { contents: 'read', actions: 'write' } });
+  });
+
+  it('omits a job that declares no permissions block (it inherits the workflow level)', () => {
+    const source = withJob('  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: true\n');
+    expect(parseJobPermissions(source)).toEqual({});
+  });
+
+  it('reads more than one job, and stops at the next top-level key', () => {
+    const source =
+      withJob(
+        '  a:\n    permissions:\n      actions: write\n  b:\n    permissions:\n      pull-requests: write\n',
+      ) + 'env:\n  X: y\n';
+    expect(parseJobPermissions(source)).toEqual({
+      a: { actions: 'write' },
+      b: { 'pull-requests': 'write' },
+    });
+  });
+
+  it('catches an inline `permissions: write-all` as a broad write grant', () => {
+    const source = withJob('  broad:\n    permissions: write-all\n    steps:\n      - run: true\n');
+    expect(parseJobPermissions(source)).toEqual({ broad: { all: 'write' } });
+  });
+
+  it('parses an inline flow-mapping `permissions: {contents: write}` — no syntax blind spot', () => {
+    const source = withJob(
+      '  flow:\n    permissions: { contents: write, actions: read }\n    steps:\n      - run: true\n',
+    );
+    expect(parseJobPermissions(source)).toEqual({ flow: { contents: 'write', actions: 'read' } });
+  });
+
+  it('does NOT read a step input `with: permissions:` block as the job grant (#1680 review)', () => {
+    // A step input `with: permissions:` (e.g. actions/create-github-app-token's app-token scopes)
+    // is nested deeper than the job's own direct children. It is not the job's GITHUB_TOKEN grant,
+    // so reading it as one raises a spurious finding. The job here has NO real permissions block —
+    // only a step whose `with:` carries a permissions block, at a deeper indent.
+    const source = withJob(
+      '  build:\n    runs-on: ubuntu-latest\n    steps:\n' +
+        '      - uses: actions/create-github-app-token@v1\n' +
+        '        with:\n          permissions:\n            contents: write\n',
+    );
+    expect(parseJobPermissions(source)).toEqual({});
+  });
+});
+
+describe('job-level write grants are held to JUSTIFIED_JOB_WRITE_SCOPES (HARNESS-082)', () => {
+  it('flags a job-level write grant that no allowlist entry justifies', () => {
+    const src =
+      'name: x\non:\n  push:\njobs:\n  sneaky:\n    permissions:\n      contents: write\n    steps:\n      - run: true\n';
+    const findings = findWorkflowPermissionFindings(root({ 'x.yml': src }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].detail).toMatch(/job `sneaky` grants `contents: write`/);
+  });
+
+  it('passes a job-level write grant that IS justified, and counts it as examined', () => {
+    // Named `codeql.yml` so both allowlists key to it: the workflow-level `security-events: write`
+    // and the job-level `recover-review-gate: actions: write` are both justified, so no findings and
+    // both write scopes are counted.
+    const src =
+      'name: x\non:\n  push:\npermissions:\n  security-events: write\njobs:\n  recover-review-gate:\n    permissions:\n      actions: write\n    steps:\n      - run: true\n';
+    const findings = findWorkflowPermissionFindings(root({ 'codeql.yml': src }));
+    expect(findings).toEqual([]);
+    expect(examinedWriteScopeCount()).toBe(2);
+  });
+
+  it('flags a STALE job-level excuse the job no longer requests (anti-rot)', () => {
+    // codeql.yml present, but its recover-review-gate job now grants nothing — the frozen excuse
+    // must be deleted.
+    const src = 'name: x\non:\n  push:\njobs:\n  analyze:\n    steps:\n      - run: true\n';
+    const findings = findWorkflowPermissionFindings(root({ 'codeql.yml': src }));
+    expect(findings.some((f) => /still excuses job `recover-review-gate`/.test(f.detail))).toBe(
+      true,
+    );
   });
 });
 

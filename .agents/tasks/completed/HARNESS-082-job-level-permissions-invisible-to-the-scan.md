@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-082: job-level workflow permissions are invisible to the permissions scan'
-status: todo
+status: done
+completed: 2026-08-09
 created: 2026-08-09
 priority: high
 urgency: next
@@ -50,11 +51,28 @@ grant (job block overrides workflow block; absence inherits). Then:
 
 ## Acceptance
 
-- [ ] `parsePermissions` resolves the EFFECTIVE permissions per job (job-level override,
-      workflow-level inheritance).
-- [ ] Job-level write grants require a structured allowlist entry; a reason-less entry fails
-      (anti-rot, same shape as scan-no-fallback).
-- [ ] `codeql.yml` and `review-gate.yml` are both back under the scan with their two job-level
-      grants allowlisted.
-- [ ] Red-proof: a fixture (or temporary mutation) with an unlisted job-level `write` makes the
-      scan fail before the fix to the allowlist, pass after.
+- [x] Every write grant a job holds is checked: `parseJobPermissions` reads job-level blocks, and
+      a job with no block inherits the workflow-level grant `parsePermissions` already checks.
+- [x] Job-level write grants require a structured `JUSTIFIED_JOB_WRITE_SCOPES` entry; the anti-rot
+      half flags a listed grant the job no longer requests (same bidirectional shape as the
+      workflow-level table).
+- [x] `codeql.yml` and `review-gate.yml` stay under the scan with their two job-level grants
+      allowlisted (`recover-review-gate: actions`, `disarm-auto-merge: contents/pull-requests`).
+- [x] Red-proof: HEAD's scan returns `[]` for an unlisted job-level `contents: write`; the fix
+      flags it (behavioral proof), and `parseJobPermissions`/allowlist checks are unit-tested.
+
+## Resolution
+
+Landed on branch `fix/harness-082-job-permissions`. `scan-workflow-permissions.mjs` now walks
+JOB-level `permissions:` blocks (`parseJobPermissions`) in addition to the workflow-level one, and
+holds each job-level write grant to a structured `JUSTIFIED_JOB_WRITE_SCOPES` allowlist keyed
+file → job → {scope: reason} — the same bidirectional ratchet as the workflow-level table (an
+unlisted grant is a finding; a listed grant the job no longer requests is a finding). The two
+existing job-level grants are allowlisted: `codeql.yml`'s `recover-review-gate` (`actions: write`)
+and `review-gate.yml`'s `disarm-auto-merge` (`contents`/`pull-requests: write`). The examined-count
+and summary include job scopes, so the `::examined::` line is honest.
+
+Verified: behavioral red-proof — HEAD's scan returns `[]` for an unlisted job-level `contents:
+write`, the fix flags it; `parseJobPermissions` and the allowlist checks are unit-tested (block form,
+multi-job, inline `write-all`, anti-rot); the scan passes on the real repo (9 write scopes, all
+justified).
