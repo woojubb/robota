@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-073: the rules tree carries case narrative and repository specifics that belong elsewhere'
 status: done
+completed: 2026-08-09
 issue: https://github.com/woojubb/robota/issues/1618
 created: 2026-08-03
 priority: high

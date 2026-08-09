@@ -99,9 +99,9 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 - After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
 - Run the CI-equivalent verification entry point named in [git-branch.md](git-branch.md) → Clean
-  Working Tree Before Every Commit and Push. It runs the build, the affected packages' tests, the
-  scan suite and typecheck as ordered stages, and reports which required contexts it could not run.
-  Do not substitute a hand-written list of those commands: a second list is what drifts.
+  Working Tree Before Every Commit and Push. What it runs is owned there; it reports which required
+  contexts it could not run. Do not substitute a hand-written list of those commands: a second list
+  is what drifts.
 - For release prep — a promotion to `main` — run `pnpm harness:verify:release`, which is what the
   `release-grade verification` required check executes.
 - If any stage fails, fix the issue before proceeding.
