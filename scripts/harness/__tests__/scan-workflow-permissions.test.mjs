@@ -184,6 +184,19 @@ describe('parseJobPermissions (HARNESS-082)', () => {
     );
     expect(parseJobPermissions(source)).toEqual({ flow: { contents: 'write', actions: 'read' } });
   });
+
+  it('does NOT read a step input `with: permissions:` block as the job grant (#1680 review)', () => {
+    // A step input `with: permissions:` (e.g. actions/create-github-app-token's app-token scopes)
+    // is nested deeper than the job's own direct children. It is not the job's GITHUB_TOKEN grant,
+    // so reading it as one raises a spurious finding. The job here has NO real permissions block —
+    // only a step whose `with:` carries a permissions block, at a deeper indent.
+    const source = withJob(
+      '  build:\n    runs-on: ubuntu-latest\n    steps:\n' +
+        '      - uses: actions/create-github-app-token@v1\n' +
+        '        with:\n          permissions:\n            contents: write\n',
+    );
+    expect(parseJobPermissions(source)).toEqual({});
+  });
 });
 
 describe('job-level write grants are held to JUSTIFIED_JOB_WRITE_SCOPES (HARNESS-082)', () => {

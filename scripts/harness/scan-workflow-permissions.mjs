@@ -150,6 +150,7 @@ export function parseJobPermissions(source) {
   const result = {};
   let jobIndent = null;
   let currentJob = null;
+  let childIndent = null; // the job's OWN direct-child indent (runs-on/steps/permissions sit here)
   let inPerms = false;
   let permsIndent = null;
   for (let i = jobsIdx + 1; i < lines.length; i++) {
@@ -162,12 +163,20 @@ export function parseJobPermissions(source) {
     if (keyMatch && jobIndent === null && !inPerms) jobIndent = keyMatch[1].length;
     if (keyMatch && keyMatch[1].length === jobIndent) {
       currentJob = keyMatch[2];
+      childIndent = null;
       inPerms = false;
       continue;
     }
     if (!currentJob) continue;
+    // The FIRST key deeper than the job id fixes the job's own direct-child indent. A `permissions:`
+    // is the job's real GITHUB_TOKEN grant only at THAT indent — a `permissions:` nested deeper is a
+    // step's input (e.g. `actions/create-github-app-token` takes a `with: permissions: |` string of
+    // app-token scopes, unrelated to the job token), and reading it as the job's grant would raise a
+    // spurious finding. A noisy guard gets suppressed, so the depth is checked. (#1680 review)
+    if (keyMatch && childIndent === null && !inPerms) childIndent = keyMatch[1].length;
+    const atChildLevel = indent === childIndent;
     // Inline form: `permissions: write-all` / `read-all` / a flow-mapping `{contents: write, …}`.
-    const inline = /^\s+permissions:\s*(\S.*)$/.exec(line);
+    const inline = atChildLevel && /^\s+permissions:\s*(\S.*)$/.exec(line);
     if (inline) {
       const value = inline[1];
       if (/\bwrite-all\b/.test(value)) (result[currentJob] ??= {}).all = 'write';
@@ -186,7 +195,7 @@ export function parseJobPermissions(source) {
       inPerms = false;
       continue;
     }
-    if (/^\s+permissions:\s*$/.test(line)) {
+    if (atChildLevel && /^\s+permissions:\s*$/.test(line)) {
       inPerms = true;
       permsIndent = indent;
       result[currentJob] ??= {};
