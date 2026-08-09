@@ -316,6 +316,18 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the -C behind a global was invisible:\n${output}`).toBe(2);
   });
 
+  it('finds the -C behind a value-LESS boolean global', () => {
+    // hook_git_c_path skipped only value-taking globals before -C, so `git --no-pager -C <repo>`
+    // hid the -C — the asymmetry with GITPFX/_GOPT which already tolerate boolean globals. The
+    // -C target's aliases must be read. (#1666 review)
+    const session = scratchRepo('feat/session');
+    const other = scratchRepo('feat/x', { ci: 'commit' });
+
+    const { status, output } = runHook(`git --no-pager -C ${other} ci -n -m x`, session);
+
+    expect(status, `the -C behind a boolean global was invisible:\n${output}`).toBe(2);
+  });
+
   it('does not let a =-glued global donate the alias token to a fake -C', () => {
     // `git --git-dir=.git ci -C HEAD -n -m x`: the prefix regex's optional trailing token could
     // swallow `ci` after the glued global, so the SUBCOMMAND's own `-C HEAD` (reuse-message)

@@ -1077,8 +1077,13 @@ hook_statement_all_words() {
 # extractor and the command was judged against the wrong repository. STATED LIMIT: `--git-dir`
 # itself also names a repository and is NOT extracted here — this reads `-C` only, and a caller
 # that must honour `--git-dir` as identity needs its own reader.
+#
+# A value-LESS boolean global (`--no-pager`, `--bare`, `-p`) may also stand before the `-C`
+# (`git --no-pager -C /repo status`); the prefix skips those too via a bare `-[^ \t\n]+` flag, the
+# same tolerance GITPFX/_GOPT carry in branch-guard. Value-globals stay matched WITH their value so
+# leftmost-longest does not read a space-form value as the flag. (#1666 review)
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS_SANS_C"')(=[^ \t\n]+|[ \t]+[^ \t\n]+)[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((('"$GIT_VALUE_GLOBALS_SANS_C"')(=[^ \t\n]+|[ \t]+[^ \t\n]+)|-[^ \t\nC][^ \t\n]*)[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
