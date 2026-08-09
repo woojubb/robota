@@ -321,6 +321,23 @@ describe('the verb checks see through an alias', () => {
     expect(output).toMatch(/feat\/other/);
   });
 
+  it('does not rewrite an alias inside a quoted string — the mask drives the raw splice', () => {
+    // PIN, not a red-proof: the earlier `sed …/g` DID rewrite the quoted decoy in the raw
+    // slice (measured), but every consumer of that slice re-masks before reading, so no
+    // verdict flipped — this case passes on both sides. It pins the contract the splice now
+    // guarantees by construction (offsets come from the mask alone), because a future consumer
+    // that reads the raw slice WITHOUT re-masking would inherit the trap silently otherwise.
+    // (#1666 review)
+    const repo = scratchRepo('develop', { co: 'checkout' });
+
+    const { status, output } = runHook(
+      'git co -b feat/real develop -m "try git co -b badname "',
+      repo,
+    );
+
+    expect(status, `a quoted decoy skewed the creation verdict:\n${output}`).toBe(0);
+  });
+
   it('leaves a SHELL alias alone — the stated gap, stated here too', () => {
     // `!…` expansions are arbitrary shell, not a git verb; classifying them would mean parsing
     // shell inside git config. Invisible to the verb checks, exactly as before the fix.

@@ -423,13 +423,38 @@ while read -r STMT_START STMT_LEN; do
       _GOPT="((${GIT_VALUE_GLOBALS})(=[^[:space:]]+|[[:space:]]+[^[:space:]]+)[[:space:]]+)"
       printf '%s' "$STMT_MASK" | grep -qE "(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" || continue
       _aexp=$(git_alias_expansion_chain "$_an") || continue
-      # The replacement text is config-controlled: escape sed's specials so an expansion cannot
-      # edit the pattern it rides in.
-      # Backslash FIRST, then sed's own specials — an expansion carrying `\1` would otherwise be
-      # reinterpreted as a backreference inside the substitution it rides in. (#1666 review)
-      _aexp_esc=$(printf '%s' "$_aexp" | sed -e 's/\\/\\\\/g' -e 's/[&\/]/\\&/g')
-      STMT_MASK=$(printf '%s' "$STMT_MASK" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/g")
-      STMT_RAW_EFFECTIVE=$(printf '%s' "$STMT_RAW_EFFECTIVE" | sed -E "s/((^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*)${_an}([^-[:alnum:]_]|$)/\1${_aexp_esc}\6/g")
+      # Both texts are rewritten at offsets found on the MASK, never re-matched on raw text.
+      # Quoted regions are fill in the mask, so an alias name inside an ordinary string
+      # (`git ci -m "see git ci in the docs"`) cannot match there — but a second, independent
+      # `sed …/g` over the raw slice matched exactly that, rewrote the message, and handed the
+      # extractions below corrupted text: the unmasked-message bug class (#1572/#1588) rebuilt
+      # for the raw-effective path. The mask is byte-aligned with the raw slice (fill is 1:1),
+      # so a mask offset IS a raw offset; splicing plain strings also retires the sed-escaping
+      # of the config-controlled expansion. Two calls, one deterministic match sequence — the
+      # mask drives both. (#1666 review)
+      _alias_splice() {
+        SRC="$1" M="$STMT_MASK" AN="$_an" EXPN="$_aexp" \
+          RE="(^|[;&|({\"'\`]|[[:space:]])git[[:space:]]+${_GOPT}*${_an}([^-[:alnum:]_]|$)" awk '
+          BEGIN {
+            mask = ENVIRON["M"]; src = ENVIRON["SRC"]; re = ENVIRON["RE"]
+            an = ENVIRON["AN"]; expn = ENVIRON["EXPN"]
+            if (length(mask) != length(src)) { printf "%s", src; exit }
+            out = ""
+            while (match(mask, re)) {
+              m = substr(mask, RSTART, RLENGTH)
+              b = (substr(m, length(m)) ~ /[[:alnum:]_-]/) ? 0 : 1
+              apos = RSTART + RLENGTH - length(an) - b
+              if (substr(mask, apos, length(an)) != an) { break }
+              out = out substr(src, 1, apos - 1) expn
+              mask = substr(mask, apos + length(an))
+              src = substr(src, apos + length(an))
+            }
+            printf "%s%s", out, src
+          }'
+      }
+      _new_raw=$(_alias_splice "$STMT_RAW_EFFECTIVE")
+      STMT_MASK=$(_alias_splice "$STMT_MASK")
+      STMT_RAW_EFFECTIVE="$_new_raw"
     done <<< "$GIT_ALIASES"
   fi
 
