@@ -51,7 +51,17 @@ fi
 # The quoted `<<EOF` opened a heredoc the old reading never saw close, so everything after it was
 # deleted from the string this guard examined; the `-C` vanished, the gate judged the SESSION
 # repository instead, and an unreviewed push walked through.
-COMMAND_VERBS=$(hook_verb_scan "$COMMAND")
+# The whole-command mask, tokenized ONCE. Every per-statement mask below is a byte-aligned SLICE of
+# this string, not a fresh `hook_verb_scan` over the whole command per statement — that re-parse was
+# O(N²) in the statement count and made a 60-statement chain take seconds (HARNESS-083). Guarded:
+# a bare assignment from a failing command substitution aborts the hook under set -e (exit 1, which
+# the protocol reads as non-blocking), and the push-detection grep below would then find nothing in
+# an empty mask and exit 0 — fail-OPEN. An unreadable command is refused instead.
+if ! COMMAND_VERBS=$(hook_verb_scan "$COMMAND" 2>/dev/null); then
+  echo "[pre-push-check] Blocked: this command could not be tokenized, so whether it pushes — and" >&2
+  echo "[pre-push-check] which repository it would act on — is unknown. This is not a pass." >&2
+  exit 2
+fi
 
 # Only intercept git push commands (tolerating env prefixes + global git flags like `git -C <path>`).
 #
@@ -186,16 +196,11 @@ while read -r PS_START PS_LEN; do
     '||'* | '&&'*) : ;;
     '|'* | '&'*) PS_SUBSHELLED=true ;;
   esac
-  # Guarded like its siblings below: a bare `PS_MASK=$(…)` aborts the whole hook under set -e if
-  # hook_verb_scan returns non-zero on a statement slice, exiting 1 with nothing said — which the
-  # protocol reads as non-blocking (fail-OPEN, a push-review gate silently skipped). An unreadable
-  # statement is refused: whether it is a push, and which repository it targets, is unknown. (#1667)
-  if ! PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN" 2>/dev/null); then
-    echo "[pre-push-check] Blocked: a statement in this command could not be read, so whether it" >&2
-    echo "[pre-push-check] is a push — and which repository it would act on — is unknown. This is" >&2
-    echo "[pre-push-check] not a pass." >&2
-    exit 2
-  fi
+  # This statement's mask is a SLICE of the once-tokenized whole-command mask — the same bytes
+  # `hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN"` returned, since the mask is byte-aligned with
+  # the command, but without a fresh awk fork per statement (HARNESS-083). The whole-command tokenize
+  # was already guarded above, so there is no per-statement failure mode left to catch here.
+  PS_MASK="${COMMAND_VERBS:$((PS_START - 1)):$PS_LEN}"
   # Subshell CLOSES pending from the previous statement are applied HERE, before this statement runs
   # — restoring the dir state saved at the matching `(`. Deferring to the next statement's top (not
   # the end of the closing statement) means a push sharing a statement with its own `)` has already
@@ -237,7 +242,12 @@ while read -r PS_START PS_LEN; do
     _SS_I=$((_SS_I + 1))
   done
   PENDING_CLOSES=$_SS_CLOSES_N
-  if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
+  # A bash-native `*push*` pre-filter short-circuits the grep for every statement that cannot be a
+  # push — `RE_PUSH_STMT` requires the literal `push`, and PS_MASK is what the grep reads, so a mask
+  # without that substring can never match. This spends no fork on the ordinary commands of a long
+  # chain while leaving the exact grep engine to DECIDE the statements that could be pushes.
+  # (HARNESS-083)
+  if [[ "$PS_MASK" == *push* ]] && printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
     # Whether this push's directory was named EXPLICITLY — a `-C` or a tracked `cd` — as opposed
     # to the HOOK_CWD fallback (the bare-`git push`-in-session case). Only an explicit target that
     # turns out not to be a work tree is refused below; the fallback keeps its existing handling.
@@ -304,6 +314,31 @@ while read -r PS_START PS_LEN; do
     PUSH_SEEN=true
     PUSH_DIR="$PS_DIR"
   else
+    # A statement can only change directory if it runs `cd`, `pushd`, or `popd`. Skipping the word
+    # tokenization for statements that cannot is what makes a long ordinary chain — `echo a && echo
+    # b && … && git push`, the shape that made this hook take seconds — cost no per-statement fork.
+    # (HARNESS-083)
+    #
+    # The skip is only safe when the raw text CANNOT be hiding the builtin, and the shell has many
+    # ways to hide it. A SPLICE assembles the name from pieces that no `cd`-shaped substring shows:
+    # `"c""d"`, `c\d`, `c$()d`, a pair of empty backticks, `c${UNSET}d`, `c{d,x}` — and a glob
+    # (`c?`) can even match a file named `cd`. Each was measured as a wrong-repository fail-open:
+    # the statement was skipped, the push resolved to the session repo while the real cd moved
+    # elsewhere, exit 0 where this hook had refused.
+    #
+    # So the second condition is an ALLOWLIST, not a blocklist of splice characters — enumerating
+    # the ways a shell can splice is the whack-a-mole that produced two rounds of this same defect
+    # (#1681 review, twice). The skip is taken ONLY for a statement built from inert characters:
+    # letters, digits, whitespace and a few literal path/argument punctuation marks. Anything else —
+    # any quote, backslash, dollar, backtick, brace, bracket, glob — forces the full walk, which is
+    # what the ordinary long chain (`echo step1 && echo step2 && …`) does not contain, so the
+    # perf win this task exists for is kept while the fail-open class is closed by construction.
+    PS_RAW_STMT="${COMMAND:$((PS_START - 1)):$PS_LEN}"
+    # Bash-native matches, no subprocess — a long chain of ordinary statements costs no forks here.
+    if ! [[ "$PS_RAW_STMT" =~ (^|[^[:alnum:]_-])(cd|pushd|popd)([^[:alnum:]_-]|$) ]] \
+      && [[ "$PS_RAW_STMT" =~ ^[[:alnum:][:space:]_./:=+@,%-]*$ ]]; then
+      continue
+    fi
     # Track directory changes so a later push statement is judged where it runs. Words-mode hides
     # quoted content and substitutions, so an unreadable target is DETECTED rather than guessed at.
     # A statement whose words cannot be READ is a statement whose directory changes cannot be

@@ -10,7 +10,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -118,6 +118,110 @@ describe('which repository the push verdict is about', () => {
     const { status, output } = runHook('git push origin feat/plain', repo);
 
     expect(status, `the ordinary case broke:\n${output}`).toBe(0);
+  });
+
+  it('resolves a LONG chain of ordinary statements correctly (HARNESS-083 scale)', () => {
+    // 200 non-directory statements before the push. The per-statement mask/words re-tokenization
+    // that used to run for EVERY one made this shape take ~10s (O(N²)); the whole-command mask is
+    // now sliced and a non-cd statement skips the word fork, so the walk is flat in N. This is the
+    // large-N fixture the acceptance asks for: correctness at scale (the push still resolves to the
+    // in-session repo), not a timing assertion. (HARNESS-083)
+    const repo = repoOn('feat/long', { recorded: true });
+    const chain = Array.from({ length: 200 }, (_, i) => `echo step${i}`).join(' && ');
+
+    const { status, output } = runHook(`${chain} && git push origin feat/long`, repo);
+
+    expect(status, `a long ordinary chain broke the resolution:\n${output}`).toBe(0);
+  });
+
+  it('still tracks a cd buried deep in a LONG chain (the skip is conservative)', () => {
+    // The word-fork skip keys on a raw `cd`/`pushd`/`popd` token, so a real cd late in a long chain
+    // is still tracked — the push is judged against <target>, not the session. Proves the
+    // optimization did not blind the walk to a directory change. (HARNESS-083)
+    const target = repoOn('feat/target', { recorded: true });
+    const parked = repoOn('feat/parked');
+    const prefix = Array.from({ length: 150 }, (_, i) => `echo step${i}`).join(' && ');
+
+    const { status, output } = runHook(
+      `${prefix} && cd ${target} && git push origin feat/target`,
+      parked,
+    );
+
+    expect(status, `a cd late in a long chain was skipped:\n${output}`).toBe(0);
+  });
+
+  it('does not re-tokenize per statement: awk forks stay CONSTANT as the chain grows', () => {
+    // The regression guard for this task, measured deterministically rather than by wall clock: a
+    // PATH shim counts real `awk` invocations and delegates to the real one. Timing in CI is noisy
+    // and a slow runner would either flake or force slack so generous it catches nothing; the fork
+    // COUNT is exactly what the acceptance names ("no longer scales O(N²) in awk forks") and is
+    // immune to load. Measured on the version this task replaced: 6 forks at N=1 and 204 at N=100 —
+    // one whole-command re-tokenization per statement. Here it must not grow with N. (HARNESS-083)
+    const repo = repoOn('feat/forks', { recorded: true });
+    const shim = mkdtempSync(path.join(tmpdir(), 'awk-shim-'));
+    scratch.push(shim);
+    const counter = path.join(shim, 'count');
+    writeFileSync(
+      path.join(shim, 'awk'),
+      `#!/usr/bin/env bash\necho x >> ${JSON.stringify(counter)}\nexec /usr/bin/awk "$@"\n`,
+      { mode: 0o755 },
+    );
+
+    const forksFor = (statements) => {
+      writeFileSync(counter, '');
+      const chain = Array.from({ length: statements }, (_, i) => `echo s${i}`).join(' && ');
+      spawnSync('bash', [HOOK], {
+        input: JSON.stringify({
+          tool_name: 'Bash',
+          cwd: repo,
+          tool_input: { command: `${chain} && git push origin feat/forks` },
+        }),
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_PROJECT_DIR: repo, PATH: `${shim}:${process.env.PATH}` },
+      });
+      return readFileSync(counter, 'utf8').split('\n').filter(Boolean).length;
+    };
+
+    const few = forksFor(1);
+    const many = forksFor(100);
+
+    expect(few, 'the shim counted no awk at all — the probe measured nothing').toBeGreaterThan(0);
+    // A small constant of slack, so a future change may add a fixed reading without failing here;
+    // what must never return is a count that TRACKS the statement count.
+    expect(
+      many,
+      `awk forks grew with the chain: ${few} at N=1, ${many} at N=100`,
+    ).toBeLessThanOrEqual(few + 2);
+  });
+
+  it.each([
+    ['quotes', '"c""d"'],
+    ['an empty command substitution', 'c$()d'],
+    ['a pair of empty backticks', 'c``d'],
+  ])('does not let %s splice a `cd` past the skip', (label, spliced) => {
+    // The word-fork skip keys on a raw `cd`-shaped token, but a splice assembles the builtin out of
+    // pieces that carry no such token — and it needs neither a quote NOR a backslash to do it.
+    // Each of these was MEASURED as a wrong-repository fail-open while building the skip: the
+    // statement was skipped, the push resolved to the SESSION repo (which has a clean record) while
+    // the real cd moved elsewhere, and the hook exited 0 where it had refused.
+    //
+    // The first fix blocklisted quote/backslash and the review found `$()`/backticks straight
+    // through it, so the skip now takes an ALLOWLIST — letters, digits, whitespace and plain path
+    // punctuation — and ANY expansion character forces the full walk. Enumerating splice
+    // mechanisms is the whack-a-mole that produced this defect twice.
+    //
+    // STATED LIMIT: a PARAMETER splice (`c${UNSET}d`) is still not seen, because words-mode never
+    // builds the word `cd` from it. That is pre-existing — measured identically on develop — and is
+    // filed as HARNESS-084 (#1682) rather than papered over here.
+    //
+    // Parked is the RECORDED repo, so a skip would PASS and only correct tracking refuses.
+    // (HARNESS-083 / #1681 review, two rounds)
+    const target = repoOn('feat/target');
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`${spliced} ${target} && git push origin x`, parked);
+
+    expect(status, `a ${label} splice was skipped and the session repo judged:\n${output}`).toBe(2);
   });
 
   it('does not flag a trailing-slash spelling of the same repo as two repositories', () => {
