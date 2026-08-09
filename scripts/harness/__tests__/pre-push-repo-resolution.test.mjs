@@ -304,6 +304,20 @@ describe('which repository the push verdict is about', () => {
     expect(output).toMatch(/cannot read/);
   });
 
+  it('refuses a cd that is BOTH `||`-guarded and pipe-subshelled (the safe superset)', () => {
+    // `foo || cd <A> | cat; git push`: the cd is conditional (runs only if foo failed) AND in a
+    // pipe subshell (never propagates). Taken alone the subshell fact says "ignore"; the `||`
+    // fact says "uncertain, refuse". They are checked `||`-first, so this refuses — the
+    // fail-closed superset. Pinned so that intended priority is explicit, not accidental. (#1667)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`false || cd ${a} | cat; git push origin x`, parked);
+
+    expect(status, `a ||-guarded + subshelled cd was not refused:\n${output}`).toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('refuses a `||`-guarded push whose landing directory depends on a failure', () => {
     // `cd <A> || git push`: the push runs only if `cd <A>` failed, so it lands in the ORIGINAL
     // dir, not <A>. The walk tracked <A>; judging against it is the wrong repo. No own -C, so the
