@@ -24,10 +24,12 @@
  *      write scope appearing in a workflow is a finding; so is a justification for a scope no
  *      workflow actually asks for any more (anti-rot — a stale excuse outlives what it excused).
  *
- * Deliberately NOT checked: JOB-level `permissions:` blocks. `parsePermissions` reads only the
- * top-level block, so a job-scoped grant (review-gate.yml's disarm job, codeql.yml's recovery
- * job) is structurally invisible here — those grants are justified in prose beside themselves,
- * and widening this scan to job scopes is its own change, not a side effect.
+ * Also checked: JOB-level `permissions:` blocks (HARNESS-081's sibling, #1675). A grant scoped to
+ * one job — `codeql.yml`'s recovery job, `review-gate.yml`'s disarm job — used to be invisible here
+ * and excused only in prose, so the "excused-but-unchecked" category grew silently. Each job-level
+ * write scope is now held to a structured allowlist (`JUSTIFIED_JOB_WRITE_SCOPES`), the same
+ * bidirectional way workflow-level scopes are: an unlisted grant is a finding, and a listed grant
+ * the job no longer requests is a finding.
  *
  * Deliberately NOT checked: that every workflow declares a block. That would fire on every
  * read-only workflow in the repository — noise, and a noisy guard gets suppressed, which costs more
@@ -58,9 +60,6 @@ export const JUSTIFIED_WRITE_SCOPES = {
   },
   'codeql.yml': {
     'security-events': 'uploads the SARIF analysis that becomes the code-scanning alerts',
-    // The #1660 recovery's `actions: write` is JOB-level (recover-review-gate), like
-    // review-gate.yml's disarm job — outside this scan's workflow-level vision, justified in the
-    // workflow beside the grant.
   },
   'dependency-review.yml': {
     'pull-requests': 'comments the dependency-review summary on failure (comment-summary-in-pr)',
@@ -74,6 +73,28 @@ export const JUSTIFIED_WRITE_SCOPES = {
   'review-gate.yml': {
     'pull-requests':
       'posts the blocking findings to the PR so they are readable without the run log',
+  },
+};
+
+/**
+ * Every JOB-level `write` scope any job is allowed to hold, keyed file → job → {scope: reason}.
+ * A job granting a scope absent here is a finding; an entry here that its job no longer requests is
+ * a finding too — the same bidirectional ratchet the workflow-level table above carries, extended to
+ * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
+ */
+export const JUSTIFIED_JOB_WRITE_SCOPES = {
+  'codeql.yml': {
+    'recover-review-gate': {
+      actions:
+        're-runs the Review Gate run raced by CodeQL for this same SHA (#1660 recovery); token is same-repo',
+    },
+  },
+  'review-gate.yml': {
+    'disarm-auto-merge': {
+      contents:
+        'the disable-auto-merge mutation requires it (INFRA-048/#1409 belt-and-braces lever)',
+      'pull-requests': 'disables the armed auto-merge on the PR and posts the disarm comment',
+    },
   },
 };
 
@@ -113,6 +134,70 @@ export function parsePermissions(source) {
   return scopes;
 }
 
+/**
+ * Parse the JOB-level `permissions:` blocks — `jobs.<id>.permissions` — into `{ jobId: {scope: level} }`.
+ * Only jobs that DECLARE a block appear; a job without one inherits the workflow-level grant (which
+ * `parsePermissions` already covers) and is not repeated here. Block form only (`permissions:` then
+ * indented `scope: level`); an inline `permissions: write-all` is caught as a synthetic `all: write`
+ * so the broad grant is not silently missed. Indent widths are read from the file, not assumed, so a
+ * 2- or 4-space workflow parses the same.
+ */
+export function parseJobPermissions(source) {
+  const lines = source.split('\n');
+  const jobsIdx = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+  if (jobsIdx === -1) return {};
+  const result = {};
+  let jobIndent = null;
+  let currentJob = null;
+  let inPerms = false;
+  let permsIndent = null;
+  for (let i = jobsIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\S/.test(line)) break; // a column-0 key ends the jobs: section
+    if (line.trim() === '') continue;
+    const indent = line.length - line.trimStart().length;
+    const keyMatch = /^(\s+)([A-Za-z_][\w-]*):\s*(.*)$/.exec(line);
+    // The shallowest key under `jobs:` sets the job-id indent; a key at that indent is a new job.
+    if (keyMatch && jobIndent === null && !inPerms) jobIndent = keyMatch[1].length;
+    if (keyMatch && keyMatch[1].length === jobIndent) {
+      currentJob = keyMatch[2];
+      inPerms = false;
+      continue;
+    }
+    if (!currentJob) continue;
+    // Inline form: `permissions: write-all` / `read-all` / `{}`.
+    const inline = /^\s+permissions:\s*(\S.*)$/.exec(line);
+    if (inline) {
+      if (/write-all/.test(inline[1])) (result[currentJob] ??= {}).all = 'write';
+      inPerms = false;
+      continue;
+    }
+    if (/^\s+permissions:\s*$/.test(line)) {
+      inPerms = true;
+      permsIndent = indent;
+      result[currentJob] ??= {};
+      continue;
+    }
+    if (inPerms) {
+      if (indent <= permsIndent) {
+        inPerms = false;
+      } else {
+        const scopeMatch = /^\s+([a-z-]+):\s*(\S+)/.exec(line);
+        if (scopeMatch) {
+          const [, scope, level] = scopeMatch;
+          result[currentJob][scope] =
+            result[currentJob][scope] === 'write' || level === 'write' ? 'write' : level;
+        }
+        continue;
+      }
+    }
+  }
+  for (const job of Object.keys(result)) {
+    if (Object.keys(result[job]).length === 0) delete result[job];
+  }
+  return result;
+}
+
 export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
   // Reset FIRST, before the early returns. Placed after them, a run that bailed on an absent or
   // empty workflow directory reported the PREVIOUS run's count — a holder that is not reset reports
@@ -136,13 +221,15 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
   }
 
   const requested = new Set();
+  const requestedJobs = new Set();
   for (const name of workflows) {
-    const scopes = parsePermissions(fs.readFileSync(path.join(dir, name), 'utf8'));
-    if (scopes === null) continue; // inherits the repository default, which rule 1 pins
-    for (const [scope, level] of Object.entries(scopes)) {
+    const source = fs.readFileSync(path.join(dir, name), 'utf8');
+    const scopes = parsePermissions(source);
+    // A workflow with no top-level block still inherits the repo default (rule 1 pins it to read),
+    // but it may STILL carry job-level blocks, so the job walk below is not gated on this.
+    for (const [scope, level] of Object.entries(scopes ?? {})) {
       if (level !== 'write') continue;
       requested.add(`${name}:${scope}`);
-      examinedWriteScopes = requested.size;
       const justification = JUSTIFIED_WRITE_SCOPES[name]?.[scope];
       if (justification === undefined) {
         findings.push({
@@ -151,6 +238,21 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
         });
       }
     }
+    // JOB-level write grants (HARNESS-082): the same rule, one level down, keyed file → job → scope.
+    for (const [jobId, jobScopes] of Object.entries(parseJobPermissions(source))) {
+      for (const [scope, level] of Object.entries(jobScopes)) {
+        if (level !== 'write') continue;
+        requestedJobs.add(`${name}:${jobId}:${scope}`);
+        const justification = JUSTIFIED_JOB_WRITE_SCOPES[name]?.[jobId]?.[scope];
+        if (justification === undefined) {
+          findings.push({
+            workflow: name,
+            detail: `job \`${jobId}\` grants \`${scope}: write\` with no justification in JUSTIFIED_JOB_WRITE_SCOPES. A job-level write scope is invisible in the workflow-level block — record what needs it, or drop the scope.`,
+          });
+        }
+      }
+    }
+    examinedWriteScopes = requested.size + requestedJobs.size;
   }
 
   // Anti-rot, and scoped to workflows that are actually PRESENT. A justification for a workflow the
@@ -166,6 +268,20 @@ export function findWorkflowPermissionFindings(root = WORKSPACE_ROOT) {
         workflow: name,
         detail: `JUSTIFIED_WRITE_SCOPES still excuses \`${scope}: write\`, which the workflow no longer requests — delete the entry so the excuse cannot outlive what it excused.`,
       });
+    }
+  }
+
+  // The same anti-rot for JOB-level entries: an excuse for a job/scope no longer requested is stale.
+  for (const [name, jobs] of Object.entries(JUSTIFIED_JOB_WRITE_SCOPES)) {
+    if (!present.has(name)) continue;
+    for (const [jobId, scopes] of Object.entries(jobs)) {
+      for (const scope of Object.keys(scopes)) {
+        if (requestedJobs.has(`${name}:${jobId}:${scope}`)) continue;
+        findings.push({
+          workflow: name,
+          detail: `JUSTIFIED_JOB_WRITE_SCOPES still excuses job \`${jobId}\`'s \`${scope}: write\`, which it no longer requests — delete the entry so the excuse cannot outlive what it excused.`,
+        });
+      }
     }
   }
 
@@ -215,10 +331,16 @@ export function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const count = Object.values(JUSTIFIED_WRITE_SCOPES).reduce(
-    (total, scopes) => total + Object.keys(scopes).length,
-    0,
-  );
+  const count =
+    Object.values(JUSTIFIED_WRITE_SCOPES).reduce(
+      (total, scopes) => total + Object.keys(scopes).length,
+      0,
+    ) +
+    Object.values(JUSTIFIED_JOB_WRITE_SCOPES).reduce(
+      (total, jobs) =>
+        total + Object.values(jobs).reduce((jt, scopes) => jt + Object.keys(scopes).length, 0),
+      0,
+    );
   process.stdout.write(
     // A legitimate zero, declared. Every workflow granting only `read` is a CORRECT state — one of
     // this scan's own cases asserts exactly that — and the file's history shows the tree drifting
