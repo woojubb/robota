@@ -173,17 +173,24 @@ while IFS= read -r match; do
   [ -z "$match" ] && continue
   line_num=$(echo "$match" | cut -d: -f1)
   line_content=$(echo "$match" | cut -d: -f2-)
-  echo "$line_content" | grep -q '//[[:space:]]*allow-fallback:' && continue
   # Read ahead 6 lines from CONTENT (not disk)
   block=$(echo "$CONTENT" | sed -n "$((line_num)),$((line_num + 6))p")
-  # The marker may also be the first thing INSIDE the block, and #1664 is why the same-line demand
+  # The marker may be on the catch line or INSIDE the block, and #1664 is why the same-line demand
   # alone cannot stand: prettier unconditionally moves a comment that follows `{` onto the next
   # line — not a width decision — so the two requirements were individually satisfiable and jointly
   # not, for any file the repository also formats. `scan-no-fallback.mjs`, the CI authority for
   # this rule, reads the marker anywhere in the catch body; this hook now agrees with the rule it
-  # fronts for. The look-ahead window is the same 6 lines the fallback judgement already reads, so
-  # the two readings cannot disagree about scope.
-  echo "$block" | grep -q '//[[:space:]]*allow-fallback:' && continue
+  # fronts for. But the body ENDS at the block's closing brace, not at the window's edge: a catch
+  # shorter than the window would otherwise borrow a marker from whatever unrelated code follows
+  # it — a marker the CI authority, which matches braces, still refuses. So the marker scope is
+  # the window truncated at the line where the catch's brace depth returns to zero.
+  marker_scope=$(echo "$block" | awk '
+    { n = gsub(/{/, "{"); m = gsub(/}/, "}") }
+    NR == 1 { depth = n - m + 1 }   # the leading `}` closes the try, not this block
+    NR > 1  { depth += n - m }
+    { print }
+    depth <= 0 { exit }')
+  echo "$marker_scope" | grep -q '//[[:space:]]*allow-fallback:' && continue
   if ! echo "$block" | grep -qE '\bthrow\b|\bPromise\.reject\b|return.*[Ee]rr'; then
     append_block "try-catch-fallback" "$line_num" "$line_content"
   fi

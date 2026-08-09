@@ -83,4 +83,23 @@ describe('the allow-fallback marker, in the places the formatter leaves it', () 
 
     expect(status, 'a distant marker excused the catch').toBe(2);
   });
+
+  it('does not let a marker AFTER the block end excuse the catch, even inside the window', () => {
+    // A catch shorter than the look-ahead window ends before the window does. A marker attached
+    // to whatever unrelated code follows the closing brace is inside the window but outside the
+    // block — the CI authority matches braces and refuses it, so the hook must too, or the hook
+    // passes what CI then blocks.
+    const past = `try {
+  risky();
+} catch {
+  return undefined;
+}
+
+// allow-fallback: unrelated note about the cache below
+cache.clear();
+`;
+    const { status } = writeThrough(past);
+
+    expect(status, 'a marker past the closing brace excused the catch').toBe(2);
+  });
 });
