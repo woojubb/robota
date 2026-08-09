@@ -34,6 +34,7 @@ afterAll(() => {
 function stubbedPath({
   state,
   comments = [],
+  reviews = [],
   headAt,
   labels = [],
   unresolved = 0,
@@ -50,6 +51,7 @@ function stubbedPath({
     JSON.stringify({
       state,
       comments,
+      reviews,
       headAt,
       labels,
       unresolved,
@@ -90,12 +92,24 @@ function stubbedPath({
       '  // reviewer name, the exact defect under test, stayed green. Measured, not assumed.',
       '  const m = /test\\("(.*?)"\\)/.exec(jq);',
       '  const re = new RegExp(m ? m[1].replace(/\\\\\\\\/g, "\\\\") : "^$");',
-      '  const mine = f.comments.filter((c) => re.test(c.author.login));',
       '  if (jq.includes("unique")) {',
       '    console.log([...new Set(f.comments.map((c) => c.author.login))].join(", "));',
-      '  } else {',
-      '    console.log(JSON.stringify(mine.at(-1) ?? {}));',
+      '    process.exit(0);',
       '  }',
+      '  // #1661: the hook selects the newest VERDICT across comments AND reviews. The stub',
+      '  // honours each clause the query actually carries — author filter, marker filter when the',
+      '  // query asks for it, sort by timestamp — so a hook that stopped asking for the marker',
+      '  // would be answered accordingly and the case for it would fail.',
+      '  const entries = [',
+      '    ...f.comments.map((c) => ({ login: c.author.login, body: c.body ?? "", at: c.createdAt ?? "" })),',
+      '    ...(f.reviews ?? []).map((r) => ({ login: r.author.login, body: r.body ?? "", at: r.submittedAt ?? "" })),',
+      '  ];',
+      '  let mine = entries.filter((c) => re.test(c.login));',
+      '  if (jq.includes("ACTIONABLE FINDINGS")) {',
+      '    mine = mine.filter((c) => /actionable findings:\\s*[0-9]+/i.test(c.body));',
+      '  }',
+      '  mine.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));',
+      '  console.log(JSON.stringify(mine.at(-1) ?? {}));',
       '  process.exit(0);',
       '}',
       '// The gate asks whether every inline finding was ANSWERED where it was raised. These cases',
@@ -190,11 +204,11 @@ describe('the merge gate decides on CI and on a current review', () => {
     expect(verdict.output).toMatch(/ACTIONABLE FINDINGS: 2/);
   });
 
-  it('refuses when the review carries no count', () => {
-    // Absence was a warning and an exit 0, argued from measurement: 4 of the 38 most recent reviews
-    // carried the marker, and refusing would have made the override routine. That argument is spent
-    // — the count is required of the reviewer now, and the review that forced this change carried
-    // it. What remains is this script's own rule, which the findings check was the one exception to.
+  it('refuses when the reviewer never delivered a verdict', () => {
+    // Absence was a warning and an exit 0, argued from measurement; that argument is spent — the
+    // count is required of the reviewer now. #1661 sharpened the diagnosis: the reviewer WROTE
+    // (prose, notices, replies) but no entry of theirs carries the marker, and the refusal now
+    // says that instead of implying the newest comment was a review missing a line.
     const verdict = judge({
       state: 'CLEAN',
       headAt: '2026-07-28T10:00:00Z',
@@ -202,7 +216,78 @@ describe('the merge gate decides on CI and on a current review', () => {
     });
 
     expect(verdict.status, 'an uncountable review was merged past').toBe(2);
-    expect(verdict.output).toMatch(/carries no 'ACTIONABLE FINDINGS/);
+    expect(verdict.output).toMatch(/never delivered a verdict/);
+  });
+
+  // ── #1661: the newest comment is not the verdict ──────────────────────────────────────────────
+
+  it('does not let a fresh GATE NOTICE stand in for the verdict', () => {
+    // The reviewing bot posts more than reviews under one login. The newest github-actions comment
+    // here is a review-gate BLOCKED notice with no marker; the real verdict — zero findings, newer
+    // than the head — sits one entry earlier. Selecting by author alone turned this PR into a
+    // "carries no ACTIONABLE FINDINGS" refusal, and every merge into MERGE_GATE_ACK=1 — the
+    // routine override the gate exists to prevent.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW('2026-07-28T10:05:00Z', 'all clear\nACTIONABLE FINDINGS: 0'),
+        REVIEW('2026-07-28T10:07:00Z', '**Review gate: BLOCKED**\nverdict-unavailable'),
+      ],
+    });
+
+    expect(verdict.status, 'a gate notice displaced the verdict').toBe(0);
+  });
+
+  it('does not let a fresh notice lend RECENCY to a stale verdict', () => {
+    // The composition #1661 measured on #1651: the verdict predates the head, and an empty or
+    // verdict-less entry postdates it. Recency must be judged on the VERDICT.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [
+        REVIEW('2026-07-28T09:50:00Z', 'old round\nACTIONABLE FINDINGS: 0'),
+        REVIEW('2026-07-28T10:07:00Z', '**Review gate: BLOCKED**\nverdict-unavailable'),
+      ],
+    });
+
+    expect(verdict.status, 'a notice made a stale verdict look fresh').toBe(2);
+    expect(verdict.output).toMatch(/predates its head commit/);
+  });
+
+  it('reads a verdict delivered on the REVIEWS channel', () => {
+    // The other half of #1661: the reviewer sometimes writes a pull-request REVIEW (measured on
+    // #1651 with a zero-length body, but the substantive form exists too). A verdict is a verdict
+    // whichever channel carries it.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [],
+      reviews: [
+        {
+          author: { login: 'github-actions' },
+          submittedAt: '2026-07-28T10:05:00Z',
+          body: 'reviewed as a PR review\nACTIONABLE FINDINGS: 0',
+        },
+      ],
+    });
+
+    expect(verdict.status, 'a reviews-channel verdict went unread').toBe(0);
+  });
+
+  it('ignores a ZERO-LENGTH review — silence is not a verdict', () => {
+    // Measured fact 1 of #1661: the newest review on #1651 had bodylen=0 and postdated the head,
+    // so it satisfied "a review exists" while carrying nothing. It must satisfy nothing here.
+    const verdict = judge({
+      state: 'CLEAN',
+      headAt: '2026-07-28T10:00:00Z',
+      comments: [REVIEW('2026-07-28T09:50:00Z', 'old round\nACTIONABLE FINDINGS: 0')],
+      reviews: [
+        { author: { login: 'github-actions' }, submittedAt: '2026-07-28T10:07:00Z', body: '' },
+      ],
+    });
+
+    expect(verdict.status, 'an empty review lent freshness to a stale verdict').toBe(2);
   });
 
   it('reads the last count in the body, not the first', () => {

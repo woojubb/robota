@@ -198,15 +198,32 @@ HEAD_AT=$(bounded_gh pr view "$PR" --json commits --jq '.commits[-1].committedDa
 # change, and a gate that silently stops recognising reviews would block every merge and teach
 # everyone to pass MERGE_GATE_ACK=1, which is the bypass it exists to prevent.
 REVIEWER_RE='^github-actions(\\[bot\\])?$'
-LAST_REVIEW=$(bounded_gh pr view "$PR" --json comments \
-  --jq "[.comments[] | select(.author.login | test(\"$REVIEWER_RE\"))] | last // {}" || echo '{}')
-LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.createdAt // ""' 2>/dev/null || echo "")
+# The newest VERDICT, not the newest comment from the right author — #1661's composition defect.
+# The reviewing bot posts more than reviews under one login: review-gate notices, thread replies,
+# and (measured on #1651) pull-request reviews with a ZERO-LENGTH body. Selecting by author alone
+# made whichever of those was newest stand in for the verdict: a fresh notice lent its timestamp to
+# a stale verdict (recency passed on silence), and a verdict-less newest entry turned into the
+# "carries no ACTIONABLE FINDINGS" refusal on a PR whose real verdict said zero — which is how the
+# override became routine, the exact erosion this gate exists to prevent.
+#
+# So the selection asks for the marker ITSELF, across BOTH channels the reviewer writes to (issue
+# comments, where the summary lands, and pull-request reviews). Recency is then judged on the
+# verdict — the only entry whose age means anything.
+LAST_REVIEW=$(bounded_gh pr view "$PR" --json comments,reviews \
+  --jq "([.comments[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.createdAt // \"\")}] + [.reviews[] | {login: (.author.login // \"\"), body: (.body // \"\"), at: (.submittedAt // \"\")}]) | map(select(.login | test(\"$REVIEWER_RE\"))) | map(select(.body | test(\"ACTIONABLE FINDINGS:[[:space:]]*[0-9]+\"; \"i\"))) | sort_by(.at) | last // {}" || echo '{}')
+LAST_REVIEW_AT=$(printf '%s' "$LAST_REVIEW" | jq -r '.at // ""' 2>/dev/null || echo "")
 
 if [[ -z "$LAST_REVIEW_AT" ]]; then
-  # Distinguish "nobody reviewed" from "the reviewer is not who this gate thinks it is". Reported
-  # identically, a name mismatch reads as a missing review forever and is diagnosed by nobody.
+  # Distinguish three silences, because they are diagnosed differently: nobody spoke at all; the
+  # reviewer is not who this gate thinks it is; the reviewer spoke and never delivered a verdict.
   AUTHORS=$(bounded_gh pr view "$PR" --json comments --jq '[.comments[].author.login] | unique | join(", ")' || echo "")
   if [[ -n "$AUTHORS" ]]; then
+    if printf '%s' "$AUTHORS" | grep -qE 'github-actions'; then
+      echo "[merge-gate] Blocked: the reviewer has commented on #$PR but never delivered a verdict" >&2
+      echo "[merge-gate] ('ACTIONABLE FINDINGS: <n>'). Gate notices and replies are not reviews." >&2
+      echo "[merge-gate] Run the review, or read the PR and override: MERGE_GATE_ACK=1 …" >&2
+      exit 2
+    fi
     echo "[merge-gate] Blocked: no comment on #$PR is from the reviewer this gate looks for." >&2
     echo "[merge-gate]   looked for: $REVIEWER_RE   comments are from: $AUTHORS" >&2
     echo "[merge-gate] If the reviewer's login changed, fix REVIEWER_RE — do not route around it." >&2
@@ -333,6 +350,9 @@ fi
 # findings written only in prose is exactly the merge-past-findings incident (#1503, #1510) this
 # hook exists to stop.
 if [[ -z "$COUNT" ]]; then
+  # Near-unreachable now — the selection above already requires the marker — and kept as the
+  # backstop it always was: if the two readings of the marker ever drift, "I could not check" must
+  # not read as "it is fine".
   echo "[merge-gate] Blocked: the review on #$PR carries no 'ACTIONABLE FINDINGS: <n>' line, so" >&2
   echo "[merge-gate] this gate cannot tell whether findings remain. Re-run the review, or read it" >&2
   echo "[merge-gate] and override deliberately: MERGE_GATE_ACK=1 gh pr merge $PR --merge" >&2
