@@ -142,6 +142,7 @@ jobs:
           # jq parse (empty run_id, benign narrative) or ride into the conclusion word, which is
           # the same wrong-reason silence through a side door. (#1669 review, both rounds)
           err_file=$(mktemp)
+          trap 'rm -f "${err_file}"' EXIT
           # allow-unpaginated: the listing returns EVERY pull_request-triggered run for this head
           # SHA — all ~6 workflows per push, plus reruns — so the page holds roughly fifteen
           # pushes' worth of runs for one SHA, which does not recur; a miss past it costs one
