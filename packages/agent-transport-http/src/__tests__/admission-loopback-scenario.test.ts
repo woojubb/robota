@@ -99,10 +99,20 @@ async function serve(app: {
         for await (const chunk of req) chunks.push(chunk as Buffer);
         const address = server.address();
         const port = typeof address === 'object' && address ? address.port : 0;
+        // Node's `IncomingHttpHeaders` values are `string | string[] | undefined`, which is not
+        // `HeadersInit` — casting across that gap works for this fixture's simple headers and
+        // silently mangles an array-valued one (`set-cookie`, a repeated header) the day the
+        // harness is reused. Built explicitly instead, so a repeated header stays repeated.
+        // (#1684 review)
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(req.headers)) {
+          if (Array.isArray(value)) for (const item of value) headers.append(name, item);
+          else if (value !== undefined) headers.set(name, value);
+        }
         const response = await app.fetch(
           new Request(`http://127.0.0.1:${port}${req.url ?? '/'}`, {
             method: req.method,
-            headers: req.headers as HeadersInit,
+            headers,
             body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks),
           }),
         );

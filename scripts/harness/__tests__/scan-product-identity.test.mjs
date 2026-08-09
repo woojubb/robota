@@ -5,7 +5,11 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { countMarkers, findProductIdentity } from '../scan-product-identity.mjs';
+import {
+  countMarkers,
+  examinedPackageCount,
+  findProductIdentity,
+} from '../scan-product-identity.mjs';
 
 /**
  * NEUT-009 — four library packages write the consumer product's directory names, config file names
@@ -212,5 +216,38 @@ describe('scan-product-identity', () => {
     );
     expect(frozen['packages/agent-core']).toBe(0);
     expect(frozen['packages/agent-tools']).toBe(0);
+  });
+});
+
+describe('the examined-size counter comes from the walk (HARNESS-057)', () => {
+  /**
+   * `::examined::` reported `Object.keys(counts).length` at first — derived from the COLLECTION, so
+   * a duplicated config entry would collapse into one key and the size would undercount what the
+   * walk actually iterated. That is the same "the number must come from the walk" failure this PR
+   * fixed one scan over and then repeated here in a subtler form. (#1684 review)
+   */
+  it('counts a DUPLICATED config entry as the extra iteration it really is', () => {
+    const root = workspace({
+      'packages/lib/src/index.ts': 'export const a = 1;\n',
+    });
+
+    findProductIdentity(root, { markers: MARKERS, packages: ['packages/lib', 'packages/lib'] });
+
+    // `counts` holds ONE key for the two entries; the walk ran twice, and that is what is reported.
+    expect(examinedPackageCount(), 'the count was taken from the collection, not the walk').toBe(2);
+  });
+
+  it('RESETS between runs', () => {
+    const root = workspace({
+      'packages/a/src/index.ts': 'export const a = 1;\n',
+      'packages/b/src/index.ts': 'export const b = 2;\n',
+    });
+
+    findProductIdentity(root, { markers: MARKERS, packages: ['packages/a', 'packages/b'] });
+    expect(examinedPackageCount()).toBe(2);
+
+    findProductIdentity(root, { markers: MARKERS, packages: ['packages/a'] });
+
+    expect(examinedPackageCount(), 'the count carried over from the previous run').toBe(1);
   });
 });

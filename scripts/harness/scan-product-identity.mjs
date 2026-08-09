@@ -63,6 +63,17 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
+/**
+ * How many configured packages the last walk iterated — HARNESS-057. A module-level holder, set in
+ * the walk itself so a duplicated config entry is counted as the extra iteration it really is.
+ */
+let examinedPackages = 0;
+
+/** What the last `findProductIdentity` run actually walked — exported so it can be asserted. */
+export function examinedPackageCount() {
+  return examinedPackages;
+}
+
 /** Occurrences of each marker in a file's text, with the lines they sit on. */
 export function countMarkers(source, markers) {
   const hits = [];
@@ -108,7 +119,14 @@ export function findProductIdentity(root, config = liveConfig()) {
     );
   }
 
+  examinedPackages = 0;
   for (const relative of config.packages ?? []) {
+    // Counted at the WALK, not from `counts` afterwards. `counts` is keyed by path, so a duplicated
+    // entry in the config would collapse into one key and the reported size would silently
+    // undercount what was actually iterated — "the number must come from the walk", the same
+    // invariant this PR fixed for conflict-markers and then repeated here in a subtler form.
+    // (#1684 review)
+    examinedPackages++;
     const src = path.join(root, relative, 'src');
     if (!existsSync(src)) {
       // Fail closed: a configured package that moved is a stale config, and a stale config reporting
@@ -197,14 +215,13 @@ function main() {
   // a tree with zero occurrences is this ratchet's goal state, while zero packages means the walk
   // found nothing to look at. Declaring the occurrence count would report success as the subject
   // shrinks toward the goal, which is the reading this marker exists to prevent.
-  const packagesWalked = Object.keys(counts).length;
   // No expected-empty branch: `main` returns early when the configured package list is empty, and
   // every remaining package either lands in `counts` or throws for a missing `src`, so zero cannot
   // reach this line. A branch for it would be dead code claiming a state the scan cannot be in.
   // (#1684 review)
-  console.log(`::examined:: ${packagesWalked} library packages`);
+  console.log(`::examined:: ${examinedPackageCount()} library packages`);
   console.log(
-    `product-identity ratchet passed (${packagesWalked} library package(s), ` +
+    `product-identity ratchet passed (${Object.keys(counts).length} library package(s), ` +
       `${total} occurrence(s) at baseline).`,
   );
 }
