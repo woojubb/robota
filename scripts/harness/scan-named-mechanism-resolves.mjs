@@ -42,7 +42,7 @@ const SCOPE = [{ dir: '.agents/rules', suffix: '.md' }, { file: 'AGENTS.md' }];
  * Each matcher pairs a way of naming a mechanism with the question "does this exist?".
  * `kind` is only used to phrase the finding.
  */
-const MATCHERS = [
+export const MATCHERS = [
   {
     kind: 'harness script',
     pattern: /`?(scripts\/harness\/[\w.-]+\.mjs)`?/g,
@@ -57,7 +57,13 @@ const MATCHERS = [
   },
   {
     kind: 'package script',
-    pattern: /`(?:pnpm|npm) run ([\w:-]+)`/g,
+    // Both spellings: `pnpm run x` and the bare `pnpm x` shorthand — the shorthand is what the
+    // binding documents actually use (AGENTS.md's Harness Entrypoints carries no `run`), so a
+    // matcher demanding `run` could not see the most-load-bearing command list it exists for.
+    // Package-manager BUILT-INS are not package scripts and are excluded, or `pnpm install`
+    // would be flagged for not appearing in `scripts`.
+    pattern:
+      /`(?:pnpm|npm)(?: run)? (?!(?:run|install|add|remove|update|publish|exec|dlx|link|why|list|store|patch|import|prune|rebuild|audit|outdated|test|start|create|init|config|help|setup|whoami|login|logout|-)\b)([\w:-]+)`/g,
     resolves: (name) => {
       const pkg = path.join(WORKSPACE_ROOT, 'package.json');
       // No manifest means the question cannot be answered, and answering `true` made every
@@ -75,8 +81,11 @@ const MATCHERS = [
   },
   {
     kind: 'MCP server',
-    // "Playwright MCP", "the Foo MCP server" — an identity, not a description.
-    pattern: /\b([A-Z][\w-]*)\s+MCP(?:\s+server)?\b/g,
+    // "Playwright MCP", "the Foo MCP server" — an identity, not a description. A sentence-form
+    // determiner in front of "MCP" ("This MCP server…", "Every MCP…") is grammar, not a name,
+    // and reading it as one would fail the scan the moment a rule gains an idiomatic sentence.
+    pattern:
+      /\b(?!(?:This|That|The|These|Those|A|An|Any|Every|Each|No|Some|Its|Their|Our|Which|One)\b)([A-Z][\w-]*)\s+MCP(?:\s+server)?\b/g,
     resolves: (name) => {
       const declared = new Set();
       const mcpFile = path.join(WORKSPACE_ROOT, '.mcp.json');

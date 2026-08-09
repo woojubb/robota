@@ -687,10 +687,20 @@ while read -r STMT_START STMT_LEN; do
     # becomes a second copy of it that drifts — this message once said the opposite of
     # git-branch.md on both who may delete a branch and which flag to use, and the prohibited
     # command was retried for weeks because the guard taught the wrong alternative.
-    FIXED_COMMAND=$(printf '%s' "$COMMAND" | sed -E 's/[[:space:]]+--delete-branch\b//g')
+    # Correct THIS STATEMENT, not the whole raw command: a sed over the full command also strips
+    # the flag's name out of quoted text — a commit message, a PR body — and the "corrected"
+    # suggestion is then a different command than the user meant. The statement slice bounds it,
+    # and a statement where the flag appears more than once (one of them necessarily quoted text)
+    # gets an instruction instead of a synthesis that would guess which one to drop.
+    STMT_RAW="${COMMAND:$STMT_START:$STMT_LEN}"
     echo "[branch-guard] Blocked: '--delete-branch' is prohibited in 'gh pr merge'. Zero exceptions." >&2
-    echo "[branch-guard] Run this instead:" >&2
-    echo "[branch-guard]   $FIXED_COMMAND" >&2
+    if [[ $(printf '%s' "$STMT_RAW" | grep -o -- '--delete-branch' | grep -c .) -eq 1 ]]; then
+      FIXED_COMMAND=$(printf '%s' "$STMT_RAW" | sed -E 's/[[:space:]]+--delete-branch\b//')
+      echo "[branch-guard] Run this instead:" >&2
+      echo "[branch-guard]   $FIXED_COMMAND" >&2
+    else
+      echo "[branch-guard] Re-run this statement without '--delete-branch'." >&2
+    fi
     echo "[branch-guard] Branch cleanup after the merge is governed by .agents/rules/git-branch.md" >&2
     echo "[branch-guard] (see 'Deleting a merged branch') — read it there, it is the only copy." >&2
     exit 2

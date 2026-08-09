@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectNamedMechanismFindings } from '../scan-named-mechanism-resolves.mjs';
+import { collectNamedMechanismFindings, MATCHERS } from '../scan-named-mechanism-resolves.mjs';
 
 /**
  * ACCEPTANCE CRITERION (written before the scan).
@@ -33,10 +33,40 @@ describe('scan-named-mechanism-resolves', () => {
     expect(collectNamedMechanismFindings()).toEqual([]);
   });
 
-  it('asserts presence, never behaviour', () => {
+  it('asserts presence, never behaviour — resolution reads existence, not content', () => {
     // Correctness of a named mechanism is owned by guards-pass-silently and
-    // hooks-have-execution-coverage. This floor sits beneath them: those scans cannot judge a
-    // file that is not there. Naming an existing-but-inert mechanism must therefore pass here.
-    expect(collectNamedMechanismFindings()).toEqual([]);
+    // hooks-have-execution-coverage; this floor sits beneath them. Asserted on the resolver
+    // itself: an existing hook resolves whatever its body does, and a phantom one does not —
+    // the earlier version of this case just repeated the live-repository assertion.
+    const hooks = MATCHERS.find((m) => m.kind === 'hook');
+    expect(hooks.resolves('.claude/hooks/branch-guard.sh')).toBe(true);
+    expect(hooks.resolves('.claude/hooks/does-not-exist.sh')).toBe(false);
+  });
+
+  it('reads the bare `pnpm <script>` shorthand the binding documents actually use', () => {
+    // AGENTS.md's Harness Entrypoints carry no `run`; a matcher demanding it could not see the
+    // most-load-bearing command list it exists for.
+    const scripts = MATCHERS.find((m) => m.kind === 'package script');
+    scripts.pattern.lastIndex = 0;
+    const hit = scripts.pattern.exec('Run `pnpm harness:scan` before pushing.');
+    expect(hit?.[1]).toBe('harness:scan');
+  });
+
+  it('does not read a package-manager builtin as a script name', () => {
+    const scripts = MATCHERS.find((m) => m.kind === 'package script');
+    for (const text of ['Run `pnpm install` first.', 'Use `pnpm run` to list them.']) {
+      scripts.pattern.lastIndex = 0;
+      expect(scripts.pattern.exec(text), `${text} was read as a script`).toBeNull();
+    }
+  });
+
+  it('does not read a determiner in front of MCP as a server name', () => {
+    const mcp = MATCHERS.find((m) => m.kind === 'MCP server');
+    for (const text of ['This MCP server does X.', 'Every MCP server is declared.']) {
+      mcp.pattern.lastIndex = 0;
+      expect(mcp.pattern.exec(text), `${text} was read as a name`).toBeNull();
+    }
+    mcp.pattern.lastIndex = 0;
+    expect(mcp.pattern.exec('Use the Playwright MCP server.')?.[1]).toBe('Playwright');
   });
 });
