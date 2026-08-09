@@ -237,6 +237,23 @@ describe('the verb checks see through an alias', () => {
     expect(status, `the globals-only alias froze the verb as a flag:\n${output}`).toBe(2);
   });
 
+  it('does not read a `git checkout -b` inside a heredoc BODY as a real creation', () => {
+    // PIN, not a red-proof: this input passes on both sides because the heredoc opener sits in
+    // the same statement slice, so the tokenizer masks the body either way. It pins the contract
+    // the extraction now follows by construction — when no alias resolved, NEW_BRANCH/START_POINT
+    // read the WHOLE command at this statement's offsets (EXTRACT_SRC), not the bare slice, the
+    // same conditional DELETE_BRANCH_NAME needed after a measured heredoc misread. Keeping the
+    // three extractions on one decision stops the slice-only reading from drifting back in. (#1666)
+    const repo = scratchRepo('develop');
+
+    const { status, output } = runHook(
+      "cat <<'EOF'\ngit checkout -b feat/from-body main\nEOF",
+      repo,
+    );
+
+    expect(status, `a heredoc-body creation was judged as real:\n${output}`).toBe(0);
+  });
+
   it("reads a -C statement's aliases from THAT repository", () => {
     // The session repo has no alias; the -C target defines alias.ci = commit locally. Resolving
     // aliases only from the session repo missed it, and the kill switch rode through.
@@ -354,7 +371,9 @@ describe('the verb checks see through an alias', () => {
 
     const aliased = scratchRepo('develop', { qc: '--no-pager commit' });
     const r2 = runHook('git qc -m x', aliased);
-    expect(r2.status, `a boolean global in an alias body hid the commit verb:\n${r2.output}`).toBe(2);
+    expect(r2.status, `a boolean global in an alias body hid the commit verb:\n${r2.output}`).toBe(
+      2,
+    );
     expect(r2.output).toMatch(/protected branch/);
   });
 

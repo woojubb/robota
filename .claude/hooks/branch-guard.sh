@@ -500,6 +500,20 @@ while read -r STMT_START STMT_LEN; do
     done <<< "$GIT_ALIASES"
   fi
 
+  # The source and window every per-statement EXTRACTION reads (NEW_BRANCH, START_POINT,
+  # DELETE_BRANCH_NAME). When an alias resolved, the verb exists only in the substituted slice, so
+  # that slice is read at 1-based offsets. When NOTHING was substituted, the extraction reads the
+  # WHOLE command at this statement's offsets — the tokenizer needs the surrounding text to tell a
+  # heredoc body or a quoted argument from a live command, and a `git checkout -b`/`git branch`/
+  # `git push --delete` sitting inside a heredoc body would otherwise be read as a real one from
+  # the bare slice. One decision, shared by all three extractions rather than repeated (and
+  # divergently) at each. (#1666 review)
+  if [[ "$STMT_RAW_EFFECTIVE" != "${COMMAND:$((STMT_START - 1)):$STMT_LEN}" ]]; then
+    EXTRACT_SRC="$STMT_RAW_EFFECTIVE"; EXTRACT_START=1; EXTRACT_LEN="${#STMT_RAW_EFFECTIVE}"
+  else
+    EXTRACT_SRC="$COMMAND"; EXTRACT_START="$STMT_START"; EXTRACT_LEN="$STMT_LEN"
+  fi
+
   # Resolve the git context THIS STATEMENT will actually run in (worktree-aware — parallel-wave
   # lesson): a worktree agent's commit/push was judged against the MAIN clone's branch
   # (CLAUDE_PROJECT_DIR), producing false blocks. Precedence: `git -C <path>` in the statement >
@@ -1044,17 +1058,12 @@ while read -r STMT_START STMT_LEN; do
   # line-oriented pass, which looked for a heredoc opener with a regex that did not know about quoting:
   # a `<<EOF` inside a quoted string opened a body that never closed, and the real delete that followed
   # it was deleted from the string this check reads. (INFRA-075, #1572)
-  # Read from the SUBSTITUTED statement when an alias resolved (`alias.pd "push origin
-  # --delete"` spells its verb only after expansion), and from the FULL command otherwise:
-  # hook_deleted_branch's tokenizer needs the surrounding text to know a heredoc body from a
-  # statement — handed only the slice, it read `cat <<'EOF' … git push --delete … EOF` data as a
-  # live delete. A data statement is never substituted (its mask shows no git verb for the alias
-  # gate to match), so the two branches cannot disagree about the same text. (#1666 review)
-  if [[ "$STMT_RAW_EFFECTIVE" != "${COMMAND:$((STMT_START - 1)):$STMT_LEN}" ]]; then
-    DELETE_BRANCH_NAME=$(hook_deleted_branch "$STMT_RAW_EFFECTIVE" 1 "${#STMT_RAW_EFFECTIVE}" || true)
-  else
-    DELETE_BRANCH_NAME=$(hook_deleted_branch "$COMMAND" "$STMT_START" "$STMT_LEN" || true)
-  fi
+  # EXTRACT_SRC/START/LEN carry the substituted-vs-whole decision computed once above: the
+  # substituted slice when an alias resolved (`alias.pd "push origin --delete"` spells its verb
+  # only after expansion), the whole command otherwise so hook_deleted_branch's tokenizer keeps
+  # the surrounding text that tells a heredoc body (`cat <<'EOF' … git push --delete … EOF`) from
+  # a live delete. (#1666 review)
+  DELETE_BRANCH_NAME=$(hook_deleted_branch "$EXTRACT_SRC" "$EXTRACT_START" "$EXTRACT_LEN" || true)
 
   if [[ -n "$DELETE_BRANCH_NAME" ]] && ! stmt_override BRANCH_GUARD_ALLOW_DELETE; then
     if printf '%s' "$DELETE_BRANCH_NAME" | grep -qE '^(main|master|develop|gh-pages)$'; then
@@ -1254,16 +1263,16 @@ while read -r STMT_START STMT_LEN; do
     # Read the name from the ORIGINAL, positioned by a match in the masked text — the same rule the
     # `-C` target and the delete name follow. Pulling it straight out of the masked string returned
     # the \001 fill for `git checkout -b "feat/x"` and refused a correctly named branch.
-    NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
+    NEW_BRANCH=$(hook_match_extract "$EXTRACT_SRC" \
       '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+' \
-        1 "${#STMT_RAW_EFFECTIVE}" || true)
+        "$EXTRACT_START" "$EXTRACT_LEN" || true)
     # `git branch <name>` puts the name where the two spellings above put it after `-b`/`-c`, so it
     # reads with the same machinery and a different prefix (INFRA-070). Asked only when the first
     # extraction found nothing, because a statement is one creation and the first match is its name.
     if [[ -z "$NEW_BRANCH" ]]; then
-      NEW_BRANCH=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
+      NEW_BRANCH=$(hook_match_extract "$EXTRACT_SRC" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*' \
-          1 "${#STMT_RAW_EFFECTIVE}" || true)
+          "$EXTRACT_START" "$EXTRACT_LEN" || true)
     fi
     # --- the base the branch is cut from (INFRA-067) ---------------------------------------------
     #
@@ -1287,17 +1296,17 @@ while read -r STMT_START STMT_LEN; do
       # origin/main` puts `--track` where the start point was being read, so the check compared HEAD
       # instead and passed while the branch came from `origin/main` — the exact creation this exists to
       # refuse, waved through by one common flag.
-      START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
+      START_POINT=$(hook_match_extract "$EXTRACT_SRC" \
         '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*(checkout|switch)[ \t]+(-[^ \t\n]+[ \t]+)*-[bBcC][ \t]+[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-          1 "${#STMT_RAW_EFFECTIVE}" || true)
+          "$EXTRACT_START" "$EXTRACT_LEN" || true)
       # Same position, different prefix, same reason as the name above (INFRA-070). `git branch x main`
       # is the form the item was filed for: it names its base explicitly, so leaving this unread would
       # have widened the DETECTION while leaving the base check comparing against HEAD — a creation
       # judged, and judged against the wrong thing.
       if [[ -z "$START_POINT" ]]; then
-        START_POINT=$(hook_match_extract "$STMT_RAW_EFFECTIVE" \
+        START_POINT=$(hook_match_extract "$EXTRACT_SRC" \
           '(^|[ \t;&|({\n"\047`])git[ \t]+(('"$GIT_VALUE_GLOBALS"')[ \t]+[^ \t\n]+[ \t]+|-[^ \t\n]+[ \t]+)*branch[ \t]+('"$RE_BRANCH_CREATE_FLAGS"'[ \t]+)*[^ \t\n]+[ \t]+(-[^ \t\n]+[ \t]+)*' \
-            1 "${#STMT_RAW_EFFECTIVE}" || true)
+            "$EXTRACT_START" "$EXTRACT_LEN" || true)
       fi
       # A start point is a git ref, and the token holding it may be glued to what follows.
       #
