@@ -144,9 +144,24 @@ while read -r PS_START PS_LEN; do
   # judging the wrong repository — the #1662 defect in its more dangerous under-refusing form. A
   # `||`-guarded directory change is therefore UNCERTAIN, not a definite base. (#1667 review)
   PS_CONNECTOR="${COMMAND:$PREV_STMT_END:$((PS_START - 1 - PREV_STMT_END))}"
-  PREV_STMT_END=$((PS_START - 1 + PS_LEN))
+  PS_STMT_END=$((PS_START - 1 + PS_LEN))
+  PREV_STMT_END="$PS_STMT_END"
   PS_OR_GUARDED=false
   [[ "$PS_CONNECTOR" == *'||'* ]] && PS_OR_GUARDED=true
+  # A `cd` that runs in a SUBSHELL never propagates its directory to a later statement, so its
+  # effect must be IGNORED, not carried forward. Both sides of a pipe run in subshells, and a
+  # backgrounded (`&`) command does too. The connector AFTER a statement is the operator that
+  # applies to IT — a background `&` and a pipe `|` bind to the command on their LEFT — while a
+  # pipe on the connector BEFORE binds to the command on its right. `||`/`&&` are two-char and
+  # must not be mistaken for the single `|`/`&`. (#1667 review)
+  PS_AFTER="${COMMAND:$PS_STMT_END}"
+  PS_AFTER="${PS_AFTER#"${PS_AFTER%%[![:space:]]*}"}"
+  PS_SUBSHELLED=false
+  [[ "$PS_CONNECTOR" != *'||'* && "$PS_CONNECTOR" == *'|'* ]] && PS_SUBSHELLED=true
+  case "$PS_AFTER" in
+    '||'* | '&&'*) : ;;
+    '|'* | '&'*) PS_SUBSHELLED=true ;;
+  esac
   PS_MASK=$(hook_verb_scan "$COMMAND" "$PS_START" "$PS_LEN")
   if printf '%s' "$PS_MASK" | grep -qE "$RE_PUSH_STMT"; then
     # 1. This statement's own `git -C`.
@@ -238,6 +253,13 @@ while read -r PS_START PS_LEN; do
       LAST_CD_UNREADABLE=true
       continue
     fi
+    # A subshell'd cd/pushd/popd (either side of a `|`, or backgrounded with `&`) changed a
+    # directory the parent shell never saw, so it is IGNORED — the base stays what it was, and a
+    # later push resolves to that, not to this phantom. Distinct from `||` above, which is
+    # UNCERTAIN (refuse): this one is certainly-no-effect. (#1667 review)
+    if [[ "$PS_SUBSHELLED" == "true" && ( "$PS_FIRST" == "cd" || "$PS_FIRST" == "pushd" || "$PS_FIRST" == "popd" ) ]]; then
+      continue
+    fi
     if [[ "$PS_FIRST" == "popd" ]]; then
       # `popd` returns to the top of the stack this walk has been keeping. A stack this walk did
       # not see filled (no prior pushd), a rotation (`+N`), or a poisoned entry is a base only the
@@ -324,8 +346,14 @@ while read -r PS_START PS_LEN; do
       # read. Only the tail is tested, because a paren BEFORE the target is a different fact:
       # an env-prefix substitution (`V=$(x) cd /repo`) closes ITS paren before `cd`, and the
       # target is still literal. The residue is a `)` in a trailing comment, which refuses —
-      # fail-closed, and the shape is not one an agent writes. (#1667 review)
-      PS_TAIL="${PS_RAW##*"$PS_SECOND"}"
+      # fail-closed, and the shape is not one an agent writes.
+      #
+      # Cut at the FIRST occurrence of the target (`#`, not `##`): the target text can repeat
+      # later in the statement — most plausibly a redirection to the same path, `( cd /r ) 2>/r`
+      # — and cutting at the LAST occurrence put the real subshell-closing `)` (right after the
+      # cd arg) BEFORE the cut, leaving an empty tail that hid the close. The cd arg is the first
+      # occurrence. (#1667 review)
+      PS_TAIL="${PS_RAW#*"$PS_SECOND"}"
       UNREADABLE_TARGET="$TARGET_HIDDEN"
       if [[ -z "$PS_SECOND" || "$PS_SECOND" == "-" || "$PS_SECOND" == -* || "$PS_SECOND" == *'$'* || "$PS_SECOND" == *'`'* || "$PS_SECOND" == '~'* || "$PS_SECOND" == *'('* || "$PS_SECOND" == *')'* || "$PS_SECOND" == *'"'* || "$PS_SECOND" == *"'"* || "$PS_TAIL" == *')'* ]] \
         || [[ "$PS_FIRST" == "pushd" && "$PS_SECOND" == +* ]]; then

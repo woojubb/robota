@@ -237,6 +237,43 @@ describe('which repository the push verdict is about', () => {
     expect(status, `popd did not restore the tracked base:\n${output}`).toBe(0);
   });
 
+  it('does not carry a PIPED cd forward — it ran in a subshell', () => {
+    // `cd <A> | cat; git push`: the cd is the left of a pipe, so bash runs it in a subshell and
+    // the parent cwd never changes — the push lands in the ORIGINAL dir, not <A>. The walk used
+    // to record <A> and validate the wrong repo. A subshell'd cd is ignored, so the push
+    // resolves to the declared cwd (here a repo with no record → refuse). (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`cd ${a} | cat; git push origin x`, parked);
+
+    expect(status, `a piped cd was carried forward as the base:\n${output}`).toBe(2);
+  });
+
+  it('does not carry a BACKGROUNDED cd forward — it ran in a subshell', () => {
+    // `cd <A> & git push`: the `&` backgrounds the cd in a subshell; the push runs in the parent
+    // cwd, not <A>. (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked');
+
+    const { status, output } = runHook(`cd ${a} & git push origin x`, parked);
+
+    expect(status, `a backgrounded cd was carried forward as the base:\n${output}`).toBe(2);
+  });
+
+  it('sees a subshell close even when the target path repeats in a redirection', () => {
+    // `( cd <A> ) 2><A> && git push`: the target text repeats in the redirection, so cutting the
+    // tail at the LAST occurrence hid the real closing `)` right after the cd arg. Cutting at the
+    // FIRST occurrence sees it — the closed subshell's cd must not leak. (#1667 review)
+    const a = repoOn('feat/a', { recorded: true });
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`( cd ${a} ) 2>${a} && git push origin x`, parked);
+
+    expect(status, `a repeated path hid the subshell close:\n${output}`).toBe(2);
+    expect(output).toMatch(/cannot read/);
+  });
+
   it('does not carry a `||`-guarded cd forward as a definite base', () => {
     // `cd <A> || cd <B> && git push`: bash runs `cd <B>` only if `cd <A>` FAILED, so with <A>
     // present the push lands in <A> — but the linear walk carried <B> forward and judged the
