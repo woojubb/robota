@@ -149,14 +149,15 @@ jobs:
           # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
           # self-recovering: most pull requests resolved inside a single run without anyone acting.
           # Now the first read almost always finds the analysis still running — the two workflows are
-          # triggered by the same event — so this check goes red and STAYS red until it is re-run.
-          # Nothing in this repository re-runs it automatically; recovery is the watcher's job, and on
-          # a pull request nobody is watching, a required check sits red until a human notices.
+          # triggered by the same event — so this check goes red until it is re-run. The RECOVERY is
+          # codeql.yml's last step (#1660): when the analysis completes, it re-runs a same-SHA gate
+          # run that failed, so the red is transient without anyone watching and without changing
+          # this workflow's trigger or holding a runner. Measured before that step existed: all
+          # eight open code PRs red simultaneously on a gate that had found nothing.
           #
-          # That is the accepted shape, not an oversight. The alternative that removes both the wait
-          # and the dependency on a watcher is a `workflow_run` trigger keyed to the analysis
-          # completing, which is a larger change to a required check than this one and is not made
-          # here.
+          # The `workflow_run` alternative is deliberately NOT taken: such a run reports against the
+          # default branch's workflow file, and whether it can satisfy branch protection as the same
+          # required context name is unverified — #1660 records the constraint.
           runs="$(node scripts/harness/github-api.mjs \
                     "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
                     --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
@@ -277,6 +278,45 @@ jobs:
           EOF
             echo "::error::review-gate blocked this PR. See the job summary."
             exit 1
+          fi
+          # A PASS after a BLOCKED comment says so, or the last word on the PR stays a stale
+          # refusal: the #1660 recovery reruns this gate the moment the analysis completes, which
+          # makes the transient BLOCKED comment routine — and a reader scanning comments would
+          # keep meeting a verdict the checks page no longer agrees with. Only posted when a
+          # BLOCKED comment exists AND this pass actually judged code: on the docs-only path
+          # nothing was re-read. The sentence claims only the supersession — a pass can arrive
+          # by re-reading a completed analysis OR by the acknowledge label (a human override
+          # with findings still real), and naming the wrong one would misreport the second.
+          # (#1669 review, three rounds)
+          # Read PAGINATED, oldest→newest, because whether `gh pr view --json comments` returns
+          # the newest or the oldest page on a >100-comment PR is not documented and could not
+          # be measured here (no PR in this repository has crossed 100 yet) — and this repo's
+          # review process is exactly the kind that will cross it. Per REST page, jq keeps the
+          # FIRST LINE of the last matching gate comment (the header is all the test below
+          # reads, and one line per page keeps multiline bodies from breaking the line-based
+          # tail); the last non-empty line across pages is therefore the newest gate header.
+          # Matched on the comment's HEADER, not a substring: the supersession text below quotes
+          # the word BLOCKED, so a substring test would match the supersession itself and every
+          # later green run would re-post it — a self-feeding loop. (#1669 review, two rounds)
+          # The read fails LOUDLY: `|| echo ""` would turn "could not read the comments" into
+          # "there is no BLOCKED comment", the exact silence INFRA-077 forbids and every other
+          # gh api read in this step already avoids. On failure we warn and skip the courtesy
+          # note (its absence is harmless — the gate verdict is on the checks page regardless).
+          # A pipe would mask gh's exit under the trailing grep/tail, so gh's output is captured
+          # first and the line-pick runs only after gh succeeded. (#1669 review)
+          gate_comments_err=$(mktemp)
+          if gate_comments_json=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' 2>"${gate_comments_err}"); then
+            last_gate_comment=$(printf '%s' "${gate_comments_json}" | grep -v '^$' | tail -1 || echo "")
+          else
+            echo "::warning::review-gate supersession: could not read PR comments ($(cat "${gate_comments_err}")). Skipping the superseded-note; the checks page still carries the verdict."
+            last_gate_comment=""
+          fi
+          rm -f "${gate_comments_err}"
+          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
+            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
+          EOF
           fi
 
   # INFRA-057. Disarming an armed auto-merge is INFRA-048's stated lever for the #1409 hole: a red
