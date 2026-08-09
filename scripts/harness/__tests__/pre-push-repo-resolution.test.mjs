@@ -195,6 +195,31 @@ describe('which repository the push verdict is about', () => {
   });
 
   it.each([
+    ['a PARAMETER splice', 'c${UNSET}d'],
+    ['a variable AS the command', '$EDITOR'],
+    ['a substitution as the command', '$(echo cd)'],
+    ['eval, which runs text this hook never parses', 'eval cd'],
+  ])('treats %s in the command position as unreadable, not as "not a cd"', (label, command) => {
+    // HARNESS-084 (#1682). words-mode collapses a splice built from quotes, backslashes, `$( )` and
+    // backticks into the word `cd`, but it CANNOT collapse a parameter expansion — the masker
+    // replaces `${…}` (closing brace included) with fill, so `c${UNSET}d` survives as `c${d` and no
+    // reader ever sees the builtin. `$EDITOR` and `$(echo cd)` are the same fact one step further:
+    // the command IS the expansion. Each was measured on develop as a wrong-repository fail-open —
+    // exit 0, the push judged against the session repo while the real cd moved elsewhere.
+    //
+    // Collapsing them to `cd` would be WORSE than missing them: `c${HOME}d` is not a cd, and a
+    // guard that guesses refuses correct work. So the hook declines to answer, which is the same
+    // answer every other unknowable already gets. Parked is the RECORDED repo, so only the refusal
+    // can be correct here.
+    const target = repoOn('feat/target');
+    const parked = repoOn('feat/parked', { recorded: true });
+
+    const { status, output } = runHook(`${command} ${target} && git push origin x`, parked);
+
+    expect(status, `${label} in the command position was read as "not a cd":\n${output}`).toBe(2);
+  });
+
+  it.each([
     ['quotes', '"c""d"'],
     ['an empty command substitution', 'c$()d'],
     ['a pair of empty backticks', 'c``d'],

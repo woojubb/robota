@@ -1,6 +1,7 @@
 ---
 title: 'HARNESS-084: a parameter-spliced builtin is invisible to words-mode, so a cd hidden in ${…} is never tracked'
-status: todo
+status: done
+completed: 2026-08-10
 created: 2026-08-10
 priority: high
 urgency: next
@@ -69,3 +70,30 @@ same words-mode output for its verb latch.
 
 **Does not apply.** Harness-internal guard behaviour; there is no user-facing surface, and the
 change is a refusal that only an agent constructing the splice would encounter.
+
+## Resolution
+
+Landed on branch `fix/harness-084-unresolvable-command`. The chosen direction is the SECOND one the
+Direction section offered — the guards decline to answer — and the first one is now recorded as
+wrong: collapsing `${UNSET}` into `cd` would assert a value the hook cannot know, and `c${HOME}d` is
+not a cd. A guard that guesses refuses correct work, so neither hook guesses; both treat an
+unresolvable command position the way they already treat an unreadable target.
+
+`pre-push-check.sh` — the command position is unresolvable when the first non-assignment word is
+empty (a substitution occupied it), carries `$`/backtick, or the command is `eval`. Any of those
+sets `LAST_CD_UNREADABLE`, so a later push refuses instead of resolving against a stale directory.
+
+`branch-guard.sh` — the same question for the verb latch, which keyed on the literal words `git` and
+`commit`. Two narrow triggers: the SUBCOMMAND position carries an expansion (`git c${UNSET}ommit`),
+or the COMMAND position does AND the statement spells a gated subcommand somewhere (`$GIT commit`,
+`g${UNSET}it commit`). Deliberately narrow: `$EDITOR notes.md`, `${PAGER} log`, `$(which node)
+build.js` and `echo $HOME` are all untouched, asserted as cases, because a guard that fires on
+correct work is one people learn to route around.
+
+The remedy in the message is to spell the command literally rather than a new override token — the
+legitimate surface is a variable standing in for `git`, and writing it out costs nothing.
+
+Verified: all seven new cases red-prove against `origin/develop` (each exits 0 there — the
+wrong-repository fail-open for pre-push, the protected-branch bypass for branch-guard — and refuses
+here); the narrowness cases pass on both sides; every pre-existing pre-push and branch-guard case is
+untouched; full harness suite 3117 green.

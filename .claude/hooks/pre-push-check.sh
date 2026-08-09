@@ -349,6 +349,35 @@ while read -r PS_START PS_LEN; do
       LAST_CD_UNREADABLE=true
       continue
     fi
+    # WHICH COMMAND IS THIS? When the answer is an expansion the hook cannot resolve, the honest
+    # answer is "unknown", and unknown is unreadable — a `cd` is exactly what it might be.
+    #
+    # Three shapes reach here, all measured as wrong-repository fail-opens (the push resolved to the
+    # session repo, which held a clean record, while the real `cd` moved elsewhere — exit 0 where
+    # this hook refuses for every other unknowable):
+    #   `c${UNSET}d /repo`   the command word survives as `c${d`; words-mode cannot collapse a
+    #                        PARAMETER splice the way it collapses `$( )` and backticks, because the
+    #                        masker replaces the expansion (closing brace included) with fill.
+    #   `$EDITOR /repo`      the command IS a variable. `EDITOR=cd` makes it a cd.
+    #   `$(echo cd) /repo`   the substitution collapses to an EMPTY command word.
+    # Collapsing them to `cd` would be worse than missing them: `c${HOME}d` is not a cd, and a guard
+    # that guesses is a guard that refuses correct work. So this does not guess — it declines to
+    # answer, which is the same answer an unreadable target already gets. (HARNESS-084, #1682)
+    PS_CMD_UNRESOLVABLE=false
+    _PS_SEEN_CMD=false
+    while IFS= read -r _PS_CW; do
+      [[ "$_PS_SEEN_CMD" == "true" ]] && break
+      # An env-var assignment is a PREFIX, not the command — the same skip the word loop below makes.
+      case "$_PS_CW" in *=*) continue ;; esac
+      _PS_SEEN_CMD=true
+      if [[ -z "$_PS_CW" || "$_PS_CW" == *'$'* || "$_PS_CW" == *'`'* ]]; then
+        PS_CMD_UNRESOLVABLE=true
+      fi
+    done <<< "$PS_WORDS"
+    if [[ "$PS_CMD_UNRESOLVABLE" == "true" ]]; then
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
     PS_FIRST=""
     PS_SECOND=""
     PS_THIRD=""
@@ -399,6 +428,14 @@ while read -r PS_START PS_LEN; do
       PS_FIFTH=""
     done
     PS_FIRST="${PS_FIRST#\\}"
+    # The same question after the prefixes are unwrapped: `command $EDITOR /repo` puts the
+    # unresolvable word one position later, and `eval` runs text this hook never parses at all —
+    # `eval "cd /repo"` is a directory change whose target lives inside a string. Both are unknown
+    # commands, and unknown is unreadable. (HARNESS-084, #1682)
+    if [[ "$PS_FIRST" == *'$'* || "$PS_FIRST" == *'`'* || "$PS_FIRST" == "eval" ]]; then
+      LAST_CD_UNREADABLE=true
+      continue
+    fi
     # A `||`-guarded directory change runs only if the prior command failed, so whether it took
     # effect is unknowable — the base is uncertain, not the value it names. Only a cd/pushd/popd
     # matters here: a `||`-guarded NON-directory command (`foo || bar`) changes no directory, so
