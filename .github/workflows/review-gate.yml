@@ -298,9 +298,21 @@ jobs:
           # Matched on the comment's HEADER, not a substring: the supersession text below quotes
           # the word BLOCKED, so a substring test would match the supersession itself and every
           # later green run would re-post it — a self-feeding loop. (#1669 review, two rounds)
-          last_gate_comment=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
-            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' \
-            | grep -v '^$' | tail -1 || echo "")
+          # The read fails LOUDLY: `|| echo ""` would turn "could not read the comments" into
+          # "there is no BLOCKED comment", the exact silence INFRA-077 forbids and every other
+          # gh api read in this step already avoids. On failure we warn and skip the courtesy
+          # note (its absence is harmless — the gate verdict is on the checks page regardless).
+          # A pipe would mask gh's exit under the trailing grep/tail, so gh's output is captured
+          # first and the line-pick runs only after gh succeeded. (#1669 review)
+          gate_comments_err=$(mktemp)
+          if gate_comments_json=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' 2>"${gate_comments_err}"); then
+            last_gate_comment=$(printf '%s' "${gate_comments_json}" | grep -v '^$' | tail -1 || echo "")
+          else
+            echo "::warning::review-gate supersession: could not read PR comments ($(cat "${gate_comments_err}")). Skipping the superseded-note; the checks page still carries the verdict."
+            last_gate_comment=""
+          fi
+          rm -f "${gate_comments_err}"
           if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
             gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
           **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
