@@ -48,14 +48,21 @@ it is:
   already prove the property under a different wording, and would have passed one that only said it
   resets. Judged by shape since.
 - a second version derived its subjects from the READER'S NAME at depth 1 of one directory. Measured:
-  60 registered scans declare a size, and that version governed 8 of them — every module spelling its
+  61 harness modules declare a size, and that version governed 8 of them — every module spelling its
   reader differently, or keeping the counter in `main()`, left the population silently. That is the
   same silent-permit enumeration the rule exists to prevent, committed by the check adopting it.
+- a third version took the population from the runner's registration list, which dropped a module
+  that publishes two sizes without being registered. Registration is not what makes a published size
+  evidence, so the population is now the directory walk, less the runner itself — which consumes the
+  marker rather than publishing one, and is excluded by being identified as the registry.
 
-**Measured population.** 60 declaring scans exporting 21 readers. Eight meet the floor; the other 52
-are recorded in `scripts/harness/measurement-provenance-pending.json`, re-measured on every run so
-an entry that comes to meet the floor is itself a finding, and reported as a separate number in the
-pass line. HARNESS-087 burns the ledger down.
+**Measured population.** 61 declaring modules exporting 21 readers. Eight meet the floor; the other
+53 are recorded in `scripts/harness/measurement-provenance-pending.json`. Every subject is classified
+there as covered or pending — a subject in neither is a finding, so a new declaring scan cannot enter
+unclassified — and both lists are re-measured on every run, so an entry that comes to meet the floor
+is a finding and one that stops meeting it is a regression rather than a quiet move to the debt list.
+The covered and unmet figures are reported separately in the pass line. HARNESS-087 burns the ledger
+down.
 
 **Swept.** Of the modules already exporting a reader, one was found non-compliant —
 `scan-no-fake-in-src`, with no exact assertion and no reset case — closed with two cases in
@@ -66,8 +73,8 @@ appearing somewhere in each test file; the scan disagreed with it in both direct
 **Proved.** Against the pre-fix tree the scan exits 1 and names the gap. Removing
 `examinedShippableFiles = 0;` from the swept module turns both new cases red (`expected 1649 to be 3`
 — the live tree size carried into a fixture run — and `expected 1652 to be 3` after accumulation);
-restoring it turns them green. The scan's own 11 cases cover each finding type, both fail-closed
-refusals, and its own three counters. The subject-derivation rewrite is covered by cases pinning both
+restoring it turns them green. The scan's own 30 cases cover each finding type, both fail-closed
+refusals, and its own four counters. The subject-derivation rewrite is covered by cases pinning both
 reader spellings, the const and re-export forms, a commented-out second run, a second run appearing
 only inside a string, an assertion taken before the second run, and the declared ceiling (a declaring
 module the registry does not name is invisible here).

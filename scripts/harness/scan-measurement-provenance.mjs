@@ -10,27 +10,34 @@
  * in the process, and a counter asserted by a lower bound is satisfied by every over-count.
  *
  * SUBJECT DERIVATION, spelled out because getting it from a name pattern is the defect this floor is
- * about, one level up. The subject set is every module REGISTERED in the runner whose source emits
- * `::examined::` — both halves read from the tree, neither hand-listed. A floor that recognised its
- * subjects by the shape of a reader's name would grant an exemption to anyone who spelled the reader
+ * about, one level up. The subject set is every module under the harness directory whose source
+ * emits `::examined::` — read off the tree, not hand-listed and not gated on registration, because
+ * registration is not what makes a published size evidence. A floor that recognised its subjects by
+ * the shape of a reader's name would grant an exemption to anyone who spelled the reader
  * differently, and would report a clean pass over the modules it failed to recognise.
+ *
+ * ONE derived exclusion: the runner, which CONSUMES the marker to build its report and would
+ * otherwise be read as publishing one. It is identified as the registry rather than named as an
+ * exception, so the exclusion cannot outlive its reason.
  *
  * For each subject this requires an exported reader and, for each reader, a sibling test that
  * asserts an EXACT numeric value and proves the counter resets — the cases of
  * [measurement-provenance.md](../../.agents/rules/measurement-provenance.md).
  *
- * THE CEILING, stated rather than implied. Most subjects do not meet this yet; they are recorded in
- * `measurement-provenance-pending.json` with the item that burns the list down. A pending entry is
- * not an exemption: every entry is RE-MEASURED on each run, and one that now passes is itself a
- * finding, so the list can only shrink. What this scan does NOT see: a module that reports a size
- * without the marker, and whether a counter that is asserted is incremented at the right place —
- * that one is judgement, and the rule states it as such.
+ * THE CEILING, stated rather than implied. Most subjects do not meet this yet. Every subject is
+ * classified in `measurement-provenance-pending.json` as either `covered` or `pending`, and a
+ * subject in neither is a finding — so a new declaring scan cannot enter unclassified. Both lists are
+ * RE-MEASURED on each run: a pending entry that now passes is a finding, and a covered entry that
+ * stops passing is a REGRESSION finding, which is what keeps the debt list from absorbing work that
+ * used to be checked. What this scan does NOT see: a module that reports a size without the marker,
+ * a module outside the harness directory, and whether a counter that is asserted is incremented at
+ * the right place — that one is judgement, and the rule states it as such.
  *
  * Usage: `node scripts/harness/scan-measurement-provenance.mjs`
  * Exit 0 = clean, 1 = blocking findings.
  *
- * fail-direction: refuse — an unreadable registry, or a tree with no declaring scan in it, THROWS
- * rather than reporting a clean pass over a population it could not derive.
+ * fail-direction: refuse — an absent harness directory, or a tree with no declaring module in it,
+ * THROWS rather than reporting a clean pass over a population it could not derive.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -47,24 +54,77 @@ const PENDING_FILE = 'scripts/harness/measurement-provenance-pending.json';
 const DECLARATION = '::examined::';
 
 /**
- * Both spellings the repository uses for a size reader. This does NOT decide what a subject is —
- * subjects come from the registry — so a module that spells its reader some third way is reported
- * as having none rather than quietly leaving the population.
+ * Both spellings the repository uses for a size reader. This does NOT decide what a subject is, so a
+ * module whose readers all spell it some third way is reported as having none rather than quietly
+ * leaving the population. A module with one matching reader and one that does not match is judged on
+ * the matching one only — the non-matching name is indistinguishable from any other export.
  */
 const READER_NAME = /^(?:examined[A-Za-z0-9_]*Count|readExamined[A-Za-z0-9_]*)$/;
 
-/** The finder conventions of this harness: what a test calls to make the counter move. */
+/**
+ * The finder naming conventions of this harness. An export matching one of these is what a case is
+ * allowed to run twice to prove the reset; whether that particular export is the one that moves the
+ * counter is not decidable here, so a case running some other conforming export twice is accepted.
+ */
 const FINDER_NAME = /^(?:find|collect|check|scan)[A-Za-z0-9_]*$/;
 
+/** Keywords after which a `/` opens a regular expression rather than dividing. */
+const VALUE_POSITION_WORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'case',
+  'in',
+  'of',
+  'do',
+  'else',
+  'yield',
+  'await',
+  'delete',
+  'void',
+  'new',
+]);
+
 /**
- * Source with comments, string bodies and regular-expression bodies removed, positions otherwise
- * preserved so ordering comparisons stay meaningful. A commented-out call and a call quoted inside
- * a fixture are not calls, and a guard that counts them is satisfied by text that never runs.
+ * Source with comments, string bodies and regular-expression bodies removed. ORDER is preserved,
+ * offsets are not — a comment is deleted outright and a string collapses — so a position from this
+ * output compares against another position from it and against nothing else. A commented-out call
+ * and a call quoted inside a fixture are not calls, and a guard that counts them is satisfied by
+ * text that never runs.
  */
 export function stripNonCode(source) {
   let out = '';
   let i = 0;
   let previousCode = '';
+  let previousWord = '';
+  // Template nesting: `${…}` returns to code, and the code inside may open another template. A flat
+  // reader treats the third backtick as an opener and leaks the region between it and the fourth
+  // into the code stream — the one corruption of this function that can manufacture a call.
+  const templateDepth = [];
+
+  // `atOpener` distinguishes the two entries: starting ON the quote, and RESUMING a template after
+  // its `${…}` closed, where the next character is already body and skipping it would swallow the
+  // template's own terminator — and with it everything up to the next quote in the file.
+  const closeString = (quote, atOpener = true) => {
+    if (atOpener) i++;
+    while (i < source.length) {
+      if (source[i] === '\\') {
+        i += 2;
+        continue;
+      }
+      if (source[i] === quote) {
+        i++;
+        return;
+      }
+      if (quote === '`' && source[i] === '$' && source[i + 1] === '{') {
+        i += 2;
+        templateDepth.push(1);
+        return;
+      }
+      i++;
+    }
+  };
+
   while (i < source.length) {
     const c = source[i];
     const next = source[i + 1];
@@ -79,7 +139,13 @@ export function stripNonCode(source) {
       continue;
     }
     // A `/` in a value position opens a regular expression; in an operand position it is division.
-    if (c === '/' && /[(=,:[!&|?{};+\-*%<>~^]$/.test(previousCode)) {
+    // Getting this wrong deletes code rather than inventing it, so the cost is a visible refusal.
+    if (
+      c === '/' &&
+      (/[(=,:[!&|?{};+\-*%<>~^]$/.test(previousCode) ||
+        previousCode === '' ||
+        VALUE_POSITION_WORDS.has(previousWord))
+    ) {
       i++;
       let inClass = false;
       while (i < source.length) {
@@ -97,26 +163,35 @@ export function stripNonCode(source) {
       }
       out += '//';
       previousCode = '/';
+      previousWord = '';
       continue;
     }
     if (c === "'" || c === '"' || c === '`') {
-      i++;
-      while (i < source.length) {
-        if (source[i] === '\\') {
-          i += 2;
-          continue;
-        }
-        if (source[i] === c) {
-          i++;
-          break;
-        }
-        i++;
-      }
+      closeString(c);
       out += c + c;
       previousCode = c;
+      previousWord = '';
       continue;
     }
+    // Inside a `${…}` the braces are code; the closing one resumes the template that opened it.
+    if (templateDepth.length > 0) {
+      if (c === '{') templateDepth[templateDepth.length - 1]++;
+      else if (c === '}') {
+        templateDepth[templateDepth.length - 1]--;
+        if (templateDepth[templateDepth.length - 1] === 0) {
+          templateDepth.pop();
+          i++;
+          closeString('`', false);
+          out += '``';
+          previousCode = '`';
+          previousWord = '';
+          continue;
+        }
+      }
+    }
     out += c;
+    if (/[A-Za-z0-9_$]/.test(c)) previousWord += c;
+    else previousWord = '';
     if (!/\s/.test(c)) previousCode = c;
     i++;
   }
@@ -124,13 +199,17 @@ export function stripNonCode(source) {
 }
 
 /**
- * Every case body in a test file. Split on the case opener rather than parsed, and the title is not
- * read at all: what a case is CALLED is not what it proves, and requiring a wording would fail
- * suites that already prove the property while passing one that only claims to.
+ * The text between one case opener and the next — not a parsed case body, so a chunk carries the
+ * tail of its case plus whatever sits between it and the next opener. Titles are not read at all:
+ * what a case is CALLED is not what it proves, and requiring a wording would fail suites that
+ * already prove the property while passing one that only claims to.
+ *
+ * The opener must be at a statement position: `RE.test(x)` is a method call, and splitting on it
+ * would cut a compliant case in half and red it.
  */
 export function testCases(source) {
   const starts = [];
-  const re = /\b(?:it|test)(?:\.[a-z]+)*\s*[(`]/g;
+  const re = /(?<![.\w$])(?:it|test)(?:\.[a-z]+)*\s*[(`]/g;
   let match;
   while ((match = re.exec(source)) !== null) starts.push(match.index);
   return starts.map((start, i) =>
@@ -180,12 +259,15 @@ function hasResetCase(testSource, reader, finders) {
   });
 }
 
-/** Names a module exports, by every form this harness uses. */
+/**
+ * Names a module exports, by every form this harness uses. Callers pass source that has been through
+ * `stripNonCode`, so an export declared inside a comment or a fixture string is not one.
+ */
 export function exportedNames(source) {
   const names = new Set();
   const patterns = [
-    /export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g,
-    /export\s+(?:const|let|class)\s+([A-Za-z0-9_]+)/g,
+    /export\s+(?:default\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)/g,
+    /export\s+(?:const|let|var|class)\s+([A-Za-z0-9_]+)/g,
   ];
   for (const re of patterns) {
     let match;
@@ -206,19 +288,32 @@ export function exportedNames(source) {
   return [...names];
 }
 
-/** Scan modules the runner registers — the population the harness already mechanizes. */
-function registeredModules(root) {
-  const registryPath = path.join(root, REGISTRY);
-  if (!existsSync(registryPath))
+/**
+ * Every module under the harness directory, except its tests and the runner. Recursive, because a
+ * helper one directory down publishes a size on the same channel a top-level scan does.
+ */
+function harnessModules(root) {
+  const harnessPath = path.join(root, HARNESS_DIR);
+  if (!existsSync(harnessPath))
     throw new Error(
-      `${REGISTRY} does not exist under ${root}. This scan derives its subjects from the registry ` +
-        'and will not report a pass over a population it could not read.',
+      `${HARNESS_DIR} does not exist under ${root}. This scan will not report a pass over a ` +
+        'population it could not read.',
     );
-  const source = readFileSync(registryPath, 'utf8');
-  const rels = new Set();
-  for (const match of source.matchAll(/'(scripts\/harness\/[A-Za-z0-9._/-]+\.mjs)'/g))
-    rels.add(match[1]);
-  return [...rels].sort();
+  const rels = [];
+  const stack = [harnessPath];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.name.endsWith('.mjs')) {
+        const rel = path.relative(root, full).replace(/\\/g, '/');
+        if (rel !== REGISTRY) rels.push(rel);
+      }
+    }
+  }
+  return rels.sort();
 }
 
 /** The test file for a module, wherever under the test directory it sits. */
@@ -238,14 +333,16 @@ function testFileFor(root, moduleBase) {
   return null;
 }
 
-function readPending(root) {
-  const pendingPath = path.join(root, PENDING_FILE);
-  if (!existsSync(pendingPath)) return { pending: [] };
-  return JSON.parse(readFileSync(pendingPath, 'utf8'));
+function readLedger(root) {
+  const ledgerPath = path.join(root, PENDING_FILE);
+  if (!existsSync(ledgerPath)) return { covered: [], pending: [] };
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
+  return { covered: ledger.covered ?? [], pending: ledger.pending ?? [] };
 }
 
 let examinedSubjects = 0;
 let examinedReaders = 0;
+let coveredSubjects = 0;
 let pendingSubjects = 0;
 
 /** How many declaring scan modules the last run derived and opened. */
@@ -258,6 +355,11 @@ export function examinedReaderCount() {
   return examinedReaders;
 }
 
+/** How many of those subjects met the floor on this run, counted where each was judged. */
+export function coveredSubjectCount() {
+  return coveredSubjects;
+}
+
 /** How many of those subjects are recorded unmet rather than meeting the floor. */
 export function pendingSubjectCount() {
   return pendingSubjects;
@@ -267,7 +369,7 @@ export function pendingSubjectCount() {
 function judgeSubject(root, rel, source) {
   const findings = [];
   const at = (type, detail, reader) => findings.push({ type, module: rel, reader, detail });
-  const names = exportedNames(source);
+  const names = exportedNames(stripNonCode(source));
   const readers = names.filter((name) => READER_NAME.test(name));
   const finders = names.filter((name) => FINDER_NAME.test(name) && !READER_NAME.test(name));
   examinedReaders += readers.length;
@@ -318,51 +420,68 @@ export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
   const findings = [];
   examinedSubjects = 0;
   examinedReaders = 0;
+  coveredSubjects = 0;
   pendingSubjects = 0;
 
-  const pending = new Set(readPending(root).pending ?? []);
-  const stillPending = new Set();
+  const ledger = readLedger(root);
+  const covered = new Set(ledger.covered);
+  const pending = new Set(ledger.pending);
+  const seen = new Set();
 
-  for (const rel of registeredModules(root)) {
-    const modulePath = path.join(root, rel);
-    if (!existsSync(modulePath)) continue;
-    const source = readFileSync(modulePath, 'utf8');
+  for (const rel of harnessModules(root)) {
+    const source = readFileSync(path.join(root, rel), 'utf8');
     if (!source.includes(DECLARATION)) continue;
     examinedSubjects++;
+    seen.add(rel);
 
     const subjectFindings = judgeSubject(root, rel, source);
-    if (!pending.has(rel)) {
-      findings.push(...subjectFindings);
-      continue;
-    }
-    // Re-measured, not trusted: a ledger nobody re-runs is a set of claims about the past presented
-    // as facts about the present, and it can then only grow.
-    if (subjectFindings.length === 0)
+    if (subjectFindings.length === 0) coveredSubjects++;
+    else pendingSubjects++;
+
+    // Every subject is classified, so a new declaring scan cannot enter without an answer, and a
+    // subject that STOPS meeting the floor is a regression rather than a candidate for the debt list.
+    if (covered.has(rel) && pending.has(rel))
       findings.push({
-        type: 'stale-pending-entry',
+        type: 'ambiguous-classification',
         module: rel,
         reader: '-',
-        detail: `meets the floor now — remove it from ${PENDING_FILE}`,
+        detail: `is listed both covered and pending in ${PENDING_FILE}`,
       });
-    else stillPending.add(rel);
+    else if (covered.has(rel)) findings.push(...subjectFindings);
+    else if (pending.has(rel)) {
+      // Re-measured, not trusted: a ledger nobody re-runs is a set of claims about the past
+      // presented as facts about the present.
+      if (subjectFindings.length === 0)
+        findings.push({
+          type: 'stale-pending-entry',
+          module: rel,
+          reader: '-',
+          detail: `meets the floor now — move it to \`covered\` in ${PENDING_FILE}`,
+        });
+    } else
+      findings.push({
+        type: 'unclassified-subject',
+        module: rel,
+        reader: '-',
+        detail: `declares a size but is in neither list of ${PENDING_FILE}`,
+      });
   }
 
-  for (const rel of pending)
-    if (!stillPending.has(rel) && !findings.some((f) => f.module === rel))
+  for (const rel of [...covered, ...pending])
+    if (!seen.has(rel))
       findings.push({
-        type: 'stale-pending-entry',
+        type: 'stale-ledger-entry',
         module: rel,
         reader: '-',
-        detail: `is not a declaring registered scan — remove it from ${PENDING_FILE}`,
+        detail: `is not a declaring harness module — remove it from ${PENDING_FILE}`,
       });
 
   if (examinedSubjects === 0)
     throw new Error(
-      `No registered scan under ${HARNESS_DIR} declares ${DECLARATION}. A tree with no subject is ` +
+      `No module under ${HARNESS_DIR} declares ${DECLARATION}. A tree with no subject is ` +
         'a broken checkout, not a compliant one — this scan will not report a pass over it.',
     );
 
-  pendingSubjects = stillPending.size;
   return findings;
 }
 
@@ -373,9 +492,9 @@ function main() {
     console.log(`::examined:: ${examinedSubjects} declaring scans`);
     console.log(`::examined:: ${examinedReaders} exported size readers`);
     console.log(
-      `measurement-provenance scan passed (${examinedSubjects - pendingSubjects} subject(s) meet the ` +
-        `floor; ${pendingSubjects} recorded unmet in ${PENDING_FILE}). A pass is not a claim that every declared ` +
-        'size is checked.',
+      `measurement-provenance scan passed (${coveredSubjects} subject(s) meet the floor; ` +
+        `${pendingSubjects} recorded unmet in ${PENDING_FILE}). A pass is not a claim that every ` +
+        'declared size is checked.',
     );
     process.exit(0);
   }

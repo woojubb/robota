@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -6,6 +6,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  coveredSubjectCount,
   examinedReaderCount,
   examinedSubjectCount,
   exportedNames,
@@ -42,10 +43,10 @@ it('starts from zero on the next run', () => {
 `;
 
 /**
- * A fixture repository: a registry naming its scans, the modules themselves, and their tests. The
- * registry is written rather than stubbed because the scan DERIVES its population from it.
+ * A fixture repository: harness modules, their tests, and the classification ledger. Nothing here
+ * registers a scan, because the population is the tree rather than the registry.
  */
-async function createFixture({ modules = {}, tests = {}, pending = null, registry = null }) {
+async function createFixture({ modules = {}, tests = {}, ledger = null }) {
   const root = await mkdtemp(path.join(tmpdir(), 'robota-measurement-provenance-'));
   const write = (relativePath, content) => {
     const target = path.join(root, relativePath);
@@ -55,15 +56,15 @@ async function createFixture({ modules = {}, tests = {}, pending = null, registr
   for (const [name, source] of Object.entries(modules)) write(`scripts/harness/${name}`, source);
   for (const [name, source] of Object.entries(tests))
     write(`scripts/harness/__tests__/${name}`, source);
-  const registered = registry ?? Object.keys(modules);
+  // Classification is mandatory, so a fixture that does not care about the ledger gets every
+  // declaring module listed as covered — the state in which a subject's own findings surface.
+  const declaring = Object.entries(modules)
+    .filter(([, source]) => source.includes('::examined::'))
+    .map(([name]) => `scripts/harness/${name}`);
   write(
-    'scripts/harness/run-all-scans.mjs',
-    `const SCAN_COMMANDS = [\n${registered
-      .map((name) => `  { name: '${name}', command: ['node', 'scripts/harness/${name}'] },`)
-      .join('\n')}\n];\n`,
+    'scripts/harness/measurement-provenance-pending.json',
+    JSON.stringify(ledger ?? { covered: declaring, pending: [] }),
   );
-  if (pending !== null)
-    write('scripts/harness/measurement-provenance-pending.json', JSON.stringify(pending));
   return root;
 }
 
@@ -104,7 +105,7 @@ function main() {
     expect(findMeasurementProvenanceFindings(root)).toEqual([]);
   });
 
-  it('does not make a subject of a registered scan that declares no size', async () => {
+  it('does not make a subject of a module that declares no size', async () => {
     const root = await createFixture({
       modules: {
         'scan-a.mjs': MODULE,
@@ -116,14 +117,31 @@ function main() {
     expect(examinedSubjectCount(), 'a non-declaring module entered the population').toBe(1);
   });
 
-  it('does not see a declaring module the registry does not name — the stated ceiling', async () => {
-    // The blind spot the header declares: an unregistered module publishing a size is invisible
-    // here. Pinned so the boundary is a measured fact rather than a sentence in a comment.
+  it('sees a declaring module no registry names, and one a directory down', async () => {
+    // A published size is evidence because it is published, not because a runner calls the module.
     const root = await createFixture({
-      modules: { 'scan-a.mjs': MODULE, 'scan-unregistered.mjs': MODULE },
+      modules: { 'scan-a.mjs': MODULE, 'lib/helper.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
-      registry: ['scan-a.mjs'],
+      ledger: {
+        covered: ['scripts/harness/scan-a.mjs'],
+        pending: ['scripts/harness/lib/helper.mjs'],
+      },
     });
+    expect(findMeasurementProvenanceFindings(root)).toEqual([]);
+    expect(examinedSubjectCount(), 'the nested module left the population').toBe(2);
+    expect(pendingSubjectCount()).toBe(1);
+  });
+
+  it('does not make a subject of the runner, which consumes the marker rather than publishing one', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: { 'scan-a.test.mjs': GREEN_TEST },
+    });
+    writeFileSync(
+      path.join(root, 'scripts/harness/run-all-scans.mjs'),
+      "const MARKER = '::examined::';\nconsole.log(MARKER);\n",
+      'utf8',
+    );
     expect(findMeasurementProvenanceFindings(root)).toEqual([]);
     expect(examinedSubjectCount()).toBe(1);
   });
@@ -242,7 +260,7 @@ describe('the pending ledger records debt and cannot grow quietly', () => {
   it('suppresses a recorded subject while it is still unmet', async () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
-      pending: { pending: ['scripts/harness/scan-a.mjs'] },
+      ledger: { covered: [], pending: ['scripts/harness/scan-a.mjs'] },
     });
     expect(findMeasurementProvenanceFindings(root)).toEqual([]);
     expect(pendingSubjectCount(), 'the entry was not counted as unmet').toBe(1);
@@ -252,34 +270,73 @@ describe('the pending ledger records debt and cannot grow quietly', () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
-      pending: { pending: ['scripts/harness/scan-a.mjs'] },
+      ledger: { covered: [], pending: ['scripts/harness/scan-a.mjs'] },
     });
     expect(types(findMeasurementProvenanceFindings(root))).toEqual(['stale-pending-entry']);
   });
 
-  it('flags an entry naming something that is not a declaring registered scan (anti-rot)', async () => {
+  it('flags an entry naming something that is not a declaring harness module (anti-rot)', async () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
-      pending: { pending: ['scripts/harness/scan-departed.mjs'] },
+      ledger: {
+        covered: ['scripts/harness/scan-a.mjs'],
+        pending: ['scripts/harness/scan-departed.mjs'],
+      },
     });
-    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['stale-pending-entry']);
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['stale-ledger-entry']);
+  });
+
+  it('flags a subject in neither list, so a new declaring scan cannot enter unclassified', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: { 'scan-a.test.mjs': GREEN_TEST },
+      ledger: { covered: [], pending: [] },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['unclassified-subject']);
+  });
+
+  it('does NOT let the ledger absorb a regression: a covered subject that stops passing still fails', async () => {
+    // Recording the debt is for what was never checked. Moving a module that WAS covered into
+    // `pending` deletes it from `covered`, and this case is what makes that deletion the only way
+    // — leaving it covered reports its findings, exactly as if it had never been listed.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs':
+          "it('counts', () => {\n  findThings(big);\n  expect(examinedThingCount()).toBe(3);\n});\n",
+      },
+      ledger: { covered: ['scripts/harness/scan-a.mjs'], pending: [] },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['no-reset-case']);
+  });
+
+  it('flags a subject listed in both lists at once', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: { 'scan-a.test.mjs': GREEN_TEST },
+      ledger: {
+        covered: ['scripts/harness/scan-a.mjs'],
+        pending: ['scripts/harness/scan-a.mjs'],
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['ambiguous-classification']);
   });
 });
 
 describe('the floor refuses rather than passing over nothing', () => {
-  it('throws when the registry it derives its population from is not there', async () => {
+  it('throws when the directory it derives its population from is not there', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'robota-measurement-provenance-bare-'));
     expect(() => findMeasurementProvenanceFindings(root)).toThrow(
-      /run-all-scans\.mjs does not exist/,
+      /scripts\/harness does not exist/,
     );
   });
 
-  it('throws when no registered scan declares a size, rather than reporting a clean pass', async () => {
+  it('throws when no module declares a size, rather than reporting a clean pass', async () => {
     const root = await createFixture({
       modules: { 'helper.mjs': 'export function listFiles() {\n  return [];\n}\n' },
     });
-    expect(() => findMeasurementProvenanceFindings(root)).toThrow(/No registered scan/);
+    expect(() => findMeasurementProvenanceFindings(root)).toThrow(/No module under/);
   });
 });
 
@@ -301,6 +358,21 @@ describe('the source reader is not fooled by text that never runs', () => {
     ).toHaveLength(3);
   });
 
+  it('does not split on a method call named test, which would cut a case in half', () => {
+    // `RE.test(x)` inside a case is not a new case. Splitting there separates a second finder call
+    // from the assertion that follows it, and reds compliant work.
+    expect(testCases("it('a', () => {\n  if (RE.test(x)) return;\n});\n")).toHaveLength(1);
+  });
+
+  it('keeps code that follows a template holding an interpolation', () => {
+    // The interpolation returns to code and the template then resumes; a reader that treats the
+    // resumption as a fresh opener swallows the template's own terminator and everything after it.
+    const stripped = stripNonCode('const t = `a${b(c)}d`;\nfindThings(z);\n');
+    expect(stripped, 'the tail of the file was swallowed by the template').toContain(
+      'findThings(z)',
+    );
+  });
+
   it('reads every export form the harness uses', () => {
     const names = exportedNames(
       'export async function findA() {}\nexport const examinedBCount = () => 0;\nconst c = 1;\nexport { c as examinedCCount };\n',
@@ -316,17 +388,34 @@ describe('the live harness tree', () => {
     expect(findMeasurementProvenanceFindings()).toEqual([]);
   });
 
-  it('records the unmet subjects rather than counting them as covered', () => {
+  it('accounts for every subject as either covered or unmet, with no third state', () => {
     findMeasurementProvenanceFindings();
-    // The ledger is debt, and a pass says so out loud: this number is the distance to the floor,
-    // and HARNESS-087 is what closes it.
-    expect(pendingSubjectCount()).toBeLessThan(examinedSubjectCount());
-    expect(pendingSubjectCount()).toBeGreaterThan(0);
+    // Exact, not bounded: a bound on the floor's own coverage is the shape this rule condemns, and
+    // it would let the debt list grow by any amount without a word. The ledger is the distance to
+    // the floor, and HARNESS-087 is what closes it.
+    expect(coveredSubjectCount() + pendingSubjectCount()).toBe(examinedSubjectCount());
+    expect(coveredSubjectCount()).toBeGreaterThan(0);
+  });
+
+  it('classifies the live ledger by measurement, not by what the file says', () => {
+    const ledger = JSON.parse(
+      readFileSync(
+        path.join(process.cwd(), 'scripts/harness/measurement-provenance-pending.json'),
+        'utf8',
+      ),
+    );
+    findMeasurementProvenanceFindings();
+    expect(ledger.covered.length, 'the covered list disagrees with what the run measured').toBe(
+      coveredSubjectCount(),
+    );
+    expect(ledger.pending.length, 'the pending list disagrees with what the run measured').toBe(
+      pendingSubjectCount(),
+    );
   });
 });
 
 describe('this scan measures its own subjects the way it requires of others', () => {
-  it('counts the subjects the registry yielded and the readers they export', async () => {
+  it('counts the subjects the walk opened and the readers they export', async () => {
     const root = await createFixture({
       modules: {
         'scan-a.mjs': MODULE,
@@ -345,11 +434,11 @@ describe('this scan measures its own subjects the way it requires of others', ()
     expect(examinedReaderCount(), 'the reader count did not follow the walk').toBe(3);
   });
 
-  it('starts all three counters from zero on the next run', async () => {
+  it('starts all four counters from zero on the next run', async () => {
     const big = await createFixture({
       modules: { 'scan-a.mjs': MODULE, 'scan-b.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
-      pending: { pending: ['scripts/harness/scan-b.mjs'] },
+      ledger: { covered: ['scripts/harness/scan-a.mjs'], pending: ['scripts/harness/scan-b.mjs'] },
     });
     const small = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
@@ -359,12 +448,14 @@ describe('this scan measures its own subjects the way it requires of others', ()
     findMeasurementProvenanceFindings(big);
     expect(examinedSubjectCount()).toBe(2);
     expect(examinedReaderCount()).toBe(2);
+    expect(coveredSubjectCount()).toBe(1);
     expect(pendingSubjectCount()).toBe(1);
 
     findMeasurementProvenanceFindings(small);
 
     expect(examinedSubjectCount(), 'the subject count carried over').toBe(1);
     expect(examinedReaderCount(), 'the reader count carried over').toBe(1);
+    expect(coveredSubjectCount(), 'the covered count carried over').toBe(1);
     expect(pendingSubjectCount(), 'the pending count carried over').toBe(0);
   });
 });

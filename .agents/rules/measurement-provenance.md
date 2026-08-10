@@ -42,13 +42,14 @@ self-reported size is read as evidence that the check ran over what it names.
 
 ## What is mechanical
 
-`measurement-provenance` derives its subjects from the tree — every registered check whose source
-emits the declaration — and fails one whose counter is not exported, whose value no exact numeric
+`measurement-provenance` derives its subjects from the tree — every check whose source emits the
+declaration — and fails one whose counter is not exported, whose value no exact numeric
 assertion reads, or which has no assertion after a second run. Clauses 1 and 2 are judgement: where a
 number was incremented is not decidable from outside the module, and a counter carrying the cases
 above is one whose provenance someone had to establish in order to write them.
 
-**The floor's own coverage is a number it publishes, not a claim it implies.** A subject that does not
-meet it yet is recorded in the check's pending ledger, re-measured on every run so an entry that now
-passes is itself a finding, and counted separately in the pass line. A pass therefore says how many
-subjects are covered — never that every declared size is checked.
+**The floor's own coverage is a number it publishes, not a claim it implies.** Every subject is
+classified as covered or unmet, a subject in neither is a finding, and both lists are re-measured on
+every run — so an entry that comes to meet the floor is a finding, and one that stops meeting it is a
+regression rather than a quiet move to the debt list. A pass therefore says how many subjects are
+covered; it never says that every declared size is checked.
