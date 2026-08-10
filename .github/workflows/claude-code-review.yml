@@ -69,15 +69,33 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number }}
             BASE BRANCH: ${{ github.base_ref }}
 
-            이 PR의 변경분(diff)을 리뷰한다. 우선순위는 버그·정확성·보안이고 스타일 트집은 최소화한다.
+            이 PR의 변경분(diff)을 리뷰한다. 이것은 **가벼운 통과 리뷰**다 — 머지를 막을 만한
+            결함만 찾고, 그 외에는 아무것도 쓰지 않는다. 깊은 감사는 작성자가 필요할 때 별도로
+            호출한다.
 
-            **한 번의 실행에서 보이는 것을 전부 보고한다.** 가장 중요한 하나를 고르고 멈추면 안 된다.
-            한 라운드는 8–10분이고, 작성자는 그 시간을 기다린 뒤에야 다음 지적을 볼 수 있다.
-            측정된 것은 **비율**이다: 라운드당 지적이 거의 항상 1건이었고, 한 PR은 그렇게 13라운드
-            — 약 두 시간 — 를 썼다. 지적 3건을 한 번에 적으면 세 라운드가 한 라운드가 된다.
-            (합계를 여기에 적지 않는 이유: 리뷰가 돌 때마다 그 숫자가 늘어난다. 실제로 이 문장의
-            초안에 적힌 합계는 작성된 지 몇 분 만에 틀린 값이 되었다.) 확신이 낮은 항목은 CONSIDER 로 낮춰서라도 이번 패스에 적어라. 남겨두는 것이
-            정중한 것이 아니라, 남겨두는 것이 비싼 것이다.
+            **지적으로 세는 기준(이 문턱을 넘지 못하면 쓰지 않는다).** 구체적인 실패 시나리오를
+            한 문장으로 적을 수 있어야 한다 — 어떤 입력·상태에서 무엇이 잘못된 결과가 되는지.
+            적을 수 없으면 그것은 취향이거나 추측이고, 이 리뷰의 대상이 아니다.
+
+            - 센다: 잘못된 동작, 크래시, 데이터 손상, 보안 결함, 조용히 삼켜지는 오류,
+              버그 코드에서도 통과하는 회귀 테스트.
+            - 세지 않는다(쓰지도 않는다): 명명·주석 문구·문서 표현·테스트 제목·포매팅,
+              "이렇게 하는 편이 낫다"류의 대안 설계, 이 PR이 건드리지 않은 기존 코드,
+              확신이 낮아 확인이 더 필요한 의심.
+
+            확신이 낮으면 적지 않는다. 낮은 확신을 CONSIDER 로 낮춰 적는 것은 이 리뷰에서
+            하지 않는다 — 작성자는 그것도 라운드로 갚는다.
+
+            **문턱을 넘은 것은 한 번의 실행에서 전부 보고한다.** 가장 중요한 하나를 고르고 멈추면
+            안 된다. 한 라운드는 8–10분이고, 작성자는 그 시간을 기다린 뒤에야 다음 지적을 볼 수
+            있다. 측정된 것은 **비율**이다: 라운드당 지적이 거의 항상 1건이었고, 한 PR은 그렇게
+            10라운드 — 약 1.6시간 — 를 썼다. 문턱을 넘은 3건을 한 번에 적으면 세 라운드가 한
+            라운드가 된다.
+
+            **이미 답변된 지적은 다시 꺼내지 않는다.** 같은 PR에 이전 리뷰가 있으면 그 요약을
+            먼저 읽고, 거기서 수정·반박·연기로 정리된 항목은 다시 적지 않는다. 0건으로 끝난
+            라운드 뒤에 같은 지적이 되살아나면 루프에 끝이 없어진다 — 실제로 한 PR에서 0이
+            다섯 번 연속 나온 뒤 9라운드에서 다시 1이 나왔다.
 
             셸 제약을 먼저 읽어라. 실행이 허용된 명령은 `gh pr diff`, `gh pr view`, `gh pr comment`
             세 가지가 전부이고, 거기에 파이프(`|`)·리다이렉션(`>`)·`&&`·`;` 를 붙이면 전부 거부된다.
@@ -90,6 +108,11 @@ jobs:
             2. `gh pr diff <PR NUMBER>` 로 diff 본문을 한 번에 읽는다. 출력이 잘리면 다시 시도하지
                말고, 1의 목록에서 중요한 파일만 골라 Read 로 확인한다 — PR 브랜치는 이미 작업
                디렉터리에 체크아웃되어 있다.
+            2-1. 두 번째 이후 라운드라면 `gh pr view <PR NUMBER> --comments` 로 이전 리뷰 요약을
+               읽는다. 거기서 **이미 고쳐진** 항목은 다시 적지 않는다. 아직 안 고쳐진 항목은
+               이번 라운드에도 그대로 센다 — n 은 지금 남아 있는 전체 상태이지 이번에 새로
+               찾은 것의 수가 아니다. 머지 게이트는 가장 최근 요약의 n 하나만 읽으므로, 안 고친
+               항목을 빼고 세면 그대로 머지된다.
             3. diff 를 다 읽었으면, 인라인 코멘트를 남기기 **전에** 먼저
                `gh pr comment <PR NUMBER> --body "..."` 로 요약을 남긴다. 요약에는 발견한 것을
                심각도 순으로 한 줄씩 적는다(없으면 없다고 쓴다). 요약의 **마지막 줄**은 반드시
@@ -102,10 +125,14 @@ jobs:
                해당 라인에 코멘트를 남긴다. 여기서 예산이 끝나도 3의 요약이 이미 있으므로,
                잃는 것은 세부 위치뿐이다.
 
-            예산 규칙: 인라인 코멘트는 1건이 1턴을 쓰므로 최대 10건까지만 남기고 나머지는 3의
-            요약에 적는다. 이 10건은 스스로 셀 수 있는 수이므로 지킬 수 있다 — 남은 턴 수는
+            예산 규칙: 인라인 코멘트는 1건이 1턴을 쓰므로 최대 5건까지만 남기고 나머지는 3의
+            요약에 적는다. 이 5건은 스스로 셀 수 있는 수이므로 지킬 수 있다 — 남은 턴 수는
             액션이 알려주지 않으니 그것을 기준으로 판단하려 하지 마라. 빌드·타입체크·테스트
             실행이나 전체 트리 탐색은 하지 않는다.
+
+            문턱을 넘은 것이 하나도 없으면 그렇게 쓰고 0으로 끝낸다. 0 은 실패가 아니라 이
+            리뷰의 정상적인 결과다 — 무언가를 찾아내야 한다는 압박으로 취향을 지적으로
+            승격시키지 마라.
 
             이 레포가 특히 강조하는 규율: strict TypeScript(`any`/`unknown` 금지), no-fallback(오류를
             기본값으로 삼켜 감추지 말 것), SSOT 타입, 일방향 패키지 의존성(순환·pass-through
@@ -148,9 +175,25 @@ jobs:
           #
           # 45 gives the measured tail (22) real headroom rather than three turns of it. The point
           # is not that bigger is better — with the summary landing first, an exhausted run now
-          # degrades instead of vanishing, and the cap is what stops a runaway.
+          # degrades instead of vanishing, and the cap is what stops a runaway. The cap stays where
+          # it is under the lighter prompt: a narrower bar spends fewer turns on its own, and
+          # lowering the ceiling would buy nothing while restoring the tail-cutting failure above.
+          #
+          # --effort sets the reasoning budget for the session. The reason it belongs here is what
+          # Claude Code's own /code-review documents about the same flag: at `low`/`medium` the
+          # review reports only the findings it is most confident in, and `high` upward broaden
+          # coverage and may include findings it is less sure of. That is a documented property of
+          # that command, not a guaranteed property of this action, so it is an additive lever here
+          # and the prompt threshold above is the mechanism.
+          #
+          # It reaches the CLI through `claude_args`' pass-through, which the action does not
+          # enumerate among the flags it interprets. Two failure modes follow, and the second is the
+          # one to watch: a CLI that IGNORES the flag leaves it inert, and a CLI that REJECTS an
+          # unknown option fails the step — on every pull request, since this is the automatic pass.
+          # If that happens, delete this line; nothing else depends on it.
           claude_args: |
             --allowedTools "Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob"
             --disallowedTools "Write,Edit,NotebookEdit,WebFetch,WebSearch"
             --max-turns 45
+            --effort medium
             --model claude-sonnet-5
