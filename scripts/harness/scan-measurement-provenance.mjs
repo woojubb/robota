@@ -226,8 +226,14 @@ export function stripNonCode(source) {
   return out;
 }
 
-/** Modifiers that stop a case or a suite from running. */
-const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf)$/;
+/**
+ * Modifiers under which a case or suite is not a guaranteed check. The conditional pair is here for
+ * the same reason as the unconditional one: whether `skipIf(cond)` skips and `runIf(cond)` runs is
+ * decided at run time by an expression this reader cannot evaluate, so counting either as a check
+ * certifies a counter that may never be measured. Both resolve to "not proof", which costs a
+ * refusal someone sees rather than a pass nobody does.
+ */
+const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf|runIf)$/;
 
 /**
  * Spans of source belonging to a suite that does not run, by parenthesis balance from its opener.
@@ -237,14 +243,10 @@ const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf)$/;
  */
 function disabledSuiteSpans(source) {
   const spans = [];
-  const re = /(?<![.\w$])describe(?:\.[a-zA-Z]+)*\s*\(/g;
+  const re = /(?<![.\w$])describe((?:\.[a-zA-Z]+)*)\s*[(`]/g;
   let match;
   while ((match = re.exec(source)) !== null) {
-    const modifiers = match[0]
-      .slice('describe'.length, match[0].indexOf('('))
-      .trim()
-      .split('.')
-      .filter(Boolean);
+    const modifiers = match[1].split('.').filter(Boolean);
     if (!modifiers.some((m) => DISABLED_MODIFIER.test(m))) continue;
     let i = re.lastIndex - 1;
     for (;;) {
@@ -321,9 +323,11 @@ function exactAssertionPosition(source, reader, from = 0) {
   for (const position of callPositions(source, reader)) {
     if (position < from) continue;
     const rest = source.slice(position);
+    // The statement ends at its terminator, or at the end of the text it was given — whichever comes
+    // first. Without the second bound a reader call in a terminator-less statement reaches forward
+    // to the next `;` anywhere, which in joined case text is another case's assertion entirely.
     const end = rest.indexOf(';');
-    if (end === -1) continue;
-    const statement = rest.slice(0, end);
+    const statement = end === -1 ? rest : rest.slice(0, end);
     // `.not.toBe(0)` is a bound wearing an exact assertion's spelling: it holds for every value but
     // one, which is what clause 3 refuses.
     if (/\.not\b/.test(statement)) continue;
@@ -409,7 +413,10 @@ function harnessModules(root) {
 function testFileFor(root, moduleBase) {
   const testsDir = path.join(root, TESTS_DIR);
   if (!existsSync(testsDir)) return null;
-  const wanted = new Set([`${moduleBase}.test.mjs`, `${moduleBase}.spec.mjs`]);
+  // Exactly what the runner runs: `vitest.config.ts` includes `scripts/**/__tests__/**/*.test.{ts,mjs}`.
+  // A `.spec.mjs` sibling is executed by nothing, so accepting one would certify a subject whose
+  // cases never run — this floor's own premise, defeated by a file name.
+  const wanted = new Set([`${moduleBase}.test.mjs`, `${moduleBase}.test.ts`]);
   const stack = [testsDir];
   while (stack.length > 0) {
     const dir = stack.pop();
@@ -508,13 +515,16 @@ function judgeSubject(root, rel, source) {
 
   // Only the cases that run. The exact-value check reads the same text as the reset check, or an
   // assertion inside a skipped case would satisfy one half of the floor while proving nothing.
-  const testSource = testCases(stripNonCode(readFileSync(testPath, 'utf8'))).join('\n');
+  // Judged per case, not over the concatenation: a statement with no terminator ends where its
+  // own case's text ends, and joining first would let it reach an assertion in the next case.
+  const liveCases = testCases(stripNonCode(readFileSync(testPath, 'utf8')));
+  const testSource = liveCases.join('\n');
   const testRel = path.relative(root, testPath);
   for (const reader of readers) {
     // Counted HERE rather than as `readers.length`: a size read off a collection is the size of the
     // collection, which is clause 1 of the rule this module mechanizes.
     examinedReaders++;
-    if (exactAssertionPosition(testSource, reader) === -1)
+    if (liveCases.every((body) => exactAssertionPosition(body, reader) === -1))
       at(
         'no-exact-count-assertion',
         `${testRel} never asserts it against an exact numeric value`,

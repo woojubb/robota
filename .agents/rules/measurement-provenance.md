@@ -43,7 +43,8 @@ self-reported size is read as evidence that the check ran over what it names.
 ## What is mechanical
 
 `measurement-provenance` derives its subjects from the tree — every check whose source CARRIES the
-declaration marker — and fails one whose counter is not exported, whose value no live case asserts
+declaration marker — and fails one whose counter is not exported under the reader convention
+(`examined…Count` / `readExamined…`), whose value no live case asserts
 against an exact numeric value, or which has no assertion after a second run. Carrying rather than
 printing is deliberate: recognising the call that prints would exempt every module whose spelling the
 check did not know, and a check that over-includes is argued with in a file rather than obeyed in
