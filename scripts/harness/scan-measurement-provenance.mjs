@@ -16,12 +16,9 @@
  * the shape of a reader's name would grant an exemption to anyone who spelled the reader
  * differently, and would report a clean pass over the modules it failed to recognise.
  *
- * ONE derived exclusion: the runner, which CONSUMES the marker to build its report and would
- * otherwise be read as publishing one. It is identified as the registry rather than named as an
- * exception, so the exclusion cannot outlive its reason.
- *
- * For each subject this requires an exported reader and, for each reader, a sibling test that
- * asserts an EXACT numeric value and proves the counter resets — the cases of
+ * For each subject this requires an exported reader and, for each reader, a test file of the same
+ * base name under the harness test directory that asserts an EXACT numeric value and proves the
+ * counter resets — the cases of
  * [measurement-provenance.md](../../.agents/rules/measurement-provenance.md).
  *
  * THE CEILING, stated rather than implied. Most subjects do not meet this yet. Every subject is
@@ -30,8 +27,10 @@
  * RE-MEASURED on each run: a pending entry that now passes is a finding, and a covered entry that
  * stops passing is a REGRESSION finding, which is what keeps the debt list from absorbing work that
  * used to be checked. What this scan does NOT see: a module that reports a size without the marker,
- * a module outside the harness directory, and whether a counter that is asserted is incremented at
- * the right place — that one is judgement, and the rule states it as such.
+ * a module outside the harness directory or not written as `.mjs`, its OWN two ledger counts (which
+ * the pass line prints and which no reader-name convention covers, so they are tested by choice
+ * rather than by this floor), and whether a counter that is asserted is incremented at the right
+ * place — that one is judgement, and the rule states it as such.
  *
  * Usage: `node scripts/harness/scan-measurement-provenance.mjs`
  * Exit 0 = clean, 1 = blocking findings.
@@ -96,7 +95,10 @@ export function stripNonCode(source) {
   let out = '';
   let i = 0;
   let previousCode = '';
+  // The last COMPLETE identifier. It has to survive the whitespace after it, or the keyword test
+  // below can only fire on `return/x/` written with no space — which is to say never.
   let previousWord = '';
+  let wordOpen = false;
   // Template nesting: `${…}` returns to code, and the code inside may open another template. A flat
   // reader treats the third backtick as an opener and leaks the region between it and the fourth
   // into the code stream — the one corruption of this function that can manufacture a call.
@@ -164,6 +166,7 @@ export function stripNonCode(source) {
       out += '//';
       previousCode = '/';
       previousWord = '';
+      wordOpen = false;
       continue;
     }
     if (c === "'" || c === '"' || c === '`') {
@@ -171,6 +174,7 @@ export function stripNonCode(source) {
       out += c + c;
       previousCode = c;
       previousWord = '';
+      wordOpen = false;
       continue;
     }
     // Inside a `${…}` the braces are code; the closing one resumes the template that opened it.
@@ -185,13 +189,20 @@ export function stripNonCode(source) {
           out += '``';
           previousCode = '`';
           previousWord = '';
+          wordOpen = false;
           continue;
         }
       }
     }
     out += c;
-    if (/[A-Za-z0-9_$]/.test(c)) previousWord += c;
-    else previousWord = '';
+    if (/[A-Za-z0-9_$]/.test(c)) {
+      if (!wordOpen) previousWord = '';
+      previousWord += c;
+      wordOpen = true;
+    } else {
+      wordOpen = false;
+      if (!/\s/.test(c)) previousWord = '';
+    }
     if (!/\s/.test(c)) previousCode = c;
     i++;
   }
@@ -289,8 +300,10 @@ export function exportedNames(source) {
 }
 
 /**
- * Every module under the harness directory, except its tests and the runner. Recursive, because a
- * helper one directory down publishes a size on the same channel a top-level scan does.
+ * Every module under the harness directory, except its tests. Recursive, because a helper one
+ * directory down publishes a size on the same channel a top-level scan does. The runner is not
+ * excluded: it consumes the marker to build its report AND publishes two sizes about its own work,
+ * so exempting it would hide the most-read size in the harness.
  */
 function harnessModules(root) {
   const harnessPath = path.join(root, HARNESS_DIR);
@@ -307,10 +320,8 @@ function harnessModules(root) {
       if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) stack.push(full);
-      else if (entry.name.endsWith('.mjs')) {
-        const rel = path.relative(root, full).replace(/\\/g, '/');
-        if (rel !== REGISTRY) rels.push(rel);
-      }
+      else if (entry.name.endsWith('.mjs'))
+        rels.push(path.relative(root, full).replace(/\\/g, '/'));
     }
   }
   return rels.sort();
@@ -324,7 +335,9 @@ function testFileFor(root, moduleBase) {
   const stack = [testsDir];
   while (stack.length > 0) {
     const dir = stack.pop();
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) stack.push(full);
       else if (wanted.has(entry.name)) return full;
@@ -335,9 +348,23 @@ function testFileFor(root, moduleBase) {
 
 function readLedger(root) {
   const ledgerPath = path.join(root, PENDING_FILE);
-  if (!existsSync(ledgerPath)) return { covered: [], pending: [] };
+  if (!existsSync(ledgerPath)) return { covered: [], pending: [], duplicates: [] };
   const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8'));
-  return { covered: ledger.covered ?? [], pending: ledger.pending ?? [] };
+  const covered = ledger.covered ?? [];
+  const pending = ledger.pending ?? [];
+  // A repeated entry makes the file's lengths disagree with the counts a run measures, which is the
+  // one way the ledger can misdescribe itself without any subject being misjudged.
+  // Within each list: an entry in BOTH lists is a different fault with its own finding, and folding
+  // the two together would report the clearer one under the vaguer name.
+  const duplicates = [];
+  for (const list of [covered, pending]) {
+    const seen = new Set();
+    for (const rel of list) {
+      if (seen.has(rel)) duplicates.push(rel);
+      seen.add(rel);
+    }
+  }
+  return { covered, pending, duplicates };
 }
 
 let examinedSubjects = 0;
@@ -360,7 +387,11 @@ export function coveredSubjectCount() {
   return coveredSubjects;
 }
 
-/** How many of those subjects are recorded unmet rather than meeting the floor. */
+/**
+ * How many of those subjects MEASURED as unmet on this run. On a clean run it equals the ledger's
+ * pending list, because any disagreement between the two is itself a finding; on a failing run it
+ * does not, and the pass line is the only place it is printed.
+ */
 export function pendingSubjectCount() {
   return pendingSubjects;
 }
@@ -372,7 +403,6 @@ function judgeSubject(root, rel, source) {
   const names = exportedNames(stripNonCode(source));
   const readers = names.filter((name) => READER_NAME.test(name));
   const finders = names.filter((name) => FINDER_NAME.test(name) && !READER_NAME.test(name));
-  examinedReaders += readers.length;
 
   if (readers.length === 0) {
     at(
@@ -386,18 +416,23 @@ function judgeSubject(root, rel, source) {
   const base = path.basename(rel, '.mjs');
   const testPath = testFileFor(root, base);
   if (testPath === null) {
-    for (const reader of readers)
+    for (const reader of readers) {
+      examinedReaders++;
       at(
         'missing-counter-test',
         `no test file for ${base} — the reported size is checked by nothing`,
         reader,
       );
+    }
     return findings;
   }
 
   const testSource = stripNonCode(readFileSync(testPath, 'utf8'));
   const testRel = path.relative(root, testPath);
   for (const reader of readers) {
+    // Counted HERE rather than as `readers.length`: a size read off a collection is the size of the
+    // collection, which is clause 1 of the rule this module mechanizes.
+    examinedReaders++;
     if (exactAssertionPosition(testSource, reader) === -1)
       at(
         'no-exact-count-assertion',
@@ -424,6 +459,13 @@ export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
   pendingSubjects = 0;
 
   const ledger = readLedger(root);
+  for (const rel of ledger.duplicates)
+    findings.push({
+      type: 'duplicate-ledger-entry',
+      module: rel,
+      reader: '-',
+      detail: `is listed more than once in ${PENDING_FILE}`,
+    });
   const covered = new Set(ledger.covered);
   const pending = new Set(ledger.pending);
   const seen = new Set();

@@ -3,6 +3,8 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -132,10 +134,16 @@ function main() {
     expect(pendingSubjectCount()).toBe(1);
   });
 
-  it('does not make a subject of the runner, which consumes the marker rather than publishing one', async () => {
+  it('makes a subject of the runner too, which publishes sizes about its own work', async () => {
+    // It consumes the marker to build its report AND declares how much it ran. Exempting it for the
+    // first reason would hide the second, which is the most-read size in the harness.
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
+      ledger: {
+        covered: ['scripts/harness/scan-a.mjs'],
+        pending: ['scripts/harness/run-all-scans.mjs'],
+      },
     });
     writeFileSync(
       path.join(root, 'scripts/harness/run-all-scans.mjs'),
@@ -143,7 +151,7 @@ function main() {
       'utf8',
     );
     expect(findMeasurementProvenanceFindings(root)).toEqual([]);
-    expect(examinedSubjectCount()).toBe(1);
+    expect(examinedSubjectCount(), 'the runner left the population').toBe(2);
   });
 });
 
@@ -254,6 +262,27 @@ function main() {
     const root = await createFixture({ modules: { 'scan-a.mjs': MODULE } });
     expect(types(findMeasurementProvenanceFindings(root))).toEqual(['missing-counter-test']);
   });
+
+  it('does not count an export that exists only in a comment or a string', async () => {
+    // The module is read through the same stripper its test is, or a `find…` mentioned in prose
+    // would suppress the finding that says nothing can be run to move the counter.
+    const root = await createFixture({
+      modules: {
+        'scan-a.mjs': `
+// export function findThings(root) {}
+const doc = 'export function findOther(root) {}';
+export function examinedThingCount() {
+  return 0;
+}
+function main() {
+  console.log('::examined:: 1 thing');
+}
+`,
+      },
+      tests: { 'scan-a.test.mjs': GREEN_TEST },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['no-exported-finder']);
+  });
 });
 
 describe('the pending ledger records debt and cannot grow quietly', () => {
@@ -311,6 +340,18 @@ describe('the pending ledger records debt and cannot grow quietly', () => {
     expect(types(findMeasurementProvenanceFindings(root))).toEqual(['no-reset-case']);
   });
 
+  it('flags an entry repeated within a list, which makes its length misdescribe it', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: { 'scan-a.test.mjs': GREEN_TEST },
+      ledger: {
+        covered: ['scripts/harness/scan-a.mjs', 'scripts/harness/scan-a.mjs'],
+        pending: [],
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['duplicate-ledger-entry']);
+  });
+
   it('flags a subject listed in both lists at once', async () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
@@ -364,6 +405,14 @@ describe('the source reader is not fooled by text that never runs', () => {
     expect(testCases("it('a', () => {\n  if (RE.test(x)) return;\n});\n")).toHaveLength(1);
   });
 
+  it('strips a regular expression opened after a keyword, not just after punctuation', () => {
+    // `return /x/` is the common spelling and the space between them is not optional in practice.
+    // Read as division, the pattern body leaks into the code stream — the one corruption of this
+    // reader that can manufacture a call rather than lose one.
+    const stripped = stripNonCode('return /findThings(1)/.test(f);\n');
+    expect(stripped, 'the pattern body leaked into the code stream').not.toContain('findThings(1)');
+  });
+
   it('keeps code that follows a template holding an interpolation', () => {
     // The interpolation returns to code and the template then resumes; a reader that treats the
     // resumption as a fresh opener swallows the template's own terminator and everything after it.
@@ -388,19 +437,13 @@ describe('the live harness tree', () => {
     expect(findMeasurementProvenanceFindings()).toEqual([]);
   });
 
-  it('accounts for every subject as either covered or unmet, with no third state', () => {
-    findMeasurementProvenanceFindings();
-    // Exact, not bounded: a bound on the floor's own coverage is the shape this rule condemns, and
-    // it would let the debt list grow by any amount without a word. The ledger is the distance to
-    // the floor, and HARNESS-087 is what closes it.
-    expect(coveredSubjectCount() + pendingSubjectCount()).toBe(examinedSubjectCount());
-    expect(coveredSubjectCount()).toBeGreaterThan(0);
-  });
-
   it('classifies the live ledger by measurement, not by what the file says', () => {
+    // The real check on the floor's own numbers: the file is compared against what the run measured,
+    // in both directions, so neither list can drift from the tree. `covered + pending === subjects`
+    // holds for any tree by construction, so it is not asserted.
     const ledger = JSON.parse(
       readFileSync(
-        path.join(process.cwd(), 'scripts/harness/measurement-provenance-pending.json'),
+        path.join(WORKSPACE_ROOT, 'scripts/harness/measurement-provenance-pending.json'),
         'utf8',
       ),
     );
@@ -411,6 +454,10 @@ describe('the live harness tree', () => {
     expect(ledger.pending.length, 'the pending list disagrees with what the run measured').toBe(
       pendingSubjectCount(),
     );
+    // A non-vacuity guard, stated as one: with nothing covered the floor would enforce nothing and
+    // still pass. It is a bound because the exact figure belongs to the comparison above, which
+    // moves with the tree.
+    expect(coveredSubjectCount(), 'nothing meets the floor').toBeGreaterThan(0);
   });
 });
 

@@ -37,9 +37,10 @@ the rules index under Process Sub-Rules and as common-mistakes entry 86.
 
 **Mechanism.** `scripts/harness/scan-measurement-provenance.mjs`, registered as
 `measurement-provenance` in the runner and pinned in `MANDATORY_TREE_GUARDS` (the guard-scope floor
-executes it against a bare root and proves it throws). Its subject set is DERIVED — every registered
-scan whose source emits the declaration — and it fails one whose counter is not exported, whose value
-no exact numeric assertion reads, or which has no assertion after a second run of the finder.
+executes it against a bare root and proves it throws). Its subject set is DERIVED — every module
+under the harness directory whose source emits the declaration, the runner included — and it fails
+one whose counter is not exported, whose value no exact numeric assertion reads, or which has no
+assertion after a second run of the finder.
 
 Two earlier versions were falsified against the live tree and are the reason the shape above is what
 it is:
@@ -53,11 +54,13 @@ it is:
   same silent-permit enumeration the rule exists to prevent, committed by the check adopting it.
 - a third version took the population from the runner's registration list, which dropped a module
   that publishes two sizes without being registered. Registration is not what makes a published size
-  evidence, so the population is now the directory walk, less the runner itself — which consumes the
-  marker rather than publishing one, and is excluded by being identified as the registry.
+  evidence, so the population is the directory walk.
+- a fourth exempted the runner, on the ground that it CONSUMES the marker to build its report. It
+  does — and it also publishes two sizes about its own work, which the exemption hid. There is no
+  exemption now; the runner is classified in the ledger like every other subject.
 
-**Measured population.** 61 declaring modules exporting 21 readers. Eight meet the floor; the other
-53 are recorded in `scripts/harness/measurement-provenance-pending.json`. Every subject is classified
+**Measured population.** 62 declaring modules exporting 21 readers. Eight meet the floor; the other
+54 are recorded in `scripts/harness/measurement-provenance-pending.json`. Every subject is classified
 there as covered or pending — a subject in neither is a finding, so a new declaring scan cannot enter
 unclassified — and both lists are re-measured on every run, so an entry that comes to meet the floor
 is a finding and one that stops meeting it is a regression rather than a quiet move to the debt list.
@@ -73,11 +76,12 @@ appearing somewhere in each test file; the scan disagreed with it in both direct
 **Proved.** Against the pre-fix tree the scan exits 1 and names the gap. Removing
 `examinedShippableFiles = 0;` from the swept module turns both new cases red (`expected 1649 to be 3`
 — the live tree size carried into a fixture run — and `expected 1652 to be 3` after accumulation);
-restoring it turns them green. The scan's own 30 cases cover each finding type, both fail-closed
+restoring it turns them green. The scan's own 32 cases cover each finding type, both fail-closed
 refusals, and its own four counters. The subject-derivation rewrite is covered by cases pinning both
-reader spellings, the const and re-export forms, a commented-out second run, a second run appearing
-only inside a string, an assertion taken before the second run, and the declared ceiling (a declaring
-module the registry does not name is invisible here).
+reader spellings, the const and re-export forms, an export that exists only in a comment or a string,
+a commented-out second run, a second run appearing only inside a string, an assertion taken before
+the second run, a regular expression opened after a keyword, and a module a directory down that no
+registry names.
 
 **Not closed here.** The second lesson mined in the same pass — defensive code written for a state
 the surrounding code has already excluded — has no mechanism, because logical reachability is not
