@@ -227,9 +227,14 @@ export function stripNonCode(source) {
 }
 
 /** Modifiers that stop a case or a suite from running. */
-const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf|concurrent\.skip)$/;
+const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf)$/;
 
-/** Spans of source belonging to a suite that does not run, by brace balance from its opener. */
+/**
+ * Spans of source belonging to a suite that does not run, by parenthesis balance from its opener.
+ * The curried spellings — `describe.skipIf(cond)(title, body)` and `describe.skip.each(rows)(…)` —
+ * close one argument list and open another, so balancing only the first would leave the body live
+ * and certify a counter that no case runs.
+ */
 function disabledSuiteSpans(source) {
   const spans = [];
   const re = /(?<![.\w$])describe(?:\.[a-zA-Z]+)*\s*\(/g;
@@ -241,14 +246,19 @@ function disabledSuiteSpans(source) {
       .split('.')
       .filter(Boolean);
     if (!modifiers.some((m) => DISABLED_MODIFIER.test(m))) continue;
-    let depth = 0;
     let i = re.lastIndex - 1;
-    for (; i < source.length; i++) {
-      if (source[i] === '(') depth++;
-      else if (source[i] === ')') {
-        depth--;
-        if (depth === 0) break;
+    for (;;) {
+      let depth = 0;
+      for (; i < source.length; i++) {
+        if (source[i] === '(') depth++;
+        else if (source[i] === ')') {
+          depth--;
+          if (depth === 0) break;
+        }
       }
+      const next = source.slice(i + 1).search(/\S/);
+      if (next === -1 || source[i + 1 + next] !== '(') break;
+      i = i + 1 + next;
     }
     spans.push([match.index, i]);
   }
@@ -265,6 +275,9 @@ function disabledSuiteSpans(source) {
  * would cut a compliant case in half and red it. A case the runner skips — by its own modifier or
  * by its suite's — is dropped: a counter checked only by a disabled test is checked by nothing,
  * which is the premise of this whole floor.
+ *
+ * Takes source that has been through `stripNonCode`. On raw source an unbalanced parenthesis inside a
+ * comment or a string runs a skipped suite's span to the end of the file.
  */
 export function testCases(source) {
   const disabled = disabledSuiteSpans(source);
@@ -472,7 +485,8 @@ function judgeSubject(root, rel, source) {
   if (readers.length === 0) {
     at(
       'no-exported-size-reader',
-      'declares a size no test can read — the counter is not exported',
+      'declares a size no test can read — no export matches the reader convention ' +
+        '(`examined…Count` / `readExamined…`)',
       '-',
     );
     return findings;

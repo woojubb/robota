@@ -247,6 +247,62 @@ describe.skip('the counter', () => {
     expect(found).toContain('no-reset-case');
   });
 
+  it('does not accept a case under a curried skipped suite', async () => {
+    // `describe.skipIf(cond)(title, body)` closes one argument list and opens another. A span that
+    // balances only the first leaves the body live, which is the same false pass as a plain
+    // `describe.skip` — and this spelling is already in use in this repository.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs': `
+describe.skipIf(true)('the counter', () => {
+  it('counts what the walk opened', () => {
+    findThings(big);
+    findThings(small);
+    expect(examinedThingCount()).toBe(3);
+  });
+});
+`,
+      },
+    });
+    const found = types(findMeasurementProvenanceFindings(root));
+    expect(found).toContain('no-exact-count-assertion');
+    expect(found).toContain('no-reset-case');
+  });
+
+  it('does not pair a reader call with an exact assertion from a later statement', async () => {
+    // The reader call and the assertion have to be the same statement, or any nearby literal
+    // satisfies any reader — which is how a counter gets certified by an assertion about something
+    // else entirely.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs': `
+it('counts what the walk opened', () => {
+  findThings(big);
+  findThings(small);
+  const n = examinedThingCount();
+  expect(findings.length).toBe(3);
+});
+`,
+      },
+    });
+    const found = types(findMeasurementProvenanceFindings(root));
+    expect(found).toContain('no-exact-count-assertion');
+    expect(found).toContain('no-reset-case');
+  });
+
+  it('does not accept a reader call with no statement terminator after it', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs':
+          "it('counts', () => {\n  findThings(big)\n  findThings(small)\n  expect(examinedThingCount()).toBe(3)\n})\n",
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toContain('no-exact-count-assertion');
+  });
+
   it('does not accept a negated assertion, which holds for every value but one', async () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },

@@ -80,7 +80,7 @@ appearing somewhere in each test file; the scan disagreed with it in both direct
 **Proved.** Against the pre-fix tree the scan exits 1 and names the gap. Removing
 `examinedShippableFiles = 0;` from the swept module turns both new cases red (`expected 1649 to be 3`
 — the live tree size carried into a fixture run — and `expected 1652 to be 3` after accumulation);
-restoring it turns them green. The scan's own 35 cases cover each finding type, both fail-closed
+restoring it turns them green. The scan's own 38 cases cover each finding type, both fail-closed
 refusals, and its own four counters. The subject-derivation rewrite is covered by cases pinning both
 reader spellings, the const and re-export forms, an export that exists only in a comment or a string,
 a commented-out second run, a second run appearing only inside a string, an assertion taken before
