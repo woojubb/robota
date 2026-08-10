@@ -157,8 +157,10 @@ describe('the examined-size counter measures this run and only this run', () => 
 
   it('starts from zero on the next run, rather than carrying the previous tree size', async () => {
     // A module-level holder that is never reset reports the sum of every run in the process, which
-    // rises monotonically and reads exactly like a growing subject. The second fixture is SMALLER
-    // rather than empty: a same-size one passes whether the counter resets or not.
+    // rises monotonically and reads exactly like a growing subject. The assertion comes AFTER the
+    // second run — taken before it, it would describe the first run and hold either way. The second
+    // fixture is also smaller, which additionally catches a count read off some source other than
+    // this walk.
     const big = await createSrcFixture({
       'packages/a/src/one.ts': 'export const one = 1;\n',
       'packages/a/src/two.ts': 'export const two = 2;\n',

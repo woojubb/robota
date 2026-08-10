@@ -88,7 +88,7 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
 export const MANDATORY_TREE_GUARDS = [
   {
     // Measured the way this harness calls it — `finder(bare)`: throws
-    // `scripts/harness does not exist`.
+    // `run-all-scans.mjs does not exist`.
     file: 'scan-measurement-provenance.mjs',
     finder: 'findMeasurementProvenanceFindings',
     tree: 'scripts/harness',

@@ -32,29 +32,45 @@ a changed-file list rather than the walk.
 
 **Rule.** `.agents/rules/measurement-provenance.md` — the number is produced by the traversal that
 does the work; one subject, one number; the counter is an output and is tested as one (an exact
-value against a fixture of known size, plus a second run over a differently-sized one). Registered in
+value against a fixture of known size, plus an assertion taken after a second run). Registered in
 the rules index under Process Sub-Rules and as common-mistakes entry 86.
 
 **Mechanism.** `scripts/harness/scan-measurement-provenance.mjs`, registered as
-`measurement-provenance` in `run-all-scans.mjs` and pinned in `MANDATORY_TREE_GUARDS` (the
-guard-scope floor executes it against a bare root and proves it throws). It fails when a module
-exporting a size reader has no sibling test, no exact numeric assertion on the reader, or no case
-that runs the finder over two DIFFERENT inputs and then asserts the counter.
+`measurement-provenance` in the runner and pinned in `MANDATORY_TREE_GUARDS` (the guard-scope floor
+executes it against a bare root and proves it throws). Its subject set is DERIVED — every registered
+scan whose source emits the declaration — and it fails one whose counter is not exported, whose value
+no exact numeric assertion reads, or which has no assertion after a second run of the finder.
 
-The reset case is judged by SHAPE, not by the case's title. A title-matching first version was
-falsified against the live tree: it failed two suites that already prove the property under a
-different wording, and would have passed a case that only said it resets.
+Two earlier versions were falsified against the live tree and are the reason the shape above is what
+it is:
 
-**Swept.** 7 modules exporting 9 size readers were audited by the new scan. A manual pattern sweep
-had reported all but one compliant; the scan found the remaining gap in
-`scan-no-fake-in-src` — no exact assertion and no reset case — which was closed with two cases in
-`scripts/harness/__tests__/scan-no-fake-in-src.test.mjs`.
+- a first version required the reset case to be TITLED for the reset. It failed two suites that
+  already prove the property under a different wording, and would have passed one that only said it
+  resets. Judged by shape since.
+- a second version derived its subjects from the READER'S NAME at depth 1 of one directory. Measured:
+  60 registered scans declare a size, and that version governed 8 of them — every module spelling its
+  reader differently, or keeping the counter in `main()`, left the population silently. That is the
+  same silent-permit enumeration the rule exists to prevent, committed by the check adopting it.
+
+**Measured population.** 60 declaring scans exporting 21 readers. Eight meet the floor; the other 52
+are recorded in `scripts/harness/measurement-provenance-pending.json`, re-measured on every run so
+an entry that comes to meet the floor is itself a finding, and reported as a separate number in the
+pass line. HARNESS-087 burns the ledger down.
+
+**Swept.** Of the modules already exporting a reader, one was found non-compliant —
+`scan-no-fake-in-src`, with no exact assertion and no reset case — closed with two cases in
+`scripts/harness/__tests__/scan-no-fake-in-src.test.mjs`. A manual pattern sweep run before the
+scan existed had reported the rest of that group compliant on the strength of the word "reset"
+appearing somewhere in each test file; the scan disagreed with it in both directions.
 
 **Proved.** Against the pre-fix tree the scan exits 1 and names the gap. Removing
 `examinedShippableFiles = 0;` from the swept module turns both new cases red (`expected 1649 to be 3`
 — the live tree size carried into a fixture run — and `expected 1652 to be 3` after accumulation);
 restoring it turns them green. The scan's own 11 cases cover each finding type, both fail-closed
-refusals, and its own two counters.
+refusals, and its own three counters. The subject-derivation rewrite is covered by cases pinning both
+reader spellings, the const and re-export forms, a commented-out second run, a second run appearing
+only inside a string, an assertion taken before the second run, and the declared ceiling (a declaring
+module the registry does not name is invisible here).
 
 **Not closed here.** The second lesson mined in the same pass — defensive code written for a state
 the surrounding code has already excluded — has no mechanism, because logical reachability is not
