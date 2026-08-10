@@ -14,8 +14,8 @@ depends_on: []
 
 ## The problem
 
-Sixty-one harness modules declare the size of what they examined. Eight export the counter and assert
-it; the rest are recorded as pending in `scripts/harness/measurement-provenance-pending.json`. Two
+Sixty-two harness modules declare the size of what they examined. Eight export the counter and assert
+it; the other fifty-four are recorded as pending in `scripts/harness/measurement-provenance-pending.json`. Two
 shapes, in roughly equal parts:
 
 - the counter lives in `main()` and is exported by nothing, so no test can read it;
@@ -23,7 +23,9 @@ shapes, in roughly equal parts:
 
 Every one of those numbers is read as evidence that a scan ran over what it names, and every one can
 be wrong by any amount in either direction with the scan still reporting a pass. The ledger makes the
-debt visible and keeps it from growing; it does not reduce it.
+debt visible and makes any growth a deliberate edit to a checked-in file — a new declaring module is
+a finding until someone classifies it. Nothing ratchets the list's length, so growth is visible
+rather than impossible, and nothing here reduces it.
 
 ## Done when
 
