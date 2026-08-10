@@ -87,6 +87,14 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  */
 export const MANDATORY_TREE_GUARDS = [
   {
+    // Measured the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist`.
+    file: 'scan-measurement-provenance.mjs',
+    finder: 'findMeasurementProvenanceFindings',
+    tree: 'scripts/harness',
+    why: 'it asks every size reader whether anything checks the number it publishes; over a root with no harness modules there is no reader to ask, and "no unchecked counter" reads exactly like "every counter is checked" — the reported-size-nobody-verifies shape this guard exists to fence',
+  },
+  {
     // Measured the way this harness calls it — `collectFindings(bare)`: throws
     // `orchestration-map.md is missing`.
     file: 'scan-loopback-bound-ownership.mjs',
