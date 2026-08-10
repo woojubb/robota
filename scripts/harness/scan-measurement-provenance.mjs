@@ -3,21 +3,34 @@
 /**
  * Measurement-provenance floor — a self-reported size is evidence only if something checks it.
  *
- * A scan that prints how much it examined is claiming its own coverage on the one channel the runner
+ * A scan that prints `::examined::` is claiming its own coverage on the one channel the runner
  * reads. Nothing downstream re-derives that number, so an unchecked counter can miscount by any
  * amount in either direction and every consumer still reads a healthy scan. The two failures this
  * floor exists for are silent in exactly that way: a counter that never resets rises with every run
  * in the process, and a counter asserted by a lower bound is satisfied by every over-count.
  *
- * The subject is any harness module exporting a size reader (`examined…Count`). For each one this
- * requires a sibling test that asserts an EXACT numeric value and a case proving the counter resets
- * between runs — the two cases of [measurement-provenance.md](../../.agents/rules/measurement-provenance.md).
+ * SUBJECT DERIVATION, spelled out because getting it from a name pattern is the defect this floor is
+ * about, one level up. The subject set is every module REGISTERED in the runner whose source emits
+ * `::examined::` — both halves read from the tree, neither hand-listed. A floor that recognised its
+ * subjects by the shape of a reader's name would grant an exemption to anyone who spelled the reader
+ * differently, and would report a clean pass over the modules it failed to recognise.
+ *
+ * For each subject this requires an exported reader and, for each reader, a sibling test that
+ * asserts an EXACT numeric value and proves the counter resets — the cases of
+ * [measurement-provenance.md](../../.agents/rules/measurement-provenance.md).
+ *
+ * THE CEILING, stated rather than implied. Most subjects do not meet this yet; they are recorded in
+ * `measurement-provenance-pending.json` with the item that burns the list down. A pending entry is
+ * not an exemption: every entry is RE-MEASURED on each run, and one that now passes is itself a
+ * finding, so the list can only shrink. What this scan does NOT see: a module that reports a size
+ * without the marker, and whether a counter that is asserted is incremented at the right place —
+ * that one is judgement, and the rule states it as such.
  *
  * Usage: `node scripts/harness/scan-measurement-provenance.mjs`
  * Exit 0 = clean, 1 = blocking findings.
  *
- * fail-direction: refuse — a harness directory with no size reader in it THROWS rather than
- * reporting a clean pass, because "no subjects" is a broken checkout, not a compliant tree.
+ * fail-direction: refuse — an unreadable registry, or a tree with no declaring scan in it, THROWS
+ * rather than reporting a clean pass over a population it could not derive.
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -25,180 +38,331 @@ import path from 'node:path';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
-/** Where the size readers live, and where their tests are expected. */
 const HARNESS_DIR = 'scripts/harness';
+const REGISTRY = 'scripts/harness/run-all-scans.mjs';
 const TESTS_DIR = 'scripts/harness/__tests__';
+const PENDING_FILE = 'scripts/harness/measurement-provenance-pending.json';
+
+/** The marker a scan prints to declare the size of what it walked. */
+const DECLARATION = '::examined::';
 
 /**
- * Size readers a module exports. The name is the contract: a reader is what makes the count
- * assertable from a test, and a module that keeps its counter private publishes a number nothing
- * outside it can check.
+ * Both spellings the repository uses for a size reader. This does NOT decide what a subject is —
+ * subjects come from the registry — so a module that spells its reader some third way is reported
+ * as having none rather than quietly leaving the population.
  */
-function exportedSizeReaders(source) {
-  const readers = [];
-  const re = /export\s+function\s+(examined[A-Za-z0-9_]*Count)\s*\(/g;
-  let match;
-  while ((match = re.exec(source)) !== null) readers.push(match[1]);
-  return readers;
-}
+const READER_NAME = /^(?:examined[A-Za-z0-9_]*Count|readExamined[A-Za-z0-9_]*)$/;
+
+/** The finder conventions of this harness: what a test calls to make the counter move. */
+const FINDER_NAME = /^(?:find|collect|check|scan)[A-Za-z0-9_]*$/;
 
 /**
- * Every `it(...)` case in a test file, as {title, body}. The body runs to the next case, which is
- * enough to tell whether the case that CLAIMS to prove the reset is the one that reads the counter —
- * a reset title over a body that never calls the reader proves nothing.
+ * Source with comments, string bodies and regular-expression bodies removed, positions otherwise
+ * preserved so ordering comparisons stay meaningful. A commented-out call and a call quoted inside
+ * a fixture are not calls, and a guard that counts them is satisfied by text that never runs.
  */
-function testCases(source) {
-  const starts = [];
-  const re = /\bit(?:\.each\s*\([\s\S]*?\))?\s*\(\s*(['"`])([\s\S]*?)\1/g;
-  let match;
-  while ((match = re.exec(source)) !== null) starts.push({ title: match[2], index: match.index });
-  return starts.map((start, i) => ({
-    title: start.title,
-    body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
-  }));
-}
-
-/**
- * Whether the reader is asserted against an exact numeric literal SOMEWHERE in the file. Scoped to
- * the statement the reader call sits in — a `.toBe(` found further away belongs to a different
- * assertion, and accepting it would be the silent pass this floor is about. `toBeGreaterThan…` does
- * not match, which is the point: a bound admits every over-count.
- */
-function hasExactCountAssertion(source, reader) {
-  const re = new RegExp(`\\b${reader}\\s*\\(`, 'g');
-  let match;
-  while ((match = re.exec(source)) !== null) {
-    const rest = source.slice(match.index);
-    const end = rest.indexOf(';');
-    const statement = end === -1 ? rest : rest.slice(0, end);
-    if (/\.toBe\s*\(\s*\d+\s*\)/.test(statement)) return true;
+export function stripNonCode(source) {
+  let out = '';
+  let i = 0;
+  let previousCode = '';
+  while (i < source.length) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    // A `/` in a value position opens a regular expression; in an operand position it is division.
+    if (c === '/' && /[(=,:[!&|?{};+\-*%<>~^]$/.test(previousCode)) {
+      i++;
+      let inClass = false;
+      while (i < source.length) {
+        if (source[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (source[i] === '[') inClass = true;
+        else if (source[i] === ']') inClass = false;
+        else if (source[i] === '/' && !inClass) {
+          i++;
+          break;
+        } else if (source[i] === '\n') break;
+        i++;
+      }
+      out += '//';
+      previousCode = '/';
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      i++;
+      while (i < source.length) {
+        if (source[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (source[i] === c) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      out += c + c;
+      previousCode = c;
+      continue;
+    }
+    out += c;
+    if (!/\s/.test(c)) previousCode = c;
+    i++;
   }
-  return false;
+  return out;
 }
 
 /**
- * Everything the module exports that is not a size reader — its finders. Derived from the module
- * rather than named here, because the reset case is defined by what it RUNS.
+ * Every case body in a test file. Split on the case opener rather than parsed, and the title is not
+ * read at all: what a case is CALLED is not what it proves, and requiring a wording would fail
+ * suites that already prove the property while passing one that only claims to.
  */
-function exportedFinders(source) {
-  const names = new Set();
-  const re =
-    /export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(|export\s+const\s+([A-Za-z0-9_]+)\s*=/g;
+export function testCases(source) {
+  const starts = [];
+  const re = /\b(?:it|test)(?:\.[a-z]+)*\s*[(`]/g;
   let match;
-  while ((match = re.exec(source)) !== null) {
-    const name = match[1] ?? match[2];
-    if (!/^examined[A-Za-z0-9_]*Count$/.test(name)) names.add(name);
+  while ((match = re.exec(source)) !== null) starts.push(match.index);
+  return starts.map((start, i) =>
+    source.slice(start, i + 1 < starts.length ? starts[i + 1] : source.length),
+  );
+}
+
+/** Positions of every call to `name` in already-stripped source. */
+function callPositions(source, name) {
+  const positions = [];
+  const re = new RegExp(`\\b${name}\\s*\\(`, 'g');
+  let match;
+  while ((match = re.exec(source)) !== null) positions.push(match.index);
+  return positions;
+}
+
+/**
+ * Position of the first exact numeric assertion on `reader` at or after `from`, or -1. Scoped to the
+ * statement the reader call sits in: a `.toBe(` further away belongs to a different assertion.
+ * A reader call with no statement terminator after it counts as no assertion — the unbounded
+ * fallback would let any distant literal satisfy this.
+ */
+function exactAssertionPosition(source, reader, from = 0) {
+  for (const position of callPositions(source, reader)) {
+    if (position < from) continue;
+    const rest = source.slice(position);
+    const end = rest.indexOf(';');
+    if (end === -1) continue;
+    if (/\.toBe\s*\(\s*\d+\s*\)/.test(rest.slice(0, end))) return position;
+  }
+  return -1;
+}
+
+/**
+ * Whether some case proves the counter resets: a second run of a finder, and an exact assertion on
+ * the counter positioned AFTER it. Order is the property — an assertion taken before the second run
+ * describes the first run and holds whether or not the counter resets.
+ */
+function hasResetCase(testSource, reader, finders) {
+  return testCases(testSource).some((body) => {
+    for (const finder of finders) {
+      const calls = callPositions(body, finder);
+      if (calls.length < 2) continue;
+      if (exactAssertionPosition(body, reader, calls[1]) !== -1) return true;
+    }
+    return false;
+  });
+}
+
+/** Names a module exports, by every form this harness uses. */
+export function exportedNames(source) {
+  const names = new Set();
+  const patterns = [
+    /export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/g,
+    /export\s+(?:const|let|class)\s+([A-Za-z0-9_]+)/g,
+  ];
+  for (const re of patterns) {
+    let match;
+    while ((match = re.exec(source)) !== null) names.add(match[1]);
+  }
+  const braces = /export\s*\{([^}]*)\}/g;
+  let match;
+  while ((match = braces.exec(source)) !== null) {
+    for (const part of match[1].split(',')) {
+      const name = part
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim();
+      if (name) names.add(name);
+    }
   }
   return [...names];
 }
 
-/** The argument text of every call to `fn` in this source, in order. */
-function callArguments(source, fn) {
-  const args = [];
-  const re = new RegExp(`\\b${fn}\\s*\\(`, 'g');
-  let match;
-  while ((match = re.exec(source)) !== null) {
-    const rest = source.slice(match.index + match[0].length);
-    const close = rest.indexOf(')');
-    args.push(close === -1 ? '' : rest.slice(0, close).trim());
+/** Scan modules the runner registers — the population the harness already mechanizes. */
+function registeredModules(root) {
+  const registryPath = path.join(root, REGISTRY);
+  if (!existsSync(registryPath))
+    throw new Error(
+      `${REGISTRY} does not exist under ${root}. This scan derives its subjects from the registry ` +
+        'and will not report a pass over a population it could not read.',
+    );
+  const source = readFileSync(registryPath, 'utf8');
+  const rels = new Set();
+  for (const match of source.matchAll(/'(scripts\/harness\/[A-Za-z0-9._/-]+\.mjs)'/g))
+    rels.add(match[1]);
+  return [...rels].sort();
+}
+
+/** The test file for a module, wherever under the test directory it sits. */
+function testFileFor(root, moduleBase) {
+  const testsDir = path.join(root, TESTS_DIR);
+  if (!existsSync(testsDir)) return null;
+  const wanted = new Set([`${moduleBase}.test.mjs`, `${moduleBase}.spec.mjs`]);
+  const stack = [testsDir];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (wanted.has(entry.name)) return full;
+    }
   }
-  return args;
+  return null;
 }
 
-/**
- * Whether some case proves the counter resets. Judged by SHAPE, not by the case's title: a run over
- * one input followed by a run over a DIFFERENT one, and then an exact assertion on the counter. A
- * title-matching check would demand a particular wording from tests that already prove the property,
- * and would pass one that only says it does — the failure this floor is about, one level up. The two
- * inputs must differ because a second fixture of the same size passes whether the counter resets or
- * not.
- */
-function hasResetCase(source, reader, finders) {
-  const readerCall = new RegExp(`\\b${reader}\\s*\\(`);
-  return testCases(source).some(
-    (c) =>
-      readerCall.test(c.body) &&
-      hasExactCountAssertion(c.body, reader) &&
-      finders.some((fn) => new Set(callArguments(c.body, fn)).size >= 2),
-  );
+function readPending(root) {
+  const pendingPath = path.join(root, PENDING_FILE);
+  if (!existsSync(pendingPath)) return { pending: [] };
+  return JSON.parse(readFileSync(pendingPath, 'utf8'));
 }
 
-let examinedModules = 0;
+let examinedSubjects = 0;
 let examinedReaders = 0;
+let pendingSubjects = 0;
 
-/** How many harness modules the last walk opened. */
-export function examinedModuleCount() {
-  return examinedModules;
+/** How many declaring scan modules the last run derived and opened. */
+export function examinedSubjectCount() {
+  return examinedSubjects;
 }
 
-/** How many size readers the last walk found across those modules. */
+/** How many size readers those subjects export. */
 export function examinedReaderCount() {
   return examinedReaders;
 }
 
-export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
-  const harnessDir = path.join(root, HARNESS_DIR);
-  if (!existsSync(harnessDir))
-    throw new Error(
-      `${HARNESS_DIR} does not exist under ${root}. This scan will not report a pass over modules ` +
-        'it could not read.',
-    );
+/** How many of those subjects are recorded unmet rather than meeting the floor. */
+export function pendingSubjectCount() {
+  return pendingSubjects;
+}
 
+/** Findings for one subject, before the pending ledger is applied. */
+function judgeSubject(root, rel, source) {
   const findings = [];
-  examinedModules = 0;
-  examinedReaders = 0;
+  const at = (type, detail, reader) => findings.push({ type, module: rel, reader, detail });
+  const names = exportedNames(source);
+  const readers = names.filter((name) => READER_NAME.test(name));
+  const finders = names.filter((name) => FINDER_NAME.test(name) && !READER_NAME.test(name));
+  examinedReaders += readers.length;
 
-  for (const entry of readdirSync(harnessDir, { withFileTypes: true }).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )) {
-    if (!entry.isFile() || !entry.name.endsWith('.mjs')) continue;
-    examinedModules++;
-
-    const source = readFileSync(path.join(harnessDir, entry.name), 'utf8');
-    const readers = exportedSizeReaders(source);
-    if (readers.length === 0) continue;
-    const finders = exportedFinders(source);
-
-    const testRel = path.join(TESTS_DIR, `${entry.name.replace(/\.mjs$/, '')}.test.mjs`);
-    const testPath = path.join(root, testRel);
-    const testSource = existsSync(testPath) ? readFileSync(testPath, 'utf8') : null;
-
-    for (const reader of readers) {
-      examinedReaders++;
-      if (testSource === null) {
-        findings.push({
-          type: 'missing-counter-test',
-          module: `${HARNESS_DIR}/${entry.name}`,
-          reader,
-          detail: `no ${testRel} — the reported size is checked by nothing`,
-        });
-        continue;
-      }
-      if (!hasExactCountAssertion(testSource, reader))
-        findings.push({
-          type: 'no-exact-count-assertion',
-          module: `${HARNESS_DIR}/${entry.name}`,
-          reader,
-          detail: `${testRel} never asserts \`${reader}()\` against an exact numeric value`,
-        });
-      if (!hasResetCase(testSource, reader, finders))
-        findings.push({
-          type: 'no-reset-case',
-          module: `${HARNESS_DIR}/${entry.name}`,
-          reader,
-          detail:
-            `${testRel} has no case that runs the finder over two DIFFERENT inputs and then ` +
-            `asserts \`${reader}()\` against an exact value`,
-        });
-    }
+  if (readers.length === 0) {
+    at(
+      'no-exported-size-reader',
+      'declares a size no test can read — the counter is not exported',
+      '-',
+    );
+    return findings;
   }
 
-  if (examinedReaders === 0)
+  const base = path.basename(rel, '.mjs');
+  const testPath = testFileFor(root, base);
+  if (testPath === null) {
+    for (const reader of readers)
+      at(
+        'missing-counter-test',
+        `no test file for ${base} — the reported size is checked by nothing`,
+        reader,
+      );
+    return findings;
+  }
+
+  const testSource = stripNonCode(readFileSync(testPath, 'utf8'));
+  const testRel = path.relative(root, testPath);
+  for (const reader of readers) {
+    if (exactAssertionPosition(testSource, reader) === -1)
+      at(
+        'no-exact-count-assertion',
+        `${testRel} never asserts it against an exact numeric value`,
+        reader,
+      );
+    if (finders.length === 0)
+      at('no-exported-finder', `${rel} exports nothing a test can run to move the counter`, reader);
+    else if (!hasResetCase(testSource, reader, finders))
+      at(
+        'no-reset-case',
+        `${testRel} has no case asserting it after a SECOND run of the finder`,
+        reader,
+      );
+  }
+  return findings;
+}
+
+export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
+  const findings = [];
+  examinedSubjects = 0;
+  examinedReaders = 0;
+  pendingSubjects = 0;
+
+  const pending = new Set(readPending(root).pending ?? []);
+  const stillPending = new Set();
+
+  for (const rel of registeredModules(root)) {
+    const modulePath = path.join(root, rel);
+    if (!existsSync(modulePath)) continue;
+    const source = readFileSync(modulePath, 'utf8');
+    if (!source.includes(DECLARATION)) continue;
+    examinedSubjects++;
+
+    const subjectFindings = judgeSubject(root, rel, source);
+    if (!pending.has(rel)) {
+      findings.push(...subjectFindings);
+      continue;
+    }
+    // Re-measured, not trusted: a ledger nobody re-runs is a set of claims about the past presented
+    // as facts about the present, and it can then only grow.
+    if (subjectFindings.length === 0)
+      findings.push({
+        type: 'stale-pending-entry',
+        module: rel,
+        reader: '-',
+        detail: `meets the floor now — remove it from ${PENDING_FILE}`,
+      });
+    else stillPending.add(rel);
+  }
+
+  for (const rel of pending)
+    if (!stillPending.has(rel) && !findings.some((f) => f.module === rel))
+      findings.push({
+        type: 'stale-pending-entry',
+        module: rel,
+        reader: '-',
+        detail: `is not a declaring registered scan — remove it from ${PENDING_FILE}`,
+      });
+
+  if (examinedSubjects === 0)
     throw new Error(
-      `No size reader found under ${HARNESS_DIR}. A tree with no subject is a broken checkout, ` +
-        'not a compliant one — this scan will not report a pass over it.',
+      `No registered scan under ${HARNESS_DIR} declares ${DECLARATION}. A tree with no subject is ` +
+        'a broken checkout, not a compliant one — this scan will not report a pass over it.',
     );
 
+  pendingSubjects = stillPending.size;
   return findings;
 }
 
@@ -206,18 +370,23 @@ function main() {
   const findings = findMeasurementProvenanceFindings();
   if (findings.length === 0) {
     // Two subjects, two numbers: a single figure over both would absorb whichever walk collapsed.
-    console.log(`::examined:: ${examinedModules} harness modules`);
+    console.log(`::examined:: ${examinedSubjects} declaring scans`);
     console.log(`::examined:: ${examinedReaders} exported size readers`);
-    console.log('measurement-provenance scan passed.');
+    console.log(
+      `measurement-provenance scan passed (${examinedSubjects - pendingSubjects} subject(s) meet the ` +
+        `floor; ${pendingSubjects} recorded unmet in ${PENDING_FILE}). A pass is not a claim that every declared ` +
+        'size is checked.',
+    );
     process.exit(0);
   }
   console.error('measurement-provenance scan FAILED — a self-reported size nothing checks:');
   for (const f of findings) console.error(`  [${f.type}] ${f.module} ${f.reader}: ${f.detail}`);
   console.error(
     '\nA counter is an output and is tested as one — see .agents/rules/measurement-provenance.md:\n' +
+      '  - export the counter so a test can read it;\n' +
       '  - assert an EXACT numeric value against a fixture of known size (a bound admits over-counts);\n' +
-      '  - in one case, run the finder over two DIFFERENT inputs and then assert the counter, so an\n' +
-      '    accumulating counter is told apart from a growing subject.',
+      '  - assert it again AFTER a second run of the finder, so an accumulating counter is told apart\n' +
+      '    from a growing subject.',
   );
   process.exit(1);
 }

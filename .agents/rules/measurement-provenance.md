@@ -26,10 +26,12 @@ other:
 
 - an **exact** expected value against a fixture of known size — a lower bound is satisfied by every
   over-count, including one that counts the same subject twice;
-- a **second run over a differently-sized fixture**, proving the counter starts from zero. A counter
-  that accumulates reports the sum of every run in the process and rises monotonically, which is
-  indistinguishable from a check whose subject is growing. The second fixture must differ in size,
-  because a same-size one passes whether the counter resets or not.
+- an assertion taken **after a second run**, proving the counter starts from zero. A counter that
+  accumulates reports the sum of every run in the process and rises monotonically, which is
+  indistinguishable from a subject that is growing. The ORDER is the property, not the fixture: an
+  assertion taken before the second run describes the first one and holds either way. Vary the second
+  input when clause 1 is what is in doubt — a number read off a second source diverges from the walk
+  only where the two disagree in size.
 
 ## Scope
 
@@ -40,7 +42,13 @@ self-reported size is read as evidence that the check ran over what it names.
 
 ## What is mechanical
 
-`measurement-provenance` fails when a module exporting a size reader has no test asserting an exact
-numeric value for it, or no case proving it resets between runs. Clauses 1 and 2 are judgement — where
-a number was incremented is not decidable from outside the module — but a counter carrying both cases
+`measurement-provenance` derives its subjects from the tree — every registered check whose source
+emits the declaration — and fails one whose counter is not exported, whose value no exact numeric
+assertion reads, or which has no assertion after a second run. Clauses 1 and 2 are judgement: where a
+number was incremented is not decidable from outside the module, and a counter carrying the cases
 above is one whose provenance someone had to establish in order to write them.
+
+**The floor's own coverage is a number it publishes, not a claim it implies.** A subject that does not
+meet it yet is recorded in the check's pending ledger, re-measured on every run so an entry that now
+passes is itself a finding, and counted separately in the pass line. A pass therefore says how many
+subjects are covered — never that every declared size is checked.
