@@ -38,9 +38,9 @@ the rules index under Process Sub-Rules and as common-mistakes entry 86.
 **Mechanism.** `scripts/harness/scan-measurement-provenance.mjs`, registered as
 `measurement-provenance` in the runner and pinned in `MANDATORY_TREE_GUARDS` (the guard-scope floor
 executes it against a bare root and proves it throws). Its subject set is DERIVED — every module
-under the harness directory whose source emits the declaration, the runner included — and it fails
-one whose counter is not exported, whose value no exact numeric assertion reads, or which has no
-assertion after a second run of the finder.
+under the harness directory whose source CARRIES the declaration marker, the runner included — and it
+fails one whose counter is not exported, whose value no live case asserts against an exact numeric
+value, or which has no assertion after a second run of the finder.
 
 Two earlier versions were falsified against the live tree and are the reason the shape above is what
 it is:
@@ -58,6 +58,10 @@ it is:
 - a fourth exempted the runner, on the ground that it CONSUMES the marker to build its report. It
   does — and it also publishes two sizes about its own work, which the exemption hid. There is no
   exemption now; the runner is classified in the ledger like every other subject.
+- a fifth tried to narrow the population to modules that PRINT the marker, so the published number
+  would describe what it names. Measured: the harness prints through four channels including
+  per-module local helpers, and the test dropped 26 real subjects — a silent exemption earned by the
+  spelling of a print call. The population carries the marker instead, and the number says so.
 
 **Measured population.** 62 declaring modules exporting 21 readers. Eight meet the floor; the other
 54 are recorded in `scripts/harness/measurement-provenance-pending.json`. Every subject is classified
@@ -76,12 +80,12 @@ appearing somewhere in each test file; the scan disagreed with it in both direct
 **Proved.** Against the pre-fix tree the scan exits 1 and names the gap. Removing
 `examinedShippableFiles = 0;` from the swept module turns both new cases red (`expected 1649 to be 3`
 — the live tree size carried into a fixture run — and `expected 1652 to be 3` after accumulation);
-restoring it turns them green. The scan's own 32 cases cover each finding type, both fail-closed
+restoring it turns them green. The scan's own 35 cases cover each finding type, both fail-closed
 refusals, and its own four counters. The subject-derivation rewrite is covered by cases pinning both
 reader spellings, the const and re-export forms, an export that exists only in a comment or a string,
 a commented-out second run, a second run appearing only inside a string, an assertion taken before
-the second run, a regular expression opened after a keyword, and a module a directory down that no
-registry names.
+the second run, a skipped case and a skipped suite, a negated assertion, a regular expression opened
+after a keyword, and a module a directory down that no registry names.
 
 **Not closed here.** The second lesson mined in the same pass — defensive code written for a state
 the surrounding code has already excluded — has no mechanism, because logical reachability is not

@@ -134,9 +134,11 @@ function main() {
     expect(pendingSubjectCount()).toBe(1);
   });
 
-  it('makes a subject of the runner too, which publishes sizes about its own work', async () => {
-    // It consumes the marker to build its report AND declares how much it ran. Exempting it for the
-    // first reason would hide the second, which is the most-read size in the harness.
+  it('makes a subject of a module that only NAMES the marker, rather than exempting it', async () => {
+    // A module that holds the marker to parse someone else's output publishes no size of its own,
+    // and this floor still calls it a subject. Over-inclusion costs an entry in the ledger someone
+    // can argue with; the alternative — recognising the call that prints — drops every module whose
+    // printing helper the test does not know, and drops it silently.
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
       tests: { 'scan-a.test.mjs': GREEN_TEST },
@@ -204,6 +206,63 @@ it('counts what the walk opened', () => {
       },
     });
     expect(types(findMeasurementProvenanceFindings(root))).toEqual(['no-reset-case']);
+  });
+
+  it('does not accept a case the runner skips', async () => {
+    // A counter checked only by a disabled test is checked by nothing, which is this floor's premise.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs': `
+it.skip('counts what the walk opened', () => {
+  findThings(big);
+  findThings(small);
+  expect(examinedThingCount()).toBe(3);
+});
+`,
+      },
+    });
+    const found = types(findMeasurementProvenanceFindings(root));
+    expect(found).toContain('no-exact-count-assertion');
+    expect(found).toContain('no-reset-case');
+  });
+
+  it('does not accept a live case inside a suite the runner skips', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs': `
+describe.skip('the counter', () => {
+  it('counts what the walk opened', () => {
+    findThings(big);
+    findThings(small);
+    expect(examinedThingCount()).toBe(3);
+  });
+});
+`,
+      },
+    });
+    const found = types(findMeasurementProvenanceFindings(root));
+    expect(found).toContain('no-exact-count-assertion');
+    expect(found).toContain('no-reset-case');
+  });
+
+  it('does not accept a negated assertion, which holds for every value but one', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs': `
+it('counts what the walk opened', () => {
+  findThings(big);
+  findThings(small);
+  expect(examinedThingCount()).not.toBe(0);
+});
+`,
+      },
+    });
+    const found = types(findMeasurementProvenanceFindings(root));
+    expect(found).toContain('no-exact-count-assertion');
+    expect(found).toContain('no-reset-case');
   });
 
   it('does not accept a second run that only appears inside a string', async () => {
