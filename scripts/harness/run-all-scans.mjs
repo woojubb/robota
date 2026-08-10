@@ -555,6 +555,10 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
   },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    name: 'measurement-provenance',
+    command: ['node', 'scripts/harness/scan-measurement-provenance.mjs'],
+  },
   { name: 'helper-limits', command: ['node', 'scripts/harness/scan-helper-limits.mjs'] },
   {
     // HARNESS-052 — the audited "success over work it did not do" shape wearing a test: an

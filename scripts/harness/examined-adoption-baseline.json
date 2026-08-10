@@ -28,6 +28,7 @@
     "loop-contract",
     "loopback-bound-ownership",
     "main-required-checks",
+    "measurement-provenance",
     "memory-mirror",
     "mistake-mechanisms",
     "named-artifact-resolves",

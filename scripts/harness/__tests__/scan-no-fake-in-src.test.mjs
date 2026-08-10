@@ -1,6 +1,39 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { findFakeDeclarationsInSource, findFakeInSrc } from '../scan-no-fake-in-src.mjs';
+import {
+  examinedShippableFileCount,
+  findFakeDeclarationsInSource,
+  findFakeInSrc,
+} from '../scan-no-fake-in-src.mjs';
+
+/**
+ * A tree of source files under a temporary root. Every package directory gets a manifest, because
+ * the walk enumerates workspace packages by their manifest, not by directory shape.
+ */
+async function createSrcFixture(files) {
+  const root = await mkdtemp(path.join(tmpdir(), 'robota-no-fake-in-src-'));
+  const packageDirs = new Set();
+  for (const [relativePath, content] of Object.entries(files)) {
+    const target = path.join(root, relativePath);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, content, 'utf8');
+    const [, pkg] = relativePath.split('/');
+    packageDirs.add(path.join(root, 'packages', pkg));
+  }
+  for (const dir of packageDirs) {
+    writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: `@x/${path.basename(dir)}`, version: '0.0.0' }),
+      'utf8',
+    );
+  }
+  return root;
+}
 
 /**
  * HARNESS-032 — the no-fake-in-src mechanical floor: `Fake`/`Mock`/`Stub` name TEST doubles only, never shipped code.
@@ -99,5 +132,45 @@ describe('HARNESS-032 — suppression + anti-rot', () => {
 describe('HARNESS-032 — the live packages/<pkg>/src tree is green', () => {
   it('has zero non-allowlisted test-double declarations in shipped source', () => {
     expect(findFakeInSrc()).toEqual([]);
+  });
+});
+
+describe('the examined-size counter measures this run and only this run', () => {
+  /**
+   * The counter is the scan's claim about its own coverage and nothing downstream re-derives it, so
+   * an unchecked one can miscount by any amount and every consumer still reads a healthy scan
+   * (`.agents/rules/measurement-provenance.md`).
+   */
+  it('counts the shippable files the walk opened, and only those', async () => {
+    const root = await createSrcFixture({
+      'packages/a/src/one.ts': 'export const one = 1;\n',
+      'packages/a/src/two.ts': 'export const two = 2;\n',
+      // Neither of these is shippable source: one is a test, the other is not under `src/`.
+      'packages/a/src/one.test.ts': 'export const t = 1;\n',
+      'packages/a/docs/note.ts': 'export const d = 1;\n',
+      'packages/b/src/three.ts': 'export const three = 3;\n',
+    });
+
+    expect(findFakeInSrc(root)).toEqual([]);
+    expect(examinedShippableFileCount(), 'the shippable walk was miscounted').toBe(3);
+  });
+
+  it('starts from zero on the next run, rather than carrying the previous tree size', async () => {
+    // A module-level holder that is never reset reports the sum of every run in the process, which
+    // rises monotonically and reads exactly like a growing subject. The second fixture is SMALLER
+    // rather than empty: a same-size one passes whether the counter resets or not.
+    const big = await createSrcFixture({
+      'packages/a/src/one.ts': 'export const one = 1;\n',
+      'packages/a/src/two.ts': 'export const two = 2;\n',
+      'packages/b/src/three.ts': 'export const three = 3;\n',
+    });
+    const small = await createSrcFixture({ 'packages/only/src/one.ts': 'export const one = 1;\n' });
+
+    findFakeInSrc(big);
+    expect(examinedShippableFileCount()).toBe(3);
+
+    findFakeInSrc(small);
+
+    expect(examinedShippableFileCount(), 'the previous run’s count survived').toBe(1);
   });
 });
