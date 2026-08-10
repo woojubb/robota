@@ -208,6 +208,39 @@ it('counts what the walk opened', () => {
     expect(types(findMeasurementProvenanceFindings(root))).toEqual(['no-reset-case']);
   });
 
+  it('does not accept a conditional case, whose run is decided at run time', async () => {
+    // `it.runIf(cond)` may not run and `describe.skipIf(cond)` may run; neither is proof, and a
+    // reader cannot evaluate the condition. Both resolve to "not a check".
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs':
+          "it.runIf(flag)('counts', () => {\n  findThings(big);\n  findThings(small);\n  expect(examinedThingCount()).toBe(3);\n});\n",
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toContain('no-exact-count-assertion');
+  });
+
+  it('does not accept a case under a tagged-template skipped suite', async () => {
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs':
+          "describe.skip.each`a`('the counter', () => {\n  it('counts', () => {\n    findThings(big);\n    findThings(small);\n    expect(examinedThingCount()).toBe(3);\n  });\n});\n",
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toContain('no-exact-count-assertion');
+  });
+
+  it('does not accept a test file the runner never runs', async () => {
+    // `vitest` includes `*.test.{ts,mjs}` only; a `.spec.mjs` sibling is executed by nothing.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: { 'scan-a.spec.mjs': GREEN_TEST },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toEqual(['missing-counter-test']);
+  });
+
   it('does not accept a case the runner skips', async () => {
     // A counter checked only by a disabled test is checked by nothing, which is this floor's premise.
     const root = await createFixture({
@@ -292,7 +325,21 @@ it('counts what the walk opened', () => {
     expect(found).toContain('no-reset-case');
   });
 
-  it('does not accept a reader call with no statement terminator after it', async () => {
+  it('bounds a terminator-less reader call at its own case, not at the next one', async () => {
+    // A statement with no `;` ends where its case's text ends. Without that second bound it reaches
+    // forward to the next terminator anywhere in the joined live-case text — which is another case's
+    // assertion about something else entirely.
+    const root = await createFixture({
+      modules: { 'scan-a.mjs': MODULE },
+      tests: {
+        'scan-a.test.mjs':
+          "it('reads the counter', () => {\n  findThings(big)\n  findThings(small)\n  const n = examinedThingCount()\n})\nit('asserts something else', () => {\n  expect(other.length).toBe(3)\n})\n",
+      },
+    });
+    expect(types(findMeasurementProvenanceFindings(root))).toContain('no-exact-count-assertion');
+  });
+
+  it('accepts a terminator-less assertion inside its own case', async () => {
     const root = await createFixture({
       modules: { 'scan-a.mjs': MODULE },
       tests: {
@@ -300,7 +347,7 @@ it('counts what the walk opened', () => {
           "it('counts', () => {\n  findThings(big)\n  findThings(small)\n  expect(examinedThingCount()).toBe(3)\n})\n",
       },
     });
-    expect(types(findMeasurementProvenanceFindings(root))).toContain('no-exact-count-assertion');
+    expect(findMeasurementProvenanceFindings(root)).toEqual([]);
   });
 
   it('does not accept a negated assertion, which holds for every value but one', async () => {
