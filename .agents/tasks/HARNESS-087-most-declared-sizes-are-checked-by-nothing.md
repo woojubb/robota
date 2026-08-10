@@ -14,9 +14,9 @@ depends_on: []
 
 ## The problem
 
-Sixty-two harness modules declare the size of what they examined. Eight export the counter and assert
-it; the other fifty-four are recorded as pending in `scripts/harness/measurement-provenance-pending.json`. Two
-shapes, in roughly equal parts:
+Sixty-two harness modules carry the declaration marker. Eight export the counter and assert it; the
+other fifty-four are recorded as pending in `scripts/harness/measurement-provenance-pending.json`.
+Two shapes, and the first dominates — 44 against 10:
 
 - the counter lives in `main()` and is exported by nothing, so no test can read it;
 - the counter is exported but its value is asserted by nothing, or by a lower bound.
@@ -26,6 +26,12 @@ be wrong by any amount in either direction with the scan still reporting a pass.
 debt visible and makes any growth a deliberate edit to a checked-in file — a new declaring module is
 a finding until someone classifies it. Nothing ratchets the list's length, so growth is visible
 rather than impossible, and nothing here reduces it.
+
+One of the 54 is the runner itself, which carries the marker to PARSE what the scans it runs print,
+and publishes two sizes of its own — how many scans ran, and how many declared — in prose rather than
+on the marker channel. It is in the list because the population is "carries the marker", which
+deliberately over-includes; resolving it means deciding whether those two sizes should be declared
+like every other, not deleting the entry.
 
 ## Done when
 

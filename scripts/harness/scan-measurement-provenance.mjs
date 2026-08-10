@@ -11,10 +11,15 @@
  *
  * SUBJECT DERIVATION, spelled out because getting it from a name pattern is the defect this floor is
  * about, one level up. The subject set is every module under the harness directory whose source
- * emits `::examined::` — read off the tree, not hand-listed and not gated on registration, because
+ * CARRIES `::examined::` — read off the tree, not hand-listed and not gated on registration, because
  * registration is not what makes a published size evidence. A floor that recognised its subjects by
  * the shape of a reader's name would grant an exemption to anyone who spelled the reader
  * differently, and would report a clean pass over the modules it failed to recognise.
+ *
+ * Carrying, not printing: the harness emits through several channels, including local helpers, so
+ * any test for the call that prints would drop the modules whose spelling it did not know. This one
+ * over-includes — a module that only names the marker is classified like every other subject — and
+ * over-inclusion is an argument in a file rather than a silent exemption.
  *
  * For each subject this requires an exported reader and, for each reader, a test file of the same
  * base name under the harness test directory that asserts an EXACT numeric value and proves the
@@ -45,12 +50,23 @@ import path from 'node:path';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 const HARNESS_DIR = 'scripts/harness';
-const REGISTRY = 'scripts/harness/run-all-scans.mjs';
 const TESTS_DIR = 'scripts/harness/__tests__';
 const PENDING_FILE = 'scripts/harness/measurement-provenance-pending.json';
 
 /** The marker a scan prints to declare the size of what it walked. */
 const DECLARATION = '::examined::';
+
+/**
+ * Whether the module CARRIES the declaration marker — deliberately a superset of the modules that
+ * print one. Recognising emission would mean recognising the call that does it, and the harness
+ * prints through several channels including per-module local helpers; every spelling the test failed
+ * to know would leave its module out of the population without a sound. Carrying the marker
+ * over-includes instead: a module that names it without publishing a size of its own is classified
+ * in the ledger like any other subject, which is an argument someone can see and settle.
+ */
+export function carriesDeclaration(source) {
+  return source.includes(DECLARATION);
+}
 
 /**
  * Both spellings the repository uses for a size reader. This does NOT decide what a subject is, so a
@@ -73,8 +89,7 @@ const VALUE_POSITION_WORDS = new Set([
   'typeof',
   'instanceof',
   'case',
-  'in',
-  'of',
+  'throw',
   'do',
   'else',
   'yield',
@@ -141,7 +156,9 @@ export function stripNonCode(source) {
       continue;
     }
     // A `/` in a value position opens a regular expression; in an operand position it is division.
-    // Getting this wrong deletes code rather than inventing it, so the cost is a visible refusal.
+    // Reading a division AS a regex deletes to the end of the line, which normally costs a refusal
+    // someone sees; it also deletes statement terminators, so the keyword set holds only words that
+    // cannot be identifiers.
     if (
       c === '/' &&
       (/[(=,:[!&|?{};+\-*%<>~^]$/.test(previousCode) ||
@@ -209,23 +226,67 @@ export function stripNonCode(source) {
   return out;
 }
 
+/** Modifiers that stop a case or a suite from running. */
+const DISABLED_MODIFIER = /^(?:skip|todo|failing|skipIf|concurrent\.skip)$/;
+
+/** Spans of source belonging to a suite that does not run, by brace balance from its opener. */
+function disabledSuiteSpans(source) {
+  const spans = [];
+  const re = /(?<![.\w$])describe(?:\.[a-zA-Z]+)*\s*\(/g;
+  let match;
+  while ((match = re.exec(source)) !== null) {
+    const modifiers = match[0]
+      .slice('describe'.length, match[0].indexOf('('))
+      .trim()
+      .split('.')
+      .filter(Boolean);
+    if (!modifiers.some((m) => DISABLED_MODIFIER.test(m))) continue;
+    let depth = 0;
+    let i = re.lastIndex - 1;
+    for (; i < source.length; i++) {
+      if (source[i] === '(') depth++;
+      else if (source[i] === ')') {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    spans.push([match.index, i]);
+  }
+  return spans;
+}
+
 /**
- * The text between one case opener and the next — not a parsed case body, so a chunk carries the
- * tail of its case plus whatever sits between it and the next opener. Titles are not read at all:
- * what a case is CALLED is not what it proves, and requiring a wording would fail suites that
+ * The text between one LIVE case opener and the next — not a parsed case body, so a chunk carries
+ * the tail of its case plus whatever sits between it and the next opener. Titles are not read at
+ * all: what a case is CALLED is not what it proves, and requiring a wording would fail suites that
  * already prove the property while passing one that only claims to.
  *
  * The opener must be at a statement position: `RE.test(x)` is a method call, and splitting on it
- * would cut a compliant case in half and red it.
+ * would cut a compliant case in half and red it. A case the runner skips — by its own modifier or
+ * by its suite's — is dropped: a counter checked only by a disabled test is checked by nothing,
+ * which is the premise of this whole floor.
  */
 export function testCases(source) {
+  const disabled = disabledSuiteSpans(source);
   const starts = [];
-  const re = /(?<![.\w$])(?:it|test)(?:\.[a-z]+)*\s*[(`]/g;
+  const re = /(?<![.\w$])(?:it|test)((?:\.[a-zA-Z]+)*)\s*[(`]/g;
   let match;
-  while ((match = re.exec(source)) !== null) starts.push(match.index);
-  return starts.map((start, i) =>
-    source.slice(start, i + 1 < starts.length ? starts[i + 1] : source.length),
-  );
+  while ((match = re.exec(source)) !== null) {
+    const skipped =
+      match[1]
+        .split('.')
+        .filter(Boolean)
+        .some((modifier) => DISABLED_MODIFIER.test(modifier)) ||
+      disabled.some(([from, to]) => match.index > from && match.index < to);
+    starts.push({ index: match.index, skipped });
+  }
+  return starts
+    .map((start, i) => ({
+      skipped: start.skipped,
+      body: source.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : source.length),
+    }))
+    .filter((c) => !c.skipped)
+    .map((c) => c.body);
 }
 
 /** Positions of every call to `name` in already-stripped source. */
@@ -249,7 +310,11 @@ function exactAssertionPosition(source, reader, from = 0) {
     const rest = source.slice(position);
     const end = rest.indexOf(';');
     if (end === -1) continue;
-    if (/\.toBe\s*\(\s*\d+\s*\)/.test(rest.slice(0, end))) return position;
+    const statement = rest.slice(0, end);
+    // `.not.toBe(0)` is a bound wearing an exact assertion's spelling: it holds for every value but
+    // one, which is what clause 3 refuses.
+    if (/\.not\b/.test(statement)) continue;
+    if (/\.toBe\s*\(\s*\d+\s*\)/.test(statement)) return position;
   }
   return -1;
 }
@@ -427,7 +492,9 @@ function judgeSubject(root, rel, source) {
     return findings;
   }
 
-  const testSource = stripNonCode(readFileSync(testPath, 'utf8'));
+  // Only the cases that run. The exact-value check reads the same text as the reset check, or an
+  // assertion inside a skipped case would satisfy one half of the floor while proving nothing.
+  const testSource = testCases(stripNonCode(readFileSync(testPath, 'utf8'))).join('\n');
   const testRel = path.relative(root, testPath);
   for (const reader of readers) {
     // Counted HERE rather than as `readers.length`: a size read off a collection is the size of the
@@ -472,7 +539,7 @@ export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
 
   for (const rel of harnessModules(root)) {
     const source = readFileSync(path.join(root, rel), 'utf8');
-    if (!source.includes(DECLARATION)) continue;
+    if (!carriesDeclaration(source)) continue;
     examinedSubjects++;
     seen.add(rel);
 
@@ -509,7 +576,7 @@ export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
       });
   }
 
-  for (const rel of [...covered, ...pending])
+  for (const rel of new Set([...covered, ...pending]))
     if (!seen.has(rel))
       findings.push({
         type: 'stale-ledger-entry',
@@ -520,7 +587,7 @@ export function findMeasurementProvenanceFindings(root = WORKSPACE_ROOT) {
 
   if (examinedSubjects === 0)
     throw new Error(
-      `No module under ${HARNESS_DIR} declares ${DECLARATION}. A tree with no subject is ` +
+      `No module under ${HARNESS_DIR} carries ${DECLARATION}. A tree with no subject is ` +
         'a broken checkout, not a compliant one — this scan will not report a pass over it.',
     );
 
@@ -531,7 +598,7 @@ function main() {
   const findings = findMeasurementProvenanceFindings();
   if (findings.length === 0) {
     // Two subjects, two numbers: a single figure over both would absorb whichever walk collapsed.
-    console.log(`::examined:: ${examinedSubjects} declaring scans`);
+    console.log(`::examined:: ${examinedSubjects} harness modules carrying the declaration`);
     console.log(`::examined:: ${examinedReaders} exported size readers`);
     console.log(
       `measurement-provenance scan passed (${coveredSubjects} subject(s) meet the floor; ` +
@@ -545,7 +612,9 @@ function main() {
   console.error(
     '\nA counter is an output and is tested as one — see .agents/rules/measurement-provenance.md:\n' +
       '  - export the counter so a test can read it;\n' +
-      '  - assert an EXACT numeric value against a fixture of known size (a bound admits over-counts);\n' +
+      '  - assert an EXACT numeric value against a fixture of known size (a bound admits over-counts),\n' +
+      '    written as one statement — `expect(readerName()).toBe(3)` — so the assertion is the one\n' +
+      '    the reader call feeds;\n' +
       '  - assert it again AFTER a second run of the finder, so an accumulating counter is told apart\n' +
       '    from a growing subject.',
   );
