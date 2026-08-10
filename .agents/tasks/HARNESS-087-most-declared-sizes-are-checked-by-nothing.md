@@ -18,7 +18,8 @@ Sixty-two harness modules carry the declaration marker. Eight export the counter
 other fifty-four are recorded as pending in `scripts/harness/measurement-provenance-pending.json`.
 Two shapes, and the first dominates — 44 against 10:
 
-- the counter lives in `main()` and is exported by nothing, so no test can read it;
+- no export matches the reader convention — usually because the counter lives in `main()` and is
+  exported by nothing, and in at least one case because it is exported under a third spelling;
 - the counter is exported but its value is asserted by nothing, or by a lower bound.
 
 Every one of those numbers is read as evidence that a scan ran over what it names, and every one can

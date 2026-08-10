@@ -42,11 +42,14 @@ self-reported size is read as evidence that the check ran over what it names.
 
 ## What is mechanical
 
-`measurement-provenance` derives its subjects from the tree — every check whose source emits the
-declaration — and fails one whose counter is not exported, whose value no exact numeric
-assertion reads, or which has no assertion after a second run. Clauses 1 and 2 are judgement: where a
-number was incremented is not decidable from outside the module, and a counter carrying the cases
-above is one whose provenance someone had to establish in order to write them.
+`measurement-provenance` derives its subjects from the tree — every check whose source CARRIES the
+declaration marker — and fails one whose counter is not exported, whose value no live case asserts
+against an exact numeric value, or which has no assertion after a second run. Carrying rather than
+printing is deliberate: recognising the call that prints would exempt every module whose spelling the
+check did not know, and a check that over-includes is argued with in a file rather than obeyed in
+silence. Clauses 1 and 2 are judgement: where a number was incremented is not decidable from outside
+the module, and a counter carrying the cases above is one whose provenance someone had to establish in
+order to write them.
 
 **The floor's own coverage is a number it publishes, not a claim it implies.** Every subject is
 classified as covered or unmet, a subject in neither is a finding, and both lists are re-measured on
