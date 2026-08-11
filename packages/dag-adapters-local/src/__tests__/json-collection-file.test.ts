@@ -1,10 +1,16 @@
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { drainQueue, hydrateCollection, persistCollection } from '../json-collection-file.js';
+import {
+  createCollectionPersister,
+  drainQueue,
+  hydrateCollection,
+  persistCollection,
+} from '../json-collection-file.js';
 
 /**
  * DAG-003, review round 2 — the ordering hole the first version left.
@@ -30,6 +36,75 @@ function collectionFile(): string {
 }
 
 describe('persistCollection', () => {
+  it('TC-01 keeps a successor queued at owner release pending until it is durable', async () => {
+    const file = collectionFile();
+    let releaseFinalWrite!: () => void;
+    const finalWrite = new Promise<void>((resolve) => {
+      releaseFinalWrite = resolve;
+    });
+    let observeBoundary!: () => void;
+    const boundaryObserved = new Promise<void>((resolve) => {
+      observeBoundary = resolve;
+    });
+    let successor: Promise<void> | undefined;
+    let idleObservations = 0;
+    let writes = 0;
+
+    const persist = createCollectionPersister(
+      async (_filePath, serialized) => {
+        writes += 1;
+        if (writes === 2) await finalWrite;
+        await writeFile(file, serialized, 'utf-8');
+      },
+      {
+        beforeOwnerRelease: () => {
+          idleObservations += 1;
+          if (idleObservations === 1) {
+            successor = persist(file, [{ id: 'successor' }]);
+            observeBoundary();
+          }
+        },
+      },
+    );
+
+    let initialSettled = false;
+    const initial = persist(file, [{ id: 'initial' }]).finally(() => {
+      initialSettled = true;
+    });
+
+    await boundaryObserved;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(initialSettled).toBe(false);
+    expect(successor).toBeDefined();
+
+    releaseFinalWrite();
+    await Promise.all([initial, successor]);
+    expect(JSON.parse(readFileSync(file, 'utf-8'))).toEqual([{ id: 'successor' }]);
+  });
+
+  it('TC-02 keeps different file owners independent', async () => {
+    let releaseFirstPath!: () => void;
+    const firstPathWrite = new Promise<void>((resolve) => {
+      releaseFirstPath = resolve;
+    });
+    const persistedPaths: string[] = [];
+    const persist = createCollectionPersister(async (filePath) => {
+      persistedPaths.push(filePath);
+      if (filePath === '/virtual/first.json') await firstPathWrite;
+    });
+
+    let firstSettled = false;
+    const first = persist('/virtual/first.json', [{ id: 'first' }]).finally(() => {
+      firstSettled = true;
+    });
+    await persist('/virtual/second.json', [{ id: 'second' }]);
+
+    expect(firstSettled).toBe(false);
+    expect(persistedPaths).toEqual(['/virtual/first.json', '/virtual/second.json']);
+    releaseFirstPath();
+    await first;
+  });
+
   it('the FINAL state wins after concurrent writes', async () => {
     const file = collectionFile();
     const live = new Map<string, { id: string }>();
@@ -116,7 +191,7 @@ describe('drainQueue', () => {
     return queue;
   }
 
-  it('a later SUCCESS supersedes an earlier failure', async () => {
+  it('TC-03 a later SUCCESS supersedes an earlier failure', async () => {
     // Disk ends current, so nobody should be told their write failed.
     const queue = queueOf('s1', 's2');
     let calls = 0;
@@ -133,7 +208,7 @@ describe('drainQueue', () => {
     expect(calls).toBe(2);
   });
 
-  it('a failure of the FINAL attempt rejects — disk is stale', async () => {
+  it('TC-03 a failure of the FINAL attempt rejects — disk is stale', async () => {
     const queue = queueOf('s1');
     const write = async (): Promise<void> => {
       throw new Error('persistent');
