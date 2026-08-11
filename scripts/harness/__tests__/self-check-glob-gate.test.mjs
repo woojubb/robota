@@ -27,7 +27,8 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     const content = read('scripts/harness/verify-change.mjs');
 
     expect(content).toContain("'--pool=threads'");
-    expect(content).toContain("'--maxWorkers=4'");
+    expect(content).toContain("'--maxWorkers=2'");
+    expect(content).toContain("'--testTimeout=30000'");
   });
 
   it('verify-change never enumerates individual harness test files', () => {
@@ -53,7 +54,8 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     const script = packageJson.scripts?.['harness:test'];
 
     expect(script).toContain('--pool=threads');
-    expect(script).toContain('--maxWorkers=4');
+    expect(script).toContain('--maxWorkers=2');
+    expect(script).toContain('--testTimeout=30000');
   });
 });
 
