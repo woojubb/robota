@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-088: promotion novelty scans use the develop baseline'
-status: in-progress
+status: done
 created: 2026-08-12
+completed: 2026-08-12
 priority: high
 urgency: now
 area: .github/workflows, scripts/harness
@@ -10,7 +11,7 @@ depends_on: []
 
 # INFRA-088: promotion novelty scans use the develop baseline
 
-Spec: `.agents/spec-docs/active/INFRA-088-promotion-scan-baseline.md`
+Spec: `.agents/spec-docs/done/INFRA-088-promotion-scan-baseline.md`
 
 ## Objective
 
@@ -25,7 +26,7 @@ develop tree being promoted, while preserving `GITHUB_BASE_REF=main` for promoti
       `HARNESS_BASE_REF` to the release-gate child process.
 - [x] TC-03 — Red-prove and align `check-document-authority.mjs` with the explicit override
       precedence while preserving ordinary PR resolution.
-- [ ] TC-04 — Run the focused suites, complete release verification, and create a fresh sanctioned
+- [x] TC-04 — Run the focused suites, complete release verification, and create a fresh sanctioned
       promotion without skipping the release gate.
 
 ## Test Plan
@@ -73,4 +74,5 @@ develop tree being promoted, while preserving `GITHUB_BASE_REF=main` for promoti
 
 ## Result
 
-Pending.
+All four completion criteria are satisfied. The sanctioned promotion command completed its full
+release gate with exit 0 and produced a promotion whose tree exactly matched `origin/develop`.
