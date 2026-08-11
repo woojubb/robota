@@ -35,6 +35,7 @@ and [Vitest v3 reporter performance issue](https://github.com/vitest-dev/vitest/
 ### Affected Scope
 
 - `package.json` — root `harness:test` script only.
+- `scripts/harness/verify-change.mjs` — direct `harness-tests` repository-check invocation.
 - `scripts/harness/__tests__/self-check-glob-gate.test.mjs` — script contract regression test.
 
 ### Alternatives Considered
@@ -66,13 +67,14 @@ None
 
 ## Solution
 
-Append `--reporter=json --outputFile=node_modules/.cache/robota/harness-test-report.json` to the
-root `harness:test` script. Extend the existing script-contract test to require both options in
-addition to the directory-wide test glob.
+Pass `--reporter=json --outputFile=node_modules/.cache/robota/harness-test-report.json` from both
+the root `harness:test` script and the direct `harness-tests` repository check. Extend the existing
+script-contract test to require both options at both execution owners.
 
 ## Affected Files
 
 - `package.json`
+- `scripts/harness/verify-change.mjs`
 - `scripts/harness/__tests__/self-check-glob-gate.test.mjs`
 
 ## Completion Criteria
@@ -81,7 +83,7 @@ addition to the directory-wide test glob.
       at `node_modules/.cache/robota/harness-test-report.json`.
 - [ ] TC-02: the script-contract test fails if the JSON reporter or output destination is removed.
 - [ ] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status, and
-      the generated report records 3,177 passed tests and zero failures.
+      the generated report records 3,178 passed tests and zero failures.
 
 ## Test Plan
 
@@ -160,3 +162,12 @@ addition to the directory-wide test glob.
   absent), then GREEN with all 8 focused assertions passing.
 - A complete post-change run produced a JSON result with 3,177 passed assertions, zero failures,
   and `success: true`. The one additional assertion is the new script-contract test.
+- The first `pnpm harness:pre-push` verification exposed an execution-owner gap: its
+  `verify-change.mjs` path calls Vitest directly rather than invoking `harness:test`, so it retained
+  the default reporter and reproduced the timeout. The same JSON policy must be applied there.
+
+### [IMPLEMENTATION EVIDENCE] — ⏳ IN PROGRESS | 2026-08-11
+
+- The direct `verify-change.mjs` command was changed under RED→GREEN coverage. The focused contract
+  suite passed 9/9, and its complete JSON-mode run passed 3,178 assertions with zero failures.
+- TC-01 and TC-02 are met. TC-03 remains pending the committed-tree `pnpm harness:pre-push` run.

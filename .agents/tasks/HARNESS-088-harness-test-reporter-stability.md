@@ -17,8 +17,8 @@ preserving complete harness coverage.
 
 ## Plan
 
-- [x] TC-01: Select JSON result output for the complete harness suite without changing concurrency.
-- [x] TC-02: Add a regression assertion for the reporter and ignored output destination.
+- [x] TC-01: Configure JSON result output at every harness-suite execution owner without changing concurrency.
+- [x] TC-02: Add a regression assertion for the reporter and ignored output destination at every owner.
 - [ ] TC-03: Run the local pre-push path and record its successful result.
 
 ## Test Plan
@@ -45,6 +45,11 @@ Not applicable: this changes an internal developer verification reporter, not a 
   change did not satisfy TC-03.
 - The JSON contract assertion was RED before the script change, then GREEN (8/8). A post-change
   full suite produced a successful JSON report with 3,177 passed tests and zero failures.
+- The pre-push gate directly invokes Vitest through `verify-change.mjs`, bypassing `harness:test`.
+  That owner still reproduced the timeout, so the task remains in progress until it uses the same
+  JSON reporter contract.
+- The direct execution owner now has the JSON reporter and cache output path too. Its regression
+  test passed 9/9; its complete run passed 3,178 tests with zero failures.
 
 ## Decisions
 

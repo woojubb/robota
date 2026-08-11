@@ -62,7 +62,14 @@ function runRepositoryCheck(check, dryRun) {
       // excluded every test added after it was written (18 of 29 files by 2026-07-04).
       runCommand(
         'pnpm',
-        ['exec', 'vitest', 'run', 'scripts/harness/__tests__'],
+        [
+          'exec',
+          'vitest',
+          'run',
+          'scripts/harness/__tests__',
+          '--reporter=json',
+          '--outputFile=node_modules/.cache/robota/harness-test-report.json',
+        ],
         WORKSPACE_ROOT,
         dryRun,
       );
