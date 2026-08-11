@@ -87,7 +87,7 @@ guard-ledger ceiling.
       `--pool=threads --maxWorkers=4`.
 - [x] TC-02: the script-contract test fails if either direct harness-test execution owner loses the
       thread pool or worker ceiling; the test-selection finder fails closed without workflows.
-- [ ] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status and no
+- [x] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status and no
       `[vitest-worker]: Timeout calling "onTaskUpdate"` error.
 
 ## Test Plan
@@ -186,3 +186,10 @@ guard-ledger ceiling.
   finder now rejects a missing workflow directory, and the frozen vacuous ceiling moved from 4 to 3.
 - Focused regression tests passed 56/56. `pnpm harness:test` passed 173 files and 3,179 tests in
   101.93 seconds without an `onTaskUpdate` error. The pre-push gate is the remaining verification.
+
+### [IMPLEMENTATION EVIDENCE] — ✅ PASS | 2026-08-11
+
+- `pnpm harness:pre-push` passed from commit `1d5e94fec`. It ran the full 173-file harness suite
+  successfully in the bounded thread pool, completed the selected checks for all 86 workspace
+  scopes, and finished with 106 scans passed, one documented skip, and three advisory findings.
+- No `[vitest-worker]: Timeout calling "onTaskUpdate"` error occurred. TC-01 through TC-03 are met.
