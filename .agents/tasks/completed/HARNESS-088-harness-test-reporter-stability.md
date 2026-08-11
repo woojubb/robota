@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-088: stabilize the harness test reporter under a full parallel run'
-status: in-progress
+status: done
 created: 2026-08-11
+completed: 2026-08-12
 priority: high
 urgency: now
 area: scripts/harness, root package scripts
@@ -19,7 +20,7 @@ preserving complete harness coverage.
 
 - [x] TC-01: Configure a bounded two-worker thread pool at every harness-suite execution owner.
 - [x] TC-02: Add a regression assertion for that pool configuration at every owner.
-- [ ] TC-03: Run the local CI-equivalent path and record its successful result.
+- [x] TC-03: Run the local CI-equivalent path and record its successful result.
 
 ## Test Plan
 
@@ -70,4 +71,5 @@ Not applicable: this changes an internal developer verification reporter, not a 
 without an `onTaskUpdate` error, 86 workspace scopes completed their selected checks, and 106 scans
 passed (one documented skip and three advisory findings). A later `pnpm harness:verify-like-ci` run
 reopened the task after four-worker CPU contention caused seven 10-second hook/scan test timeouts
-across its two full-suite invocations. The two-worker thread configuration is pending the same gate.
+across its two full-suite invocations. The final two-worker/30-second configuration passed the focused
+215-test regression set, all 3,179 harness tests, and all 11 local CI-equivalent stages on 2026-08-12.

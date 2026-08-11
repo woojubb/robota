@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -87,7 +87,7 @@ guard-ledger ceiling.
       `--pool=threads --maxWorkers=2`.
 - [x] TC-02: the script-contract test fails if either direct harness-test execution owner loses the
       thread pool or worker ceiling; the test-selection finder fails closed without workflows.
-- [ ] TC-03: `pnpm harness:test`, `pnpm harness:pre-push`, and `pnpm harness:verify-like-ci` complete
+- [x] TC-03: `pnpm harness:test`, `pnpm harness:pre-push`, and `pnpm harness:verify-like-ci` complete
       with zero exit status and no hook-test timeout or
       `[vitest-worker]: Timeout calling "onTaskUpdate"` error.
 
@@ -202,3 +202,13 @@ guard-ledger ceiling.
   and three in `affected-verify`; every other local CI mirror stage passed.
 - Focused reproduction with the five affected files and `--maxWorkers=2` passed. The worker ceiling
   is reduced to two and TC-03 is reopened until the full CI-equivalent gate passes.
+
+### [CI-EQUIVALENT EVIDENCE] — ✅ PASS | 2026-08-12
+
+- The timeout contract was proven RED at both execution owners, then GREEN after adding the
+  harness-only `--testTimeout=30000`. The focused six-file regression set passed 215/215 tests.
+- `pnpm harness:test` passed 173 files and 3,179 tests with two threads in 202.36 seconds, with no
+  hook timeout and no `onTaskUpdate` RPC error.
+- `pnpm harness:verify-like-ci` passed all 11 locally mirrored stages, including both full harness
+  invocations, 86 affected scopes, build, typecheck, binary E2E, examples typecheck, and PTY E2E.
+  TC-01 through TC-03 are met.
