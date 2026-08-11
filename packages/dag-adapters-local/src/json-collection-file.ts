@@ -59,21 +59,59 @@ export async function hydrateCollection<T>(
  * `Iterable<unknown>` here would type-erase across the two collections for no gain, and
  * `code-quality.md` keeps `unknown` for trust boundaries with narrowing — this is neither.
  */
-const pendingWrites = new Map<string, Promise<void>>();
-const queuedSources = new Map<string, () => string>();
+interface CollectionWriteOwner {
+  promise: Promise<void>;
+}
 
-export async function persistCollection<T>(filePath: string, values: Iterable<T>): Promise<void> {
-  // Serialised lazily: whoever runs the next write should publish the newest state, not the one its
-  // own caller happened to hold.
-  queuedSources.set(filePath, () => JSON.stringify([...values], null, 2));
-  const inFlight = pendingWrites.get(filePath);
-  if (inFlight !== undefined) return inFlight;
+interface CollectionPersisterOptions {
+  /** Deterministic re-entrancy probe for the owner-release boundary. */
+  beforeOwnerRelease?: (filePath: string) => void;
+}
 
-  const run = drainQueue(filePath, queuedSources, writeAtomically).finally(() => {
-    pendingWrites.delete(filePath);
-  });
-  pendingWrites.set(filePath, run);
-  return run;
+type CollectionWriter = (filePath: string, serialized: string) => Promise<void>;
+
+export function createCollectionPersister(
+  write: CollectionWriter,
+  options: CollectionPersisterOptions = {},
+): <T>(filePath: string, values: Iterable<T>) => Promise<void> {
+  const owners = new Map<string, CollectionWriteOwner>();
+  const queuedSources = new Map<string, () => string>();
+
+  return function persist<T>(filePath: string, values: Iterable<T>): Promise<void> {
+    // Serialised lazily: whoever runs the next write should publish the newest state, not the one
+    // its own caller happened to hold.
+    queuedSources.set(filePath, () => JSON.stringify([...values], null, 2));
+    const inFlight = owners.get(filePath);
+    if (inFlight !== undefined) return inFlight.promise;
+
+    let resolveOwner!: () => void;
+    let rejectOwner!: (error: unknown) => void;
+    const owner: CollectionWriteOwner = {
+      promise: new Promise<void>((resolve, reject) => {
+        resolveOwner = resolve;
+        rejectOwner = reject;
+      }),
+    };
+    // Register before starting the async loop. Even a synchronously-throwing injected writer cannot
+    // complete owner cleanup before callers can observe the registered owner.
+    owners.set(filePath, owner);
+    void drainQueue(filePath, queuedSources, write, () => {
+      options.beforeOwnerRelease?.(filePath);
+      // The probe can synchronously re-enter persist(), like other synchronous callbacks can. More
+      // importantly, there is no await or promise reaction between this final check and deletion, so
+      // ordinary async callers fall wholly before this check or wholly after owner release.
+      if (queuedSources.has(filePath)) return true;
+      if (owners.get(filePath) === owner) owners.delete(filePath);
+      return false;
+    }).then(resolveOwner, rejectOwner);
+    return owner.promise;
+  };
+}
+
+const persistWithAtomicRename = createCollectionPersister(writeAtomically);
+
+export function persistCollection<T>(filePath: string, values: Iterable<T>): Promise<void> {
+  return persistWithAtomicRename(filePath, values);
 }
 
 /**
@@ -99,13 +137,20 @@ export async function drainQueue(
   filePath: string,
   queue: Map<string, () => string>,
   write: (path: string, serialized: string) => Promise<void>,
+  onIdle: () => boolean = () => false,
 ): Promise<void> {
   let lastError: unknown;
-  while (queue.has(filePath)) {
+  let isDraining = true;
+  while (isDraining) {
     const serialise = queue.get(filePath);
+    if (serialise === undefined) {
+      if (onIdle()) continue;
+      isDraining = false;
+      continue;
+    }
     queue.delete(filePath);
     try {
-      await write(filePath, serialise!());
+      await write(filePath, serialise());
       // A success supersedes any earlier failure: this write published the newest state, so disk is
       // current regardless of what an earlier attempt did.
       lastError = undefined;
