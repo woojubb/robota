@@ -43,7 +43,7 @@
     "readme:cleanup": "node scripts/docs/copy-readme.cjs cleanup",
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan": "node scripts/harness/run-all-scans.mjs",
-    "harness:test": "vitest run scripts/harness/__tests__",
+    "harness:test": "vitest run scripts/harness/__tests__ --reporter=json --outputFile=node_modules/.cache/robota/harness-test-report.json",
     "harness:verify-like-ci": "node scripts/harness/verify-like-ci.mjs",
     "harness:conformance": "node scripts/harness/check-dependency-direction.mjs --conformance-json",
     "harness:scan:done-evidence": "node scripts/harness/check-done-evidence.mjs",

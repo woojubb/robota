@@ -40,6 +40,14 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(script).toContain(`vitest run ${HARNESS_TESTS_DIR}`);
     expect(script).not.toMatch(/\.test\.mjs/);
   });
+
+  it('root harness:test writes a complete JSON result outside tracked files', () => {
+    const packageJson = JSON.parse(read('package.json'));
+    const script = packageJson.scripts?.['harness:test'];
+
+    expect(script).toContain('--reporter=json');
+    expect(script).toContain('--outputFile=node_modules/.cache/robota/harness-test-report.json');
+  });
 });
 
 describe('globbed harness suite is gated in CI and pre-push (TEST-011)', () => {
