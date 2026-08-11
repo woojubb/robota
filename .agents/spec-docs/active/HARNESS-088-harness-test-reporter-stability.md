@@ -1,5 +1,5 @@
 ---
-status: done
+status: in-progress
 type: INFRA
 tags: [cli, typescript]
 ---
@@ -20,7 +20,7 @@ disabled still timed out, while the serial run took 475.82 seconds. Reducing for
 therefore not the deciding cause.
 
 A JSON reporter probe was not a durable remedy: the local pre-push path calls Vitest directly and
-could still receive the worker RPC timeout. A thread-pool probe with `--maxWorkers=4` completed the
+could still receive the worker RPC timeout. A thread-pool probe with `--maxWorkers=2` completed the
 full suite without that error. `maxWorkers` is meaningful here because this command explicitly
 selects `--pool=threads`; it does not override the existing fork-specific `maxForks` setting.
 `dot` is retained only as compact terminal output, not as the timeout fix. Official references:
@@ -42,13 +42,13 @@ selects `--pool=threads`; it does not override the existing fork-specific `maxFo
 2. Disable file parallelism. Pro: strongest worker reduction. Con: the complete run still timed out,
    took 475.82 seconds, and exposed a load-sensitive 10-second test timeout.
 3. Run the harness suite in a bounded thread pool. Pro: the 173-file full run completes without the
-   fork-worker RPC timeout while retaining four-way parallelism. Con: fork-specific worker heap
+   fork-worker RPC timeout while retaining two-way parallelism. Con: fork-specific worker heap
    settings do not apply to threads, so this command must retain its explicit worker ceiling.
 
 ### Decision
 
 Choose option 3. The reporter-only and fork-concurrency probes were insufficient. The dedicated
-root harness script and the direct pre-push verification owner both select a four-worker thread
+root harness script and the direct pre-push verification owner both select a two-worker thread
 pool. Package test configuration remains unchanged. A script-contract regression test pins the
 pool and worker ceiling at both execution owners.
 
@@ -65,7 +65,7 @@ None
 
 ## Solution
 
-Pass `--pool=threads --maxWorkers=4 --reporter=dot` from both the root `harness:test` script and
+Pass `--pool=threads --maxWorkers=2 --reporter=dot` from both the root `harness:test` script and
 the direct `harness-tests` repository check. Extend the existing script-contract test to require
 the pool and worker ceiling at both execution owners. Repair the test-selection guard so its
 exported finder also fails closed when `.github/workflows` is absent, then re-freeze the resulting
@@ -84,10 +84,11 @@ guard-ledger ceiling.
 ## Completion Criteria
 
 - [x] TC-01: `harness:test` invokes Vitest for the complete harness test directory with
-      `--pool=threads --maxWorkers=4`.
+      `--pool=threads --maxWorkers=2`.
 - [x] TC-02: the script-contract test fails if either direct harness-test execution owner loses the
       thread pool or worker ceiling; the test-selection finder fails closed without workflows.
-- [x] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status and no
+- [ ] TC-03: `pnpm harness:test`, `pnpm harness:pre-push`, and `pnpm harness:verify-like-ci` complete
+      with zero exit status and no hook-test timeout or
       `[vitest-worker]: Timeout calling "onTaskUpdate"` error.
 
 ## Test Plan
@@ -180,7 +181,7 @@ guard-ledger ceiling.
 ### [IMPLEMENTATION EVIDENCE] — ⏳ IN PROGRESS | 2026-08-11
 
 - The JSON reporter conclusion above was superseded: it did not remove the worker-side RPC timeout
-  from every direct execution path. Both owners now use `--pool=threads --maxWorkers=4`, with dot
+  from every direct execution path. Both owners now use `--pool=threads --maxWorkers=2`, with dot
   output only for compact diagnostics.
 - The stale guard ledger exposed by the thread-pool run was repaired: the exported test-selection
   finder now rejects a missing workflow directory, and the frozen vacuous ceiling moved from 4 to 3.
@@ -193,3 +194,11 @@ guard-ledger ceiling.
   successfully in the bounded thread pool, completed the selected checks for all 86 workspace
   scopes, and finished with 106 scans passed, one documented skip, and three advisory findings.
 - No `[vitest-worker]: Timeout calling "onTaskUpdate"` error occurred. TC-01 through TC-03 are met.
+
+### [CI-EQUIVALENT EVIDENCE] — ❌ FAIL | 2026-08-11
+
+- `pnpm harness:verify-like-ci` ran the full harness suite twice. The four-worker thread pool avoided
+  `onTaskUpdate`, but CPU contention caused four 10-second hook-test timeouts in `harness-self-test`
+  and three in `affected-verify`; every other local CI mirror stage passed.
+- Focused reproduction with the five affected files and `--maxWorkers=2` passed. The worker ceiling
+  is reduced to two and TC-03 is reopened until the full CI-equivalent gate passes.

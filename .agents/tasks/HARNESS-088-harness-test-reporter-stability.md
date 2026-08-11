@@ -1,8 +1,7 @@
 ---
 title: 'HARNESS-088: stabilize the harness test reporter under a full parallel run'
-status: done
+status: in-progress
 created: 2026-08-11
-completed: 2026-08-11
 priority: high
 urgency: now
 area: scripts/harness, root package scripts
@@ -18,9 +17,9 @@ preserving complete harness coverage.
 
 ## Plan
 
-- [x] TC-01: Configure a bounded four-worker thread pool at every harness-suite execution owner.
+- [x] TC-01: Configure a bounded two-worker thread pool at every harness-suite execution owner.
 - [x] TC-02: Add a regression assertion for that pool configuration at every owner.
-- [x] TC-03: Run the local pre-push path and record its successful result.
+- [ ] TC-03: Run the local CI-equivalent path and record its successful result.
 
 ## Test Plan
 
@@ -55,8 +54,9 @@ Not applicable: this changes an internal developer verification reporter, not a 
 ## Decisions
 
 - Do not reduce fork parallelism: two forks and file serialization still timed out and were slower.
-- Use `--pool=threads --maxWorkers=4 --reporter=dot`. The full thread-pool probe completed without
-  an `onTaskUpdate` error; its remaining failures are existing guard-ledger drift, not RPC failure.
+- Use `--pool=threads --maxWorkers=2 --reporter=dot`. The thread pool removes the fork-worker RPC
+  path, while two workers avoid the 10-second hook-test timeouts reproduced under four workers in
+  `harness:verify-like-ci`.
 
 ## Blockers
 
@@ -68,4 +68,6 @@ Not applicable: this changes an internal developer verification reporter, not a 
 
 `pnpm harness:pre-push` passed from commit `1d5e94fec`: the full 173-file harness suite completed
 without an `onTaskUpdate` error, 86 workspace scopes completed their selected checks, and 106 scans
-passed (one documented skip and three advisory findings).
+passed (one documented skip and three advisory findings). A later `pnpm harness:verify-like-ci` run
+reopened the task after four-worker CPU contention caused seven 10-second hook/scan test timeouts
+across its two full-suite invocations. The two-worker thread configuration is pending the same gate.
