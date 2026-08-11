@@ -1,7 +1,8 @@
 ---
 title: 'HARNESS-088: stabilize the harness test reporter under a full parallel run'
-status: in-progress
+status: done
 created: 2026-08-11
+completed: 2026-08-11
 priority: high
 urgency: now
 area: scripts/harness, root package scripts
