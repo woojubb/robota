@@ -62,7 +62,16 @@ function runRepositoryCheck(check, dryRun) {
       // excluded every test added after it was written (18 of 29 files by 2026-07-04).
       runCommand(
         'pnpm',
-        ['exec', 'vitest', 'run', 'scripts/harness/__tests__'],
+        [
+          'exec',
+          'vitest',
+          'run',
+          'scripts/harness/__tests__',
+          '--pool=threads',
+          '--maxWorkers=2',
+          '--testTimeout=30000',
+          '--reporter=dot',
+        ],
         WORKSPACE_ROOT,
         dryRun,
       );
