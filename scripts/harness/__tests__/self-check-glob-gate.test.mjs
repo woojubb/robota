@@ -23,11 +23,11 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(content).toContain(`'scripts/harness/__tests__'`);
   });
 
-  it('verify-change writes its harness-suite result as JSON too', () => {
+  it('verify-change uses the bounded thread pool', () => {
     const content = read('scripts/harness/verify-change.mjs');
 
-    expect(content).toContain("'--reporter=json'");
-    expect(content).toContain("'--outputFile=node_modules/.cache/robota/harness-test-report.json'");
+    expect(content).toContain("'--pool=threads'");
+    expect(content).toContain("'--maxWorkers=4'");
   });
 
   it('verify-change never enumerates individual harness test files', () => {
@@ -48,12 +48,12 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(script).not.toMatch(/\.test\.mjs/);
   });
 
-  it('root harness:test writes a complete JSON result outside tracked files', () => {
+  it('root harness:test uses the bounded thread pool', () => {
     const packageJson = JSON.parse(read('package.json'));
     const script = packageJson.scripts?.['harness:test'];
 
-    expect(script).toContain('--reporter=json');
-    expect(script).toContain('--outputFile=node_modules/.cache/robota/harness-test-report.json');
+    expect(script).toContain('--pool=threads');
+    expect(script).toContain('--maxWorkers=4');
   });
 });
 

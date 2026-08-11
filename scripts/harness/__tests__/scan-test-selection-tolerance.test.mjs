@@ -1,12 +1,28 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   narrowsSelection,
+  listWorkflows,
   parseInvocations,
   stepRun,
   TEST_SCRIPT,
   ZERO_MATCH_TOLERANT,
 } from '../scan-test-selection-tolerance.mjs';
+
+describe('listWorkflows', () => {
+  it('fails closed when the governed workflow directory is absent', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'test-selection-tolerance-'));
+    try {
+      expect(() => listWorkflows(root)).toThrow(/\.github\/workflows does not exist/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('narrowsSelection', () => {
   it('treats the measured windows-shell shape as narrowing', () => {

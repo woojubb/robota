@@ -4,31 +4,28 @@ type: INFRA
 tags: [cli, typescript]
 ---
 
-# HARNESS-088: Stabilize the harness test reporter under a full parallel run
+# HARNESS-088: Stabilize full harness tests under a parallel run
 
 ## Problem
 
-`pnpm harness:pre-push` runs the complete 173-file harness suite. All 3,176 tests can pass while
-Vitest then exits non-zero because its progress-update RPC (`onTaskUpdate`) times out. The result
-blocks a feature-branch push although no test assertion failed. The failure reproduces when the
-full suite is run through the local pre-push path with its interactive progress output.
+`pnpm harness:pre-push` runs the complete 173-file harness suite. All assertions can pass while
+Vitest then exits non-zero because its progress-update RPC (`onTaskUpdate`) times out in the
+configured fork pool. The result blocks a feature-branch push although no test assertion failed.
 
 ## Prior Art Research
 
-Vitest documents `maxWorkers` as a worker ceiling and `fileParallelism: false` as full file
-serialization. The repository already sets `forks.maxForks: 4`; direct full-suite probes with two
-forks and with file parallelism disabled still timed out, while the serial run took 475.82 seconds.
-Concurrency is therefore not the deciding cause.
+Vitest documents `maxWorkers` as a worker ceiling and pool selection separately. The repository
+already sets `forks.maxForks: 4`; direct full-suite probes with two forks and with file parallelism
+disabled still timed out, while the serial run took 475.82 seconds. Reducing fork concurrency is
+therefore not the deciding cause.
 
-The documented JSON reporter writes one complete machine-readable result instead of continuously
-redrawing terminal progress. A full 173-file / 3,176-assertion run with
-`--reporter=json --outputFile=/tmp/robota-harness-vitest-report.json` exited 0 in about 81 seconds,
-whereas both default and dot reporters timed out after their assertions passed. This makes reporter
-event handling, not test correctness or worker count, the supported remediation point. The cache
-destination is under ignored `node_modules/.cache/`, so it does not create a tracked artifact.
-Official references: [parallelism](https://v3.vitest.dev/guide/parallelism),
-[configuration](https://v3.vitest.dev/config/), [terminal reporter performance issue](https://github.com/vitest-dev/vitest/issues/2602),
-and [Vitest v3 reporter performance issue](https://github.com/vitest-dev/vitest/issues/7285).
+A JSON reporter probe was not a durable remedy: the local pre-push path calls Vitest directly and
+could still receive the worker RPC timeout. A thread-pool probe with `--maxWorkers=4` completed the
+full suite without that error. `maxWorkers` is meaningful here because this command explicitly
+selects `--pool=threads`; it does not override the existing fork-specific `maxForks` setting.
+`dot` is retained only as compact terminal output, not as the timeout fix. Official references:
+[parallelism](https://v3.vitest.dev/guide/parallelism),
+[configuration](https://v3.vitest.dev/config/), and [terminal reporter performance issue](https://github.com/vitest-dev/vitest/issues/2602).
 
 ## Architecture Review
 
@@ -44,15 +41,16 @@ and [Vitest v3 reporter performance issue](https://github.com/vitest-dev/vitest/
    full run still timed out and took 208.92 seconds.
 2. Disable file parallelism. Pro: strongest worker reduction. Con: the complete run still timed out,
    took 475.82 seconds, and exposed a load-sensitive 10-second test timeout.
-3. Use JSON output for `harness:test`. Pro: the full suite empirically exits 0 while preserving all
-   assertions and current worker concurrency. Con: terminal progress output is replaced by a JSON file.
+3. Run the harness suite in a bounded thread pool. Pro: the 173-file full run completes without the
+   fork-worker RPC timeout while retaining four-way parallelism. Con: fork-specific worker heap
+   settings do not apply to threads, so this command must retain its explicit worker ceiling.
 
 ### Decision
 
-Choose option 3. The `dot` reporter was insufficient: it still timed out after all assertions passed.
-The dedicated root harness script is the narrowest owner of output policy; package tests, test
-selection, and worker configuration remain unchanged. A script-contract regression test will pin
-both the JSON reporter and ignored output destination.
+Choose option 3. The reporter-only and fork-concurrency probes were insufficient. The dedicated
+root harness script and the direct pre-push verification owner both select a four-worker thread
+pool. Package test configuration remains unchanged. A script-contract regression test pins the
+pool and worker ceiling at both execution owners.
 
 ### Architecture Review Checklist
 
@@ -67,31 +65,38 @@ None
 
 ## Solution
 
-Pass `--reporter=json --outputFile=node_modules/.cache/robota/harness-test-report.json` from both
-the root `harness:test` script and the direct `harness-tests` repository check. Extend the existing
-script-contract test to require both options at both execution owners.
+Pass `--pool=threads --maxWorkers=4 --reporter=dot` from both the root `harness:test` script and
+the direct `harness-tests` repository check. Extend the existing script-contract test to require
+the pool and worker ceiling at both execution owners. Repair the test-selection guard so its
+exported finder also fails closed when `.github/workflows` is absent, then re-freeze the resulting
+guard-ledger ceiling.
 
 ## Affected Files
 
 - `package.json`
 - `scripts/harness/verify-change.mjs`
 - `scripts/harness/__tests__/self-check-glob-gate.test.mjs`
+- `scripts/harness/scan-test-selection-tolerance.mjs`
+- `scripts/harness/__tests__/scan-test-selection-tolerance.test.mjs`
+- `scripts/harness/scan-guard-scope-fail-closed.mjs`
+- `scripts/harness/guard-ledger-ceilings.json`
 
 ## Completion Criteria
 
-- [ ] TC-01: `harness:test` invokes Vitest for the complete harness test directory with JSON output
-      at `node_modules/.cache/robota/harness-test-report.json`.
-- [ ] TC-02: the script-contract test fails if the JSON reporter or output destination is removed.
-- [ ] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status, and
-      the generated report records 3,178 passed tests and zero failures.
+- [x] TC-01: `harness:test` invokes Vitest for the complete harness test directory with
+      `--pool=threads --maxWorkers=4`.
+- [x] TC-02: the script-contract test fails if either direct harness-test execution owner loses the
+      thread pool or worker ceiling; the test-selection finder fails closed without workflows.
+- [ ] TC-03: `pnpm harness:test` and `pnpm harness:pre-push` complete with zero exit status and no
+      `[vitest-worker]: Timeout calling "onTaskUpdate"` error.
 
 ## Test Plan
 
-| TC-ID | Test Type              | Tool / Approach                                  | Notes                                              |
-| ----- | ---------------------- | ------------------------------------------------ | -------------------------------------------------- |
-| TC-01 | Unit                   | Vitest script-contract assertion                 | Reads the root package script.                     |
-| TC-02 | Regression             | Red/green edit of the script fixture             | Proves the contract assertion is live.             |
-| TC-03 | CI pipeline smoke test | `pnpm harness:test` then `pnpm harness:pre-push` | Exercises the same gate and reads the JSON result. |
+| TC-ID | Test Type              | Tool / Approach                                  | Notes                                             |
+| ----- | ---------------------- | ------------------------------------------------ | ------------------------------------------------- |
+| TC-01 | Unit                   | Vitest script-contract assertion                 | Reads both direct execution owners.               |
+| TC-02 | Regression             | Focused Vitest guard and contract tests          | Pins thread settings and absent-workflow failure. |
+| TC-03 | CI pipeline smoke test | `pnpm harness:test` then `pnpm harness:pre-push` | Exercises the same pre-push path.                 |
 
 ## Tasks
 
@@ -171,3 +176,13 @@ script-contract test to require both options at both execution owners.
 - The direct `verify-change.mjs` command was changed under RED→GREEN coverage. The focused contract
   suite passed 9/9, and its complete JSON-mode run passed 3,178 assertions with zero failures.
 - TC-01 and TC-02 are met. TC-03 remains pending the committed-tree `pnpm harness:pre-push` run.
+
+### [IMPLEMENTATION EVIDENCE] — ⏳ IN PROGRESS | 2026-08-11
+
+- The JSON reporter conclusion above was superseded: it did not remove the worker-side RPC timeout
+  from every direct execution path. Both owners now use `--pool=threads --maxWorkers=4`, with dot
+  output only for compact diagnostics.
+- The stale guard ledger exposed by the thread-pool run was repaired: the exported test-selection
+  finder now rejects a missing workflow directory, and the frozen vacuous ceiling moved from 4 to 3.
+- Focused regression tests passed 56/56. `pnpm harness:test` passed 173 files and 3,179 tests in
+  101.93 seconds without an `onTaskUpdate` error. The pre-push gate is the remaining verification.

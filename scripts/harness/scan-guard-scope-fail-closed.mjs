@@ -134,6 +134,15 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'it looks for waits held on a billed runner; over a root with no workflows there is nothing to hold and every workflow is vacuously thrifty, and this cost is invisible by nature — a polling job reads as ordinary work whose duration merely varies',
   },
   {
+    // Re-measured 2026-08-11 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`, so a root without the governed CI corpus cannot be
+    // reported as clean.
+    file: 'scan-test-selection-tolerance.mjs',
+    finder: 'findTestSelectionFindings',
+    tree: 'workspace package manifests and .github/workflows',
+    why: 'it resolves each filtered CI test command against the workspace package scripts before judging a narrowed selector; without that workspace corpus, “no zero-match-tolerant selection” would be a verdict over commands it could not resolve',
+  },
+  {
     // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
     // `scripts/harness does not exist`.
     file: 'scan-harness-scope-literal.mjs',
@@ -486,20 +495,6 @@ export const PENDING_CLASSIFICATION = [
   //     (#1481), which left this duplicate entry behind — a finder in both tables fails this
   //     scan's exactly-one rule, so `develop` was red on it. Removed here (INFRA-062); the
   //     MANDATORY entry is the stronger of the two, since it re-proves the behaviour by execution.
-  //   findTestSelectionFindings       → VACUOUS — a live instance of the audited defect. A
-  //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
-  //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
-  //     INFRA-060, not silently pinned as though it were sound.
-  {
-    // Measured 2026-07-26: the FINDER returns `{findings: [], invocations: 0}` on an empty root —
-    // vacuous by itself. Its `main()` treats `invocations === 0` as a failure, so the CLI is
-    // fail-closed while the exported finder is not. Recorded rather than pinned because
-    // MANDATORY_TREE_GUARDS asserts the finder's behaviour, and pinning it there would certify a
-    // property the finder does not hold.
-    file: 'scan-test-selection-tolerance.mjs',
-    finder: 'findTestSelectionFindings',
-    measured: 'vacuous',
-  },
   {
     // Measured 2026-07-26: returns `[]` on a bare root. It is a pure ENUMERATOR — it lists the
     // vitest configs it finds and renders no verdict — so emptiness is its honest answer, not a

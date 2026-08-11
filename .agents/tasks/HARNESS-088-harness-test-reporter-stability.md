@@ -17,8 +17,8 @@ preserving complete harness coverage.
 
 ## Plan
 
-- [x] TC-01: Configure JSON result output at every harness-suite execution owner without changing concurrency.
-- [x] TC-02: Add a regression assertion for the reporter and ignored output destination at every owner.
+- [x] TC-01: Configure a bounded four-worker thread pool at every harness-suite execution owner.
+- [x] TC-02: Add a regression assertion for that pool configuration at every owner.
 - [ ] TC-03: Run the local pre-push path and record its successful result.
 
 ## Test Plan
@@ -53,14 +53,15 @@ Not applicable: this changes an internal developer verification reporter, not a 
 
 ## Decisions
 
-- Do not change `maxWorkers` or `forks.maxForks`. Full probes with two forks and without file
-  parallelism still timed out, so reducing concurrency makes the gate slower without solving it.
-- Use `--reporter=json` with `node_modules/.cache/robota/harness-test-report.json`: the complete
-  3,176-assertion run exited 0 in about 81 seconds, while default and dot modes timed out.
+- Do not reduce fork parallelism: two forks and file serialization still timed out and were slower.
+- Use `--pool=threads --maxWorkers=4 --reporter=dot`. The full thread-pool probe completed without
+  an `onTaskUpdate` error; its remaining failures are existing guard-ledger drift, not RPC failure.
 
 ## Blockers
 
-- (none)
+- The stale guard-scope ledger was resolved by making `findTestSelectionFindings` reject a missing
+  workflow directory and re-freezing the reduced ceiling. No import-safety baseline change is
+  needed because the temporary custom reporter was removed. TC-03 awaits only the full pre-push run.
 
 ## Result
 
