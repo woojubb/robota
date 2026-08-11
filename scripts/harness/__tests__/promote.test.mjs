@@ -53,13 +53,14 @@ async function newRepo() {
 }
 
 /** Same as `run`, but WITHOUT `--skip-release-gate`, so the preflight actually executes. */
-async function runWithGate(root, extraArgv = [], spawn) {
+async function runWithGate(root, extraArgv = [], spawn, env) {
   let output = '';
   const code = await main({
     argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
     cwd: root,
     fetch: false,
     spawn,
+    env,
     out: (text) => {
       output += text;
     },
@@ -217,15 +218,27 @@ describe('promote.mjs (INFRA-051)', () => {
     commit(root, git, 'feature.md', 'work\n', 'feat: something');
     let invocation;
 
-    const { code, output } = await runWithGate(root, [], (command, args, options) => {
-      invocation = { command, args, options };
-      return { status: 0 };
-    });
+    const childEnv = {
+      ...process.env,
+      PNPM_HOME: undefined,
+      VOLTA_HOME: '/opt/volta',
+      PATH: '/usr/bin',
+    };
+    const { code, output } = await runWithGate(
+      root,
+      [],
+      (command, args, options) => {
+        invocation = { command, args, options };
+        return { status: 0 };
+      },
+      childEnv,
+    );
 
     expect(code).toBe(0);
     expect(output).toMatch(/release gate PASSED locally/);
-    expect(invocation.command).toBe('corepack');
-    expect(invocation.args).toEqual(['pnpm', 'harness:verify:release']);
+    expect(invocation.command).toBe('pnpm');
+    expect(invocation.args).toEqual(['harness:verify:release']);
+    expect(invocation.options.env.PATH).toBe(`/opt/volta/bin${path.delimiter}/usr/bin`);
     expect(invocation.options.env.HARNESS_BASE_REF).toBe('develop');
     expect(invocation.options.env.GITHUB_BASE_REF).toBe(process.env.GITHUB_BASE_REF);
   });

@@ -54,9 +54,13 @@ develop tree being promoted, while preserving `GITHUB_BASE_REF=main` for promoti
   resolved Volta's `pnpm` shim, but Node's exported child `PATH` did not, so `spawnSync('pnpm')`
   returned `ENOENT`. Running the identical gate directly with `HARNESS_BASE_REF=origin/develop`
   passed the full build, scan, test, release-suite, typecheck, and lint chain.
-- RED/GREEN: the promotion test first failed when requiring `corepack pnpm`, then passed 9/9 after
-  the runner used Node 22's Corepack entrypoint. This keeps pnpm pinned to packageManager 8.15.4
-  while removing reliance on shell-only PATH mutation.
+- RED/GREEN round 1: the promotion test first failed when requiring `corepack pnpm`, then passed 9/9
+  after the runner used Node 22's Corepack entrypoint. The first process started, but the real
+  release script's nested `pnpm build:deps` still failed because its shell inherited no pnpm shim.
+- RED/GREEN round 2: the test required a direct `pnpm` spawn with `VOLTA_HOME/bin` prepended to the
+  child `PATH` and failed against the Corepack implementation, then passed 9/9 after package-manager
+  homes were propagated. A process-level probe in that exact environment resolved pnpm 8.15.4 with
+  exit 0, covering both the outer process and the nested-script lookup mechanism.
 
 ## Decisions
 
