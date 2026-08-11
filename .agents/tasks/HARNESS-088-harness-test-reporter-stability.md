@@ -19,7 +19,7 @@ preserving complete harness coverage.
 
 - [x] TC-01: Configure a bounded four-worker thread pool at every harness-suite execution owner.
 - [x] TC-02: Add a regression assertion for that pool configuration at every owner.
-- [ ] TC-03: Run the local pre-push path and record its successful result.
+- [x] TC-03: Run the local pre-push path and record its successful result.
 
 ## Test Plan
 
@@ -61,8 +61,10 @@ Not applicable: this changes an internal developer verification reporter, not a 
 
 - The stale guard-scope ledger was resolved by making `findTestSelectionFindings` reject a missing
   workflow directory and re-freezing the reduced ceiling. No import-safety baseline change is
-  needed because the temporary custom reporter was removed. TC-03 awaits only the full pre-push run.
+  needed because the temporary custom reporter was removed.
 
 ## Result
 
-(Pending implementation and verification.)
+`pnpm harness:pre-push` passed from commit `1d5e94fec`: the full 173-file harness suite completed
+without an `onTaskUpdate` error, 86 workspace scopes completed their selected checks, and 106 scans
+passed (one documented skip and three advisory findings).
