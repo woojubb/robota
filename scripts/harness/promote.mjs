@@ -60,6 +60,7 @@ export async function main({
   out = (text) => process.stdout.write(text),
   fetch: shouldFetch = true,
   spawn = spawnSync,
+  env = process.env,
 } = {}) {
   const git = (args) => runGit(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
@@ -202,20 +203,23 @@ export async function main({
       // the gate must run in the SAME repository or it verifies the wrong tree while reporting on
       // this one. Omitted at first, which would have made a scratch-root invocation silently verify
       // the developer's own checkout.
-      // Run pnpm through Corepack instead of relying on a package-manager shim being exported in
-      // the child PATH. Volta can make `pnpm` available to an interactive shell without exporting
-      // its shim directory to Node children; in that environment spawnSync('pnpm') returns ENOENT
-      // and the sanctioned `node scripts/harness/promote.mjs` entrypoint cannot run its gate.
-      // Corepack ships with the repository's pinned Node 22 toolchain and selects packageManager's
-      // pnpm version, so this preserves the command semantics without the shell-specific lookup.
-      const gate = spawn('corepack', ['pnpm', 'harness:verify:release'], {
+      // Package-manager homes can be added by an interactive shell without being exported in the
+      // PATH Node passes to children. Add their canonical bin directories explicitly: the first
+      // pnpm process and every nested `pnpm` in the release script then resolve the same pinned
+      // executable instead of failing at a different nesting level.
+      const packageManagerPaths = [
+        env.PNPM_HOME,
+        env.VOLTA_HOME ? path.join(env.VOLTA_HOME, 'bin') : undefined,
+      ].filter(Boolean);
+      const childPath = [...packageManagerPaths, env.PATH].filter(Boolean).join(path.delimiter);
+      const gate = spawn('pnpm', ['harness:verify:release'], {
         cwd,
         stdio: 'inherit',
         shell: false,
         // The promotion tree is develop's tree. The PR target (`GITHUB_BASE_REF=main`) remains the
         // promotion-context signal, while this explicit override scopes novelty diffs to content the
         // promotion step itself introduced. The CI release job declares the same environment.
-        env: { ...process.env, HARNESS_BASE_REF: developRef },
+        env: { ...env, PATH: childPath, HARNESS_BASE_REF: developRef },
       });
       if (gate.status !== 0) {
         restore(previousBranch, branchExisted);

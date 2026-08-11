@@ -114,9 +114,10 @@ Add a red regression assertion that the main-only release job declares
 `HARNESS_BASE_REF: origin/develop` while retaining `PR_HEAD_SHA`, and that `promote.mjs` passes the
 same override to its local `pnpm harness:verify:release` child. Add a resolver test proving
 `check-document-authority.mjs` prefers `HARNESS_BASE_REF` over `GITHUB_BASE_REF`, then implement that
-precedence. Invoke the local pnpm child through the repository's Node/Corepack toolchain so the
-sanctioned direct Node entrypoint does not depend on an interactive shell exporting a Volta shim
-directory. Preserve the global shared resolver and every promotion-context reader unchanged.
+precedence. Explicitly add declared package-manager homes (`PNPM_HOME` and `VOLTA_HOME/bin`) to the
+local release child's `PATH` so both the first pnpm process and nested pnpm scripts resolve without
+depending on interactive-shell mutation. Preserve the global shared resolver and every
+promotion-context reader unchanged.
 
 ## Affected Files
 
