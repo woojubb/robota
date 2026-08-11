@@ -53,12 +53,13 @@ async function newRepo() {
 }
 
 /** Same as `run`, but WITHOUT `--skip-release-gate`, so the preflight actually executes. */
-async function runWithGate(root, extraArgv = []) {
+async function runWithGate(root, extraArgv = [], spawn) {
   let output = '';
   const code = await main({
     argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
     cwd: root,
     fetch: false,
+    spawn,
     out: (text) => {
       output += text;
     },
@@ -209,5 +210,23 @@ describe('promote.mjs (INFRA-051)', () => {
     // none, because the next run would push it.
     const branches = git(['branch', '--list', 'release/promote-develop-to-main']).stdout.trim();
     expect(branches).toBe('');
+  });
+
+  it('runs the release gate against the configured develop novelty baseline', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.md', 'work\n', 'feat: something');
+    let invocation;
+
+    const { code, output } = await runWithGate(root, [], (command, args, options) => {
+      invocation = { command, args, options };
+      return { status: 0 };
+    });
+
+    expect(code).toBe(0);
+    expect(output).toMatch(/release gate PASSED locally/);
+    expect(invocation.command).toBe('pnpm');
+    expect(invocation.args).toEqual(['harness:verify:release']);
+    expect(invocation.options.env.HARNESS_BASE_REF).toBe('develop');
+    expect(invocation.options.env.GITHUB_BASE_REF).toBe(process.env.GITHUB_BASE_REF);
   });
 });

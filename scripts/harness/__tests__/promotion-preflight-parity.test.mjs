@@ -94,4 +94,13 @@ describe('promotion preflight mirrors protect-main', () => {
     expect(promoteSource).toMatch(/status\s*!==\s*0/);
     expect(promoteSource).toMatch(/PromoteError/);
   });
+
+  it('compares promotion-local novelty against develop in the main-only release job', () => {
+    const nameIndex = workflowText.indexOf(`name: ${MAIN_ONLY_JOB}`);
+    const nextJobIndex = workflowText.indexOf('\n  # ', nameIndex + 1);
+    const jobBlock = workflowText.slice(nameIndex, nextJobIndex === -1 ? undefined : nextJobIndex);
+
+    expect(jobBlock).toMatch(/HARNESS_BASE_REF:\s*origin\/develop/);
+    expect(jobBlock).toMatch(/PR_HEAD_SHA:/);
+  });
 });

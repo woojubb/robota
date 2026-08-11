@@ -18,8 +18,9 @@
  *
  * Base-ref resolution:
  * 1. `--base-ref <ref>` CLI argument, if given.
- * 2. `origin/$GITHUB_BASE_REF` (PR events).
- * 3. `origin/develop` (default).
+ * 2. `$HARNESS_BASE_REF` when the harness declares an analysis baseline.
+ * 3. `origin/$GITHUB_BASE_REF` (PR events).
+ * 4. `origin/develop` (default).
  *
  * FAIL-CLOSED (INFRA-048-B). When no base resolves, or the diff against it cannot run, this scan
  * exits **1**. It previously printed `SKIPPED … Not a pass` and exited **0** — which every caller
@@ -95,8 +96,9 @@ function refExists(ref, options) {
 
 /**
  * Resolve the base ref to diff against. Candidates in priority order: an explicit `--base-ref`
- * argument, `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. Returns the resolved ref,
- * or `undefined` when none resolves — which the caller must treat as a FAILURE, not a pass.
+ * argument, `$HARNESS_BASE_REF` (an explicit harness-wide analysis baseline),
+ * `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. Returns the resolved ref, or
+ * `undefined` when none resolves — which the caller must treat as a FAILURE, not a pass.
  *
  * No fetch is attempted here (INFRA-048-B/INFRA-050): the only fetch that could help is a full one,
  * and a depth-limited one grafts the history it is trying to supply. Callers check out complete.
@@ -108,6 +110,8 @@ export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env
 
   const candidates = [];
   if (explicit) candidates.push(explicit);
+  const harnessBase = env.HARNESS_BASE_REF?.trim();
+  if (harnessBase) candidates.push(harnessBase);
   const prBase = env.GITHUB_BASE_REF?.trim();
   if (prBase) candidates.push(`origin/${prBase}`);
   candidates.push(`origin/${DEFAULT_BASE_BRANCH}`);
@@ -235,7 +239,7 @@ export async function main() {
   if (baseRef === undefined) {
     process.stdout.write(
       'document authority scan FAILED: no base ref could be resolved ' +
-        '(tried --base-ref, origin/$GITHUB_BASE_REF, origin/develop). ' +
+        '(tried --base-ref, $HARNESS_BASE_REF, origin/$GITHUB_BASE_REF, origin/develop). ' +
         'This gate cannot report a pass it did not compute — an unresolvable base used to exit 0 ' +
         'and silently stop enforcing (INFRA-048). Check out with full history ' +
         '(`fetch-depth: 0`) or pass `--base-ref <ref>`.\n',

@@ -507,6 +507,10 @@ jobs:
       # silently-skipped-but-green shape.
       - name: Run release-grade verification
         env:
+          # INFRA-088: `main` is the event/promotion context, but the promotion introduces no content
+          # beyond the already-verified develop tree. Diff-sensitive novelty scans must therefore
+          # compare to develop; promotion-ancestry still reads the untouched GITHUB_BASE_REF=main.
+          HARNESS_BASE_REF: origin/develop
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: pnpm harness:verify:release
 
