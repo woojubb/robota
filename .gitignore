@@ -150,4 +150,10 @@ stryker.log
 # Fixture roots for tests that must live inside the invocation directory (SEC-007 containment).
 # `afterAll` removes them; this is the net for a SIGKILL/timeout that skips the hook.
 .tmp-dag-tool-run-*/
-.agents/local-reviews/
+# Its CONTENTS, not the directory: git cannot re-include a file whose parent directory is excluded,
+# so `.agents/local-reviews/` followed by a negation silently keeps ignoring the README.
+.agents/local-reviews/*
+# …except that README. HARNESS-066: this directory is a LOCAL note cache and not gate evidence, and
+# the only place that can say so is a file the next reader will actually see. Ignoring the
+# explanation along with the data is how a demoted artefact keeps looking authoritative.
+!.agents/local-reviews/README.md

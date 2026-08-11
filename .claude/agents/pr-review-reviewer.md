@@ -41,6 +41,23 @@ NOT edit code, do NOT post the review to GitHub, do NOT fix anything — those a
    smallest change that makes it exercise the actual bug window/branch. Watch especially for a test that asserts
    a **late invariant** both versions satisfy. Record the pre-fix run result in your review.
 
+## A hold already contained is not a finding
+
+Some code carries a **containment label** — a comment opening `Contained — <ID>.`. It marks a hold whose
+defect was judged FOUNDATIONAL: the cause is underneath this change, a root item is filed for it, and the
+hold is the smallest thing that keeps the tree honest until that item lands. The label is the recorded
+answer to the finding you would otherwise raise.
+
+- A labelled hold is **not** counted in `ACTIONABLE FINDINGS`. Re-raising it leaves the loop able to
+  converge only by patching the wrong layer, which is what the label exists to prevent.
+- A label whose `<ID>` resolves to **no filed item** is a **MUST**: a hold naming an item nobody filed is
+  indistinguishable from having ignored the finding.
+- The label covers the hold it sits on and nothing else. A defect elsewhere in the same file, or the hold
+  having grown past "the smallest thing", is a finding like any other.
+
+The convention (both this form and the document one, and when containment is permitted at all) is owned
+by the repository's finding-depth rule, not by you. Report against it; do not extend it.
+
 ## Output — end with the machine signal
 
 Report the findings as a table (severity, file:line, problem), then end your output with EXACTLY one line:

@@ -1,6 +1,7 @@
 ---
 name: npm-otp-publish
 description: Sub-orchestration for phase 3 of a release — the publish boundary. Sequences the strictly-ordered preflight (sync and already-published check, build, state-artifact readiness, publish preflight, registry auth, full dry-run), then the hard halt for the user's one-time password, then the single sanctioned publish command as the very next action, then post-publish verification. Every step must complete before the next; it routes on each outcome and never crosses the boundary early. Holds no publish policy. Dispatched by release-orchestration.
+loop: over=attempt; bound=3 requests
 ---
 
 # npm OTP Publish — pipeline only
@@ -98,4 +99,7 @@ restricted sandbox before classifying them as defects. Then:
   and list the exact package state.
 
 This phase never returns `RETRY`: re-entering the publish boundary is always an explicit, bounded,
-password-consuming decision, so the caller must see the reason rather than a silent re-run.
+password-consuming decision, so the caller must see the reason rather than a silent re-run. Bounded:
+**at most 3 OTP requests per release** — each consumes the user's attention and a password window,
+and a publish that cannot complete in three is stopped and reported, not retried into. (This number
+lived only in the orchestration map before HARNESS-072; the skill owns it now.)

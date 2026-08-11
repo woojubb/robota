@@ -1,5 +1,9 @@
 # @robota-sdk/agent-transport — Package Specification
 
+## Transport Admission (SEC-008)
+
+transport-admission: none — this package is the transport REGISTRY plus a headless in-process adapter and testing fixtures. Nothing here accepts a peer over a wire, so there is no admission decision to make; the transports it registers each make their own.
+
 ## 1. Scope
 
 Core transport package for the Robota SDK. After DQ-AUDIT-005 the consolidated transport package was
@@ -164,5 +168,22 @@ delegated to the runner. Does not own interactive UI.
 ### `TransportRegistry`
 
 `register(transport)`, `getAll()`, `getEnabled()`, `setEnabled(name, enabled)`,
-`setOptions(name, options)`, `startAll(session)`, `stopAll()`. Reads/writes the `transports` block of
-a settings file at the path supplied to the constructor. Holds no concrete-transport import.
+`setOptions(name, options)`, `startAll(session)`, `waitForCompletion()`, `stopAll()`. Reads/writes the
+`transports` block of a settings file at the path supplied to the constructor. Holds no
+concrete-transport import.
+
+**Run-to-completion transports (ARCH-011).** `startAll` does not await a transport that declares
+`ITransportAdapter.runsToCompletion` — its `start()` does not return while it is alive, and awaiting
+it meant every transport registered behind it never started. The registry takes ownership of that
+promise: the rejection handler is attached at start time, not left to whoever calls
+`waitForCompletion` later, because merely holding a reference is not handling it and a rejection in
+the gap aborts the process.
+
+`waitForCompletion()` settles when every such transport has finished and rejects with the first
+failure to occur. It is on `ITransportRegistryView`, not only on this class, so the consumers that
+hold the view can actually reach it.
+
+`stopAll()` ABANDONS in-flight run-to-completion transports rather than awaiting them. `stop()` is a
+documented no-op for both of the transports that declare it, so awaiting would make `stopAll` neither
+bounded nor best-effort; abandoning also means a later `startAll` — a session switch does exactly
+this — starts from empty rather than overwriting a tracked promise.

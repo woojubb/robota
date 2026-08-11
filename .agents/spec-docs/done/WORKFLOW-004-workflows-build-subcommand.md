@@ -336,7 +336,7 @@ configured…` actionable error, no write; also covered with a throwing injected
 - SPEC-first honored: `packages/agent-command-workflows/docs/SPEC.md` updated (scope, authoring
   section for `build`, provider-seam decision, API table, test strategy) BEFORE implementation.
 - Changeset `.changeset/workflow-004-build-subcommand.md` (minor). Backlog item archived to
-  `.agents/backlog/completed/`. Spec moved `active/` → `done/`, `status: done`.
+  `.agents/tasks/completed/`. Spec moved `active/` → `done/`, `status: done`.
 
 ### [GATE-APPROVAL] — REVISE → revisions folded → approved | 2026-07-25
 

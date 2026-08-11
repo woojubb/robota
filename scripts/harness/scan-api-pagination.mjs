@@ -164,6 +164,135 @@ export function findUnpaginatedQueries(source, file = 'fixture.sh') {
     });
   }
 
+  findings.push(...findParallelFanOut(source, file));
+  return findings;
+}
+
+/**
+ * A parallel fan-out of API calls is a rate limit waiting to happen.
+ *
+ * The API answers a burst with a SECONDARY limit — a 403 carrying a rate-limit message rather than
+ * the 429 a caller would look for — and that limit outlives the burst, so the next unrelated read
+ * fails too. Unlike the primary budget, it is not reported by the rate-limit endpoint, which keeps
+ * showing a healthy remaining count while every call is refused.
+ *
+ * ITS OWN SUPPRESSION, because a hatch that names a different rule is a hatch nobody can read:
+ * `allow-parallel-fan-out: <reason>`. The pagination rule keeps `allow-unpaginated:`. Suppressing a
+ * burst with a token that says "unpaginated" would leave the next reader unable to tell which rule
+ * was waived or why, and the reason is the only thing that makes a hatch evidence rather than a
+ * switch.
+ *
+ * Serial pagination is not the problem and is not flagged: a paginating read walks one page at a
+ * time. What earns a finding is a loop that dispatches many independent calls at once — the shape
+ * that turns one expensive question into thousands of requests. Ask a coarser endpoint first, or
+ * accept it serially, or route the read through the shared helper, which waits out a limit instead
+ * of amplifying it.
+ */
+/**
+ * The degree is read as a NUMBER, not matched as a digit.
+ *
+ * The first version alternated digit patterns and was asymmetric between the two tools — one matched
+ * two-digit counts and the other did not — so the larger the fan-out, the likelier it passed. Worse,
+ * the unbounded form (`-P0`, which means "as many as possible") matched nothing at all: the most
+ * aggressive case was the one case that slipped through. Parsing the count removes that whole class:
+ * 0 means unbounded and 1 means serial, so the rule is `n === 0 || n >= 2`.
+ */
+const FAN_OUT_DEGREE = /(?:xargs[^\n]*?-P|parallel[^\n]*?-j)\s*(\d+)/;
+
+/**
+ * A fan-out has a DEGREE. A line ending in `&` does not.
+ *
+ * The first version also treated any trailing `&` as a fan-out, which made a single backgrounded
+ * command indistinguishable from a burst and returned `NaN` — a value that then passed a
+ * `!== null` test and read as "detected". One backgrounded call is not the thing this rule is about,
+ * and a check that cannot say how parallel something is cannot say it is too parallel.
+ */
+function fanOutDegree(line) {
+  const match = FAN_OUT_DEGREE.exec(line);
+  if (!match) return null;
+  const degree = Number(match[1]);
+  // 0 means unbounded, 1 means serial.
+  return degree === 0 || degree >= 2 ? degree : null;
+}
+
+const API_CALL = /gh\s+api|api\.github\.com/;
+
+/**
+ * Does THIS loop dispatch API calls — not, does the file contain one somewhere.
+ *
+ * Testing the whole file made an unrelated parallel loop a finding whenever any API call existed
+ * elsewhere in the same script, which is the false positive that gets a check suppressed rather than
+ * obeyed. The call is usually one indirection away, though: the burst that motivated this rule read
+ * `xargs -P 12 -I{} bash -c 'fetch_one {}'`, with `gh api` inside `fetch_one`. So the line is checked
+ * first, and then only the bodies of the shell functions that line actually names.
+ */
+export function loopDispatchesApiCalls(line, source) {
+  if (API_CALL.test(line)) return true;
+  for (const name of apiCallingFunctions(source)) {
+    if (new RegExp(`\\b${name}\\b`).test(line)) return true;
+  }
+  return false;
+}
+
+/**
+ * Names of shell functions whose body calls the API.
+ *
+ * Read line by line rather than by one regex, because both forms occur and a body legitimately
+ * contains `}` — `${VAR}` alone defeats a non-greedy match to the first brace. A single-line
+ * definition closes on its own line; a multi-line one closes on a line that is only `}`.
+ */
+function apiCallingFunctions(source) {
+  const names = new Set();
+  let open = null;
+  let body = '';
+  for (const line of source.split('\n')) {
+    if (open === null) {
+      const start = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{(.*)$/.exec(line);
+      if (!start) continue;
+      const [, name, rest] = start;
+      if (/\}\s*$/.test(rest)) {
+        if (API_CALL.test(rest)) names.add(name);
+        continue;
+      }
+      open = name;
+      body = rest;
+      continue;
+    }
+    if (/^\s*\}\s*$/.test(line)) {
+      if (API_CALL.test(body)) names.add(open);
+      open = null;
+      body = '';
+      continue;
+    }
+    body += `\n${line}`;
+  }
+  return names;
+}
+
+const FAN_OUT_ANNOTATION_WITH_REASON = /allow-parallel-fan-out:\s*\S/;
+
+export function findParallelFanOut(source, file = 'fixture.sh') {
+  const findings = [];
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (isCommentLine(line)) continue;
+    if (fanOutDegree(line) === null) continue;
+    // Only when the thing being fanned out is an API call — a parallel build is not this rule's
+    // business.
+    if (!loopDispatchesApiCalls(line, source)) continue;
+    let suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(line);
+    for (let above = i - 1; !suppressed && above >= 0 && isCommentLine(lines[above]); above -= 1) {
+      suppressed = FAN_OUT_ANNOTATION_WITH_REASON.test(lines[above]);
+    }
+    if (suppressed) continue;
+    findings.push({
+      file,
+      line: i + 1,
+      kind: 'parallel-api-fan-out',
+      text: line.trim().slice(0, 140),
+    });
+  }
   return findings;
 }
 
@@ -184,8 +313,7 @@ function walkFiles(target, root = WORKSPACE_ROOT) {
 export function findUnpaginatedApiQueries(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'api-pagination',
-    why:
-      'The pagination floor governs shipped source; reading no source is not finding it paginated.',
+    why: 'The pagination floor governs shipped source; reading no source is not finding it paginated.',
   });
   const findings = [];
   for (const scanRoot of SCAN_ROOTS) {
@@ -223,6 +351,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

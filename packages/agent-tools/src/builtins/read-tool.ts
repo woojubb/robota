@@ -98,7 +98,7 @@ function formatReadResult(
   return JSON.stringify(result);
 }
 
-async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}): Promise<string> {
+async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Promise<string> {
   const { filePath, offset, limit = DEFAULT_LIMIT } = args;
   const startLine = offset !== undefined && offset > 0 ? offset : 1;
 
@@ -171,7 +171,7 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions = {}):
 /**
  * Create a ReadTool instance — register with Robota agent tools registry.
  */
-export function createReadTool(options: ISandboxBuiltinToolOptions = {}): FunctionTool {
+export function createReadTool(options: ISandboxBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Read',
     options.description ?? DEFAULT_READ_DESCRIPTION,
@@ -181,8 +181,3 @@ export function createReadTool(options: ISandboxBuiltinToolOptions = {}): Functi
     },
   );
 }
-
-/**
- * ReadTool instance — register with Robota agent tools registry.
- */
-export const readTool = createReadTool();

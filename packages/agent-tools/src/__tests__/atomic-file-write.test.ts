@@ -32,7 +32,7 @@ async function importValueModule(moduleUrl: string): Promise<IValueModule> {
 
 async function listRobotaTempFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory);
-  return entries.filter((entry) => entry.includes('.robota-tmp-'));
+  return entries.filter((entry) => entry.includes('.atomic-tmp-'));
 }
 
 const tempDirs: string[] = [];

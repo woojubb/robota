@@ -61,8 +61,8 @@ The agent must stop and present options to the user when ANY of the following ho
 
 **Disclosure is not approval.** Mentioning a policy-file change or novel practice in a PR
 description, commit message, or backlog note does not substitute for asking first. Approval must
-be obtained before the change lands (2026-07-03 trust audit: three such changes shipped with
-PR-body disclosure only; all required retroactive review).
+be obtained before the change lands. A change disclosed but not approved is a change that has to be
+reviewed again after it landed, which is the expensive order to do it in.
 
 **Never write "사용자 결정 필요" without first presenting a concrete recommendation.** Every
 open decision in a backlog item must include the agent's recommendation and the reasoning behind it.
@@ -130,8 +130,7 @@ startup. Any push with modified or staged uncommitted files is blocked with exit
 - **This default is not an anti-batching rule.** A single coherent work-unit (one design-gate pass,
   one authoring pass, a rule + its enforcement + its wiring) belongs in ONE multi-commit PR — do not
   split it into many tiny PRs that each wait on a full CI run. Bundle by coherence + a soft size ceiling
-  (~600 changed lines / ~15 files); see the [PR Batching policy](git-branch.md) (DX-001) in `git-branch.md`
-  for the exact criteria. The line: **unrelated backlogs → separate PRs; related steps of one unit →
+  (~600 changed lines / ~15 files); see the [PR Batching policy](git-branch.md) for the exact criteria. The line: **unrelated backlogs → separate PRs; related steps of one unit →
   one PR.**
 - **Sequence by relatedness.** Decide the execution shape from whether items share files or contracts:
   items that touch the **same files/contracts are related — serialize them** (one ordered unit, or
@@ -151,7 +150,7 @@ Every backlog that changes runnable user-facing behavior, command behavior, TUI/
 workflow behavior must include a `## User Execution Test Scenarios` section before implementation
 starts.
 
-**Script home (INFRA-023)**: disposable live-verification scripts (evidence runs, repro probes)
+**Script home**: disposable live-verification scripts (evidence runs, repro probes)
 live in `scratch/src/` — a gitignored workspace home whose committed skeleton resolves
 `@robota-sdk/*` imports. Never park them inside `packages/` or `apps/`; the
 `temp-script-placement` harness scan blocks temp-pattern files there.
@@ -191,11 +190,11 @@ dispatched:
 
 - A scenario that requires live credentials or an external service **MUST state that prerequisite
   explicitly**, so an executor without it knows the gate cannot run in their environment rather than
-  discovering it mid-gate (counter-example: CLI-053's live-LLM transcript step was unexecutable in the
-  implementing environment).
+  discovering it mid-gate. A step requiring a live model transcript is unexecutable in an environment
+  without those credentials, and finding that out at the gate is finding it out too late.
 - A scenario whose only observable requires credentials the executor may not have is a design smell —
-  restructure toward a provider-free observable or a fixture the work itself ships (worked example:
-  CLI-058's in-repo mock MCP server made the entire scenario machine-executable).
+  restructure toward a provider-free observable or a fixture the work itself ships — an in-repo test
+  server in place of a live one makes the whole scenario machine-executable.
 
 Each user execution test scenario must include:
 
@@ -230,16 +229,16 @@ Splitting surface-wiring into a later slice is allowed, but an intermediate **li
 its engineering evidence and **names the still-pending agent-run verification** — it must NOT claim the
 capability "done," and the capability's epic is not COMPLETE until the agent-run verification passes. (This
 closes the loophole where a library seam no surface enables silently marks the user-execution gate N/A —
-the exact gap that let SELFHOST-008 memory ship OFF in the real agent, unverified end-to-end.)
+the gap that lets a capability ship switched OFF in the real agent, unverified end-to-end.)
 
-**Mechanical floor (HARNESS-030).** A capability spec DECLARES itself with three frontmatter keys —
+**Mechanical floor.** A capability spec DECLARES itself with three frontmatter keys —
 `capability: true`, `user_execution: agent-run | manual | none`, and (for `agent-run`)
 `user_execution_scenario: <path>` naming the evidence file EXPLICITLY. `scan-capability-reachability.mjs` (in
 `run-all-scans`) then enforces, over `.agents/spec-docs/done/`: a `capability: true` spec MUST NOT record
 `user_execution: none`/omit it (no N/A dodge), and a `capability: true` + `user_execution: agent-run` spec MUST
 name a `user_execution_scenario:` path that EXISTS. The reference is an explicit path, NOT a name/base-ID
-guess — a spec's evidence may live under a differently-named scenario (e.g. SEC-001's evidence is the GUI-007
-scenario file). `check-spec-doc-frontmatter.mjs` documents all three keys as recognized optional frontmatter.
+guess — a spec's evidence may live under a scenario named after the work that produced it rather than
+after the spec that needs it. `check-spec-doc-frontmatter.mjs` documents all three keys as recognized optional frontmatter.
 The floor is opt-in — the scan never GUESSES which spec is a capability (that semantic call, and "is the seam
 truly reachable," stay with the GATE-COMPLETE reviewer); it fences the recurrence once the capability is
 declared. Set these keys on every user-facing capability spec (add `user_execution_scenario:` for agent-run).
@@ -285,7 +284,7 @@ changed-file diff, or another concrete artifact that proves the expected observa
 After running the scenario, the agent must update the backlog item with the observed evidence before
 the backlog can be considered complete.
 
-**Durable-artifact evidence rule (HARNESS-002).** For code-changing backlogs, evidence MUST
+**Durable-artifact evidence rule.** For code-changing backlogs, evidence MUST
 reference durable artifacts — test file paths that exist in the repository. Evidence sections of
 completed backlogs are continuously re-validated by `pnpm harness:scan:done-evidence`
 (`scripts/harness/check-done-evidence.mjs`, part of the `harness:scan` aggregate): a referenced
@@ -323,7 +322,7 @@ tool, or device) is not a valid exception reason unless the agent actually probe
 the probe as evidence (e.g. which env vars / `.env` files / settings surfaces were checked and what
 they contained). An unprobed absence claim is a guess, not a reason — the one time it was written
 without a probe, the capability existed and the skipped live run would have caught a real bug that
-every unit and integration test missed (ANALYTICS-001, 2026-07-02).
+every unit and integration test missed.
 
 **Engineering verification is NEVER User-Execution evidence (authoritative statement).** Build,
 typecheck, lint, unit tests (any count), harness checks, CI checks, static/document/backlog/source
@@ -350,7 +349,7 @@ Completion is a single atomic act, not a sequence that usually finishes:
 1. **Update frontmatter** — set `status: done` and add `completed: YYYY-MM-DD` to the backlog
    file's frontmatter. For items that will not be implemented, use `status: wontfix` or
    `status: skipped` instead.
-2. **Move the file** — `git mv .agents/backlog/<file>.md .agents/backlog/completed/<file>.md`.
+2. **Move the file** — `git mv .agents/tasks/<file>.md .agents/tasks/completed/<file>.md`.
    Always `git mv`, never `cp` — the root must be left with no duplicate.
 3. **Single commit** — the frontmatter update and the move land in the SAME commit. Do not commit or
    push before both are staged together.
@@ -373,8 +372,8 @@ Recovery when only one half lands, and what to do when the move conflicts, are r
   `pnpm harness:scan`) fails on a terminal-status file in the root, an open-status file in
   `completed/`, or `status: done` without a `completed:` date. The `task-archival` scan additionally
   fails a fully-checked task file whose spec never reached `spec-docs/done/` (gates overdue). These
-  invariants held only as prose until 2026-07-02, when 8 shipped items were found with stale
-  placement.
+  invariants held only as prose until they were mechanized, and the sweep that mechanized them found
+  eight shipped items with stale placement.
 
 ## Base Branch Workflow
 

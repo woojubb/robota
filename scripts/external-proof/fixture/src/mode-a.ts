@@ -17,7 +17,7 @@ import { check, checkEqual, checkThrows, mode, note, section } from './harness.j
 
 /**
  * ARCH-006: the pack is built by a FACTORY bound to the session's working directory — a context-free pack
- * would carry a disarmed working-directory path guard on its file tools. A consumer builds it exactly as
+ * would carry a disarmed working-directory path guard on its file tools (ARCH-010 has since made that guard fail closed; the pack's rule is now the same one stated a layer up). A consumer builds it exactly as
  * robota's own shell does, with the cwd it assembles the session under.
  */
 const codingPack = createCodingPack({ cwd: process.cwd() });

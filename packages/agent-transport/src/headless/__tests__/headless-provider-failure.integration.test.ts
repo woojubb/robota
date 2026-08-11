@@ -140,4 +140,42 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       stderr.restore();
     }
   });
+
+  it('CORE-027: a failure whose prose says "abort" exits non-zero, not as a successful interruption', async () => {
+    // The user-execution scenario, run by the harness: a provider failure of exactly the
+    // shape 'connection aborted by peer' used to come back success: true, interrupted: true —
+    // empty response, exit 0, nothing downstream able to tell it from a user interruption.
+    //
+    // SCENARIO COVERAGE, not a red-proof of this change: measured against develop's sources
+    // this case already passes (the abort-prose misclassification fell to the earlier
+    // isAbortFailure fix). What it pins is the end-to-end exit contract through a real
+    // InteractiveSession and headless transport; the identity-preservation red-proofs live in
+    // the agent-core unit tests beside execution-failure.ts.
+    cwd = mkdtempSync(join(tmpdir(), 'robota-headless-fail-'));
+    const provider = createAuthFailingProvider();
+    provider.chat = async () => {
+      throw new Error('connection aborted by peer');
+    };
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      config: createConfig(),
+      permissionMode: 'bypassPermissions',
+      bare: true,
+    });
+    const stdout = captureStream(process.stdout);
+    const stderr = captureStream(process.stderr);
+
+    try {
+      const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'say hi' });
+      session.attachTransport(transport);
+      await transport.start();
+
+      expect(transport.getExitCode(), 'an abort-prose failure exited zero').toBe(1);
+      expect(stderr.writes.join('')).toContain('connection aborted by peer');
+    } finally {
+      stdout.restore();
+      stderr.restore();
+    }
+  });
 });

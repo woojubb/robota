@@ -14,7 +14,7 @@ architecture-map docs. See `design-doc-authoring` for the "when required" policy
 
 # <Component> Design
 
-Realizes [`<pkg>` SPEC](../SPEC.md). <!-- recommended owner pointer -->
+Realizes [`<pkg>` SPEC](../SPEC.md). <!-- recommended owner pointer --> <!-- allow-unresolved: a template slot — the path resolves in the copy, not in the template -->
 
 ## Context & Goal
 

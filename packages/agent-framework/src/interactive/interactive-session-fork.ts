@@ -51,6 +51,9 @@ export async function runSkillInFork(
     parentTools: deps.tools,
     provider: deps.provider,
     terminal: deps.terminal,
+    // ARCH-010: a fork continues the SAME conversation in the same place, so it inherits the parent
+    // session's root rather than re-deriving one.
+    cwd: parentSession.getCwd(),
     isForkWorker: true,
     permissionMode: deps.permissionMode,
     permissionHandler: deps.permissionHandler,

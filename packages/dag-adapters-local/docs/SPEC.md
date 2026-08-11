@@ -20,19 +20,30 @@
 
 ## Public API Surface
 
-| Export                  | Kind  | Implements             | Description                                                     |
-| ----------------------- | ----- | ---------------------- | --------------------------------------------------------------- |
-| `InMemoryStoragePort`   | Class | `IStoragePort`         | In-memory storage for DAG definitions, runs, and tasks          |
-| `InMemoryQueuePort`     | Class | `IQueuePort`           | In-memory message queue (enqueue, long-poll dequeue, ack, nack) |
-| `InMemoryLeasePort`     | Class | `ILeasePort`           | In-memory lease management (acquire, renew, release)            |
-| `SystemClockPort`       | Class | `IClockPort`           | Real system clock (`Date.now()`)                                |
-| `FileStoragePort`       | Class | `IStoragePort`         | File-based JSON storage for DAG definitions, runs, and tasks    |
-| `InMemoryRunDraftStore` | Class | `IRunDraftStore`       | In-memory execution draft storage for tests                     |
-| `FileRunDraftStore`     | Class | `IRunDraftStore`       | File-based JSON storage for execution drafts                    |
-| `FileCostMetaStorage`   | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata                       |
+| Export                  | Kind  | Implements             | Description                                                                                             |
+| ----------------------- | ----- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `InMemoryStoragePort`   | Class | `IStoragePort`         | In-memory storage for DAG definitions, runs, and tasks                                                  |
+| `InMemoryQueuePort`     | Class | `IQueuePort`           | In-memory message queue (enqueue, long-poll dequeue, ack, nack)                                         |
+| `InMemoryLeasePort`     | Class | `ILeasePort`           | In-memory lease management (acquire, release, get) — `renew` was removed by DAG-001                     |
+| `SystemClockPort`       | Class | `IClockPort`           | Real system clock (`Date.now()`)                                                                        |
+| `FileStoragePort`       | Class | `IStoragePort`         | File-based JSON storage for DAG definitions, runs and task runs — all three survive a restart (DAG-003) |
+| `InMemoryRunDraftStore` | Class | `IRunDraftStore`       | In-memory execution draft storage for tests                                                             |
+| `FileRunDraftStore`     | Class | `IRunDraftStore`       | File-based JSON storage for execution drafts                                                            |
+| `FileCostMetaStorage`   | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata                                                               |
 
 `FileCostMetaStorage` writes `cost-meta.json` into a caller-supplied `dataDir` that may be shared, so
 the file is created with mode `0600` rather than inheriting the process umask (SEC-003 / CWE-377).
+
+### File collection persistence semantics
+
+`FileStoragePort` serializes writes independently per collection file and may coalesce overlapping
+same-file requests to the newest requested state. A persistence promise resolves only after that
+request's state, or a later state that supersedes it, has reached the atomically-renamed file. The
+per-file writer releases ownership only in the same synchronous handoff that confirms no newer state
+is queued; a request after release installs a successor writer and cannot receive the completed
+owner's promise. Different file paths do not share writer ownership. If the final write attempt for a
+coalescing cohort fails, the cohort promise rejects; an earlier failure superseded by a later
+successful latest-state write does not make a current durable state fail.
 
 ### `./testing` entry — test-support ports (Public API)
 

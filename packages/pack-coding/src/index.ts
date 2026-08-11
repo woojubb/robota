@@ -4,8 +4,8 @@
  * command modules (`/shell`, `/editor`), and the coding subagents (`general-purpose`, `Explore`, `Plan`).
  *
  * The pack is built by a FACTORY that takes the session's working directory — there is deliberately no
- * context-free constant, because a pack whose file tools carry no `cwd` has a disarmed working-directory
- * path guard (ARCH-006). See `createCodingPack`.
+ * context-free constant, because a pack whose file tools carry no `cwd` had a disarmed working-directory
+ * path guard (ARCH-006; the guard itself was made fail-closed by ARCH-010). See `createCodingPack`.
  */
 
 export { createCodingPack } from './coding-pack.js';

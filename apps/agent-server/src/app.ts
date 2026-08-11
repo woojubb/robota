@@ -9,6 +9,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
+import { requireOperatorKeyAuth } from './middleware/require-operator-key-auth.js';
 import { playgroundRouter } from './routes/playground.js';
 
 import type { PlaygroundWebSocketServer } from './websocket-server';
@@ -112,7 +113,11 @@ export function createApp(): express.Application {
   app.get('/api/v1/remote/health', (_req, res) => {
     res.json({ status: 'ok', providers: providerNames, timestamp: new Date().toISOString() });
   });
-  app.post('/api/v1/remote/chat', async (req, res) => {
+  // SEC-008: this route spends the OPERATOR's provider credit (the providers above are built from
+  // the operator's API keys), and it had no authentication — only a global IP rate limiter, which
+  // bounds the rate of anonymous spending rather than preventing it. BYOK below is deliberately not
+  // gated: the caller brings their own key.
+  app.post('/api/v1/remote/chat', requireOperatorKeyAuth, async (req, res) => {
     try {
       const { provider: providerName, messages, model } = req.body;
       if (!providerName || typeof providerName !== 'string') {

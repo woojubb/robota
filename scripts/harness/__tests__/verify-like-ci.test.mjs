@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { describeCiSource } from '../ci-mirror-map.mjs';
 import {
+  advanceBuildState,
   annotateNotMirrored,
   CI_STAGES,
   collectChangedFiles,
@@ -21,6 +22,7 @@ import {
   readDistIndependentScanSkips,
   readLintStagedExtensions,
   selectFormatTargets,
+  stageBlockCause,
   stageGate,
   summarize,
 } from '../verify-like-ci.mjs';
@@ -164,6 +166,132 @@ describe('findMissingDist', () => {
   it('returns nothing when every package is built', () => {
     const root = createFixture({ 'packages/built/dist/index.js': '' });
     expect(findMissingDist(['packages/built'], undefined, root)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// unbuilt tree (HARNESS-058): a stage must not report on ground the tree lacks
+// ---------------------------------------------------------------------------
+
+const CONSUMER = { name: 'typecheck', needsBuildOutput: true };
+const PRODUCER = { name: 'build', needsBuildOutput: false };
+
+/** A run that has not reached `build` yet, on a tree with nothing built. */
+const pendingBuild = { buildPending: true, buildFailed: false, missingDist: ['packages/a'] };
+
+describe('stageBlockCause', () => {
+  it('does NOT block while `build` is still ahead — the output is about to appear', () => {
+    expect(stageBlockCause(CONSUMER, pendingBuild)).toBeNull();
+  });
+
+  it('blocks as `unprepared` when no build will run and nothing is built', () => {
+    expect(
+      stageBlockCause(CONSUMER, {
+        buildPending: false,
+        buildFailed: false,
+        missingDist: ['packages/a'],
+      }),
+    ).toBe('unprepared');
+  });
+
+  /**
+   * The reviewer disagreement this pins, settled by measurement rather than argument. A build that
+   * was ATTEMPTED is not build output. Measured on a fresh worktree with a real build regression:
+   * `examples-typecheck` emitted `TS2307: Cannot find module '@robota-sdk/agent-framework'` and a
+   * spurious "install @types/node" hint; `binary-e2e` spent 20s waiting for a serve host that was
+   * never built. Neither is a verdict on the change.
+   */
+  it('blocks as `build-failed` once `build` ran and FAILED with dist still absent', () => {
+    expect(
+      stageBlockCause(CONSUMER, {
+        buildPending: false,
+        buildFailed: true,
+        missingDist: ['packages/a'],
+      }),
+    ).toBe('build-failed');
+  });
+
+  it('does NOT block after a successful build — dist is there', () => {
+    expect(
+      stageBlockCause(CONSUMER, { buildPending: false, buildFailed: false, missingDist: [] }),
+    ).toBeNull();
+  });
+
+  it('never blocks a stage that reads no build output — the fast tier still runs unbuilt', () => {
+    expect(stageBlockCause(PRODUCER, { ...pendingBuild, buildPending: false })).toBeNull();
+    expect(
+      stageBlockCause(
+        { name: 'format-check', needsBuildOutput: false },
+        {
+          ...pendingBuild,
+          buildPending: false,
+        },
+      ),
+    ).toBeNull();
+  });
+
+  it('blocks every build-output stage the real table declares, so none can fake a verdict', () => {
+    const consumers = CI_STAGES.filter((stage) => stage.needsBuildOutput);
+    expect(consumers.length).toBeGreaterThan(0);
+    for (const stage of consumers) {
+      expect(
+        stageBlockCause(stage, {
+          buildPending: false,
+          buildFailed: true,
+          missingDist: ['packages/a'],
+        }),
+        `\`${stage.name}\` declares it reads build output but would still run after a FAILED build`,
+      ).toBe('build-failed');
+    }
+  });
+});
+
+describe('advanceBuildState', () => {
+  it('leaves the state alone for any stage that is not `build`', () => {
+    expect(advanceBuildState(pendingBuild, CONSUMER, 0, () => [])).toEqual(pendingBuild);
+  });
+
+  it('re-reads dist from DISK after a successful build rather than assuming it appeared', () => {
+    const next = advanceBuildState(pendingBuild, PRODUCER, 0, () => []);
+    expect(next).toEqual({ buildPending: false, buildFailed: false, missingDist: [] });
+  });
+
+  it('records the failure and keeps the dist it actually found after a FAILED build', () => {
+    const next = advanceBuildState(pendingBuild, PRODUCER, 1, () => ['packages/a']);
+    expect(next).toEqual({
+      buildPending: false,
+      buildFailed: true,
+      missingDist: ['packages/a'],
+    });
+  });
+});
+
+describe('the loop sequence a run actually walks', () => {
+  /** Replay the loop's state transitions over an ordered stage list. */
+  const replay = (stages, buildCode, distAfterBuild) => {
+    let state = { buildPending: true, buildFailed: false, missingDist: ['packages/a'] };
+    const seen = [];
+    for (const stage of stages) {
+      seen.push([stage.name, stageBlockCause(stage, state)]);
+      state = advanceBuildState(state, stage, stage.name === 'build' ? buildCode : 0, () => [
+        ...distAfterBuild,
+      ]);
+    }
+    return seen;
+  };
+
+  it('a FAILED build blocks every consumer that follows it', () => {
+    expect(replay([PRODUCER, CONSUMER], 1, ['packages/a'])).toEqual([
+      ['build', null],
+      ['typecheck', 'build-failed'],
+    ]);
+  });
+
+  it('a successful build blocks nothing that follows it', () => {
+    expect(replay([PRODUCER, CONSUMER], 0, [])).toEqual([
+      ['build', null],
+      ['typecheck', null],
+    ]);
   });
 });
 

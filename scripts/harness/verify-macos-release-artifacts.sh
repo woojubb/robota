@@ -285,7 +285,7 @@ fi
 if [ "$BLOCKING_FAILURES" -gt 0 ]; then
   echo
   echo "VERDICT: FAIL — a user downloading these artifacts cannot open them."
-  echo "See .agents/backlog/DIST-002-release-artifact-verification.md for the signing work this needs."
+  echo "See .agents/tasks/DIST-002-release-artifact-verification.md for the signing work this needs."
   exit 1
 fi
 

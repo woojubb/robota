@@ -4,7 +4,7 @@ Closes the capability-reachability done-gate (TC-04): the agent built and ran th
 program, serving **one** live session over **two** transports (WS + HTTP) simultaneously — the documented
 one-definition→many-channels pattern, end-to-end over the real transport DIP, no gateway. Per
 [`.agents/rules/backlog-execution.md`](../../rules/backlog-execution.md) and the
-[SELFHOST-013 spec](../../spec-docs/active/SELFHOST-013-multi-surface-deployment-gateway.md) TC-04.
+[SELFHOST-013 spec](../../spec-docs/done/SELFHOST-013-multi-surface-deployment-gateway.md) TC-04.
 
 Run by the agent on 2026-07-19: `pnpm --filter robota-capability-multi-surface-deploy dev`.
 

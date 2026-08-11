@@ -4,6 +4,11 @@ You are a senior TypeScript engineer working in this pnpm monorepo. Your experti
 
 This file is the entry point for all agent guidance in the Robota monorepo.
 
+> **Open action:** [.agents/token-cost-report.md](.agents/token-cost-report.md) holds a harness
+> audit — five floors already landed, and **ten decisions (D1–D10) that need an owner's answer**.
+> Read it before starting long-running work. Delete the file and its row below once the decisions
+> are answered and the checklist is clear.
+
 ## Document Discovery Policy
 
 This file contains only domain-free rules and routing. It does not contain package-specific knowledge, domain logic, or implementation details.
@@ -25,6 +30,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 | Document                                                                               | Purpose                                                                                                             |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [.agents/token-cost-report.md](.agents/token-cost-report.md)                           | **OPEN ACTION** — harness audit; D1–D10 await an owner decision. Delete this row when they are answered             |
 | [.agents/rules/index.md](.agents/rules/index.md)                                       | Rule group listing and routing                                                                                      |
 | [.agents/rules/code-quality.md](.agents/rules/code-quality.md)                         | Type system, imports, dev patterns                                                                                  |
 | [.agents/rules/process.md](.agents/rules/process.md)                                   | Routing file → spec-workflow, tdd-and-planning, verification, publish, backlog-execution (done gate), operational   |
@@ -34,8 +40,8 @@ This file contains only domain-free rules and routing. It does not contain packa
 | [.agents/rules/common-mistakes.md](.agents/rules/common-mistakes.md)                   | Observed failure patterns                                                                                           |
 | [.agents/project-structure.md](.agents/project-structure.md)                           | Package listing and dependency rules                                                                                |
 | [.agents/skills/index.md](.agents/skills/index.md)                                     | All procedural workflow skills                                                                                      |
-| [.agents/backlog/README.md](.agents/backlog/README.md)                                 | Future work items and backlog process                                                                               |
-| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents — draft/backlog/todo/active/done/rejected lifecycle                                    |
+| [.agents/tasks/README.md](.agents/tasks/README.md)                                     | **Tasks** — the record of a unit of work (the problem), and its lifecycle                                           |
+| `.agents/spec-docs/`                                                                   | Gate-pipeline spec documents (the plan) — one per Task ID that reaches a design                                     |
 | [.agents/templates/spec-template.md](.agents/templates/spec-template.md)               | SPEC.md authoring template                                                                                          |
 | [.agents/specs/README.md](.agents/specs/README.md)                                     | Cross-cutting specs that span multiple packages                                                                     |
 | [.agents/specs/orchestration-map.md](.agents/specs/orchestration-map.md)               | Single at-a-glance registry of the orchestrator/worker/guardian pipelines (mechanically kept current)               |
@@ -47,7 +53,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 
 **North-star: [`VISION.md`](VISION.md) — Robota builds Robota.** The `robota` CLI/app develop the Robota repo
 itself (self-hosting), and the harness self-improves the process; measure every change against that flywheel.
-The capability roadmap toward it is tracked in [`.agents/backlog/SELFHOST-*`](.agents/backlog/).
+The capability roadmap toward it is tracked in [`.agents/tasks/SELFHOST-*`](.agents/tasks/).
 
 TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
@@ -80,23 +86,23 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 ## Mandatory Rules
 
-All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
+All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md), which also states how a rule CHANGES: like a constitution, only by amendment — and it binds until amended. An argument against a rule is the input to an amendment, never an exemption from it, and the minimum evidence that an amendment was attempted is a **filed backlog item**. Below that bar the rule is simply mandatory and you comply.
 
 **Agent-conduct authority.** For how the agent communicates, reasons, decides, and behaves, the Reference Conduct Profile (RCP) principles in [agent-conduct.md](.agents/rules/agent-conduct.md) are authoritative. Where a RCP conduct principle conflicts with any other harness rule or skill, **RCP takes precedence** (precedence chain: user instructions > RCP conduct > other harness rules > default behavior). Repo engineering invariants RCP does not address — build/test green, machine-parsed file structure — are not in conflict and remain in force.
 
-| Group                | Document                                                                 |
-| -------------------- | ------------------------------------------------------------------------ |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                         |
-| Process              | [process.md](.agents/rules/process.md)                                   |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                         |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                         |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                             |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)           |
-| Frontend             | [frontend.md](.agents/rules/frontend.md)                                 |
-| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                   |
-| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                       |
-| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                 |
-| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) |
+| Group                | Document                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)                                                                                                                                 |
+| Process              | [process.md](.agents/rules/process.md)                                                                                                                                           |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)                                                                                                                                 |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)                                                                                                                                 |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                                                                                                                                     |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md)                                                                                                                   |
+| Frontend             | [frontend.md](.agents/rules/frontend.md)                                                                                                                                         |
+| Common Mistakes      | [common-mistakes.md](.agents/rules/common-mistakes.md)                                                                                                                           |
+| Agent Conduct        | [agent-conduct.md](.agents/rules/agent-conduct.md)                                                                                                                               |
+| Memory Mirroring     | [memory-mirroring.md](.agents/rules/memory-mirroring.md)                                                                                                                         |
+| Enforcement Arch.    | [enforcement-architecture.md](.agents/rules/enforcement-architecture.md) — includes **"Silence is not success"**: no skill, hook or Action step may complete quietly on an error |
 
 ## Common Pitfalls
 

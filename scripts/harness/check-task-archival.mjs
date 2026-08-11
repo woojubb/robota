@@ -28,10 +28,12 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const TASKS_DIR = '.agents/tasks';
+const COMPLETED_DIR = `${TASKS_DIR}/completed`;
 
 const UNCHECKED_PATTERN = /^\s*[-*]\s+\[ \]/;
 const CHECKED_PATTERN = /^\s*[-*]\s+\[[xX]\]/;
@@ -87,28 +89,56 @@ export function classifyTaskFile(content) {
   return { archivable, gatesOverdue, reason, exemptReason };
 }
 
+/**
+ * Read a directory, treating ONLY its absence as empty.
+ *
+ * A bare `catch { return [] }` here reports a permission or I/O failure in the words of a clean
+ * result — the swallow-error-as-clean-default pattern `requireGovernedTree` was added to this very
+ * file to end on the active side. Adding a count while leaving the count's own read able to fail
+ * silently would have given the reader a number that looks measured and is not.
+ */
+async function readDirOrAbsent(dir) {
+  try {
+    return await fs.readdir(dir);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+/** Count the archived breakdowns under `.agents/tasks/completed/`; an absent archive is 0. */
+async function countArchived(root) {
+  const entries = await readDirOrAbsent(path.join(root, COMPLETED_DIR));
+  return entries.filter((name) => name.endsWith('.md') && name !== 'README.md').length;
+}
+
+/**
+ * Findings plus the SIZE OF EACH HALF of the corpus (HARNESS-063).
+ *
+ * `examined` is the number of ACTIVE task files this scan actually read; `archived` is the frozen
+ * half it deliberately does not judge. Measured 2026-08-01 on this repository: 0 examined, 422
+ * archived — the scan had never read a document, and `task-archival scan passed.` said so in
+ * exactly the same words it would have used over a hundred verified breakdowns.
+ */
 export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [TASKS_DIR], {
     scan: 'task-archival',
-    why:
-      'The task tree is the subject; a readdir failure was swallowed and returned as "nothing to archive".',
+    why: 'The task tree is the subject; a readdir failure was swallowed and returned as "nothing to archive".',
   });
   const findings = [];
   const exemptions = [];
   const tasksAbsolute = path.join(root, TASKS_DIR);
+  const archived = await countArchived(root);
+  let examined = 0;
 
-  let entries = [];
-  try {
-    entries = await fs.readdir(tasksAbsolute);
-  } catch {
-    return { findings, exemptions };
-  }
+  const entries = await readDirOrAbsent(tasksAbsolute);
 
   for (const entry of entries
     .filter((name) => name.endsWith('.md') && name !== 'README.md')
     .sort()) {
     const taskFile = path.join(TASKS_DIR, entry);
     const content = await fs.readFile(path.join(root, taskFile), 'utf8');
+    examined += 1;
     const { archivable, gatesOverdue, reason, exemptReason } = classifyTaskFile(content);
     if (!archivable && !gatesOverdue) continue;
     if (exemptReason) {
@@ -118,42 +148,70 @@ export async function findTaskArchivalFindings(root = WORKSPACE_ROOT) {
     findings.push({ taskFile, reason, gatesOverdue });
   }
 
-  return { findings, exemptions };
+  return { findings, exemptions, examined, archived };
 }
 
-export async function main() {
-  const { findings, exemptions } = await findTaskArchivalFindings(WORKSPACE_ROOT);
+/**
+ * Run the scan. Returns the exit code rather than setting `process.exitCode`, so a test can drive it
+ * over a fixture root without the fixture's verdict escaping into the test runner's own exit status.
+ */
+export async function main(root = WORKSPACE_ROOT, write = (line) => process.stdout.write(line)) {
+  const { findings, exemptions, examined, archived } = await findTaskArchivalFindings(root);
 
   for (const exemption of exemptions) {
-    process.stdout.write(`  archival-exempt: ${exemption.taskFile} — ${exemption.reason}\n`);
+    write(`  archival-exempt: ${exemption.taskFile} — ${exemption.reason}\n`);
   }
+
+  const subject =
+    `${examined} active task file(s) examined, ${archived} archived in ${COMPLETED_DIR}/` +
+    (exemptions.length > 0 ? `, ${exemptions.length} exempt` : '');
+
+  // An empty ACTIVE half is a legitimate state — every item archived — and the advisory below has
+  // said so since HARNESS-063. But the marker is what the runner judges, and an undeclared zero
+  // fails the suite: without this branch the scan would redden the suite in exactly the state it
+  // already documents as correct. A prose sentence and a machine declaration are different things,
+  // and having the first is not having the second.
+  write(
+    examined === 0
+      ? `::examined:: 0 active task files ::expected-empty:: every task is archived under ${COMPLETED_DIR}/ (${archived} of them) — an empty active half is a finished backlog, not an unread one\n`
+      : `::examined:: ${examined} active task files\n`,
+  );
 
   if (findings.length === 0) {
-    process.stdout.write(
-      `task-archival scan passed${exemptions.length > 0 ? ` (${exemptions.length} exempt)` : ''}.\n`,
-    );
-    return;
+    // HARNESS-063: `task-archival scan passed.` was identical whether the scan had read a hundred
+    // breakdowns or none. A zero here is not a clean sweep — it is a corpus that contributed
+    // nothing, and the advisory channel is what carries that into the suite summary (a passing
+    // scan's stdout is otherwise suppressed to a single tick).
+    if (examined === 0) {
+      write(
+        `${ADVISORY_MARKER} task-archival examined 0 active task files — the active half of ` +
+          `${TASKS_DIR}/ is empty (${archived} archived under completed/), so this pass verified ` +
+          'no document.\n',
+      );
+    }
+    write(`task-archival scan passed (${subject}).\n`);
+    return 0;
   }
 
-  process.stdout.write(
-    'task-archival scan failed — done or gate-overdue task files in the active directory:\n',
+  write(
+    `task-archival scan failed (${subject}) — done or gate-overdue task files in the active directory:\n`,
   );
   for (const finding of findings) {
-    process.stdout.write(
+    write(
       `  - ${finding.taskFile} (${finding.reason})${finding.gatesOverdue ? ' — run GATE-VERIFY/GATE-COMPLETE, move the spec to done/, then archive' : ''}\n`,
     );
   }
-  process.stdout.write(
+  write(
     'Archive done tasks to .agents/tasks/completed/ (git mv) in the same change as the work; ' +
       'for fully-checked tasks whose spec is not yet done/, run the remaining gates first. ' +
       'Annotate with <!-- archival-exempt: <reason> --> only when the file must stay active.\n',
   );
-  process.exitCode = 1;
+  return 1;
 }
 
 const isDirectExecution =
   process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
 if (isDirectExecution) {
-  await main();
+  process.exitCode = await main();
 }

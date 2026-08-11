@@ -12,6 +12,11 @@ export type {
   ISpinner,
 } from './session.js';
 
+// RUNTIME-003: one turn at a time. `SessionBusyError` is exported because refusing a concurrent turn
+// is part of `run()`'s contract, and a consumer that cannot identify the refusal has to keep the
+// busy flag this change exists to remove.
+export { SessionBusyError, TurnClaim } from './turn-claim.js';
+
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';

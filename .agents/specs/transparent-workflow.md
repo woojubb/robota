@@ -189,11 +189,11 @@ files and no Robota local state inside the repository.
 
 ## Follow-Up Backlogs
 
-- [User-local storage foundation](../backlog/completed/cli-user-local-storage-foundation.md)
-- [Transparent process execution](../backlog/completed/cli-transparent-process-execution.md)
-- [Background work state management](../backlog/completed/cli-background-work-state-management.md)
-- [User-local memory transparency](../backlog/completed/cli-user-local-memory-transparency.md)
-- [Repository situational awareness](../backlog/completed/cli-repository-situational-awareness.md)
+- [User-local storage foundation](../tasks/completed/cli-user-local-storage-foundation.md)
+- [Transparent process execution](../tasks/completed/cli-transparent-process-execution.md)
+- [Background work state management](../tasks/completed/cli-background-work-state-management.md)
+- [User-local memory transparency](../tasks/completed/cli-user-local-memory-transparency.md)
+- [Repository situational awareness](../tasks/completed/cli-repository-situational-awareness.md)
 
 ## Event Continuity (mandatory)
 

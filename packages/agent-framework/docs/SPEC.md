@@ -46,7 +46,7 @@ This package does NOT own: provider implementations, generic session run loop, t
 
 - `agent-core`: provider interface (`IAIProvider`), engine (`Robota`), history helpers, permissions enforcement (`evaluatePermission`), hook runner (`runHooks`), generic message utilities
 - `agent-session`: `Session` class, `SessionStore`, `PermissionEnforcer`, `ContextWindowTracker`, `CompactionOrchestrator`, terminal output (`ITerminalOutput`)
-- `agent-tools`: built-in tools (`shellTool`/`bashTool`, `readTool`, `writeTool`, etc.), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
+- `agent-tools`: built-in tool FACTORIES (`createShellTool`/`createBashTool`, `createReadTool`, `createWriteTool`, etc. — each takes the required containment root, ARCH-010), tool creation infrastructure, sandbox client (`ISandboxClient`), `IToolInvocationResult`
 - `agent-executor`: `BackgroundTaskManager`, `SubagentManager`, `WorktreeSubagentRunner`, lifecycle state machine
 - `agent-provider-*`: provider implementations
 - React/Ink components (belong in `agent-cli`)
@@ -274,7 +274,7 @@ Core classes and functions exported from `@robota-sdk/agent-framework`:
 | `clearContextReferences`                    | function | Clear all context references from the inventory                                                                                                                                                                                                                                      |
 | `createContextReferenceItem`                | function | Build a context reference item shape                                                                                                                                                                                                                                                 |
 | `toContextReferenceRecords`                 | function | Convert context references to structured records                                                                                                                                                                                                                                     |
-| `createTestInteractiveSession`              | function | (moved to the `./testing` subpath) Create a stub `IInteractiveSession` for tests                                                                                                                                                                                                     |
+| `createTestInteractiveSession`              | function | MOVED (ARCH-012) to `@robota-sdk/agent-interface-transport/testing`, beside the contract — every transport package sits below this one and could never import it from here. Not re-exported: pass-through re-exports are banned.                                                     |
 | `getUserSettingsPath`                       | function | Return the user-global settings file path                                                                                                                                                                                                                                            |
 | `resolveSettingsPathForScope`               | function | Resolve settings path for `'user'` or `'project-local'` scope                                                                                                                                                                                                                        |
 | `readSettings`                              | function | Read a settings JSON file                                                                                                                                                                                                                                                            |
@@ -1860,17 +1860,23 @@ import {
 `@robota-sdk/agent-framework` assembles built-in tools internally for SDK sessions. Direct tool usage
 imports from `@robota-sdk/agent-tools`:
 
+Each file tool is a FACTORY taking the containment root it operates in (ARCH-010); there is no
+ready-made instance, because one bound at import time can carry no root:
+
 ```typescript
 import {
-  bashTool,
-  editTool,
-  globTool,
-  grepTool,
-  readTool,
+  createBashTool,
+  createEditTool,
+  createGlobTool,
+  createGrepTool,
+  createReadTool,
+  createWriteTool,
   webFetchTool,
   webSearchTool,
-  writeTool,
 } from '@robota-sdk/agent-tools';
+
+const cwd = process.cwd();
+const tools = [createBashTool({ cwd }), createReadTool({ cwd }), createWriteTool({ cwd })];
 ```
 
 ### Permissions — Direct Usage

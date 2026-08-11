@@ -50,6 +50,7 @@ const MOCK_TERMINAL = {
 describe('Session parallel-subagents gate (PRESET-016)', () => {
   it('TC-01: initializes parallelSubagentsEnabled from options; defaults to true', () => {
     const disabled = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -59,6 +60,7 @@ describe('Session parallel-subagents gate (PRESET-016)', () => {
     expect(disabled.getParallelSubagentsEnabled()).toBe(false);
 
     const defaulted = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -69,6 +71,7 @@ describe('Session parallel-subagents gate (PRESET-016)', () => {
 
   it('TC-02: setParallelSubagentsEnabled(false) flips the live flag', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',

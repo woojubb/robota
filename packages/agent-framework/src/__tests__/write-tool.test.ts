@@ -6,11 +6,18 @@ import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { writeTool } from '@robota-sdk/agent-tools';
+import { createWriteTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `writeTool` singleton is gone and the containment root is a required
+ * constructor argument, so the tool is built against the tmpdir fixture below. That fixture is the only
+ * directory these cases write to; a wider root would let this suite create files outside its own fixture.
+ */
+let writeTool: ReturnType<typeof createWriteTool>;
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await writeTool.execute(params);
@@ -21,6 +28,7 @@ let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), 'write-tool-test-'));
+  writeTool = createWriteTool({ cwd: tmpDir });
 });
 
 afterAll(async () => {

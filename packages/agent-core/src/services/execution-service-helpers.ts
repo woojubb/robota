@@ -2,7 +2,6 @@ import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
   type IExecutionContext,
-  type ICoreExecutionResult,
   ID_RADIX,
   ID_RANDOM_LENGTH,
 } from './execution-types';
@@ -192,65 +191,6 @@ export function initializeConversationStore(
     session.setSystemPrompt(config.systemMessage, { executionId });
   }
   return session;
-}
-
-/**
- * Build the final ICoreExecutionResult from the completed conversation store.
- */
-export function buildFinalResult(
-  conversationStore: ConversationStore,
-  executionId: string,
-  startTime: Date,
-  toolsExecuted: string[],
-): ICoreExecutionResult {
-  const finalMessages = conversationStore.getMessages();
-  // Find last assistant message with actual content (skip stripped tool-round messages)
-  const lastAssistantMessage = finalMessages
-    .filter(
-      (msg) =>
-        msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0,
-    )
-    .pop();
-  const response: string = lastAssistantMessage
-    ? (lastAssistantMessage.content as string)
-    : 'No response received. The context window may be full.';
-  // A round that ended in a provider failure records the error as an assistant message
-  // with providerError metadata — that message must not count as a successful response,
-  // or the failure is masked as exit 0 downstream.
-  const endedWithProviderError = lastAssistantMessage?.metadata?.['providerError'] === true;
-  const duration = Date.now() - startTime.getTime();
-  return {
-    response,
-    messages: finalMessages.map((msg) => {
-      if (typeof msg.content !== 'string')
-        throw new Error('[EXECUTION] Message content is required');
-      return {
-        role: msg.role,
-        content: msg.content,
-        timestamp: msg.timestamp,
-        metadata: msg.metadata,
-        ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-        ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {}),
-      };
-    }) as TUniversalMessage[],
-    executionId,
-    duration,
-    tokensUsed: finalMessages
-      .filter((msg) => msg.metadata?.['usage'])
-      .reduce((sum, msg) => {
-        const usage = msg.metadata?.['usage'];
-        if (usage && typeof usage === 'object' && 'totalTokens' in usage) {
-          const totalTokens = Number(usage.totalTokens);
-          if (Number.isNaN(totalTokens))
-            throw new Error('[EXECUTION] totalTokens must be a number');
-          return sum + totalTokens;
-        }
-        return sum;
-      }, 0),
-    toolsExecuted,
-    success: !!lastAssistantMessage && !endedWithProviderError,
-    ...(endedWithProviderError ? { error: new Error(response) } : {}),
-  };
 }
 
 /**

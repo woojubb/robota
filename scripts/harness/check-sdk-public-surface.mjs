@@ -7,7 +7,6 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
@@ -105,8 +104,7 @@ function findUnexpectedRuntimeFacadeFindings(file, content) {
 export async function findSdkPublicSurfaceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [SDK_SRC_DIR], {
     scan: 'sdk-public-surface',
-    why:
-      'The SDK source tree is the surface under audit; walking zero files reports a clean surface it never saw.',
+    why: 'The SDK source tree is the surface under audit; walking zero files reports a clean surface it never saw.',
   });
   const findings = [];
   for (const file of await walkTypeScriptFiles(root, SDK_SRC_DIR)) {
@@ -130,6 +128,6 @@ async function main() {
   console.log('sdk public surface scan passed.');
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   void main();
 }

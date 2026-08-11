@@ -6,7 +6,7 @@ import {
   buildRobota,
   buildSessionTrackers,
 } from './session-components.js';
-import { compact, persistSession } from './session-history-ops.js';
+import { buildCompactContext, compact, persistSession } from './session-history-ops.js';
 import {
   configureProvider,
   fireSessionEndHook,
@@ -77,10 +77,8 @@ export class Session extends SessionBase {
   protected model: string;
   protected systemMessage: string;
   protected messageCount = 0;
-  protected abortController: AbortController | null = null;
   private readonly terminal: ITerminalOutput;
   private readonly sessionStore?: ISessionStore;
-  private readonly cwd: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
@@ -98,14 +96,13 @@ export class Session extends SessionBase {
   private readonly transcriptPath: string | undefined;
 
   constructor(options: ISessionOptions) {
-    super();
+    super(options.cwd);
     const { tools, provider, systemMessage } = options;
 
     this.terminal = options.terminal;
     this.sessionStore = options.sessionStore;
     this.systemMessage = systemMessage;
     this.toolSchemas = tools.map((tool) => tool.schema);
-    this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
@@ -176,20 +173,21 @@ export class Session extends SessionBase {
   /**
    * @param options.ephemeralSystemContext SELFHOST-008 P3 — a transient system-role block included in this
    *   turn's model call only, never persisted to history (thin pass-through to agent-core `IRunOptions`).
+   * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
    */
   async run(
     message: string,
     rawInput?: string,
     options?: { ephemeralSystemContext?: string },
   ): Promise<string> {
-    this.abortController = new AbortController();
-    const { signal } = this.abortController;
+    const controller = this.turnClaim.claim(); // Synchronously, before any await.
+    const { signal } = controller;
     try {
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
     } finally {
-      this.abortController = null;
+      this.turnClaim.release(controller);
     }
   }
 
@@ -274,22 +272,19 @@ export class Session extends SessionBase {
     this.aiProvider = newProvider;
   }
 
-  async compact(instructions?: string, trigger: TCompactTrigger = 'manual'): Promise<void> {
-    await compact(instructions, {
-      sessionId: this.sessionId,
-      cwd: this.cwd,
+  async compact(
+    instructions?: string,
+    trigger: TCompactTrigger = 'manual',
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const extras = {
       systemMessage: this.systemMessage,
-      robota: this.robota,
-      aiProvider: this.aiProvider,
       compactionOrchestrator: this.compactionOrchestrator,
-      contextTracker: this.contextTracker,
-      hooks: this.hooks,
-      hookTypeExecutors: this.hookTypeExecutors,
       onCompactCallback: this.onCompactCallback,
       onCompactEventCallback: this.onCompactEventCallback,
       trigger,
-      log: (event, data) => this.log(event, data),
-    });
+    };
+    await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
 
   private buildRunContext(): IRunContext {
@@ -304,7 +299,7 @@ export class Session extends SessionBase {
       hookTypeExecutors: this.hookTypeExecutors,
       sessionStartStdout: this.sessionStartStdout,
       log: (event: string, data: TSessionLogData) => this.log(event, data),
-      compact: () => this.compact(undefined, 'auto'),
+      compact: (signal?: AbortSignal) => this.compact(undefined, 'auto', signal),
       persistSession: () => this.persistSessionInternal(),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

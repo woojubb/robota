@@ -3,6 +3,7 @@ import type {
   IAgentDefinition,
   ICommandHostAdapters,
   ICommandModule,
+  ICreateSessionOptions,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-transport/headless';
@@ -50,6 +51,8 @@ export interface IPrintModePresetOptions {
   enableParallelSubagents?: boolean;
   /** Preset execution capability: run a post-task self-verification step. */
   selfVerification?: boolean;
+  /** ARCH-013: resolved preset effort, forwarded to the session's `effort` seam. */
+  effort?: ICreateSessionOptions['effort'];
 }
 
 export async function runPrintMode(
@@ -127,6 +130,7 @@ export async function runPrintMode(
     ...(presetOptions.enableParallelSubagents !== undefined
       ? { enableParallelSubagents: presetOptions.enableParallelSubagents }
       : {}),
+    ...(presetOptions.effort !== undefined ? { effort: presetOptions.effort } : {}),
     ...(presetOptions.selfVerification !== undefined
       ? { selfVerification: presetOptions.selfVerification }
       : {}),

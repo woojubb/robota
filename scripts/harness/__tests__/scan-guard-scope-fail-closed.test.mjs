@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,6 +12,7 @@ import {
   classificationFindings,
   derivedFinders,
   findGuardScopeFindings,
+  ledgerCeilingFindings,
   ledgerDriftFindings,
   MANDATORY_TREE_GUARDS,
   measuredVacuous,
@@ -224,5 +227,86 @@ describe('ledger freshness', () => {
 describe('the scan as a whole', () => {
   it('is green on this repository', async () => {
     expect(await findGuardScopeFindings(WORKSPACE_ROOT)).toEqual([]);
+  });
+});
+
+describe('rule 4 — the debt ledger may shrink and never grow (HARNESS-064)', () => {
+  /**
+   * Rules 1–3 make every finder answer for itself and keep the ledger honest, but they placed no
+   * bound on its SIZE. A new scan could be classified `pending` forever, and a new `vacuous` entry —
+   * a LIVE instance of the defect this scan audits — could be added with a paragraph explaining it,
+   * and nothing objected. The count appeared only in the pass message.
+   */
+  it('a new VACUOUS entry fails, because it is a new live instance of the audited defect', () => {
+    const findings = ledgerCeilingFindings({ vacuous: 0, unpinned: 99 });
+    expect(findings.map((f) => f.subject)).toContain('ledger-ceiling:vacuous');
+    expect(findings.find((f) => f.subject === 'ledger-ceiling:vacuous')?.detail).toMatch(
+      /fix the guard, do not record it/,
+    );
+  });
+
+  it('a new UNPINNED entry fails, and says to pin it instead', () => {
+    const findings = ledgerCeilingFindings({ vacuous: 99, unpinned: 0 });
+    expect(findings.find((f) => f.subject === 'ledger-ceiling:unpinned')?.detail).toMatch(
+      /Pin the guard in MANDATORY_TREE_GUARDS/,
+    );
+  });
+
+  it('a FALL must be re-frozen in the same change, not silently pocketed', () => {
+    // The other half of a ratchet. An unlocked gain is a licence to grow back to the old number,
+    // which is how a debt ceiling stops meaning anything.
+    const findings = ledgerCeilingFindings({ vacuous: 99, unpinned: 99 });
+    expect(findings).toHaveLength(2);
+    for (const finding of findings) {
+      expect(finding.detail).toMatch(/DOWN from a frozen/);
+    }
+  });
+
+  it('an absent ceiling is a finding, not a pass', () => {
+    // "No ceiling recorded" must not read as "within the ceiling" — that is the vacuity this whole
+    // scan exists to catch, one level up again.
+    expect(ledgerCeilingFindings({}).map((f) => f.subject)).toEqual([
+      'ledger-ceiling:vacuous',
+      'ledger-ceiling:unpinned',
+    ]);
+  });
+
+  it('the live repository is at its frozen ceilings', () => {
+    expect(ledgerCeilingFindings()).toEqual([]);
+  });
+
+  /**
+   * REACHABILITY through the registered path, not just the exported function.
+   *
+   * The first draft of these cases called `ledgerCeilingFindings` directly, so deleting the line
+   * that wires it into `findGuardScopeFindings` failed nothing — the check existed and ran nowhere,
+   * which is the shape this scan audits. This runs the scan as the CLI does, over a deliberately
+   * wrong ceiling file, and requires a non-zero exit.
+   */
+  it('a violated ceiling fails the SCAN, not just the helper', () => {
+    const root = path.resolve(import.meta.dirname, '../../..');
+    const frozen = JSON.parse(
+      readFileSync(path.join(root, 'scripts/harness/guard-ledger-ceilings.json'), 'utf8'),
+    );
+    // A TEMP ceiling file, never the checked-in one. Mutating the real file and restoring it in a
+    // `finally` leaves the working tree corrupted if the process is killed in between — and this
+    // scan's own docstring records a harness scan dying mid-run with no output.
+    const dir = mkdtempSync(path.join(tmpdir(), 'guard-ledger-'));
+    const ceilingsPath = path.join(dir, 'ceilings.json');
+    writeFileSync(ceilingsPath, JSON.stringify({ ...frozen, vacuous: frozen.vacuous - 1 }));
+    try {
+      const result = spawnSync('node', ['scripts/harness/scan-guard-scope-fail-closed.mjs'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, GUARD_LEDGER_CEILINGS: ceilingsPath },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(/ledger-ceiling:vacuous/);
+      // The seam that made this case safe is itself a way past the ratchet, so a run that did not
+      // read the frozen file has to SAY so. Silent is the one thing it must not be.
+      expect(result.stdout).toMatch(/ceilings OVERRIDDEN via GUARD_LEDGER_CEILINGS=/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, readFileSync, mkdtempSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { writeTool } from '@robota-sdk/agent-tools';
+import { createWriteTool } from '@robota-sdk/agent-tools';
 import { describe, expect, it, afterEach, vi } from 'vitest';
 
 import { wrapEditCheckpointTools } from '../edit-checkpoint-tools.js';
@@ -31,7 +31,9 @@ describe('wrapEditCheckpointTools', () => {
         expect(existsSync(filePath)).toBe(false);
       }),
     };
-    const [tool] = wrapEditCheckpointTools([writeTool], recorder);
+    // ARCH-010 — the context-free `writeTool` singleton is gone and the root is a required constructor
+    // argument. It is the per-case project directory, which is exactly where `filePath` lives.
+    const [tool] = wrapEditCheckpointTools([createWriteTool({ cwd })], recorder);
 
     await tool?.execute(
       { filePath, content: 'written' },

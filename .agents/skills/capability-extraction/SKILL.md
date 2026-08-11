@@ -1,6 +1,7 @@
 ---
 name: capability-extraction
 description: Thin orchestration for turning a discovered recurring role into authored, guard-passing agent/skill files. It holds NO policy — it only sequences predefined agents (capability-scout → proposal-reviewer → agent-skill-author) and reads their signals, gating authoring on an ENDORSE verdict and convergence on the agent-def-convention guard. Every judgement lives in the agents. Dispatched by lesson-to-harness when an approved lesson is "a new recurring role"; not a parallel institutionalization loop.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Capability Extraction — pipeline only
@@ -25,7 +26,8 @@ The predefined agents (spawn by `agentType`):
    (roles, sequencing, reuse, flags).
 2. **Review.** Pass the decomposition to `proposal-reviewer`. Read its `REVIEW VERDICT`.
 3. **Gate.** Proceed only on `ENDORSE`. On `REVISE`, return to step 1 (feed the reviewer's points to the
-   scout) — loop until ENDORSE; never author from a REVISE/REJECT decomposition.
+   scout) — loop until ENDORSE, or until the same finding set recurs unchanged — then STOP and escalate to the user ([no-progress escape](../../rules/enforcement-architecture.md), which owns what that means);
+   never author from a REVISE/REJECT decomposition.
 4. **Author.** Call `agent-skill-author` with the endorsed decomposition. It writes each named
    `.claude/agents/*.md` / `.agents/skills/*/SKILL.md` to the agent-definition convention and registers
    them.

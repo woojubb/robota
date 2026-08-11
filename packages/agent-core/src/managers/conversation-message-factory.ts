@@ -5,7 +5,7 @@
  *
  * Note: Type guards live in interfaces/messages.ts (SSOT) and are NOT duplicated here.
  */
-import { randomUUID } from 'node:crypto';
+import { randomId } from '../utils/random-id.js';
 
 import type {
   IAssistantMessage,
@@ -28,7 +28,7 @@ export function createUserMessage(
   },
 ): IUserMessage {
   const message: IUserMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'user',
     content,
     state: 'complete',
@@ -51,7 +51,7 @@ export function createAssistantMessage(
   },
 ): IAssistantMessage {
   const message: IAssistantMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content,
     state: options?.state ?? 'complete',
@@ -73,7 +73,7 @@ export function createSystemMessage(
   },
 ): ISystemMessage {
   const message: ISystemMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'system',
     content,
     state: 'complete',
@@ -96,7 +96,7 @@ export function createToolMessage(
   },
 ): IToolMessage {
   const message: IToolMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'tool',
     content,
     toolCallId: options.toolCallId,

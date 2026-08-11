@@ -121,6 +121,8 @@ Types consumed from other packages (not owned here):
 | `scrubSensitiveKeys`              | Function             | SELFHOST-014: pure recursive redaction of values under sensitive keys (opt-in for a share `redact`; SSOT, also used by the logger) |
 | `isSensitiveKey`                  | Function             | SELFHOST-014: the single predicate for a secret-bearing key                                                                        |
 | `SENSITIVE_KEY_PATTERN`           | Constant             | SELFHOST-014: the sensitive-key regex SSOT                                                                                         |
+| `TurnClaim`                       | Class                | RUNTIME-003: owns the identity of the turn a session is running — claim/release/abort/isRunning (see Turn Identity)                |
+| `SessionBusyError`                | Class                | RUNTIME-003: `run()` rejects with this when the session already has a turn in flight; `recoverable: true`                          |
 | `PermissionEnforcer`              | Class                | Tool permission checking, hook execution, output truncation                                                                        |
 | `ContextWindowTracker`            | Class                | Token usage tracking and auto-compact threshold                                                                                    |
 | `CompactionOrchestrator`          | Class                | Conversation compaction via LLM summary                                                                                            |
@@ -183,10 +185,11 @@ the agent runtime was built at assembly. The default is `true`.
 
 | Method                        | Signature                                                                                                               | Description                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run`                         | `(message: string) => Promise<string>`                                                                                  | Send a message; returns AI response. Persists session if store exists.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `run`                         | `(message: string) => Promise<string>`                                                                                  | Send a message; returns AI response. Persists session if store exists. **One turn at a time** (RUNTIME-003): rejects with `SessionBusyError` if this session already has a turn in flight, including one aborted but not yet unwound. See § Turn Identity.                                                                                                                                                                                              |
 | `getPermissionMode`           | `() => TPermissionMode`                                                                                                 | Returns the active permission mode.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `setPermissionMode`           | `(mode: TPermissionMode) => void`                                                                                       | Changes the permission mode for future tool calls.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `getSessionId`                | `() => string`                                                                                                          | Returns the stable session identifier.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `getCwd`                      | `() => string`                                                                                                          | ARCH-010: the session's execution root, as supplied to `ISessionOptions.cwd`. Readable so a fork or subagent derived from this session asks it rather than re-deriving from `process.cwd()`.                                                                                                                                                                                                                                                            |
 | `getMessageCount`             | `() => number`                                                                                                          | Returns the number of completed `run()` calls.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `clearHistory`                | `() => void`                                                                                                            | Clears the underlying Robota conversation history and resets token usage.                                                                                                                                                                                                                                                                                                                                                                               |
 | `getHistory`                  | `() => TUniversalMessage[]`                                                                                             | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                                                                                                                                                                                                                                                                                                                                       |
@@ -195,10 +198,10 @@ the agent runtime was built at assembly. The default is `true`.
 | `getContextState`             | `() => IContextWindowState`                                                                                             | Returns real-time effective context window usage (tokens, percentage) from the shared agent-core estimator.                                                                                                                                                                                                                                                                                                                                             |
 | `getAutoCompactThreshold`     | `() => TAutoCompactThreshold`                                                                                           | Returns the configured automatic compaction threshold, or `false` when disabled.                                                                                                                                                                                                                                                                                                                                                                        |
 | `setAutoCompactThreshold`     | `(threshold: TAutoCompactThreshold) => void`                                                                            | Updates the automatic compaction threshold for subsequent `run()` calls.                                                                                                                                                                                                                                                                                                                                                                                |
-| `compact`                     | `(instructions?: string) => Promise<void>`                                                                              | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks.                                                                                                                                                                                                                                                                                                                 |
-| `abort`                       | `() => void`                                                                                                            | Cancels the currently running `run()` call. No-op if not running.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `compact`                     | `(instructions?: string, trigger?: TCompactTrigger, signal?: AbortSignal) => Promise<void>`                             | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks.                                                                                                                                                                                                                                                                                                                 |
+| `abort`                       | `() => void`                                                                                                            | Signals the currently running `run()` call to stop. No-op if not running. Does NOT free the session — the turn holds its claim until it has finished unwinding (RUNTIME-003); to cancel and restart, `abort()`, AWAIT the turn, then `run()`.                                                                                                                                                                                                           |
 | `shutdown`                    | `(options?: ISessionShutdownOptions) => Promise<void>`                                                                  | Aborts active work, persists the session when a store exists, logs shutdown, fires `SessionEnd` exactly once, then destroys the wrapped agent (`robota.destroy()`, CORE-022) so no timers or listeners survive shutdown. Each step is best-effort (CORE-013).                                                                                                                                                                                           |
-| `isRunning`                   | `() => boolean`                                                                                                         | Returns true if a `run()` call is in progress.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `isRunning`                   | `() => boolean`                                                                                                         | Returns true if a `run()` call is in progress — including one that has been aborted and is still unwinding. Authoritative: a consumer does not need its own busy flag (RUNTIME-003).                                                                                                                                                                                                                                                                    |
 | `getSessionAllowedTools`      | `() => string[]`                                                                                                        | Returns tools that were session-approved ("Allow always").                                                                                                                                                                                                                                                                                                                                                                                              |
 | `clearSessionAllowedTools`    | `() => void`                                                                                                            | Clears all session-scoped allow rules.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `getActivePresetId`           | `() => string`                                                                                                          | Returns the runtime active-preset id.                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -337,14 +340,61 @@ bytes are already on disk and is safely ignored.
 
 The `Session` class supports aborting an in-progress `run()` call via `AbortController`.
 
+### Execution Root (ARCH-010)
+
+`ISessionOptions.cwd` is REQUIRED. It did not exist: the constructor read `process.cwd()`, and that
+ambient value became the session's identity everywhere it matters — every hook input,
+`CLAUDE_PROJECT_DIR`, the permission enforcer's root, and the persisted record. A session could not be
+told where it ran, so a subagent ran in its parent's directory rather than its own workspace, while
+the subagent spawn contract had declared `cwd` required all along.
+
+`getCwd()` exposes it, because a fork or subagent derived from a session must be able to ask which
+root that session actually uses instead of re-deriving one that can disagree.
+
+### Turn Identity (RUNTIME-003)
+
+`TurnClaim` (`src/turn-claim.ts`) owns the unit of work. Before RUNTIME-003 a bare
+`AbortController | null` field on the session stood in for three separate things — cancellation
+channel, busy flag and turn identity — and could serve only one turn, so a second concurrent `run()`
+orphaned the first: `abort()` reached only whichever turn held the field, the first turn to finish
+cleared it, and `isRunning()` answered about whichever turn happened to own it.
+
+The contract this package now publishes:
+
+- A session runs **one turn at a time**. `run()` claims the turn synchronously, before its first
+  `await`, and a concurrent `run()` is **refused** with `SessionBusyError` (exported) rather than
+  started. Refusal, not pre-emption: a session is a single conversation, and cancelling the running
+  turn would discard work the caller never asked to abandon.
+- The claim is released **only by the turn that took it**, whether it resolves or rejects. A
+  late-finishing turn cannot free a claim a newer one already holds.
+- `abort()` **signals**; it does not release. A turn is over when it has stopped, not when it was
+  asked to, so `isRunning()` stays `true` while an aborted turn unwinds and a `run()` during that
+  window is refused. Cancel-and-restart is `abort()` → await the turn → `run()`.
+- `isRunning()` is therefore authoritative for the session, and a consumer does not need to maintain
+  a parallel busy flag.
+
+The one caveat, stated because the recipe above is not unconditional: a turn that never OBSERVES the
+signal is never cut, and its claim is held until it unwinds. A provider that hangs is cut by
+agent-core's upstream-abort path, but a turn parked on a consumer-supplied `permissionHandler` is
+not — `PermissionEnforcer` awaits it with no signal and no timeout — so `abort()` returns, the await
+never does, and every later `run()` on that session is refused. Recovery is `shutdown()`, which does
+not consult the claim, and then a fresh session. `agent-framework` avoids the case by draining its
+prompt registry before aborting; a direct `agent-session` consumer has no equivalent, which is
+RUNTIME-004's subject, not this contract's.
+
+Concurrency ACROSS transports (MCP request correlation, the HTTP `POST /submit` TOCTOU) rides
+`InteractiveSession` in `agent-framework`, a different object, and is not covered by this contract —
+tracked as RUNTIME-003 P2.
+
 ### Mechanism
 
-- `session.abort()` calls `AbortController.abort()` on the controller created for the current `run()` call.
+- `session.abort()` calls `AbortController.abort()` on the controller held by the current claim.
 - `session.isRunning()` returns `true` while a `run()` call is in progress.
 
 ### Session.run() Abort Flow
 
-1. `Session.run()` creates an `AbortController` and passes `{ signal }` to `robota.run()`.
+1. `Session.run()` claims the turn (`TurnClaim.claim()`), obtaining an `AbortController`, and passes
+   `{ signal }` to `robota.run()`.
 2. Signal propagates through `ExecutionService` -> `executeRound` -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
 3. When abort is signalled, `executeRound` calls `commitAssistant('interrupted')` on `ConversationStore` before returning. This saves the partial response (with `state: 'interrupted'`) to conversation history. Text is ALWAYS preserved (no stripping).
 4. `robota.run()` always returns normally on abort — it does not throw. The result includes `interrupted: true`.
@@ -385,6 +435,14 @@ must never destroy it. The contract:
 3. **Errors propagate.** Manual `Session.compact()` rejects with the `CompactionError`.
    Auto-compaction failure inside `run()` propagates to the `run()` caller the same way — the
    session surfaces the failure instead of silently continuing toward context overflow.
+4. **A CANCEL is a failure for this purpose (RUNTIME-004).** `compact()` takes the turn's
+   `AbortSignal` and checks it twice: before the provider call, so a turn cancelled before it began
+   costs nothing; and after it returns, where it rejects rather than yielding a summary. The
+   rejection is an `AbortError`, not a `CompactionError` — `isAbortFailure` (agent-core) is the one
+   owner of that distinction, so a user's own cancellation is not reported as a failed turn. History
+   is untouched by rule 2, which is the point: an abort during auto-compaction used to run the
+   provider anyway and then replace the whole conversation with a summary the user had asked not to
+   produce.
 
 ### Auto-Compaction
 

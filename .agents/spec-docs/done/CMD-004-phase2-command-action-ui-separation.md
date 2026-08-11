@@ -7,7 +7,7 @@ tags: [cli, typescript, websocket, multi-surface, architecture]
 # CMD-004 (Phase 2): command host-ACTION / UI-intent separation — effects work on every surface
 
 > Formal gate-pipeline spec for the REMAINING scope of the backlog item
-> [`.agents/backlog/completed/CMD-004-command-action-ui-separation.md`](../../backlog/completed/CMD-004-command-action-ui-separation.md).
+> [`.agents/tasks/completed/CMD-004-command-action-ui-separation.md`](../../backlog/completed/CMD-004-command-action-ui-separation.md).
 > Phase 1 (the unified `askUser` action seam) is done — spec archived at
 > [`done/CMD-004-command-action-ui-separation.md`](./CMD-004-command-action-ui-separation.md)
 > (same ID by design: this is the same initiative's second and final phase; the frontmatter-scan

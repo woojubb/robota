@@ -7,7 +7,7 @@
  * CLI-042's parallelization was reverted, CLI-046's flag was never threaded,
  * REL-003 sat done while its stub survived. The done gate validates once at
  * completion time; this scan re-validates the durable-artifact layer forever:
- * every repo-file path referenced in `.agents/backlog/completed/*.md` must
+ * every repo-file path referenced in `.agents/tasks/completed/*.md` must
  * still exist, or carry an explicit `<!-- evidence-superseded: <reason> -->`
  * annotation (same line or the line directly above the reference).
  *
@@ -20,32 +20,33 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { NO_VOCABULARY, REPO_FILE_PATH_PATTERN, citedRepoPaths } from './cited-paths.mjs';
 import { envWithoutGitVars } from './shared.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
-const COMPLETED_DIR = '.agents/backlog/completed';
+const COMPLETED_DIR = '.agents/tasks/completed';
 
 /**
  * Repo-file reference: packages/|apps/|scripts/ root, a file extension, no globs.
- * Exported so HARNESS-050's `scan-unearned-done-claims.mjs` reuses this ONE definition of a
- * repo-path citation rather than carrying a second, drifting copy (AGENTS.md: one owner per fact).
+ *
+ * HARNESS-062 moved the definition to `cited-paths.mjs`, which owns every "a path cited in prose
+ * must exist" pattern. It is re-exported under the original name because `scan-unearned-done-claims`
+ * already imports it from here — one owner, unchanged consumers.
  */
-export const PATH_PATTERN =
-  /(?:^|[\s`("'[])((?:packages|apps|scripts)\/[A-Za-z0-9_\-./]+\.[A-Za-z0-9]+)/g;
+export const PATH_PATTERN = REPO_FILE_PATH_PATTERN;
 const SUPERSEDED_PATTERN = /<!--\s*evidence-superseded:\s*(.+?)\s*-->/;
 /** A heading or list/bold lead-in that opens an evidence region. */
 const EVIDENCE_START_PATTERN = /^(#{1,6}\s.*evidence|[-*]\s+\**evidence|\*\*evidence)/i;
 const HEADING_PATTERN = /^#{1,6}\s/;
 
+/**
+ * This scan exempts NOTHING on prose (`NO_VOCABULARY`): its exemption is the explicit
+ * `evidence-superseded` annotation, which names a reason. A done item claiming an artifact must
+ * point at one, and "the file no longer exists" is the claim being audited, not a defence of it.
+ */
 function extractCandidates(line) {
-  const candidates = [];
-  for (const match of line.matchAll(PATH_PATTERN)) {
-    const candidate = match[1];
-    if (candidate.includes('*') || candidate.includes('..')) continue;
-    candidates.push(candidate);
-  }
-  return candidates;
+  return citedRepoPaths(line, { pattern: PATH_PATTERN, vocabulary: NO_VOCABULARY });
 }
 
 /**
@@ -85,8 +86,7 @@ function pathExists(root, relativePath) {
 export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [COMPLETED_DIR], {
     scan: 'done-evidence',
-    why:
-      'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
+    why: 'The completed-backlog tree is the evidence corpus; a readdir failure was swallowed and returned as "no unearned done claims".',
   });
   const findings = [];
   const exemptions = [];
@@ -119,8 +119,24 @@ export async function findDoneEvidenceFindings(root = WORKSPACE_ROOT) {
       if (!inEvidence) continue;
       const candidates = extractCandidates(lines[i]);
       if (candidates.length === 0) continue;
-      const supersededHere =
-        SUPERSEDED_PATTERN.exec(lines[i]) ?? (i > 0 ? SUPERSEDED_PATTERN.exec(lines[i - 1]) : null);
+      // Same line, or the nearest line above it that is not blank.
+      //
+      // Adjacency alone was too strict, and the thing that broke it was this repository's OWN
+      // formatter: prettier surrounds an HTML comment with blank lines, so a `<!-- evidence-superseded
+      // -->` written directly above its reference is silently detached the next time the file is
+      // formatted. Measured during PROC-006, when a bulk reformat detached one of the twelve
+      // annotations and the scan reported a stale reference that had been correctly suppressed for
+      // months. The other eleven survived only because nothing had reformatted their files yet.
+      //
+      // A suppression the formatter can quietly remove is not a suppression. Blank lines are skipped;
+      // any other content still ends the association, so an annotation cannot drift up a list and
+      // start excusing a reference it was never written for.
+      let supersededHere = SUPERSEDED_PATTERN.exec(lines[i]);
+      for (let j = i - 1; !supersededHere && j >= 0; j -= 1) {
+        if (lines[j].trim() === '') continue;
+        supersededHere = SUPERSEDED_PATTERN.exec(lines[j]);
+        break;
+      }
 
       for (const candidate of candidates) {
         if (pathExists(root, candidate)) continue;

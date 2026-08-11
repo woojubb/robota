@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { collectMemoryMirrorFindings } from '../scan-memory-mirror.mjs';
+import { collectMemoryMirrorFindings, examinedFactFileCount } from '../scan-memory-mirror.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-memory-mirror.mjs', import.meta.url));
 // HARNESS-052: the scan under test now fails closed on an absent governed tree, so the copy needs
@@ -36,6 +36,28 @@ describe('collectMemoryMirrorFindings', () => {
   it('throws when there is no in-repo memory corpus at all', async () => {
     const root = await createFixture();
     expect(() => collectMemoryMirrorFindings(root)).toThrow(/\.agents\/memory/);
+  });
+
+  it('has no branch that treats an absent corpus as clean', async () => {
+    // A `if (!existsSync(memDir)) return findings;` sat below the governed-tree check, saying "no
+    // in-repo memory yet is allowed" — the same contradiction this change removed from `main()`,
+    // left behind in the finder as unreachable code. Unreachable is not harmless: it is a second,
+    // opposite answer in one file, and the next reader has no way to know which one binds.
+    //
+    // This pins the property rather than the absence of the lines: an absent corpus must THROW, and
+    // must never come back as an empty finding list, which is what that branch returned.
+    const root = await createFixture();
+    let returned;
+    try {
+      returned = collectMemoryMirrorFindings(root);
+    } catch {
+      returned = undefined;
+    }
+
+    expect(
+      returned,
+      'an absent corpus came back as "no findings" instead of throwing',
+    ).toBeUndefined();
   });
 
   it('passes a consistent index + fact-file pair', async () => {
@@ -97,10 +119,7 @@ describe('scan-memory-mirror CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-memory-mirror.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
-    copyFileSync(
-      GOVERNED_TREE_MODULE,
-      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
-    );
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     return { root, scriptCopy };
   }
 
@@ -116,6 +135,24 @@ describe('scan-memory-mirror CLI', () => {
       };
     }
   }
+
+  it('fails instead of exiting 0 over a memory tree that is not there', async () => {
+    // `main()` carried an early return calling an absent corpus acceptable, contradicting this
+    // file's own finder. It exited 0 without reaching the throw, and without printing the examined
+    // line every other path prints.
+    //
+    // The first version of this case copied the script to the FIXTURE ROOT. The script anchors its
+    // workspace at `<script dir>/../..`, so from there it judged two directories ABOVE the fixture
+    // and passed only because that place has no `.agents/memory` either — an accidental green over
+    // a tree it never opened, and the same mistake this pull request had just fixed in the sibling
+    // suite. `createCliFixture` already places the copy correctly; using it is the whole fix.
+    const { root, scriptCopy } = await createCliFixture({ 'placeholder.txt': 'x\n' });
+
+    const result = runScan(scriptCopy, root);
+
+    expect(result.status, 'the CLI exited 0 over a memory tree it never read').not.toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toMatch(/\.agents\/memory/);
+  });
 
   it('exits 0 with a pass message on a consistent fixture', async () => {
     const { root, scriptCopy } = await createCliFixture({
@@ -137,5 +174,51 @@ describe('scan-memory-mirror CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('memory-mirror scan: FINDINGS');
     expect(result.stderr).toContain('MEMORY.md links a missing memory file: fact-one.md');
+  });
+});
+
+describe('what the mirror scan says it examined', () => {
+  it('declares the fact files it walked', async () => {
+    const root = await createFixture({
+      '.agents/memory/MEMORY.md': GREEN_INDEX,
+      '.agents/memory/fact-one.md': '# Fact one\n',
+    });
+
+    collectMemoryMirrorFindings(root);
+
+    expect(examinedFactFileCount()).toBe(1);
+  });
+
+  it("reports zero after a run that returned early, not the previous run's count", () => {
+    // The same correction the sibling scan needed in this change: a holder reset late reports the
+    // previous number for a run that examined nothing, and the early returns are exactly those runs.
+    return (async () => {
+      const withFacts = await createFixture({
+        '.agents/memory/MEMORY.md': GREEN_INDEX,
+        '.agents/memory/fact-one.md': '# Fact one\n',
+      });
+      // A root whose memory directory exists but carries NO index: the governed-tree check passes,
+      // the missing-index branch returns immediately, and nothing walks a fact file. The first
+      // version of this case used an index with no facts beside it, which reaches the walk and sets
+      // the count to 0 on its own — it passed with the reset removed, and proved nothing.
+      const noIndex = await createFixture({ '.agents/memory/placeholder.txt': 'x\n' });
+
+      collectMemoryMirrorFindings(withFacts);
+      collectMemoryMirrorFindings(noIndex);
+
+      expect(
+        examinedFactFileCount(),
+        'a run that walked no fact file kept the previous count',
+      ).toBe(0);
+    })();
+  });
+
+  it('treats an index with no fact files as clean, which is why the zero must be declared', async () => {
+    // The scan itself calls this state correct, so an UNDECLARED zero would redden the whole suite
+    // for a tree the scan has no complaint about. That is why `main` attaches a reason.
+    const root = await createFixture({ '.agents/memory/MEMORY.md': '# Memory Index\n' });
+
+    expect(collectMemoryMirrorFindings(root)).toEqual([]);
+    expect(examinedFactFileCount()).toBe(0);
   });
 });

@@ -1,12 +1,14 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
-const HOOKS_DIR = path.join(WORKSPACE_ROOT, '.claude/hooks');
+import { hooksOutsideAWorktree } from './helpers/hooks-outside-a-worktree.mjs';
+
+// See the helper: worktree-cwd-guard reads its own directory to decide the session's identity.
+const HOOKS_DIR = hooksOutsideAWorktree();
 
 /**
  * The worktree guard, exercised the way a real session would reach it.
@@ -57,9 +59,21 @@ function repoWithWorktree() {
     path.join(HOOKS_DIR, 'worktree-cwd-guard.sh'),
     path.join(hooks, 'worktree-cwd-guard.sh'),
   );
+  // EVERY library, enumerated rather than named. Listing `command-scan.sh` by hand meant that the
+  // moment the hook sourced a second library (INFRA-077's `hook-facts.sh`) this fixture built a
+  // worktree whose hook could not start, and the three cases below failed on a missing file rather
+  // than on anything they assert. The fixture's job is "the hook and the library it sources", so it
+  // reads the library directory instead of restating its contents.
+  for (const lib of readdirSync(path.join(HOOKS_DIR, 'lib')).filter((n) => n.endsWith('.sh'))) {
+    copyFileSync(path.join(HOOKS_DIR, 'lib', lib), path.join(hooks, 'lib', lib));
+  }
+  // The same lesson one file over: the guard also reads the ambient-variable list it OWNS, resolved
+  // relative to its own location. A worktree without it is a hook whose subject list is unreadable —
+  // it then refuses, correctly, and every case below fails for a reason it does not assert.
+  mkdirSync(path.join(worktree, 'scripts', 'harness'), { recursive: true });
   copyFileSync(
-    path.join(HOOKS_DIR, 'lib/command-scan.sh'),
-    path.join(hooks, 'lib/command-scan.sh'),
+    path.join(HOOKS_DIR, '..', 'scripts', 'harness', 'git-ambient-env.json'),
+    path.join(worktree, 'scripts', 'harness', 'git-ambient-env.json'),
   );
 
   return { main, worktree, hook: path.join(hooks, 'worktree-cwd-guard.sh') };
@@ -128,5 +142,44 @@ describe('the worktree guard is active without anything exporting a marker', () 
     });
 
     expect(verdict.status, 'the guard fired outside a worktree session').toBe(0);
+  });
+});
+
+describe('an ambient GIT_DIR is seen even INSIDE a correct worktree', () => {
+  // Review found this, and it was a real bypass measured before and after. The ambient-repository
+  // check used to defer to the main-checkout judgement whenever the session was worktree-assigned
+  // and the command destructive — but that judgement resolves its directory through the SCRUB, so it
+  // can never see that a `GIT_DIR` would redirect the command. It answers a different question.
+  //
+  // From inside a correctly assigned worktree, this was permitted:
+  //
+  //   GIT_DIR=/somewhere/else/.git git reset --hard
+  //
+  // which is the exact accident this guard exists for, in the one place it was trusted to be safe.
+  it('refuses a destructive command redirected at another repository', () => {
+    const { worktree, hook } = repoWithWorktree();
+    const elsewhere = mkdtempSync(path.join(tmpdir(), 'elsewhere-'));
+    scratch.push(elsewhere);
+    git(elsewhere, 'init', '-q');
+    git(elsewhere, 'commit', '--allow-empty', '-q', '-m', 'init');
+
+    const result = spawnSync('bash', [hook], {
+      input: JSON.stringify({
+        tool_name: 'Bash',
+        cwd: worktree,
+        tool_input: { command: 'git reset --hard' },
+      }),
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        CLAUDE_PROJECT_DIR: worktree,
+        ROBOTA_AGENT_WORKTREE: worktree,
+        GIT_DIR: path.join(elsewhere, '.git'),
+      },
+    });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout ?? ''}${result.stderr ?? ''}`).toMatch(/DIFFERENT repository/);
   });
 });

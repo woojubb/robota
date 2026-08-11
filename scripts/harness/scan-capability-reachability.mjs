@@ -67,8 +67,7 @@ export function evaluateSpec(frontmatter, filename, scenarioExists) {
 export function findCapabilityReachabilityFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, [DONE_DIR], {
     scan: 'capability-reachability',
-    why:
-      'Declared capabilities live in completed spec documents; with none the reachability claim covers no capability at all.',
+    why: 'Declared capabilities live in completed spec documents; with none the reachability claim covers no capability at all.',
   });
   const findings = [];
   const doneDir = path.join(root, DONE_DIR);
@@ -101,6 +100,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

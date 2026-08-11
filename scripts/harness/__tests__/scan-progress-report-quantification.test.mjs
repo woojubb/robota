@@ -5,9 +5,13 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadHarnessConfig } from '../harness-config.mjs';
+import { ADVISORY_MARKER } from '../run-all-scans.mjs';
 import {
+  applyAcknowledgments,
   extractNarrativeText,
   findBareRatioProgressStatements,
+  findingKey,
+  loadAcknowledgments,
   main,
   resolveTranscriptFiles,
   scanTranscriptFile,
@@ -232,7 +236,70 @@ describe('main', () => {
       home: makeTempDir(),
     });
     expect(code).toBe(0);
-    expect(lines.join('\n')).toContain('skipped: no session transcript');
+    expect(lines.join('\n')).toContain('scan skipped');
+    expect(lines.join('\n')).toContain('no session transcript for this workspace');
+  });
+
+  /**
+   * HARNESS-063 — the skip states its zero, through the channel that survives to the suite summary.
+   * A passing scan's stdout is suppressed to a single tick, so on CI (where this channel never
+   * exists) the explicit skip reason was invisible and the tick read as a verified rule.
+   */
+  it('reports 0 transcripts and raises an advisory when the channel is absent', async () => {
+    const lines = [];
+    const code = await main((line) => lines.push(line), {
+      root: '/home/dev/repo',
+      home: makeTempDir(),
+    });
+    const output = lines.join('\n');
+    expect(code).toBe(0);
+    expect(output).toContain('skipped (0 transcript(s), 0 narrative message(s) examined)');
+    expect(output).toContain(
+      `${ADVISORY_MARKER} progress-report quantification examined 0 transcript(s)`,
+    );
+  });
+
+  it('reports the number of transcripts AND narrative messages it judged', async () => {
+    const home = makeTempDir();
+    const dir = path.join(home, '.claude', 'projects', transcriptSlugFor('/home/dev/repo'));
+    mkdirSync(dir, { recursive: true });
+    const recent = POLICY.enforceSinceIso.replace(/^(\d{4})/, (year) => String(Number(year) + 1));
+    writeFileSync(
+      path.join(dir, 'a.jsonl'),
+      [
+        assistantRecord('All good = 100%.', recent),
+        JSON.stringify({ type: 'user', message: { content: 'go' } }),
+        assistantRecord('Second message, nothing countable here.', recent),
+      ].join('\n'),
+    );
+    writeFileSync(path.join(dir, 'b.jsonl'), assistantRecord('Third, still clean.', recent));
+
+    const lines = [];
+    const code = await main((line) => lines.push(line), { root: '/home/dev/repo', home });
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain(
+      'progress-report quantification scan passed (2 transcript(s), 3 narrative message(s) examined)',
+    );
+    expect(lines.join('\n')).not.toContain(ADVISORY_MARKER);
+  });
+
+  it('raises an advisory when transcripts exist but the ratchet leaves 0 messages to judge', async () => {
+    const home = makeTempDir();
+    const dir = path.join(home, '.claude', 'projects', transcriptSlugFor('/home/dev/repo'));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, 'ancient.jsonl'),
+      assistantRecord('Sweep 3/7 done.', '2000-01-01T00:00:00.000Z'),
+    );
+
+    const lines = [];
+    const code = await main((line) => lines.push(line), { root: '/home/dev/repo', home });
+    const output = lines.join('\n');
+    expect(code).toBe(0);
+    expect(output).toContain('scan passed (1 transcript(s), 0 narrative message(s) examined)');
+    expect(output).toContain(
+      `${ADVISORY_MARKER} progress-report quantification examined 0 narrative messages`,
+    );
   });
 
   it('exits 1 and names the rule when a transcript violates it', async () => {
@@ -247,5 +314,151 @@ describe('main', () => {
     const output = lines.join('\n');
     expect(output).toContain('3/7');
     expect(output).toContain('agent-conduct.md');
+  });
+});
+
+describe('the version-migration form, judged deliberately', () => {
+  /**
+   * HARNESS-054 asked for this verdict to be STATED rather than left to fall out of a lookbehind
+   * width. It is two verdicts, and they differ on what sits before the arrow.
+   */
+  it('suppresses a version transition and flags a progress statement wearing an arrow', () => {
+    // A NUMBER before the arrow is a version or state transition: `5 → 6/7` is one version to
+    // another, not six sevenths of a task finished.
+    expect(findBareRatioProgressStatements('**5 → 6/7 병행 전환 완료.**', POLICY)).toEqual([]);
+    expect(
+      findBareRatioProgressStatements('TypeScript 5 → 6/7 migration complete.', POLICY),
+    ).toEqual([]);
+
+    // A WORD before it is not. The arrow does not make a count into a version.
+    expect(findBareRatioProgressStatements('마이그레이션 작업 → 6/7 완료.', POLICY)).toHaveLength(
+      1,
+    );
+  });
+
+  it('still flags the prose form, and that is the deliberate answer', () => {
+    // `from v5 to 6/7` reads as a version pair to someone who knows the domain, and the version noun
+    // is not adjacent to the ratio. The item proposed widening the suppression to SENTENCE scope for
+    // the version nouns; that is refused here, on this evidence: it would suppress a real finding in
+    // any sentence that happens to mention a version, and the next case is exactly that sentence.
+    //
+    // The writer has two ways to say it without tripping the rule — the arrow form above, or the
+    // percentage the rule asks for. A false positive with two cheap escapes is a better trade than a
+    // class of false negatives with none.
+    expect(findBareRatioProgressStatements('Migrated from v5 to 6/7 — done.', POLICY)).toHaveLength(
+      1,
+    );
+  });
+
+  it('would have lost a real finding under sentence-scope suppression', () => {
+    // The sentence that decides it: a genuine mid-work ratio, in a message that also mentions a
+    // version. Sentence scope would have read the version noun and dropped the violation.
+    expect(
+      findBareRatioProgressStatements('작업 4/6 완료. 버전 5도 확인했습니다.', POLICY),
+    ).toHaveLength(1);
+  });
+});
+
+describe('a finding in append-only history can be acknowledged, and the ledger cannot rot', () => {
+  /**
+   * A transcript cannot be edited, so a finding here is permanent: without a clearing path the scan
+   * is red on that host forever, for every unrelated change. A guard that fires and cannot be
+   * cleared is one that gets suppressed, and a suppressed guard costs more than what it catches.
+   */
+  const FINDING = {
+    file: '/somewhere/session.jsonl',
+    timestamp: '2026-08-01T00:00:00.000Z',
+    ratio: '4/6',
+  };
+  const ENTRY = {
+    transcript: 'session.jsonl',
+    timestamp: '2026-08-01T00:00:00.000Z',
+    ratio: '4/6',
+    reason: 'why',
+  };
+
+  it('identifies a finding the same way from either side', () => {
+    // A finding calls it `file`, a ledger entry calls it `transcript`. Two keys for one thing means
+    // every entry reads stale — measured on the first run of this ledger, where all of them did.
+    expect(findingKey(FINDING)).toBe(findingKey(ENTRY));
+  });
+
+  it('does not key on the excerpt', () => {
+    // The excerpt is prose a later reader may requote. An identity that changes when the quotation
+    // is reformatted goes stale for the wrong reason.
+    expect(findingKey({ ...FINDING, excerpt: 'one wording' })).toBe(
+      findingKey({ ...FINDING, excerpt: 'another wording entirely' }),
+    );
+  });
+
+  it('clears a finding it covers, and leaves the rest open', () => {
+    const other = { ...FINDING, ratio: '5/6' };
+    const result = applyAcknowledgments([FINDING, other], [ENTRY], [FINDING.file]);
+
+    expect(result.cleared).toBe(1);
+    expect(result.open).toEqual([other]);
+    expect(result.stale).toEqual([]);
+  });
+
+  it('fails an entry whose finding no longer appears', () => {
+    expect(applyAcknowledgments([], [ENTRY], [FINDING.file]).stale).toEqual([ENTRY]);
+  });
+
+  it('does NOT judge an entry for a transcript this run never read', () => {
+    // The anti-rot must be scoped to the real subject. On a host without that transcript — CI, a
+    // fresh checkout, another developer's machine — every entry would read stale, and a check that
+    // fires over ground it never covered is the vacuity this harness spends its time removing.
+    expect(applyAcknowledgments([], [ENTRY], []).stale).toEqual([]);
+  });
+
+  it('refuses an acknowledgment with no reason', () => {
+    // A waiver nobody had to justify is the shape this repository refuses wherever it allows one.
+    expect(() => loadAcknowledgments(() => JSON.stringify([{ ...ENTRY, reason: '   ' }]))).toThrow(
+      /carries no reason/,
+    );
+  });
+
+  it('refuses an UNREADABLE ledger, which is a different claim from an absent one', () => {
+    // A permission error or a corrupt read would otherwise become "no acknowledgments" — the same
+    // file, a different claim. Absent is a valid state; unreadable is not.
+    expect(() =>
+      loadAcknowledgments(() => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      }),
+    ).toThrow(/could not be read/);
+  });
+
+  it('treats a missing ledger as an empty one, not as an error', () => {
+    // The ledger is optional: a repository with nothing to acknowledge should not have to carry a file.
+    expect(
+      loadAcknowledgments(() => {
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+      }),
+    ).toEqual([]);
+  });
+
+  it('reads the SHIPPED ledger, so a malformed one fails here rather than in CI', () => {
+    expect(() => loadAcknowledgments()).not.toThrow();
+  });
+});
+
+describe('what it declares does not depend on the host it runs on', () => {
+  it('declares a zero WITH its reason when there is no transcript at all', async () => {
+    // The skip branch printed no declaration, so this was the one scan in the suite whose
+    // `::examined::` line appeared on a machine that had run agent sessions and vanished on a fresh
+    // checkout. The adoption ratchet counts that line, and the promotion-to-main gate runs the suite
+    // unskipped on a fresh runner — so a count that was correct on the author's laptop would have
+    // turned that gate red. Review traced it; the local green could not have shown it.
+    const lines = [];
+    const code = await main((line) => lines.push(line), {
+      root: '/home/dev/repo',
+      home: makeTempDir(),
+    });
+
+    const printed = lines.join('\n');
+    expect(code, 'a host without transcripts must still skip cleanly').toBe(0);
+    expect(printed, 'the skip declared nothing, so its adoption depends on the host').toMatch(
+      /::examined:: 0 transcripts ::expected-empty::/,
+    );
   });
 });

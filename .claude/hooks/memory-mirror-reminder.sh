@@ -12,15 +12,18 @@
 
 set -euo pipefail
 
+# One reader for the payload's file_path, not one per hook. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+
 input="$(cat 2>/dev/null || true)"
 [ -z "$input" ] && exit 0
 
-# Extract the written file path (jq if available, else a tolerant grep).
-if command -v jq >/dev/null 2>&1; then
-  fp="$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)"
-else
-  fp="$(printf '%s' "$input" | grep -oE '"file_path"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*:"([^"]+)"/\1/' || true)"
-fi
+# The jq arm was right and the "tolerant grep" beside it was not: `[^"]+` stops at the first
+# ESCAPED quote, so on a host without jq a memory file named with a quote or a backslash was read
+# as a truncated path, matched none of the cases below, and the reminder this hook exists to print
+# never printed. The shared reader falls back to python3 instead, so both hosts answer the same.
+fp="$(hook_file_path_of "$input" || printf '')"
 [ -z "$fp" ] && exit 0
 
 # In-repo mirror writes are the compliant case — never remind on those.

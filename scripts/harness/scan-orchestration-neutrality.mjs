@@ -70,6 +70,19 @@ function walkSource(target, root) {
  * Exposed so the harness test can assert failing-capability directly (including the
  * camelCase identifier vector) without touching disk.
  */
+/**
+ * How many source files the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function findNeutralityViolationsInSource(source, file = 'fixture.ts') {
   const findings = [];
   const lines = source.split('\n');
@@ -82,6 +95,7 @@ export function findNeutralityViolationsInSource(source, file = 'fixture.ts') {
 }
 
 export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
+  examinedCount = 0;
   requireGovernedTree(root, SCAN_DIRS, {
     scan: 'orchestration-neutrality',
     why: 'The configured orchestration contract directories ARE the subject: over a root without them, "no app-domain identity leaks into the neutral contracts" is a statement about no contracts.',
@@ -90,6 +104,7 @@ export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
   for (const dir of SCAN_DIRS) {
     for (const file of walkSource(dir, root)) {
       const rel = path.relative(root, file);
+      examinedCount += 1;
       findings.push(...findNeutralityViolationsInSource(readFileSync(file, 'utf8'), rel));
     }
   }
@@ -98,6 +113,10 @@ export function findOrchestrationNeutralityFindings(root = WORKSPACE_ROOT) {
 
 function main() {
   const findings = findOrchestrationNeutralityFindings();
+
+  // Before the branch, for the reason above: the adoption count is read from every run.
+  console.log(`::examined:: ${examinedCount} source files`);
+
   if (findings.length === 0) {
     console.log('orchestration-neutrality scan passed.');
     process.exit(0);
@@ -114,6 +133,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

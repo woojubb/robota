@@ -4,7 +4,11 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { findDuplicateIdFindings, readBacklogFrontmatter } from '../check-backlog-placement.mjs';
+import {
+  findBacklogPlacementFindings,
+  findDuplicateIdFindings,
+  readBacklogFrontmatter,
+} from '../check-backlog-placement.mjs';
 
 describe('readBacklogFrontmatter', () => {
   it('reads status and detects a completed date', () => {
@@ -21,17 +25,60 @@ describe('readBacklogFrontmatter', () => {
   });
 });
 
+describe('a task file with no readable status', () => {
+  /** One file, written verbatim, in whichever half of the tree the case is about. */
+  async function treeWith(where, name, contents) {
+    const dir = await mkdtemp(path.join(tmpdir(), 'backlog-status-'));
+    await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
+    await writeFile(path.join(dir, '.agents/tasks', where, name), contents);
+    return dir;
+  }
+
+  const NO_FRONTMATTER =
+    '# ARCH-099\n\nstatus: done\n\nThe status is in the BODY, not a `---` block.\n';
+
+  it('is REPORTED in the backlog root', async () => {
+    const dir = await treeWith('.', 'ARCH-099-status-in-the-body.md', NO_FRONTMATTER);
+
+    const findings = await findBacklogPlacementFindings(dir);
+
+    expect(findings.map((f) => f.problem.slice(0, 24))).toEqual(['no `status:` in frontmat']);
+  });
+
+  it('is REPORTED in completed/ too', async () => {
+    // The same defect, one loop down. `README.md` requires frontmatter of EVERY task file, and the
+    // reason the root loop reports a missing one — that a status written in the body passes every
+    // placement rule unread — does not stop applying because the file is archived. Review found the
+    // fix applied to one loop and not its neighbour, which is how a class gets half-closed.
+    const dir = await treeWith(
+      'completed',
+      'ARCH-098-archived-without-frontmatter.md',
+      NO_FRONTMATTER,
+    );
+
+    const findings = await findBacklogPlacementFindings(dir);
+
+    expect(findings.map((f) => f.problem.slice(0, 24))).toEqual(['no `status:` in frontmat']);
+  });
+
+  it('says nothing about a file that HAS one', async () => {
+    const dir = await treeWith('completed', 'ARCH-097-archived.md', '---\nstatus: done\n---\n');
+
+    expect(await findBacklogPlacementFindings(dir)).toEqual([]);
+  });
+});
+
 describe('findDuplicateIdFindings', () => {
   /** Build a throwaway backlog tree: { root: [names], completed: [names] }. */
   async function fixture(root, completed) {
     const dir = await mkdtemp(path.join(tmpdir(), 'backlog-dup-'));
-    await mkdir(path.join(dir, '.agents/backlog/completed'), { recursive: true });
+    await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of root) {
-      await writeFile(path.join(dir, '.agents/backlog', name), '---\nstatus: todo\n---\n');
+      await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
     }
     for (const name of completed) {
       await writeFile(
-        path.join(dir, '.agents/backlog/completed', name),
+        path.join(dir, '.agents/tasks/completed', name),
         '---\nstatus: done\ncompleted: 2026-07-25\n---\n',
       );
     }
@@ -68,9 +115,9 @@ describe('findDuplicateIdFindings', () => {
 describe('findDuplicateIdFindings — same-ID collisions within the root', () => {
   async function rootOnly(names) {
     const dir = await mkdtemp(path.join(tmpdir(), 'backlog-root-dup-'));
-    await mkdir(path.join(dir, '.agents/backlog/completed'), { recursive: true });
+    await mkdir(path.join(dir, '.agents/tasks/completed'), { recursive: true });
     for (const name of names) {
-      await writeFile(path.join(dir, '.agents/backlog', name), '---\nstatus: todo\n---\n');
+      await writeFile(path.join(dir, '.agents/tasks', name), '---\nstatus: todo\n---\n');
     }
     return dir;
   }

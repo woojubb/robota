@@ -1,5 +1,9 @@
 # Tools Specification
 
+## Browser Surface (CORE-028)
+
+browser-node-subpath: allowed — `src/builtins/path-guard.ts` imports `@robota-sdk/agent-core/node` for `isPathInside`, and this package declares a browser build. They do not meet: the browser condition points at `dist/browser/browser.js`, a SEPARATE entry whose graph does not reach the file-tool sandbox. Measured rather than assumed — the built browser bundle contains no `node:` builtin and no `isPathInside`.
+
 ## Scope
 
 Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox workspace manifest contracts for the Robota SDK. This package provides the ergonomic tool-construction factories (`createFunctionTool`, `createZodFunctionTool`) — which construct the `FunctionTool` class owned by `@robota-sdk/agent-core` (DATA-005 SSOT) — and a set of 10 built-in CLI tools (`shell`, `bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`, `askUserQuestion`) used by the agent CLI.
@@ -154,18 +158,28 @@ Types owned by this package (SSOT):
 
 ### Public API: Built-in CLI Tools
 
-| Export                | Kind   | Tool Name         | Description                                                                                                  |
-| --------------------- | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `shellTool`           | Object | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
-| `bashTool`            | Object | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
-| `readTool`            | Object | `Read`            | Read file contents with line numbers (cat -n)                                                                |
-| `writeTool`           | Object | `Write`           | Write content to a file (creates parent dirs)                                                                |
-| `editTool`            | Object | `Edit`            | Replace a specific string in a file                                                                          |
-| `globTool`            | Object | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
-| `grepTool`            | Object | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
-| `webFetchTool`        | Object | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
-| `webSearchTool`       | Object | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
-| `askUserQuestionTool` | Object | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+| Export                | Kind    | Tool Name         | Description                                                                                                  |
+| --------------------- | ------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `createShellTool`     | Factory | `Shell`           | Execute host shell commands; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)                                |
+| `createBashTool`      | Factory | `Bash`            | Model-familiar alias of `Shell` — same OS-aware implementation                                               |
+| `createReadTool`      | Factory | `Read`            | Read file contents with line numbers (cat -n)                                                                |
+| `createWriteTool`     | Factory | `Write`           | Write content to a file (creates parent dirs)                                                                |
+| `createEditTool`      | Factory | `Edit`            | Replace a specific string in a file                                                                          |
+| `createGlobTool`      | Factory | `Glob`            | Find files matching a glob pattern (fast-glob)                                                               |
+| `createGrepTool`      | Factory | `Grep`            | Regex content search — modes: files_with_matches/content/count; `headLimit` caps results                     |
+| `webFetchTool`        | Object  | `WebFetch`        | Fetch URL content with HTML-to-text conversion                                                               |
+| `webSearchTool`       | Object  | `WebSearch`       | Web search over the `IWebSearchProvider` port (default provider: Brave Search adapter)                       |
+| `askUserQuestionTool` | Object  | `AskUserQuestion` | Model-issued structured questions (options/multi-select/free text) via `IToolExecutionContext.ask` (CMD-005) |
+
+**These are factories, not instances — ARCH-010.** This package used to also export a ready-made
+`readTool`/`writeTool`/`editTool`/`globTool`/`grepTool`/`shellTool`/`bashTool` for each of them. A
+module-level instance is bound at import time and can carry no containment root, and the guard's
+default was to allow — so importing one produced a file tool with no boundary. `pack-coding` had
+already written the consequence into its own source ("their `Read` will happily return
+`/etc/hostname`"), and the child-process subagent worker was reaching them through
+`createDefaultTools()` with no argument. They had no in-repo consumer; every assembly already built
+per-session tools. The `cwd` those factories take is now REQUIRED, so the case cannot recur by
+omission, and the guard refuses rather than allows if it somehow does.
 
 `AskUserQuestion` (CMD-005) consumes the injected `IToolExecutionContext.ask` port (CMD-004): each of
 its 1–4 questions maps onto the `IActionRequest` SSOT and is rendered by the attached environment; a
@@ -246,8 +260,8 @@ as a contract, not as incidental strings:
   mechanism instead (an exact-match `oldString` requirement).
 - **Override seam on every factory.** Every builtin factory accepts
   `IBuiltinToolDescriptionOptions.description`, which replaces the default text verbatim so a
-  consumer can supply deployment-specific guidance at its composition root. The exported singleton
-  instances (`globTool`, `writeTool`, …) are the factories' defaults.
+  consumer can supply deployment-specific guidance at its composition root. Omitting it yields the
+  neutral default text.
 
 Contract tests: `src/__tests__/builtin-descriptions.test.ts` (policy-phrase absence, derived
 names, registry-subset routing hints, override seam) and `src/__tests__/web-search-provider.test.ts`
@@ -302,7 +316,7 @@ None. This package defines no tool classes; the factories construct core's `Func
 
 ### Gaps
 
-- **Built-in tools** -- `globTool` still needs dedicated unit coverage beyond provider-agnostic composition tests.
+- **Built-in tools** -- `Glob` still needs dedicated unit coverage beyond provider-agnostic composition tests.
 - **IToolInvocationResult** -- No tests verifying the result shape contract.
 
 ## Dependencies

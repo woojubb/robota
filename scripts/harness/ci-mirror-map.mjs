@@ -64,38 +64,55 @@ export const MIRRORED_BRANCH = 'develop';
  * `extra` marks a stage that mirrors no CI job at all; it must say what it covers instead, because a
  * stage nobody can trace to a required check is either valuable for a stated reason or is drift.
  *
- * ORDER IS DELIBERATE: every stage that needs no build output runs first, so a prettier violation
- * or a bad commit subject surfaces in seconds rather than behind the minutes-long `build` and
- * `tui-e2e` stages. No stage is skipped because an earlier one failed.
+ * `needsBuildOutput` is the DECLARATION the order is derived from, and
+ * `__tests__/ci-mirror-map.test.mjs` pins the two together: a stage that reads build output may not
+ * be listed before `build`, and a stage that declares nothing is a test failure rather than a stage
+ * that silently sorts as "needs nothing".
+ *
+ * ORDER IS DELIBERATE, in two tiers (HARNESS-058):
+ *   1. Stages that read NO build output run first, so a prettier violation or a bad commit subject
+ *      surfaces in seconds rather than behind the minutes-long `build` and `tui-e2e` stages.
+ *   2. `build` runs before every stage that consumes build output. `typecheck` used to sit in tier 1
+ *      on the assumption that a type check needs nothing — it needs the cross-package declaration
+ *      files `build` emits, so on a fresh worktree it went red on a branch that changed no code, and
+ *      a missing-declaration error is indistinguishable from a real type error. A prerequisite runs
+ *      before what needs it; a stage that cannot have its prerequisite met says so instead
+ *      (`tree-prerequisites.mjs`).
+ * No stage is skipped because an earlier one failed.
  */
 export const CI_STAGES = [
   {
     name: 'format-check',
+    needsBuildOutput: false,
     extra: '.lintstagedrc.json (prettier via .husky/pre-commit)',
-    why: 'no CI job re-checks formatting, and a --no-verify push from a fresh worktree never runs the SSOT formatter',
+    // A `format-check` CI job now EXISTS (INFRA-083) and calls this same stage, but the ruleset does
+    // not require it yet, so this stage cannot claim to mirror it — the floor beside this table
+    // refuses a mirror claim on a job nothing gates, and it is right to. The order is: land the job,
+    // watch it run green, make it required, then move this entry to `mirrors`. Claiming coverage a
+    // check does not yet provide is the shape that costs the most here.
+    why: 'formatting is the ONE local stage no REQUIRED CI check re-runs, so a bypassed hook shipped drift nothing caught (INFRA-083)',
   },
   {
     name: 'commitlint',
+    needsBuildOutput: false,
     mirrors: [{ job: 'commitlint', steps: ['Lint PR commit messages'] }],
     why: 'a subject over the length limit fails a REQUIRED check after the push, for a defect visible before it',
   },
   {
     name: 'harness-self-test',
+    needsBuildOutput: false,
     mirrors: [{ job: 'scans', steps: ['Harness scan test suite'] }],
     why: 'asserts baseline TIGHTNESS (spec-surface notices == []), which run-all-scans reports as a pass',
   },
   {
     name: 'scan-suite-dist-free',
+    needsBuildOutput: false,
     mirrors: [{ job: 'scans', steps: ['Harness scan suite (dist-independent)'] }],
     why: 'a hardcoded build-output path literal resolves on a built tree and is a GHOST path in CI',
   },
   {
-    name: 'typecheck',
-    extra: 'workspace-wide `pnpm -w typecheck`',
-    why: 'strictly WIDER than the affected-scope typecheck `quality` runs, and ~6s after PERF-004 — cheap over-coverage, not drift',
-  },
-  {
     name: 'build',
+    needsBuildOutput: false,
     mirrors: [
       {
         job: 'build',
@@ -108,37 +125,50 @@ export const CI_STAGES = [
       },
       {
         job: 'tui-e2e',
-        steps: ['Build packages (provides the built robota binary the PTY suite drives)'],
+        steps: [
+          'Build packages (only when the artifact was not restored — provides the robota binary)',
+        ],
       },
       {
         job: 'examples-typecheck',
-        steps: ['Build packages (so examples typecheck against local source)'],
+        steps: ['Build packages (only when the artifact was not restored)'],
       },
     ],
     why: 'CI builds before every job that reads dist; locally a STALE dist passes the presence-only freshness scan',
   },
   {
+    name: 'typecheck',
+    needsBuildOutput: true,
+    extra: 'workspace-wide `pnpm -w typecheck`',
+    why: 'strictly WIDER than the affected-scope typecheck `quality` runs, and ~6s after PERF-004 — cheap over-coverage, not drift',
+  },
+  {
     name: 'scan-suite',
+    needsBuildOutput: true,
     mirrors: [{ job: 'quality', steps: ['Build-output contracts scan (dist-dependent)'] }],
     why: 'the dist-dependent scans silently no-op on an unbuilt tree',
   },
   {
     name: 'affected-verify',
+    needsBuildOutput: true,
     mirrors: [{ job: 'quality', steps: ['Verify affected quality checks'] }],
     why: 'THE package test suites, lint and scoped typecheck — the gates verify-like-ci omitted entirely (INFRA-056)',
   },
   {
     name: 'binary-e2e',
+    needsBuildOutput: true,
     mirrors: [{ job: 'quality', steps: ['Binary e2e (agent-cli bintests, dist-dependent)'] }],
     why: 'black-box e2e over the BUILT robota binary; no unit suite covers the packaged entry point',
   },
   {
     name: 'examples-typecheck',
+    needsBuildOutput: true,
     mirrors: [{ job: 'examples-typecheck', steps: ['Typecheck examples'] }],
     why: 'examples are outside the workspace typecheck; a breaking public-surface change is invisible without them',
   },
   {
     name: 'tui-e2e',
+    needsBuildOutput: true,
     mirrors: [{ job: 'tui-e2e', steps: ['Run the TUI PTY E2E suite against the real binary'] }],
     why: 'the live-TUI behaviours only a real PTY against the built binary can exercise',
   },
@@ -232,11 +262,21 @@ export const CI_SETUP_STEPS = {
   ],
   'examples-typecheck': [
     {
+      step: 'Restore package build output',
+      reason:
+        'artifact transport between jobs in one CI run; a local run builds in place and has nothing to restore',
+    },
+    {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
     },
   ],
   'tui-e2e': [
+    {
+      step: 'Restore package build output',
+      reason:
+        'artifact transport between jobs in one CI run; a local run builds in place and has nothing to restore',
+    },
     {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',

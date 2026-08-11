@@ -135,11 +135,29 @@ These scripts are the executable layer of the Robota harness.
 
 - scans for stale `.design/tmp/` documents (older than 14 days)
 - checks SPEC.md quality against the Spec Quality Gate (8 required sections)
-- detects unregistered skills (exist on disk but not in AGENTS.md)
-- detects stale skill references (in AGENTS.md but no directory on disk)
+- detects unregistered skills (exist on disk but not in `.agents/skills/index.md`)
+- detects stale skill references (in the index but no directory on disk)
 - scans for forbidden agent hierarchy terms in production code
 - flags dynamic imports in production code for manual review
 - reports findings grouped by type with summary counts
+- **publishes a verdict** (HARNESS-069): per-type counts are frozen in
+  `cleanup-drift-baseline.json` and may fall but never rise — except `stale-tmp-doc`, which is
+  counted from file MTIME and so is reported but never ratcheted or frozen: a fresh checkout resets
+  every mtime and can never reach the 14-day threshold, while a working copy whose `.design/tmp/`
+  files have sat that long always would — and a baseline may hold only numbers another checkout can
+  reproduce. Exit 1 when a type grew, and also when
+  one FELL without a re-freeze — `node scripts/harness/cleanup-drift.mjs --write-baseline` records
+  the gain in the same change. Before HARNESS-069 this script contained no `process.exit` and no
+  `process.exitCode`, so whatever it found, a caller heard success.
+- **This section owns where the ratchet is enforced**, and the script's docstring and the test header
+  point here rather than restating it. (Three copies existed; the "unconditionally in the `scans`
+  job" correction landed in two of them and left the third contradicting the others — HARNESS-068's
+  subject, inside the change that raised it.) It is enforced by
+  `scripts/harness/__tests__/cleanup-drift.test.mjs`, not by `run-all-scans.mjs`, so that test file is
+  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs
+  `pnpm harness:test` as a step, and a promotion to `main` runs it inside `harness:verify:release`.
+- a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
+  no `packages/`, stops the run rather than reporting less drift.
 
 ## Design Notes
 
@@ -160,7 +178,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   with an explicit `allow-missing` marker for negative assertions/fixtures — catches relocation rot.
 - **Project-specific:** scopes to `scripts/harness/*.mjs` and the `packages|apps|scripts` roots.
 - **Porting:** change the scanned glob + path roots; keep the quoted-literal + comment-exempt +
-  marker model. Origin: [`LESSON-006`](../../.agents/backlog/completed/LESSON-006-post-relocation-reference-sweep.md).
+  marker model. Origin: [`LESSON-006`](../../.agents/tasks/completed/LESSON-006-post-relocation-reference-sweep.md).
 
 ### 2. Live-seam cold-state testing (skill: `vitest-testing-strategy`)
 
@@ -169,7 +187,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   init guard hides the bug.
 - **Project-specific:** the `/preset` → `Robota.setModel` seam.
 - **Porting:** applies to any lazy-init + post-construction mutation. Origin:
-  [`LESSON-001`](../../.agents/backlog/completed/LESSON-001-live-seam-cold-state-testing.md).
+  [`LESSON-001`](../../.agents/tasks/completed/LESSON-001-live-seam-cold-state-testing.md).
 
 ### 3. Protected-branch commit guard (`.husky/pre-commit`)
 
@@ -178,7 +196,7 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   fires for every commit regardless of how it is invoked.
 - **Project-specific:** protected set `main|master|develop`; `ALLOW_PROTECTED_COMMIT` override.
 - **Porting:** change the protected set. Origin:
-  [`LESSON-003`](../../.agents/backlog/completed/LESSON-003-protected-branch-commit-guard.md).
+  [`LESSON-003`](../../.agents/tasks/completed/LESSON-003-protected-branch-commit-guard.md).
 
 ### 4. Destructive-flag block in the agent hook (`.claude/hooks/branch-guard.sh`)
 
@@ -187,4 +205,4 @@ any repo. For each: the universal idea, the project-specific part, and what to a
   left as prose the agent can forget.
 - **Project-specific:** the `gh pr merge` + `--delete-branch` combo.
 - **Porting:** swap the command/flag pair. Origin:
-  [`LESSON-007`](../../.agents/backlog/completed/LESSON-007-gh-delete-branch-guard.md).
+  [`LESSON-007`](../../.agents/tasks/completed/LESSON-007-gh-delete-branch-guard.md).

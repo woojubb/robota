@@ -273,3 +273,22 @@ describe('check-spec-doc-frontmatter CLI', () => {
     expect(result.stdout).toContain('spec-doc frontmatter scan passed.');
   });
 });
+
+describe('the subject cannot be absent and still read as clean', () => {
+  it('refuses a spec-docs tree that is not there', async () => {
+    // PROC-006 prerequisite, measured 2026-08-01: this finder returned `{blocking: [], warnings: []}`
+    // over a root with no `.agents/spec-docs`, which is what it also returns when 242 documents are
+    // all correct. It governs the tree PROC-006 moves.
+    //
+    // `scan-guard-scope-fail-closed` did not catch it, and its header says why: the finder set is
+    // derived from `export function find…(root`, and this one takes a target instead.
+    //
+    // Directory mode only — the single-FILE mode below must keep working, since that is how the
+    // pre-commit path checks one document.
+    const root = await mkdtemp(path.join(tmpdir(), 'absent-spec-docs-fm-'));
+    expect(
+      () => findSpecDocFrontmatterFindings(path.join(root, '.agents/spec-docs')),
+      'an absent subject was reported as clean',
+    ).toThrow(/spec-docs/);
+  });
+});

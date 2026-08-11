@@ -23,6 +23,9 @@ type TEmittingSession = IInteractiveSession & {
 function createMockSession(): TEmittingSession {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   return {
+    // ARCH-012: required. This double feeds `subscribeSessionEvents`, which calls it on every
+    // turn-authored event — omitting it throws the moment a case emits one.
+    getActiveDriverId: () => null,
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(handler);

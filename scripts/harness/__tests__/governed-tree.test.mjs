@@ -43,12 +43,12 @@ describe('requireGovernedTree', () => {
     const root = await rootWith([]);
     let message = '';
     try {
-      requireGovernedTree(root, ['.agents/backlog'], CONTEXT);
+      requireGovernedTree(root, ['.agents/tasks'], CONTEXT);
     } catch (error) {
       message = error.message;
     }
     expect(message).toContain('fixture-scan');
-    expect(message).toContain('.agents/backlog');
+    expect(message).toContain('.agents/tasks');
     expect(message).toContain(root);
     expect(message).toContain('The fixture tree is the subject.');
   });

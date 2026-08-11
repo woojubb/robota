@@ -11,11 +11,11 @@ app built from these same libraries**, not the product itself.
 > **Where this is going:** [`VISION.md`](./VISION.md) — _Robota builds Robota_. The goal is a **general**
 > development agent capable enough to build even Robota; developing the Robota repo is the **validation
 > benchmark** (the hardest dogfood), not a Robota-dedicated tool. The capability roadmap lives in
-> [`.agents/backlog/SELFHOST-*`](./.agents/backlog/).
+> [`.agents/tasks/SELFHOST-*`](./.agents/tasks/).
 
 ## Quick Start — Embed the Library
 
-The minimal set is three packages: `agent-core` + `agent-provider` + `agent-tools`.
+The minimal set is three packages: `agent-core` + one `agent-provider-<vendor>` + `agent-tools`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -90,13 +90,13 @@ the reference CLI are opinionated assemblies OF the libraries.
 
 ```
 agent-cli                       ← Reference product: terminal AI coding assistant
-agent-transport-{tui,http,ws,mcp} ← Standalone transports; agent-transport = lean core
+agent-transport-{tui,http,ws,mcp,webrtc,…} ← Standalone transports; agent-transport = lean core
   ↓
 agent-framework        ← Assembly layer: InteractiveSession, createQuery(), config/context loading
   ↓
 agent-session          ← Session lifecycle: permissions, hooks, compaction
 agent-tools            ← Tool infrastructure + 9 built-in tools
-agent-provider         ← Protocol clients (sub-paths: /anthropic, /openai, /gemini, …)
+agent-provider-{anthropic,openai,gemini,…} ← Protocol clients, one package per vendor
 agent-plugin           ← 8 consolidated lifecycle plugins
   ↓
 agent-core             ← Foundation: Robota engine, abstractions, plugin contracts
@@ -113,7 +113,7 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-provider-openai`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai)                       | OpenAI provider client                                              |
 | [`@robota-sdk/agent-provider-openai-compatible`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai-compatible) | OpenAI-compatible clients (DeepSeek, Qwen, Gemma)                   |
 | [`@robota-sdk/agent-provider-gemini`](https://www.npmjs.com/package/@robota-sdk/agent-provider-gemini)                       | Gemini / Google provider client                                     |
-| [`@robota-sdk/agent-provider-bytedance`](https://www.npmjs.com/package/@robota-sdk/agent-provider-bytedance)                 | ByteDance media/video provider client                               |
+| `@robota-sdk/agent-provider-bytedance` _(not yet published)_                                                                 | ByteDance media/video provider client                               |
 | [`@robota-sdk/agent-tools`](https://www.npmjs.com/package/@robota-sdk/agent-tools)                                           | Tool registry, zod-validated function tools, 9 built-in tools       |
 
 **App assembly** — add when you need sessions, permissions, or plugins:
@@ -142,6 +142,15 @@ agent-core             ← Foundation: Robota engine, abstractions, plugin contr
 | [`@robota-sdk/agent-transport-http`](https://www.npmjs.com/package/@robota-sdk/agent-transport-http)           | HTTP/REST transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-ws`](https://www.npmjs.com/package/@robota-sdk/agent-transport-ws)               | WebSocket transport                                                                                                                                                                                                                                      |
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)             | MCP transport                                                                                                                                                                                                                                            |
+| `@robota-sdk/agent-transport-webrtc` _(not yet published)_                                                     | P2P remote-control transport                                                                                                                                                                                                                             |
+| `@robota-sdk/agent-transport-protocol` _(not yet published)_                                                   | Wire protocol shared by the transports                                                                                                                                                                                                                   |
+
+These tables are a **curated index**, not the full workspace: they name the packages you are most
+likely to want. They omit most of the 55 workspace-private packages, list one deliberately
+(`agent-testing`, marked), and omit several published ones that are not part of a usual assembly. A
+row marked _(not yet published)_ or _(internal, not published)_ is in the repository but not on the
+registry. The complete package layout lives in
+[`.agents/project-structure.md`](.agents/project-structure.md), which owns it.
 
 ## Documentation
 

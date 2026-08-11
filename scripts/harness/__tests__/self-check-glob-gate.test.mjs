@@ -20,7 +20,15 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
   it('verify-change harness-tests check passes the whole __tests__ directory to vitest', () => {
     const content = read('scripts/harness/verify-change.mjs');
 
-    expect(content).toContain(`['exec', 'vitest', 'run', '${HARNESS_TESTS_DIR}']`);
+    expect(content).toContain(`'scripts/harness/__tests__'`);
+  });
+
+  it('verify-change uses the bounded thread pool', () => {
+    const content = read('scripts/harness/verify-change.mjs');
+
+    expect(content).toContain("'--pool=threads'");
+    expect(content).toContain("'--maxWorkers=2'");
+    expect(content).toContain("'--testTimeout=30000'");
   });
 
   it('verify-change never enumerates individual harness test files', () => {
@@ -39,6 +47,15 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
     expect(script).toBeTypeOf('string');
     expect(script).toContain(`vitest run ${HARNESS_TESTS_DIR}`);
     expect(script).not.toMatch(/\.test\.mjs/);
+  });
+
+  it('root harness:test uses the bounded thread pool', () => {
+    const packageJson = JSON.parse(read('package.json'));
+    const script = packageJson.scripts?.['harness:test'];
+
+    expect(script).toContain('--pool=threads');
+    expect(script).toContain('--maxWorkers=2');
+    expect(script).toContain('--testTimeout=30000');
   });
 });
 

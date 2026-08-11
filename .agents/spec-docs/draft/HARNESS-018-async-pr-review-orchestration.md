@@ -38,8 +38,12 @@ Comparable products, from product documentation (not source):
   `pull_request_target` running untrusted fork code a "pwn request"; `actions/checkout` v7 refuses fork code under
   it by default (2026-07-16). [Securely using pull_request_target](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target),
   [Preventing pwn requests](https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/)
-- **Loop bounding.** Hard max-iteration cap + progress detection (identify each finding; if it recurs unchanged,
-  declare stuck and escalate). [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
+- **Loop bounding.** Progress detection (identify each finding; if it recurs unchanged, declare stuck and
+  escalate). Prior art also recommends a hard max-iteration cap; this loop shipped one and the owner removed
+  it on 2026-08-03, when a pause to ask after round 5 — two rounds past the cap, both of which had
+  found gating items — drew the directive to keep going — see
+  [pr-finding-resolution-loop](../../skills/pr-finding-resolution-loop/SKILL.md), which owns the decision.
+  [Preventing AI agent infinite loops](https://docs.bswen.com/blog/2026-03-11-prevent-ai-agent-infinite-loops/)
 
 **Constraint for Robota / reuse vs add.** Robota already has: `/code-review` (REVIEWER logic, MUST/SHOULD vocab);
 the `architecture-refresh` auto-loop converging on the **existing** `ACTIONABLE FINDINGS: <n>` signal; independent
@@ -93,9 +97,12 @@ orchestrator shape. No `packages/`/`apps/` source change.
 - **FIXER (worker).** New `.claude/agents/pr-review-fixer.md` (edit-capable): applies fixes on the PR branch; never
   emits the findings verdict (re-review is the reviewer's job).
 - **Orchestrator (new thin skill), synchronous for now.** Route-only: REVIEWER → if `ACTIONABLE FINDINGS: 0` →
-  merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded at **max 3 iterations** + **progress detection**
-  (a finding's identity = `file:line + rule/category`; if the same identity recurs unchanged across rounds ⇒ stuck)
-  → escalate to the user. Never merges `main`.
+  merge path; else → REVIEW-WRITER → FIXER → re-REVIEW. Bounded by **progress detection** alone
+  (a finding's identity = `file:line + severity`, the form `pr-finding-resolution-loop` and the reviewer agent use; if the same identity recurs unchanged across rounds ⇒ stuck)
+  → escalate to the user. The design shipped with a `max 3 iterations` cap as well; the owner removed
+  it on 2026-08-03 — see the prior-art note above and
+  [pr-finding-resolution-loop](../../skills/pr-finding-resolution-loop/SKILL.md), which owns the decision.
+  Never merges `main`.
 - **Merge gate — respects [git-branch.md](../../rules/git-branch.md), does not weaken it.** Merge is allowed only
   when the Pre-Merge Code-Review Gate is satisfied: **no unresolved MUST finding, and every SHOULD finding is fixed
   OR filed-and-linked as a justified backlog item** (never silently deferred). `develop`: gated admin-merge after
@@ -115,7 +122,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | --------------- | --------------------------------------------------------------------------------------------------------- | -------- | ---------- |
 | INFRA-018a (P0) | async/background firing primitive for a PR-triggered orchestrator (or confirm synchronous-only)           | High     | —          |
 | INFRA-018b (P1) | read-only REVIEWER agent (`/code-review` logic → `ACTIONABLE FINDINGS: n`) + REVIEW-WRITER + FIXER agents | Critical | —          |
-| INFRA-018c (P2) | synchronous orchestrator skill: reviewer→writer→fixer loop, max-3 + progress detection                    | Critical | 018b       |
+| INFRA-018c (P2) | synchronous orchestrator skill: reviewer→writer→fixer loop, progress detection (no round cap)             | Critical | 018b       |
 | INFRA-018d (P3) | merge path: MUST/SHOULD gate (per git-branch.md) + develop admin-merge + merge-verifier; main→user        | High     | 018c       |
 | INFRA-018e (P4) | scan floor + extend `ci.yml` pull_request check                                                           | Medium   | 018b       |
 
@@ -128,7 +135,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | `.claude/agents/pr-review-reviewer.md` (new)                           | read-only REVIEWER, emits `ACTIONABLE FINDINGS: <n>`             |
 | `.claude/agents/pr-review-fixer.md` (new)                              | FIXER worker                                                     |
 | `.claude/agents/pr-review-writer.md` (new)                             | REVIEW-WRITER worker — posts the review to the PR                |
-| `.agents/skills/pr-review-orchestration/SKILL.md` (new)                | route-only synchronous orchestrator                              |
+| `.agents/skills/pr-finding-resolution-loop/SKILL.md` (new)             | route-only synchronous orchestrator                              |
 | `scripts/harness/scan-review-findings.mjs` (new) + `run-all-scans.mjs` | token presence/format floor                                      |
 | `.github/workflows/ci.yml`                                             | extend the existing `pull_request` job (no new workflow)         |
 | `.agents/skills/index.md`                                              | register orchestrator + the three agents (reviewer/writer/fixer) |
@@ -138,7 +145,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 - [ ] TC-01: The orchestrator runs the reviewer→(writer→fixer)→re-review loop synchronously to a terminal state on a fixture PR (async/non-blocking is explicitly OUT of scope until P0 — TC-01 does not assert non-blocking).
 - [ ] TC-02: The REVIEWER agent ends with a well-formed `ACTIONABLE FINDINGS: <n>` line; `scan-review-findings.mjs` FAILs a run whose reviewer output omits or malforms it. No new signal token is introduced (`agent-def-convention` still passes).
 - [ ] TC-03: With unresolved MUST+SHOULD > 0 the loop drives writer→fixer→re-review; with `ACTIONABLE FINDINGS: 0` it proceeds to the merge path.
-- [ ] TC-04: The loop halts and escalates after 3 iterations OR when a finding of identity `file:line+rule` recurs unchanged — verified by a non-converging fixture.
+- [ ] TC-04: The loop halts and escalates when a finding of identity `file:line + severity` recurs unchanged — verified by a non-converging fixture. No round cap: the owner removed it on 2026-08-03, and `enforcement-architecture.md` forbids a count as the ONLY bound, so a count may be added as a second bound but must not replace this.
 - [ ] TC-05: The merge path allows a `develop` merge only when no unresolved MUST and every SHOULD is fixed-or-linked-backlog AND required checks green, then runs `merge-verifier`; a `main`-targeted PR is NOT merged (handed to the user) — asserting no weakening of git-branch.md's gate.
 - [ ] TC-06: REVIEWER is read-only (no Edit/Write in its tool-scope) and FIXER never emits the findings verdict — verified by `agent-def-convention` + a role scan.
 - [ ] TC-07: The `pull_request` review check lives in `ci.yml` (extended), uses the plain `pull_request` event (no `pull_request_target`) — verified by grep/scan; no parallel workflow added.
@@ -150,7 +157,7 @@ orchestrator shape. No `packages/`/`apps/` source change.
 | TC-01 | fixture PR → synchronous loop reaches terminal state                            | orchestrator fixture                                      |
 | TC-02 | reviewer output missing/malformed token → scan FAIL; agent-def-convention green | `scan-review-findings.mjs` + `check-agent-def-convention` |
 | TC-03 | findings>0 drives fix loop; ==0 → merge path                                    | orchestrator fixture                                      |
-| TC-04 | non-converging fixture (recurring file:line+rule) → halt+escalate at cap        | orchestrator fixture                                      |
+| TC-04 | non-converging fixture (recurring `file:line + severity`) → halt+escalate       | orchestrator fixture                                      |
 | TC-05 | develop merge gated on MUST/SHOULD rule + merge-verifier; main not merged       | merge-path fixture                                        |
 | TC-06 | reviewer tool-scope read-only; fixer no-verdict                                 | `agent-def-convention` + role scan                        |
 | TC-07 | ci.yml pull_request job, no pull_request_target, no parallel workflow           | grep/scan                                                 |
@@ -183,7 +190,7 @@ INFRA-018a..e above.
   INFRA-018a..e. (One trivial doc-count nit — skills/index.md registration row — fixed here.)
 - 2026-07-16 — **GATE-IMPLEMENT (018b + 018c).** Landed the three agents (`pr-review-reviewer` [read-only guardian,
   emits `ACTIONABLE FINDINGS: <n>`], `pr-review-writer` [worker, posts to PR], `pr-review-fixer` [edit-capable worker])
-  and the route-only `pr-review-orchestration` skill (synchronous loop, max-3 + progress detection on `file:line+severity`,
+  and the route-only `pr-finding-resolution-loop` skill (synchronous loop, max-3 + progress detection on `file:line+severity`, <!-- allow-restated-bound: a dated implementation log recording the count as it landed; the live bound is the skill's, and the count was later removed by owner directive -->
   → gated merge path). All conform to `agent-def-convention`; all 51 harness scans pass. Remaining: 018d (merge-gate
   wiring + merge-verifier), 018e (scan floor + ci.yml extension), 018a (async firing, prerequisite for non-blocking).
 - 2026-07-16 — **GATE-IMPLEMENT (018e + 018d + 018a) — epic implementation complete.** 018e: `scan-review-findings.mjs`

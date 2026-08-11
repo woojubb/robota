@@ -101,8 +101,10 @@ export function useTuiChannel(channel: TuiInteractionChannel): IInteractiveSessi
     isStalled: manager.isStalled,
     isShuttingDown: channel.isShuttingDown,
     pendingPrompt: manager.pendingPrompt,
-    // Read live from the session (the co-drive queue is session-owned); optional getter → 0 on older mocks.
-    pendingCount: channel.getSession().getPendingCount?.() ?? (manager.pendingPrompt ? 1 : 0),
+    // Read live from the session — the co-drive queue is session-owned. ARCH-012 made the getter
+    // required, so the `?? (pendingPrompt ? 1 : 0)` that used to sit here for "older mocks" was a
+    // branch nothing could take, and a wrong count if it ever did.
+    pendingCount: channel.getSession().getPendingCount(),
     executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
     selectedExecutionEntryId: manager.selectedExecutionEntryId,
     permissionRequest: channel.permissionRequest,

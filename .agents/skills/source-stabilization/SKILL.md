@@ -1,5 +1,6 @@
 ---
 name: source-stabilization
+loop: over=attempt; bound=2 triages; escape=halt-for-user
 description: Sub-orchestration for phase 1 of a release — getting the source branch green and landed on the release target. Sequences three steps (stabilize the source branch, open/refresh the source-to-target PR and wait for release-grade CI on the exact SHA, merge after green plus explicit approval), dispatching ci-gate-watch, ci-failure-triager, and merge-verifier, and routing on each outcome. Holds no gate definitions and no failure-classification criteria. Dispatched by release-orchestration.
 ---
 
@@ -24,11 +25,11 @@ rules below and is pointed at, not restated.
 **1. Stabilize the source branch.** Identify every CI blocker on the task branches feeding the source
 branch, resolve them there, and merge them back into the source branch.
 
-| Outcome                                        | Route                                                                                                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| No blockers remain                             | Advance to step 2.                                                                                                                          |
-| A blocker exists                               | Dispatch `ci-failure-triager` on it **before changing any code** (the rule's ordering invariant). Then take the triage routing table below. |
-| A blocker needs a decision only the user makes | Return `HALT` to the caller.                                                                                                                |
+| Outcome                                        | Route                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No blockers remain                             | Advance to step 2.                                                                                                                                                                                                                                                                                                                                                                                      |
+| A blocker exists                               | Dispatch `ci-failure-triager` on it **before changing any code** (the rule's ordering invariant). Then take the triage routing table below. Bounded: **at most 2 triages of one failure signature per release** — a third identical red is not a triage question, terminate and hand the note to the user. (This number lived only in the orchestration map before HARNESS-072; the skill owns it now.) |
+| A blocker needs a decision only the user makes | Return `HALT` to the caller.                                                                                                                                                                                                                                                                                                                                                                            |
 
 **2. Open or refresh the source-to-target PR, and wait for release-grade CI on the exact SHA.** The SHA
 matters: a check that passed on an earlier SHA has not verified this one.

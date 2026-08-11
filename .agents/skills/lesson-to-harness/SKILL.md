@@ -1,6 +1,7 @@
 ---
 name: lesson-to-harness
 description: Invoke when the user says "turn this session's repeated requests into rules/skills", "교훈 처리해줘", "규칙으로 박아줘", or when the agent detects EITHER a repeated user correction/preference in-session (same kind of correction 2x+, or an explicit "from now on do/don't ...") OR a recurring agent/technical failure class (the same kind of failure hit 2x+ in-session — e.g. fixing the same category of CI failure twice — even with no user correction). Mines lesson candidates from the session, proposes them for approval, and institutionalizes only the approved ones as neutral, universal principles wired into the repo harness (.agents/rules, AGENTS.md, related skills, harness scan / hooks) as a single source — never memory-only. Fixing an instance never closes a recurring mistake; only a mechanical prevention does. Operationalizes learning-loop.md.
+invocable: true
 ---
 
 # Lesson → Harness
@@ -11,7 +12,7 @@ them as rules **enforced by the repo harness**. The `.claude/hooks/correction-de
 UserPromptSubmit hook nudges this skill on strong preference/principle signals — on that nudge (or
 self-detection), run the procedure. A one-off "just do X this once" is NOT a lesson.
 
-**Trigger cue (self-detection):** when you find yourself fixing the same *class* of failure a second
+**Trigger cue (self-detection):** when you find yourself fixing the same _class_ of failure a second
 time in a session — even with no user correction, e.g. the same category of CI/scan failure twice —
 invoke this loop. Fixing the instance does not close a recurring mistake; only a mechanical
 prevention (steps 8–9) does.
@@ -20,7 +21,7 @@ prevention (steps 8–9) does.
 
 1. **Mine the session** — collect two kinds of candidate, each with evidence (where / how many
    times): (a) items the user repeated or explicitly turned into a principle; and (b) **recurring
-   agent/technical failure classes** — the same *kind* of failure hit 2×+ in-session even with no
+   agent/technical failure classes** — the same _kind_ of failure hit 2×+ in-session even with no
    user correction (e.g. "fixed the same category of CI failure twice", the same scan tripped twice,
    the same build/type error class recurred). Both kinds are lessons; the same mandatory steps 8–9
    (mechanism + prove-it-fails) apply to each. Exclude one-off task-specific instructions.
@@ -33,6 +34,9 @@ prevention (steps 8–9) does.
    **B**: process guidance → rule doc + skill checklist line + index entries; **C**: augment an
    existing rule/skill.
 5. **Generalize to the class, then sweep** — a lesson is never about the one triggering instance.
+   Deciding whether something IS a class or only an instance is the same question `finding-depth-triager`
+   answers one level down ([finding-depth.md](../../rules/finding-depth.md)); dispatch it on the candidate
+   rather than re-deriving the three questions here, so "root" means one thing across the repo.
    Name the **class** (the invariant that reproduces the symptom anywhere it's violated), then
    enumerate and fix **every current instance** in the repo in this change. The swept-instance
    count is part of the report.

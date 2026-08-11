@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Stop hook helper: collect rework/revert signals from transcript and git history.
+# invoked-by: eval-log-stop.sh
 #
 # LESSON-010: this hook fires on EVERY session Stop and re-scans the whole transcript, so a
 # naive append re-emits the same signal once per Stop (296k duplicate events by 2026-07).
@@ -9,18 +10,13 @@
 
 set -uo pipefail
 
+# One reader for a payload field, one writer for a record, one scrubbed git. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+
 INPUT=$(cat)
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 LOG_FILE="$PROJECT_DIR/.agents/evals/local-metrics/reverts.jsonl"
-
-read_json() {
-  local expression="$1"
-  if [ -z "$INPUT" ]; then
-    echo ""
-    return
-  fi
-  printf '%s' "$INPUT" | jq -r "$expression // \"\"" 2>/dev/null || echo ""
-}
 
 append_event() {
   local pattern="$1"
@@ -28,21 +24,16 @@ append_event() {
   local count="$3"
   local detail="$4"
   mkdir -p "$(dirname "$LOG_FILE")"
-  jq -cn \
-    --arg timestamp "$TIMESTAMP" \
-    --arg session_id "$SESSION_ID" \
-    --arg pattern "$pattern" \
-    --arg file "$file_path" \
-    --argjson count "$count" \
-    --arg detail "$detail" \
-    '{
-      timestamp: $timestamp,
-      session_id: $session_id,
-      pattern: $pattern,
-      file: $file,
-      count: $count,
-      detail: $detail
-    }' >> "$LOG_FILE"
+  # This hook read its payload with a jq-only `read_json()` and wrote its record with `jq -cn`, so
+  # on a host without jq it recorded nothing while the Bash guards kept working. Both ends now go
+  # through the shared ladder (jq, then python3, then refuse).
+  hook_json_object \
+    s timestamp "$TIMESTAMP" \
+    s session_id "$SESSION_ID" \
+    s pattern "$pattern" \
+    s file "$file_path" \
+    n count "$count" \
+    s detail "$detail" >> "$LOG_FILE"
 }
 
 # Emit at most once per (pattern, file, session): a Stop-hook rescan of the same transcript
@@ -64,21 +55,33 @@ append_event_once() {
 # status/move; lessons churn) — never a rework signal.
 is_workflow_multi_edit_path() {
   case "$1" in
-    *".agents/backlog/"* | *".agents/tasks/"* | *".agents/evals/"*) return 0 ;;
+    *".agents/tasks/"* | *".agents/spec-docs/"* | *".agents/evals/"*) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SESSION_ID=$(read_json '.session_id')
-TRANSCRIPT_PATH=$(read_json '.transcript_path')
+# A session id and a transcript path are TEXT, or they are absent — there is no third answer, and
+# `hook_json_string` is the single owner of that rule: a field that is not a JSON string reads as "",
+# on a host with jq and on a host without, byte for byte (INFRA-081, #1574). This used to call
+# `hook_json_text`, which existed only because the rule was true in one file and not in the other;
+# once it was true in both, that name was an alias and is gone. See lib/command-scan.sh.
+SESSION_ID=$(hook_json_string "$INPUT" 'session_id' || printf '')
+TRANSCRIPT_PATH=$(hook_json_string "$INPUT" 'transcript_path' || printf '')
 TRANSCRIPT_PATH="${TRANSCRIPT_PATH/#\~/$HOME}"
 
+# `git_project()` was defined here and, byte-identically, in eval-log-stop — two copies of the one
+# fact that git must not be asked about a repository the ambient GIT_DIR has already chosen. It is
+# `hook_git_in` now, which every hook shares.
 git_project() {
-  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX git -C "$PROJECT_DIR" "$@"
+  hook_git_in "$PROJECT_DIR" "$@"
 }
 
-if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+# The transcript is a JSONL FILE and the queries below are jq PROGRAMS, not field reads, so they
+# stay on jq. Stated limit rather than hidden: without jq these two transcript signals are not
+# collected, while the git-history signal below and the record writer keep working — the hook is
+# degraded, not silent, which is the distinction the payload read got wrong.
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ] && command -v jq >/dev/null 2>&1; then
   jq -r '
     [
       .tool_input.file_path?,

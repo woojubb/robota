@@ -10,33 +10,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IGoalEvent } from '@robota-sdk/agent-interface-transport';
-import type { Session } from '@robota-sdk/agent-session';
-
-function createSessionStub(): Session {
-  return {
-    getSessionId: () => 'session_goal',
-    getHistory: () => [],
-    getSystemMessage: () => 'system',
-    getToolSchemas: () => [],
-    getContextState: () => ({
-      usedTokens: 0,
-      maxTokens: 100,
-      usedPercentage: 0,
-      remainingPercentage: 100,
-    }),
-    abort: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-    injectRawMessage: vi.fn(),
-    syncContextFromHistory: vi.fn(),
-  } as unknown as Session;
-}
+import {
+  EMPTY_TURN_RESULT,
+  createSessionStub as createSharedSessionStub,
+} from './helpers/session-stub.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
 
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
-    const submitSpy = vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    const submitSpy = vi
+      .spyOn(session, 'submit')
+      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 
@@ -55,8 +43,13 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
   });
 
   it('cancelGoal stops an active goal and emits goal_stopped', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
-    vi.spyOn(session, 'submit').mockResolvedValue(undefined);
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    vi.spyOn(session, 'submit').mockResolvedValue({
+      turnId: 'stub-turn',
+      completed: Promise.resolve(EMPTY_TURN_RESULT),
+    });
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 
@@ -70,7 +63,9 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
   });
 
   it('setGoal rejects an empty objective', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
     await expect(session.setGoal('   ')).rejects.toThrow(/non-empty/);
   });
 });

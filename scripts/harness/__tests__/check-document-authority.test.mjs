@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   findDocumentAuthorityFindings,
   getChangedFiles,
+  readDocumentsExamined,
   reportFindings,
   resolveBaseRef,
 } from '../check-document-authority.mjs';
@@ -168,6 +169,17 @@ describe('base-ref resolution', () => {
     expect(resolveBaseRef({ argv: ['--base-ref', 'base'], env: {}, cwd: root })).toBe('base');
   });
 
+  it('prefers HARNESS_BASE_REF over the GitHub PR target', async () => {
+    const root = await createGitFixture({});
+    expect(
+      resolveBaseRef({
+        argv: [],
+        env: { HARNESS_BASE_REF: 'base', GITHUB_BASE_REF: 'main' },
+        cwd: root,
+      }),
+    ).toBe('base');
+  });
+
   it('returns undefined when no candidate resolves (the caller must FAIL, not pass)', async () => {
     const root = await createGitFixture({});
     expect(resolveBaseRef({ argv: [], env: {}, cwd: root })).toBeUndefined();
@@ -240,5 +252,38 @@ describe('end-to-end (subprocess)', () => {
     const result = runScript(root, ['--base-ref', 'origin/never-fetched']);
     expect(result.status).toBe(1);
     expect(result.stdout).toMatch(/FAILED: (no base ref could be resolved|git diff against)/);
+  });
+});
+
+describe('the declared size is the subject, not the input (HARNESS-057)', () => {
+  it('counts the documents the walk read, not every path in the diff', async () => {
+    // The first attempt declared `changedFiles.length` — every diffed path, while this scan examines
+    // only the markdown among them that still exists on disk. Review caught it: a fifteen-file diff
+    // carrying one document declared fifteen. A number larger than the subject, taken from the input
+    // rather than from the walk, is precisely the defect the `::examined::` line exists to expose,
+    // committed by the change that introduced the line.
+    const root = await createFixture({
+      'docs/a.md': '# A\n',
+      'docs/b.mdx': '# B\n',
+      'src/index.ts': 'export const x = 1;\n',
+      'package.json': '{}\n',
+    });
+
+    const changedFiles = ['docs/a.md', 'docs/b.mdx', 'src/index.ts', 'package.json'];
+    await findDocumentAuthorityFindings({ root, changedFiles });
+
+    const declared = readDocumentsExamined();
+    expect(declared, `declared ${declared} over ${changedFiles.length} changed paths`).toBe(2);
+  });
+
+  it('reports zero when the diff carries no document, and does not carry a previous count', async () => {
+    // The holder is RESET at the top of the walk. Without that, a run that read nothing reports the
+    // last run's number — a pass over nothing wearing a healthy count, which is the exact state this
+    // invariant was written to make impossible.
+    const root = await createFixture({ 'src/index.ts': 'export const x = 1;\n' });
+
+    await findDocumentAuthorityFindings({ root, changedFiles: ['src/index.ts'] });
+
+    expect(readDocumentsExamined()).toBe(0);
   });
 });

@@ -88,6 +88,11 @@ function createMockSession() {
     resolvePermission: vi.fn(),
     resolveAsk: vi.fn(),
     listCommands: vi.fn().mockReturnValue([]),
+    // ARCH-012: required members — the cast below used to hide their absence, so this
+    // double was accepted while the real contract would have rejected it.
+    isInitialized: true,
+    getPendingCount: vi.fn().mockReturnValue(0),
+    getActiveDriverId: vi.fn().mockReturnValue(null),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(handler);

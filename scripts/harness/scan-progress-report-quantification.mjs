@@ -43,18 +43,107 @@
  * Policy DATA (transcript root, cutoff, keyword/suppression vocabulary) lives under the
  * `progressReportQuantification` key of `.agents/harness.config.json`; this file is the engine.
  *
- * Exit code 0 = clean or skipped, 1 = violations found.
+ * ## It gates nothing in CI, and says so
+ *
+ * No CI runner has a session transcript, so this scan SKIPS on every CI run. A reader of the suite
+ * summary must not take its tick as evidence about a pull request: the only host where it can fail is
+ * a developer's own machine. That is stated here rather than left to be rediscovered.
+ *
+ * ## Why a finding can be acknowledged
+ *
+ * A transcript is append-only history. A finding cannot be edited away, so without a clearing path
+ * the scan is red on that host FOREVER, for every unrelated change — and a guard that fires and
+ * cannot be cleared is one that gets suppressed, which costs more than what it catches. So a finding
+ * may be acknowledged, with a reason, in a checked-in ledger beside this file.
+ *
+ * The acknowledgment is anti-rotted: an entry naming a finding that no longer appears FAILS. But
+ * only for a transcript this run actually READ — on a host without that transcript the entry is not
+ * judged at all, because an anti-rot that fires over ground it never covered is the vacuity this
+ * harness spends its time removing.
+ *
+ * Exit code 0 = clean, skipped, or wholly acknowledged; 1 = unacknowledged violations or a stale
+ * acknowledgment.
  */
 
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
-import { pathToFileURL } from 'node:url';
 
 import { loadHarnessConfig } from './harness-config.mjs';
+import { ADVISORY_MARKER } from './run-all-scans.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
+const ACKNOWLEDGMENTS_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/progress-report-acknowledgments.json',
+);
+
+/**
+ * A finding's identity: which transcript, when, and which ratio.
+ *
+ * Not the excerpt. The excerpt is prose that a later reader may want to quote differently, and an
+ * identity that changes when the quotation is reformatted is an identity that goes stale for the
+ * wrong reason.
+ */
+export function findingKey({ file, transcript, timestamp, ratio }) {
+  // A finding calls it `file`, a ledger entry calls it `transcript`. One key reads both, so the two
+  // sides cannot drift into producing different identities for the same thing — which they did on
+  // first run: every entry read as stale because the key saw an empty filename on one side.
+  return `${path.basename(String(file ?? transcript ?? ''))}|${timestamp ?? ''}|${ratio ?? ''}`;
+}
+
+export function loadAcknowledgments(readFile = () => readFileSync(ACKNOWLEDGMENTS_PATH, 'utf8')) {
+  let raw;
+  try {
+    raw = readFile();
+  } catch (error) {
+    // ABSENT is a valid state — a repository with nothing to acknowledge should not have to carry
+    // the file. UNREADABLE is not: a permission error or a corrupt read would otherwise become "no
+    // acknowledgments", which is a different claim about the same file.
+    if (error?.code && error.code !== 'ENOENT') {
+      throw new Error(
+        `progress-report acknowledgments: ${ACKNOWLEDGMENTS_PATH} could not be read (${error.code}). ` +
+          'An unreadable ledger is not an empty one.',
+      );
+    }
+    return [];
+  }
+  const parsed = JSON.parse(raw);
+  const entries = Array.isArray(parsed) ? parsed : (parsed.acknowledgments ?? []);
+  for (const entry of entries) {
+    // A waiver with no reason is a waiver nobody had to justify — the shape this repository refuses
+    // wherever it allows a suppression at all.
+    if (!entry.reason || String(entry.reason).trim().length === 0) {
+      throw new Error(
+        `progress-report acknowledgments: ${findingKey(entry)} carries no reason. An acknowledgment ` +
+          'without one is a silent waiver.',
+      );
+    }
+  }
+  return entries;
+}
+
+/**
+ * Split findings into those an acknowledgment covers and those it does not, and report entries that
+ * no longer match anything — but only for transcripts this run actually read.
+ */
+export function applyAcknowledgments(findings, acknowledgments, transcriptsRead) {
+  const acknowledged = new Map(acknowledgments.map((entry) => [findingKey(entry), entry]));
+  const matched = new Set();
+  const open = [];
+  for (const finding of findings) {
+    const key = findingKey(finding);
+    if (acknowledged.has(key)) matched.add(key);
+    else open.push(finding);
+  }
+  const readable = new Set(transcriptsRead.map((file) => path.basename(file)));
+  const stale = acknowledgments.filter(
+    (entry) =>
+      !matched.has(findingKey(entry)) && readable.has(path.basename(entry.transcript ?? '')),
+  );
+  return { open, stale, cleared: matched.size };
+}
 
 /** Fenced code blocks and inline code spans are quoted material, not narrative prose. */
 function stripCode(text) {
@@ -165,7 +254,7 @@ function recordTimestampMs(record) {
  * Scan one transcript JSONL. Streamed line-by-line: session transcripts reach hundreds of MB,
  * so nothing is buffered whole and only assistant records are parsed.
  */
-export async function scanTranscriptFile(filePath, policy, sinceMs) {
+export async function scanTranscriptFile(filePath, policy, sinceMs, stats) {
   const findings = [];
   const stream = createReadStream(filePath, { encoding: 'utf8' });
   const lines = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -182,6 +271,10 @@ export async function scanTranscriptFile(filePath, policy, sinceMs) {
     if (sinceMs !== undefined && timestampMs !== undefined && timestampMs < sinceMs) continue;
     const text = extractNarrativeText(record);
     if (text === '') continue;
+    // The examined count is the NARRATIVE MESSAGES actually judged — after the type filter and
+    // after the time ratchet — not the transcripts opened (HARNESS-063). A transcript whose every
+    // record predates `enforceSinceIso` is a file read and nothing judged.
+    if (stats !== undefined) stats.messages += 1;
     for (const finding of findBareRatioProgressStatements(text, policy)) {
       findings.push({ ...finding, file: filePath, timestamp: record?.timestamp });
     }
@@ -224,8 +317,28 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
   const { dir, files } = resolveTranscriptFiles(policy, overrides);
 
   if (files.length === 0) {
+    // HARNESS-063: the skip reason was already explicit, but a passing scan's stdout is suppressed
+    // to a single tick in the suite summary — so on every CI run this line was invisible and the
+    // tick was indistinguishable from a scan that had judged the narrative channel. The advisory
+    // channel is the one that survives to the summary.
     write(
-      `progress-report quantification scan skipped: no session transcript for this workspace at ${dir} ` +
+      `${ADVISORY_MARKER} progress-report quantification examined 0 transcript(s) — no session ` +
+        `transcript for this workspace at ${dir}; the agent-narrative channel does not exist on ` +
+        'this host (e.g. CI or a fresh checkout), so nothing was judged.',
+    );
+    // The SKIP declares its zero too, with the reason. Without this the scan is the only one in the
+    // suite whose declaration depends on the HOST: present on a machine that has run agent sessions,
+    // absent on a fresh checkout — so the adoption count fell by one wherever it actually matters,
+    // and the promotion-to-main gate, which runs the suite unskipped on a fresh runner, would have
+    // gone red for a count that was correct on the author's laptop. A skip reporting nothing is
+    // precisely the shape this declaration exists to make visible.
+    write(
+      '::examined:: 0 transcripts ::expected-empty:: no session transcript exists on this host, ' +
+        'which is every CI runner and every fresh checkout — this scan gates nothing there',
+    );
+    write(
+      `progress-report quantification scan skipped (0 transcript(s), 0 narrative message(s) examined): ` +
+        `no session transcript for this workspace at ${dir} ` +
         '(no agent-narrative channel on this host — e.g. CI or a fresh checkout).',
     );
     return 0;
@@ -233,16 +346,53 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
 
   const sinceMs = Date.parse(policy.enforceSinceIso);
   const findings = [];
+  const stats = { messages: 0 };
   for (const file of files) {
-    findings.push(...(await scanTranscriptFile(file, policy, sinceMs)));
+    findings.push(...(await scanTranscriptFile(file, policy, sinceMs, stats)));
+  }
+  const subject = `${files.length} transcript(s), ${stats.messages} narrative message(s) examined`;
+  write(
+    stats.messages === 0
+      ? `::examined:: 0 narrative messages ::expected-empty:: ${files.length} transcript(s) were read ` +
+          'and every record fell outside the enforcement ratchet or carried no assistant narrative'
+      : `::examined:: ${stats.messages} narrative messages`,
+  );
+
+  const { open, stale, cleared } = applyAcknowledgments(findings, loadAcknowledgments(), files);
+  if (stale.length > 0) {
+    write('progress-report quantification scan failed — stale acknowledgment(s):');
+    for (const entry of stale) {
+      write(`  ${findingKey(entry)} no longer matches any finding in a transcript this run read.`);
+    }
+    write(
+      '\nRemove the entry. An acknowledgment that outlives its finding is a waiver nobody is using, ' +
+        'and a ledger that only grows stops being read.',
+    );
+    return 1;
+  }
+  findings.length = 0;
+  findings.push(...open);
+  if (cleared > 0) {
+    write(
+      `${ADVISORY_MARKER} progress-report quantification: ${cleared} finding(s) acknowledged in ` +
+        `${path.relative(WORKSPACE_ROOT, ACKNOWLEDGMENTS_PATH)} — recorded, not cleared by editing history.`,
+    );
   }
 
   if (findings.length === 0) {
-    write(`progress-report quantification scan passed (${files.length} transcript(s)).`);
+    if (stats.messages === 0) {
+      write(
+        `${ADVISORY_MARKER} progress-report quantification examined 0 narrative messages across ` +
+          `${files.length} transcript(s) — every record was filtered out by the ` +
+          `enforceSinceIso ratchet (${policy.enforceSinceIso}) or carried no assistant narrative, ` +
+          'so this pass judged no message.',
+      );
+    }
+    write(`progress-report quantification scan passed (${subject}).`);
     return 0;
   }
 
-  write('progress-report quantification scan failed:');
+  write(`progress-report quantification scan failed (${subject}):`);
   for (const finding of findings) {
     write(`  ${path.basename(finding.file)} [${finding.timestamp ?? 'no timestamp'}]`);
     write(`    ratio ${finding.ratio} reported without a percentage: "${finding.excerpt}"`);
@@ -254,7 +404,7 @@ export async function main(write = (line) => process.stdout.write(`${line}\n`), 
   return 1;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main().then((code) => {
     process.exitCode = code;
   });

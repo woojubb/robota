@@ -17,8 +17,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import path, { join, relative } from 'node:path';
 
 import { listManifestPackageDirs, listSpecPackageDirs } from './workspace-packages.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
@@ -34,8 +33,7 @@ const NEGATED = /\b(not|never|un-?published|internal|private|do(?:es)? not)\b/i;
 export function findPublishClaimFindings(root) {
   requireGovernedTree(root, ['packages'], {
     scan: 'publish-safety',
-    why:
-      'It checks publish claims in package SPECs; with no packages/ the "all publishable packages" claim covers nothing.',
+    why: 'It checks publish claims in package SPECs; with no packages/ the "all publishable packages" claim covers nothing.',
   });
   const findings = [];
 
@@ -168,6 +166,6 @@ export function main(root = process.cwd()) {
   return errors > 0 ? 1 : 0;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   process.exitCode = main();
 }

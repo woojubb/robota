@@ -20,6 +20,9 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
 
   const session: IInteractiveSession = {
     isInitialized: true,
+    // ARCH-012: required now — the optional form let this double read as "no active driver".
+    getPendingCount: vi.fn().mockReturnValue(0),
+    getActiveDriverId: vi.fn().mockReturnValue(null),
     submit: vi.fn().mockResolvedValue(undefined),
     abort: vi.fn(),
     cancelQueue: vi.fn(),
@@ -121,8 +124,8 @@ describe('createInteractiveRuntime', () => {
 
   it('Given commands registered When started Then channel receives available commands', async () => {
     vi.mocked(session.listCommands).mockReturnValue([
-      { name: 'help', description: 'Show help' },
-      { name: 'exit', description: 'Exit' },
+      { name: 'help', description: 'Show help', modelInvocable: true },
+      { name: 'exit', description: 'Exit', modelInvocable: true },
     ]);
 
     const runtime = createInteractiveRuntime({

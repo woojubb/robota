@@ -40,7 +40,7 @@ describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
   });
 
   it('every path codeql.yml ignores is classified docs-only, and code paths are not', () => {
-    for (const file of ['README.md', '.agents/backlog/X.md', 'docs/a/b.mdx', 'content/post.md']) {
+    for (const file of ['README.md', '.agents/tasks/X.md', 'docs/a/b.mdx', 'content/post.md']) {
       expect(isDocsOnlyPath(file), file).toBe(true);
     }
     for (const file of [
@@ -57,7 +57,7 @@ describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
 
 describe('classifyFiles', () => {
   it('classifies a markdown-only change as docs-only — the #1436 shape', () => {
-    const result = classifyFiles(['.agents/backlog/INFRA-053-review-turn-budget.md']);
+    const result = classifyFiles(['.agents/tasks/INFRA-053-review-turn-budget.md']);
     expect(result.code).toBe(false);
   });
 

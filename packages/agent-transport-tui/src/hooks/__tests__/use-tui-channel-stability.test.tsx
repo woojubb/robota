@@ -32,7 +32,9 @@ function makeFakeChannel(): TuiInteractionChannel {
     isShuttingDown: false,
     permissionRequest: null,
     pendingUserAction: null,
-    getSession: () => ({}),
+    // ARCH-012: the hook reads the co-drive queue length live from the session; `{}` no longer
+    // satisfies that, and the `?.()` that used to tolerate it is gone.
+    getSession: () => ({ getPendingCount: () => 0 }),
     getRegistry: () => ({}),
     handleInput: () => undefined,
     abort: () => undefined,

@@ -2,7 +2,6 @@ import { spawnSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { pathToFileURL } from 'node:url';
 
 import {
   compareScenarioRecordArtifact,
@@ -227,6 +226,6 @@ async function main() {
   process.stdout.write('hook_fixtures: ok\n');
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   void main();
 }

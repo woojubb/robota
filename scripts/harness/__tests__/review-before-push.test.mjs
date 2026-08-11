@@ -6,15 +6,16 @@ import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { isReviewed, recordPathFor } from '../record-local-review.mjs';
+import { dispatchedAgents } from '../scan-orchestration-map.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const HOOK = path.join(WORKSPACE_ROOT, '.claude/hooks/pre-push-check.sh');
-const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-review-orchestration/SKILL.md');
+const SKILL = path.join(WORKSPACE_ROOT, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
 
 /**
  * The review round happens BEFORE the push, and something makes it happen.
  *
- * `pr-review-orchestration` used to wait for required checks to go green before its first review round, so
+ * `pr-finding-resolution-loop` used to wait for required checks to go green before its first review round, so
  * the reviewer only ever saw a diff that had already been pushed, opened as a PR and run through CI. Every
  * finding therefore cost a push → CI round trip before anyone could look at it. Measured across one session
  * (2026-07-28), PRs #1514/#1518/#1519/#1520/#1521: 38 rounds, 24 carrying a blocking finding, at 6–10 minutes
@@ -53,14 +54,56 @@ function record(dir, branch, sha, findings = 0) {
   writeFileSync(file, JSON.stringify({ branch, headSha: sha, findings }));
 }
 
-function push(dir, command = 'git push -u origin feat/probe') {
+// Every push gets the stub, and the default is "no open pull request" — the world every case here
+// was written for. Left to the real `gh` on PATH, a case would ask GitHub over the network for a
+// branch that exists only in a temp directory: slow, one API call per case, and answered differently
+// depending on whether the machine running the suite happens to be authenticated or has `GH_REPO`
+// set. A case's verdict must come from what it set up, not from the environment it ran in.
+function push(dir, command = 'git push -u origin feat/probe', { openPrs = 0 } = {}) {
+  const env = {
+    ...process.env,
+    CLAUDE_PROJECT_DIR: dir,
+    PATH: `${stubGh(openPrs)}${path.delimiter}${process.env.PATH}`,
+  };
+
   const result = spawnSync('bash', [HOOK], {
     input: JSON.stringify({ tool_name: 'Bash', cwd: dir, tool_input: { command } }),
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+    env,
     timeout: 120_000,
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+}
+
+/**
+ * A `gh` on PATH that answers the one question the hook asks it.
+ *
+ * `openPrs` is what `gh pr list --head <branch> --state open --json number --jq length` prints: how
+ * many open pull requests that branch heads. `''` makes it exit non-zero instead — the
+ * unauthenticated / offline / no-such-repository case, which reaches the same refusal as `gh` being
+ * absent altogether, because `command -v gh` and the lookup sit in one condition and either half
+ * failing leaves the demand in place.
+ */
+function stubGh(openPrs) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'gh-stub-'));
+  scratch.push(dir);
+  // It answers by ARGUMENTS, not by invocation count, so a case can tell the two lookups apart.
+  // `pr list --head <branch>` gets the branch's open-pull-request count; a bare `pr view <thing>`
+  // gets `OPEN`, which is what real gh returns when it reads the argument as a pull-request NUMBER.
+  // A stub that printed one answer to every call would pass whichever lookup the hook used, and the
+  // number-collision case below would assert nothing.
+  const body =
+    openPrs === ''
+      ? '#!/bin/bash\nexit 1\n'
+      : `#!/bin/bash
+for arg in "$@"; do
+  if [ "$arg" = "--head" ]; then printf '%s\\n' ${JSON.stringify(String(openPrs))}; exit 0; fi
+done
+printf 'OPEN\\n'
+`;
+  const file = path.join(dir, 'gh');
+  writeFileSync(file, body, { mode: 0o755 });
+  return dir;
 }
 
 describe('a feature-branch push carries a reviewed diff', () => {
@@ -212,6 +255,47 @@ describe('a feature-branch push carries a reviewed diff', () => {
     expect(push(feature).output).toMatch(/origin\/develop\.\.\.HEAD/);
   });
 
+  it('stops demanding a local review once the pull request is open', () => {
+    // HARNESS-074. Two reviewers is one too many. An OPEN pull request runs its own review on every
+    // push and carries the history of the rounds before it; demanding a second, local, subjective
+    // review before each of those pushes did not add a reviewer, it multiplied CI rounds — the loop
+    // pushed once per local round, and every push bought another remote review of the same change.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'git push origin feat/probe', { openPrs: 1 });
+
+    expect(verdict.status, verdict.output).toBe(0);
+    expect(verdict.output, 'a waived demand that says nothing is a silent bypass').toMatch(
+      /open pull request/i,
+    );
+  });
+
+  it('still demands one before the pull request exists', () => {
+    // The cost argument that put this gate here survives untouched for the first push: no pull
+    // request means no reviewer has seen this diff, so the round belongs here, where it is free.
+    // A merged or closed pull request counts as none — `--state open` is what the hook asks for, so
+    // the branch's earlier, finished pull request must not go on waiving reviews of new work.
+    const dir = scratchRepo('feat/probe');
+    const verdict = push(dir, 'git push origin feat/probe', { openPrs: 0 });
+    expect(verdict.status, verdict.output).toBe(2);
+  });
+
+  it('treats an unanswerable pull-request lookup as no pull request', () => {
+    // Unknown is not open. Offline, unauthenticated, or with no `gh` at all, the gate gives the
+    // refusal it gave before the exemption existed — an exemption that opens on a failed measurement
+    // is the vacuous green this harness keeps finding.
+    const dir = scratchRepo('feat/probe');
+    expect(push(dir, 'git push origin feat/probe', { openPrs: '' }).status).toBe(2);
+  });
+
+  it('does not read a branch named like a number as that pull request', () => {
+    // `gh pr view <branch>` decides between a number, a URL and a branch by shape, so a branch named
+    // `42` is answered with pull request #42's state — a waiver granted on another change's
+    // evidence. The lookup asks `--head`, which only ever means a branch, and the stub below answers
+    // "no open pull request heads this branch" the way the real one would.
+    const dir = scratchRepo('42');
+    expect(push(dir, 'git push origin 42', { openPrs: 0 }).status).toBe(2);
+  });
+
   it('exempts the integration branches and a promotion branch', () => {
     // A promotion carries develop's already-reviewed content and no diff of its own; requiring a review of
     // it would be a gate on nothing, and gates on nothing are what get overridden.
@@ -302,13 +386,215 @@ describe('the recorder refuses to guess which checkout it is in', () => {
   });
 });
 
+describe('a foundational finding must name a root item that exists', () => {
+  const RECORDER = path.join(WORKSPACE_ROOT, 'scripts/harness/record-local-review.mjs');
+
+  function repoWithBacklog(items = []) {
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
+    for (const id of items) {
+      writeFileSync(
+        path.join(dir, '.agents/tasks', `${id}-something.md`),
+        '---\nstatus: todo\n---\n',
+      );
+    }
+    return dir;
+  }
+
+  function recordIn(dir, args) {
+    const result = spawnSync('node', [RECORDER, ...args], { cwd: dir, encoding: 'utf8' });
+    return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
+  }
+
+  it('refuses an ID that resolves to no backlog item', () => {
+    // The whole value of the depth verdict is that the root gets filed. An ID naming nothing is the
+    // same as not having filed it — and it is worse than silence, because the record then claims a
+    // root item exists. So the recorder refuses rather than storing an unresolvable promise.
+    const dir = repoWithBacklog(['INFRA-073']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'INFRA-999']);
+
+    expect(verdict.status, 'an unfiled root item was accepted').not.toBe(0);
+    expect(verdict.output).toMatch(/INFRA-999/);
+  });
+
+  it('records the IDs when they resolve, and stores them', () => {
+    const dir = repoWithBacklog(['INFRA-073', 'PROC-004']);
+
+    const verdict = recordIn(dir, [
+      '--findings',
+      '0',
+      '--foundational',
+      'INFRA-073,PROC-004',
+      '--notes',
+      'aggregation held',
+    ]);
+
+    expect(verdict.status, verdict.output).toBe(0);
+    const stored = JSON.parse(
+      readFileSync(recordPathFor('feat/probe', path.join(dir, '.agents/local-reviews')), 'utf8'),
+    );
+    expect(stored.foundational).toEqual(['INFRA-073', 'PROC-004']);
+    expect(stored.notes, 'the note was silently dropped').toBe('aggregation held');
+  });
+
+  it('resolves an ID whose prefix has more than one segment', () => {
+    // `.agents/tasks/` already holds `ARCH-AUDIT-001` and `HARNESS-DIET-006`. A pattern reading
+    // one letter-group matched neither, so the floor would have refused a root item that exists —
+    // turning a filed foundational finding into an unpushable branch, which is the failure mode
+    // most likely to teach someone to stop using the flag.
+    const dir = repoWithBacklog(['ARCH-AUDIT-001', 'HARNESS-DIET-006']);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--foundational', 'HARNESS-DIET-006']);
+
+    expect(verdict.status, verdict.output).toBe(0);
+  });
+
+  it('resolves an item filed without a description suffix', () => {
+    // The pattern required a `-` after the number, so `INFRA-073.md` would have read as no item at
+    // all. Nothing in the naming convention forbids that file name, and the failure mode is the one
+    // this floor exists to prevent in reverse: refusing a root item that is right there.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
+    writeFileSync(path.join(dir, '.agents/tasks', 'INFRA-073.md'), '---\nstatus: todo\n---\n');
+
+    const result = spawnSync('node', [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+
+    expect(result.status ?? 1, `${result.stdout ?? ''}${result.stderr ?? ''}`).toBe(0);
+  });
+
+  it('keeps a phase suffix, which is part of the ID', () => {
+    // `.agents/tasks/` already holds SELFHOST-003-P4, SELFHOST-008-P5 and SELFHOST-011-P3-P4.
+    // Truncating at the first number does two wrong things at once: the real ID is refused, and a
+    // TRUNCATED id that names no file is accepted as though it did. The repository already parses
+    // this correctly in `check-backlog-placement`, so the pattern has one owner rather than two.
+    const dir = scratchRepo('feat/probe');
+    mkdirSync(path.join(dir, '.agents/tasks'), { recursive: true });
+    writeFileSync(
+      path.join(dir, '.agents/tasks', 'SELFHOST-008-P5-concrete-semantic-backend.md'),
+      '---\nstatus: todo\n---\n',
+    );
+
+    const ok = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008-P5'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(ok.status ?? 1, `${ok.stdout ?? ''}${ok.stderr ?? ''}`).toBe(0);
+
+    const truncated = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'SELFHOST-008'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    expect(truncated.status ?? 1, 'an ID naming no file was accepted').not.toBe(0);
+  });
+
+  it('refuses when the backlog tree it must read is not there', () => {
+    // The sibling that owns `idOf` uses `requireGovernedTree` for exactly this: a governed tree that
+    // is absent must not read as "no results". Here it would produce the most misleading message the
+    // tool can emit — "no backlog item for X" — when the truth is that nothing was examined.
+    const dir = scratchRepo('feat/probe');
+
+    const verdict = spawnSync(
+      'node',
+      [RECORDER, '--findings', '0', '--foundational', 'INFRA-073'],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+      },
+    );
+
+    expect(verdict.status ?? 1).not.toBe(0);
+    expect(`${verdict.stdout ?? ''}${verdict.stderr ?? ''}`).toMatch(
+      /missing|not examined|examined/i,
+    );
+  });
+
+  it('refuses a flag it does not understand instead of ignoring it', () => {
+    // `--note` (singular) was accepted by silence for as long as the recorder existed: the argument
+    // parser skipped anything it did not recognise, so every note passed that way was dropped and
+    // the record said nothing about it. A flag the tool ignores is a flag the caller believes in.
+    const dir = repoWithBacklog([]);
+
+    const verdict = recordIn(dir, ['--findings', '0', '--note', 'this was never stored']);
+
+    expect(verdict.status, 'an unknown flag was silently ignored').not.toBe(0);
+    expect(verdict.output).toMatch(/--note\b/);
+  });
+});
+
+describe('the depth verdict is wired into the pipeline that must act on it', () => {
+  // Anti-rot only, and it says so: these assert that the routing EXISTS, not that it fires. What
+  // makes the rule reached is the recorder above, which refuses an unfiled root item on every push
+  // — a check nothing can satisfy by describing itself. The repository's own measured failure is a
+  // guard that was registered everywhere and reached nowhere, so the distinction is stated rather
+  // than left for a reader to assume from a green suite.
+  const read = (rel) => readFileSync(path.join(WORKSPACE_ROOT, rel), 'utf8');
+
+  it('the fixer is told to stop on a foundational finding, not patch it', () => {
+    const fixer = read('.claude/agents/pr-review-fixer.md');
+
+    expect(fixer, 'the fixer never learns the depth question').toMatch(/FOUNDATIONAL/);
+    expect(fixer, 'nothing tells it not to patch one').toMatch(/[Dd]o not patch/);
+  });
+
+  it('the orchestrator routes a foundational finding out of the fix loop', () => {
+    const skill = read('.agents/skills/pr-finding-resolution-loop/SKILL.md');
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(roundA, 'depth is not asked before the fix').toMatch(/FOUNDATIONAL/);
+    expect(roundA, 'the recorded root item has no way in').toMatch(/--foundational/);
+  });
+
+  it('the rule and the guardian that judges for it are both registered', () => {
+    expect(read('.agents/rules/index.md')).toMatch(/finding-depth\.md/);
+    expect(read('.agents/skills/index.md')).toMatch(/finding-depth-triager/);
+    expect(read('.agents/rules/finding-depth.md'), 'the rule names no enforcement point').toMatch(
+      /record-local-review/,
+    );
+  });
+});
+
 describe('the skill still puts the round before the push', () => {
   const skill = readFileSync(SKILL, 'utf8');
 
   it('describes the local-diff round and the command that records it', () => {
     // The measured reason this changed, kept where the next reader of the skill will meet it.
-    expect(skill).toMatch(/before any push/i);
+    // The window narrowed with HARNESS-074 — the round is before the PULL REQUEST, not before every
+    // push — so this pins the narrowed claim rather than the phrase it replaced.
+    expect(skill).toMatch(/before the pull request exists/i);
     expect(skill).toMatch(/harness:review:record/);
+  });
+
+  it('never dispatches a reviewer on the open pull request', () => {
+    // HARNESS-074's own test plan. Round B once dispatched `pr-review-reviewer` on the OPEN pull
+    // request — a second review of what CI had already reviewed, without the comment history, so it
+    // could not see which findings an earlier round had answered. Correcting the prose is not the
+    // guard; this is, and it must not fire on the sentence in Round B that MENTIONS the agent while
+    // describing what the local round does, which is why it reads dispatch language rather than the
+    // name. `dispatchedAgents` is the same reading the orchestration map's own drift check uses.
+    const roundB = skill.slice(skill.indexOf('### Round B'));
+
+    expect(
+      dispatchedAgents(roundB, ['pr-review-reviewer', 'architecture-auditor', 'proposal-reviewer']),
+      'the loop dispatches a reviewer on an open pull request, which is the duplication it exists to prevent',
+    ).toEqual([]);
+  });
+
+  it('says the round stops once the pull request is open, as the hook does', () => {
+    // Two statements of one gate drift; the hook waives its demand on an open PR, and a skill that
+    // still called the round unconditional would send an agent to review what CI is already
+    // reviewing — the duplication HARNESS-074 is about, re-created in the document that describes
+    // the fix.
+    const roundA = skill.slice(skill.indexOf('### Round A'), skill.indexOf('### Round B'));
+
+    expect(roundA, 'the skill does not say where Round A stops').toMatch(
+      /stops the moment one is open/i,
+    );
   });
 
   it('keeps the CI-green precondition out of the first round', () => {

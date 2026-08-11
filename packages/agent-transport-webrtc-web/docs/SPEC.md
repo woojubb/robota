@@ -1,5 +1,9 @@
 # SPEC.md — @robota-sdk/agent-transport-webrtc-web
 
+## Transport Admission (SEC-008)
+
+transport-admission: none — the browser side PRESENTS a credential rather than deciding who may present one. Its fail-closed pairing gate is the client half of the host's handshake (`agent-transport-webrtc`), which is where the decision is made.
+
 ## Scope
 
 The **browser** WebRTC transport peer for a robota session (REMOTE-009 Stage D) — the browser mirror of the

@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { grepTool } from '../builtins/grep-tool.js';
+import { createGrepTool } from '../builtins/grep-tool.js';
 
 interface IGrepResult {
   success: boolean;
@@ -10,8 +10,15 @@ interface IGrepResult {
   error?: string;
 }
 
-async function runGrep(args: Record<string, unknown>): Promise<IGrepResult> {
-  const wrapper = await grepTool.execute(args as Parameters<typeof grepTool.execute>[0]);
+/**
+ * ARCH-010 — the containment root is a required constructor argument and the context-free `grepTool`
+ * singleton is gone, so the tool is built per ROOT. This suite works in two independent tmpdirs, so it
+ * takes two tools: binding both to one root (or to `process.cwd()`) would search outside the fixture
+ * each case created.
+ */
+async function runGrep(root: string, args: Record<string, unknown>): Promise<IGrepResult> {
+  const tool = createGrepTool({ cwd: root });
+  const wrapper = await tool.execute(args as Parameters<typeof tool.execute>[0]);
   const data = (wrapper as { data: unknown }).data;
   return (typeof data === 'string' ? JSON.parse(data) : data) as IGrepResult;
 }
@@ -46,7 +53,11 @@ describe('grepTool', () => {
   });
 
   it('TC-01: count mode returns path:count rows for matching files only', async () => {
-    const result = await runGrep({ pattern: 'alpha', path: fixtureDir, outputMode: 'count' });
+    const result = await runGrep(fixtureDir, {
+      pattern: 'alpha',
+      path: fixtureDir,
+      outputMode: 'count',
+    });
     expect(result.success).toBe(true);
     const rows = result.output.split('\n').sort();
     expect(rows).toHaveLength(3);
@@ -56,7 +67,7 @@ describe('grepTool', () => {
   });
 
   it('TC-02: headLimit caps results and appends a truncation marker', async () => {
-    const result = await runGrep({
+    const result = await runGrep(fixtureDir, {
       pattern: 'alpha',
       path: fixtureDir,
       outputMode: 'files_with_matches',
@@ -69,7 +80,7 @@ describe('grepTool', () => {
   });
 
   it('TC-02: without headLimit all results are returned', async () => {
-    const result = await runGrep({
+    const result = await runGrep(fixtureDir, {
       pattern: 'alpha',
       path: fixtureDir,
       outputMode: 'files_with_matches',
@@ -79,33 +90,33 @@ describe('grepTool', () => {
   });
 
   it('TC-03: schema accepts count mode and headLimit; rejects non-positive headLimit', async () => {
-    const ok = await runGrep({
+    const ok = await runGrep(fixtureDir, {
       pattern: 'alpha',
       path: fixtureDir,
       outputMode: 'count',
       headLimit: 5,
     });
     expect(ok.success).toBe(true);
-    await expect(runGrep({ pattern: 'alpha', path: fixtureDir, headLimit: 0 })).rejects.toThrow(
-      /validation/i,
-    );
+    await expect(
+      runGrep(fixtureDir, { pattern: 'alpha', path: fixtureDir, headLimit: 0 }),
+    ).rejects.toThrow(/validation/i);
   });
 
   it('TC-03: description mentions only schema-supported parameters', () => {
-    const description = grepTool.schema.description ?? '';
+    const description = createGrepTool({ cwd: fixtureDir }).schema.description ?? '';
     expect(description).toContain("'count'");
     expect(description).toContain('headLimit');
     expect(description).not.toContain('head_limit');
   });
 
   it('TC-04: files_with_matches returns matching file paths', async () => {
-    const result = await runGrep({ pattern: 'delta', path: fixtureDir });
+    const result = await runGrep(fixtureDir, { pattern: 'delta', path: fixtureDir });
     expect(result.success).toBe(true);
     expect(result.output.trim().endsWith('b.txt')).toBe(true);
   });
 
   it('TC-04: content mode includes context lines with markers', async () => {
-    const result = await runGrep({
+    const result = await runGrep(fixtureDir, {
       pattern: 'beta',
       path: join(fixtureDir, 'a.txt'),
       outputMode: 'content',
@@ -117,7 +128,7 @@ describe('grepTool', () => {
   });
 
   it('TC-04: glob filter restricts searched files', async () => {
-    const result = await runGrep({ pattern: 'alpha', path: fixtureDir, glob: '*.md' });
+    const result = await runGrep(fixtureDir, { pattern: 'alpha', path: fixtureDir, glob: '*.md' });
     expect(result.output.split('\n')).toHaveLength(1);
     expect(result.output.trim().endsWith('c.md')).toBe(true);
   });
@@ -126,8 +137,8 @@ describe('grepTool', () => {
     for (const mode of ['files_with_matches', 'content', 'count'] as const) {
       const args: Record<string, unknown> = { pattern: 'alpha', path: bulkDir, outputMode: mode };
       if (mode === 'content') args.contextLines = 1;
-      const first = await runGrep(args);
-      const second = await runGrep(args);
+      const first = await runGrep(bulkDir, args);
+      const second = await runGrep(bulkDir, args);
       expect(first.success).toBe(true);
       expect(second.output).toBe(first.output);
     }
@@ -137,7 +148,7 @@ describe('grepTool', () => {
     // files_with_matches order IS the enumeration order the sequential
     // implementation used; content/count output must be the concatenation of
     // per-file results in exactly that order.
-    const filesResult = await runGrep({ pattern: 'alpha', path: bulkDir });
+    const filesResult = await runGrep(bulkDir, { pattern: 'alpha', path: bulkDir });
     const fileOrder = filesResult.output.split('\n');
     expect(fileOrder).toHaveLength(80);
 
@@ -148,10 +159,10 @@ describe('grepTool', () => {
         outputMode: mode,
       };
       if (mode === 'content') dirArgs.contextLines = 1;
-      const dirResult = await runGrep(dirArgs);
+      const dirResult = await runGrep(bulkDir, dirArgs);
       const perFileOutputs: string[] = [];
       for (const filePath of fileOrder) {
-        const single = await runGrep({ ...dirArgs, path: filePath });
+        const single = await runGrep(bulkDir, { ...dirArgs, path: filePath });
         perFileOutputs.push(single.output);
       }
       expect(dirResult.output).toBe(perFileOutputs.join('\n'));
@@ -159,7 +170,7 @@ describe('grepTool', () => {
   });
 
   it('returns an error result for an invalid regex', async () => {
-    const result = await runGrep({ pattern: '([', path: fixtureDir });
+    const result = await runGrep(fixtureDir, { pattern: '([', path: fixtureDir });
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid regex');
   });

@@ -12,8 +12,12 @@ import {
   parseStatusFolderMapping,
 } from '../scan-doc-folder-status-agreement.mjs';
 
-const SCAN_SCRIPT = fileURLToPath(new URL('../scan-doc-folder-status-agreement.mjs', import.meta.url));
-const RULE_FILE = fileURLToPath(new URL('../../../.agents/rules/spec-workflow.md', import.meta.url));
+const SCAN_SCRIPT = fileURLToPath(
+  new URL('../scan-doc-folder-status-agreement.mjs', import.meta.url),
+);
+const RULE_FILE = fileURLToPath(
+  new URL('../../../.agents/rules/spec-workflow.md', import.meta.url),
+);
 
 /**
  * The mapping as `spec-workflow.md` § Spec-Document Status and Lifecycle Folders states it. This is
@@ -88,7 +92,12 @@ describe('scan-doc-folder-status-agreement — detection', () => {
       'done/DATA-002.md': spec('in-progress'),
     });
     expect(findFolderStatusFindings(root, mapping)).toEqual([
-      { file: 'done/DATA-002.md', status: 'in-progress', actualFolder: 'done', expectedFolder: 'active' },
+      {
+        file: 'done/DATA-002.md',
+        status: 'in-progress',
+        actualFolder: 'done',
+        expectedFolder: 'active',
+      },
       { file: 'done/INFRA-016.md', status: 'draft', actualFolder: 'done', expectedFolder: 'draft' },
       { file: 'done/PM-026.md', status: 'approved', actualFolder: 'done', expectedFolder: 'todo' },
     ]);
@@ -125,7 +134,8 @@ describe('scan-doc-folder-status-agreement — detection', () => {
 
   it('reads a status the repo formatter may have wrapped, via the SSOT frontmatter parser', async () => {
     const root = await makeTree({
-      'done/wrapped.md': '---\nstatus:\n  draft\ntype: RULE\ntags:\n  - harness\n---\n\n# fixture\n',
+      'done/wrapped.md':
+        '---\nstatus:\n  draft\ntype: RULE\ntags:\n  - harness\n---\n\n# fixture\n',
     });
     expect(findFolderStatusFindings(root, mapping).map((f) => f.status)).toEqual(['draft']);
   });
@@ -159,5 +169,25 @@ describe('scan-doc-folder-status-agreement — exit contract', () => {
       encoding: 'utf8',
     });
     expect(missing.status).toBe(1);
+  });
+});
+
+describe('the subject cannot be absent and still read as clean', () => {
+  it('refuses a spec-docs tree that is not there', async () => {
+    // PROC-006 prerequisite, measured 2026-08-01. This finder governs `.agents/spec-docs`, the tree
+    // that item is about to move, and it returned 0 findings over a root without one — the same
+    // words it uses over 242 documents. `scan-guard-scope-fail-closed` did not catch it: that scan
+    // derives its finder set from `export function find…(root`, and this finder's first parameter is
+    // the DIRECTORY, so it sits outside the ceiling that scan states in its own header.
+    //
+    // A rename that leaves this quiet is a rename nothing reports.
+    const root = await mkdtemp(path.join(tmpdir(), 'absent-spec-docs-'));
+    const mapping = parseStatusFolderMapping(
+      '## Spec-Document Status and Lifecycle Folders\n\n| status | folder |\n| --- | --- |\n| `todo` | `.agents/spec-docs/todo/` |\n',
+    );
+    expect(
+      () => findFolderStatusFindings(path.join(root, '.agents/spec-docs'), mapping),
+      'an absent subject was reported as clean',
+    ).toThrow(/spec-docs/);
   });
 });

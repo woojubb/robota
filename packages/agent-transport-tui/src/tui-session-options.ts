@@ -20,6 +20,7 @@ export function buildTuiSessionOptions(
     // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
+    ...(opts.effort !== undefined ? { effort: opts.effort } : {}),
     permissionMode: opts.permissionMode,
     maxTurns: opts.maxTurns,
     // REMOTE-007: no injected permission/ask handlers — the TUI subscribes to the session's

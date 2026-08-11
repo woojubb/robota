@@ -18,6 +18,7 @@ import type {
   ICommandModule,
   TSubagentRunnerFactory,
   IAgentDefinition,
+  ICreateSessionOptions,
   TShellExecFn,
   InteractiveSession,
   IMemoryStore,
@@ -36,6 +37,8 @@ export interface IHeadlessInteractionChannelOptions {
    * session resolves the model from config (no silent substitution of the requested model).
    */
   model?: string;
+  /** ARCH-013: resolved preset effort, threaded to the session's `effort` seam. */
+  effort?: ICreateSessionOptions['effort'];
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -134,6 +137,7 @@ export class HeadlessInteractionChannel {
       // CLI-076: forward the resolved model so an explicit `--model` override takes effect instead of being
       // silently dropped (which fell through to the session's config/default model).
       ...(this.opts.model !== undefined ? { model: this.opts.model } : {}),
+      ...(this.opts.effort !== undefined ? { effort: this.opts.effort } : {}),
       sessionStore: this.opts.sessionStore,
       resumeSessionId: this.opts.resumeSessionId,
       forkSession: this.opts.forkSession,

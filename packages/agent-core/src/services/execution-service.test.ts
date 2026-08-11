@@ -924,13 +924,43 @@ describe('ExecutionService', () => {
       );
 
       // CLI-064 exit-code contract: a round ending in a provider failure must NOT
-      // report success — the masked "Request failed:" assistant message marks the
-      // result failed so transports surface a non-zero exit.
+      // report success — transports surface a non-zero exit from it.
+      // CORE-027: result.error is the ORIGINAL thrown error, not a reconstruction from the
+      // "Request failed:" display message — so its message is the provider's own, unprefixed.
       expect(result.success).toBe(false);
-      expect(result.error?.message).toContain(
-        'Request failed: Provider call idle timeout after 10ms',
-      );
+      expect(result.error?.message).toBe('Provider call idle timeout after 10ms');
       expect(result.response).toContain('Request failed: Provider call idle timeout after 10ms');
+    });
+
+    it('reports a failure whose message merely SAYS "abort" as a failure, not an interrupted run (CORE-027)', async () => {
+      // The sharpest silent wrong answer the audit named: the classification read the error's
+      // PROSE, so `connection aborted by peer` — a real network failure, no signal aborted —
+      // came back `success: true, interrupted: true`, and nothing downstream, including the
+      // print-mode exit code, could tell it from a user interruption.
+      const proseError = new Error('connection aborted by peer');
+      mockProvider.chat = vi.fn().mockRejectedValue(proseError);
+
+      const result = await executionService.execute(
+        'Hello',
+        [],
+        {
+          name: 'test-agent',
+          aiProviders: [mockProvider],
+          defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+          },
+          systemMessage: 'You are a helpful assistant.',
+        },
+        {
+          conversationId: 'abort-prose-test',
+        },
+      );
+
+      expect(result.interrupted, 'prose was read as a cancellation').not.toBe(true);
+      expect(result.success).toBe(false);
+      // And the failure survives as itself — class, message, identity.
+      expect(result.error).toBe(proseError);
     });
 
     // Timings are in milliseconds and are raced against REAL timers, so the margin between a delta

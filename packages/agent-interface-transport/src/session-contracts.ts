@@ -211,15 +211,14 @@ export interface IToolSummary {
   args: string;
 }
 
-/** Result of a completed prompt execution. */
-export interface IExecutionResult {
-  response: string;
-  history: IHistoryEntry[];
-  toolSummaries: IToolSummary[];
-  contextState: IContextWindowState;
-  usage?: IUsageSnapshot;
-  promptFileReferences?: IPromptFileReferenceRecord[];
-}
+// RUNTIME-003: a submission's identity and the ways it can end live in `./turn-contracts.js`.
+import type { IExecutionResult, ITurnHandle } from './turn-contracts.js';
+export type {
+  IExecutionResult,
+  ITurnHandle,
+  ITurnNotRunError,
+  TTurnNotRunReason,
+} from './turn-contracts.js';
 
 /** Permission handler delegate — clients provide their own UI. */
 export type TInteractivePermissionHandler = (
@@ -334,20 +333,21 @@ export interface IInteractiveSessionEvents {
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
-/** Minimal session surface consumed by transport adapters and test factories. */
+/** Minimal session surface. ARCH-012: capability members are REQUIRED — see SPEC § Session capability members. */
 export interface IInteractiveSession {
   /** True once the underlying session has been initialized. */
-  readonly isInitialized?: boolean;
+  readonly isInitialized: boolean;
 
   // Submission
   // REMOTE-014 E5: `options.driverId` is the SERVER-ASSIGNED co-drive attribution id (optional — a human turn
   // with no id defaults to the owner; an agent-wakeup turn to the agent id). Existing callers omit it.
+  // RUNTIME-003: returns the submission's own identity — see SPEC § Turn identity.
   submit(
     input: string,
     displayInput?: string,
     rawInput?: string,
     options?: ISubmitOptions,
-  ): Promise<void>;
+  ): Promise<ITurnHandle>;
   abort(): void;
   cancelQueue(): void;
   shutdown(options?: { reason?: string; message?: string }): Promise<void>;
@@ -364,9 +364,9 @@ export interface IInteractiveSession {
   isExecuting(): boolean;
   getPendingPrompt(): string | null;
   /** REMOTE-014 E5: number of queued inputs behind the head (0 when none) — for a co-drive "N queued" hint. */
-  getPendingCount?(): number;
-  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
-  getActiveDriverId?(): TDriverId | null;
+  getPendingCount(): number;
+  /** REMOTE-014 E5: the ACTIVE turn's driver id. `null` means nobody is driving, and only that. */
+  getActiveDriverId(): TDriverId | null;
   getMessages(): TUniversalMessage[];
   getContextState(): IContextWindowState;
   getSession(): { getSessionId(): string };

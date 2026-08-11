@@ -19,7 +19,7 @@ resolve (check-architecture-map-paths.mjs).
 
 <One sentence: what slice of the system this map owns — the scope line.>
 
-Back to [System Architecture Map](../ARCHITECTURE-MAP.md).
+Back to [System Architecture Map](../ARCHITECTURE-MAP.md). <!-- allow-unresolved: a template slot — the path resolves in the copy, not in the template -->
 
 ## <Structure section>
 

@@ -217,6 +217,7 @@ function main() {
     process.exit(1);
   }
   console.log('✅ No interface-package purity violations found.');
+  console.log(`::examined:: ${filesScanned} source files`);
   console.log(`interface-runtime summary: violations=0 scanned=${filesScanned} result=PASS`);
   process.exit(0);
 }

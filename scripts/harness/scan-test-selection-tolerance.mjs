@@ -69,7 +69,9 @@ export const TEST_SCRIPT = /^test(:|$)/;
 /** List the workflow files this scan governs. */
 export function listWorkflows(root = WORKSPACE_ROOT) {
   const dir = path.join(root, WORKFLOW_DIR);
-  if (!existsSync(dir)) return [];
+  if (!existsSync(dir)) {
+    throw new Error(`${WORKFLOW_DIR} does not exist under ${root}`);
+  }
   return readdirSync(dir)
     .filter((entry) => /\.ya?ml$/.test(entry))
     .sort()
@@ -214,6 +216,7 @@ export async function main() {
     return;
   }
 
+  process.stdout.write(`::examined:: ${invocations} filtered test invocations\n`);
   process.stdout.write(
     `test-selection-tolerance scan passed — ${invocations} filtered test invocation(s) examined; none can pass on zero matches.\n`,
   );

@@ -21,6 +21,9 @@ export class TuiTransport implements IConfigurableTransport<IInteractiveSession>
     // TuiTransport creates its own InteractiveSession internally via TuiInteractionChannel.
   }
 
+  /** ARCH-011: blocks for the life of the UI — declared so `startAll` does not wait for it. */
+  readonly runsToCompletion = true;
+
   async start(): Promise<void> {
     await renderApp(this.options);
   }

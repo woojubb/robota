@@ -6,7 +6,11 @@ export type {
   TBackgroundPermissionPolicy,
 } from './types.js';
 export { TRUST_TO_MODE } from './types.js';
-export { evaluatePermission } from './permission-gate.js';
+export {
+  evaluatePermission,
+  registerToolArgumentKey,
+  clearRegisteredToolArgumentKeys,
+} from './permission-gate.js';
 export type { TToolArgs, IPermissionLists } from './permission-gate.js';
 export { resolvePermissionByPolicy } from './permission-policy.js';
 export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';

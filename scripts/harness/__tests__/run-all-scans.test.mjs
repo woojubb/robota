@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { ADVISORY_MARKER, extractAdvisories, parseSkips, runScans } from '../run-all-scans.mjs';
+import {
+  ADVISORY_MARKER,
+  extractAdvisories,
+  extractExamined,
+  judgeExamined,
+  judgeExaminedAdoption,
+  parseSkips,
+  runScans,
+  writeAdoptionBaseline,
+} from '../run-all-scans.mjs';
 
 function stubScan(name, exitCode) {
   return {
@@ -75,7 +84,9 @@ describe('run-all-scans', () => {
       lines.push(line),
     );
     expect(exitCode).toBe(0);
-    expect(lines.join('\n')).toContain('all 2 scans passed');
+    // "all N scans passed" became "N scans passed": the word `all` covered a suite in which some
+    // scans had no subject and were counted anyway (HARNESS-056). The count now states what RAN.
+    expect(lines.join('\n')).toContain('2 scans passed');
   });
 
   it('counts multiple failures', async () => {
@@ -173,7 +184,7 @@ describe('runScans — advisory surfacing', () => {
 
     expect(exitCode).toBe(0);
     expect(out).toContain('✓ a'); // the emitting scan is still a PASS in the summary
-    expect(out).toContain('all 2 scans passed');
+    expect(out).toContain('2 scans passed');
     expect(out).toContain('NOT failures');
   });
 
@@ -183,7 +194,7 @@ describe('runScans — advisory surfacing', () => {
     ];
     const lines = [];
     await runScans(scans, (line) => lines.push(line));
-    expect(lines.filter((line) => line !== '').at(-1)).toBe('all 1 scans passed');
+    expect(lines.filter((line) => line !== '').at(-1)).toBe('1 scans passed');
   });
 
   it('prints no advisory block at all when there are none', async () => {
@@ -236,5 +247,206 @@ describe('parseSkips (INFRA-026)', () => {
 
   it('returns empty set without --skip', () => {
     expect(parseSkips([]).size).toBe(0);
+  });
+});
+
+describe('how much did you look at', () => {
+  /**
+   * The most-repeated defect here is a check reporting success over work it never did, and it
+   * arrives in three costumes — a fail-open over an absent tree, a SKIP rendered as a tick, and a
+   * shallow walk claiming "all" over a subset. Each was repaired one instance at a time, because
+   * nothing asked the question they share.
+   */
+  it('reads a declared size, and the reason a zero is allowed', () => {
+    expect(extractExamined('::examined:: 24 rule documents')).toEqual([
+      { size: 24, subject: 'rule documents', expectedEmpty: null },
+    ]);
+    expect(
+      extractExamined('::examined:: 0 plans ::expected-empty:: the pipeline is dormant'),
+    ).toEqual([{ size: 0, subject: 'plans', expectedEmpty: 'the pipeline is dormant' }]);
+  });
+
+  it('reads a thousands separator, so a big subject is not read as a small one', () => {
+    expect(extractExamined('::examined:: 2,747 files')[0].size).toBe(2747);
+  });
+
+  it('fails an unearned zero, and only an unearned one', () => {
+    expect(judgeExamined('probe', '::examined:: 0 workflows').problems).toHaveLength(1);
+    expect(
+      judgeExamined('probe', '::examined:: 0 workflows ::expected-empty:: none are configured')
+        .problems,
+    ).toEqual([]);
+    expect(judgeExamined('probe', '::examined:: 13 workflows').problems).toEqual([]);
+  });
+
+  it('refuses a size that is not a number', () => {
+    // A marker that says nothing measurable is the contentless-advisory shape one channel over: it
+    // looks like a declaration and declares nothing.
+    expect(judgeExamined('probe', '::examined:: several files').problems).toHaveLength(1);
+  });
+
+  it('does not demand a declaration from a scan that makes none', () => {
+    // Seventy-nine of ninety-seven declare nothing today. A check that turns the suite red on
+    // arrival is suppressed rather than obeyed; adoption is held by the ratchet instead.
+    expect(judgeExamined('probe', 'ordinary output').declared).toBe(false);
+    expect(judgeExamined('probe', 'ordinary output').problems).toEqual([]);
+  });
+
+  it('does not run the ratchet for an arbitrary caller (checkAdoption defaults off)', () => {
+    // A caller passing three fixtures wants the unearned-zero half, not the adoption ratchet. The
+    // runner's own fixture-based cases below rely on this default staying off.
+    const scan = { name: 'probe', run: async () => ({ code: 0, output: 'no declaration here' }) };
+    const lines = [];
+
+    return runScans([scan], (l) => lines.push(l), 1).then((code) => {
+      expect(code).toBe(0);
+      expect(lines.join('\n')).not.toMatch(/adoption/);
+    });
+  });
+
+  it('fails an unearned zero even on a subset run', () => {
+    // A scan claiming a pass over nothing is wrong however few of them ran, so that half carries no
+    // exemption for a partial run.
+    expect(judgeExamined('probe', '::examined:: 0 workflows').problems).toHaveLength(1);
+  });
+
+  it('holds adoption as a SET ratchet: a frozen scan may not stop declaring; a new one must be added', () => {
+    const frozen = () => ['a', 'b'];
+    const known = ['a', 'b', 'c'];
+    // All frozen scans ran and declared; an extra non-frozen, non-declaring scan is fine.
+    expect(judgeExaminedAdoption(['a', 'b'], ['a', 'b', 'c'], known, frozen).ok).toBe(true);
+    // A frozen scan ran but stopped declaring → FELL, naming it.
+    expect(judgeExaminedAdoption(['a'], ['a', 'b'], known, frozen).message).toMatch(/FELL.*\bb\b/);
+    // A new scan declares but is not frozen → ROSE, naming it.
+    expect(judgeExaminedAdoption(['a', 'b', 'c'], ['a', 'b', 'c'], known, frozen).message).toMatch(
+      /ROSE.*\bc\b/,
+    );
+    // No baseline at all → refuse.
+    expect(judgeExaminedAdoption(['a'], ['a'], known, () => null).message).toMatch(/no frozen/);
+  });
+
+  it('reports FELL and ROSE together, not one round at a time', () => {
+    // A set diff can carry both at once; surfacing only the first would spend a review round per
+    // finding. `a` stopped declaring (FELL); `c` newly declares (ROSE).
+    const verdict = judgeExaminedAdoption(['b', 'c'], ['a', 'b', 'c'], ['a', 'b', 'c'], () => [
+      'a',
+      'b',
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/FELL.*\ba\b/);
+    expect(verdict.message).toMatch(/ROSE.*\bc\b/);
+  });
+
+  it('flags a frozen scan that is no longer a registered scan at all (GONE — the SET blind spot)', () => {
+    // A previously-declaring scan deleted/renamed out of the registry never appears in
+    // `evaluableNames` again, so FELL alone would never catch it and the baseline would rot. The
+    // GONE check keys off `knownNames`. `ghost` is frozen but absent from the registry.
+    const verdict = judgeExaminedAdoption(['a'], ['a'], ['a'], () => ['a', 'ghost']);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/GONE.*ghost/);
+  });
+
+  it('skips the GONE check when the registry is not supplied (fixture callers)', () => {
+    // knownNames === null → GONE is not judged, so a fixture caller does not fault a name it never
+    // claimed to know about.
+    expect(judgeExaminedAdoption(['a'], ['a'], null, () => ['a', 'ghost']).ok).toBe(true);
+  });
+
+  it('a --skip does not disarm the ratchet, nor falsely fault the skipped scan (HARNESS-081)', () => {
+    // The defect: the old count-over-the-whole-registry check only ran with nothing skipped, so
+    // CI (which always `--skip`s dist/build-contracts) never evaluated it. A skipped scan is still
+    // REGISTERED (in knownNames) but absent from `evaluableNames`, so it is neither judged nor
+    // faulted as FELL/GONE — while a NON-skipped scan that stops declaring is still caught. Here
+    // `skipped-one` is frozen and registered but did not run; `b` ran and stopped declaring.
+    const known = ['a', 'b', 'skipped-one'];
+    const verdict = judgeExaminedAdoption(['a'], ['a', 'b'], known, () => [
+      'a',
+      'b',
+      'skipped-one',
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.message).toMatch(/FELL/);
+    expect(verdict.message).toMatch(/\bb\b/);
+    expect(verdict.message).not.toMatch(/skipped-one/);
+  });
+
+  it('writeAdoptionBaseline merges: keeps unevaluated, adds newly-declaring, prunes deleted', () => {
+    let written = null;
+    const result = writeAdoptionBaseline(
+      ['a', 'c'], // declaring this pass: a (kept), c (new)
+      ['a', 'b', 'c'], // evaluable: a, b, c (b was frozen but did not declare → dropped)
+      ['a', 'b', 'c'], // known registry (ghost is absent → pruned)
+      () => ['a', 'b', 'ghost'], // frozen
+      (names) => {
+        written = names;
+      },
+    );
+    // a: kept (declared). b: dropped (evaluated, not declaring). c: added (newly declaring).
+    // ghost: pruned (not in the registry). Result is sorted.
+    expect(result).toEqual(['a', 'c']);
+    expect(written).toEqual(['a', 'c']);
+  });
+
+  it('writeAdoptionBaseline keeps a frozen entry the pass did NOT evaluate (e.g. --skip)', () => {
+    // `skipped-one` is frozen, still registered, and not evaluated this pass → neither confirmed nor
+    // refuted, so it is kept rather than dropped.
+    const result = writeAdoptionBaseline(
+      ['a'],
+      ['a'],
+      ['a', 'skipped-one'],
+      () => ['a', 'skipped-one'],
+      () => {},
+    );
+    expect(result).toEqual(['a', 'skipped-one']);
+  });
+});
+
+describe('a scan that skipped does not render as a tick', () => {
+  /**
+   * The runner decided a scan's mark from its exit code alone, so a scan that ran nothing and exited
+   * 0 because it had no subject was indistinguishable from one that examined its whole subject and
+   * found it clean. Both printed `✓`, and both counted toward "all N scans passed" — a stronger
+   * claim than the run supports, on the line people actually read.
+   *
+   * The declaration supplies the missing signal: a zero WITH a reason is a skip.
+   */
+  const passed = { name: 'ran', run: async () => ({ code: 0, output: '::examined:: 12 files' }) };
+  const skipped = {
+    name: 'no-subject',
+    run: async () => ({
+      code: 0,
+      output: '::examined:: 0 transcripts ::expected-empty:: no transcript exists on this host',
+    }),
+  };
+
+  it('marks it ↩ and counts what RAN', async () => {
+    const lines = [];
+    const code = await runScans([passed, skipped], (l) => lines.push(l), 1);
+    const printed = lines.join('\n');
+
+    expect(code, 'a skip must not fail the suite').toBe(0);
+    expect(printed).toContain('↩ no-subject');
+    expect(printed).toContain('✓ ran');
+    expect(printed, 'the summary counted a skip as a pass').toContain('1 scans passed, 1 skipped');
+  });
+
+  it('says nothing about skips when there are none', async () => {
+    const lines = [];
+    await runScans([passed], (l) => lines.push(l), 1);
+
+    expect(lines.join('\n')).not.toMatch(/skipped/);
+  });
+
+  it('does not call an undeclared zero a skip — it fails', async () => {
+    // A skip is a scan that said WHY it had no subject. One that merely reports zero has not.
+    const lines = [];
+    const code = await runScans(
+      [{ name: 'silent', run: async () => ({ code: 0, output: '::examined:: 0 files' }) }],
+      (l) => lines.push(l),
+      1,
+    );
+
+    expect(code).toBe(1);
+    expect(lines.join('\n')).not.toContain('↩ silent');
   });
 });

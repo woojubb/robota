@@ -1,6 +1,7 @@
 ---
 name: worktree-parallel-orchestration
 description: Procedure for running multiple independent backlog items in parallel via worktree-isolated subagents with zero merge conflicts — partition file ownership before spawning, isolate each implementer in its own worktree, sequence overlapping work behind occupants, one coherent self-verified PR per agent, and serial orchestrator merge. Use when executing 2 or more independent items concurrently.
+invocable: true
 ---
 
 # Worktree-Parallel Orchestration
@@ -60,6 +61,34 @@ run in parallel.
 Spawn each parallel implementer with the `Agent` tool's `isolation: "worktree"`. Each carries its own
 concurrent feature branch cut from a **freshly-fetched integration branch**, created with the branch-guard
 override the git rules define for exactly this case. Hand each agent its OWNED + FORBIDDEN lists verbatim.
+
+**Where the isolation stops.** A worktree owns its working tree and its index. It shares everything
+else in the clone, and an agent told to work "in isolation" will not assume that unless it is said:
+
+| Shared                          | Consequence measured 2026-08-01                                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refs/stash`                    | one agent's bare `git stash push` + `pop` took **another agent's uncommitted work** into its own tree                                                                   |
+| `refs/stash`, via `lint-staged` | a concurrent stash destroyed the pre-commit backup: `lint-staged automatic backup is missing!` — the exposure is **every commit**, not only agents who type `git stash` |
+| `refs/` and the object store    | `branch-guard` enumerates branches across all worktrees, so every branch creation during a wave needs the open-branches override                                        |
+
+Two things follow, and both are now mechanical rather than advisory (INFRA-082): the pre-commit hook
+runs `lint-staged` under a clone-wide lock, and a bare stash command is refused while a sibling
+worktree exists. For a before/after comparison use `git archive` or a copy — no shared ref is
+involved, and it is what the agent that hit this switched to.
+
+**The work is wrapped by two gates, and this is where they are invoked.** They exist because the
+list above is what a worktree agent learns by damaging something — a gate that runs before and after
+turns each of those into a refusal instead of an incident. Both are in
+[`worktree-traffic-control`](../worktree-traffic-control/SKILL.md); neither depends on anyone
+remembering the table.
+
+| when                                 | what                                                                                                   | refuses on                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| BEFORE handing an agent its worktree | `node scripts/harness/worktree-gate.mjs --phase before --branch <name>` (agent: `worktree-entry-gate`) | an inherited `GIT_DIR` family variable, a branch a sibling worktree already holds, a worktree with no dependencies installed |
+| AFTER the agent reports done         | `node scripts/harness/worktree-gate.mjs --phase after --branch <name>` (agent: `worktree-exit-gate`)   | the same ambient check, a HEAD that is not the branch the work was for, build output older than the source beside it         |
+
+`--branch` is REQUIRED. Without it the branch-held and HEAD-matches checks examine nothing and the
+gate would print a pass it did not compute, which is the silent green the gate exists to remove.
 
 ### 3. Sequence overlapping work behind occupants
 

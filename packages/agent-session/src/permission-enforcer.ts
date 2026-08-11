@@ -8,13 +8,8 @@
 
 import { evaluatePermission, resolvePermissionByPolicy, runHooks } from '@robota-sdk/agent-core';
 
-import { PERMISSION_DENIED_RESULT } from './permission-types.js';
-import {
-  truncateToolResult,
-  buildHookInput,
-  runPreToolHook,
-  firePostToolHook,
-} from './tool-hook-helpers.js';
+import { decideApproval } from './abortable-approval.js';
+import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 
 import type {
   IPermissionEnforcerOptions,
@@ -24,14 +19,8 @@ import type {
   ISpinner,
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import type {
-  IToolWithEventService,
-  IToolResult,
-  TToolParameters,
-  IToolExecutionContext,
-  TToolArgs,
-  THooksConfig,
-} from '@robota-sdk/agent-core';
+import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
+import type { IToolWithEventService, TToolArgs, THooksConfig } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
@@ -72,7 +61,25 @@ export class PermissionEnforcer {
 
   /** Wrap all tools with permission checking */
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
-    return tools.map((tool) => this.wrapToolWithPermission(tool));
+    // Built explicitly rather than cast. A blind assertion here would compile only by silencing the
+    // private-member mismatch, and this repository counts and ratchets those. Naming the ten members
+    // is what makes the extraction a boundary: if the wrapper starts reading an eleventh, this stops
+    // compiling instead of quietly widening.
+    const deps: IToolWrapperDeps = {
+      sessionId: this.sessionId,
+      cwd: this.cwd,
+      config: this.config,
+      terminal: this.terminal,
+      transcriptPath: this.transcriptPath,
+      onToolExecution: this.onToolExecution,
+      hookTypeExecutors: this.hookTypeExecutors,
+      getPermissionMode: this.getPermissionMode,
+      log: (event, detail) => this.log(event, detail),
+      checkPermission: (toolName, toolArgs, signal) =>
+        this.checkPermission(toolName, toolArgs, signal),
+    };
+
+    return tools.map((tool) => wrapToolWithPermission(tool, deps));
   }
 
   /** Get tools that have been session-approved (via "Allow always" choice). */
@@ -85,133 +92,13 @@ export class PermissionEnforcer {
     this.sessionAllowedTools.clear();
   }
 
-  /**
-   * Wrap a tool with permission checking.
-   * The wrapper intercepts execute() and runs permission evaluation before delegating.
-   * If denied, returns a tool result indicating the action was blocked.
-   */
-  private wrapToolWithPermission(tool: IToolWithEventService): IToolWithEventService {
-    const enforcer = this;
-    const originalExecute = tool.execute.bind(tool);
-
-    const wrappedTool = Object.create(tool) as IToolWithEventService;
-    wrappedTool.execute = async (
-      parameters: TToolParameters,
-      context?: IToolExecutionContext,
-    ): Promise<IToolResult> => {
-      // Must NEVER throw — if this throws, the execution round records the
-      // assistant tool_use in history but never adds a tool_result, which
-      // corrupts the conversation and causes a 400 error on the next API call.
-      try {
-        const toolName = tool.getName();
-        enforcer.log('tool_call', {
-          tool: toolName,
-          args: parameters as Record<string, string | number | boolean | object>,
-        });
-
-        const hookInput = buildHookInput(
-          enforcer.sessionId,
-          enforcer.cwd,
-          toolName,
-          parameters,
-          enforcer.getPermissionMode(),
-          enforcer.transcriptPath,
-        );
-
-        const preResult = await runPreToolHook(
-          enforcer.config.hooks,
-          hookInput,
-          enforcer.hookTypeExecutors,
-        );
-        if (preResult) {
-          enforcer.log('tool_blocked', { tool: toolName, reason: 'hook' });
-          return preResult;
-        }
-
-        const allowed = await enforcer.checkPermission(toolName, parameters as TToolArgs);
-        if (!allowed) {
-          enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
-          enforcer.onToolExecution?.({
-            type: 'end',
-            toolName,
-            toolArgs: parameters as TToolArgs,
-            success: false,
-            denied: true,
-            executionId: context?.executionId,
-          });
-          return PERMISSION_DENIED_RESULT;
-        }
-
-        enforcer.onToolExecution?.({
-          type: 'start',
-          toolName,
-          toolArgs: parameters as TToolArgs,
-          executionId: context?.executionId,
-        });
-
-        const result = await originalExecute(parameters, context as IToolExecutionContext);
-
-        // Truncate oversized tool output (matches 30K char limit)
-        const truncatedResult = truncateToolResult(result);
-
-        if (truncatedResult !== result && typeof result.data === 'string') {
-          enforcer.terminal.writeLine(
-            `  ⚠  Output truncated: ${result.data.length.toLocaleString()} chars total — model sees first and last 15,000 chars`,
-          );
-        }
-
-        enforcer.onToolExecution?.({
-          type: 'end',
-          toolName,
-          toolArgs: parameters as TToolArgs,
-          success: truncatedResult.success,
-          toolResultData:
-            typeof truncatedResult.data === 'string'
-              ? truncatedResult.data
-              : JSON.stringify(truncatedResult.data),
-          executionId: context?.executionId,
-        });
-
-        const dataSize =
-          typeof truncatedResult.data === 'string'
-            ? truncatedResult.data.length
-            : JSON.stringify(truncatedResult.data).length;
-        enforcer.log('tool_result', {
-          tool: toolName,
-          success: truncatedResult.success,
-          dataChars: dataSize,
-          truncated: truncatedResult !== result,
-        });
-        firePostToolHook(
-          enforcer.config.hooks,
-          hookInput,
-          truncatedResult,
-          enforcer.hookTypeExecutors,
-        );
-        return truncatedResult;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          success: true,
-          data: JSON.stringify({ success: false, output: '', error: message }),
-          metadata: {},
-        };
-      }
-    };
-
-    // SELFHOST-004: the wrapper runs `originalExecute` (bound to the ORIGINAL tool), which reads the
-    // ORIGINAL tool's `eventService` (e.g. the `FunctionTool` span-completion emit). Because
-    // `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, forward it
-    // to the original tool — otherwise an injected event bus never reaches the tool and spans never fire.
-    wrappedTool.setEventService = (eventService) => {
-      tool.setEventService(eventService);
-    };
-
-    return wrappedTool;
-  }
-
-  /** Evaluate permission for a tool call using the current mode and config */
-  async checkPermission(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
+  /** Evaluate permission for a tool call. `signal` — RUNTIME-005; see `decideApproval` for why a
+   * cancelled approval denies. */
+  async checkPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
     // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
     // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
     // `evaluatePermission`'s `auto` branch never runs for a policy-gated call — that was the bypass hole.
@@ -226,7 +113,7 @@ export class PermissionEnforcer {
       if (policyDecision === 'allow') return true;
       if (policyDecision === 'deny') return false;
       // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
-      return this.promptForApproval(toolName, toolArgs);
+      return this.promptForApproval(toolName, toolArgs, signal);
     }
 
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
@@ -242,7 +129,7 @@ export class PermissionEnforcer {
     if (decision === 'deny') return false;
 
     // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs);
+    return this.promptForApproval(toolName, toolArgs, signal);
   }
 
   /**
@@ -250,38 +137,24 @@ export class PermissionEnforcer {
    * deny. Shared by the session-mode `approve` decision and the CORE-025 `prompt` policy so both fail closed
    * identically when no approver is attached (e.g. a detached background task).
    */
-  private async promptForApproval(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
-    // Check session-scoped allow list before prompting
-    if (this.sessionAllowedTools.has(toolName)) return true;
-
-    if (this.permissionHandler) {
-      const result = await this.permissionHandler(toolName, toolArgs);
-      if (result === 'allow-session') {
-        this.sessionAllowedTools.add(toolName);
-        return true;
-      }
-      if (result === 'allow-project') {
-        this.sessionAllowedTools.add(toolName);
-        this.onProjectAllowTool?.(toolName);
-        return true;
-      }
-      return result;
-    }
-    if (this.promptForApprovalFn) {
-      const result = await this.promptForApprovalFn(this.terminal, toolName, toolArgs);
-      if (result === 'allow-session') {
-        this.sessionAllowedTools.add(toolName);
-        return true;
-      }
-      if (result === 'allow-project') {
-        this.sessionAllowedTools.add(toolName);
-        this.onProjectAllowTool?.(toolName);
-        return true;
-      }
-      return result;
-    }
-    // No approval mechanism available — deny by default
-    return false;
+  private async promptForApproval(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const outcome = await decideApproval({
+      toolName,
+      alreadyAllowed: this.sessionAllowedTools.has(toolName),
+      ...(this.permissionHandler ? { handler: this.permissionHandler } : {}),
+      ...(this.promptForApprovalFn
+        ? { injectedPrompt: this.promptForApprovalFn, terminal: this.terminal }
+        : {}),
+      toolArgs,
+      ...(signal ? { signal } : {}),
+    });
+    if (outcome.rememberForSession) this.sessionAllowedTools.add(toolName);
+    if (outcome.rememberForProject) this.onProjectAllowTool?.(toolName);
+    return outcome.allowed;
   }
 
   /**

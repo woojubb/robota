@@ -337,20 +337,38 @@ one-shot calls.
 `@robota-sdk/agent-framework` assembles built-in tools for SDK sessions, but direct tool usage imports
 from the owner package:
 
+Each file tool is a FACTORY that requires the containment root it operates in (ARCH-010) — there is
+no ready-made instance, because one bound at import time can carry no root, and a file tool without a
+root has no boundary:
+
 ```typescript
 import {
-  shellTool,
-  bashTool,
-  editTool,
-  globTool,
-  grepTool,
-  readTool,
+  createShellTool,
+  createBashTool,
+  createEditTool,
+  createGlobTool,
+  createGrepTool,
+  createReadTool,
+  createWriteTool,
   webFetchTool,
   webSearchTool,
-  writeTool,
   askUserQuestionTool,
 } from '@robota-sdk/agent-tools';
+
+const cwd = process.cwd();
+const fileTools = [
+  createShellTool({ cwd }),
+  createBashTool({ cwd }),
+  createEditTool({ cwd }),
+  createGlobTool({ cwd }),
+  createGrepTool({ cwd }),
+  createReadTool({ cwd }),
+  createWriteTool({ cwd }),
+];
 ```
+
+`webFetchTool`, `webSearchTool` and `askUserQuestionTool` remain instances: they touch no filesystem,
+so there is no root for them to be contained by.
 
 ### Sandbox Execution
 

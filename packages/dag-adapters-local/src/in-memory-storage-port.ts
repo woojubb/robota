@@ -1,3 +1,5 @@
+import { applyTaskRunLease, selectStaleRunningTaskRuns } from './task-run-recovery.js';
+
 import type {
   IDagDefinition,
   IDagRun,
@@ -170,6 +172,18 @@ export class InMemoryStoragePort implements IStoragePort {
       this.taskRuns.set(taskRunKey, next);
       return;
     }
+  }
+
+  public async setTaskRunLease(
+    taskRunId: string,
+    leaseOwner?: string,
+    leaseUntil?: string,
+  ): Promise<void> {
+    applyTaskRunLease(this.taskRuns, taskRunId, leaseOwner, leaseUntil);
+  }
+
+  public async listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]> {
+    return selectStaleRunningTaskRuns(this.taskRuns, asOfIso);
   }
 
   public async saveTaskRunSnapshots(

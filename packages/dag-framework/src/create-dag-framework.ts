@@ -1,5 +1,7 @@
 import path from 'node:path';
 import {
+  buildValidationError,
+  DagDefinitionService,
   LifecycleTaskExecutorPort,
   type IClockPort,
   type ILeasePort,
@@ -11,6 +13,8 @@ import {
   type IAssetStore,
   type IDagNodeDefinition,
   type IRunDraftStore,
+  type IDagError,
+  type TResult,
 } from '@robota-sdk/dag-core';
 import {
   FileStoragePort,
@@ -32,7 +36,6 @@ import {
   type IDagControllerComposition,
   type IDiagnosticsDeadLetterReinjectPort,
 } from '@robota-sdk/dag-api';
-import { DagDefinitionService, type IDagError, type TResult } from '@robota-sdk/dag-core';
 import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
 
@@ -64,12 +67,23 @@ function buildManifestRegistry(manifests: INodeManifest[]): INodeManifestRegistr
   };
 }
 
-class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPort {
+export class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPort {
   public async reinjectOnce(
     _workerId: string,
     _visibilityTimeoutMs: number,
   ): Promise<TResult<{ reinjected: boolean; taskRunId?: string }, IDagError>> {
-    return { ok: true, value: { reinjected: false } };
+    // CORE-027: `{ ok: true, reinjected: false }` here was "the dead-letter queue is empty" —
+    // a claim about a queue this composition does not have. An operator draining a DLQ after an
+    // incident read success-shaped answers from a port that could never reinject anything, which
+    // is the failure contract destroying the failure one adapter down. The absent capability
+    // reports itself as absent.
+    return {
+      ok: false,
+      error: buildValidationError(
+        'DAG_VALIDATION_DLQ_REINJECT_UNSUPPORTED',
+        'dead-letter reinjection is not wired in this composition — no reinject port was provided, so there is no queue this call could have drained',
+      ),
+    };
   }
 }
 

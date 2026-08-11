@@ -55,20 +55,30 @@ function walkMarkdown(dir) {
  */
 function discoverDesignDocs(root = WORKSPACE_ROOT) {
   const out = [];
-  for (const pkgDir of listManifestPackageDirs(root)) {
+  const packageDirs = listManifestPackageDirs(root);
+  for (const pkgDir of packageDirs) {
     out.push(...walkMarkdown(path.join(pkgDir, 'docs', 'design')));
   }
-  return out;
+  return { files: out, searched: packageDirs.length };
 }
 
+/**
+ * Findings plus BOTH sizes (HARNESS-063): `examined` is how many design documents were read,
+ * `searched` is how many locations were looked in. A zero `examined` means something different
+ * depending on `searched` — nowhere to look versus the 76 packages measured here on 2026-08-01,
+ * none of which authored one — and
+ * the pass line has to say which.
+ */
 export function findDesignDocFindings(target, root = WORKSPACE_ROOT) {
   const blocking = [];
   const warnings = [];
   let files;
+  let searched;
   if (target) {
     files = existsSync(target) && statSync(target).isFile() ? [target] : walkMarkdown(target);
+    searched = 1;
   } else {
-    files = discoverDesignDocs(root);
+    ({ files, searched } = discoverDesignDocs(root));
   }
   const examined = files.length;
   for (const file of files) {
@@ -81,13 +91,14 @@ export function findDesignDocFindings(target, root = WORKSPACE_ROOT) {
       warnings.push({ file: rel, detail: 'no link to the owning SPEC.md — recommended' });
     }
   }
-  return { blocking, warnings, examined };
+  return { blocking, warnings, examined, searched };
 }
 
 export function main(argv = process.argv) {
   const arg = argv[2];
   const target = arg ? path.resolve(WORKSPACE_ROOT, arg) : undefined;
-  const { blocking, warnings, examined } = findDesignDocFindings(target);
+  const { blocking, warnings, examined, searched } = findDesignDocFindings(target);
+  const location = target ? 'target path' : 'package design director(y/ies)';
   for (const w of warnings) process.stdout.write(`- [warn] ${w.file}: ${w.detail}\n`);
   if (blocking.length === 0) {
     // HARNESS-052 asked this scan's subject to be DECIDED, because it has never validated a
@@ -101,20 +112,25 @@ export function main(argv = process.argv) {
     // rendering as an ordinary tick.
     if (examined === 0) {
       process.stdout.write(
-        `${ADVISORY_MARKER} design-doc completeness examined 0 documents — the design/LLD type is ` +
-          'OPTIONAL (RULE-009), so this is a measured zero, not a validated corpus.\n',
+        `${ADVISORY_MARKER} design-doc completeness examined 0 documents in ${searched} ` +
+          `${location} — the design/LLD type is OPTIONAL (RULE-009), so this is a measured zero, ` +
+          'not a validated corpus.\n',
       );
     }
     process.stdout.write(
-      `design-doc completeness scan passed (${examined} design document(s) examined).\n`,
+      `design-doc completeness scan passed (${examined} design document(s) examined in ` +
+        `${searched} ${location}).\n`,
     );
     return;
   }
-  process.stdout.write('design-doc completeness scan failed:\n');
+  process.stdout.write(
+    `design-doc completeness scan failed (${examined} design document(s) examined in ` +
+      `${searched} ${location}):\n`,
+  );
   for (const f of blocking) process.stdout.write(`- [missing-section] ${f.file}: ${f.detail}\n`);
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

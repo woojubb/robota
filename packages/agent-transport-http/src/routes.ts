@@ -6,18 +6,44 @@
  * execution-workspace methods are WS-only).
  */
 
+import {
+  bearerCredential,
+  credentialMatches,
+  resolveAdmission,
+} from '@robota-sdk/agent-transport-protocol';
 import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-transport';
-import type { Context } from 'hono';
+import { submitHandler } from './submit-route.js';
+import { createTurnClaims } from './turn-claims.js';
 
-/** Callback that resolves an IInteractiveSession from the request context. */
-export type TSessionFactory = (c: Context) => IInteractiveSession | Promise<IInteractiveSession>;
+import type { TSessionFactory } from './submit-route.js';
+import type { TStreamFailureListener } from './submit-stream.js';
+import type {
+  ITransportAdmission,
+  ITransportAdmissionConfig,
+} from '@robota-sdk/agent-interface-transport';
+
+// Re-exported so existing importers keep their path; the definition and its rationale live with
+// the code that enforces them, in `submit-route.ts`.
+export type { TSessionFactory } from './submit-route.js';
 
 export interface IAgentRoutesOptions {
   /** Resolve an IInteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: TSessionFactory;
+  /**
+   * Where the DETAIL of a post-headers stream failure goes (the client gets only a generic line —
+   * see `submit-stream.ts`). Injected per the side-concern rule: the host decides the destination,
+   * and absent means the host chose to drop it.
+   */
+  onStreamFailure?: TStreamFailureListener;
+  /**
+   * SEC-008: what a peer must present to reach the session. REQUIRED — there is no shape of this
+   * option that means "I did not think about it", which is the state these routes shipped in.
+   *
+   * `{ open: true, openReason: '…' }` still runs with no credential, and that is a legitimate answer
+   * for a host that has its own boundary in front. It just has to be written down.
+   */
+  admission: ITransportAdmissionConfig | ITransportAdmission;
 }
 
 /**
@@ -31,83 +57,48 @@ export interface IAgentRoutesOptions {
  * ```
  */
 export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
-  const { sessionFactory } = options;
+  const { sessionFactory, onStreamFailure } = options;
   const app = new Hono();
 
-  // POST /submit — execute prompt, stream events via SSE
-  app.post('/submit', async (c) => {
-    const session = await sessionFactory(c);
-    const body = await c.req.json<{ prompt: string }>();
+  // RUNTIME-38: one turn at a time, per session — `turn-claims.ts` owns what that means and why it
+  // is keyed by the session's declared ID rather than by object identity.
+  const claims = createTurnClaims();
 
-    if (!body.prompt || typeof body.prompt !== 'string') {
-      return c.json({ error: 'prompt is required' }, 400);
+  // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
+  // build rather than serving without one. Resolving per request would also mint a new token per
+  // request, which no peer could ever present.
+  // Either shape goes in: `resolveAdmission` is idempotent, so an already-resolved admission comes
+  // back unchanged and a config is resolved. `http-transport.ts` therefore does not have to take
+  // its resolved admission apart and rebuild a config for this to resolve again — two resolutions
+  // of one decision, and a mint on the second if the first had opened without a reason (review).
+  //
+  // This used to pick between the two with `'token' in options.admission`, and review showed that
+  // cannot work: BOTH interfaces declare a `token`, so the shapes differ only by VALUE. A config of
+  // `{ token: '' }` — documented as "mint a fresh one" — was read as pre-resolved and installed the
+  // EMPTY STRING as the required credential, which a peer sending an empty bearer would match. The
+  // discriminator is gone rather than repaired; there is nothing here left to get wrong.
+  const admission = resolveAdmission(options.admission);
+
+  /**
+   * The trust boundary, installed BEFORE every route rather than checked inside each one.
+   *
+   * Before this, `POST /submit` reached `session.submit` and `POST /command` reached
+   * `session.executeCommand` with nothing in between — remote arbitrary execution with no gate, and
+   * an unauthenticated request looked exactly like an authorised one in both directions.
+   *
+   * A missing credential and a wrong one get the same answer, deliberately: telling them apart tells
+   * a caller which half they got right.
+   */
+  app.use('*', async (c, next) => {
+    if (admission.token === null) return next();
+    if (credentialMatches(admission.token, bearerCredential(c.req.header('authorization')))) {
+      return next();
     }
-
-    // RUNTIME-38: the session is single-threaded (one turn at a time) and shared across requests, so a
-    // concurrent /submit would cross-subscribe to the same emitter and interleave two clients' events.
-    // Reject while a turn is in flight. (Known TOCTOU: the synchronous streamSSE subscribe below runs before
-    // `await session.submit`, so two requests passing this check in the same tick could still both proceed;
-    // the window is small and far better than silent cross-talk. Per-session isolation is a larger
-    // follow-up — see ARCH-004.)
-    if (session.isExecuting()) {
-      return c.json({ error: 'session busy — a turn is already in flight' }, 409);
-    }
-
-    return streamSSE(c, async (stream) => {
-      const cleanup: Array<() => void> = [];
-
-      const subscribe = <T>(event: string, handler: (data: T) => void): void => {
-        session.on(event as 'text_delta', handler as () => void);
-        cleanup.push(() => session.off(event as 'text_delta', handler as () => void));
-      };
-
-      // RUNTIME-14: await + catch every SSE write so a write to a client-closed stream is a blessed no-op,
-      // not an unhandled rejection (post-headers errors bypass Hono's onError).
-      const write = (event: string, data: unknown): Promise<void> =>
-        stream.writeSSE({ event, data: JSON.stringify(data) }).catch(() => {
-          // allow-fallback: client closed the stream mid-write — nothing to deliver; the finally teardown
-          // (RUNTIME-14) removes the listeners, so this write has nothing left to do.
-        });
-
-      const done = new Promise<void>((resolve) => {
-        subscribe('text_delta', (delta: string) => void write('text_delta', { delta }));
-        subscribe('tool_start', (state) => void write('tool_start', state));
-        subscribe('tool_end', (state) => void write('tool_end', state));
-        subscribe('thinking', (isThinking: boolean) => void write('thinking', { isThinking }));
-
-        subscribe('complete', async (result) => {
-          // Flush the terminal event before resolving, so the resolve → cleanup →
-          // stream-close continuation cannot race ahead of the write.
-          await write('complete', result);
-          resolve();
-        });
-        subscribe('interrupted', async (result) => {
-          await write('interrupted', result);
-          resolve();
-        });
-        subscribe('error', async (error: Error) => {
-          await write('error', { message: error.message });
-          resolve();
-        });
-
-        // RUNTIME-14: on client disconnect, CANCEL the underlying run (not merely stop writing) and unblock
-        // `done` so the finally teardown runs — otherwise `done` would never resolve and the listeners leak.
-        stream.onAbort(() => {
-          session.abort();
-          resolve();
-        });
-      });
-
-      try {
-        await session.submit(body.prompt);
-        await done;
-      } finally {
-        // RUNTIME-14: teardown ALWAYS runs — on completion, error, OR client disconnect — so the session
-        // event listeners can never leak.
-        for (const fn of cleanup) fn();
-      }
-    });
+    return c.json({ error: 'unauthorized' }, 401);
   });
+
+  // POST /submit — execute prompt, stream events via SSE
+  app.post('/submit', submitHandler(sessionFactory, claims, onStreamFailure));
 
   // POST /command — execute system command
   app.post('/command', async (c) => {
@@ -118,7 +109,11 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'name is required' }, 400);
     }
 
-    const result = await session.executeCommand(body.name, body.args ?? '');
+    // SEC-008: 'remote', not the default 'user'. A peer over HTTP is not the person at the keyboard,
+    // and defaulting to the local operator both mis-attributes the call and skips the 'remote' policy
+    // seam that exists to treat the two differently. Admission decided WHO may reach the session; it
+    // does not say who they are. (The MCP adapter had the same defect; this is its sibling.)
+    const result = await session.executeCommand(body.name, body.args ?? '', 'remote');
     if (!result) {
       return c.json({ error: `Unknown command: ${body.name}` }, 404);
     }
@@ -152,9 +147,16 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   });
 
   // GET /executing — check if currently executing
+  //
+  // Reports the SAME "busy" that `/submit` refuses on: the route's own claim OR the session's
+  // `isExecuting()`. Asking only the session lets a client polling here see `executing: false` and
+  // still get a 409 from `/submit`, and two endpoints disagreeing about one word is a worse answer
+  // than either of them alone.
   app.get('/executing', async (c) => {
     const session = await sessionFactory(c);
-    return c.json({ executing: session.isExecuting() });
+    const claim = claims.keyFor(session);
+    const claimed = claim !== undefined && claims.isHeld(claim);
+    return c.json({ executing: claimed || session.isExecuting() });
   });
 
   // GET /pending — get pending queued prompt

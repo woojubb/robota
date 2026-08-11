@@ -19,7 +19,9 @@
  * the non-`.md` corpus (package.json scripts + helper .mjs); this guard owns the `.md`
  * corpus — same SSOT, disjoint inputs.
  *
- * Exemptions (must not fire): fenced code blocks and inline code spans; lines carrying
+ * Exemptions (must not fire): fenced code blocks everywhere; inline code spans everywhere EXCEPT the
+ * four front-door documents, where a package name in backticks is the normal way to write one (see
+ * FRONT_DOOR_DOCS); documented placeholder names; lines carrying
  * "deliberately absent" vocab; the documented GHOST_PACKAGE_ALLOWLIST; and immutable
  * historical records (CHANGELOGs, closed spec/task/backlog items, frozen versioned
  * content, dated design/plan archives) that faithfully cite now-defunct names.
@@ -31,6 +33,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { TOKEN_PATTERN, listWorkspacePackageNames } from './check-workspace-refs.mjs';
+import { ABSENCE_VOCABULARY } from './cited-paths.mjs';
 import { requireGovernedTree } from './governed-tree.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
@@ -40,20 +43,38 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 // path/word separator, not a real reference boundary).
 const PACKAGE_DIR_PATTERN = /(?<![\w/-])packages\/([a-z0-9]+(?:-[a-z0-9]+)*)(?![\w-])/g;
 
-// Vocabulary marking a deliberately-absent reference. Mirrors the NEGATION set in
-// check-architecture-map-paths.mjs — that module exposes a regex (not a shared Set), so
-// this keeps a local, intentionally-narrow copy scoped to the tokens this guard needs.
-const ABSENCE_VOCAB = /\(planned\)|\(removed\)|\(deleted\)|\(renamed\)|no longer|does not exist/i;
+// HARNESS-062: this was a local copy whose own comment admitted the fork ("keeps a local,
+// intentionally-narrow copy"). The narrow set it defined is now the SHARED vocabulary in
+// cited-paths.mjs — same tokens, one owner — so this guard and the architecture-map guard can no
+// longer disagree about whether a sentence exempts itself.
 
 /**
  * Documented intentional references that are NOT live drift. Frozen-baseline precedent:
  * check-orphan-exports.mjs's ORPHAN_EXPORT_ALLOWLIST. Each entry keeps a reason. Only
  * genuine intentional/false-positive tokens belong here — never a real ghost we should fix.
  */
+/**
+ * Names that stand in for "a package" in a command template, not for a package.
+ *
+ * Needed only since the front-door span exemption was lifted: `--scope <packages/foo|apps/bar>` is a
+ * usage string, and reporting it as a name that does not resolve would be a false accusation about
+ * correct prose. Kept tiny and documented, like the allowlist below.
+ */
+const PLACEHOLDER_NAMES = new Set(['foo', 'bar', 'baz', 'name', 'your-package']);
+
 export const GHOST_PACKAGE_ALLOWLIST = new Set([
   '@robota-sdk/dag-nodes', // group-container README title (packages/dag-nodes holds nested dag-node-* packages); the container itself ships no package
   'packages/apps', // `apps` is a sibling workspace family, not a package under packages/ — prose shorthand ("packages/apps") in an agent-definition doc
 ]);
+
+/**
+ * The documents a newcomer reads as the CURRENT description of the repository.
+ *
+ * These four are read by someone with no way to know a fresher owner exists, so a stale package name
+ * in one misleads in a way the same name in a dated record cannot. They are the only docs where an
+ * inline code span is scanned rather than exempted.
+ */
+export const FRONT_DOOR_DOCS = new Set(['README.md', 'CONTRIBUTING.md', 'AGENTS.md', 'CLAUDE.md']);
 
 /** Doc trees that are immutable historical records — a defunct name there is history, not drift. */
 function isExcludedDoc(rel) {
@@ -61,8 +82,14 @@ function isExcludedDoc(rel) {
   const p = `/${rel.split(path.sep).join('/')}`;
   if (/\/\.changeset\//.test(p)) return true; // pending changelog fragments (same class as CHANGELOG.md; a removal changeset must name the removed package)
   if (/\/\.agents\/spec-docs\/(done|rejected)\//.test(p)) return true; // closed/archived spec work items
-  if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // completed task records
-  if (/\/\.agents\/backlog\/completed\//.test(p)) return true; // completed backlog items
+  // Two rules stood here — one for the task tree's `completed/`, one for the backlog tree's — and
+  // PROC-006 collapsed those trees into one, which made them the same rule written twice.
+  //
+  // Worth recording how the second one was nearly missed: a literal-string sweep for the old path
+  // did not see it, because it was written as an ESCAPED REGEX. A rename that greps for the literal
+  // path misses every escaped spelling of it.
+  if (/\/\.agents\/tasks\/completed\//.test(p)) return true; // archived Task records
+  if (/\/\.agents\/archive\//.test(p)) return true; // retired artefact kinds, kept as history
   if (/\/\.agents\/release-runs\//.test(p)) return true; // frozen per-release run records (immutable history)
   if (/\/content\/v\d/.test(p)) return true; // frozen versioned documentation snapshots
   if (/\/docs\/superpowers\//.test(p)) return true; // dated historical plan/spec artifacts
@@ -105,8 +132,7 @@ function listPackageDirNames(root) {
 export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'ghost-package-refs',
-    why:
-      'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
+    why: 'A reference is a ghost RELATIVE to the workspace package set; with no packages/ the resolution corpus is empty and every token would resolve to nothing or to everything.',
   });
   const findings = [];
   const workspaceNames = listWorkspacePackageNames(root);
@@ -149,12 +175,19 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
         continue;
       }
       if (inFence) continue;
-      if (ABSENCE_VOCAB.test(rawLine)) continue;
-      const line = rawLine.replace(/`[^`]*`/g, ' '); // strip inline code spans
+      if (ABSENCE_VOCABULARY.test(rawLine)) continue;
+      // Inline code spans are stripped everywhere EXCEPT the front door, where a package name in
+      // backticks is the normal way to write one and the reader has no way to know it is stale.
+      // HARNESS-068 measured the cost: `CONTRIBUTING.md` carried `` `packages/agent-provider` `` —
+      // a package the owning document says does not exist — and this scan was silent, not because
+      // its scope stopped one file short (it reads every live markdown file) but because the name
+      // was in a code span. The exemption was the blind spot, not the file list.
+      const line = FRONT_DOOR_DOCS.has(rel) ? rawLine : rawLine.replace(/`[^`]*`/g, ' ');
 
       for (const match of line.matchAll(TOKEN_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(token.slice(token.lastIndexOf('/') + 1))) continue;
         if (!workspaceNames.has(token)) {
           findings.push({
             file: rel,
@@ -168,6 +201,7 @@ export async function findGhostPackageRefFindings(root = WORKSPACE_ROOT) {
       for (const match of line.matchAll(PACKAGE_DIR_PATTERN)) {
         const token = match[0];
         if (GHOST_PACKAGE_ALLOWLIST.has(token)) continue;
+        if (PLACEHOLDER_NAMES.has(match[1])) continue;
         if (!packageDirNames.has(match[1])) {
           findings.push({
             file: rel,
@@ -194,6 +228,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

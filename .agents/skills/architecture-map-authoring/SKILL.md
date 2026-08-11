@@ -28,7 +28,7 @@ own content rules (those live in `documentation-sync.md`).
 2. **Write the spine (MUST):**
    - **H1 title** naming the slice.
    - **Scope line** — one sentence stating what this map owns.
-   - **Up-link** — `[System Architecture Map](../ARCHITECTURE-MAP.md)` for a top-level doc, or a link
+   - **Up-link** — `[System Architecture Map](../../specs/ARCHITECTURE-MAP.md)` for a top-level doc, or a link
      to the parent router for a nested detail doc.
    - **Structure block** — a relationship/layer table or a `mermaid` diagram: elements + edges
      (direction) + the brief contract at each boundary. A pure router doc may use a link list instead.

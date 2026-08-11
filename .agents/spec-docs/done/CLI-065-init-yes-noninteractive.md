@@ -123,7 +123,7 @@ injected prompt/TTY state.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-065.md` — archived at GATE-COMPLETE (T1~T7 all done, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-065.md` — archived at GATE-COMPLETE (T1~~T7 all done, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -153,7 +153,7 @@ injected prompt/TTY state.
 **Status upgrade:** approved → in-progress
 
 - Tasks file created: `.agents/tasks/CLI-065.md` exists with tasks T1–T7 (T1–T6 implementation/test tasks, T7 build/lint/test + PR wrap-up).
-- Tasks file path recorded in spec: `## Tasks` section references `.agents/tasks/CLI-065.md` with the T1~T7 / TC-01~TC-06 mapping note.
+- Tasks file path recorded in spec: `## Tasks` section references `.agents/tasks/CLI-065.md` with the T1~~T7 / TC-01~~TC-06 mapping note.
 - Task-to-criteria correspondence: one task per TC-N — T1→TC-01 (yes:true + existing files, no prompt, "Init cancelled."), T2→TC-02 (yes:true + .claude, migration default N), T3→TC-03 (CI=true parity), T4→TC-04 (non-TTY error contract), T5→TC-05 (interactive TTY regression), T6→TC-06 (SPEC.md doc update); all 6 Completion Criteria covered.
 - NON-COMPLIANCE check (no implementation before tasks file): `git status --porcelain -- packages/agent-cli/` is clean; last commit touching `src/init/init-command.ts` is 78d27a47a (2026-05-25), prior to spec approval (2026-06-11) — no implementation commits exist for this item.
 
@@ -161,7 +161,7 @@ injected prompt/TTY state.
 
 **Status upgrade:** in-progress → verifying
 
-- Tasks complete: `.agents/tasks/CLI-065.md` T1–T6 all `[x]`. T7 (wrap-up: build/typecheck/lint/test green + PR to develop + backlog evidence) is unchecked pending merge, but every component of T7's text was independently verified: PR #699 OPEN (`feat/cli-065-init-yes` → `develop`, title "fix(cli): init --yes completes non-interactively with documented defaults (CLI-065)"); backlog evidence recorded in `.agents/backlog/completed/CLI-065-init-yes-ignores-prompts.md` (status: done, real-binary non-TTY evidence dated 2026-06-12); build/typecheck/lint/test green (below). Merge itself happens after gates — same interpretation accepted in the CLI-063/064 GATE-VERIFY runs.
+- Tasks complete: `.agents/tasks/CLI-065.md` T1–T6 all `[x]`. T7 (wrap-up: build/typecheck/lint/test green + PR to develop + backlog evidence) is unchecked pending merge, but every component of T7's text was independently verified: PR #699 OPEN (`feat/cli-065-init-yes` → `develop`, title "fix(cli): init --yes completes non-interactively with documented defaults (CLI-065)"); backlog evidence recorded in `.agents/tasks/completed/CLI-065-init-yes-ignores-prompts.md` (status: done, real-binary non-TTY evidence dated 2026-06-12); build/typecheck/lint/test green (below). Merge itself happens after gates — same interpretation accepted in the CLI-063/064 GATE-VERIFY runs.
 - No tasks blocked or pending: T1–T6 done; T7 substance satisfied as above; nothing blocked.
 - Build passes: `pnpm --filter @robota-sdk/agent-cli build` → "Build complete in 672ms" (only affected package per Affected Files).
 - Tests pass: `pnpm --filter @robota-sdk/agent-cli test -- --run src/init/__tests__/init-command.test.ts` → 8/8 passed; full suite `pnpm --filter @robota-sdk/agent-cli test` → 14 files / 127 tests passed. `pnpm typecheck` (agent-cli) → 0 errors; `pnpm lint` → 0 errors (30 warnings).
@@ -175,7 +175,7 @@ injected prompt/TTY state.
 - Command: `pnpm --filter @robota-sdk/agent-cli test -- --run src/init/__tests__/init-command.test.ts` (fresh run by GATE-COMPLETE guard)
 - Output: `✓ src/init/__tests__/init-command.test.ts (8 tests)` — `Test Files 1 passed (1)`, `Tests 8 passed (8)`; exit code 0.
 - Test reference: `packages/agent-cli/src/init/__tests__/init-command.test.ts` > `TC-01: yes + existing files → no prompt, "Init cancelled.", files untouched` (passed in the run above).
-- Real-binary corroboration: `.agents/backlog/completed/CLI-065-init-yes-ignores-prompts.md` records `robota init --yes` re-run with existing files → exit 0, `Overwrite existing files? → N`, executed 2026-06-12 against the fixed build.
+- Real-binary corroboration: `.agents/tasks/completed/CLI-065-init-yes-ignores-prompts.md` records `robota init --yes` re-run with existing files → exit 0, `Overwrite existing files? → N`, executed 2026-06-12 against the fixed build.
 
 ### [GATE-COMPLETE: TC-02] — ✅ PASS | 2026-06-12
 
@@ -212,6 +212,6 @@ injected prompt/TTY state.
 - Completion Criteria: TC-01..TC-06 all verified above with fresh evidence and checked `[x]` (6/6).
 - Test Plan: every TC-N row now carries a test reference (TC-01..TC-05, with TC-05 covering two test variants) or an explicit skip reason (TC-06 manual doc review) — no TC-N silently unaddressed.
 - Fresh verification run: `pnpm --filter @robota-sdk/agent-cli test -- --run src/init/__tests__/init-command.test.ts` → 8/8 passed, exit 0 (2026-06-12).
-- Tasks file archived: `.agents/tasks/CLI-065.md` → `.agents/tasks/completed/CLI-065.md` (T1–T7 all `[x]`; T7 components — build/typecheck/lint/test green, PR #699 to develop with green CI, backlog evidence in `.agents/backlog/completed/CLI-065-init-yes-ignores-prompts.md` status done — verified at GATE-VERIFY and re-confirmed here).
+- Tasks file archived: `.agents/tasks/CLI-065.md` → `.agents/tasks/completed/CLI-065.md` (T1–T7 all `[x]`; T7 components — build/typecheck/lint/test green, PR #699 to develop with green CI, backlog evidence in `.agents/tasks/completed/CLI-065-init-yes-ignores-prompts.md` status done — verified at GATE-VERIFY and re-confirmed here).
 - `## Tasks` section updated to reference the archived path.
 - PR #699 CI green (build pass, quality pass; Cloudflare Pages preview failure is the known non-blocking docs-preview check).

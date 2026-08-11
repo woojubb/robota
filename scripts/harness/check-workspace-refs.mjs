@@ -111,8 +111,7 @@ export function listWorkspacePackageNames(root = WORKSPACE_ROOT) {
 export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'workspace-refs',
-    why:
-      'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
+    why: 'Resolution is relative to the workspace package set; with none, every reference is unresolvable and none is reported.',
   });
   const findings = [];
   const packageJsonFiles = listPackageJsonFiles(root);
@@ -147,21 +146,47 @@ export async function findWorkspaceRefFindings(root = WORKSPACE_ROOT) {
     }
   }
 
+  examinedManifests = 0;
   for (const pkgPath of packageJsonFiles) {
+    examinedManifests++;
     const scripts = readJson(pkgPath).scripts ?? {};
     checkText(Object.values(scripts).join('\n'), path.relative(root, pkgPath));
   }
 
+  examinedHelperScripts = 0;
   for (const scriptPath of listHelperScripts(root)) {
+    examinedHelperScripts++;
     checkText(readFileSync(scriptPath, 'utf8'), path.relative(root, scriptPath));
   }
 
   return findings;
 }
 
+/**
+ * How much the last run read — HARNESS-057. TWO holders for TWO subjects: this scan reads package
+ * manifests (their `scripts` blocks) and the helper scripts under `scripts/`, and one number would
+ * have to misreport one of them. Set where each walk happens and read where the lines are printed,
+ * so the finder's return shape and its tests stay untouched.
+ */
+let examinedManifests = 0;
+let examinedHelperScripts = 0;
+
+/** What the last run actually read — exported so both counts can be asserted. */
+export function examinedManifestCount() {
+  return examinedManifests;
+}
+export function examinedHelperScriptCount() {
+  return examinedHelperScripts;
+}
+
 export async function main() {
   const findings = await findWorkspaceRefFindings(WORKSPACE_ROOT);
   if (findings.length === 0) {
+    // The size of each subject, on the channel the runner reads. A zero in either means that walk
+    // found nothing — a pass over nothing rather than a tree with no stale refs — so neither
+    // carries an expected-empty excuse.
+    process.stdout.write(`::examined:: ${examinedManifests} package manifests\n`);
+    process.stdout.write(`::examined:: ${examinedHelperScripts} helper scripts\n`);
     process.stdout.write('workspace ref scan passed.\n');
     return;
   }
@@ -172,6 +197,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

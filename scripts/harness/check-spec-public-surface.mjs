@@ -252,8 +252,7 @@ function packageName(pkgDir, root) {
 export function collectUndocumentedExports(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'spec-public-surface',
-    why:
-      'The documented-vs-exported comparison needs both sides; with no packages/ neither exists.',
+    why: 'The documented-vs-exported comparison needs both sides; with no packages/ neither exists.',
   });
   const byPackage = {};
   for (const pkgDir of listSpecPackageDirs(root)) {
@@ -319,8 +318,7 @@ export function evaluateUndocumentedExports(undocumentedByPackage, baseline) {
 export async function findPublicSurfaceFindings(root = WORKSPACE_ROOT, options = {}) {
   requireGovernedTree(root, ['packages'], {
     scan: 'spec-public-surface',
-    why:
-      'Same corpus as the collector above: an absent packages/ makes "every advertised identifier exists in src/" true of nothing.',
+    why: 'Same corpus as the collector above: an absent packages/ makes "every advertised identifier exists in src/" true of nothing.',
   });
   const baseline = options.baseline ?? loadUndocumentedExportBaseline();
   const notices = options.notices ?? [];
@@ -400,6 +398,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

@@ -5,7 +5,7 @@ name: Live provider smoke
 # and streaming-shape changes are invisible to PR CI by construction. This job makes one minimal
 # REAL turn per credentialed provider so that class of breakage surfaces within a day.
 #
-# NON-BLOCKING (same posture as mutation-nightly): scheduled + manual only, never a required check,
+# NON-BLOCKING (same posture as the mutation run): manual only, never a required check,
 # never a PR gate. A PR cannot be blocked by a third party's API being down or by a spent quota.
 #
 # Credential-gated by construction: each provider's key is passed through from repo secrets, and
@@ -33,10 +33,6 @@ name: Live provider smoke
 # `LIVE_SMOKE_MODEL_OPENAI` (e.g. a small chat model id); without it OpenAI is reported WARN.
 
 on:
-  schedule:
-    # Daily 05:37 UTC — off-peak, and distinct from mutation-nightly (03:17), CodeQL (04:27) and the
-    # scheduled security scan (Mon 04:47) so the runners never contend.
-    - cron: '37 5 * * *'
   workflow_dispatch:
     inputs:
       provider:

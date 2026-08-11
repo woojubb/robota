@@ -1,4 +1,5 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
+import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
@@ -138,6 +139,9 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         parentTools: deps.tools,
         provider: deps.provider,
         terminal: deps.terminal,
+        // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
+        // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
+        cwd: subagentExecutionRoot(job.request),
         permissionMode: deps.permissionMode,
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
         // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).

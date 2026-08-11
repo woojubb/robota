@@ -7,7 +7,7 @@ tags: [cli, typescript, websocket, async]
 # CMD-004: Separate interaction ACTION from UI — one UI-agnostic action seam for every source
 
 > Formal gate-pipeline spec for the lightweight backlog item
-> [`.agents/backlog/completed/CMD-004-command-action-ui-separation.md`](../../backlog/completed/CMD-004-command-action-ui-separation.md).
+> [`.agents/tasks/completed/CMD-004-command-action-ui-separation.md`](../../backlog/completed/CMD-004-command-action-ui-separation.md).
 > CMD-005 (model-invocable question tool) depends on this foundation.
 >
 > **Revision note:** v2 after a 3-perspective architecture review. v1 had two invalidating defects —

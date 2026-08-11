@@ -12,7 +12,7 @@ import { collectReviewFindingsFindings } from '../scan-review-findings.mjs';
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-review-findings.mjs', import.meta.url));
 
 const REVIEWER_PATH = '.claude/agents/pr-review-reviewer.md';
-const ORCH_PATH = '.agents/skills/pr-review-orchestration/SKILL.md';
+const ORCH_PATH = '.agents/skills/pr-finding-resolution-loop/SKILL.md';
 
 const GREEN_REVIEWER = `---
 name: pr-review-reviewer
@@ -76,7 +76,7 @@ describe('collectReviewFindingsFindings', () => {
 
     const findings = collectReviewFindingsFindings(root);
     expect(findings).toEqual([
-      'pr-review-orchestration: merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
+      'pr-finding-resolution-loop: merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
     ]);
   });
 
@@ -87,7 +87,7 @@ describe('collectReviewFindingsFindings', () => {
 
     const findings = collectReviewFindingsFindings(root);
     expect(findings).toEqual([
-      'pr-review-orchestration: no longer states the agent never merges `main`.',
+      'pr-finding-resolution-loop: no longer states the agent never merges `main`.',
     ]);
   });
 
@@ -101,7 +101,7 @@ describe('collectReviewFindingsFindings', () => {
 
     const findings = collectReviewFindingsFindings(root);
     expect(findings).toEqual([
-      'pr-review-orchestration: no longer requires the `merge-verifier` post-merge check on develop.',
+      'pr-finding-resolution-loop: no longer requires the `merge-verifier` post-merge check on develop.',
     ]);
   });
 
@@ -112,7 +112,7 @@ describe('collectReviewFindingsFindings', () => {
 
     const findings = collectReviewFindingsFindings(root);
     expect(findings).toEqual([
-      'pr-review-orchestration: no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
+      'pr-finding-resolution-loop: no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
     ]);
   });
 });

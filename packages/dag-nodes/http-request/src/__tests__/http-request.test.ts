@@ -86,6 +86,25 @@ describe('HttpRequestNodeDefinition', () => {
     expect(result.error.context?.['errorCode']).toBe('TIMEOUT');
   });
 
+  it('CORE-027: a failure whose PROSE says "abort" is a network error, not this node\'s timeout', async () => {
+    // The classification reads the node's own timeout signal and the platform's abort name —
+    // never the message. A peer's phrasing must not borrow the timeout's error code.
+    const proseError = new Error('connection aborted by peer');
+    const mockFetch = vi.fn().mockRejectedValue(proseError);
+    vi.stubGlobal('fetch', mockFetch);
+
+    const input: TPortPayload = { url: 'https://example.com/flaky' };
+    const context = makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 10000 });
+
+    const result = await node.taskHandler.execute(input, context);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.context?.['errorCode'], 'prose was read as a timeout').toBe(
+      'NETWORK_ERROR',
+    );
+  });
+
   it('TC-04: fails with DAG_VALIDATION_HTTP_REQUEST_URL_REQUIRED when url is empty', async () => {
     const mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);

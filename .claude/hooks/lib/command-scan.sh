@@ -32,10 +32,55 @@
 # jq first, python3 second, refuse third. Both parse JSON properly, which is the entire point: the
 # payload is JSON and every hand-rolled decoder in this directory has been wrong about it.
 # `\uXXXX`, `\"`, `\\` and `\n` all come back as the characters they denote.
+#
+# ONE RULE, NOT ONE PER INSTALLED TOOL (INFRA-081, #1574). The two arms used to answer the same
+# question differently, and the difference reached a VERDICT. Measured end-to-end on `branch-guard.sh`
+# against a scratch repository, same payload both times, only `PATH` differing:
+#
+#   {"tool_name":"Bash","cwd":"<scratch>","tool_input":{"command":{"a":"git push origin main"}}}
+#     with jq      exit 0   (jq -r printed the pretty-printed OBJECT, whose `git push` sits inside
+#                            quotes, so the tokenizer masked it as data and no verb was found)
+#     without jq   exit 2   (the python3 arm writes "" for a non-string, and an empty command is a
+#                            refusal)
+#
+# One host permitted and the other refused, and neither answer was reached by a decision. Two more
+# divergences were measured in the same arm and are closed here with it: `jq -r ".a.b"` ERRORS when
+# `a` is not an object (so a jq-only host returned "could not decode" where a python3 host returned
+# ""), and `jq -r` appends a newline the python3 arm does not write.
+#
+# THE ANSWER IS "" — a field that is not a string is not that field — for three reasons, and the
+# alternative (a reader that returns non-zero on a non-string) was rejected for the third:
+#
+#   1. It is the rule `hook-facts.sh` had already measured and adopted for the text fields #1566
+#      could reach, in a second reader it wrote beside this one because it could not reach THIS one.
+#      Two spellings of one rule is what INFRA-077 spent a PR removing; that second reader is gone
+#      now, and its six callers ask this function directly.
+#   2. `hook-facts.sh` states the reader/caller split explicitly: a READER collapses absent and empty
+#      into "", and the CALLER names what empty means for it. A refusing reader would break that for
+#      one function out of the set.
+#   3. The VERDICT is fail-closed either way, and that is the property that matters. Every caller
+#      here already converts empty into a refusal or a fallback — `hook_command_of` returns non-zero
+#      on an empty command, `hook_tool_name_of` falls through to its no-tools parse — so both arms
+#      now exit 2 on the payload above. Measured, both directions.
+#
+# The path is passed as `--arg`, not interpolated into the filter: a field name is data, and the
+# reduce below is total, so no shape of path or payload makes this arm error where the other returns.
+
+# ONE spelling of git's value-taking global options — the single source every hook derives from
+# (branch-guard's GITPFX, its alias-substitution gate and verb latch via git_global_takes_value(),
+# and hook_git_c_path below). It lives in this LIBRARY because a sourced function cannot rely on a
+# definition its sourcing hook makes later — and a second hand-kept copy is the drift this list
+# exists to end (#1666 review). SANS_C is DERIVED, for the one reader whose target is -C itself.
+GIT_VALUE_GLOBALS_SANS_C='-c|--work-tree|--git-dir|--namespace|--exec-path|--super-prefix|--config-env'
+GIT_VALUE_GLOBALS="-C|${GIT_VALUE_GLOBALS_SANS_C}"
+
 hook_json_string() {
   local json="$1" path="$2"
   if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$json" | jq -r ".${path} // \"\"" 2>/dev/null && return 0
+    printf '%s' "$json" | jq -j --arg p "$path" '
+      reduce ($p | split(".")[]) as $k (.; if type == "object" then .[$k] else null end)
+      | if type == "string" then . else "" end
+    ' 2>/dev/null && return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     printf '%s' "$json" | python3 -c '
@@ -95,14 +140,30 @@ hook_tool_name_of() {
 # machine without jq produced empty content and the forbidden-pattern check exited 0 on content it
 # would otherwise have refused: the silent bypass this file exists to remove, surviving in the one
 # hook that guards a different tool. Review caught it.
+#
+# The arms are held to the SAME rule as `hook_json_string` above, and for the same reason
+# (INFRA-081): a field that is not a string is not that field. Fixing the divergence one function up
+# and leaving it here is how this directory keeps producing "corrected in one place, live in the
+# sibling". Four shapes were measured disagreeing before this, each reachable from an ordinary
+# payload: a numeric `content` (jq printed the number, python3 skipped to `new_string`), a
+# `tool_input` that is not an object (jq ERRORED, python3 raised, both then answered differently
+# depending on which tools were present), an `edits` list that is not a list, and an edit whose
+# `new_string` is not a string (python3 raised inside `join` and the whole read became "could not
+# decode"). Both arms now walk the same three steps and stop at the first STRING.
 hook_edit_content_of() {
-  local content
   if command -v jq >/dev/null 2>&1; then
-    content=$(printf '%s' "$1" | jq -r '
-      .tool_input.content
-      // .tool_input.new_string
-      // ([.tool_input.edits[]?.new_string] | join("\n"))
-      // ""' 2>/dev/null) && { printf '%s' "$content"; return 0; }
+    printf '%s' "$1" | jq -j '
+      (if type == "object" then .tool_input else null end) as $ti
+      | if ($ti | type) != "object" then ""
+        elif ($ti.content | type) == "string" then $ti.content
+        elif ($ti.new_string | type) == "string" then $ti.new_string
+        else [ ($ti.edits | if type == "array" then .[] else empty end)
+               | if type == "object"
+                 then (.new_string | if type == "string" then . else "" end)
+                 else empty end ]
+             | join("\n")
+        end
+    ' 2>/dev/null && return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     printf '%s' "$1" | python3 -c '
@@ -111,15 +172,25 @@ try:
     doc = json.load(sys.stdin)
 except Exception:
     sys.exit(1)
-ti = doc.get("tool_input") or {}
+ti = doc.get("tool_input") if isinstance(doc, dict) else None
+if not isinstance(ti, dict):
+    ti = {}
+out = None
 for key in ("content", "new_string"):
     if isinstance(ti.get(key), str):
-        sys.stdout.write(ti[key])
+        out = ti[key]
         break
-else:
-    edits = ti.get("edits") or []
-    parts = [e.get("new_string", "") for e in edits if isinstance(e, dict)]
-    sys.stdout.write("\n".join(parts))
+if out is None:
+    edits = ti.get("edits")
+    if not isinstance(edits, list):
+        edits = []
+    parts = []
+    for edit in edits:
+        if isinstance(edit, dict):
+            value = edit.get("new_string")
+            parts.append(value if isinstance(value, str) else "")
+    out = "\n".join(parts)
+sys.stdout.write(out)
 ' 2>/dev/null && return 0
   fi
   return 1
@@ -130,134 +201,39 @@ hook_cwd_of() {
   hook_json_string "$1" 'cwd'
 }
 
-# Remove heredoc BODIES from a command, keeping everything else — including whatever follows the
-# terminator, which is the part `%%<<*` discarded.
+# ONE READING OF A COMMAND, NOT TWO (INFRA-075, #1572).
 #
-# The body is data the shell feeds to a program; it is never executed, so a guard reading it is
-# reading text and calling it a command. Everything outside the body IS a command, including the
-# commands after the heredoc closes, so a guard not reading those is blind to them. Both halves
-# matter and each was gotten wrong separately.
+# Three functions stood here: `hook_strip_heredocs`, `hook_strip_comments`, and the
+# `hook_executable_part` that piped one into the other. They were the reading this file had BEFORE
+# #1565 gave it a tokenizer, and they survived that PR because retiring them is a caller-side change
+# and the hooks were owned by other work in flight. So the library offered two answers to "what does
+# this command do", three guards held both at once, and each grep site picked whichever variable was
+# in scope.
 #
-# Known limit, stated rather than hidden: only the first opener on a line is tracked, so
-# `cmd <<A <<B` strips A's body and treats B's opener as ordinary text. Multiple heredocs on one
-# line do not occur in commands this guards, and a wrong guess here would drop real commands.
-hook_strip_heredocs() {
-  awk '
-    BEGIN { inbody = 0 }
-    inbody {
-      line = $0
-      # Only `<<-` lets the terminator be indented. Stripping indentation unconditionally means an
-      # indented body line that happens to equal the terminator ends the body early, and the rest of
-      # the body is then scanned as if it were commands.
-      if (dashed) { sub(/^[ \t]+/, "", line) }
-      if (line == term) { inbody = 0; next }
-
-      # `<<EOF` — an UNQUOTED delimiter — is expanded by the shell, so `$(…)` and backticks in the
-      # body genuinely run. `<<\047EOF\047` and `<<"EOF"` are literal and stay data. Treating every
-      # body as data meant `git commit -F- <<EOF` with `$(git push --force …)` inside executed the
-      # push while no guard saw it — the same principle applied elsewhere in this file to quoted
-      # strings, and not here. Only the substitution spans are emitted; the prose around them is
-      # still data.
-      if (!quoted) {
-        out = ""
-        n = length($0)
-        for (i = 1; i <= n; i++) {
-          if (substr($0, i, 2) == "$(") {
-            depth = 0
-            for (j = i + 1; j <= n; j++) {
-              cj = substr($0, j, 1)
-              if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
-            }
-            stop = (j <= n) ? j : n
-            out = out substr($0, i, stop - i + 1) " "
-            i = stop
-          } else if (substr($0, i, 1) == "`") {
-            for (j = i + 1; j <= n; j++) { if (substr($0, j, 1) == "`") { break } }
-            stop = (j <= n) ? j : n
-            out = out substr($0, i, stop - i + 1) " "
-            i = stop
-          }
-        }
-        if (out != "") { print out }
-      }
-      next
-    }
-    {
-      # A herestring is not a heredoc. `<<< "x"` has no body and no terminator, but the pattern
-      # below matches from the SECOND `<`, so everything after it was swallowed as body and never
-      # came back — every later command in that call went unexamined. Neutralising `<<<` first is
-      # length-preserving, so offsets into $0 stay valid.
-      probe = $0
-      gsub(/<<</, "\002\002\002", probe)
-      if (match(probe, /<<-?[ \t]*[\047"]?[A-Za-z_][A-Za-z0-9_]*[\047"]?/)) {
-        term = substr(probe, RSTART, RLENGTH)
-        dashed = (substr(term, 3, 1) == "-")
-        quoted = (term ~ /[\047"]/)
-        sub(/^<<-?[ \t]*/, "", term)
-        gsub(/[\047"]/, "", term)
-        inbody = 1
-        $0 = substr($0, 1, RSTART - 1)   # keep the command, drop the opener and its tail
-      }
-      print
-    }
-  '
-}
-
-# Strip shell comments — quote-aware, because a comment is only a comment outside quotes.
+# The gap was not academic. Measured against real bash over the 202-shape differential corpus, with a
+# recording `git` stub on PATH:
 #
-# This was `sed 's/[[:space:]]#[^"]*$//'`. The `[^"]*` was there so a `#` inside a quoted string
-# would not be treated as a comment, and it worked by refusing to match whenever a quote appeared
-# anywhere after the `#` — including inside the comment itself. So `echo ok # a "half-open remark`
-# stripped nothing, the stray quote opened a string the masker never saw closed, and EVERY LINE
-# AFTER IT was masked away: a `git push origin --delete develop` on the next line was invisible to
-# all four guards. A new instance of the class this library exists to close, in the one helper that
-# had no state machine.
+#   hook_verb_scan        agreed with bash on 199 of 202
+#   hook_executable_part  agreed with bash on 111 of 202  (3 bypasses, 88 refusals of correct work)
 #
-# A `#` starts a comment when it is outside quotes and begins a word — which is what the shell
-# does, and what the masker already knows how to determine.
-hook_strip_comments() {
-  awk '
-    { lines[NR] = $0 }
-    END {
-      # Quote state carries ACROSS lines, exactly as the masker does. Resetting it per line meant a
-      # `#` on the continuation line of a multi-line quoted argument was read as a comment start,
-      # and the rest of that line — the real closing quote, and anything chained after it — was
-      # discarded. That removed a real command from what the guards see: the same defect class, via
-      # the opposite mechanism, in the fix for it.
-      q = ""
-      for (n = 1; n <= NR; n++) {
-        s = lines[n]
-        out = ""
-        # `q` carries across lines; `esc` does NOT. A trailing backslash escapes the NEWLINE — the
-        # shell joins the two physical lines and the backslash-newline vanishes — it does not leave
-        # the first character of the next line escaped. Sharing the flag made that character bypass
-        # the quote-open and comment-start decisions entirely.
-        esc = 0
-        len = length(s)
-        for (i = 1; i <= len; i++) {
-          c = substr(s, i, 1)
-          if (esc) { esc = 0; out = out c; continue }
-          if (c == "\\" && q != "\047") { esc = 1; out = out c; continue }
-          if (q == "") {
-            if (c == "\"" || c == "\047") { q = c; out = out c; continue }
-            # A word-initial `#` outside quotes begins a comment; the rest of the line is prose.
-            if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;&|(]/)) { break }
-            out = out c
-          } else {
-            if (c == q) { q = "" }
-            out = out c
-          }
-        }
-        print out
-      }
-    }
-  '
-}
-
-# What a guard should actually examine: the command with heredoc bodies and comments removed.
-hook_executable_part() {
-  printf '%s\n' "$1" | hook_strip_heredocs | hook_strip_comments
-}
+# and it reached VERDICTS, which is the part #1565 did not measure. `hook_strip_heredocs` looks for
+# a heredoc opener with a regex that does not know about quoting, so a `<<EOF` written INSIDE a
+# quoted string opened a body that never closed and every command after it was deleted from the
+# string the guards then examined. Three hooks, each with a bare control that is refused correctly:
+#
+#   worktree-cwd-guard  git -C <MAIN> reset --hard                                   -> exit 2
+#                       echo "see <<EOF for details" ; git -C <MAIN> reset --hard    -> exit 0
+#   pre-push-check      git -C <unreviewed> push                                     -> exit 2
+#                       echo "see <<EOF for details" ; git -C <unreviewed> push      -> exit 0
+#   branch-guard        git push origin --delete develop                             -> exit 2
+#                       echo "see <<EOF" ; git push origin --delete develop          -> exit 0
+#   branch-guard        git checkout -b BAD_NAME                                     -> exit 2
+#                       echo "see <<EOF" ; git checkout -b BAD_NAME                  -> exit 0
+#
+# The tokenizer below already answers what those two passes were approximating — a heredoc body and
+# a comment both come back as \001 in its mask, and it knows the grammar they were guessing at. So
+# every caller reads the RAW command now and `hook_match_*` masks it properly, and the third
+# quote-state machine in this file is gone with them.
 
 # Quoted contents are masked one character for one — EXCEPT the string an interpreter is told to
 # run, which is a command and is left intact.
@@ -278,15 +254,23 @@ hook_executable_part() {
 #
 # The shells are NAMED. `[^ \t;&|(\n/]*sh` matched any token ending in those two letters —
 # `git stash push -m "…"` read `stash` as an interpreter and opened the message to verb
-# scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`. Any number of arguments
-# may sit between the interpreter and its string, but none of them may itself be quoted: after
-# `python3 -c "x=1"` the NEXT quoted argument is a positional one the interpreter does not run,
-# and treating it as code refused ordinary commands. Allowing exactly one argument meant
-# `bash -x -c "…"`,
-# `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the exception and were masked.
+# scanning, refusing an ordinary command. An optional path prefix still allows `/bin/bash`.
 #
-# `ssh`, `expect` and `tclsh` are on the list because a closed list is a list of the ways past the
-# guard. `env`, `timeout`, `nohup`, `nice`, `flock`, `sudo`, `su` and `xargs` are deliberately NOT:
+# Any number of arguments may sit between the interpreter and its CODE FLAG, but none of them may
+# itself be quoted: after `python3 -c "x=1"` the NEXT quoted argument is a positional one the
+# interpreter does not run, and treating it as code refused ordinary commands. Allowing exactly one
+# argument meant `bash -x -c "…"`, `ssh -o Opt host "…"` and `python3 -u -c "…"` all fell out of the
+# exception and were masked.
+#
+# "and its CODE FLAG" is the INFRA-084 correction, and this paragraph said "and its string" until
+# review pointed out it still described the pre-fix model — the over-permissive one this change
+# exists to remove, sitting a few lines above the regex that no longer implements it.
+#
+# `ssh` and `awk` are the POSITIONAL members of that list, because a closed list is a list of the
+# ways past the guard. `expect` moved to its `-c` and `tclsh` left the list entirely — it has no
+# inline-code flag at all, so it is not an interpreter for this purpose (see the regex below for
+# what was measured). This sentence named all three as positional until review found it describing
+# a list the code no longer builds. `env`, `timeout`, `nohup`, `nice`, `flock`, `sudo`, `su` and `xargs` are deliberately NOT:
 # they exec an argument vector rather than evaluating a string, so listing them would widen
 # over-blocking for nothing. `timeout 5 bash -c "…"` stays covered — by the `bash -c` inside it.
 #
@@ -297,7 +281,510 @@ hook_executable_part() {
 # commands, and reading their arguments as commands would refuse routine work many times a day.
 # That is the self-blocking these hooks have already inflicted once. The trade runs this way
 # because of the threat model: the commands guarded here are the agent's own, written plainly.
-HOOK_INTERPRETER_RE='(^|[ \t;&|(\n`])(([^ \t;&|(\n]*/)?(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox|python[0-9.]*|node|deno|bun|perl|ruby|php|awk|expect|tclsh|ssh)[ \t]+([^ \t;&|(\n"\047]+[ \t]+)*|eval[ \t]+)$'
+#
+# INFRA-084: a CODE FLAG is required, and that requirement is the whole point. Any number of
+# arguments could sit before the quoted string, so `node script.mjs --notes "…"` matched and the
+# script's DATA was read as commands — an ordinary argument mentioning `git push` was judged as a
+# push. The rule this file already stated ("the interpreter's first quoted argument is the code it
+# runs") was true of `node -e "…"` and false of everything else, and nothing said so.
+#
+# `ssh` and `eval` keep the older shape: their code argument carries no flag — it is positional.
+#
+# The flag set is PER INTERPRETER, because the interpreters disagree about what a flag means and one
+# flat list cannot be right for all of them. The first version was flat — `-[a-zA-Z]*[ec]|--eval|
+# --command|--exec|eval|run` — and review measured what that missed. RAN, and each of these hid the
+# command inside it from every guard:
+#
+#   php -r "system('git push --force')"      `-r` is php's inline-code flag; it ends in neither e nor c
+#   node -p "…execSync('git push --force')"  `-p`/`--print` evaluates exactly as `-e` does
+#   perl -E "system 'git push --force'"      `-E` is perl's `-e` with features on; `[ec]` is lower-case
+#
+# `node -p` and `perl -E` were confirmed by RUNNING them; `php -r` is documented and php is not
+# installed on this host, which the case says rather than pretending otherwise.
+#
+# The pre-INFRA-084 regex required no flag at all, so it caught all three — this narrowing was a
+# regression in the opposite direction from the one it fixed, and the tests added with it had no
+# case for any of the three. That is the shape to watch for: a rule narrowed to fix over-blocking
+# takes the under-blocking with it unless the narrowing is measured against real invocations.
+#
+# Why per-interpreter and not one wider list: `-E` is CODE for perl and CHARACTER ENCODING for
+# ruby, and `-r` is CODE for php and REQUIRE-A-LIBRARY for ruby. A union list would read a `ruby -E
+# utf-8` argument as code and refuse ordinary work — the self-blocking INFRA-084 exists to undo.
+HOOK_INTERP_BOUNDARY='(^|[ \t;&|(\n`])'
+HOOK_INTERP_PATH='([^ \t;&|(\n]*/)?'
+# Any number of non-quoted arguments may sit between the interpreter and its code flag — but NOT a
+# script filename, and review measured why.
+#
+# Every one of these interpreters stops parsing its own options at the first non-option argument;
+# everything after that belongs to the script. RAN:
+#
+#   node <script>.mjs -e 'console.log("EVAL_RAN")'   ->  SCRIPT_RAN: -e console.log("EVAL_RAN")
+#
+# `-e` was the SCRIPT's flag, not node's, and matching it read an ordinary argument as code — the
+# over-blocking INFRA-084 exists to remove, reintroduced by its own fix.
+#
+# A token containing `.` or `/` is treated as that boundary. It is a heuristic and the trade is
+# stated rather than hidden: a value-taking flag whose value looks like a path
+# (`node --require ./setup.js -e "…"`) stops the match, so that code is masked as data — an
+# under-match, which is the direction this file usually refuses. It is accepted here because the
+# alternative measured worse: requiring every preceding token to start with `-` breaks
+# `python3 -W ignore -c "…"`, an ordinary invocation, and a guard that refuses ordinary work is the
+# failure this whole change is about.
+HOOK_INTERP_ARGS='([^ \t;&|(\n"\047./]+[ \t]+)*'
+# What may sit between a code flag and the code, and review found the first spelling too narrow.
+# It was `[ \t]+` — a REQUIRED space — so a fused invocation never matched and its code was masked
+# as data. Both of these RUN, measured:
+#
+#   python3 -c"import os;os.system('git push --force')"   PY_FUSED_RAN
+#   node --eval="git push --force"                        NODE_FUSED_RAN
+#
+# A short flag may abut its value with nothing between them; a long one takes `=`. So: optional
+# space, optional `=`, optional space. Zero-width is safe because each alternative below ends AT the
+# flag — `-config` does not end in `c`, and `--evalX` does not end in `--eval`.
+HOOK_INTERP_SEP='[ \t]*=?[ \t]*'
+# A bundle may only contain that interpreter's BOOLEAN flags, and review measured why `[a-zA-Z]*`
+# could not stay. A flag that takes its value FUSED to it ends in whatever letter its value ends in:
+#
+#   ruby -rdate "some note about git push --force"     BLOCKED, and nothing here is code
+#
+# `-rdate` is `-r date` — require the `date` library — and `-[a-zA-Z]*e` read it as `-e` because the
+# value happens to end in `e`. An ordinary data string was then verb-scanned as a ruby program,
+# which is the over-blocking INFRA-084 exists to remove, reappearing inside its own fix. `node
+# -rdate` had it too.
+#
+# So each interpreter names the letters that carry no value. Anything else fused to a `-` is a flag
+# WITH a value and cannot be the code flag. Value-taking flags written as separate tokens are
+# unaffected — `ruby -rjson -e "…"` still matches, because `HOOK_INTERP_ARGS` consumes `-rjson` and
+# the code flag stands alone.
+#
+# Written as what a bundle may NOT contain, not as what it may. Review found the first version listing
+# the boolean flags of each interpreter and measured the gap that leaves: `bash -T` (functrace) and
+# `python3 -P` (safe-path) are ordinary boolean flags that were simply missing, so `bash -Tc "git push
+# --force"` matched nothing, fell through to the generic quoted-argument branch, and the push was
+# masked as data. That is the UNDER-block direction, and it is the worse one — an allowlist of flags
+# has to be complete to be safe, and no hand-written list of another program's options stays complete.
+#
+# Inverted, the incompleteness lands on the safe side: a letter nobody listed is treated as a boolean
+# flag, the bundle matches, and the argument is scanned as code. The lists below are therefore the
+# flags that TAKE A VALUE, which is a much shorter and much more stable set — a value fused to its
+# flag is what made `-rdate` look like `-e` in the first place.
+#
+# `-` is excluded from every class so a bundle cannot run past its own token into the next flag.
+HOOK_INTERP_SH_BOOL='[^ \t;&|(\n"\047oO-]*'
+HOOK_INTERP_PY_BOOL='[^ \t;&|(\n"\047WXQm-]*'
+HOOK_INTERP_RB_BOOL='[^ \t;&|(\n"\047rIECFKx-]*'
+HOOK_INTERP_PL_BOOL='[^ \t;&|(\n"\047ImMFCi-]*'
+HOOK_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
+# A shell: `-c`, in a bundle or alone. NOT `--command` — measured, `bash --command` is "invalid
+# option" and `python3 --command` is "unknown option". A flag the tool does not have is a claim this
+# file makes and the tool refuses, which is the same class as everything else on this list.
+# The shell alternative is NAMED, because two lists need it and review found the second one
+# carrying a hand-written copy: `HOOK_SHELL_INTERPRETER_RE` below still had `-[a-zA-Z]*c` after this
+# one was narrowed, and the tokenizer tries that list FIRST — so `bash -qc "…"` matched there and the
+# narrowing was dead for every shell. Sharing the parts was not enough; the ALTERNATIVE has to be the
+# same string, or "composed from the same parts" is a claim about the parts nobody made about the whole.
+HOOK_INTERP_SHELL_ALT="${HOOK_INTERP_PATH}(sh|bash|zsh|dash|ksh|tcsh|csh|ash|fish|mksh|busybox)[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_SH_BOOL}c${HOOK_INTERP_SEP}"
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
+# python: `-c`. `-m` names a MODULE, not code.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}python[0-9.]*[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PY_BOOL}c${HOOK_INTERP_SEP}"
+# ruby: `-e` only. `-E` is the encoding flag and `-r` requires a LIBRARY — both would over-block.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}ruby[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_RB_BOOL}e${HOOK_INTERP_SEP}"
+# node / bun: `-e`/`--eval` and `-p`/`--print`, which evaluates its argument and prints the result.
+# Both long forms confirmed by RUNNING them.
+#
+# No bundle: node has no single-letter flag bundling at all, so the short forms are exact. `-[a-zA-Z]*[ep]`
+# was here and read `node -rdate "…"` — require the `date` module — as an eval of its argument.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(node|bun)[ \t]+${HOOK_INTERP_ARGS}(-[ep]|--eval|--print)${HOOK_INTERP_SEP}"
+# `deno eval <code>` / `bun eval <code>` take the code positionally.
+#
+# `eval` is a SUBCOMMAND, so it is the FIRST token after the binary — no `HOOK_INTERP_ARGS` in front
+# of it, and review is why. With arguments allowed before it, `deno run cli.ts eval "…"` matched and
+# a data argument was read as code. A flag may be interspersed; a subcommand may not.
+#
+# `run` is NOT here at all: `deno run` and `bun run` take a script FILE or a package.json script
+# NAME, never inline code, and keeping it read a quoted argument as code.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(deno|bun)[ \t]+eval[ \t]+"
+# perl: `-e` and `-E`, in a bundle (`-ne`, `-lE`) or alone. NOT `--eval` — measured, perl answers
+# "Unrecognized switch: --eval".
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}perl[ \t]+${HOOK_INTERP_ARGS}-${HOOK_INTERP_PL_BOOL}[eE]${HOOK_INTERP_SEP}"
+# php: `-r` runs the argument; `-B`/`-R`/`-E` run it before/per-line/after input. `-F` takes a FILE.
+# `--run` is php's documented long form of `-r`; php is not installed on this host, so that one is
+# from the documentation and is marked as such rather than claimed as measured. php does not bundle
+# single-letter flags, so these are exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}php[ \t]+${HOOK_INTERP_ARGS}(-[rRBE]|--run)${HOOK_INTERP_SEP}"
+# expect: `-c` runs commands; a bare positional argument is a script FILE. Single-dash options only,
+# and no bundling, so `-c` is exact.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}expect[ \t]+${HOOK_INTERP_ARGS}-c${HOOK_INTERP_SEP}"
+# Positional: the code argument carries no flag at all, whatever precedes it.
+#
+# `tclsh` and `expect` were here with `ssh` and `awk`, and review was right that they do not share
+# that grammar — they share `perl`/`php`'s, which this change had just fixed one commit earlier.
+# MEASURED: `tclsh 'puts X'` answers `couldn't read file "puts X"`, the same shape as the perl
+# reading that started INFRA-084. `tclsh` has no inline-code flag at all, so it is not an
+# interpreter for this purpose and is gone from the list entirely; `expect` moved up to its `-c`.
+#
+# `ssh` and `awk` stay: their trailing quoted string genuinely IS the remote command / the program,
+# with no flag, regardless of what precedes it.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|${HOOK_INTERP_PATH}(ssh|awk)[ \t]+${HOOK_INTERP_ARGS}"
+# The shell builtin `eval`, which runs its argument. It matches the WORD anywhere, not only in
+# command position — so `deno run cli.ts eval "…"` is read as code even though that `eval` is an
+# argument. MEASURED, and stated rather than left for the next reader: `somecmd arg eval "…"`
+# matches too, and `notaneval` does not, which is how the source was identified.
+#
+# Left as is. Narrowing it needs a notion of command position the tokenizer does not expose, and the
+# over-match fails in the SAFE direction — a data argument read as code costs a false refusal the
+# author sees, where the opposite costs a bypass nobody sees.
+HOOK_INTERPRETER_RE="${HOOK_INTERPRETER_RE}|eval[ \t]+)\$"
+
+# The subset whose string argument is parsed AS SHELL. `python3 -c`, `node -e`, `perl -e` and
+# `awk` run a command too, but not a shell one, so reading their argument with shell quoting
+# rules would be an approximation of a DIFFERENT grammar — the exact mistake this file is a
+# record of. They stay on the list above, kept verbatim; only these are descended into.
+#
+# THE SAME ALTERNATIVE as the list above — `${HOOK_INTERP_SHELL_ALT}`, one string, not a second
+# spelling of it. It was a literal copy carrying its own `--command` and its own required space, and
+# after those were fixed it drifted again: the copy kept `-[a-zA-Z]*c` through the bundle narrowing
+# and, because the tokenizer tries THIS list first, the narrowing never applied to a shell at all.
+# Two corrections, one cause. "Composed from the same parts" says nothing about the whole.
+HOOK_SHELL_INTERPRETER_RE="${HOOK_INTERP_BOUNDARY}("
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}${HOOK_INTERP_SHELL_ALT}"
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|${HOOK_INTERP_PATH}ssh[ \t]+${HOOK_INTERP_ARGS}"
+HOOK_SHELL_INTERPRETER_RE="${HOOK_SHELL_INTERPRETER_RE}|eval[ \t]+)\$"
+
+# A tokenizer for the shell grammar, for the one question the guards ask: which characters of this
+# command will the shell EXECUTE, and which are data it will merely pass along?
+#
+# Why a tokenizer and not one more pass over the string.
+#
+# This file used to answer that with two linear passes: mask quoted regions, then restore
+# command-substitution spans. Both passes are regular, and shell quoting is not: `"$(printf 'x')"`
+# nests a single-quoted payload inside a substitution inside a double-quoted string, and deciding
+# what is data at the innermost level needs a stack. The restore pass had none, so it copied the
+# whole span back from the original, quoted payload included, and
+#
+#     out=$(printf 'x git commit -m y' | bash h.sh); echo done
+#
+# was refused as a commit (INFRA-075). Indexing where each quote OPENED closed that spelling and
+# opened its mirror: with the inner quotes now held masked, a genuine `a=$(echo "$(git commit)")`
+# stopped being seen at all — a real invocation invisible to every guard, which is a bypass, not a
+# nuisance. Measured on the differential corpus at the commit before this tokenizer existed: 177
+# of 197 shapes agreed with bash. Five of the twenty that did not were BYPASSES — bash ran the
+# push and no guard could see it — and the rest were refusals of correct work. With the grammar
+# read properly: 194 of 197, and every remaining disagreement is the one class named below.
+#
+# Four days of that class: `branch-guard.sh` rewritten 26 times, seven distinct instances, every one
+# found by a person hitting a new spelling and twice by a fix refusing the branch it lived on. The
+# repair is not a third pass. A substitution's content is itself a command and must be read by the
+# same rules that read the outer command — that is recursion, and the program below expresses it
+# as an explicit context stack, so the nesting depth is not bounded by the number of passes.
+#
+# What it models: single quotes, double quotes, ANSI-C `$'…'`, locale `$"…"`, backslash escapes and
+# the backslash-newline continuation, `#` comments, heredocs (`<<`, `<<-`, quoted and unquoted
+# delimiters) and herestrings, redirections, subshells, `${…}`, `$((…))`, `$(…)` and backtick
+# substitutions NESTED TO ANY DEPTH, and the string an interpreter is told to run.
+#
+# What it deliberately does NOT model, stated rather than discovered later: COMMAND POSITION. `echo
+# git push` names a verb the shell never runs as a command, and this tokenizer still shows it. To
+# hide it, the mask would have to drop every word that is not the first of a simple command — and
+# then `sudo git push`, `xargs git push`, `env git push`, `timeout 5 git push`, `command git push`
+# and every other exec-style wrapper not on some list would go unseen. That trade runs the wrong
+# way: an unmodelled wrapper is a silent BYPASS, while an argument read as a command is a refusal
+# that announces itself. The shapes this leaves unread are pinned as disagreements in
+# `scripts/harness/__tests__/hook-reading-matches-bash.test.mjs`, not hidden.
+#
+# The output is length-preserving, one character in for one character out, because `hook_match_*`
+# locates a verb in the mask and then reads its argument from the ORIGINAL at the same offset.
+# Executed text comes back as itself; data becomes \001; a quote that delimits a region the shell
+# will run becomes a space, so `git "push"` reads exactly as `git  push `.
+
+# The program defines awk FUNCTIONS only, and is concatenated ahead of the END block below, which
+# calls `tk_mask`. It is a separate variable because a parser and a set of field accessors are
+# different jobs, and because every awk invocation here needs the same one.
+#
+# No literal backtick and no literal apostrophe appears below. Both are load-bearing characters of
+# the grammar being parsed AND terminators of the single-quoted shell string carrying the program;
+# writing one directly is what left this file unparseable once, which blocks every guarded command
+# in the session. They are spelled \140 and \047.
+HOOK_TOKENIZER_AWK='
+  # A `#` opens a comment only where a word can begin.
+  function tk_wordstart(s, i) {
+    return (i == 1 || substr(s, i - 1, 1) ~ /[ \t\n;&|(]/)
+  }
+
+  # Characters that may end a heredoc delimiter word.
+  function tk_delimchar(c) {
+    return (c ~ /[A-Za-z0-9_.\/-]/)
+  }
+
+  # Fill m[1..length(s)] with the reading of s.
+  #
+  # Two interpreter lookbehinds, because the grammar this file knows is the SHELL grammar. SRE names
+  # the interpreters that parse their string argument AS SHELL — the shells themselves, `eval`, and
+  # `ssh` (a remote shell reads it) — and the tokenizer descends into those, which is what tells
+  # `bash -c "echo \047git commit\047"` from `bash -c "git commit"`. IRE names every interpreter,
+  # shell or not; a string run by `python3 -c` or `perl -e` is a command but NOT a shell command, so
+  # applying shell quoting to it would be a second approximation dressed as a parse. Those are kept
+  # verbatim, which over-reads (a mention inside python source still shows) — the direction that
+  # refuses work rather than the one that lets a `python3 -c "os.system(\047git push\047)"` through.
+  function tk_mask(s, m, IRE, SRE,
+                   len, i, j, w, c, c2, c3, nx, k, q, spaced, ch,
+                   sp, kind, fend, fdep, fterm, fdash, fquo,
+                   hn, hterm, hdash, hquo, dash, quoted, term, dc, eol, e, line, cand) {
+    len = length(s)
+
+    # Pre-fill with the original. Anything the loop somehow fails to visit therefore stays VISIBLE:
+    # a guard that over-reads refuses work and is argued with, a guard that under-reads is a hole
+    # nobody notices.
+    for (i = 1; i <= len; i++) { m[i] = substr(s, i, 1) }
+
+    sp = 1
+    kind[1] = "CMD"; fend[1] = ""; fdep[1] = 0
+    hn = 0
+    i = 1
+
+    while (i <= len) {
+      c = substr(s, i, 1)
+      c2 = substr(s, i, 2)
+      c3 = substr(s, i, 3)
+      k = kind[sp]
+
+      # ---- single quotes: no expansion of any kind happens inside ----
+      if (k == "SQ") {
+        if (c == "\047") { m[i] = "\047"; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- $\047…\047 : ANSI-C quoting. Escapes are consumed, nothing expands. ----
+      if (k == "ANSI") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c == "\047") { m[i] = "\047"; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- a quoted region an interpreter runs, and a quoted single word, are read verbatim ----
+      # A single word in quotes is a TOKEN of the command line, not a payload: `git "push"` runs the
+      # same push as `git push`, and quoting every token is ordinary defensive style.
+      if (k == "TOK") {
+        if (c == "\\" && fend[sp] != "\047") {
+          m[i] = c; if (i + 1 <= len) { m[i + 1] = substr(s, i + 1, 1) }; i += 2; continue
+        }
+        if (c == fend[sp]) { m[i] = " "; sp--; i++; continue }
+        m[i] = c; i++; continue
+      }
+
+      # ---- heredoc body ----
+      if (k == "HD") {
+        # The terminator is recognised at the start of a physical line. The check is stateless — it
+        # asks where we ARE rather than carrying a flag — so a substitution that spans a newline
+        # inside the body cannot leave the frame believing it is mid-line forever.
+        if (i == 1 || substr(s, i - 1, 1) == "\n") {
+          e = index(substr(s, i), "\n")
+          eol = (e > 0) ? i + e - 1 : len + 1
+          line = substr(s, i, eol - i)
+          cand = line
+          # Only `<<-` allows an indented terminator, and only TABS are stripped. Stripping spaces
+          # too would end a body early at an indented line that happens to read like the delimiter,
+          # and the rest of that body would then be scanned as commands.
+          if (fdash[sp]) { sub(/^\t+/, "", cand) }
+          if (cand == fterm[sp]) {
+            for (j = i; j < eol; j++) { m[j] = "\001" }
+            if (eol <= len) { m[eol] = "\n" }
+            i = eol + 1
+            sp--
+            continue
+          }
+        }
+        if (c == "\n") { m[i] = "\n"; i++; continue }
+        # An UNQUOTED delimiter leaves the body expanded, so a substitution written in it genuinely
+        # runs. `<<\047EOF\047` and `<<"EOF"` are literal and stay data.
+        if (!fquo[sp]) {
+          if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+            sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+          if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+            sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+          if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+            sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+          if (c == "\140") { m[i] = "\140"
+            sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+          if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- ${…} : data, but a default value may itself be a substitution ----
+      if (k == "PARAM") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "{") { fdep[sp]++; m[i] = "\001"; i++; continue }
+        if (c == "}") {
+          if (fdep[sp] > 0) { fdep[sp]--; m[i] = "\001"; i++; continue }
+          m[i] = "\001"; sp--; i++; continue
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- $((…)) : arithmetic, not a command, but substitutions inside it are ----
+      if (k == "ARITH") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        # Arithmetic nests in arithmetic, and this was the ONE context that did not test for it
+        # before falling through to the two-character substitution test. `$(( $(( … )) ))` was
+        # therefore read as a command substitution whose content is a command, so the inner
+        # expression came back as visible command text. It fails in the refusing direction rather
+        # than the permitting one, but it is the same defect the rest of this file is a record of:
+        # a rule held in every context except one sibling.
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "(") { fdep[sp]++; m[i] = "\001"; i++; continue }
+        if (c == ")") {
+          if (fdep[sp] > 0) { fdep[sp]--; m[i] = "\001"; i++; continue }
+          m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; sp--; i += 2; continue
+        }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- double quotes: data, EXCEPT the expansions the shell performs inside them ----
+      if (k == "DQ") {
+        if (c == "\\") { m[i] = "\001"; if (i + 1 <= len) { m[i + 1] = "\001" }; i += 2; continue }
+        if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+          sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+        # The substitution runs whatever the quoting around it, so its content is read as the
+        # command it is — and read by these same rules, which is what makes the nesting unbounded.
+        if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+          sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+        if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+          sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+        if (c == "\140") { m[i] = "\140"
+          sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue }
+        if (c == "\"") { m[i] = "\""; sp--; i++; continue }
+        m[i] = "\001"; i++; continue
+      }
+
+      # ---- command context ----
+      if (c == "\\") {
+        nx = substr(s, i + 1, 1)
+        # A backslash before a newline is a LINE CONTINUATION: the shell joins the two lines and
+        # both characters vanish. Leaving them in place split `git \<newline>  commit` into two
+        # words no verb pattern could match, and the invocation went unseen.
+        if (nx == "\n") { m[i] = " "; m[i + 1] = " "; i += 2; continue }
+        m[i] = c; if (i + 1 <= len) { m[i + 1] = nx }; i += 2; continue
+      }
+
+      if (c == "#" && tk_wordstart(s, i)) {
+        while (i <= len && substr(s, i, 1) != "\n") { m[i] = "\001"; i++ }
+        continue
+      }
+
+      if (c == "\n") {
+        m[i] = "\n"; i++
+        # The bodies of every heredoc opened on the line that just ended follow, in the order the
+        # openers appeared, so the LAST one goes on the stack first.
+        if (hn > 0) {
+          for (w = hn; w >= 1; w--) {
+            sp++; kind[sp] = "HD"; fend[sp] = ""; fdep[sp] = 0
+            fterm[sp] = hterm[w]; fdash[sp] = hdash[w]; fquo[sp] = hquo[w]
+          }
+          hn = 0
+        }
+        continue
+      }
+
+      # A herestring has no body and no terminator, and its operand is an ordinary word. Consuming
+      # all three characters at once is the point: skipping only the first left the SECOND and third
+      # looking like a heredoc opener, whose delimiter word is command text and is kept — so
+      # `cat <<< \047git commit\047` read its quoted operand as a command. The same defect the
+      # original `%%<<*` truncation had, re-entered through the fix for it.
+      if (c3 == "<<<") { m[i] = "<"; m[i+1] = "<"; m[i+2] = "<"; i += 3; continue }
+
+      if (c2 == "<<") {
+        j = i + 2
+        dash = 0
+        if (substr(s, j, 1) == "-") { dash = 1; j++ }
+        while (j <= len && (substr(s, j, 1) == " " || substr(s, j, 1) == "\t")) { j++ }
+        quoted = 0; term = ""
+        dc = substr(s, j, 1)
+        if (dc == "\047" || dc == "\"") {
+          quoted = 1; j++
+          while (j <= len && substr(s, j, 1) != dc) { term = term substr(s, j, 1); j++ }
+          j++
+        } else if (dc == "\\") {
+          quoted = 1; j++
+          while (j <= len && tk_delimchar(substr(s, j, 1))) { term = term substr(s, j, 1); j++ }
+        } else {
+          while (j <= len && tk_delimchar(substr(s, j, 1))) { term = term substr(s, j, 1); j++ }
+        }
+        if (term != "") {
+          hn++; hterm[hn] = term; hdash[hn] = dash; hquo[hn] = quoted
+          for (w = i; w < j && w <= len; w++) { m[w] = substr(s, w, 1) }
+          i = j
+          continue
+        }
+      }
+
+      if (c3 == "$((") { m[i] = "$"; m[i+1] = "("; m[i+2] = "("
+        sp++; kind[sp] = "ARITH"; fend[sp] = ""; fdep[sp] = 0; i += 3; continue }
+      if (c2 == "$(") { m[i] = "$"; m[i+1] = "("
+        sp++; kind[sp] = "CMD"; fend[sp] = ")"; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "${") { m[i] = "$"; m[i+1] = "{"
+        sp++; kind[sp] = "PARAM"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "$\047") { m[i] = "$"; m[i+1] = "\047"
+        sp++; kind[sp] = "ANSI"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+      if (c2 == "$\"") { m[i] = "$"; m[i+1] = "\""
+        sp++; kind[sp] = "DQ"; fend[sp] = ""; fdep[sp] = 0; i += 2; continue }
+
+      if (c == "\140") {
+        if (fend[sp] == "\140") { m[i] = "\140"; sp--; i++; continue }
+        m[i] = "\140"; sp++; kind[sp] = "CMD"; fend[sp] = "\140"; fdep[sp] = 0; i++; continue
+      }
+
+      if (c == "(") { m[i] = c; fdep[sp]++; i++; continue }
+      if (c == ")") {
+        if (fdep[sp] > 0) { fdep[sp]--; m[i] = c; i++; continue }
+        if (fend[sp] == ")") { m[i] = c; sp--; i++; continue }
+        m[i] = c; i++; continue
+      }
+
+      if (c == "\"" || c == "\047") {
+        # Closing the string an interpreter was told to run.
+        if (fend[sp] == c) { m[i] = " "; sp--; i++; continue }
+        q = c
+        # The decision is made at the OPENING quote, by what immediately precedes it, so each string
+        # answers for itself: applying an interpreter exemption to a whole command line masked away
+        # a real `-C` and left an unrelated commit message readable as a push, both at once.
+        if (substr(s, 1, i - 1) ~ SRE) {
+          m[i] = " "; sp++; kind[sp] = "CMD"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        if (substr(s, 1, i - 1) ~ IRE) {
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        spaced = 0
+        j = i + 1
+        while (j <= len) {
+          ch = substr(s, j, 1)
+          if (ch == "\\" && q != "\047") { j += 2; continue }
+          if (ch == q) { break }
+          if (ch == " " || ch == "\t" || ch == "\n") { spaced = 1; break }
+          j++
+        }
+        if (!spaced) {
+          m[i] = " "; sp++; kind[sp] = "TOK"; fend[sp] = q; fdep[sp] = 0; i++; continue
+        }
+        m[i] = q; sp++; kind[sp] = (q == "\047") ? "SQ" : "DQ"; fend[sp] = ""; fdep[sp] = 0
+        i++; continue
+      }
+
+      m[i] = c; i++
+    }
+  }
+'
 
 HOOK_SCAN_AWK='
   { lines[NR] = $0 }
@@ -308,93 +795,184 @@ HOOK_SCAN_AWK='
     for (n = 1; n <= NR; n++) { s = s (n > 1 ? "\n" : "") lines[n] }
     len = length(s)
 
-    q = ""
-    keep = 0
-    esc = 0
-    for (i = 1; i <= len; i++) {
-      c = substr(s, i, 1)
-
-      # A backslash-escaped quote neither opens nor closes a string. Without this the tracker went
-      # out of phase at the first escaped quote and every offset after it was wrong. Inside single
-      # quotes a backslash is an ordinary character, which is why q is checked.
-      if (esc) { esc = 0; m[i] = (q == "" || keep) ? c : "\001"; continue }
-      if (c == "\\" && q != "\047") { esc = 1; m[i] = (q == "" || keep) ? c : "\001"; continue }
-
-      if (q == "") {
-        m[i] = c
-        if (c == "\"" || c == "\047") {
-          q = c
-          openq = i
-          keep = (substr(s, 1, i - 1) ~ IRE)
-
-          # A quoted SINGLE WORD is a token of the command line, not a data payload. Quoting one
-          # changes nothing about what runs, so `git "push" origin main`, `git reset "--hard"` and
-          # `gh pr merge 1 --merge "--delete-branch"` must read exactly as their bare forms — and
-          # quoting every token is ordinary defensive shell style, not an exotic evasion. Only a
-          # quoted string containing whitespace is treated as a payload.
-          if (!keep) {
-            j = i + 1
-            spaced = 0
-            while (j <= len) {
-              ch = substr(s, j, 1)
-              if (ch == "\\" && q != "\047") { j += 2; continue }
-              if (ch == q) { break }
-              if (ch == " " || ch == "\t" || ch == "\n") { spaced = 1; break }
-              j++
-            }
-            if (!spaced) { keep = 1 }
-          }
-
-          # The quote characters themselves become spaces around a KEPT region, so a matcher reads
-          # `git "push"` exactly as `git  push `. Without this the region survived masking and still
-          # matched nothing, because every verb pattern expects whitespace before the verb. Length is
-          # preserved one for one, so the offsets the extractors depend on stay valid.
-          if (keep) { m[openq] = " " }
-        }
-      } else if (c == q) {
-        m[i] = keep ? " " : c
-        q = ""
-        keep = 0
-      } else {
-        m[i] = keep ? c : "\001"
-        if (q == "\047") { sq[i] = 1 }
-      }
-    }
-
-    # Command substitution runs whatever the quoting around it, so its span is restored from the
-    # original — the SPAN, not the whole enclosing string. Keeping the entire string meant a message
-    # holding both a substitution and an unrelated mention of a guarded verb was read as that verb.
-    for (i = 1; i <= len; i++) {
-      # An escaped substitution does not substitute — it is the literal character. Skipping the
-      # escape here is what stops a commit message written with markdown code spans from being read
-      # as a subshell; the gate blocked its own commit before this line existed.
-      # Single quotes suppress every expansion, so nothing inside them is restored. Without
-      # this the pass reached into a single-quoted argument and read its text as a subshell
-      # — the gate blocked its own commit that way, which is the self-blocking this whole
-      # change exists to remove.
-      if (sq[i]) { continue }
-      if (substr(s, i, 1) == "\\") { i++; continue }
-      if (substr(s, i, 2) == "$(") {
-        depth = 0
-        for (j = i + 1; j <= len; j++) {
-          cj = substr(s, j, 1)
-          if (cj == "(") { depth++ } else if (cj == ")") { depth--; if (depth == 0) { break } }
-        }
-        stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
-        i = stop
-      } else if (substr(s, i, 1) == "`") {
-        for (j = i + 1; j <= len; j++) { if (substr(s, j, 1) == "`") { break } }
-        stop = (j <= len) ? j : len
-        for (k = i; k <= stop; k++) { m[k] = substr(s, k, 1) }
-        i = stop
-      }
-    }
+    # The whole reading, delegated to the grammar. What used to sit here was a quote-state pass
+    # followed by a substitution-restore pass, and no arrangement of two linear passes can say
+    # what a quote inside a substitution inside a quote means. See the tokenizer above.
+    tk_mask(s, m, IRE, SRE)
 
     mask = ""
     for (i = 1; i <= len; i++) { mask = mask m[i] }
 
+    # ---- the STATEMENTS of this command ----
+    #
+    # A Bash tool call is a SEQUENCE of statements and each guarded action belongs to exactly one of
+    # them. `branch-guard.sh` used to answer for all of them at once — booleans over the whole
+    # command, and a single NEW_BRANCH / START_POINT / DELETE_BRANCH_NAME taken from the FIRST match
+    # anywhere, because `match()` returns the first match only. Any action then escaped judgement
+    # behind any well-formed sibling; measured, with no override token involved:
+    #   git checkout -b feat/x develop ; git checkout -b feat/y main  -> exit 0 (wrong base unjudged)
+    #   git checkout -b feat/ok ; git checkout -b BAD_NAME            -> exit 0 (bad name unjudged)
+    #
+    # The boundary is looked for in the MASK, never in the original: a `;` inside a quoted argument
+    # or a heredoc body is \001 there and cannot split a statement that is not one. A NEWLINE is a
+    # separator too — leaving it out is how the next spelling of this defect would arrive, and it is
+    # safe here for the same reason, because every mode below reads the FULL-CONTEXT mask through a
+    # window rather than re-masking a slice.
+    if (MODE == "ranges") {
+      start = 1
+      for (i = 1; i <= len; i++) {
+        c = substr(mask, i, 1)
+        # `&` in a REDIRECTION is not a separator. `2>&1`, `1>&2` and `>&2` are among the most
+        # common things anyone writes, and splitting on that `&` cut the statement in two — every
+        # caller then judged a truncated fragment, in one measured case one carrying an unclosed
+        # `$(`. A redirecting `&` is preceded by `>` or `<`, optionally with a digit between.
+        # (INFRA-085, found while chasing a #1588 review finding whose stated cause was elsewhere.)
+        if (c == "&") {
+          # `2>&1` and `>&2` put the ampersand AFTER the arrow; `&>` and `&>>` put it BEFORE. Reading
+          # only the character in front caught the first pair and missed the second, and bash accepts
+          # a redirection BETWEEN arguments — so `git commit -m "x" &> /dev/null --no-verify` split
+          # into a fragment holding the verb and one holding the flag, and the gate saw neither.
+          # (INFRA-085, second half, from a #1588 review.)
+          if (i > 1) {
+            p = substr(mask, i - 1, 1)
+            if (p == ">" || p == "<") continue
+          }
+          if (i < len && substr(mask, i + 1, 1) == ">") continue
+        }
+        if (c == ";" || c == "&" || c == "|" || c == "\n") {
+          if (i > start) { print start " " (i - start) }
+          start = i + 1
+        }
+      }
+      if (len >= start) { print start " " (len - start + 1) }
+      exit
+    }
+
+    # ---- the WINDOW ----
+    #
+    # Applied to the mask and the original TOGETHER, so the offsets stay aligned. That alignment is
+    # what lets a caller ask about ONE statement without losing the context that decided what is
+    # data: the command was masked whole, and only the READING is narrowed.
+    ws = (WSTART == "" ? 1 : WSTART + 0)
+    if (ws < 1) { ws = 1 }
+    wl = (WLEN == "" ? len - ws + 1 : WLEN + 0)
+    if (wl < 0) { wl = 0 }
+    if (ws + wl - 1 > len) { wl = len - ws + 1 }
+    s = substr(s, ws, wl)
+    mask = substr(mask, ws, wl)
+
     if (MODE == "mask") { print mask; exit }
+
+    # ---- the WORDS the shell builds, one per line ----
+    #
+    # Added because four guards had grown their own sed/awk passes to answer "is this flag an
+    # argument of this command", and every one of them was wrong in a different way: `-v` unescaped
+    # a backslash into a vertical tab, a blind splice-removal desynchronised the quoting and hid a
+    # live flag behind an unterminated string, a greedy match anchored on a nested verb, an option
+    # skipper swallowed `-x` as a flag. Each was a SECOND reading of a command written beside the one
+    # this file exists to be.
+    #
+    # The splice is collapsed HERE, where the quoting is already known, rather than by a text pass
+    # that has to guess: `--no-''verify` and `--no-\verify` are one word to the shell and are one
+    # word here. A character the mask hides stays hidden, so a quoted argument does not become an
+    # option — which is what keeps a commit message that merely NAMES a flag from reading as one.
+    # `allwords` is the same split with the substitutions INCLUDED, each opening and closing
+    # delimiter acting as a word break. It answers a different question, and the difference is not a
+    # preference:
+    #
+    #   words     — "what flags did THIS command receive?"  A substitution is a different command,
+    #               and reading its `-n` as this one is a false positive.
+    #   allwords  — "does anything anywhere in this statement do X?"  A substitution RUNS, so a
+    #               destructive verb inside one is as real as a leading one. Measured:
+    #               `echo "$(chmod -x .husky/pre-push)"` disarmed a hook and was permitted, because
+    #               the only reading that could have seen it excluded substitutions by design.
+    #
+    # A statement range does NOT split at a substitution, so asking the range question does not
+    # answer this one — checked, `echo "$(chmod …)"` is a single statement. (#1588 review)
+    if (MODE == "words" || MODE == "allwords") {
+      word = ""
+      started = 0
+      sub_depth = 0
+      bt_open = 0
+      incsubs = (MODE == "allwords")
+      for (i = 1; i <= length(s); i++) {
+        mc = substr(mask, i, 1)
+        rc = substr(s, i, 1)
+        if (incsubs) {
+          if (mc == "$" || mc == "(" || mc == ")" || mc == "\140" || mc == "{" || mc == "}") {
+            if (started) { print word; word = ""; started = 0 }
+            continue
+          }
+        }
+        # A substitution RUNS, so its content is a command in its own right and NOT part of this
+        # word. It is skipped by DEPTH rather than by dropping the punctuation characters, because
+        # dropping them let the words inside a substitution leak out as words of the outer command:
+        # `git commit -m "$(git log -n 1)"` handed a bare `-n` to a matcher looking for the flag that
+        # skips hooks, and refused an ordinary commit. A guard that wants to judge what runs inside
+        # asks about THAT statement — which is what the statement ranges are for. Dropping the
+        # characters also swallowed a bare `}` closing a function, leaving a real statement with no
+        # words at all. (#1588)
+        #
+        # The depth test comes FIRST, before anything else looks at this character. A space inside a
+        # substitution belongs to the inner command and is not a separator of the outer one — testing
+        # it after the whitespace break split `echo "$(git log -n 1)"` into four words, which is the
+        # very leak this tracking exists to stop.
+        #
+        # NOTE: this awk program is a single-quoted shell string. An apostrophe in a comment here
+        # CLOSES it, and the file then fails to source at all — which is how this comment lost its
+        # possessives. Write around them.
+        if (sub_depth > 0) {
+          started = 1
+          if (mc == "(") { sub_depth++ }
+          else if (mc == ")") { sub_depth-- }
+          continue
+        }
+        if (bt_open) { started = 1; if (mc == "\140") { bt_open = 0 } ; continue }
+        # A separator ends the word only where the shell sees one. The mask shows a space at a
+        # QUOTE DELIMITER too, and that is not a separator — `--no-''verify` is one word to bash.
+        # So a space is a break only when the raw character is really whitespace.
+        if ((mc == " " || mc == "\t" || mc == "\n") && rc ~ /[ \t\n]/) {
+          if (started) { print word; word = ""; started = 0 }
+          continue
+        }
+        started = 1
+        # A quote delimiter itself contributes nothing but does not break the word.
+        if (mc == " ") { continue }
+        # Masked content is data. It keeps the word STARTED, so `-m "some message"` stays one word.
+        if (mc == "\001") { continue }
+        # Where a COMMAND substitution opens. See the depth test above for why its content is skipped.
+        #
+        # `${...}` and `$((...))` are deliberately NOT opened here, and the reason is that the masker
+        # has already dealt with them: an unquoted `${HOME}` comes back as `${` plus five mask bytes,
+        # the CLOSING BRACE AMONG THEM. Counting braces therefore opened a region that could never
+        # close, and every remaining word of the statement was swallowed — measured on
+        # `git commit ${EXTRA} --no-verify -m x`, which this guard then permitted in silence. The
+        # exact bypass this change exists to close, reopened by the change itself. (#1588 review)
+        #
+        # `$((` is arithmetic, not a command, so it is excluded by lookahead rather than by hoping
+        # the parens balance: its closing pair is masked in the same way.
+        if (mc == "\140") { bt_open = 1; continue }
+        if (mc == "$" && substr(mask, i + 1, 1) == "(" && substr(mask, i + 2, 1) != "(") {
+          sub_depth = 1
+          i++
+          continue
+        }
+        # An unquoted backslash splices the next character: the shell drops it and joins.
+        if (mc == "\\" && rc == "\\") { continue }
+        word = word rc
+      }
+      if (started) { print word }
+      exit
+    }
+
+    # Where an unquoted VALUE ends. Whitespace and quotes were the whole list, so a value read
+    # out of a substitution came back wearing the paren that closed it: a nested
+    # `git push origin --delete develop` named the branch `develop)`, which matches no protected
+    # name, so the guard fell past the protected-branch check to the merged-PR one and refused a
+    # branch that does not exist. It still refused — but for the wrong reason and about the wrong
+    # branch, which is one name away from refusing nothing. Only visible once the tokenizer made
+    # substitution contents reachable at all; before that the value was masked and never read.
+    TERM = "[ \t\n\"\047)\140].*$"
 
     # Anchor in the mask, then search the ORIGINAL from that offset. Needed when the value sits
     # INSIDE a quoted argument — a `gh api` refs/heads URL nearly always does — where the mask
@@ -405,7 +983,7 @@ HOOK_SCAN_AWK='
       rest = substr(s, RSTART)
       if (!match(rest, VRE)) { exit }
       v = substr(rest, RSTART + RLENGTH)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
       exit
     }
@@ -422,27 +1000,69 @@ HOOK_SCAN_AWK='
       print (endq > 0 ? substr(s, p, endq - 1) : substr(s, p))
     } else {
       v = substr(s, p)
-      sub(/[ \t\n"\047].*$/, "", v)
+      sub(TERM, "", v)
       print v
     }
   }
 '
 
+# THE WINDOW, shared by every reader below (INFRA-079, #1563).
+#
+# Each of these takes an optional trailing (START, LENGTH) naming ONE statement of the command, as
+# produced by `hook_statement_ranges`. Omitted, the reader answers about the whole command, which is
+# what every pre-#1563 caller asked for. Given, it answers about that statement alone — while still
+# masking the command WHOLE, so the reading of what is data never changes because a caller narrowed
+# its question.
+#
+# The window is not a second parser and not a second reading: it is the same mask, read through a
+# smaller opening. That is deliberate. A per-statement judgement built by re-masking each slice
+# would be a THIRD reading of a command, in the file whose subject is that there must be one.
+
+# The STATEMENTS of a command, one `START LENGTH` line each, in the order they will run.
+hook_statement_ranges() {
+  printf '%s\n' "$1" | awk -v MODE=ranges -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="" -v WLEN="" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
 # Print the token that follows a match, located where quotes cannot lie. $2 is an ERE ending where
-# the value begins.
+# the value begins. $3/$4 optionally narrow the reading to one statement.
 hook_match_extract() {
-  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=extract -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="" -v WSTART="${3:-}" -v WLEN="${4:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Like hook_match_extract, but the value is found by $3 searched in the ORIGINAL starting at the
 # anchor $2's position in the mask. For values that legitimately live inside a quoted argument.
+# $4/$5 optionally narrow the reading to one statement.
 hook_match_extract_after() {
-  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=after -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="$2" -v VRE="$3" -v WSTART="${4:-}" -v WLEN="${5:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
-# What a verb-detection matcher should read.
+# What a verb-detection matcher should read — and, since #1572, the ONLY reading of a command this
+# file offers.
+#
+# The RAW command goes in. Heredoc bodies and comments used to be cut out by two line-oriented passes
+# BEFORE masking, which meant the masker was handed a string whose structure had already been altered
+# by a reader that did not know the grammar. The tokenizer knows both, and reading them together is
+# what lets a comment inside a substitution end at its own newline rather than at the substitution's
+# closing paren. Those passes are gone; see the note where they stood.
 hook_verb_scan() {
-  hook_executable_part "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v ERE="" -v VRE="" "$HOOK_SCAN_AWK"
+  printf '%s\n' "$1" | awk -v MODE=mask -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The WORDS a statement is built from, one per line, with splices collapsed and quoted content
+# hidden. $2/$3 narrow the reading to one statement, as everywhere else.
+#
+# This is what a guard should ask when it wants to know whether a flag was PASSED, rather than
+# whether its letters appear somewhere. See the `words` branch for why it lives here.
+hook_statement_words() {
+  printf '%s\n' "$1" | awk -v MODE=words -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
+}
+
+# The same split with SUBSTITUTION CONTENTS included, each delimiter a word break. Ask this when the
+# question is "does anything in this statement do X" rather than "what did THIS command receive" —
+# a substitution runs, so a destructive verb inside one is as real as a leading one. See the
+# `allwords` branch for the measurement that made the distinction necessary.
+hook_statement_all_words() {
+  printf '%s\n' "$1" | awk -v MODE=allwords -v IRE="$HOOK_INTERPRETER_RE" -v SRE="$HOOK_SHELL_INTERPRETER_RE" -v ERE="" -v VRE="" -v WSTART="${2:-}" -v WLEN="${3:-}" "$HOOK_TOKENIZER_AWK$HOOK_SCAN_AWK"
 }
 
 # Token classes here exclude the newline as well as space and tab. That matters in `branch-guard.sh`,
@@ -452,8 +1072,18 @@ hook_verb_scan() {
 # `[ \t]+` right after a token and a newline never satisfies that. Recorded as unproven rather than
 # dressed in a test that would pass either way.
 # The directory a command will act on, read from a real `git -C` and not from a quoted mention.
+# The prefix skip accepts EVERY value-taking global in both spellings, or a `--git-dir=X` (or a
+# space-valued `--work-tree /x`) standing before the `-C` hid it from every consumer of this
+# extractor and the command was judged against the wrong repository. STATED LIMIT: `--git-dir`
+# itself also names a repository and is NOT extracted here — this reads `-C` only, and a caller
+# that must honour `--git-dir` as identity needs its own reader.
+#
+# A value-LESS boolean global (`--no-pager`, `--bare`, `-p`) may also stand before the `-C`
+# (`git --no-pager -C /repo status`); the prefix skips those too via a bare `-[^ \t\n]+` flag, the
+# same tolerance GITPFX/_GOPT carry in branch-guard. Value-globals stay matched WITH their value so
+# leftmost-longest does not read a space-form value as the flag. (#1666 review)
 hook_git_c_path() {
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((-c)[ \t]+[^ \t\n]+[ \t]+)*-C[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+((('"$GIT_VALUE_GLOBALS_SANS_C"')(=[^ \t\n]+|[ \t]+[^ \t\n]+)|-[^ \t\nC][^ \t\n]*)[ \t]+)*-C[ \t]+' "${2:-}" "${3:-}"
 }
 
 # The branch a remote-delete would remove, in either spelling the guard recognises.
@@ -465,22 +1095,22 @@ hook_git_c_path() {
 # on unmasked text after every other check had moved off it.
 hook_deleted_branch() {
   local verbs name
-  verbs=$(hook_verb_scan "$1")
+  verbs=$(hook_verb_scan "$1" "${2:-}" "${3:-}")
 
   if printf '%s' "$verbs" | grep -qE 'gh[[:space:]]+api[^|;&]*-X[[:space:]]+DELETE[^|;&]*'; then
     # From the `gh api` call's own position, not from the start of the string. Taking the first
     # match anywhere meant `git commit -m "note /git/refs/heads/scratch" && gh api -X DELETE
     # .../heads/develop` reported scratch, so the protected-branch and merged-PR checks never saw
     # the branch actually being deleted.
-    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047`])gh[ \t]+api([ \t]|$)' '/git/refs/heads/')
+    name=$(hook_match_extract_after "$1" '(^|[ \t;&|({\n"\047`])gh[ \t]+api([ \t]|$)' '/git/refs/heads/' "${2:-}" "${3:-}")
     [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
   fi
 
   # `git push <remote> --delete <branch>` and `git push <remote> :<branch>`.
-  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)')
+  name=$(hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+[^ \t\n]+[ \t]+(--delete[ \t]+|:)' "${2:-}" "${3:-}")
   [[ -n "$name" ]] && { printf '%s' "$name"; return 0; }
 
   # `git push --delete <remote> <branch>` — git accepts the flag before the remote, and the guard
   # never did. Pre-existing rather than new, but a delete this misses is a delete it permits.
-  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+'
+  hook_match_extract "$1" '(^|[ \t;&|({\n"\047`])git[ \t]+push[ \t]+--delete[ \t]+[^ \t\n]+[ \t]+' "${2:-}" "${3:-}"
 }

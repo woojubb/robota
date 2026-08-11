@@ -10,9 +10,9 @@ import { describe, expect, it } from 'vitest';
 
 import { ConversationStore } from '../managers/conversation-history-manager';
 
+import { buildFinalResult } from './execution-failure';
 import {
   assertToolChoiceValid,
-  buildFinalResult,
   initializeConversationStore,
   resolveToolChoiceForRound,
 } from './execution-service-helpers';
@@ -50,6 +50,46 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
     expect(result.response).toBe('hello!');
+  });
+
+  it('CORE-027: the ORIGINAL provider error survives to result.error, not a prose reconstruction', () => {
+    // The round trip through `Request failed: ${message}` destroyed the failure's class, code,
+    // category, recoverable flag, stack and cause — result.error was a bare Error rebuilt from
+    // display text. The original object must arrive by identity.
+    class ProviderHttpError extends Error {
+      code = 'ECONNRESET';
+      category = 'network';
+      recoverable = false;
+    }
+    const original = new ProviderHttpError('socket hung up');
+    original.cause = new Error('read ECONNRESET');
+
+    const store = new ConversationStore();
+    store.addUserMessage('say hi');
+    store.addAssistantMessage('Request failed: socket hung up', [], {
+      round: 1,
+      providerError: true,
+    });
+
+    const result = buildFinalResult(store, 'exec-4', new Date(), [], original);
+
+    expect(result.success).toBe(false);
+    expect(result.error, 'the original failure was rebuilt from prose').toBe(original);
+    expect((result.error as ProviderHttpError).code).toBe('ECONNRESET');
+    expect((result.error as ProviderHttpError).category).toBe('network');
+    expect(result.error?.cause).toBeInstanceOf(Error);
+  });
+
+  it('CORE-027: a non-Error thrown value is wrapped, never silently stringified into success', () => {
+    const store = new ConversationStore();
+    store.addUserMessage('say hi');
+    store.addAssistantMessage('Request failed: weird', [], { round: 1, providerError: true });
+
+    const result = buildFinalResult(store, 'exec-5', new Date(), [], 'weird string throw');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeInstanceOf(Error);
+    expect(result.error?.message).toContain('weird string throw');
   });
 
   it('TC-01: a provider error in an earlier round does not fail a later successful response', () => {

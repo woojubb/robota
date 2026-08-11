@@ -170,24 +170,23 @@ folder for its status is treated as NON-COMPLIANCE **on its next gate run**. A d
 already reached `done/` has no next gate run, which is why that force alone was never enough;
 `scripts/harness/scan-doc-folder-status-agreement.mjs` checks the agreement over the whole tree
 instead, deriving this table as its criteria rather than copying it, and it runs in
-`pnpm harness:scan`. The tree agrees today: five documents that predated the rule were corrected
-from their own recorded `[GATE-COMPLETE] — ✅ PASS`, and `DATA-002` — shipped in all three phases
-with no GATE-COMPLETE entry at all — is a recorded exception in the scan under anti-rot, because
-neither available correction is derivable without running that gate. Each status transition is a gate, and every gate must leave an
+`pnpm harness:scan`. A document whose correct status is not derivable without re-running the gate
+itself is a recorded exception in the scan, under anti-rot, rather than a guess written into the
+tree. Each status transition is a gate, and every gate must leave an
 Evidence Log entry (PASS / FAIL / NON-COMPLIANCE) in the format the
 [gate catalogue](../specs/gate-catalogue.md) defines.
 
 This vocabulary governs **spec documents** under `.agents/spec-docs/`. Backlog items under
-`.agents/backlog/` use a different one — see
+`.agents/tasks/` use a different one — see
 [backlog-execution.md](backlog-execution.md) > Status Invariants. The two share tokens
 (`in-progress`, `done`) but not meaning, and neither overrides the other.
 
 ### Spec-Code Conformance Verification
 
-- Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete.
+- Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete — bounded like every auto-re-drive loop, per [enforcement-architecture.md](enforcement-architecture.md).
 - The spec is the source of truth. The loop compares every spec assertion against implementation code, lists all gaps, and fixes the **code** (not the spec) to match.
 - Each code fix MUST include a corresponding contract test.
-- The loop repeats until zero discrepancies remain, then regression tests for all affected packages MUST pass.
+- The loop repeats until zero discrepancies remain, then regression tests for all affected packages MUST pass. Like every auto-re-drive loop it escapes on no-progress detection — if the same discrepancy set recurs unchanged, stop and escalate to the user rather than spin ([enforcement-architecture.md](enforcement-architecture.md)).
 - A spec change without conformance verification is an incomplete change.
 - **Any code change MUST be preceded by a spec update.** Update the SPEC first to describe the intended state, then modify code to conform. Never modify code without updating or verifying the governing spec.
 - See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) skill for the full procedure.
@@ -269,7 +268,7 @@ Content promotion rules:
   doc-vs-code drift that the per-spec `Architecture Review` section self-asserts but does not validate).
 - **Mechanical core (deterministic, non-prose):** `pnpm harness:conformance` — an alias for
   `check-dependency-direction.mjs --conformance-json` (the dependency rules incl. the
-  workspace-package-name guard, folded in by HARNESS-DIET-003) — emits a machine-readable JSON summary.
+  workspace-package-name guard) — emits a machine-readable JSON summary.
   Exit 0 = conformant, 1 = violations.
 - **Analytic layer:** the [`architecture-refresh`](../skills/architecture-refresh/SKILL.md) agent
   pipeline (`architecture-conformance-auditor` / `architecture-auditor` → fixer/implementer) produces

@@ -7,19 +7,47 @@
 
 import { createAgentRoutes } from './routes.js';
 
-import type { IInteractiveSession, ITransportAdapter } from '@robota-sdk/agent-interface-transport';
+import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+import type {
+  IInteractiveSession,
+  ITransportAdapter,
+  ITransportAdmissionConfig,
+} from '@robota-sdk/agent-interface-transport';
+
+import type { TStreamFailureListener } from './submit-stream.js';
 import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {
   /** Optional: base path prefix for routes. */
   basePath?: string;
+  /**
+   * SEC-008: what a peer must present. Omitted means SECURE — a credential is minted and
+   * `getAdmissionToken()` returns it for the host to hand to its client.
+   *
+   * This transport previously had no gate at all, so omitting the option used to mean "anyone may
+   * execute anything". Omission now means the safe thing, and running open takes saying so.
+   */
+  admission?: ITransportAdmissionConfig;
+  /**
+   * Where the DETAIL of a post-headers stream failure goes — forwarded to `createAgentRoutes`.
+   * Review found this seam missing: the option existed on the routes and not on the entry point
+   * README and the examples actually use, so "the host decides the destination" was a decision no
+   * host on this path could make. Same forwarding rule as `admission`, which sat beside it.
+   */
+  onStreamFailure?: TStreamFailureListener;
 }
 
 export function createHttpTransport(
   options?: IHttpTransportOptions,
-): ITransportAdapter<IInteractiveSession> & { getApp(): Hono } {
+): ITransportAdapter<IInteractiveSession> & {
+  getApp(): Hono;
+  getAdmissionToken(): string | null;
+} {
   let session: IInteractiveSession | null = null;
   let app: Hono | null = null;
+  // Resolved at CONSTRUCTION, not at start: a host needs the credential to hand to its client, and
+  // a transport that cannot mint one must fail before anything is served.
+  const admission = resolveAdmission(options?.admission);
 
   return {
     name: 'http',
@@ -28,7 +56,13 @@ export function createHttpTransport(
     },
     async start() {
       if (!session) throw new Error('No session attached. Call attach() first.');
-      app = createAgentRoutes({ sessionFactory: () => session! });
+      app = createAgentRoutes({
+        sessionFactory: () => session!,
+        // The decision already made, passed through — not taken apart and rebuilt for the routes to
+        // resolve a second time.
+        admission,
+        onStreamFailure: options?.onStreamFailure,
+      });
     },
     async stop() {
       app = null;
@@ -36,6 +70,10 @@ export function createHttpTransport(
     getApp() {
       if (!app) throw new Error('Transport not started. Call start() first.');
       return app;
+    },
+    /** The credential this transport requires, or `null` when the host explicitly opened it. */
+    getAdmissionToken() {
+      return admission.token;
     },
   };
 }

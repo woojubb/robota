@@ -71,7 +71,7 @@
  * Exit code 0 = every classified guard behaves as declared, 1 = violation found.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -86,6 +86,111 @@ const REGISTRATION_FILE = path.join(HARNESS_DIR, 'run-all-scans.mjs');
  * when handed a root without that tree.
  */
 export const MANDATORY_TREE_GUARDS = [
+  {
+    // Measured the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist under <root>`.
+    file: 'scan-measurement-provenance.mjs',
+    finder: 'findMeasurementProvenanceFindings',
+    tree: 'scripts/harness',
+    why: 'it asks every size reader whether anything checks the number it publishes; over a root with no harness modules there is no reader to ask, and "no unchecked counter" reads exactly like "every counter is checked" — the reported-size-nobody-verifies shape this guard exists to fence',
+  },
+  {
+    // Measured the way this harness calls it — `collectFindings(bare)`: throws
+    // `orchestration-map.md is missing`.
+    file: 'scan-loopback-bound-ownership.mjs',
+    finder: 'collectFindings',
+    tree: '.agents/specs',
+    why: 'it keeps the orchestration map from restating the bounds the skills own; over a root with no map there is nothing to keep honest, and "no restatements" would read as "the map defers correctly"',
+  },
+  {
+    // Measured the way this harness calls it — `finder(bare)`: throws
+    // `packages missing from <root>`.
+    file: 'scan-transport-admission.mjs',
+    finder: 'findAdmissionFindings',
+    tree: 'packages',
+    why: 'it asks every transport package whether it answers the admission question; over a root with no packages there is no transport to ask, and "nobody failed to answer" reads exactly like "everybody answered" — which is the shape that let three transports ship with no trust boundary',
+  },
+  {
+    // Measured the way this harness calls it — `finder(bare)`: throws `packages missing from <root>`.
+    file: 'scan-browser-package-node-subpath.mjs',
+    finder: 'findBrowserNodeSubpathFindings',
+    tree: 'packages',
+    why: 'it asks which packages promising a browser build import a Node-only subpath; over a root with no packages none does, and "nobody violated it" reads exactly like "the rule holds"',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`.
+    file: 'scan-ci-concurrency-footprint.mjs',
+    finder: 'findFootprint',
+    tree: '.github/workflows',
+    why: "it measures how many of the ACCOUNT's shared job slots one push takes; over a root with no workflows the footprint is zero, which reads exactly like a thrifty repository and would freeze a baseline that permits any growth",
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`.
+    file: 'scan-runner-wait.mjs',
+    finder: 'findAllRunnerWaits',
+    tree: '.github/workflows',
+    why: 'it looks for waits held on a billed runner; over a root with no workflows there is nothing to hold and every workflow is vacuously thrifty, and this cost is invisible by nature — a polling job reads as ordinary work whose duration merely varies',
+  },
+  {
+    // Re-measured 2026-08-11 the way this harness calls it — `finder(bare)`: throws
+    // `.github/workflows does not exist`, so a root without the governed CI corpus cannot be
+    // reported as clean.
+    file: 'scan-test-selection-tolerance.mjs',
+    finder: 'findTestSelectionFindings',
+    tree: 'workspace package manifests and .github/workflows',
+    why: 'it resolves each filtered CI test command against the workspace package scripts before judging a narrowed selector; without that workspace corpus, “no zero-match-tolerant selection” would be a verdict over commands it could not resolve',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist`.
+    file: 'scan-harness-scope-literal.mjs',
+    finder: 'findScopeLiteralFindings',
+    tree: 'scripts/harness itself',
+    why: 'it counts the configured npm scope hardcoded into the harness; over a root with no scripts nothing hardcodes anything, and this defect is invisible by nature — a hardcoded scope does not fail when the scope changes, it matches NOTHING and reports a pass, which is why a completed audit named it the dominant finding and it survived anyway',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `scripts/harness does not exist`.
+    file: 'scan-harness-script-import-safety.mjs',
+    finder: 'findImportSafetyFindings',
+    tree: 'scripts/harness itself',
+    why: 'it imports every harness script to prove that importing one does nothing; over a root with no scripts there is nothing to import and every script is vacuously safe — and the ten scripts it found doing work at import, one of which WROTE FILES, were invisible to a source heuristic that reported zero',
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `packages/agent-core/src does not exist`.
+    file: 'scan-product-identity.mjs',
+    finder: 'findProductIdentity',
+    tree: 'the src/ of each configured library package',
+    why: "it counts the consumer product's names inside libraries that must not know them; over a root with no packages every library is vacuously neutral, and the 94 occurrences it now freezes were invisible precisely because the existing neutrality scan was scoped to two packages that were already clean",
+  },
+  {
+    // Measured 2026-08-03 the way this harness calls it — `finder(bare)`: throws
+    // `.agents/publish-registry.md does not exist`.
+    file: 'scan-publish-registry.mjs',
+    finder: 'findPublishRegistryFindings',
+    tree: '.agents/publish-registry.md plus packages/ and apps/',
+    why: 'it reconciles the only authorization for the npm scope against the manifests, in both directions; over a root with neither there is nothing to disagree with, and this document had already drifted into authorizing five packages that do not exist while omitting thirteen that ship publishable — precisely because nothing read it',
+  },
+  {
+    // Measured 2026-08-02 THE WAY THIS HARNESS CALLS IT — `finder(bare)`, one argument: throws
+    // `<declaring file> does not exist`. The first measurement passed two arguments and recorded a
+    // behaviour that was not the one firing; review caught it, and the finder now defaults its
+    // config so the real path is the reachable one.
+    file: 'scan-option-reachability.mjs',
+    finder: 'findUnreachableOptions',
+    tree: 'the declaring file of each configured interface, plus packages/ and apps/',
+    why: 'it answers "does any production code set this option" by reading BOTH the declarations and the call sites out of the same tree; over a root with neither, every declared option is vacuously reachable — and the two capabilities it exists for (guardrails, retrievalAdapter) shipped for months precisely because nothing objected to their absence',
+  },
+  {
+    // Measured 2026-08-02 against a bare root: throws `none of packages, apps, scripts exist`.
+    file: 'scan-literal-cast-union.mjs',
+    finder: 'findLiteralCastUnionFindings',
+    tree: 'packages/, apps/ and scripts/',
+    why: 'it decides membership by reading the union declarations AND the cast sites out of the same tree; over a root with neither, "no literal is cast outside its union" is true of nothing, and the defect it exists for (a status value outside its own union, laundered by a cast, DAG-002) is exactly the kind that survives by producing no symptom',
+  },
   {
     file: 'scan-review-token-supply.mjs',
     finder: 'findReviewTokenSupplyFindings',
@@ -165,6 +270,12 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'merge debris in a tree that was never opened is the one thing a "conflict markers" gate must never report clean',
   },
   {
+    file: 'scan-shell-portability.mjs',
+    finder: 'findPortabilityFindings',
+    tree: 'scripts, .husky and .claude/hooks',
+    why: 'MEASURED on a bare root before registration, not assumed: it throws `governed tree(s) absent`. The flags it looks for fail on the other platform WITHOUT naming their cause — `sed -i` on macOS eats the next argument and reports success — so a pass this scan did not compute reads exactly like a portable script tree',
+  },
+  {
     file: 'scan-release-sweep-coverage.mjs',
     finder: 'findReleaseSweepCoverageFindings',
     tree: 'pnpm-workspace.yaml and the workspace manifests it names',
@@ -203,13 +314,13 @@ export const MANDATORY_TREE_GUARDS = [
   {
     file: 'check-backlog-placement.mjs',
     finder: 'findBacklogPlacementFindings',
-    tree: '.agents/backlog and .agents/backlog/completed',
+    tree: '.agents/tasks and .agents/tasks/completed',
     why: 'placement is a claim about the backlog tree; with no tree there are no misplaced items and no correctly-placed ones either',
   },
   {
     file: 'check-backlog-placement.mjs',
     finder: 'findDuplicateIdFindings',
-    tree: '.agents/backlog and .agents/backlog/completed',
+    tree: '.agents/tasks and .agents/tasks/completed',
     why: 'an ID collision is a relation between two directories — reading neither cannot establish that neither collides, and eight collisions landed in one week',
   },
   {
@@ -227,7 +338,7 @@ export const MANDATORY_TREE_GUARDS = [
   {
     file: 'check-done-evidence.mjs',
     finder: 'findDoneEvidenceFindings',
-    tree: '.agents/backlog/completed',
+    tree: '.agents/tasks/completed',
     why: 'the completed-backlog tree is the evidence corpus, and a readdir failure was CAUGHT and returned as "no unearned done claims" — a swallowed error wearing a verdict',
   },
   {
@@ -345,6 +456,16 @@ export const MANDATORY_TREE_GUARDS = [
     why: 'the agent definitions are the set the map is checked against; with none, "every agent is listed" is true of nothing (the missing MAP was already an error — the missing SUBJECT was not)',
   },
   {
+    // INFRA-078. MEASURED on a bare root, not assumed: throws `.claude/hooks, .claude/settings.json
+    // missing`. Both sides are named because either alone is unjudgeable — a hooks directory with
+    // no settings file has no registrations to check, and settings with no hooks directory has no
+    // files to check them against.
+    file: 'scan-hook-registration.mjs',
+    finder: 'collectHookRegistrationFindings',
+    tree: '.claude/hooks and .claude/settings.json',
+    why: 'it compares the hook files against the matchers that call them; over a root with neither, "every hook is registered" is a claim about no hooks — which is the exact green this scan was written to end one level down',
+  },
+  {
     file: 'scan-spec-research.mjs',
     finder: 'collectSpecResearchFindings',
     tree: '.agents/spec-docs',
@@ -367,7 +488,6 @@ export const MANDATORY_TREE_GUARDS = [
  * Every `measured` value here was produced by executing the finder, not by reading it.
  */
 export const PENDING_CLASSIFICATION = [
-
   // INFRA-061: the ci.yml audit's two scans landed (#1474) after this guard did (#1480) and were
   // never classified, so `harness:test` was red on develop itself. Measured here rather than
   // assumed, twice each, by executing the finder against a bare root:
@@ -375,20 +495,6 @@ export const PENDING_CLASSIFICATION = [
   //     (#1481), which left this duplicate entry behind — a finder in both tables fails this
   //     scan's exactly-one rule, so `develop` was red on it. Removed here (INFRA-062); the
   //     MANDATORY entry is the stronger of the two, since it re-proves the behaviour by execution.
-  //   findTestSelectionFindings       → VACUOUS — a live instance of the audited defect. A
-  //     test-selection-tolerance floor handed a root with no CI workflow reports nothing to fix,
-  //     which is the same answer it gives for a correct one. Recorded unfixed and owned by
-  //     INFRA-060, not silently pinned as though it were sound.
-  {
-    // Measured 2026-07-26: the FINDER returns `{findings: [], invocations: 0}` on an empty root —
-    // vacuous by itself. Its `main()` treats `invocations === 0` as a failure, so the CLI is
-    // fail-closed while the exported finder is not. Recorded rather than pinned because
-    // MANDATORY_TREE_GUARDS asserts the finder's behaviour, and pinning it there would certify a
-    // property the finder does not hold.
-    file: 'scan-test-selection-tolerance.mjs',
-    finder: 'findTestSelectionFindings',
-    measured: 'vacuous',
-  },
   {
     // Measured 2026-07-26: returns `[]` on a bare root. It is a pure ENUMERATOR — it lists the
     // vitest configs it finds and renders no verdict — so emptiness is its honest answer, not a
@@ -762,6 +868,82 @@ export async function ledgerDriftFindings(root = WORKSPACE_ROOT) {
 }
 
 /** Findings across all three rules. */
+/**
+ * Rule 4: THE DEBT MAY SHRINK AND NEVER GROW. HARNESS-064.
+ *
+ * Rules 1–3 make every finder answer for itself and keep the ledger honest, but they place no bound
+ * on its SIZE: a new scan could be classified `pending` forever, and a new `vacuous` entry — a live
+ * instance of the audited defect — could be added with a paragraph explaining it and nothing would
+ * object. The ledger was already a set of claims nobody re-measured before rule 3; without this it
+ * is a set of measurements nobody bounds.
+ *
+ * Two ceilings, because they mean different things. `vacuous` entries are live defects and their
+ * count is the one that matters most. `fail-closed` entries behave correctly but are not pinned, so
+ * they are debt of a milder kind. Both are frozen; both may fall.
+ *
+ * Lowering either means re-freezing in the SAME change, exactly like `file-size` and
+ * `spec-public-surface` — an unlocked gain is a licence to grow back.
+ */
+export function ledgerCeilingFindings(ceilings = loadLedgerCeilings()) {
+  const vacuous = measuredVacuous().length;
+  const unpinned = PENDING_CLASSIFICATION.length - vacuous;
+  const findings = [];
+  const check = (label, actual, frozen) => {
+    if (frozen === undefined) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail: `${actual} entr(y/ies) with no frozen ceiling — run --write-ledger-ceilings.`,
+      });
+      return;
+    }
+    if (actual > frozen) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail:
+          `${actual} entr(y/ies), up from a frozen ${frozen}. ` +
+          (label === 'vacuous'
+            ? 'A new vacuous entry is a NEW live instance of the defect this scan audits — fix the guard, do not record it.'
+            : 'Pin the guard in MANDATORY_TREE_GUARDS instead of adding to the ledger.'),
+      });
+      return;
+    }
+    if (actual < frozen) {
+      findings.push({
+        subject: `ledger-ceiling:${label}`,
+        detail:
+          `${actual} entr(y/ies), DOWN from a frozen ${frozen}. Re-freeze it in this same change ` +
+          '(`--write-ledger-ceilings`) — an unlocked gain is a licence to grow back.',
+      });
+    }
+  };
+  check('vacuous', vacuous, ceilings.vacuous);
+  check('unpinned', unpinned, ceilings.unpinned);
+  return findings;
+}
+
+/**
+ * Where the frozen ceilings live — overridable, like every other path in this file.
+ *
+ * `GUARD_LEDGER_CEILINGS` exists for the reachability case, which has to prove the ceiling check
+ * runs through the CLI and not merely as an exported helper. Its first version mutated the real
+ * checked-in file and restored it in a `finally`; a kill in between — and this file's own docstring
+ * records a harness scan dying mid-run with no output — would leave the working tree holding a
+ * corrupted ceiling, which is the one direction this ratchet must never fail in. Everything else
+ * here takes a `root` for exactly that reason.
+ */
+function ledgerCeilingsPath() {
+  return (
+    process.env['GUARD_LEDGER_CEILINGS'] ??
+    path.join(WORKSPACE_ROOT, 'scripts/harness/guard-ledger-ceilings.json')
+  );
+}
+
+function loadLedgerCeilings() {
+  const file = ledgerCeilingsPath();
+  if (!existsSync(file)) return {};
+  return JSON.parse(readFileSync(file, 'utf8'));
+}
+
 export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
   const findings = classificationFindings(root);
   for (const entry of MANDATORY_TREE_GUARDS) {
@@ -769,10 +951,24 @@ export async function findGuardScopeFindings(root = WORKSPACE_ROOT) {
     if (finding) findings.push(finding);
   }
   findings.push(...(await ledgerDriftFindings(root)));
+  // Only meaningful about the real tree — a temporary root has the same ledger, but the caller that
+  // hands one in is asking about tree-scope behaviour, not about this repo's debt.
+  if (root === WORKSPACE_ROOT) findings.push(...ledgerCeilingFindings());
   return findings;
 }
 
 export async function main() {
+  // A parametrised path is a bypass surface: point the ratchet at a permissive file and it passes
+  // over a ceiling nobody froze. It cannot be closed by removing the seam — an argument would be the
+  // same hole with a different spelling — so it is made SELF-DECLARING instead. A run against
+  // anything but the checked-in ceilings says so on both the pass and the fail path, which turns a
+  // silent bypass into one that has to be read past.
+  if (process.env['GUARD_LEDGER_CEILINGS'] !== undefined) {
+    process.stdout.write(
+      `guard-ledger ceilings OVERRIDDEN via GUARD_LEDGER_CEILINGS=${ledgerCeilingsPath()} — this ` +
+        'run did NOT check the frozen ceilings in scripts/harness/.\n',
+    );
+  }
   const findings = await findGuardScopeFindings();
   if (findings.length > 0) {
     process.stdout.write('guard-scope-fail-closed scan failed (HARNESS-052):\n');
@@ -786,6 +982,7 @@ export async function main() {
     process.exitCode = 1;
     return;
   }
+  process.stdout.write(`::examined:: ${MANDATORY_TREE_GUARDS.length} pinned guards\n`);
   process.stdout.write(
     `guard-scope-fail-closed scan passed (${MANDATORY_TREE_GUARDS.length} guard(s) proven ` +
       `fail-closed by execution; ${measuredVacuous().length} measured VACUOUS and recorded unfixed ` +
@@ -794,9 +991,17 @@ export async function main() {
   );
 }
 
+function writeLedgerCeilings() {
+  const vacuous = measuredVacuous().length;
+  const next = { vacuous, unpinned: PENDING_CLASSIFICATION.length - vacuous };
+  writeFileSync(ledgerCeilingsPath(), `${JSON.stringify(next, null, 2)}\n`);
+  process.stdout.write(`guard-ledger ceilings frozen: ${JSON.stringify(next)}\n`);
+}
+
 const isDirectExecution =
   process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
 if (isDirectExecution) {
-  await main();
+  if (process.argv.includes('--write-ledger-ceilings')) writeLedgerCeilings();
+  else await main();
 }

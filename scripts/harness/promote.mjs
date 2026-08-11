@@ -59,6 +59,8 @@ export async function main({
   cwd = WORKSPACE_ROOT,
   out = (text) => process.stdout.write(text),
   fetch: shouldFetch = true,
+  spawn = spawnSync,
+  env = process.env,
 } = {}) {
   const git = (args) => runGit(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
@@ -201,17 +203,34 @@ export async function main({
       // the gate must run in the SAME repository or it verifies the wrong tree while reporting on
       // this one. Omitted at first, which would have made a scratch-root invocation silently verify
       // the developer's own checkout.
-      const gate = spawnSync('pnpm', ['harness:verify:release'], {
+      // Package-manager homes can be added by an interactive shell without being exported in the
+      // PATH Node passes to children. Add their canonical bin directories explicitly: the first
+      // pnpm process and every nested `pnpm` in the release script then resolve the same pinned
+      // executable instead of failing at a different nesting level.
+      const packageManagerPaths = [
+        env.PNPM_HOME,
+        env.VOLTA_HOME ? path.join(env.VOLTA_HOME, 'bin') : undefined,
+      ].filter(Boolean);
+      const childPath = [...packageManagerPaths, env.PATH].filter(Boolean).join(path.delimiter);
+      const gate = spawn('pnpm', ['harness:verify:release'], {
         cwd,
         stdio: 'inherit',
         shell: false,
+        // The promotion tree is develop's tree. The PR target (`GITHUB_BASE_REF=main`) remains the
+        // promotion-context signal, while this explicit override scopes novelty diffs to content the
+        // promotion step itself introduced. The CI release job declares the same environment.
+        env: { ...env, PATH: childPath, HARNESS_BASE_REF: developRef },
       });
       if (gate.status !== 0) {
         restore(previousBranch, branchExisted);
+        const launchFailure = gate.error
+          ? `\nThe release-gate process could not start (${gate.error.code ?? 'spawn error'}): ${gate.error.message}`
+          : '';
         throw new PromoteError(
           'the release gate FAILED, so the promotion branch was discarded rather than pushed.\n' +
             'This is the same check `release-grade verification` runs on the promotion PR — fixing it\n' +
-            'here costs one local run instead of an open-PR round trip. Re-run promote when green.',
+            'here costs one local run instead of an open-PR round trip. Re-run promote when green.' +
+            launchFailure,
         );
       }
     }

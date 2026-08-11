@@ -162,7 +162,7 @@ Derived strategy (BEHAVIOR + cli/typescript): unit + integration via vitest.
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/CLI-064.md` — 완료 후 아카이브 (T1~T7 전체 `[x]`, TC-01~TC-06 매핑)
+- [x] `.agents/tasks/completed/CLI-064.md` — 완료 후 아카이브 (T1~~T7 전체 `[x]`, TC-01~~TC-06 매핑)
 
 ## Evidence Log
 
@@ -229,7 +229,7 @@ Derived strategy (BEHAVIOR + cli/typescript): unit + integration via vitest.
 - Command: `npx vitest run src/__tests__/cli-exit-codes.test.ts` (packages/agent-cli)
 - Output: `Test Files 1 passed (1), Tests 2 passed (2)` — exit 0
 - Test reference: `packages/agent-cli/src/__tests__/cli-exit-codes.test.ts` > `provider config error exit codes (CLI-064)`
-- Code path confirmed: `cli.ts:139` `process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1)`; user-execution evidence in `.agents/backlog/completed/CLI-064-exit-code-contract-violations.md` (real binary: no-config print → exit 3)
+- Code path confirmed: `cli.ts:139` `process.exit(error instanceof ProviderConfigError && args.printMode ? 3 : 1)`; user-execution evidence in `.agents/tasks/completed/CLI-064-exit-code-contract-violations.md` (real binary: no-config print → exit 3)
 
 ### [GATE-COMPLETE: TC-04] — ✅ verified | 2026-06-12
 

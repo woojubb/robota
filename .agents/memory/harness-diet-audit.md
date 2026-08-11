@@ -5,7 +5,7 @@ UNNECESSARY, NON-NEUTRAL, EXCESSIVE, or INEFFECTIVE. Ran as 8 read-only auditor 
 rules, 60 skills, 12 hooks, 85 harness scripts, 14 agent defs, routing + 10 CI workflows). Deliverable = audit +
 backlog; execution deferred to the sub-items.
 
-**Tracked in `.agents/backlog/HARNESS-DIET-000..007` (#1275).** 000 = epic/roadmap; 001 reviewer-agent
+**Tracked in `.agents/tasks/HARNESS-DIET-000..007` (#1275).** 000 = epic/roadmap; 001 reviewer-agent
 destructive-git safety `[high/now]`; 002 scan neutrality (config-drive); 003 dead/vacuous scan removal; 004 rules
 consolidation; 005 skills diet; 006 hooks diet; 007 routing & workflow fixes.
 
@@ -16,4 +16,4 @@ Concrete dead/vacuous items found: `bootstrap.mjs` (targets deleted `apps/web`/`
 `scan-file-size` & `check-document-authority` (registered gates that can NEVER fail), `compat-node18` (runs Node
 22 not 18), ~11 index-only/textbook/vendored skills, 5-scan neutrality family (should be 1 config-driven scan).
 
-**COMPLETE (2026-07-24):** all seven sub-items DONE + archived to `backlog/completed/` (worktree-parallel waves 1–4, PRs #1277–#1302 + preapproved #1298/#1299). Net: scans 63→59, 13 skills removed + 16 slimmed (≈2,400 lines), hooks slimmed/merged + worktree-aware, rules consolidated via pointer stubs, routing docs −760 lines. Full ledger in the DIET-000 Outcome; parallel pattern in [[worktree-parallel-orchestration]]. Do not re-audit.
+**COMPLETE (2026-07-24):** all seven sub-items DONE + archived to `backlog/completed/` (worktree-parallel waves 1–4, PRs #1277–#1302 + preapproved #1298/#1299). Net: scans 63→59, 13 skills removed + 16 slimmed (≈2,400 lines), hooks slimmed/merged + worktree-aware, rules consolidated via pointer stubs, routing docs −760 lines. Full ledger in the DIET-000 Outcome; parallel pattern in [[worktree-parallel-orchestration]]. **Re-auditing is permitted** (owner, 2026-08-01). The ban was written the day the sweep finished, when nothing had been added since; a great deal has been added since, and a standing instruction not to look again is the kind of rule that outlives its reason. What still holds is the narrower point: do not re-litigate the 13 removals and 16 slimmings above — assume what survived had a reason, and audit what has arrived since.

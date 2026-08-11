@@ -16,7 +16,7 @@ stub it was supposed to remove still existed (caught 2026-06-11 only by the unre
 HARNESS-008 stub-marker scan). The done gate validates at completion time only; nothing
 re-validates later, so any later refactor can silently invalidate recorded evidence.
 
-Reproduction: delete any test file referenced in a `.agents/backlog/completed/*.md` evidence
+Reproduction: delete any test file referenced in a `.agents/tasks/completed/*.md` evidence
 section — `pnpm harness:scan` stays green.
 
 ## Architecture Review
@@ -31,7 +31,7 @@ section — `pnpm harness:scan` stays green.
 - `scripts/harness/__tests__/check-done-evidence.test.mjs` (new) — fixture-based unit tests
 - `.agents/rules/backlog-execution.md` — rule: done evidence for code-changing backlogs
   MUST reference durable artifacts (test file paths)
-- `.agents/backlog/completed/*.md` — initial live triage of stale references
+- `.agents/tasks/completed/*.md` — initial live triage of stale references
 
 ### Alternatives Considered
 
@@ -84,7 +84,7 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 
 ## Solution
 
-1. `check-done-evidence.mjs`: read `.agents/backlog/completed/*.md`; extract candidate repo
+1. `check-done-evidence.mjs`: read `.agents/tasks/completed/*.md`; extract candidate repo
    paths (regex over `packages/|apps/|scripts/` + extension); for each, check existence
    from repo root; report every missing path with its backlog file; exit non-zero if any
    missing and not annotated `evidence-superseded`.
@@ -105,7 +105,7 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 - `scripts/harness/run-all-scans.mjs`
 - `package.json`
 - `.agents/rules/backlog-execution.md`
-- `.agents/backlog/completed/*.md` (triage annotations)
+- `.agents/tasks/completed/*.md` (triage annotations)
 
 ## Completion Criteria
 
@@ -136,7 +136,7 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/HARNESS-002.md` — archived at GATE-COMPLETE (T1~T8 complete, TC-01~TC-07 매핑)
+- [x] `.agents/tasks/completed/HARNESS-002.md` — archived at GATE-COMPLETE (T1~~T8 complete, TC-01~~TC-07 매핑)
 
 ## Evidence Log
 
@@ -146,7 +146,7 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 
 - Frontmatter: file begins with `---` YAML block; `status: draft` present; `type: RULE` is one of the 11 allowed prefixes; `tags: [harness, typescript]` present.
 - Problem — concrete symptom: documented false-evidence cases (CLI-033, CLI-042, CLI-046, REL-003) with specific claims vs. actual state; no TBD/TODO/vague single-sentence text.
-- Problem — reproduction condition: "delete any test file referenced in a `.agents/backlog/completed/*.md` evidence section — `pnpm harness:scan` stays green".
+- Problem — reproduction condition: "delete any test file referenced in a `.agents/tasks/completed/*.md` evidence section — `pnpm harness:scan` stays green".
 - Architecture Review Checklist: all 4 items `[x]`; Sibling scan item `[x]` with completion evidence (22 existing `check-*.mjs` scans, `run-all-scans.mjs` registration via HARNESS-011, fixture+vitest test pattern, rule-doc ownership confirmed).
 - Alternatives Considered: 3 entries, each with explicit Pro and Con.
 - Decision: references the driving trade-off (detection depth vs scan cost) and the extraction/exemption rule.
@@ -159,7 +159,7 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 **Status upgrade:** review-ready → approved
 
 - Explicit approval in current conversation: user replied exactly "승인함" on 2026-06-13, after being told verbatim that replying "승인함" authorizes implementation of the 11 designs.
-- Approval directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" individually summarized HARNESS-002's design (23rd scan for test-file paths in `.agents/backlog/completed/*.md` evidence, durable-artifact rule, `evidence-superseded` annotation, initial triage of CLI-033/042/046/REL-003) and stated approval would advance GATE-APPROVAL → per-item implementation; the user's "승인함" is a direct, unambiguous confirmation covering this spec. The earlier release instruction ("머지하고 main 릴리스 진행해줘") and clarifying exchange ("그래서 뭐?") were not treated as approval.
+- Approval directed at this spec: the consolidated approval request "## 설계안 요약 (승인 요청) — 백로그 일괄 11건" individually summarized HARNESS-002's design (23rd scan for test-file paths in `.agents/tasks/completed/*.md` evidence, durable-artifact rule, `evidence-superseded` annotation, initial triage of CLI-033/042/046/REL-003) and stated approval would advance GATE-APPROVAL → per-item implementation; the user's "승인함" is a direct, unambiguous confirmation covering this spec. The earlier release instruction ("머지하고 main 릴리스 진행해줘") and clarifying exchange ("그래서 뭐?") were not treated as approval.
 - No post-approval modification of Architecture Review or frontmatter type/tags: only post-GATE-WRITE changes were the guard's Evidence Log entry, the frontmatter status upgrade draft → review-ready, and prettier formatting (commit cd5b1053a, PR #705).
 - No implementation before this gate: `.agents/tasks/HARNESS-002.md` does not exist; `scripts/harness/check-done-evidence.mjs` does not exist; no `harness:scan:done-evidence` script in `package.json`; no commits touching these paths.
 
@@ -177,14 +177,14 @@ real decayed-evidence class (3 live findings, all triaged with superseded annota
 **Status remains:** in-progress
 **Failed criteria:**
 
-- Tests pass for affected scope (mapped: `pnpm harness:scan:done-evidence` + `pnpm harness:scan`, per no-package-build scope): `pnpm harness:scan:done-evidence` → exit 1 — "done-evidence scan failed — stale evidence references: `.agents/backlog/completed/DOC-002-multilang-readme.md:62` → `packages/agent-cli/README.ko.md`"; `pnpm harness:scan` → "✗ done-evidence … 1 of 23 scans failed", exit 1. Root cause verified by direct read: DOC-002 has the `<!-- evidence-superseded: README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales) -->` annotation at line 60, a blank line at 61, and the evidence reference at line 62 — the scanner (`check-done-evidence.mjs` lines 82-83) exempts only same-line or directly-preceding-line annotations, matching its documented contract ("same line or the line directly above the reference"). This blank-line state exists in the PR head commit itself (`git show 9ee90e07a` lines 60-62 identical; `git diff HEAD` clean for this file), so the failure is the branch state, not local drift. Only 2 of the 3 triage annotations (CLIR-H02, CLIR-L01) are effective.
+- Tests pass for affected scope (mapped: `pnpm harness:scan:done-evidence` + `pnpm harness:scan`, per no-package-build scope): `pnpm harness:scan:done-evidence` → exit 1 — "done-evidence scan failed — stale evidence references: `.agents/tasks/completed/DOC-002-multilang-readme.md:62` → `packages/agent-cli/README.ko.md`"; `pnpm harness:scan` → "✗ done-evidence … 1 of 23 scans failed", exit 1. Root cause verified by direct read: DOC-002 has the `<!-- evidence-superseded: README.ko.md retired when docs i18n moved to the docs site (SITE-006/007 ko locales) -->` annotation at line 60, a blank line at 61, and the evidence reference at line 62 — the scanner (`check-done-evidence.mjs` lines 82-83) exempts only same-line or directly-preceding-line annotations, matching its documented contract ("same line or the line directly above the reference"). This blank-line state exists in the PR head commit itself (`git show 9ee90e07a` lines 60-62 identical; `git diff HEAD` clean for this file), so the failure is the branch state, not local drift. Only 2 of the 3 triage annotations (CLIR-H02, CLIR-L01) are effective.
   **Required action:** Move the DOC-002 annotation to the line directly above (or onto) the line-62 evidence reference — and guard against the formatter re-inserting the blank line — then re-run `pnpm harness:scan:done-evidence` (expect 3 superseded exemptions, exit 0) and `pnpm harness:scan` (expect 23/23), commit, and re-run GATE-VERIFY.
-- All tasks in `.agents/tasks/HARNESS-002.md` complete: T6 (TC-06 — "initial live triage — scan green on the current `completed/` set") is checked `[x]` but its substance is false on the current branch state (live scan red, above); the backlog closure `.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md` likewise records "`pnpm harness:scan` → all 23 scans passed", which does not hold at the PR head.
+- All tasks in `.agents/tasks/HARNESS-002.md` complete: T6 (TC-06 — "initial live triage — scan green on the current `completed/` set") is checked `[x]` but its substance is false on the current branch state (live scan red, above); the backlog closure `.agents/tasks/completed/HARNESS-002-done-evidence-regression-sweep.md` likewise records "`pnpm harness:scan` → all 23 scans passed", which does not hold at the PR head.
   **Required action:** Restore T6's substance with the fix above; the backlog completion claim becomes true again once the live scans are green.
 
 Criteria verified as met during this run (recorded for the re-run):
 
-- Tasks file checked state: T1–T7 all `[x]` (direct read of `.agents/tasks/HARNESS-002.md`); no blocked markers. T8 (wrap-up) unchecked — adjudicated per the established CLI-063..073/HARNESS-011 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-073 done-spec GATE-VERIFY entry): PR #715 OPEN (`gh pr view 715 --json state`: OPEN, head `feat/harness-002-done-evidence` → base `develop`); `gh pr checks 715` green — build pass (32s), quality pass (26s), security audit pass (37s), Cloudflare Pages pass; compat-node18 and release-grade verification skipping (by design on feature PRs); backlog closure exists at `.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md` (`status: done`, Completion 2026-06-13 section, User Execution Test Scenarios N/A — harness/internal tooling per the backlog itself). The adjudication structure is sound; the gate fails on scan substance, not on T8.
+- Tasks file checked state: T1–T7 all `[x]` (direct read of `.agents/tasks/HARNESS-002.md`); no blocked markers. T8 (wrap-up) unchecked — adjudicated per the established CLI-063..073/HARNESS-011 GATE-VERIFY interpretation (precedent confirmed by direct read of the CLI-073 done-spec GATE-VERIFY entry): PR #715 OPEN (`gh pr view 715 --json state`: OPEN, head `feat/harness-002-done-evidence` → base `develop`); `gh pr checks 715` green — build pass (32s), quality pass (26s), security audit pass (37s), Cloudflare Pages pass; compat-node18 and release-grade verification skipping (by design on feature PRs); backlog closure exists at `.agents/tasks/completed/HARNESS-002-done-evidence-regression-sweep.md` (`status: done`, Completion 2026-06-13 section, User Execution Test Scenarios N/A — harness/internal tooling per the backlog itself). The adjudication structure is sound; the gate fails on scan substance, not on T8.
 - Unit tests: `npx vitest run scripts/harness/__tests__/` → 21 files passed, 189/189 tests passed (includes `check-done-evidence.test.mjs`) — met.
 - Build mapping: no package source changes in scope (`scripts/harness/*.mjs`, `package.json` script entry, rule/backlog markdown) — `pnpm build` not applicable, consistent with the HARNESS-011 GATE-VERIFY precedent.
 - Validity: run on branch `feat/harness-002-done-evidence`; `git status --porcelain` shows only `.agents/evals/lessons/*` modifications — evidence reflects the PR #715 head state.
@@ -196,10 +196,10 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 
 **Status upgrade:** in-progress → verifying
 
-- Re-run after prior FAIL (same date, above). Sole failing criterion was the DOC-002 annotation adjacency; fix verified: annotation now sits INLINE on the evidence reference line of `.agents/backlog/completed/DOC-002-multilang-readme.md` (formatter-safe — no blank-line separation possible), committed as `0ad9b66f9` "fix(harness): inline DOC-002 evidence-superseded annotation (formatter-safe)" on `feat/harness-002-done-evidence`, pushed (local == origin, 0/0 ahead/behind), `git status` clean for that file.
+- Re-run after prior FAIL (same date, above). Sole failing criterion was the DOC-002 annotation adjacency; fix verified: annotation now sits INLINE on the evidence reference line of `.agents/tasks/completed/DOC-002-multilang-readme.md` (formatter-safe — no blank-line separation possible), committed as `0ad9b66f9` "fix(harness): inline DOC-002 evidence-superseded annotation (formatter-safe)" on `feat/harness-002-done-evidence`, pushed (local == origin, 0/0 ahead/behind), `git status` clean for that file.
 - Tests pass for affected scope (mapped per no-package-build scope, as in prior run): `pnpm harness:scan:done-evidence` → exit 0, "done-evidence scan passed (3 superseded reference(s))" — all 3 triage exemptions effective (CLIR-H02 → tui-mode.ts, CLIR-L01 → tui-mode.ts, DOC-002 → README.ko.md). `pnpm harness:scan` → "all 23 scans passed", exit 0.
 - Unit tests: `npx vitest run scripts/harness/__tests__/check-done-evidence.test.mjs` → 1 file passed, 5/5 tests passed.
-- All tasks in `.agents/tasks/HARNESS-002.md` complete: T1–T7 all `[x]` re-confirmed by direct read; no blocked or pending markers. T6's substance is now true (live scan green, above), restoring the backlog closure claim "`pnpm harness:scan` → all 23 scans passed". T8 (wrap-up) unchecked — adjudicated per the established CLI-063..073/HARNESS-011 GATE-VERIFY precedent (validated in the prior run's entry): PR #715 OPEN (`gh pr view 715 --json state`: OPEN, `feat/harness-002-done-evidence` → `develop`, re-confirmed this run), CI checks green and backlog closure file present (`.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md`, status done) per prior run.
+- All tasks in `.agents/tasks/HARNESS-002.md` complete: T1–T7 all `[x]` re-confirmed by direct read; no blocked or pending markers. T6's substance is now true (live scan green, above), restoring the backlog closure claim "`pnpm harness:scan` → all 23 scans passed". T8 (wrap-up) unchecked — adjudicated per the established CLI-063..073/HARNESS-011 GATE-VERIFY precedent (validated in the prior run's entry): PR #715 OPEN (`gh pr view 715 --json state`: OPEN, `feat/harness-002-done-evidence` → `develop`, re-confirmed this run), CI checks green and backlog closure file present (`.agents/tasks/completed/HARNESS-002-done-evidence-regression-sweep.md`, status done) per prior run.
 - Build mapping: no package source changes in scope (`scripts/harness/*.mjs`, `package.json` script entry, rule/backlog markdown) — `pnpm build` not applicable, consistent with the HARNESS-011 GATE-VERIFY precedent (carried from prior run; no scope change since).
 - Validity: run on branch `feat/harness-002-done-evidence` at `0ad9b66f9`; `git status --porcelain` shows only `.agents/evals/lessons/*` modifications — evidence reflects the pushed PR #715 head state.
 
@@ -243,7 +243,7 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 ### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-06-13
 
 - Checkbox: TC-06 is `[x]` in `## Completion Criteria`.
-- Command: `pnpm harness:scan:done-evidence` (live run on current `.agents/backlog/completed/`, same run as TC-05 command 1)
+- Command: `pnpm harness:scan:done-evidence` (live run on current `.agents/tasks/completed/`, same run as TC-05 command 1)
 - Output: green — "done-evidence scan passed (3 superseded reference(s))."; the triage state holds: 3 annotated stale references reported as superseded exemptions (`CLIR-H02-shellexec-duplication.md` → `packages/agent-cli/src/modes/tui-mode.ts`, `CLIR-L01-agent-name-hardcoded.md` → `packages/agent-cli/src/modes/tui-mode.ts`, `DOC-002-multilang-readme.md` → `packages/agent-cli/README.ko.md`), zero unannotated missing paths. Exit code 0.
 - Test Plan row updated with explicit skip reason (live-tree state check verified by live run).
 
@@ -262,5 +262,5 @@ Completion Criteria checkboxes remain unchecked by design: TC-N validation belon
 - Test Plan: all 7 rows updated — TC-01..TC-04 carry test file + describe/test-name references; TC-05..TC-07 carry explicit skip reasons (live-run integration ×2, manual doc read ×1). No TC-N silently unaddressed.
 - Tasks file archived: `.agents/tasks/completed/HARNESS-002.md` exists with T1–T8 all `[x]` (T1↔TC-01 … T7↔TC-07, T8 wrap-up), verified by direct read.
 - `## Tasks` section reflects the archived path (`.agents/tasks/completed/HARNESS-002.md — archived at GATE-COMPLETE`).
-- Backlog closure: `.agents/backlog/completed/HARNESS-002-done-evidence-regression-sweep.md` has `status: done`; done gate satisfied — `## User Execution Test Scenarios` section is N/A per the backlog itself (harness/internal tooling), recorded in its Completion section.
+- Backlog closure: `.agents/tasks/completed/HARNESS-002-done-evidence-regression-sweep.md` has `status: done`; done gate satisfied — `## User Execution Test Scenarios` section is N/A per the backlog itself (harness/internal tooling), recorded in its Completion section.
 - Validity: all commands run 2026-06-13 from repo root on branch `develop` working tree; aggregate scan re-run with captured exit code (`pnpm harness:scan` → exit 0, 23/23 ✓).

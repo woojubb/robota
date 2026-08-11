@@ -54,6 +54,59 @@ jobs:
     name: review-gate
     runs-on: ubuntu-latest
     steps:
+      # PROC-007. FIRST, and before anything is checked out.
+      #
+      # A `re-plan` disposition (`.agents/rules/finding-depth.md`) WITHDRAWS a change rather than
+      # patching it. #1557 held that decision in `.agents/local-reviews/<branch>.json` — gitignored,
+      # per-working-tree, keyed by the LOCAL branch and HEAD — while the merge it was meant to stop
+      # is keyed by a PR number. `worktree-parallel-orchestration` §5 has the orchestrator merge and
+      # never the implementer, so the recording checkout is by construction not the merging one:
+      # measured while judging that PR, the merging clone held a record for a DIFFERENT branch and
+      # would have answered one PR's merge with another PR's disposition.
+      #
+      # INFRA-048 and INFRA-057 already paid for the general form of that — a merge decision held
+      # anywhere but the PR does not stop a merge — and their answer is this workflow. So the
+      # withdrawal lives on the PR as a label and is read here, where being RED is a required check
+      # on `protect-develop` and, on `main`, triggers the `disarm-auto-merge` job below. The local
+      # `merge-gate.sh` hook reads the same label, but a hook cannot see an auto-merge that GitHub
+      # fires on its own; only this job can.
+      #
+      # Deliberately NOT gated on `steps.classify.outputs.code`: a withdrawal is a decision about the
+      # change, and a docs-only change can be withdrawn exactly like a code one. Running before the
+      # checkout also means the withdrawal is decided without ever executing code from the PR.
+      - name: Has this change been withdrawn? (finding-depth disposition)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          # `--paginate` with `.[].name` rather than a `join`: `--jq` is applied PER PAGE, so a join
+          # would emit one comma-joined line per page and the labels either side of the newline
+          # would be mangled together (SEC-007, measured on this file's other label read). One name
+          # per line survives pagination unchanged.
+          if ! labels="$(gh api --paginate \
+                "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" --jq '.[].name')"; then
+            # Fail closed. "I could not read the labels" and "this change was not withdrawn" are the
+            # two answers this gate exists to keep apart.
+            echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}, so a re-plan withdrawal cannot be ruled out."
+            exit 1
+          fi
+          if printf '%s\n' "$labels" | grep -qx 'disposition-re-plan'; then
+            # `grep -qx`: whole-line equality, so `disposition-re-planned` is not read as this label.
+            echo "::error::review-gate: PR #${PR_NUMBER} carries 'disposition-re-plan'. A foundational finding withdrew this change rather than patching it (finding-depth.md), so it is not to be merged — close it and work the root item. Removing the label is what un-withdraws it."
+            {
+              echo '### Review gate — WITHDRAWN'
+              echo
+              echo "This PR carries \`disposition-re-plan\`: a foundational finding withdrew the"
+              echo 'change rather than patching it. Close it and work the root item.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if printf '%s\n' "$labels" | grep -qx 'disposition-containment'; then
+            # Containment IS a resolution — it lands under a labelled hold, so it does not block.
+            echo "PR #${PR_NUMBER} carries 'disposition-containment': it lands under a labelled hold."
+          fi
+
       # INFRA-050: `fetch-depth: 0`. The classify step below reads base-relative history (a merge
       # base against `origin/<base>`), and a depth-limited checkout GRAFTS the ancestry, which would
       # make that read fail — and a classification that cannot be determined answers `code=true`,
@@ -72,7 +125,7 @@ jobs:
           # construction: no merge base, a failed diff or an empty file list all answer `code=true`.
           node scripts/harness/classify-changed-paths.mjs --base-ref "origin/${BASE_REF}"
 
-      - name: Wait for the code-scanning analysis of this PR
+      - name: Read the code-scanning analysis of this PR (single read, no wait)
         # Skipped entirely when no code changed: there is nothing to wait for, and waiting is what
         # cost #1436 fifteen minutes before it was blocked.
         if: steps.classify.outputs.code == 'true'
@@ -80,55 +133,48 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          # The gate must read a COMPLETED analysis. Polling here (rather than assuming) is what
-          # keeps "the analysis has not run yet" from being read as "the analysis found nothing".
+          # The gate must read a COMPLETED analysis: "the analysis has not run yet" must never be
+          # read as "the analysis found nothing". It reads ONCE and does not wait.
           #
-          # Two deadlines, because there are two different things being waited for:
-          #   - GRACE (5 min): no `Analyze` check run has been created AT ALL. CodeQL's check runs
-          #     appear within seconds of the PR event, so after five minutes the honest conclusion
-          #     is that no analysis was scheduled for a PR that does contain code. Concluding early
-          #     is NOT assuming success — this exit writes `analysis_complete=false` exactly like
-          #     the long timeout, and the gate blocks. It only stops the job from spending another
-          #     ten minutes to reach the same answer.
-          #   - DEADLINE (15 min): an analysis exists and is still running. That one is worth
-          #     waiting for, and the loop breaks the moment it completes.
-          start=$(date +%s)
-          grace=$(( start + 300 ))
-          deadline=$(( start + 900 ))
-          while :; do
-            # SEC-007: `/check-runs` is PAGINATED (30 per page by default) and this commit already
-            # carries 21 check runs. Read one page at a time, the `Analyze` runs could sit on page two
-            # — and then `total` is 0 and the grace branch below concludes "nothing analysed", or
-            # worse, a partial page makes `total == done_count` and the gate reports COMPLETE while an
-            # analysis is still running. Both read exactly like a legitimate answer.
-            #
-            # `github-api.mjs` paginates AND asserts the record count against the envelope's
-            # `total_count`, so a truncated read throws instead of returning a smaller number.
-            runs="$(node scripts/harness/github-api.mjs \
-                      "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
-                      --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
-            total="$(printf '%s' "$runs" | jq 'length')"
-            done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
-            echo "code-scanning analyses: ${done_count}/${total} completed"
-            if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
-              echo "analysis_complete=true" >> "$GITHUB_ENV"
-              break
-            fi
-            now=$(date +%s)
-            if [ "$total" -eq 0 ] && [ "$now" -ge "$grace" ]; then
-              # Deliberately NOT a pass: this PR changes code, and nothing analysed it.
-              echo "::error::review-gate: no code-scanning analysis was scheduled for ${HEAD_SHA} within 5 minutes, and this PR changes code. Nothing has been analysed, so nothing has been cleared."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              break
-            fi
-            if [ "$now" -ge "$deadline" ]; then
-              # Deliberately NOT a pass: an analysis that never completed has cleared nothing.
-              echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} did not complete within 15 minutes."
-              echo "analysis_complete=false" >> "$GITHUB_ENV"
-              break
-            fi
-            sleep 20
-          done
+          # Waiting used to happen here — up to 15 minutes of polling, on a held runner, for an
+          # analysis that runs in parallel with this job. Billing is per job rounded up, so that wait
+          # was charged in full, and it was measured as this workflow's entire runtime: the job took
+          # about as long as the analysis it was watching. A runner is the most expensive place to
+          # wait, because it is the one place that bills while doing nothing.
+          #
+          # So the wait moved to the agent side: an incomplete read blocks, exactly as before, and
+          # the observation loop re-runs this check once the analysis completes. The verdict semantics
+          # are unchanged — what changed is who holds the clock.
+          #
+          # WHAT THIS COSTS, stated because it is a real trade and not a free win. The poll used to be
+          # self-recovering: most pull requests resolved inside a single run without anyone acting.
+          # Now the first read almost always finds the analysis still running — the two workflows are
+          # triggered by the same event — so this check goes red until it is re-run. The RECOVERY is
+          # codeql.yml's last step (#1660): when the analysis completes, it re-runs a same-SHA gate
+          # run that failed, so the red is transient without anyone watching and without changing
+          # this workflow's trigger or holding a runner. Measured before that step existed: all
+          # eight open code PRs red simultaneously on a gate that had found nothing.
+          #
+          # The `workflow_run` alternative is deliberately NOT taken: such a run reports against the
+          # default branch's workflow file, and whether it can satisfy branch protection as the same
+          # required context name is unverified — #1660 records the constraint.
+          runs="$(node scripts/harness/github-api.mjs \
+                    "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" \
+                    --jq '[.[] | select(.name | startswith("Analyze"))]' 2>/dev/null || echo '[]')"
+          total="$(printf '%s' "$runs" | jq 'length')"
+          done_count="$(printf '%s' "$runs" | jq '[.[] | select(.status == "completed")] | length')"
+          echo "code-scanning analyses: ${done_count}/${total} completed"
+          if [ "$total" -gt 0 ] && [ "$total" -eq "$done_count" ]; then
+            echo "analysis_complete=true" >> "$GITHUB_ENV"
+          elif [ "$total" -eq 0 ]; then
+            # Deliberately NOT a pass: this PR changes code, and nothing has analysed it yet.
+            echo "::error::review-gate: no completed code-scanning analysis for ${HEAD_SHA}. This is not a defect if the analysis is still running — re-run this check once it completes. Nothing has been analysed, so nothing has been cleared."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+          else
+            # Deliberately NOT a pass: an analysis still running has cleared nothing.
+            echo "::error::review-gate: the code-scanning analysis for ${HEAD_SHA} is still running (${done_count}/${total} complete). Re-run this check once it completes."
+            echo "analysis_complete=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Collect the review output
         if: steps.classify.outputs.code == 'true'
@@ -171,10 +217,22 @@ jobs:
           # `--jq` PER PAGE: two pages would emit two `a,b,c` lines, and the decision module splits on
           # `,` only — so the labels either side of the newline would both be mangled into one token
           # and lost. This reader merges the pages first and projects once.
-          node scripts/harness/github-api.mjs \
+          # Fail closed, with the ACCURATE reason. `|| echo ""` turned "I could not read the labels"
+          # into "there are no labels", and the gate then blocked for the wrong cause — it would tell
+          # an author their findings were unacknowledged when the acknowledge label was there and
+          # unreadable. Stopping for a reason that is not the reason is the shape INFRA-077 measured
+          # on the push gate, and it costs the next person the whole debugging trail.
+          if ! node scripts/harness/github-api.mjs \
             "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
             --jq '[.[].name] | join(",")' \
-            > pr-labels.txt || echo "" > pr-labels.txt
+            > pr-labels.txt; then
+            echo "::error::review-gate: could not read the labels on PR #${PR_NUMBER}. The acknowledge override cannot be ruled in or out, so this is not a pass."
+            # The SENTINEL, not `exit 1`. Exiting here still turned the job red — the goal was met —
+            # but it skipped the Decide step, so the PR got no gate report and the reason lived only
+            # in an Actions annotation. Every sibling "could not read X" path writes UNAVAILABLE and
+            # lets the decision module block with the reason ON THE PR. (#1588 review)
+            echo "UNAVAILABLE" > pr-labels.txt
+          fi
 
       - name: Decide
         id: decide
@@ -220,6 +278,45 @@ jobs:
           EOF
             echo "::error::review-gate blocked this PR. See the job summary."
             exit 1
+          fi
+          # A PASS after a BLOCKED comment says so, or the last word on the PR stays a stale
+          # refusal: the #1660 recovery reruns this gate the moment the analysis completes, which
+          # makes the transient BLOCKED comment routine — and a reader scanning comments would
+          # keep meeting a verdict the checks page no longer agrees with. Only posted when a
+          # BLOCKED comment exists AND this pass actually judged code: on the docs-only path
+          # nothing was re-read. The sentence claims only the supersession — a pass can arrive
+          # by re-reading a completed analysis OR by the acknowledge label (a human override
+          # with findings still real), and naming the wrong one would misreport the second.
+          # (#1669 review, three rounds)
+          # Read PAGINATED, oldest→newest, because whether `gh pr view --json comments` returns
+          # the newest or the oldest page on a >100-comment PR is not documented and could not
+          # be measured here (no PR in this repository has crossed 100 yet) — and this repo's
+          # review process is exactly the kind that will cross it. Per REST page, jq keeps the
+          # FIRST LINE of the last matching gate comment (the header is all the test below
+          # reads, and one line per page keeps multiline bodies from breaking the line-based
+          # tail); the last non-empty line across pages is therefore the newest gate header.
+          # Matched on the comment's HEADER, not a substring: the supersession text below quotes
+          # the word BLOCKED, so a substring test would match the supersession itself and every
+          # later green run would re-post it — a self-feeding loop. (#1669 review, two rounds)
+          # The read fails LOUDLY: `|| echo ""` would turn "could not read the comments" into
+          # "there is no BLOCKED comment", the exact silence INFRA-077 forbids and every other
+          # gh api read in this step already avoids. On failure we warn and skip the courtesy
+          # note (its absence is harmless — the gate verdict is on the checks page regardless).
+          # A pipe would mask gh's exit under the trailing grep/tail, so gh's output is captured
+          # first and the line-pick runs only after gh succeeded. (#1669 review)
+          gate_comments_err=$(mktemp)
+          if gate_comments_json=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("**Review gate:"))] | last | (.body // "" | split("\n")[0])' 2>"${gate_comments_err}"); then
+            last_gate_comment=$(printf '%s' "${gate_comments_json}" | grep -v '^$' | tail -1 || echo "")
+          else
+            echo "::warning::review-gate supersession: could not read PR comments ($(cat "${gate_comments_err}")). Skipping the superseded-note; the checks page still carries the verdict."
+            last_gate_comment=""
+          fi
+          rm -f "${gate_comments_err}"
+          if [ "${CODE_CHANGED}" = "true" ] && printf '%s' "$last_gate_comment" | head -1 | grep -q '^\*\*Review gate: BLOCKED'; then
+            gh pr comment "$PR_NUMBER" --body-file - <<EOF || true
+          **Review gate: PASS** — the BLOCKED verdict above is superseded; the checks page carries the current verdict and the run log says why this pass passed.
+          EOF
           fi
 
   # INFRA-057. Disarming an armed auto-merge is INFRA-048's stated lever for the #1409 hole: a red

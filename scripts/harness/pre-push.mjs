@@ -17,6 +17,29 @@ import {
   formatLockfileFailureMessage,
   parsePrePushUpdates,
 } from './pre-push-updates.mjs';
+import { checkTreePrerequisites } from './tree-prerequisites.mjs';
+
+/**
+ * The commands the REQUIRED `scans` context runs, mirrored locally.
+ *
+ * INFRA-069. `scans` is required on `protect-develop`, and this gate ran none of it: measured, a
+ * change under a package's `src` selected ZERO scans, so the first thing that ever examined it was CI.
+ * (The item counts 81 and the suite counts 99 today; the number the argument rests on is the zero.) The declared local mirror, `verify-like-ci`, was invoked by nothing at all.
+ *
+ * The item framed the open question as what the local gate should COST, on the reasoning that a slow
+ * pre-push gets bypassed with `--no-verify`. Measured instead of debated: the scan suite is 6s and
+ * the harness test suite 54s, against a CI round trip of five to six minutes. At a minute there is
+ * nothing to trade off, so the whole suite runs and no subset had to be invented.
+ *
+ * FLAGS INCLUDED DELIBERATELY. `--skip dist --skip build-contracts` is what the workflow passes;
+ * running MORE here than CI does would refuse pushes CI would accept, which is property 4 —
+ * firing on correct work — and the fastest way to have a gate turned off. `pre-push-mirrors-ci-scans.test.mjs`
+ * reads both sides so the two cannot drift silently.
+ */
+export const CI_SCANS_JOB_MIRROR = [
+  ['pnpm', ['harness:test']],
+  ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
+];
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -181,47 +204,115 @@ function resolvePrePushMode(value) {
   return mode;
 }
 
-pruneAndWarnStaleWorktrees();
-assertCleanWorkingTree();
-assertLockfileConsistency();
-
-const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
-const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
-const prePushMode = resolvePrePushMode(process.env.HARNESS_PRE_PUSH_MODE);
-const scopeExpansionArgs = prePushMode === 'fast' ? ['--skip-dependent-scopes'] : [];
-const updates = parsePrePushUpdates(readPrePushInput());
-const treeMatchesBase =
-  baseRef && !hasWorkingTreeChanges()
-    ? runGitQuiet(['diff', '--quiet', baseRef, 'HEAD', '--'])
-    : false;
-const prePushDecision = decidePrePushVerification({
-  updates,
-  baseRef,
-  treeMatchesBase,
-});
-
-if (!prePushDecision.shouldRun) {
-  process.stdout.write(`▶ scoped pre-push verification skipped: ${prePushDecision.reason}\n`);
-  process.exit(0);
+/**
+ * HARNESS-058: this gate runs `pnpm harness:verify` and then `pnpm cli:dev --version`, and both read
+ * build output it never produces. In a fresh worktree the smoke check died on
+ * `Cannot find module '…/packages/agent-command-workflows/node_modules/@robota-sdk/dag-core/dist/node/index.js'`
+ * — a message that reads like a broken import in the change being pushed. It is not a verdict on the
+ * change; it is an unprepared tree, and it says so now. The push is still blocked: naming the
+ * prerequisite is what changed, not whether the gate holds.
+ *
+ * Called only from the verifying branch of `runPrePushGate` — see the ordering note there.
+ */
+function assertTreePrerequisites() {
+  const result = checkTreePrerequisites('the pre-push gate', WORKSPACE_ROOT);
+  if (result.ok) return;
+  process.stderr.write(result.message);
+  process.exit(1);
 }
 
-process.stdout.write(`▶ scoped pre-push verification (${prePushMode})\n`);
-if (baseRef) {
-  process.stdout.write(`base: ${baseRef}\n`);
-} else {
-  process.stdout.write('base: unresolved; using working-tree changes only\n');
+/**
+ * The gate's step ORDER, stated once and exported so a test can assert the sequence itself.
+ *
+ * HARNESS-058, second face. `assertTreePrerequisites` used to run third — before
+ * `decidePrePushVerification` had decided whether anything would be verified at all. But two kinds
+ * of push run NO verification: a delete-only push, and a re-push whose tree has no content delta
+ * from its base. Neither reads `node_modules` or `dist`, and both were refused in a fresh worktree,
+ * demanding `pnpm install && pnpm build` for a push with nothing to check — in exactly the
+ * parallel-subagent-in-a-fresh-worktree configuration this item exists to serve.
+ *
+ * A prerequisite is owed only by work that is actually going to happen, so it is asserted AFTER the
+ * decision to verify. The steps are INJECTED rather than called directly because the defect was an
+ * ordering defect: a test asserting only "a delete-only push is allowed" would go green again if the
+ * assertion moved back ahead of the decision for some unrelated reason.
+ */
+export function runPrePushGate(steps) {
+  steps.pruneAndWarnStaleWorktrees();
+  steps.assertCleanWorkingTree();
+  steps.assertLockfileConsistency();
+
+  const decision = steps.decideVerification();
+  if (!decision.shouldRun) {
+    steps.reportSkipped(decision.reason);
+    return { verified: false, reason: decision.reason };
+  }
+
+  // Everything below this line reads build output and installed binaries; nothing above it does.
+  steps.assertTreePrerequisites();
+  steps.runVerification();
+  return { verified: true, reason: null };
 }
 
-if (prePushMode === 'fast') {
-  process.stdout.write('dependent scope expansion: skipped; use HARNESS_PRE_PUSH_MODE=full\n');
+/** The real steps, bound to this process's environment and working tree. */
+function createPrePushSteps() {
+  const baseRef = resolveGitBaseRef(process.env.HARNESS_BASE_REF ?? null);
+  const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
+  const prePushMode = resolvePrePushMode(process.env.HARNESS_PRE_PUSH_MODE);
+  const scopeExpansionArgs = prePushMode === 'fast' ? ['--skip-dependent-scopes'] : [];
+
+  return {
+    pruneAndWarnStaleWorktrees,
+    assertCleanWorkingTree,
+    assertLockfileConsistency,
+    assertTreePrerequisites,
+
+    decideVerification: () =>
+      decidePrePushVerification({
+        updates: parsePrePushUpdates(readPrePushInput()),
+        baseRef,
+        treeMatchesBase:
+          baseRef && !hasWorkingTreeChanges()
+            ? runGitQuiet(['diff', '--quiet', baseRef, 'HEAD', '--'])
+            : false,
+      }),
+
+    reportSkipped: (reason) =>
+      process.stdout.write(`▶ scoped pre-push verification skipped: ${reason}\n`),
+
+    runVerification: () => {
+      process.stdout.write(`▶ scoped pre-push verification (${prePushMode})\n`);
+      process.stdout.write(
+        baseRef ? `base: ${baseRef}\n` : 'base: unresolved; using working-tree changes only\n',
+      );
+      if (prePushMode === 'fast') {
+        process.stdout.write(
+          'dependent scope expansion: skipped; use HARNESS_PRE_PUSH_MODE=full\n',
+        );
+      }
+
+      run('pnpm', ['harness:plan', '--', ...baseArgs, ...scopeExpansionArgs]);
+      run('pnpm', [
+        'harness:verify',
+        '--',
+        ...baseArgs,
+        ...scopeExpansionArgs,
+        '--skip-record-check',
+      ]);
+
+      process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
+      for (const [command, args] of CI_SCANS_JOB_MIRROR) run(command, args);
+
+      process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
+      run('pnpm', ['cli:dev', '--version']);
+
+      process.stdout.write('\nRelease-grade verification remains explicit:\n');
+      process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');
+      process.stdout.write('  pnpm harness:verify:release\n');
+    },
+  };
 }
 
-run('pnpm', ['harness:plan', '--', ...baseArgs, ...scopeExpansionArgs]);
-run('pnpm', ['harness:verify', '--', ...baseArgs, ...scopeExpansionArgs, '--skip-record-check']);
-
-process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
-run('pnpm', ['cli:dev', '--version']);
-
-process.stdout.write('\nRelease-grade verification remains explicit:\n');
-process.stdout.write('  HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push\n');
-process.stdout.write('  pnpm harness:verify:release\n');
+// Guarded so a test can import `runPrePushGate` without running the gate against its own checkout.
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
+  runPrePushGate(createPrePushSteps());
+}

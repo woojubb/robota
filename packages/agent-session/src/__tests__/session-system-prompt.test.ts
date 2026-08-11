@@ -96,6 +96,7 @@ describe('Session — system prompt delivery', () => {
     const systemMessage = `Agent Instructions\n${agentsContent}\n\nAvailable tools: Bash, Read`;
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -117,6 +118,7 @@ describe('Session — system prompt delivery', () => {
     const systemMessage = `Project Notes\n${claudeContent}\n\nAvailable tools: Bash`;
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -131,6 +133,7 @@ describe('Session — system prompt delivery', () => {
     const systemMessage = 'test agents content\ntest claude content\nAvailable tools: Bash';
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -149,6 +152,7 @@ describe('Session — system prompt delivery', () => {
     const systemMessage = 'Some base system prompt with tools listed';
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -165,6 +169,7 @@ describe('Session — system prompt delivery', () => {
       'Available tools: Bash — execute shell commands, Read — read files, Grep — search';
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -181,6 +186,7 @@ describe('Session — system prompt delivery', () => {
     const systemMessage = 'Trust level: moderate\nAvailable tools: Bash';
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -193,6 +199,7 @@ describe('Session — system prompt delivery', () => {
 
   it('should pass provider timeout into Robota agent config', () => {
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test system',
@@ -206,6 +213,7 @@ describe('Session — system prompt delivery', () => {
 
   it('passes maxTurns to Robota.run as maxExecutionRounds', async () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test system',
@@ -220,6 +228,7 @@ describe('Session — system prompt delivery', () => {
 
   it('uses unlimited core execution rounds when maxTurns is omitted', async () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test system',
@@ -236,6 +245,7 @@ describe('Session — system prompt delivery', () => {
     const logger = { log: vi.fn() };
 
     new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage,
@@ -271,6 +281,7 @@ describe('Session — system prompt delivery', () => {
     const logger = { log: vi.fn() };
 
     const session = new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'System prompt',
@@ -295,6 +306,7 @@ describe('Session — system prompt delivery', () => {
     const logger = { log: vi.fn() };
 
     const session = new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'System prompt',
@@ -323,6 +335,7 @@ describe('Session — system prompt delivery', () => {
 
     mockRunResult = 'done';
     const session = new Session({
+      cwd: process.cwd(),
       tools: MOCK_TOOLS as never,
       provider: MOCK_PROVIDER as never,
       systemMessage: 'System prompt',

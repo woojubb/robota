@@ -243,17 +243,19 @@ const response = await agent.run(
 
 ### Built-in CLI Tools
 
-`@robota-sdk/agent-tools` ships ready-to-use tools for file system operations and web access:
+`@robota-sdk/agent-tools` ships tools for file system operations and web access. Every filesystem
+tool is a factory taking the directory it is allowed to work in — `createReadTool({ cwd })` — because
+a file tool with no containment root has no boundary:
 
 | Tool                  | Description                                             |
 | --------------------- | ------------------------------------------------------- |
-| `shellTool`           | Execute host shell commands (OS-aware: bash/PowerShell) |
-| `bashTool`            | Alias of `shellTool` (model-familiar name)              |
-| `readTool`            | Read file contents with line numbers                    |
-| `writeTool`           | Write content to a file                                 |
-| `editTool`            | Replace a string in a file                              |
-| `globTool`            | Find files by glob pattern                              |
-| `grepTool`            | Search file contents with regex                         |
+| `createShellTool`     | Execute host shell commands (OS-aware: bash/PowerShell) |
+| `createBashTool`      | Alias of `Shell` (model-familiar name)                  |
+| `createReadTool`      | Read file contents with line numbers                    |
+| `createWriteTool`     | Write content to a file                                 |
+| `createEditTool`      | Replace a string in a file                              |
+| `createGlobTool`      | Find files by glob pattern                              |
+| `createGrepTool`      | Search file contents with regex                         |
 | `webFetchTool`        | Fetch URL content (HTML-to-text)                        |
 | `webSearchTool`       | Web search via Brave Search API                         |
 | `askUserQuestionTool` | Ask the user a question and wait for their answer       |

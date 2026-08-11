@@ -27,7 +27,8 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+
+import { escapeForRegExp } from './shared.mjs';
 
 const WORKSPACE_ROOT = process.cwd();
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
@@ -441,10 +442,6 @@ export function collectReachableModules(contentsByFile, entryPattern, moduleAlia
   return reachable;
 }
 
-function escapeForRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * Drop the parts of a module that cannot reference a binding: comments and quoted string
  * literals. Otherwise a name merely MENTIONED in a comment would count as a use — the same
@@ -725,6 +722,6 @@ export async function main() {
   process.exitCode = 1;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   void main();
 }

@@ -18,8 +18,9 @@
  *
  * Base-ref resolution:
  * 1. `--base-ref <ref>` CLI argument, if given.
- * 2. `origin/$GITHUB_BASE_REF` (PR events).
- * 3. `origin/develop` (default).
+ * 2. `$HARNESS_BASE_REF` when the harness declares an analysis baseline.
+ * 3. `origin/$GITHUB_BASE_REF` (PR events).
+ * 4. `origin/develop` (default).
  *
  * FAIL-CLOSED (INFRA-048-B). When no base resolves, or the diff against it cannot run, this scan
  * exits **1**. It previously printed `SKIPPED … Not a pass` and exited **0** — which every caller
@@ -39,7 +40,6 @@
 import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = process.cwd();
 const DEFAULT_BASE_BRANCH = 'develop';
@@ -96,8 +96,9 @@ function refExists(ref, options) {
 
 /**
  * Resolve the base ref to diff against. Candidates in priority order: an explicit `--base-ref`
- * argument, `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. Returns the resolved ref,
- * or `undefined` when none resolves — which the caller must treat as a FAILURE, not a pass.
+ * argument, `$HARNESS_BASE_REF` (an explicit harness-wide analysis baseline),
+ * `origin/$GITHUB_BASE_REF` (PR CI), then `origin/<default>`. Returns the resolved ref, or
+ * `undefined` when none resolves — which the caller must treat as a FAILURE, not a pass.
  *
  * No fetch is attempted here (INFRA-048-B/INFRA-050): the only fetch that could help is a full one,
  * and a depth-limited one grafts the history it is trying to supply. Callers check out complete.
@@ -109,6 +110,8 @@ export function resolveBaseRef({ argv = process.argv.slice(2), env = process.env
 
   const candidates = [];
   if (explicit) candidates.push(explicit);
+  const harnessBase = env.HARNESS_BASE_REF?.trim();
+  if (harnessBase) candidates.push(harnessBase);
   const prBase = env.GITHUB_BASE_REF?.trim();
   if (prBase) candidates.push(`origin/${prBase}`);
   candidates.push(`origin/${DEFAULT_BASE_BRANCH}`);
@@ -158,8 +161,27 @@ async function readIfExists(root, relativePath) {
   }
 }
 
+/**
+ * How many documents the last walk actually READ.
+ *
+ * Not `changedFiles.length`, which was the first attempt and was wrong in the way this whole
+ * invariant exists to expose: that is every diffed path, while this scan examines only the markdown
+ * among them that still exists on disk. On a diff of fourteen files carrying one document it
+ * declared fourteen — a number larger than the subject, from the input rather than from the walk.
+ *
+ * A module-level holder rather than a widened return: `findDocumentAuthorityFindings`'s shape is
+ * asserted by its own cases (HARNESS-057). RESET at the top of the walk.
+ */
+let documentsRead = 0;
+
+/** The holder, as a reading seam — so a case can assert the SIZE without re-asserting the findings. */
+export function readDocumentsExamined() {
+  return documentsRead;
+}
+
 export async function findDocumentAuthorityFindings({ root = WORKSPACE_ROOT, changedFiles } = {}) {
   const findings = [];
+  documentsRead = 0;
   const normalizedFiles = (changedFiles ?? []).map(normalizePath);
   const changedFileSet = new Set(normalizedFiles);
 
@@ -171,6 +193,7 @@ export async function findDocumentAuthorityFindings({ root = WORKSPACE_ROOT, cha
     if (content === undefined) {
       continue;
     }
+    documentsRead += 1;
 
     if (isArchitectureDoc(file) && ARCHITECTURE_PLAN_HEADINGS.test(content)) {
       findings.push({
@@ -216,7 +239,7 @@ export async function main() {
   if (baseRef === undefined) {
     process.stdout.write(
       'document authority scan FAILED: no base ref could be resolved ' +
-        '(tried --base-ref, origin/$GITHUB_BASE_REF, origin/develop). ' +
+        '(tried --base-ref, $HARNESS_BASE_REF, origin/$GITHUB_BASE_REF, origin/develop). ' +
         'This gate cannot report a pass it did not compute — an unresolvable base used to exit 0 ' +
         'and silently stop enforcing (INFRA-048). Check out with full history ' +
         '(`fetch-depth: 0`) or pass `--base-ref <ref>`.\n',
@@ -237,10 +260,28 @@ export async function main() {
     return;
   }
 
+  // At the call site, where the subject is in hand. `reportFindings` is a pinned unit-test seam and
+  // its contract is the verdict lines; the marker is a channel the runner reads, so folding it in
+  // there would make a suite-wide invariant into a change to a sentence a case asserts.
   const findings = await findDocumentAuthorityFindings({ changedFiles });
+
+  // AFTER the walk, because the number comes from the walk. A zero here is legitimate and must say
+  // so: this scan judges the diff, and a diff carrying no document is a correct empty subject rather
+  // than a sweep that found nothing. Undeclared, the runner fails the suite for it — the invariant
+  // working — and the declaration is what tells the two apart.
+  //
+  // Emitted at the call site rather than inside `reportFindings`, which is a pinned unit-test seam
+  // whose contract is the verdict lines. A verdict is prose for a human; this is a channel the
+  // runner reads.
+  process.stdout.write(
+    documentsRead === 0
+      ? '::examined:: 0 changed documents ::expected-empty:: this diff changes no markdown document that exists on disk — the subject is the diff, not the tree\n'
+      : `::examined:: ${documentsRead} changed documents\n`,
+  );
+
   process.exitCode = reportFindings(findings);
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   void main();
 }

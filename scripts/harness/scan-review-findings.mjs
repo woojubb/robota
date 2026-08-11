@@ -18,13 +18,25 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
+/**
+ * How many review artifacts the last walk actually READ.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the walk, so a run that reads nothing cannot report the
+ * previous run's number.
+ */
+let examinedCount = 0;
+
+export function readExamined() {
+  return examinedCount;
+}
+
 export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   const reviewer = path.join(root, '.claude/agents/pr-review-reviewer.md');
-  const orch = path.join(root, '.agents/skills/pr-review-orchestration/SKILL.md');
+  const orch = path.join(root, '.agents/skills/pr-finding-resolution-loop/SKILL.md');
 
   const findings = [];
 
@@ -33,6 +45,7 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
       findings.push(`${label}: file missing (${path.relative(root, file)})`);
       return;
     }
+    examinedCount += 1;
     if (!re.test(readFileSync(file, 'utf8'))) {
       findings.push(`${label}: ${why}`);
     }
@@ -49,25 +62,25 @@ export function collectReviewFindingsFindings(root = WORKSPACE_ROOT) {
   // (2) Orchestrator merge-gate contracts.
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /unresolved MUST/i,
     'merge gate no longer references the "no unresolved MUST" Pre-Merge rule.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /never merges? `?main`?|do NOT merge/i,
     'no longer states the agent never merges `main`.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /merge-verifier|MERGE VERIFIED/i,
     'no longer requires the `merge-verifier` post-merge check on develop.',
   );
   must(
     orch,
-    'pr-review-orchestration',
+    'pr-finding-resolution-loop',
     /git-branch\.md/i,
     'no longer anchors the merge gate to git-branch.md (silent-deferral risk).',
   );
@@ -87,10 +100,11 @@ export function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${examinedCount} review artifacts`);
   console.log('review-findings scan passed.');
   process.exit(0);
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

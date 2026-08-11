@@ -283,20 +283,19 @@ export type {
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
 // Permissions
-export type {
-  TPermissionMode,
-  TTrustLevel,
-  TPermissionDecision,
-  TBackgroundPermissionPolicy,
-  TToolArgs,
-  IPermissionLists,
-  TPermissionPolicyDecision,
-  IPermissionPolicyContext,
-  TKnownToolName,
-} from './permissions/index.js';
 export {
+  type TPermissionMode,
+  type TTrustLevel,
+  type TPermissionDecision,
+  type TBackgroundPermissionPolicy,
+  type TToolArgs,
+  type IPermissionLists,
+  type TPermissionPolicyDecision,
+  type IPermissionPolicyContext,
+  type TKnownToolName,
   TRUST_TO_MODE,
   evaluatePermission,
+  registerToolArgumentKey,
   resolvePermissionByPolicy,
   MODE_POLICY,
   UNKNOWN_TOOL_FALLBACK,
@@ -309,11 +308,9 @@ export type {
   IContextTokenEstimateOptions,
   IMessageTokenUsage,
 } from './context/index.js';
-export type { IModelDefinition } from './context/index.js';
-export type { IModelPrice } from './context/index.js';
+export type { IModelDefinition, IModelPrice } from './context/index.js';
 export {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
-  CLAUDE_MODELS,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_OUTPUT,
   estimateContextTokensFromMessages,
@@ -322,6 +319,7 @@ export {
   getModelMaxOutput,
   getModelName,
   formatTokenCount,
+  registerModelMetadata,
   readTokenUsageFromMessage,
   readTokenUsageFromMetadata,
   MODEL_PRICES,

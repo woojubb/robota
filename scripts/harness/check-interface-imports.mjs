@@ -23,7 +23,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { basename, join, resolve, relative, sep } from 'node:path';
 
-import { listWorkspacePackageDirs } from './workspace-packages.mjs';
+import { listSourceFiles, listWorkspacePackageDirs } from './workspace-packages.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const TRANSPORT_SRC = join(ROOT, 'packages/agent-interface-transport/src');
@@ -74,23 +74,19 @@ function computeTransportExportSet() {
   return names;
 }
 
-/** Collect every `*.ts`/`*.tsx` file under a package's `src/` directory. */
+/**
+ * Every `*.ts`/`*.tsx` file under a package's `src/`, TESTS INCLUDED.
+ *
+ * HARNESS-062: this walker excluded nothing at all, while the marker scans it otherwise mirrors
+ * exclude `__tests__`. Descending into tests is DELIBERATE here and survives as the named
+ * `excludeTests: false` option — a test file that imports a moved contract type from
+ * `agent-framework` is the same layering violation as a source file doing it, and the import it
+ * writes is the one the next author copies. What it gains from the shared lister is the exclusion
+ * set it never had: an installed dependency tree or build output under `src/` is not source to any
+ * scan. Measured on the real tree when routed: 2142 files before, 2142 after.
+ */
 function collectSourceFiles(srcDir) {
-  const files = [];
-  if (!existsSync(srcDir)) return files;
-  const stack = [srcDir];
-  while (stack.length > 0) {
-    const dir = stack.pop();
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(full);
-      } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-        files.push(full);
-      }
-    }
-  }
-  return files;
+  return listSourceFiles(srcDir, { excludeTests: false, extensions: ['.ts', '.tsx'] });
 }
 
 /**
@@ -189,6 +185,7 @@ function main() {
     process.exit(1);
   }
 
+  console.log(`::examined:: ${filesScanned} files`);
   console.log('✅ No interface-import rule violations found.');
   console.log(
     `interface-imports summary: violations=0 files=0 ` +

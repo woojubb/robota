@@ -38,8 +38,10 @@
  * Exit 0 = clean, 1 = findings.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+
+import { listSourceFiles } from './workspace-packages.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -59,6 +61,11 @@ const SCAN_DIRS = ['packages'];
  * parameter of the exported finder, but only the relative-path calculation honoured it — so the
  * function walked the real tree no matter which root it was handed, and read as root-parameterised
  * while not being so.
+ *
+ * HARNESS-062: the recursion itself is now the shared lister — this was one of six private
+ * exclusion sets. Measured on the real tree when routed: 1620 files before, 1620 after. The
+ * single-file `target` branch stays here: it is this scan's own entry contract, not part of the
+ * walk.
  */
 function walkSource(target, root) {
   const full = path.join(root, target);
@@ -66,23 +73,7 @@ function walkSource(target, root) {
   if (statSync(full).isFile()) {
     return /\.tsx?$/.test(full) ? [full] : [];
   }
-  const files = [];
-  for (const entry of readdirSync(full, { withFileTypes: true })) {
-    if (entry.name === '__tests__' || entry.name === 'node_modules' || entry.name === 'dist') {
-      continue;
-    }
-    const child = path.join(target, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...walkSource(child, root));
-    } else if (
-      entry.isFile() &&
-      /\.tsx?$/.test(entry.name) &&
-      !/\.(test|spec)\.tsx?$/.test(entry.name)
-    ) {
-      files.push(path.join(root, child));
-    }
-  }
-  return files;
+  return listSourceFiles(full, { extensions: ['.ts', '.tsx'] });
 }
 
 /** Strip a leading line comment / block-comment fragment so the FIRST real statement is found. */
@@ -236,6 +227,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

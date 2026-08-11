@@ -13,6 +13,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -71,6 +72,228 @@ export function extractAdvisories(output) {
 }
 
 /**
+ * HOW MUCH DID YOU LOOK AT? — the one question three recurring defects all answer wrongly.
+ *
+ * A check reporting success over work it never did is the most-repeated defect in this repository,
+ * and it arrives in three costumes: a fail-open over an absent tree (`dist/ present on all 0
+ * package(s)`, exit 0), a SKIP rendered as a tick and counted toward "all N scans passed", and a
+ * shallow walk claiming "all" over a subset. Each was repaired one instance at a time, because
+ * nothing asked the question they share.
+ *
+ * A scan declares the size of the subject it examined:
+ *
+ *   ::examined:: 24 rule documents
+ *   ::examined:: 0 live planning documents ::expected-empty:: the pipeline is dormant by design
+ *
+ * ZERO IS A FAILURE unless the scan says why zero is correct. That is the whole mechanism: an absent
+ * tree reports 0, a skip reports 0, and a subset walk reports a number a reader can compare against
+ * the workspace at a glance.
+ *
+ * The expected-empty declaration is a REVIEWABLE LINE, not a silent default — a scan that may
+ * legitimately find nothing says so in its own output, where the next reader meets it, rather than in
+ * a configuration file nobody opens.
+ *
+ * A MARKER RATHER THAN PROSE, for the reason the advisory channel already gives: prose is guessed at
+ * with a regex, and a regex over prose both misses and invents. Eighteen scans already state a size
+ * in a sentence; those sentences stay for humans, and the marker is what the runner reads.
+ */
+export const EXAMINED_MARKER = '::examined::';
+export const EXPECTED_EMPTY_MARKER = '::expected-empty::';
+
+/**
+ * Every examined-size declaration in a scan's output.
+ *
+ * Returns `{ size, subject, expectedEmpty }` per declaration. A declaration whose count is not a
+ * number is returned with `size: null` and treated as undeclared by the caller — a marker that says
+ * nothing measurable is the contentless-advisory shape one channel over.
+ */
+export function extractExamined(output) {
+  const found = [];
+  for (const rawLine of String(output ?? '').split('\n')) {
+    const line = rawLine.replace(ANSI_SGR_PATTERN, '');
+    const at = line.indexOf(EXAMINED_MARKER);
+    if (at === -1) continue;
+    let rest = line.slice(at + EXAMINED_MARKER.length).trim();
+    let expectedEmpty = null;
+    const emptyAt = rest.indexOf(EXPECTED_EMPTY_MARKER);
+    if (emptyAt !== -1) {
+      expectedEmpty = rest.slice(emptyAt + EXPECTED_EMPTY_MARKER.length).trim() || null;
+      rest = rest.slice(0, emptyAt).trim();
+    }
+    const match = /^(-?\d[\d,]*)\s*(.*)$/.exec(rest);
+    found.push({
+      size: match ? Number(match[1].replace(/,/g, '')) : null,
+      subject: match ? match[2].trim() : rest,
+      expectedEmpty,
+    });
+  }
+  return found;
+}
+
+/**
+ * The verdict on one scan's declarations: what it examined, and whether a zero was earned.
+ *
+ * A scan that declares nothing is NOT failed here. Seventy-nine of them declare nothing today, and a
+ * check that turns the whole suite red on arrival is suppressed rather than obeyed — adoption is held
+ * by the ratchet below instead, which can only move one way.
+ */
+export function judgeExamined(name, output) {
+  const declarations = extractExamined(output);
+  const problems = [];
+  // A scan that declared a zero AND said why is a SKIP, not a pass. It ran, found no subject, and
+  // said so — which is a different fact from "examined the subject and found it clean", and the
+  // summary is the line people actually read.
+  const skipped = declarations.some((d) => d.size === 0 && Boolean(d.expectedEmpty));
+  for (const d of declarations) {
+    if (d.size === null) {
+      problems.push(
+        `${name}: declared an examined size that is not a number (\`${d.subject}\`), so it measures nothing.`,
+      );
+      continue;
+    }
+    if (d.size === 0 && !d.expectedEmpty) {
+      problems.push(
+        `${name}: examined 0 ${d.subject || 'subjects'} and did not say why zero is correct. ` +
+          `A pass over nothing is not a pass — declare it with \`${EXPECTED_EMPTY_MARKER} <reason>\` if it is.`,
+      );
+    }
+  }
+  return { declared: declarations.length > 0, skipped, problems };
+}
+
+/**
+ * WHICH scans declare what they examined — a ratchet, and the reason it is one.
+ *
+ * Most scans declare nothing today. Demanding a declaration from all of them at once turns the suite
+ * red on arrival, and a suite that is red on arrival is skipped rather than fixed. So the SET of
+ * declaring scans is frozen: a scan may JOIN it, and one already in it must never stop declaring. A
+ * change is re-frozen in the same commit, or the gain is a licence to slide back.
+ *
+ * A frozen SET, not a single count, because the population is variable (HARNESS-081): the CI `scans`
+ * job runs `--skip dist --skip build-contracts`, and a no-build local run self-skips the same
+ * dist-dependent scans. A count over a shifting population can only be checked when the population is
+ * whole — which is never, in CI — so the check that existed never bound where it mattered. A set is
+ * SUBTRACTABLE: a scan that did not run (or self-skipped for want of a subject) is simply not judged
+ * this pass, while every scan that DID run is held to whether the frozen set expected it to declare.
+ *
+ * The baseline lives beside the runner rather than inside it, so changing it is a reviewable diff and
+ * not an edit to the thing doing the judging.
+ */
+export const EXAMINED_ADOPTION_BASELINE_PATH = path.join(
+  WORKSPACE_ROOT,
+  'scripts/harness/examined-adoption-baseline.json',
+);
+
+/**
+ * @param declaringNames  scans that RAN and emitted `::examined::` (an earned zero counts)
+ * @param evaluableNames  scans that RAN (the population this pass can judge)
+ * A `--skip`'d scan never reaches here, so a frozen scan absent this pass is not a regression — only
+ * a frozen scan that RAN and stopped emitting the marker is. An earned-zero declarer stays in
+ * `declaringNames`, so a dormant-by-design scan is not read as a fall.
+ */
+export function judgeExaminedAdoption(
+  declaringNames,
+  evaluableNames,
+  knownNames = null,
+  readBaseline = defaultReadAdoption,
+) {
+  const frozen = readBaseline();
+  if (frozen === null) {
+    return {
+      ok: false,
+      message: `✗ no frozen examined-size adoption baseline — write ${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
+    };
+  }
+  const frozenSet = new Set(frozen);
+  const declaring = new Set(declaringNames);
+  const evaluable = new Set(evaluableNames);
+  // `knownNames` is the full scan registry when the caller has it. A frozen name absent from it was
+  // deleted or renamed OUT of existence — it can never run again, so it would otherwise sit in the
+  // baseline forever, un-FELL and un-pruned (the SET's blind spot the old count caught as a shrink).
+  // When it is not supplied (fixture callers), the GONE check is simply skipped.
+  const known = knownNames === null ? null : new Set(knownNames);
+  const rel = path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH);
+  // FELL: a scan the frozen set expects to declare, which ran this pass but did not.
+  const fell = [...frozenSet].filter((name) => evaluable.has(name) && !declaring.has(name)).sort();
+  // ROSE: a scan that declared this pass but is not yet frozen.
+  const rose = [...declaring].filter((name) => !frozenSet.has(name)).sort();
+  // GONE: a frozen scan that is no longer a registered scan at all.
+  const gone = known === null ? [] : [...frozenSet].filter((name) => !known.has(name)).sort();
+  // All three are reported TOGETHER — a set diff can carry more than one, and surfacing only the
+  // first would spend a review round per finding, the waste this repo's culture is closing.
+  const parts = [];
+  if (fell.length > 0) {
+    parts.push(
+      `FELL: ${fell.length} scan(s) stopped declaring what they examined (${fell.join(', ')}) — a ` +
+        'scan whose declaration vanished has a green that no longer means anything measurable. ' +
+        `Restore it, or drop it from ${rel} in the SAME change with a reason.`,
+    );
+  }
+  if (rose.length > 0) {
+    parts.push(
+      `ROSE: ${rose.length} newly-declaring scan(s) (${rose.join(', ')}) not in the frozen set. Add ` +
+        `them to ${rel} in the SAME change (or run --write-adoption-baseline), or the gain is a ` +
+        'licence to slide back.',
+    );
+  }
+  if (gone.length > 0) {
+    parts.push(
+      `GONE: ${gone.length} frozen scan(s) (${gone.join(', ')}) are no longer registered scans at ` +
+        `all. Prune them from ${rel} (or run --write-adoption-baseline) so the set cannot rot around ` +
+        'a name nothing can ever satisfy.',
+    );
+  }
+  if (parts.length > 0) {
+    return { ok: false, message: `✗ examined-size adoption drift —\n  ${parts.join('\n  ')}` };
+  }
+  return { ok: true, message: null };
+}
+
+function defaultReadAdoption() {
+  try {
+    const parsed = JSON.parse(readFileSync(EXAMINED_ADOPTION_BASELINE_PATH, 'utf8')).declaring;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-freeze the baseline from an observed pass (invoked by `--write-adoption-baseline`). MERGES: for
+ * scans that were evaluable this pass, take the observed declaring status; for scans NOT evaluated
+ * (skipped or subject-less this run — e.g. dist scans under `--skip dist`), KEEP their frozen entry.
+ * So the baseline stays correct whichever invocation regenerates it, rather than dropping the
+ * dist-dependent scans whenever it is written from a CI-shaped run.
+ */
+export function writeAdoptionBaseline(
+  declaringNames,
+  evaluableNames,
+  knownNames = null,
+  readBaseline = defaultReadAdoption,
+  writeFile = defaultWriteAdoption,
+) {
+  const frozen = new Set(readBaseline() ?? []);
+  const evaluable = new Set(evaluableNames);
+  const known = knownNames === null ? null : new Set(knownNames);
+  // Keep frozen entries for scans this pass did not evaluate — they are neither confirmed nor
+  // refuted — EXCEPT a name that is no longer a registered scan at all, which is pruned: keeping it
+  // would re-freeze a name nothing can ever satisfy.
+  const kept = [...frozen].filter(
+    (name) => !evaluable.has(name) && (known === null || known.has(name)),
+  );
+  const merged = [...new Set([...kept, ...declaringNames])].sort();
+  writeFile(merged);
+  return merged;
+}
+
+function defaultWriteAdoption(names) {
+  writeFileSync(
+    EXAMINED_ADOPTION_BASELINE_PATH,
+    `${JSON.stringify({ declaring: names }, null, 2)}\n`,
+  );
+}
+
+/**
  * Default scan concurrency (INFRA-037). Each scan is an independent, read-only subprocess, so they run
  * concurrently under a bounded pool instead of one-at-a-time. Cap leaves one core for the parent.
  */
@@ -101,6 +324,13 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-orchestration-neutrality.mjs'],
   },
   { name: 'hook-catalog', command: ['node', 'scripts/harness/scan-hook-catalog.mjs'] },
+  {
+    // INFRA-078 — `hooks-have-execution-coverage` proves a hook CAN run; nothing read the file that
+    // decides whether the deployment CALLS it, so a hook registered to no event, and a matcher
+    // naming a deleted file, both stayed green.
+    name: 'hook-registration',
+    command: ['node', 'scripts/harness/scan-hook-registration.mjs'],
+  },
   { name: 'review-findings', command: ['node', 'scripts/harness/scan-review-findings.mjs'] },
   {
     name: 'review-token-supply',
@@ -111,12 +341,29 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-workflow-permissions.mjs'],
   },
   {
-    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an
+    // INFRA-059 — `deploy.yml` referenced a repository that does not exist for eight months: an (allow-missing-artifact: INFRA-058 deleted the workflow; this names why the scan exists)
     // unresolvable `uses:` dies at `Set up job`, so there is no failing step to read and a skipped
     // job reports the run green. The resolvability half runs in CI (see the scan's header for why
     // it stays off on a promotion to `main`); the static half runs everywhere.
     name: 'action-references',
     command: ['node', 'scripts/harness/scan-action-references.mjs'],
+  },
+  {
+    // A rule or routing document that names a mechanism (a harness script, a hook, a package
+    // script, an MCP server) must name one that resolves — a phantom name reads as satisfiable.
+    name: 'named-mechanism-resolves',
+    command: ['node', 'scripts/harness/scan-named-mechanism-resolves.mjs'],
+  },
+  {
+    name: 'hook-syntax',
+    command: ['node', 'scripts/harness/scan-hook-syntax.mjs'],
+  },
+  {
+    // Skills counterpart to INFRA-078's hook-registration floor. Measured on session 50cb28dd:
+    // 53 skills on disk, 5 registered, 3 of those dangling, and every project-skill invocation
+    // returned `Unknown skill` (13/13) because two hooks order skills by name on every prompt.
+    name: 'skill-registration',
+    command: ['node', 'scripts/harness/scan-skill-registration.mjs'],
   },
   { name: 'document-authority', command: ['node', 'scripts/harness/check-document-authority.mjs'] },
   { name: 'commands', command: ['node', 'scripts/harness/check-command-layering.mjs'] },
@@ -182,6 +429,7 @@ export const SCAN_COMMANDS = [
   },
   { name: 'stub-markers', command: ['node', 'scripts/harness/check-stub-markers.mjs'] },
   { name: 'conflict-markers', command: ['node', 'scripts/harness/scan-conflict-markers.mjs'] },
+  { name: 'shell-portability', command: ['node', 'scripts/harness/scan-shell-portability.mjs'] },
   { name: 'ci-base-history', command: ['node', 'scripts/harness/scan-ci-base-history.mjs'] },
   {
     name: 'automerge-disarm-permission',
@@ -194,6 +442,18 @@ export const SCAN_COMMANDS = [
   {
     name: 'main-required-checks',
     command: ['node', 'scripts/harness/scan-main-required-checks.mjs'],
+  },
+  {
+    name: 'new-rule-declares-enforcement',
+    command: ['node', 'scripts/harness/scan-new-rule-declares-enforcement.mjs'],
+  },
+  {
+    name: 'named-artifact-resolves',
+    command: ['node', 'scripts/harness/scan-named-artifact-resolves.mjs'],
+  },
+  {
+    name: 'required-check-local-reachability',
+    command: ['node', 'scripts/harness/scan-required-check-local-reachability.mjs'],
   },
   {
     name: 'required-check-needs',
@@ -220,6 +480,73 @@ export const SCAN_COMMANDS = [
   },
   { name: 'no-fallback', command: ['node', 'scripts/harness/scan-no-fallback.mjs'] },
   {
+    // HARNESS-072 tractable subset: a quantified loop bound has one owner (the skill); the map and
+    // the rules point rather than restate. #1615 produced five contradictions this way in one PR.
+    name: 'loopback-bound-ownership',
+    command: ['node', 'scripts/harness/scan-loopback-bound-ownership.mjs'],
+  },
+  {
+    name: 'transport-admission',
+    command: ['node', 'scripts/harness/scan-transport-admission.mjs'],
+  },
+  {
+    name: 'browser-package-node-subpath',
+    command: ['node', 'scripts/harness/scan-browser-package-node-subpath.mjs'],
+  },
+  { name: 'authority-bypass', command: ['node', 'scripts/harness/scan-authority-bypass.mjs'] },
+  {
+    name: 'contract-cast-ratchet',
+    command: ['node', 'scripts/harness/scan-contract-cast-ratchet.mjs'],
+  },
+  {
+    name: 'literal-cast-union',
+    command: ['node', 'scripts/harness/scan-literal-cast-union.mjs'],
+  },
+  {
+    name: 'option-reachability',
+    command: ['node', 'scripts/harness/scan-option-reachability.mjs'],
+  },
+  {
+    name: 'publish-registry',
+    command: ['node', 'scripts/harness/scan-publish-registry.mjs'],
+  },
+  {
+    name: 'product-identity',
+    command: ['node', 'scripts/harness/scan-product-identity.mjs'],
+  },
+  {
+    name: 'harness-script-import-safety',
+    command: ['node', 'scripts/harness/scan-harness-script-import-safety.mjs'],
+  },
+  {
+    name: 'ci-concurrency-footprint',
+    command: ['node', 'scripts/harness/scan-ci-concurrency-footprint.mjs'],
+  },
+  {
+    name: 'runner-wait',
+    command: ['node', 'scripts/harness/scan-runner-wait.mjs'],
+  },
+  {
+    name: 'rule-case-narrative',
+    command: ['node', 'scripts/harness/scan-rule-case-narrative.mjs'],
+  },
+  {
+    name: 'loop-contract',
+    command: ['node', 'scripts/harness/scan-loop-contract.mjs'],
+  },
+  {
+    name: 'resolving-claims',
+    command: ['node', 'scripts/harness/scan-resolving-claims.mjs'],
+  },
+  {
+    name: 'mistake-mechanisms',
+    command: ['node', 'scripts/harness/scan-mistake-mechanisms.mjs'],
+  },
+  {
+    name: 'harness-scope-literal',
+    command: ['node', 'scripts/harness/scan-harness-scope-literal.mjs'],
+  },
+  {
     name: 'release-verification-gate',
     command: ['node', 'scripts/harness/scan-release-verification-gate.mjs'],
   },
@@ -228,6 +555,11 @@ export const SCAN_COMMANDS = [
     command: ['node', 'scripts/harness/scan-legacy-typescript.mjs'],
   },
   { name: 'no-fake-in-src', command: ['node', 'scripts/harness/scan-no-fake-in-src.mjs'] },
+  {
+    name: 'measurement-provenance',
+    command: ['node', 'scripts/harness/scan-measurement-provenance.mjs'],
+  },
+  { name: 'helper-limits', command: ['node', 'scripts/harness/scan-helper-limits.mjs'] },
   {
     // HARNESS-052 — the audited "success over work it did not do" shape wearing a test: an
     // assertion that no implementation of the code under test could fail.
@@ -367,6 +699,12 @@ export async function runScans(
   scans,
   write = (line) => process.stdout.write(`${line}\n`),
   concurrency = DEFAULT_SCAN_CONCURRENCY,
+  // Adoption is a frozen SET, so it can be judged over whatever subset RAN (HARNESS-081): a scan the
+  // set expects but that did not run this pass is simply not judged, while every scan that did run
+  // with a subject is held to whether it declared. `checkAdoption` gates whether the ratchet runs at
+  // all (a caller passing three fixtures wants none); `writeAdoption` re-freezes the set from this
+  // pass instead of judging it.
+  { checkAdoption = false, writeAdoption = false, knownNames = null } = {},
 ) {
   const results = new Array(scans.length);
   let next = 0;
@@ -393,10 +731,21 @@ export async function runScans(
     }
   }
 
+  // Judged BEFORE the summary is printed, because the mark a scan gets depends on what it declared.
+  const examined = results.map((result) => ({
+    name: result.name,
+    ...judgeExamined(result.name, result.output),
+  }));
+  const skippedNames = new Set(examined.filter((e) => e.skipped).map((e) => e.name));
+
   write('');
   write('harness scan summary:');
   for (const result of results) {
-    write(`${result.code === 0 ? '✓' : '✗'} ${result.name}`);
+    // Three marks, not two. A skip that renders as a tick is counted in "all N scans passed" and is
+    // indistinguishable from a scan that examined its whole subject — the output above it may be
+    // honest while the summary line is not, and the summary is the line people read.
+    const mark = result.code !== 0 ? '✗' : skippedNames.has(result.name) ? '↩' : '✓';
+    write(`${mark} ${result.name}`);
   }
 
   // ADVISORIES from EVERY scan, passing or failing (HARNESS-053). Deliberately placed after the
@@ -414,12 +763,53 @@ export async function runScans(
     write('');
   }
 
+  // HOW MUCH DID EACH ONE LOOK AT (HARNESS-057). An unearned zero fails the suite outright; the
+  // ADOPTION set is a ratchet, because most scans declare nothing today and a check that is red on
+  // arrival gets suppressed rather than obeyed.
+  const unearnedZeros = examined.flatMap((e) => e.problems);
+  const declaring = examined.filter((e) => e.declared).length;
+  // The set-based ratchet judges NAMES. A scan DECLARES if it emitted `::examined::` at all — an
+  // earned zero (`::examined:: 0 … ::expected-empty::`) is an adoption of the marker as much as a
+  // positive count, so those belong in the set. EVALUABLE = every scan that ran; a `--skip`'d scan
+  // never reaches here and so is neither judged nor faulted. (HARNESS-081)
+  const declaringNames = examined.filter((e) => e.declared).map((e) => e.name);
+  const evaluableNames = examined.map((e) => e.name);
+  let adoption = { ok: true, message: null };
+  if (writeAdoption) {
+    const frozen = writeAdoptionBaseline(declaringNames, evaluableNames, knownNames);
+    write('');
+    write(
+      `✎ re-froze examined-size adoption: ${frozen.length} scan(s) in ` +
+        `${path.relative(WORKSPACE_ROOT, EXAMINED_ADOPTION_BASELINE_PATH)}.`,
+    );
+  } else if (checkAdoption) {
+    adoption = judgeExaminedAdoption(declaringNames, evaluableNames, knownNames);
+  }
+
+  if (unearnedZeros.length > 0) {
+    write('');
+    write(`✗ ${unearnedZeros.length} scan(s) reported a pass over nothing:`);
+    for (const problem of unearnedZeros) write(`  ${problem}`);
+  }
+  if (adoption.message) {
+    write('');
+    write(adoption.message);
+  }
+
   const failed = results.filter((result) => result.code !== 0);
-  if (failed.length === 0) {
-    write(`all ${results.length} scans passed`);
+  if (failed.length === 0 && unearnedZeros.length === 0 && adoption.ok) {
+    // The count states what RAN. "all 97 scans passed" over a suite where two had no subject is a
+    // stronger claim than the run supports.
+    const ran = results.length - skippedNames.size;
+    const tail = skippedNames.size > 0 ? `, ${skippedNames.size} skipped` : '';
+    write(
+      checkAdoption
+        ? `${ran} scans passed${tail} (${declaring} declared what they examined)`
+        : `${ran} scans passed${tail}`,
+    );
     return 0;
   }
-  write(`${failed.length} of ${results.length} scans failed`);
+  if (failed.length > 0) write(`${failed.length} of ${results.length} scans failed`);
   return 1;
 }
 
@@ -452,13 +842,23 @@ export async function main() {
   for (const name of skips) {
     process.stdout.write(`skipped: ${name} (--skip)\n`);
   }
+  const writeAdoption = process.argv.slice(2).includes('--write-adoption-baseline');
   const scans = SCAN_COMMANDS.filter(({ name }) => !skips.has(name)).map(({ name, command }) => ({
     name,
     run: () => spawnScan(command),
   }));
-  process.exitCode = await runScans(scans);
+  // The adoption ratchet is a frozen SET, so it binds over whatever subset ran — CI's
+  // `--skip dist --skip build-contracts` included, the one environment the old count-over-a-whole-
+  // registry check could never reach (HARNESS-081). It is always judged (unless re-freezing).
+  process.exitCode = await runScans(scans, undefined, undefined, {
+    checkAdoption: true,
+    writeAdoption,
+    // The full registry — so a frozen scan deleted/renamed OUT of it is caught (GONE) instead of
+    // rotting in the baseline forever. Distinct from a `--skip`'d scan, which is still registered.
+    knownNames: SCAN_COMMANDS.map((scan) => scan.name),
+  });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

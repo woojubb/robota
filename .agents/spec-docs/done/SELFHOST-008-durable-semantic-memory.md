@@ -223,7 +223,7 @@ in a surface (may revise the port) + extraction to `agent-interface-memory` iff 
 | TC-03 | adapter threaded via assembly + adapter-gating | vitest unit (assembly wiring)                   | `context/__tests__/context-loader-memory.test.ts` (startup) + file-store test "TC-03 (capture half)" |
 | TC-04 | curate queue/save + sensitive-content refusal  | vitest unit                                     | file-store test › "TC-04 — curate queue + sensitive-content refusal"                                 |
 | TC-05 | adapter swap needs no library change           | fake-adapter unit test                          | file-store test › "TC-05 — adapter swap needs no library change" (incl. `ISemanticMemoryAdapter`)    |
-| TC-06 | no memory content/policy in `packages/`        | manual grep/review + follow-up mechanical floor | grep (Evidence Log) + `.agents/backlog/HARNESS-029-memory-neutrality-scan.md`                        |
+| TC-06 | no memory content/policy in `packages/`        | manual grep/review + follow-up mechanical floor | grep (Evidence Log) + `.agents/tasks/HARNESS-029-memory-neutrality-scan.md`                          |
 
 ## Tasks
 
@@ -308,7 +308,7 @@ Test Plan), path recorded in `## Tasks`, no implementation before the gate. (Rec
 ### [GATE-COMPLETE: TC-06] — ✅ PASS | 2026-07-18
 
 - Verification (manual grep): `grep -nE "\.robota/memory" src/memory/{types,file-system-memory-store}.ts` → only DOC-COMMENT mentions (paths derive from injected `cwd`, no hardcoded content); `find packages -path "*/src/*" \( -name MEMORY.md -o -path "*memory/topics/*" \)` → none; no app-voice capture-prompt string in the new port/adapter (neutral mechanism only).
-- Follow-up filed: `.agents/backlog/HARNESS-029-memory-neutrality-scan.md` — a mechanical `packages/*/src` memory-neutrality scan, scoped to GATE the P3/P4 slice that first injects curation prompt/content (per the ENDORSE note + enforcement-architecture.md).
+- Follow-up filed: `.agents/tasks/HARNESS-029-memory-neutrality-scan.md` — a mechanical `packages/*/src` memory-neutrality scan, scoped to GATE the P3/P4 slice that first injects curation prompt/content (per the ENDORSE note + enforcement-architecture.md).
 
 - 2026-07-18 — **Implementation note — threading seam corrected (honest deviation from Affected Files).** The spec's
   Affected Files named `create-session-types.ts` (the interactive session options (`IInteractiveSessionStandardOptions`/`IInitOptions`, NOT `ICreateSessionOptions` — see P1R + Evidence Log)). Empirically the startup-memory

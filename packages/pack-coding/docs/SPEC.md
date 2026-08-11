@@ -44,11 +44,14 @@ bundled — NOT the product-shell/settings/provider command infrastructure (`/pr
 The pack is built by `createCodingPack({ cwd, sandboxClient })`. **There is deliberately NO module-level
 `codingPack` constant**, and that absence is a safety property, not an omission:
 
-- `agent-tools`' `checkPathWithinCwd` is a **no-op when `cwd` is `undefined`**. Tools constructed with no
-  options therefore carry a **disarmed** working-directory guard — their `Read` will return
-  `/etc/hostname`.
-- Before ARCH-006 that was inert: `agent-framework` always built its own context-bound default tier, and
-  its first-wins name dedupe kept that instance over a pack's.
+- `agent-tools`' `checkPathWithinCwd` USED TO BE a no-op when `cwd` was `undefined`. Tools constructed
+  with no options therefore carried a disarmed working-directory guard — their `Read` returned
+  `/etc/hostname`. **ARCH-010 inverted that**: the guard now refuses when no root is configured, and
+  `cwd` is required by the tool factories themselves. This pack's rule is no longer the only thing
+  standing between a context-free construction and an unsandboxed `Read` — but it remains right, and
+  it is why the pack was already correct when the audit found three layers that were not.
+- Before ARCH-006 the hole was inert here: `agent-framework` always built its own context-bound default
+  tier, and its first-wins name dedupe kept that instance over a pack's.
 - ARCH-006 lets a product hand the WHOLE tool surface to its packs (`defaultTools: []`). A context-free
   pack in that position is an **unsandboxed `Read`/`Write`/`Edit`**. A zero-option export would be a loaded
   gun aimed at the very seam this pack exists to demonstrate.

@@ -45,6 +45,7 @@ const MOCK_TERMINAL = {
 describe('Session sessionId override', () => {
   it('generates a unique session ID by default', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -56,6 +57,7 @@ describe('Session sessionId override', () => {
 
   it('uses provided sessionId when specified', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',
@@ -68,6 +70,7 @@ describe('Session sessionId override', () => {
 
   it('generates a new ID when sessionId is undefined', () => {
     const session = new Session({
+      cwd: process.cwd(),
       tools: [],
       provider: MOCK_PROVIDER as never,
       systemMessage: 'test',

@@ -14,6 +14,6 @@ surface enables was silently dodging the user-execution gate as "N/A (no runnabl
 **How to apply.** Enforced in [backlog-execution.md](../rules/backlog-execution.md) → "Capability Reachability — no
 library-seam N/A dodge": an intermediate library-only slice records engineering evidence and NAMES the pending
 agent-run verification; it must not claim the capability done, and the epic is not COMPLETE until the agent-run
-verification passes. Concrete open fix: `.agents/backlog/SELFHOST-008-P6-surface-wiring-and-agent-run-verification.md`
+verification passes. Concrete open fix: `.agents/tasks/SELFHOST-008-P6-surface-wiring-and-agent-run-verification.md`
 (wire memory into agent-cli + agent-run capture→recall e2e). Extends [[gui-verification-agent-owned]] and
 [[user-execution-scenario-evidence]]. Mechanization deferred (reachability is semantic) → tracked HARNESS backlog item.

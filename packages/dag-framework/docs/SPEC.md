@@ -112,6 +112,12 @@ import {
 import type { IWorkerLoopDriverLogger } from '@robota-sdk/dag-framework';
 ```
 
+`NoopDeadLetterReinject` (exported) is the diagnostics reinject port the default composition wires:
+it has no queue to drain, and it says so — `ok: false` with
+`DAG_VALIDATION_DLQ_REINJECT_UNSUPPORTED` (CORE-027). It must never answer
+`{ ok: true, reinjected: false }`, which reads as "the dead-letter queue is empty", a claim about a
+queue the composition does not have.
+
 ### Runtime Providers
 
 Transport-neutral runtime providers used by the CLI/MCP layers to run DAGs either in-process

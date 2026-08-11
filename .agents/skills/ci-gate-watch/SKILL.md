@@ -5,6 +5,15 @@ description: Shared sub-orchestration for waiting on a long-running gate (a CI r
 
 # CI Gate Watch — pipeline only
 
+**The wait happens HERE, never inside the gate.** A job that polls is billed for every second it
+spends doing nothing, because billing counts a job's wall clock and rounds it up — a runner is the
+most expensive place in the system to wait, and the cost is invisible in a report because a polling
+job reads as ordinary work whose duration merely varies. So a gate that cannot yet decide reports
+that it cannot decide — which must BLOCK, never pass — and this loop observes at an interval and
+routes the re-run. `scan-runner-wait.mjs` is the floor: an unbounded loop or a long sleep in a
+workflow step is a finding, with a reasoned suppression for a wait on an external event that no
+re-run can observe sooner.
+
 Every wait must have a reason. This skill is the loop that supplies one: it observes a pending gate,
 reports what is actually happening inside it, and routes — rather than repeating "still pending" until
 something changes.

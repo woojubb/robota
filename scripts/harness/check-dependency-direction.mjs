@@ -30,6 +30,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { loadHarnessConfig } from './harness-config.mjs';
 import { listSpecPackageDirs } from './workspace-packages.mjs';
+import { escapeForRegExp } from './shared.mjs';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const FORBIDDEN_PRODUCTION_DEPENDENCIES = [];
@@ -124,7 +125,13 @@ function checkPassthroughReexports(packages) {
     if (!existsSync(indexPath)) continue;
 
     const content = readFileSync(indexPath, 'utf8');
-    const reexportPattern = /export\s+\*\s+from\s+['"](@robota-sdk\/[^'"]+)['"]/g;
+    // HARNESS-067: built from the configured scope, not baked in. This literal sat four lines from
+    // `HARNESS.npmScopePrefix` used correctly — and a hardcoded scope does not fail when the scope
+    // changes, it matches NOTHING, which reads as a pass.
+    const reexportPattern = new RegExp(
+      `export\\s+\\*\\s+from\\s+['"](${escapeForRegExp(HARNESS.npmScopePrefix)}[^'"]+)['"]`,
+      'g',
+    );
 
     let match;
     while ((match = reexportPattern.exec(content)) !== null) {

@@ -108,3 +108,17 @@ describe('Input → Transform → TextOutput (3-node pipeline)', () => {
     expect(finalStatus).toBe('success');
   });
 });
+
+describe('the default composition has no dead-letter reinject capability', () => {
+  it('reports the absent capability as absent, not as an empty queue (CORE-027)', async () => {
+    // `{ ok: true, reinjected: false }` was "the DLQ is empty" — a claim about a queue this
+    // composition does not have, read by an operator draining a DLQ after an incident.
+    const { NoopDeadLetterReinject } = await import('../create-dag-framework.js');
+    const result = await new NoopDeadLetterReinject().reinjectOnce('worker-1', 30_000);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('DAG_VALIDATION_DLQ_REINJECT_UNSUPPORTED');
+    }
+  });
+});

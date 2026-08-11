@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createShellTool } from '../shell-tool';
 
+// ARCH-010 made `cwd` required. `Shell`'s cwd is the DEFAULT WORKING DIRECTORY, not a containment
+// boundary, and neither case below touches the filesystem — `sleep`/`echo` only need somewhere to run.
+const SHELL_ROOT = process.cwd();
+
 describe('shell tool cancellation (CORE-018)', () => {
   it('an external abort kills the running child and settles as failed/Aborted', async () => {
-    const tool = createShellTool();
+    const tool = createShellTool({ cwd: SHELL_ROOT });
     const controller = new AbortController();
 
     const pending = tool.execute(
@@ -24,7 +28,7 @@ describe('shell tool cancellation (CORE-018)', () => {
   }, 10_000);
 
   it('an already-aborted signal short-circuits before spawn', async () => {
-    const tool = createShellTool();
+    const tool = createShellTool({ cwd: SHELL_ROOT });
     const controller = new AbortController();
     controller.abort();
 

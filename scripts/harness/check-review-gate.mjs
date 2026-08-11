@@ -61,7 +61,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import path from 'node:path';
 
 /** Rule severities that may block. CodeQL severities are: none | note | warning | error. */
 export const BLOCKING_RULE_SEVERITIES = new Set(['error']);
@@ -113,8 +113,16 @@ function describeAlert(alert) {
  * @returns {{blocked: boolean, reason: string, blocking: object[], advisory: object[],
  *            preExisting: object[], acknowledged: boolean, summary: string}}
  */
-export function decideReviewGate({ prAlerts, baseAlerts, labels = [], codeChanged = true }) {
-  const acknowledged = labels.includes(ACKNOWLEDGE_LABEL);
+export function decideReviewGate({
+  prAlerts,
+  baseAlerts,
+  labels = [],
+  labelsUnavailable = false,
+  codeChanged = true,
+}) {
+  // An unreadable label list cannot ACKNOWLEDGE anything. Reading it as "no labels" would block for
+  // the wrong cause, and reading it as acknowledged would clear on an override nobody gave.
+  const acknowledged = !labelsUnavailable && labels.includes(ACKNOWLEDGE_LABEL);
 
   // Checked FIRST, and only on the literal `false`. A docs-only PR never triggers CodeQL
   // (`codeql.yml` `paths-ignore`), so its alert lists are legitimately absent — reaching the
@@ -131,6 +139,27 @@ export function decideReviewGate({ prAlerts, baseAlerts, labels = [], codeChange
         'no code changed — this PR touches documentation only, so CodeQL never analyses it and no ' +
         'review verdict exists to read. Nothing was skipped: the same classification also skipped ' +
         'this PR’s build and test matrix. A PR that changes code cannot reach this outcome.',
+    };
+  }
+
+  // Checked BEFORE the alerts, because it is the one failure the acknowledge label cannot excuse:
+  // the label is exactly what could not be read. Every other "could not read X" branch here produces
+  // a gate report on the PR, and this one used to `exit 1` out of the collecting step instead — the
+  // job went red with the reason visible only in an Actions annotation. A gate that blocks without
+  // saying why on the PR is the shape this whole workflow exists to remove. (#1588 review)
+  if (labelsUnavailable) {
+    return {
+      blocked: true,
+      reason: 'labels-unavailable',
+      blocking: [],
+      advisory: [],
+      preExisting: [],
+      acknowledged: false,
+      summary:
+        'the labels on this PR could not be read, so the acknowledge override can be neither ruled ' +
+        'in nor ruled out. This gate does not report a pass it did not compute, and the label that ' +
+        'would overrule it is the thing that is unreadable — applying one cannot clear this. Re-run ' +
+        'this job; if the read keeps failing, the token or the API is the cause.',
     };
   }
 
@@ -243,10 +272,19 @@ function argValue(argv, flag) {
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const labels = (argValue(argv, '--labels') ?? '')
-    .split(',')
-    .map((label) => label.trim())
-    .filter(Boolean);
+  // `--labels UNAVAILABLE` is the same sentinel the alert files carry, and it means the same thing:
+  // the read failed, so nothing about the labels has been established. It is spelled the same way on
+  // purpose — one vocabulary for "I could not read this", not two. A label literally named
+  // `UNAVAILABLE` would be misread; no such label exists here, and the alternative (a second flag
+  // beside the sentinel) forks the contract this is meant to join. (#1588 review)
+  const labelsRaw = argValue(argv, '--labels') ?? '';
+  const labelsUnavailable = labelsRaw.trim() === UNAVAILABLE;
+  const labels = labelsUnavailable
+    ? []
+    : labelsRaw
+        .split(',')
+        .map((label) => label.trim())
+        .filter(Boolean);
 
   // Fail-closed parsing: ONLY the literal `false` is "no code changed". A missing flag, an empty
   // value, or anything the classifier could not determine leaves this `true`, which requires a
@@ -275,6 +313,7 @@ export function main(argv = process.argv.slice(2)) {
     prAlerts: readAlerts(alertsFile),
     baseAlerts: readAlerts(baseAlertsFile),
     labels,
+    labelsUnavailable,
     codeChanged,
   });
 
@@ -282,6 +321,6 @@ export function main(argv = process.argv.slice(2)) {
   process.exitCode = decision.blocked ? 1 : 0;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

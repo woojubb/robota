@@ -6,11 +6,19 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { grepTool } from '@robota-sdk/agent-tools';
+import { createGrepTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `grepTool` singleton is gone and the containment root is a required
+ * constructor argument, so the tool is built against the tmpdir fixture below. The root bounds the
+ * search, so it has to be the fixture: pointed at the repo, these cases would be grepping the source
+ * tree instead of the four files this suite writes.
+ */
+let grepTool: ReturnType<typeof createGrepTool>;
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await grepTool.execute(params);
@@ -37,6 +45,8 @@ beforeAll(async () => {
   await writeFile(join(tmpDir, 'sub', 'gamma.ts'), 'hello world\nfoo bar\n');
   await mkdir(join(tmpDir, 'node_modules'));
   await writeFile(join(tmpDir, 'node_modules', 'excluded.ts'), 'hello inside node_modules\n');
+
+  grepTool = createGrepTool({ cwd: tmpDir });
 });
 
 afterAll(async () => {

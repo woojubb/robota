@@ -1,5 +1,5 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
-import { createProviderFromProfile } from '@robota-sdk/agent-executor';
+import { createProviderFromProfile, subagentExecutionRoot } from '@robota-sdk/agent-executor';
 import {
   createDefaultTools,
   createSubagentLogger,
@@ -96,7 +96,12 @@ async function runInitialPrompt(payload: ISubagentWorkerStartPayload): Promise<v
       agentDefinition: payload.agentDefinition,
       parentConfig: payload.parentConfig,
       parentContext: payload.parentContext,
-      parentTools: createDefaultTools(),
+      // ARCH-010: the spawn request already carries the root; this call simply never passed it, so
+      // every tool the child built was unconfined. Same reader as the session root below — the tools
+      // and the session being told DIFFERENT roots is the same class of defect as neither being told
+      // one.
+      parentTools: createDefaultTools({ cwd: subagentExecutionRoot(payload.request) }),
+      cwd: subagentExecutionRoot(payload.request),
       provider,
       terminal: NOOP_TERMINAL,
       sessionId: payload.jobId,

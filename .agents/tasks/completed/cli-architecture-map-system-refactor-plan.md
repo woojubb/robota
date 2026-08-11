@@ -1,58 +1,104 @@
+---
+title: 'CLI Architecture Map System Refactor Plan'
+status: done
+---
+
 # CLI Architecture Map System Refactor Plan
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: docs/cli-architecture-target-plan
-- **Scope**: packages/agent-cli, packages/agent-framework, packages/agent-command-\*, .agents/backlog
+Completed: 2026-05-05
 
-## Objective
+Implementation branch: docs/cli-architecture-target-plan
 
-Use `packages/agent-cli/docs/ARCHITECTURE-MAP.md` as a source-backed architecture audit input, then
-document the target CLI architecture and split confirmed structural work into actionable refactor
-backlogs.
+## Priority
 
-## Plan
+P1 - converts the current architecture map from a descriptive audit into a target architecture and
+implementation plan for the CLI beta.
 
-- [x] Verify current architecture map against source imports, manifests, and package specs.
-- [x] Identify architecture contradictions and owner-package mismatches.
-- [x] Document the recommended target architecture and migration direction in `ARCHITECTURE-MAP.md`.
-- [x] Create concrete follow-up backlogs for each structural refactor.
-- [x] Mark the original backlog completed and archive this task.
-- [x] Run documentation and harness verification.
+## Problem
 
-## Progress
+`packages/agent-cli/docs/ARCHITECTURE-MAP.md` now documents the current CLI composition path, but
+the next step is not to improve the document format. The next step is to use that map as the source
+for a real architecture review: check whether package layers, class ownership, dependency edges, and
+cross-package contracts form a coherent system.
 
-### 2026-05-05
+Known areas that need architecture-level review:
 
-- Started from `develop` on branch `docs/cli-architecture-target-plan`.
-- Re-verified CLI/SDK/command/provider boundaries against package specs, manifests, and source
-  imports.
-- Updated `ARCHITECTURE-MAP.md` with target architecture, migration order, and source-backed audit
-  findings.
-- Split confirmed structural work into command effect, command shim, runtime adapter, provider
-  catalog refresh, and SDK public surface backlog items.
-- Archived the source backlog item under `.agents/backlog/completed/`.
-- Verified docs build and architecture/backlog harness scans.
+- CLI TUI state and SDK session state boundaries.
+- Built-in command package ownership versus SDK command API ownership.
+- Provider/model setup and volatile model catalog ownership.
+- Session persistence, resume/fork, and project-local storage facades.
+- Interactive TUI versus non-interactive transport composition.
+- Background task, subagent, worktree, checkpoint, and reversible execution ownership.
+- Whether contracts are owned by the right package instead of being duplicated or passed through.
 
-## Decisions
+## Recommended Direction
 
-- Treat this as an architecture audit and refactor planning task, not a documentation-format cleanup.
-- No new rule update is needed in this task; architecture-map sync is already covered by
-  `spec-workflow.md`, `documentation-sync.md`, and `common-mistakes.md`.
+Run a source-backed architecture audit against `packages/agent-cli/docs/ARCHITECTURE-MAP.md`, then
+produce a target architecture and refactor plan. The target must describe the intended system
+architecture, not merely a cleaner documentation layout.
 
-## Blockers
+Recommended work sequence:
 
-- None.
+1. Verify the current architecture map against source imports, package manifests, and package
+   `docs/SPEC.md` files.
+2. Identify actual architectural contradictions:
+   - forbidden or surprising dependency edges;
+   - UI state leaking into SDK/session objects;
+   - SDK owning behavior that should be a command package or host adapter;
+   - command packages depending on CLI/TUI concerns;
+   - duplicated provider/model/session contracts;
+   - pass-through exports that hide true ownership;
+   - runtime concerns bypassing SDK-owned ports.
+3. Define a target architecture with explicit layer ownership:
+   - CLI/TUI: thin host, rendering, input, and host adapters only;
+   - SDK: common APIs, ports, command host contracts, session orchestration, and facades;
+   - built-in command packages: command behavior and descriptors;
+   - provider packages: provider definitions and provider transport translation;
+   - sessions/runtime/tools/core: lower-level execution contracts and implementations.
+4. Update `ARCHITECTURE-MAP.md` with both:
+   - the verified current architecture and known design debts;
+   - the recommended target architecture and migration direction.
+5. Split implementation into concrete refactor backlogs, each with package/file scope, acceptance
+   criteria, and verification commands.
+6. Add or extend harness checks for mechanically enforceable boundaries.
 
-## Test Plan
+## Acceptance Criteria
 
-- Run `pnpm docs:build` because the architecture map is copied into the docs site.
-- Run `pnpm harness:scan:commands`, `pnpm harness:scan:deps`, `pnpm harness:scan:specs`,
-  `pnpm harness:scan:test-plans`, and `pnpm harness:scan:consistency` because this task changes
-  architecture, backlog, and task-tracking documents.
-- Run `git diff --check` to catch whitespace and patch formatting issues.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` is re-verified against current source and
+      package specs.
+- [x] The audit explicitly evaluates actual architecture quality, not document organization.
+- [x] All confirmed contradictions are recorded with source file references and owner package.
+- [x] A target architecture is documented with allowed dependency edges and contract ownership.
+- [x] Each recommended structural change is split into an actionable backlog item.
+- [x] Recommendations distinguish immediate beta refactors from optional polish.
+- [x] Any mechanically enforceable boundary has either a harness check or a follow-up backlog for
+      adding one.
+- [x] Repository rules or common-mistakes guidance are updated only for durable lessons that apply
+      beyond this one package.
+
+## Verification Plan
+
+- `rg -n "from '@robota-sdk|from \"@robota-sdk" packages/agent-cli/src packages/agent-framework/src packages/agent-command-*`
+- `pnpm harness:scan:commands`
+- `pnpm harness:scan:deps`
+- `pnpm harness:scan:specs`
+- `pnpm docs:build`
+
+If the audit leads to code changes, run the affected package build/test/typecheck commands for every
+changed package.
 
 ## Result
 
-Completed. The CLI architecture map now documents the recommended target architecture, identifies
-source-backed structural debts, and points each confirmed refactor to a dedicated backlog item.
+Completed via `docs/cli-architecture-target-plan`. `ARCHITECTURE-MAP.md` now separates the verified
+current CLI composition from the recommended target architecture, records source-backed structural
+debts, and links each confirmed refactor to a dedicated backlog item:
+
+- `.agents/tasks/cli-command-effect-state-boundary.md`
+- `.agents/tasks/cli-command-compat-shims-retirement.md`
+- `.agents/tasks/cli-runtime-adapter-boundary-audit.md`
+- `.agents/tasks/provider-model-catalog-refresh-adapters.md`
+- `.agents/tasks/sdk-public-surface-owner-audit.md`
+
+No repository rule change was needed in this task because architecture-map update requirements were
+already present in `.agents/rules/spec-workflow.md`, `.agents/rules/documentation-sync.md`, and
+`.agents/rules/common-mistakes.md`.

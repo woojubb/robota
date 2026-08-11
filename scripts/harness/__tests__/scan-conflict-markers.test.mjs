@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { findConflictMarkerFindings } from '../scan-conflict-markers.mjs';
+import {
+  examinedDocumentCount,
+  examinedSourceFileCount,
+  findConflictMarkerFindings,
+} from '../scan-conflict-markers.mjs';
 
 const SCAN_SCRIPT = fileURLToPath(new URL('../scan-conflict-markers.mjs', import.meta.url));
 
@@ -154,5 +158,51 @@ describe('scan-conflict-markers CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('conflict marker scan failed:');
     expect(result.stdout).toContain('.agents/rules/example.md:3');
+  });
+});
+
+describe('the examined-size counters measure BOTH walks, and only this run (HARNESS-057)', () => {
+  /**
+   * This scan has two subjects of very different sizes — source across `packages`/`apps`/`scripts`,
+   * and the governance markdown — and the first version of the `::examined::` line reported the
+   * smaller one as the whole subject (154 against 3898 on the real tree). Review caught it; nothing
+   * mechanical would have. These cases are that mechanism. (#1684 review)
+   */
+  it('counts each walk against its own subject, not one against both', async () => {
+    const root = await createFixture({
+      // The SOURCE walk: three files it reads, one it must skip by extension, one by directory.
+      'packages/foo/index.ts': 'export const a = 1;\n',
+      'packages/foo/data.json': '{}\n',
+      'apps/bar/main.mjs': 'export const b = 2;\n',
+      'packages/foo/logo.png': 'not source\n',
+      'packages/foo/node_modules/dep/index.ts': 'export const skipped = true;\n',
+      // The DOCUMENT walk: one more beside the three the fixture always writes.
+      '.agents/rules/second.md': '# Second\n\nMore guidance.\n',
+    });
+
+    findConflictMarkerFindings(root);
+
+    expect(examinedSourceFileCount(), 'the source walk was miscounted').toBe(3);
+    expect(examinedDocumentCount(), 'the document walk was miscounted').toBe(4);
+  });
+
+  it('RESETS both counters between runs', async () => {
+    // A holder that is not reset reports the largest run it ever saw, and the smaller run is where
+    // an inherited number would be believed.
+    const big = await createFixture({
+      'packages/foo/a.ts': 'export const a = 1;\n',
+      'packages/foo/b.ts': 'export const b = 2;\n',
+      '.agents/rules/extra.md': '# Extra\n\nText.\n',
+    });
+    const small = await createFixture({});
+
+    findConflictMarkerFindings(big);
+    expect(examinedSourceFileCount()).toBe(2);
+    expect(examinedDocumentCount()).toBe(4);
+
+    findConflictMarkerFindings(small);
+
+    expect(examinedSourceFileCount(), 'the source count carried over').toBe(0);
+    expect(examinedDocumentCount(), 'the document count carried over').toBe(3);
   });
 });

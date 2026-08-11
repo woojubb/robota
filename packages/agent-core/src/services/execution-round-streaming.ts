@@ -1,5 +1,6 @@
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
+import { isAbortFailure } from '../utils/abort-classification';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
@@ -64,6 +65,7 @@ export async function callRoundProviderWithEvents(
   logger: ILogger,
   wrappedOnTextDelta: (delta: string) => void,
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
+  onProviderFailure?: (error: unknown) => void,
 ): Promise<TUniversalMessage | null> {
   try {
     fullContext.onExecutionEvent?.('provider_request', {
@@ -118,16 +120,19 @@ export async function callRoundProviderWithEvents(
     return response;
   } catch (providerError) {
     // allow-fallback: provider errors terminate the round, not the process
-    const isAbortError =
-      providerError instanceof Error &&
-      (providerError.name === 'AbortError' ||
-        providerError.message.includes('aborted') ||
-        providerError.message.includes('abort'));
-    if (isAbortError) {
+    //
+    // CORE-027: classified from the SIGNAL this round was given and from the error's own name, never
+    // from its prose. The substring test that stood here committed the round as `interrupted` for
+    // any provider failure whose message happened to contain "abort".
+    if (isAbortFailure(providerError, fullContext.signal)) {
       conversationStore.commitAssistant('interrupted', { round: currentRound });
       throw providerError;
     }
     conversationStore.discardPending();
+    // CORE-027: the message below is DISPLAY, not the failure's representation. The thrown value
+    // itself is handed out so the final result can carry it with class, code, category, stack and
+    // cause intact — rebuilding it from this prose is the round trip that destroyed all of them.
+    onProviderFailure?.(providerError);
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {

@@ -6,11 +6,18 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readTool } from '@robota-sdk/agent-tools';
+import { createReadTool } from '@robota-sdk/agent-tools';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+/**
+ * ARCH-010 — the context-free `readTool` singleton is gone and the containment root is a required
+ * constructor argument, so the tool is built against the tmpdir fixture below. That fixture is the only
+ * directory these cases read; binding the tool to `process.cwd()` would widen the root to the whole repo.
+ */
+let readTool: ReturnType<typeof createReadTool>;
 
 async function run(params: TToolParameters): Promise<IToolInvocationResult> {
   const rawResult = await readTool.execute(params);
@@ -21,6 +28,7 @@ let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = await mkdtemp(join(tmpdir(), 'read-tool-test-'));
+  readTool = createReadTool({ cwd: tmpDir });
 });
 
 afterAll(async () => {

@@ -57,7 +57,7 @@ Each turn of the flywheel makes both the agent and the process stronger, so the 
 To reach "Robota codes Robota", the product must have first-class, competitively-strong versions of the
 capabilities a real development agent needs. These are surveyed from leading commercial/OSS agents
 (Claude Code, Cursor, Devin, aider, CrewAI, Hermes, LangGraph, OpenAI Agents SDK, ADK, Mastra, …) and
-tracked as the **self-hosting roadmap** in [`.agents/backlog/SELFHOST-*`](.agents/backlog/). Highlights:
+tracked as the **self-hosting roadmap** in [`.agents/tasks/SELFHOST-*`](.agents/tasks/). Highlights:
 crew/multi-agent orchestration, explicit plan-mode, codebase indexing/RAG, branching time-travel,
 self-curating memory, run tracing + cost budgeting, guardrails, a rich hook catalog, computer use, and
 evals-as-code — each placed at the **correct architectural layer** (never skinned onto a surface).

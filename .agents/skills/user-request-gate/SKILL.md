@@ -1,6 +1,8 @@
 ---
 name: user-request-gate
 description: Use immediately when the user requests any implementation, code change, feature addition, fix, or modification. Gates code writing behind a backlog draft document. Read-only exploration is always permitted.
+loop: over=finding-set; escape=no-progress
+invocable: true
 ---
 
 ## Rule Anchor
@@ -67,8 +69,10 @@ Before any code writing, explore freely:
    block into the draft and let its recommendation feed `Alternatives Considered` / `Decision`. Skip ONLY by
    writing an explicit `Waived: <reason>` line under the section — a waiver you propose (research genuinely
    unnecessary) or the user requests. A missing/unsubstantiated section with no waiver FAILS GATE-WRITE
-   (`backlog-gate-guard`) and `scan-spec-research.mjs`; on that FAIL, re-drive the researcher (bounded) — do not
-   hand-wave past it.
+   (`backlog-gate-guard`) and `scan-spec-research.mjs`; on that FAIL, re-drive the researcher — and stop when the
+   same gaps recur unchanged, escalating to the user rather than re-driving into the same answer
+   ([no-progress escape](../../rules/enforcement-architecture.md)). "Bounded" with no number was no bound at all; the escape is the bound. Do not
+   hand-wave past the FAIL either way.
 
 ## Phase 3: Gate Pipeline (run before implementing)
 

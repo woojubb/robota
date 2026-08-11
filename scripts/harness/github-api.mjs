@@ -43,6 +43,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 /** GitHub's maximum for `per_page` on the endpoints harness code reads. */
 export const DEFAULT_PER_PAGE = 100;
@@ -119,11 +120,75 @@ function ghRunner(args) {
 }
 
 /**
+ * A rate-limited response is not a failed read — it is a read that must be repeated later.
+ *
+ * The API answers an exhausted budget with 403 (not 429) plus a rate-limit signature, and the
+ * unhelpful part is what that looks like to a caller: an error mentioning "rate limit" among ordinary
+ * permission errors. Treating it as a permanent failure aborts a scan that would have succeeded thirty
+ * seconds later; retrying it immediately makes the limit worse and can extend a secondary limit.
+ *
+ * So: recognise it, wait the time the API itself names, and try again a bounded number of times. When
+ * the budget cannot be recovered within the bound, the error says so in those terms rather than as an
+ * opaque non-zero exit.
+ */
+export function isRateLimited(stderr) {
+  return /rate limit|secondary rate|abuse detection|too many requests/i.test(stderr ?? '');
+}
+
+/** Seconds to wait before retrying, from the API's own headers when it supplies them. */
+export function retryDelaySeconds(stderr, { now = Date.now() } = {}) {
+  const retryAfter = /retry-after:\s*(\d+)/i.exec(stderr ?? '');
+  if (retryAfter) return Number(retryAfter[1]);
+  const reset = /x-ratelimit-reset:\s*(\d+)/i.exec(stderr ?? '');
+  if (reset) return Math.max(1, Math.ceil((Number(reset[1]) * 1000 - now) / 1000));
+  // No header to read. A fixed minute is the documented floor for a secondary limit, and guessing
+  // shorter is how a retry loop becomes the thing that keeps the limit alive.
+  return 60;
+}
+
+/**
  * Read EVERY record from a paginated GitHub endpoint, or throw.
  *
  * `perPage` is appended when the endpoint does not already carry one, so a caller cannot accidentally
  * request page size 30 (the API default) and make the completeness check weaker than it looks.
  */
+export function readWithBackoff(
+  runner,
+  args,
+  endpoint,
+  { attempts = 3, sleep = sleepSeconds } = {},
+) {
+  if (!Number.isInteger(attempts) || attempts < 1) {
+    // A loop that never runs would fall through to the trailing throw and report a TypeError about
+    // an undefined response — an error about the error, which tells the caller nothing.
+    throw new Error(`${endpoint}: attempts must be a positive integer, got ${attempts}`);
+  }
+  let response;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    response = runner(args);
+    if (response.status === 0) return response;
+    const stderr = (response.stderr ?? '').trim();
+    if (!isRateLimited(stderr)) break;
+    if (attempt === attempts) {
+      throw new Error(
+        `${endpoint}: rate limited by the GitHub API and still limited after ${attempts} attempts. ` +
+          'This is a budget to wait out, not a defect to work around — do not retry in a tighter ' +
+          `loop. Last response: ${stderr || 'no stderr'}`,
+      );
+    }
+    sleep(retryDelaySeconds(stderr));
+  }
+  throw new Error(
+    `${endpoint}: \`gh api\` failed (exit ${response.status}): ` +
+      `${(response.stderr ?? '').trim() || 'no stderr'}`,
+  );
+}
+
+/** Blocking sleep, so the synchronous `spawnSync` read path can wait without a rewrite. */
+function sleepSeconds(seconds) {
+  spawnSync(process.execPath, ['-e', `setTimeout(()=>{}, ${Math.max(0, seconds) * 1000})`]);
+}
+
 export function fetchAllPages(endpoint, { perPage = DEFAULT_PER_PAGE, runner = ghRunner } = {}) {
   const withPageSize = /[?&]per_page=/.test(endpoint)
     ? endpoint
@@ -131,13 +196,11 @@ export function fetchAllPages(endpoint, { perPage = DEFAULT_PER_PAGE, runner = g
   const declared = /[?&]per_page=(\d+)/.exec(withPageSize);
   const effectivePerPage = declared ? Number(declared[1]) : perPage;
 
-  const response = runner(['api', '--paginate', '--slurp', withPageSize]);
-  if (response.status !== 0) {
-    throw new Error(
-      `${endpoint}: \`gh api --paginate --slurp\` failed (exit ${response.status}): ` +
-        `${(response.stderr ?? '').trim() || 'no stderr'}`,
-    );
-  }
+  const response = readWithBackoff(
+    runner,
+    ['api', '--paginate', '--slurp', withPageSize],
+    endpoint,
+  );
 
   let pages;
   try {
@@ -191,6 +254,6 @@ function main(argv) {
   process.stdout.write(jq.stdout);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main(process.argv.slice(2));
 }

@@ -129,14 +129,14 @@ Documentation Deployment Stack 섹션에 주의 항목 추가:
 **위치:** `architecture-lessons.md` — SYS-AUDIT-006
 
 **설명:**
-"resolved by capability-placement.md with follow-up backlog"으로 기재되어 있으나, `.agents/backlog/` 디렉토리에는 `completed/` 서브디렉토리와 `README.md`만 존재하며 SYS-AUDIT-006 관련 팔로업 backlog 항목이 확인되지 않는다.
+"resolved by capability-placement.md with follow-up backlog"으로 기재되어 있으나, `.agents/tasks/` 디렉토리에는 `completed/` 서브디렉토리와 `README.md`만 존재하며 SYS-AUDIT-006 관련 팔로업 backlog 항목이 확인되지 않는다.
 `capability-placement.md` 내에 "backlog item for mechanical guard coverage" 언급이 있지만 실제 backlog 파일이 없다.
 현재 active backlog 항목이 비어 있거나 completed 처리되었을 가능성도 있으나, 명시적으로 기록되지 않아 추적이 불가능하다.
 
 **권장 수정 방향:**
 
 - 이미 완료된 경우: `architecture-lessons.md`에 "follow-up backlog completed"로 업데이트
-- 미완료인 경우: `.agents/backlog/INFRA-BL-XXX-mechanical-guard-coverage.md` 파일 생성
+- 미완료인 경우: `.agents/tasks/INFRA-BL-XXX-mechanical-guard-coverage.md` 파일 생성
 
 ---
 

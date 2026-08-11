@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import {
   collectAssistantUsageMetadata,
   calculateModelCost,
+  isAbortFailure,
   SPAN_EVENTS,
 } from '@robota-sdk/agent-core';
 
@@ -43,12 +44,10 @@ export interface IPreparedPromptInput {
   promptFileReferenceEntry?: IHistoryEntry;
 }
 
-/** Detect whether an error represents an abort/cancel action. */
+/** Detect an abort/cancel. CORE-027: the substring heuristic that stood here reported a provider
+ * failure as the user's own cancellation; `isAbortFailure` owns the decision and says why. */
 export function isAbortError(err: unknown): boolean {
-  return (
-    (err instanceof DOMException && err.name === 'AbortError') ||
-    (err instanceof Error && (err.message.includes('aborted') || err.message.includes('abort')))
-  );
+  return isAbortFailure(err);
 }
 
 /**

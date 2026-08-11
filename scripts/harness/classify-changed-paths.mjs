@@ -47,8 +47,8 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import { appendFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
 
 /**
  * Paths that are pure documentation. Kept byte-equivalent to `codeql.yml`'s `paths-ignore`; the
@@ -181,6 +181,6 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
   return result;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

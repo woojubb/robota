@@ -120,13 +120,19 @@ export interface ISandboxClient {
 export interface ISandboxToolOptions {
   sandboxClient?: ISandboxClient;
   /**
-   * The tool's working-directory root on the host (non-sandbox) path.
+   * The tool's working-directory root on the host (non-sandbox) path. REQUIRED — ARCH-010.
    *
    * For the tools that read and enumerate — `Read`/`Write`/`Edit` and, since SEC-007, `Glob`/`Grep` —
    * this is a CONTAINMENT boundary: access outside it is refused, decided on canonical (symlink-
    * resolved) paths. For `Shell`/`Bash` it is the DEFAULT working directory and deliberately not a
    * boundary — a cwd guard on arbitrary command execution is undone by the first `cd` (see the
    * shell-tool file header).
+   *
+   * It is required because it was optional: with no root the containment guard used to answer
+   * "allowed", so a construction site that simply forgot supplied an unsandboxed `Read`. The audit
+   * found three layers that had. Optional here means the boundary is a convention each caller may or
+   * may not follow, and a boundary nobody is obliged to supply is not a boundary. Callers that
+   * genuinely mean "this process's directory" now say `process.cwd()` where a reader can see it.
    */
-  cwd?: string;
+  cwd: string;
 }

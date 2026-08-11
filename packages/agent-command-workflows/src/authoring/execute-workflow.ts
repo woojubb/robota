@@ -4,7 +4,6 @@
  * `run` (nodes reloaded from disk).
  */
 import { LocalDagRuntimeProvider } from '@robota-sdk/dag-framework';
-import { toDagWorkflowFile } from '@robota-sdk/dag-builder';
 import type { IDagDefinition, IDagNodeDefinition, IWorkspaceLayout } from '@robota-sdk/dag-core';
 
 export interface IWorkflowRunOutcome {
@@ -26,10 +25,7 @@ export async function executeDefinition(
     projectDir: cwd,
     ...(instantNodes.length > 0 ? { instantNodes } : {}),
   });
-  // The provider's runtime consumes the ComfyUI-style workflow-file format; convert the legible
-  // `IDagDefinition` we author/save into it before executing.
-  const { workflowFile } = toDagWorkflowFile(definition);
-  const result = await provider.execute(workflowFile, inputs);
+  const result = await provider.execute(definition, inputs);
   return {
     ok: result.ok,
     outputs: result.outputs,

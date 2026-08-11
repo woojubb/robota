@@ -3,7 +3,7 @@
 /**
  * Action-reference resolvability guard (INFRA-059).
  *
- * `deploy.yml` referenced `vercel/action@v1` — a repository that does not exist — for eight months
+ * `deploy.yml` referenced `vercel/action@v1` — a repository that does not exist — for eight months (allow-missing-artifact: INFRA-058 deleted it; this is the history the scan exists for)
  * and 100+ runs. An unresolvable `uses:` fails at `Set up job`, BEFORE any step runs, so there is no
  * failing step in the log, `--log-failed` returns only the provisioner banner, and an `if:`-gated or
  * skipped job reports the whole run GREEN. It is the quietest possible CI failure, and nothing here
@@ -395,7 +395,7 @@ export async function resolveAll(references, probe = probeReference) {
 
 /**
  * One finding per OCCURRENCE, from one verdict per unique reference. `vercel/action@v1` sits on two
- * lines of `deploy.yml`; reporting it once names one of them and leaves the other unmentioned, which
+ * lines of `deploy.yml`; reporting it once names one of them and leaves the other unmentioned, which (allow-missing-artifact: INFRA-058 deleted it; kept as the measured case)
  * is the same under-reporting of its own subject that the parser counter above fences.
  */
 export function expandFindings(references, results) {
@@ -474,7 +474,8 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   write(
-    `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
+    `::examined:: ${sources.length} workflow files\n` +
+      `action-references scan passed: ${unique} unique reference(s) over ${lines} \`uses:\` line(s) in ${sources.length} workflow(s).`,
   );
   for (const { reference, resolution } of results) {
     write(
@@ -491,6 +492,6 @@ export async function main(argv = process.argv.slice(2)) {
   if (unverified !== null) write(unverified);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   await main();
 }

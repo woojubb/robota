@@ -13,7 +13,8 @@ name: CodeQL
 #     filed for the owner, not taken here.
 #   - A green tick on a PULL REQUEST is not a repo-clean signal. Every `refs/pull/*/merge` analysis reports
 #     0 results because CodeQL runs diff-informed on PRs: it reports alerts in the CHANGED code, not the
-#     standing inventory. The push/schedule runs on develop are what cover the rest.
+#     standing inventory. The push runs on develop are what cover the rest — and they are the only
+#     thing that does, now that the weekly scan is gone.
 #   - The alert COUNT must be read with `--paginate`. The alerts endpoint sorts by `created` descending and
 #     pages at 100, so a burst of low-severity alerts pushes every high-severity one onto page two and a
 #     single-page query answers `0 high` on any ref — indistinguishable from a clean repository. That false
@@ -24,17 +25,14 @@ on:
   pull_request:
     branches: [main, develop]
     # Proportional CI: skip SAST for documentation-only PRs (no analyzable JS/TS changed). CodeQL is advisory
-    # (not a required check), so not triggering it on a docs-only PR is safe for branch protection. The weekly
-    # schedule + push-to-branch runs still give full coverage.
+    # (not a required check), so not triggering it on a docs-only PR is safe for branch protection. The
+    # push-to-branch runs still give coverage — and they are what produces the base alert set the
+    # required `review-gate` compares a pull request against.
     paths-ignore:
       - '**/*.md'
       - '**/*.mdx'
       - 'docs/**'
       - 'content/**'
-  schedule:
-    # Weekly full scan (catches issues in code that a given PR didn't touch).
-    - cron: '27 4 * * 1'
-
 permissions:
   contents: read
   security-events: write
@@ -62,3 +60,146 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
+
+  # ── #1660: recovery in its OWN job — the analyze job must not hold the write token ────────────
+  # review-gate.yml sets the pattern for this exact class (its disarm-auto-merge job): a job that
+  # checks out and analyzes PR-controlled content never shares a token that writes. This job
+  # checks nothing out and runs only the script below, with the workflow's only actions: write.
+  recover-review-gate:
+    name: Re-run a review-gate that read this analysis too early
+    needs: analyze
+    # An explicit success(): a custom `if:` REPLACES the implicit success() gate `needs` carries,
+    # so without it this job would also run when analyze failed or was cancelled — and there is
+    # no completed analysis to recover with there. (#1669 review)
+    if: success() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # #1660: re-running a workflow run needs actions: write; the token is same-repo, and a fork
+      # pull request receives a read-only token regardless of this block. A job-level block
+      # ZEROES every unlisted scope, so the head-moved check's PR read is granted explicitly —
+      # without it, `gh api pulls/<n>` 403s on every run and the recovery never reruns anything,
+      # silently restoring the stays-red state this job exists to end. (#1669 review)
+      pull-requests: read
+      actions: write
+    steps:
+      # ── #1660: recovery for the review-gate ordering artefact ─────────────────────────────────
+      # `review-gate` reads this analysis ONCE, with no wait — the wait was moved off the billed
+      # runner deliberately, and that part stays. What was never paid for was the recovery: both
+      # workflows fire on the same pull_request event, so the gate's read almost always lands while
+      # this analysis is still running, goes red with `verdict-unavailable`, and STAYS red until a
+      # human re-runs it. Measured on 2026-08-08: all eight open code PRs red simultaneously on a
+      # gate that had found nothing, each turned green by a bare re-run.
+      #
+      # This step is the alternative the gate's own comment names as removing the watcher without
+      # re-introducing the wait: the moment the analysis completes, re-run the same-SHA gate run if
+      # it failed. It keys the gate to the analysis completing WITHOUT changing the gate's own
+      # trigger — the workflow_run route would report against the default branch's workflow file
+      # and its ability to satisfy the required context name is unverified (#1660 discusses why).
+      #
+      # A rerun of a gate that failed on a REAL finding is harmless: it re-reads and goes red with
+      # the same verdict. There is no loop — rerunning review-gate triggers nothing here.
+      #
+      # NON-FATAL by decision, not by silence: a failed redispatch must not turn the SAST job red
+      # (the analysis it reports on succeeded), but it says what went wrong — recovery falling back
+      # to the watcher is the pre-#1660 state, and the log names it.
+      #
+      # Accepted costs, recorded rather than discovered:
+      #   - `actions: write` widens this job's blast radius to rerunning/cancelling runs
+      #     (justified in scan-workflow-permissions.mjs). JS/TS autobuild is a no-op, so PR code
+      #     does not execute in the analysis steps. A FORK pull request receives a read-only
+      #     GITHUB_TOKEN regardless of this block, so the widened scope never reaches untrusted
+      #     code. A SAME-REPO branch does run its own edit of this file — and gains nothing by
+      #     it: pushing a branch here requires repo write access, which already carries the
+      #     Actions re-run/cancel rights this token grants. The scope widens what this WORKFLOW
+      #     may do, not what any contributor may.
+      #   - The head_sha query can pick up a same-SHA run from another PR — a rerun is
+      #     idempotent, so the cost of that rarity is a wasted rerun, not a wrong verdict.
+      #   - The rerun restores the REQUIRED CHECK, not auto-merge: a first failure has already
+      #     disarmed auto-merge (review-gate.yml's disarm job), and re-arming stays a human
+      #     decision by design — the disarm exists to force a look, and this step must not
+      #     un-force it.
+      #   - SARIF upload completing and the code-scanning API serving the alerts are not the
+      #     same instant; a rerun racing that propagation re-fails and falls back to the
+      #     stays-red watcher, the pre-#1660 state.
+      - name: Re-run a review-gate that read this analysis too early (#1660)
+        if: github.event_name == 'pull_request'
+        # Non-fatal MECHANICALLY, not by convention: every branch of the script exits 0 on
+        # purpose, but a future edit or a `set -u` unbound variable would flip the SAST job red —
+        # the exact outcome the header forswears. The runner enforces what the comment promised.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -u
+          # An API failure is not "no run yet". `|| true` folded rate limits and network errors
+          # into the empty answer the may-not-have-started notice narrates, which is the exact
+          # wrong-reason silence this step's own header forswears — so the two are separated:
+          # an unreadable listing warns as itself and stops. stderr is captured to a FILE, never
+          # merged into the parsed stream: an exit-0 `gh` warning on stdout+stderr would break the
+          # jq parse (empty run_id, benign narrative) or ride into the conclusion word, which is
+          # the same wrong-reason silence through a side door. (#1669 review, both rounds)
+          err_file=$(mktemp)
+          trap 'rm -f "${err_file}"' EXIT
+          # allow-unpaginated: the listing returns EVERY pull_request-triggered run for this head
+          # SHA — all ~6 workflows per push, plus reruns — so the page holds roughly fifteen
+          # pushes' worth of runs for one SHA, which does not recur; a miss past it costs one
+          # manual rerun. (#1669 review corrected the earlier phrasing, which read as Review
+          # Gate-only.)
+          if ! runs_json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=100" 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: could not LIST workflow runs for ${HEAD_SHA} ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
+          # The PARSE is checked like the calls around it: gh can exit 0 with a body that has no
+          # .workflow_runs (rate-limit payload on a 200, schema drift), and an unchecked pipe let
+          # that fall into the benign no-run narrative. (#1669 review)
+          if ! run_id=$(printf '%s' "${runs_json}" | jq -r '[.workflow_runs[] | select(.name == "Review Gate")] | sort_by(.created_at) | last | .id // empty' 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: the run listing for ${HEAD_SHA} did not parse as expected ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
+          if [ -z "${run_id}" ]; then
+            echo "::notice::#1660 recovery: no Review Gate run found for ${HEAD_SHA} — nothing to recover (it may not have started yet; when it starts it will read a completed analysis)."
+            exit 0
+          fi
+          # allow-unpaginated: a single-record read by id — there is no collection to truncate.
+          if ! status_conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" \
+            --jq '"\(.status) \(.conclusion // "")"' 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: could not READ Review Gate run ${run_id} ($(cat "${err_file}")). Recovery falls back to the stays-red watcher — re-run the Review Gate by hand if it stays red."
+            exit 0
+          fi
+          status=${status_conclusion%% *}
+          conclusion=${status_conclusion#* }
+          if [ "${status}" != "completed" ]; then
+            # DELIBERATELY one look, no poll: a wait held here is billed runner time on every PR
+            # (scan-runner-wait owns that cost class), spent against a narrow race. The residual
+            # window is real and named: a gate run still in flight HERE that already read the
+            # absent analysis and concludes failure after this job ends is re-checked by nothing —
+            # that case falls back to the stays-red watcher, the pre-#1660 state.
+            echo "::notice::#1660 recovery: Review Gate run ${run_id} is ${status}. If it started after this analysis it will read it completed; if it read too early and later concludes failure, nothing re-checks it — re-run it by hand if it stays red."
+            exit 0
+          fi
+          if [ "${conclusion}" != "failure" ]; then
+            echo "::notice::#1660 recovery: Review Gate run ${run_id} concluded ${conclusion} — nothing to recover."
+            exit 0
+          fi
+          # SUPERSEDED analyses do not rerun the gate. review-gate's concurrency group is keyed
+          # by PR number with cancel-in-progress, so a rerun issued for an old SHA after a new
+          # push would CANCEL the new push's in-flight gate — trading a stale red for a missing
+          # check on the SHA that matters. If the PR's head has moved on, this analysis's rerun
+          # right has lapsed. (#1669 review)
+          # allow-unpaginated: a single-record read of one pull request by number.
+          if ! current_head=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha' 2>"${err_file}"); then
+            echo "::warning::#1660 recovery: could not read the PR's current head ($(cat "${err_file}")). Not rerunning against an unverifiable head — the stays-red watcher covers it."
+            exit 0
+          fi
+          if [ "${current_head}" != "${HEAD_SHA}" ]; then
+            echo "::notice::#1660 recovery: the PR's head moved on (${current_head} != ${HEAD_SHA}) — the newer push's own analysis owns the recovery now."
+            exit 0
+          fi
+          if gh run rerun "${run_id}" --failed --repo "${GITHUB_REPOSITORY}"; then
+            echo "::notice::#1660 recovery: re-ran Review Gate run ${run_id} — it now reads a completed analysis."
+          else
+            echo "::warning::#1660 recovery FAILED to re-run Review Gate run ${run_id}. The gate stays red until re-run by hand — the pre-#1660 state. On a FORK pull request this is expected: the token is read-only regardless of this workflow's permissions. Same-repo: check the actions: write permission and the run id."
+          fi

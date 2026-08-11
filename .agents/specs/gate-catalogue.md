@@ -23,16 +23,16 @@ either**: [`backlog-pipeline`](../skills/backlog-pipeline/SKILL.md) dispatches t
 
 ## Gate index
 
-| Gate                | Applies to                            | Artifact its evidence is recorded in |
-| ------------------- | ------------------------------------- | ------------------------------------ |
-| `GATE-WRITE`        | spec document                         | `## Evidence Log`                    |
-| `GATE-APPROVAL`     | spec document                         | `## Evidence Log`                    |
-| `GATE-IMPLEMENT`    | spec document                         | `## Evidence Log`                    |
-| `GATE-VERIFY`       | spec document                         | `## Evidence Log`                    |
-| `GATE-COMPLETE`     | spec document                         | `## Evidence Log`                    |
-| `GATE-CONFORMANCE`  | spec document (standalone)            | `## Evidence Log`                    |
-| `DONE-GATE-STAGE-1` | backlog item under `.agents/backlog/` | the item's scenario section          |
-| `DONE-GATE-STAGE-2` | backlog item under `.agents/backlog/` | the item's scenario section          |
+| Gate                | Applies to                          | Artifact its evidence is recorded in |
+| ------------------- | ----------------------------------- | ------------------------------------ |
+| `GATE-WRITE`        | spec document                       | `## Evidence Log`                    |
+| `GATE-APPROVAL`     | spec document                       | `## Evidence Log`                    |
+| `GATE-IMPLEMENT`    | spec document                       | `## Evidence Log`                    |
+| `GATE-VERIFY`       | spec document                       | `## Evidence Log`                    |
+| `GATE-COMPLETE`     | spec document                       | `## Evidence Log`                    |
+| `GATE-CONFORMANCE`  | spec document (standalone)          | `## Evidence Log`                    |
+| `DONE-GATE-STAGE-1` | backlog item under `.agents/tasks/` | the item's scenario section          |
+| `DONE-GATE-STAGE-2` | backlog item under `.agents/tasks/` | the item's scenario section          |
 
 Spec-document gates are dispatched by `backlog-pipeline`; the two done-gate stages are dispatched by
 `user-execution-scenario`.
@@ -257,7 +257,7 @@ until those land, a FAIL here is expected and is not a release blocker.)
 
 ### DONE-GATE-STAGE-1 — scenario written
 
-Applies to a backlog item under `.agents/backlog/` that carries a
+Applies to a backlog item under `.agents/tasks/` that carries a
 `## User Execution Test Scenarios` section. Mandate and definitions:
 [`backlog-execution.md`](../rules/backlog-execution.md) > Done Gate.
 

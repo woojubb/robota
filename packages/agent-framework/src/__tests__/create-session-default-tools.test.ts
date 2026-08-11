@@ -143,7 +143,13 @@ describe('ARCH-006 — additionalTools dedupe by tool name', () => {
       additionalTools: [namedTool('AcmeTicketLookup', 'new')],
     });
 
-    expect(names).toEqual([...createDefaultTools().map((t) => t.getName()), 'AcmeTicketLookup']);
+    // ARCH-010 — `createDefaultTools` now requires the root. `process.cwd()` is the root the assembled
+    // session under test uses (`createSession` resolves `options.cwd ?? process.cwd()`), so the two
+    // sides of this comparison are built the same way; only tool NAMES are read from either.
+    expect(names).toEqual([
+      ...createDefaultTools({ cwd: process.cwd() }).map((t) => t.getName()),
+      'AcmeTicketLookup',
+    ]);
   });
 });
 
@@ -183,6 +189,7 @@ describe('ARCH-006 — the injectable/suppressible default tool tier', () => {
     const { createDefaultTools } = await import('../assembly/create-tools.js');
     const { names } = await assembleToolNames();
 
-    expect(names).toEqual(createDefaultTools().map((t) => t.getName()));
+    // Same mirroring as above: the session resolves its root to `process.cwd()` when none is supplied.
+    expect(names).toEqual(createDefaultTools({ cwd: process.cwd() }).map((t) => t.getName()));
   });
 });

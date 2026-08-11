@@ -22,3 +22,5 @@ export {
 } from './dag-workflow-converter.js';
 
 export const DAG_BUILDER_PACKAGE_NAME = '@robota-sdk/dag-builder';
+
+export { dagDefinitionFromParsedFile } from './parsed-dag-file.js';

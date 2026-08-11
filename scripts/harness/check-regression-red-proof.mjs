@@ -21,11 +21,28 @@ import { execFileSync } from 'node:child_process';
 import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import {
+  WITNESS,
+  changedNewLines,
+  defaultRunVitestRaw,
+  witnessDecidingCases,
+  witnessOneCase,
+} from './lib/execution-witness.mjs';
+import {
+  EXECUTION,
+  analyzeSpawnTargetsCached,
+  classifyExecution,
+} from './lib/spawn-call-graph.mjs';
+
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 
 // ── Verdict vocabulary ────────────────────────────────────────────────────────────────────────────
 export const VERDICT = Object.freeze({
   RED_PROOF_OK: 'red-proof-ok', // ≥1 changed test genuinely fails with the fix reversed — good
+  // The added case IS red on the reversed source, and executed not one line the fix changed. Its red
+  // proves the reversed tree is broken, not that the case depends on the behaviour it names —
+  // INFRA-072's "fails for the WRONG REASON", which pass/fail cannot express.
+  PROOF_UNREACHED: 'red-proof-unreached',
   ACCIDENTAL_GREEN: 'accidental-green-fail', // all changed tests still pass — the defect this tool exists to catch
   INCONCLUSIVE: 'inconclusive', // vitest could not evaluate, or the test does not import the reversed file
   SKIPPED_NOT_FIX: 'skipped-not-fix', // range has no fix: commit
@@ -35,10 +52,29 @@ export const VERDICT = Object.freeze({
 
 // ── Pure: file classification ─────────────────────────────────────────────────────────────────────
 
-/** Package/app root key for a repo-relative path, or null if not under a package/app `src`. */
+/** The subject whose tests live in the harness suite rather than beside it. */
+export const HOOK_SUBJECT = '.claude/hooks';
+/** The harness itself — scans, floors and their tests. */
+export const HARNESS_SUBJECT = 'scripts/harness';
+
+/**
+ * The subject a repo-relative path belongs to, or null when nothing red-proves it.
+ *
+ * It matched `packages|apps/*​/src/` and nothing else, which made the gate blind to every guard in
+ * the repository. Measured over PRs #1525–#1530: twelve CI runs, zero verdicts, nine of them
+ * `no same-package pair` — while human review caught four accidental-green tests in that same
+ * window, all of them under `scripts/harness/__tests__/` (INFRA-071).
+ */
 export function pkgOf(filePath) {
   const m = filePath.match(/^((?:packages|apps)\/[^/]+)\/src\//);
-  return m ? m[1] : null;
+  if (m) return m[1];
+  // Documentation is not source: reversing a `.md` and re-running a test proves nothing, and a
+  // docs-and-test range would otherwise manufacture a pair whose only possible verdict is noise.
+  // Under a `packages/*/src` scope this could not arise; under a whole directory it can.
+  if (filePath.startsWith(`${HARNESS_SUBJECT}/`))
+    return /\.mdx?$/.test(filePath) ? null : HARNESS_SUBJECT;
+  if (/^\.claude\/hooks\/.*\.sh$/.test(filePath)) return HOOK_SUBJECT;
+  return null;
 }
 
 export function isTestFile(filePath) {
@@ -63,7 +99,48 @@ export function classifyChanges(changedFiles) {
     if (isTestFile(f)) byPkg.get(pkg).test.push(f);
     else byPkg.get(pkg).source.push(f);
   }
+
+  // A hook's tests do not live beside it — they live in the harness suite, because that is where a
+  // test that SPAWNS a shell script belongs. Grouping strictly by path therefore put a changed hook
+  // and the test that runs it in different subjects, and they could never form a pair. The harness
+  // tests are adopted as candidates here; whether any of them actually exercises the changed hook is
+  // the relation check's job, and an unrelated one yields INCONCLUSIVE rather than a false verdict.
+  const hooks = byPkg.get(HOOK_SUBJECT);
+  const harness = byPkg.get(HARNESS_SUBJECT);
+  if (hooks?.source.length && harness?.test.length) {
+    hooks.test = [...new Set([...hooks.test, ...harness.test])];
+  }
   return byPkg;
+}
+
+/**
+ * Does this test EXECUTE this hook? The relation that stands in for the import graph when the
+ * changed source is a shell script, which is never in one.
+ *
+ * It used to answer with two INDEPENDENT text checks — the basename appears in the comment-stripped
+ * source, and the file spawns `bash` somewhere — with nothing tying the spawn to the name, so a
+ * test naming hook A in real code while spawning hook B counted as executing A. That was tolerable
+ * while only an advisory coverage message rode on it; INFRA-071 made it pick which tests may SET a
+ * red-proof verdict, and a bystander could then decide a hook it never ran. Measured on this tree:
+ * one such pair, `check-regression-red-proof.test.mjs` → `branch-guard.sh`, where every `spawnSync`
+ * the file contains is inside a STRING LITERAL in a fixture.
+ *
+ * A narrower text pattern is not the fix and that was established by trying it: requiring the name
+ * inside a `path.join(...)` missed every test that hands the basename to a helper which joins it,
+ * and those run the hook just as truly. The binding is a VALUE FLOWING THROUGH A CALL, so the
+ * answer comes from {@link analyzeSpawnTargetsCached}, which reads it out of the call graph.
+ *
+ * THREE ANSWERS, and the caller owns what the third one is worth. Ambiguity is real — a path built
+ * from `readdirSync()` cannot be pinned — and this gate refuses to let an UNDETERMINED test decide,
+ * because a verdict supplied by a test that may not have run the subject is the defect the gate
+ * exists to catch. The coverage floor makes the opposite call for its own consequences.
+ *
+ * @limits basename-only, and it reads ONE module — a test that spawned the hook through a helper
+ * imported from another file would read as not executing it. Never guesses: an unresolvable spawn
+ * target answers UNDETERMINED.
+ */
+export function testExecutesHook(testText, hookPath) {
+  return classifyExecution(analyzeSpawnTargetsCached(String(testText ?? '')), hookPath);
 }
 
 /** Packages that changed BOTH source and test — the only ones this v1 can red-prove. */
@@ -78,8 +155,18 @@ export function qualifyingPairs(byPkg) {
 // ── Pure: range + opt-out scoping (C2, opt-out) ─────────────────────────────────────────────────────
 
 /** A defect-fix range has a `fix:` / `fix(scope): ` conventional commit. `perf:` is intentionally excluded. */
-export function isDefectFixRange(commitSubjects) {
-  return commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()));
+export function isDefectFixRange(commitSubjects, addedFiles = []) {
+  if (commitSubjects.some((s) => /^fix(\(|:)/.test(s.trim()))) return true;
+
+  // A range that ADDS A FLOOR is judged too, whatever its subject says. Measured 2026-08-01: five
+  // mechanical floors were written in one session and not one was judged by this gate, because a
+  // floor lands as `feat:` — it adds a capability — while being a fix for a defect CLASS. Three of
+  // the five turned out to pass over the very incident they were built for, and all three were found
+  // by a person running them by hand.
+  //
+  // A floor is the artifact whose red proof matters most: it is what will be trusted to catch the
+  // next occurrence, and a floor that cannot fail is worse than none, because it is believed.
+  return addedFiles.some((f) => /^scripts\/harness\/__tests__\/.*\.test\.mjs$/.test(f));
 }
 
 /** Parse `allow-green-at-base: <reason>` (opt-out) from any text (PR body / commit trailers). */
@@ -89,19 +176,85 @@ export function parseOptOut(text) {
   return { optedOut: Boolean(reason), reason };
 }
 
+// ── Pure: which cases the range ADDED (INFRA-072) ────────────────────────────────────────────────────
+
+// `it('…')`, `it.only('…')`, and the table form `it.each(rows)('…')` — the intervening call is what
+// makes the last one a separate shape rather than a suffix.
+const CASE_TITLE_RE =
+  /\b(?:it|test|bench)(?:\.[A-Za-z]+)*(?:\s*\([^()]*\))?\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+
+/**
+ * Title matchers for the test cases a diff ADDED.
+ *
+ * The gate judged at FILE granularity: a changed test file was red-proved when ANY one of its cases
+ * failed on the reversed source. So a range could add a vacuous regression test beside a
+ * pre-existing case that fails for its own reasons, and the file reported `red-proof-ok` — the same
+ * "the unit judged is coarser than the unit the defect lives in" shape INFRA-073 fixed across
+ * sources, asked within one file. Measured on `2ac10f251..b1f46acf3`.
+ *
+ * A template title (`it(\`${hook} is run\`)`) cannot be compared exactly, so its static parts become
+ * the matcher and the interpolations become wildcards — a wider match is a weaker check, never a
+ * wrong verdict. A title this cannot read at all yields no matcher, and a file with no matchers
+ * falls back to file granularity rather than failing something it cannot see.
+ */
+export function addedCaseTitleMatchers(diffText) {
+  const matchers = [];
+  for (const line of String(diffText ?? '').split('\n')) {
+    if (!line.startsWith('+') || line.startsWith('+++')) continue;
+    CASE_TITLE_RE.lastIndex = 0;
+    for (const m of line.slice(1).matchAll(CASE_TITLE_RE)) {
+      const [, quote, raw] = m;
+      matchers.push(quote === '`' ? templateTitleMatcher(raw) : exactTitleMatcher(raw));
+    }
+  }
+  return matchers;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function exactTitleMatcher(raw) {
+  // The source spelling is escaped; the runtime title is not. Left un-decoded, a title containing
+  // `\'` or `\n` would never match its own case, and the file would then report its added case as
+  // passing — a false accidental-green from a quoting detail.
+  const decoded = raw.replace(/\\(['"\\nt])/g, (_, ch) =>
+    ch === 'n' ? '\n' : ch === 't' ? '\t' : ch,
+  );
+  return new RegExp(`^${escapeRegExp(decoded)}$`);
+}
+
+function templateTitleMatcher(raw) {
+  const statics = raw.split(/\$\{[^}]*\}/).map(escapeRegExp);
+  return new RegExp(`^${statics.join('.*')}$`);
+}
+
+/** Did any matcher name this case? Both the bare title and the describe-qualified name are tried. */
+function matchesAddedCase(matchers, assertion) {
+  const names = [assertion?.title, assertion?.fullName].filter(Boolean);
+  return matchers.some((re) => names.some((name) => re.test(name)));
+}
+
 // ── Pure: vitest outcome classification (C1 — the correctness-critical distinction) ──────────────────
 
 /**
  * Given vitest `--reporter=json` output (parsed) and the changed test files, classify the outcome.
  * NEVER conflate a genuine assertion failure with a run error.
- *   'assertion-fail' — ≥1 changed test file has a failed assertion (the suite ran and the test failed)
- *   'run-error'      — a changed test file could not be evaluated (transform/collection/missing module)
- *   'all-pass'       — every changed test file ran and passed
+ *   'assertion-fail'    — ≥1 case that the range ADDED failed (the suite ran and the new test failed)
+ *   'added-cases-pass'  — a case failed, but not one this range added: the new test guards nothing
+ *   'run-error'         — a changed test file could not be evaluated (transform/collection/missing module)
+ *   'all-pass'          — every changed test file ran and passed
+ *
+ * @param addedCases Map(absolute test path → title matchers for the cases the range added), or null
+ *   when the range added no case this can name. Without it the judgement stays at FILE granularity,
+ *   which is what let a vacuous new case hide behind a pre-existing failing one (INFRA-072).
  */
-export function classifyVitestOutcome(vitestJson, changedTestFiles) {
+export function classifyVitestOutcome(vitestJson, changedTestFiles, addedCases = null) {
   const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
   const results = Array.isArray(vitestJson?.testResults) ? vitestJson.testResults : [];
-  let sawAssertionFail = false;
+  let addedCaseFailed = false; // a failure in a case the range added
+  let unjudgedFileFailed = false; // a failure in a file the range added no readable case to
+  let judgedFileFailed = false; // a failure ONLY in the older cases of a file the range added to
   const ranWithAssertions = new Set();
 
   for (const fileResult of results) {
@@ -112,17 +265,59 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles) {
       : [];
     if (assertions.length === 0) continue; // present but no assertions → failed to collect/transform
     ranWithAssertions.add(name);
-    if (assertions.some((a) => a.status === 'failed')) sawAssertionFail = true;
+    const matchers = addedCases?.get(name) ?? null;
+    for (const assertion of assertions) {
+      if (assertion.status !== 'failed') continue;
+      // Per FILE, not across the set. A file the range added no case to is judged the way it always
+      // was — its failure is a proof. Demanding a new case there would fail a range whose fix is
+      // covered by an existing test in one file and by a new test for a different aspect in
+      // another, which is ordinary correct work.
+      if (!matchers?.length) unjudgedFileFailed = true;
+      else if (matchesAddedCase(matchers, assertion)) addedCaseFailed = true;
+      else judgedFileFailed = true;
+    }
   }
 
   // C1 — a genuine assertion failure is the ONLY pass. ANY wanted test file that did not run with
   // assertions (missing from results OR present-with-zero-assertions — a transform/collection error) is a
   // run-error and yields INCONCLUSIVE, even if a SIBLING changed test file ran green. Never conflate a
   // non-run with all-pass: that would be a false accidental-green alarm.
-  if (sawAssertionFail) return 'assertion-fail';
+  if (addedCaseFailed || unjudgedFileFailed) return 'assertion-fail';
   const sawRunError = wanted.some((abs) => !ranWithAssertions.has(abs));
-  if (sawRunError) return 'run-error';
+  if (sawRunError) return 'run-error'; // a case that never ran has not been shown to pass
+  if (judgedFileFailed) return 'added-cases-pass';
   return 'all-pass';
+}
+
+/**
+ * The failing cases that SUPPLIED the red — the ones an execution witness must account for.
+ *
+ * It is deliberately the same selection `classifyVitestOutcome` used to reach `assertion-fail`, and
+ * not simply "everything that failed": an older case's red is not what the gate accepted as the
+ * proof, so it is not what has to be shown to have reached the fix. A file the range added no
+ * readable title to is judged at file granularity, and there every failure is a candidate.
+ *
+ * @returns {{ file: string, name: string, qualified: boolean }[]} — `name` is the fullName vitest
+ *   filters on with `-t`. `qualified` records whether that name really is the describe-qualified one:
+ *   the pattern is anchored differently when only a bare title is known, because anchoring a bare
+ *   title against the full name matches NOTHING (measured).
+ */
+export function decidingFailures(vitestJson, changedTestFiles, addedCases = null) {
+  const wanted = changedTestFiles.map((f) => path.resolve(WORKSPACE_ROOT, f));
+  const results = Array.isArray(vitestJson?.testResults) ? vitestJson.testResults : [];
+  const out = [];
+  for (const fileResult of results) {
+    const name = fileResult?.name ? path.resolve(fileResult.name) : null;
+    if (!name || !wanted.includes(name)) continue;
+    const matchers = addedCases?.get(name) ?? null;
+    for (const assertion of fileResult.assertionResults ?? []) {
+      if (assertion.status !== 'failed') continue;
+      if (matchers?.length && !matchesAddedCase(matchers, assertion)) continue;
+      const title = assertion.fullName || assertion.title;
+      if (title) out.push({ file: name, name: title, qualified: Boolean(assertion.fullName) });
+    }
+  }
+  return out;
 }
 
 // ── Pure: final verdict for one qualifying pair ─────────────────────────────────────────────────────
@@ -132,12 +327,19 @@ export function classifyVitestOutcome(vitestJson, changedTestFiles) {
  * unit-tested exhaustively without git or vitest.
  *   importsReversedFile — did any changed test relatively import a reversed source file? (C3)
  *   outcome             — classifyVitestOutcome result, or null if not run (guard tripped)
+ *   witness             — did the case that supplied the red EXECUTE a line the fix changed?
+ *                         (INFRA-072 direction 3.) Defaults to UNKNOWN, which changes nothing:
+ *                         the instrument is evidence when it speaks and silent when it cannot.
  */
-export function decidePairVerdict({ importsReversedFile, outcome }) {
+export function decidePairVerdict({ importsReversedFile, outcome, witness = WITNESS.UNKNOWN }) {
   if (!importsReversedFile) return VERDICT.INCONCLUSIVE; // C3: not in the test's module graph
-  if (outcome === 'assertion-fail') return VERDICT.RED_PROOF_OK;
+  if (outcome === 'assertion-fail')
+    return witness === WITNESS.UNREACHED ? VERDICT.PROOF_UNREACHED : VERDICT.RED_PROOF_OK;
   if (outcome === 'run-error') return VERDICT.INCONCLUSIVE; // C1: never a pass
   if (outcome === 'all-pass') return VERDICT.ACCIDENTAL_GREEN;
+  // The range's own new case passed on the reversed source; the red came from a case that was
+  // already there. That is an accidental-green regression test wearing a sibling's proof.
+  if (outcome === 'added-cases-pass') return VERDICT.ACCIDENTAL_GREEN;
   return VERDICT.INCONCLUSIVE;
 }
 
@@ -221,10 +423,50 @@ export function reachableRelativeGraph(
   return visited;
 }
 
+/**
+ * Title matchers for the cases the range added, per deciding test file — or null when it added none
+ * this can name, in which case the judgement stays at file granularity rather than failing over a
+ * title it could not read.
+ */
+function addedCaseMatchers(testFiles, readDiffFor) {
+  const byFile = new Map();
+  for (const file of testFiles) {
+    let matchers = [];
+    try {
+      matchers = addedCaseTitleMatchers(readDiffFor(file));
+    } catch {
+      matchers = []; // an unreadable diff means "unknown", which is file granularity
+    }
+    if (matchers.length > 0) byFile.set(path.resolve(WORKSPACE_ROOT, file), matchers);
+  }
+  return byFile.size > 0 ? byFile : null;
+}
+
 // ── Impure orchestrator ─────────────────────────────────────────────────────────────────────────────
 
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts }).trim();
+  return gitRaw(args, opts).trim();
+}
+
+/** Byte-exact git output. Anything fed back to git (a patch) must come through here, not `git`. */
+function gitRaw(args, opts = {}) {
+  return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts });
+}
+
+/**
+ * Reverse the range's changes to `srcPaths` — the mutation the whole gate is built around.
+ *
+ * The patch must be BYTE-EXACT. `git()` trims, and a patch missing its final newline is one
+ * `git apply` rejects as corrupt — so every reverse-apply threw, and the gate reported nothing but
+ * SKIPs and orchestration errors for its entire life (twelve CI runs, zero verdicts). Nothing
+ * caught it because reaching this line requires a qualifying pair, and until INFRA-071 widened
+ * `pkgOf` the subjects that produce pairs were nearly never touched by a `fix:` range.
+ *
+ * The seams are injected so the byte-exactness is assertable without a repository to mutate.
+ */
+export function defaultReverseApply(base, srcPaths, readDiff = gitRaw, exec = execFileSync) {
+  const patch = readDiff(['diff', `${base}..HEAD`, '--', ...srcPaths]);
+  exec('git', ['apply', '-R'], { cwd: WORKSPACE_ROOT, input: patch });
 }
 
 function mergeBase(ref = 'origin/develop') {
@@ -264,8 +506,15 @@ export async function runRegressionRedProof(io = {}) {
     log(`↩︎  SKIPPED (opt-out): allow-green-at-base: ${reason}`);
     return { verdict: VERDICT.SKIPPED_OPT_OUT, decisions };
   }
-  if (!isDefectFixRange(commitSubjects)) {
-    log('↩︎  SKIPPED: range has no `fix:` commit (not a defect fix).');
+  // Files ADDED in the range, so a new floor is judged even when the range is spelled `feat:`.
+  const addedFiles =
+    io.addedFiles ??
+    git(['diff', '--name-only', '--diff-filter=A', `${base}..HEAD`])
+      .split('\n')
+      .filter(Boolean);
+
+  if (!isDefectFixRange(commitSubjects, addedFiles)) {
+    log('↩︎  SKIPPED: range has no `fix:` commit and adds no floor (not a defect fix).');
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 
@@ -279,18 +528,25 @@ export async function runRegressionRedProof(io = {}) {
   const fileExists = io.fileExists ?? existsSync;
   const isDirty =
     io.isDirty ?? ((paths) => git(['status', '--porcelain', '--', ...paths]).length > 0);
-  const reverseApply =
-    io.reverseApply ??
-    ((srcPaths) => {
-      const patch = git(['diff', `${base}..HEAD`, '--', ...srcPaths]);
-      execFileSync('git', ['apply', '-R'], { cwd: WORKSPACE_ROOT, input: patch });
-    });
+  const reverseApply = io.reverseApply ?? ((srcPaths) => defaultReverseApply(base, srcPaths));
   const restore = io.restore ?? ((srcPaths) => git(['checkout', '--', ...srcPaths]));
   const runVitest = io.runVitest ?? defaultRunVitest;
+  const addedTestCaseDiff =
+    io.addedTestCaseDiff ??
+    // stderr is discarded: a range this cannot diff falls back to file granularity, and saying so
+    // on the console would make every unit fixture print a git error about its synthetic base.
+    ((testPath) =>
+      gitRaw(['diff', `${base}..HEAD`, '--', testPath], { stdio: ['ignore', 'pipe', 'ignore'] }));
+
+  const executionWitness = io.executionWitness ?? defaultExecutionWitness(base);
 
   let worst = VERDICT.RED_PROOF_OK;
   const rank = {
-    [VERDICT.ACCIDENTAL_GREEN]: 3,
+    [VERDICT.ACCIDENTAL_GREEN]: 4,
+    // Above INCONCLUSIVE: "the red came from outside the fix" is an observation about a proof that
+    // was offered, where INCONCLUSIVE is the absence of one. Below ACCIDENTAL_GREEN: a case that at
+    // least fails is not yet shown to guard nothing.
+    [VERDICT.PROOF_UNREACHED]: 3,
     [VERDICT.INCONCLUSIVE]: 2,
     [VERDICT.RED_PROOF_OK]: 1,
   };
@@ -306,42 +562,197 @@ export async function runRegressionRedProof(io = {}) {
       continue;
     }
 
-    // C3 — is any reversed source file in the changed test's relative-import graph?
-    const pkgAbsRoot = path.resolve(WORKSPACE_ROOT, pair.pkg);
+    // C3 — is the reversed source actually what the changed test exercises?
+    //
+    // Two relations, because two kinds of source. A module is reached through the test's import
+    // graph. A shell script never appears in one, so for a hook the relation is that the test
+    // SPAWNS it — which is the same question asked of the thing it can be asked of. Using the
+    // import graph for both would return INCONCLUSIVE for every hook, a SKIP by another name.
     const testAbs = pair.test.map((t) => path.resolve(WORKSPACE_ROOT, t));
-    const graph = reachableRelativeGraph(testAbs, pkgAbsRoot, readText, fileExists);
-    const srcAbs = pair.source.map((s) => path.resolve(WORKSPACE_ROOT, s));
-    const importsReversedFile = srcAbs.some((s) => graph.has(s));
 
-    let outcome = null;
-    if (importsReversedFile) {
-      reverseApply(pair.source);
-      try {
-        outcome = classifyVitestOutcome(await runVitest(pair.pkg, pair.test), pair.test);
-      } finally {
-        restore(pair.source);
+    // ONE SOURCE AT A TIME. Reversing a pair together and judging it by one outcome meant any
+    // deciding test failing read as RED_PROOF_OK for every source in the range — so a genuine proof
+    // of one was reported as the proof of all, and an accidental-green sibling passed unseen. This
+    // gate's own defect class, across files instead of within one, and it predated the widening that
+    // made it easy to hit: a `packages/x/src` range with five sources always had it.
+    //
+    // Measured on `2ac10f251..b1f46acf3` — three hooks reversed together, exactly one test failing,
+    // verdict `red-proof-ok`, silent about the other two.
+    //
+    // The cost is one vitest run per changed source instead of one per pair. That is what makes it a
+    // decision rather than a patch, and it is worth it: a verdict about a set is not a verdict about
+    // any member of it.
+    for (const source of pair.source) {
+      // Only the tests that exercise THIS source may judge it — the same relation as above, asked
+      // one source at a time.
+      let undeterminedRelation = false;
+      const testsForSource =
+        pair.pkg === HOOK_SUBJECT
+          ? pair.test.filter((t, i) => {
+              let text;
+              try {
+                text = readText(testAbs[i]);
+              } catch {
+                return false;
+              }
+              const answer = testExecutesHook(text, source);
+              // A test whose spawn target could not be resolved does NOT decide. It is recorded so
+              // the verdict can say it could not be tied, rather than letting a maybe-bystander
+              // supply a verdict about a hook it may never have run (INFRA-074).
+              if (answer === EXECUTION.UNDETERMINED) undeterminedRelation = true;
+              return answer === EXECUTION.EXECUTES;
+            })
+          : pair.test.filter((t, i) =>
+              // A module is reached through the test's import graph; a shell script never appears in
+              // one, which is why the two relations differ. Asked per test and per source, so a test
+              // that reaches a DIFFERENT source in the same range cannot judge this one.
+              reachableRelativeGraph(
+                [testAbs[i]],
+                path.resolve(WORKSPACE_ROOT, pair.pkg),
+                readText,
+                fileExists,
+              ).has(path.resolve(WORKSPACE_ROOT, source)),
+            );
+
+      const exercised = testsForSource.length > 0;
+      // INFRA-072 — the range's OWN new cases are what must fail, not any case in the file.
+      const addedCases = exercised ? addedCaseMatchers(testsForSource, addedTestCaseDiff) : null;
+      let outcome = null;
+      let witness = WITNESS.UNKNOWN;
+      if (exercised) {
+        let deciders = [];
+        reverseApply([source]);
+        try {
+          const vitestJson = await runVitest(pair.pkg, testsForSource);
+          outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
+          deciders = decidingFailures(vitestJson, testsForSource, addedCases);
+        } finally {
+          restore([source]);
+        }
+        // INFRA-072 direction 3 — asked ONLY of an outcome being offered as a proof, and asked AFTER
+        // the restore, because the question is whether the deciding case executes the code this fix
+        // WROTE, and that code exists only on the restored tree. Any other outcome is already
+        // settled and an instrument could only make it milder.
+        if (outcome === 'assertion-fail') {
+          witness = await executionWitness({ pkg: pair.pkg, source, failures: deciders });
+        }
       }
-    }
 
-    const verdict = decidePairVerdict({ importsReversedFile, outcome });
-    decisions.push({ pkg: pair.pkg, verdict, outcome, importsReversedFile });
-    const icon =
-      verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
-    log(`${icon}  ${pair.pkg}: ${verdict}${outcome ? ` (${outcome})` : ''}`);
-    if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
+      const verdict = decidePairVerdict({ importsReversedFile: exercised, outcome, witness });
+      decisions.push({
+        pkg: pair.pkg,
+        source,
+        verdict,
+        outcome,
+        witness,
+        importsReversedFile: exercised,
+        relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
+      });
+      const icon =
+        verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
+      const note =
+        !exercised && undeterminedRelation
+          ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
+          : verdict === VERDICT.PROOF_UNREACHED
+            ? ' (the case that failed executed no line this fix changed)'
+            : outcome
+              ? ` (${outcome})`
+              : '';
+      log(`${icon}  ${source}: ${verdict}${note}`);
+      if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
+    }
   }
 
   return { verdict: worst, decisions };
 }
 
+/**
+ * One vitest run per deciding case, and exhausting this answers UNKNOWN rather than UNREACHED
+ * (see `witnessDecidingCases`).
+ *
+ * It was 3, paired with a comment claiming "the answer is settled by the first REACHED" — true only
+ * if every deciding failure is checked, which slicing to 3 does not do.
+ *
+ * The size is measured, not guessed, and the measurement was worth taking: across the eight replayed
+ * ranges the deciding-failure counts were 1, 1, 4, 5, 1, 10, 1, 2, 19, 3, 3, 9 — so the old cap of 3
+ * truncated the walk for **5 of 12** sources. It changed no verdict there only because an early case
+ * reached the fix in each; a range whose reaching case sat 4th would have been reported as a finding
+ * against correct work.
+ *
+ * 25 covers the observed maximum of 19 with headroom. Raising it is nearly free on the healthy path:
+ * a REACHED short-circuits, so a range with a sound proof pays for ONE run whatever the number is.
+ * Only a range heading for a finding walks the whole list, and paying ~20 vitest runs to report a
+ * correct finding instead of an UNKNOWN is the right side of that trade for an advisory gate.
+ */
+const WITNESS_RUN_BUDGET = 25;
+
+/**
+ * The real instrument (INFRA-072 direction 3): re-run each deciding case ALONE, on the RESTORED
+ * source, and ask whether it executes the lines this fix wrote.
+ *
+ * On the restored tree rather than the reversed one, and against the fix's NEW side rather than its
+ * old one, because that is where the fix's code exists. Measured on `c08e0dbd6`: the old-side
+ * formulation called a genuine red proof `unreached`, since that fix is an ADDITION and its old side
+ * held only a comment and one `case` pattern arm.
+ *
+ * Every deciding case is asked, in order, until one answers REACHED or the run budget stops the
+ * walk — and a stopped walk answers UNKNOWN, never UNREACHED. Every failure path returns UNKNOWN
+ * too: an instrument that cannot measure must not manufacture a finding.
+ */
+function defaultExecutionWitness(base) {
+  return async ({ pkg, source, failures }) => {
+    if (failures.length === 0) return WITNESS.UNKNOWN;
+    let targetLines;
+    try {
+      targetLines = changedNewLines(
+        gitRaw(['diff', `${base}..HEAD`, '--', source], { stdio: ['ignore', 'pipe', 'ignore'] }),
+      ).get(source);
+    } catch {
+      return WITNESS.UNKNOWN; // a range this cannot diff has no target, and no target is no finding
+    }
+    if (!targetLines?.size) return WITNESS.UNKNOWN; // a pure deletion wrote no line to reach
+
+    const runVitestRaw = defaultRunVitestRaw(WORKSPACE_ROOT, pkg);
+    return witnessDecidingCases({
+      failures,
+      budget: WITNESS_RUN_BUDGET,
+      witnessOne: (failure) =>
+        witnessOneCase({
+          workspaceRoot: WORKSPACE_ROOT,
+          sourceRel: source,
+          testFileAbs: failure.file,
+          caseName: failure.name,
+          caseNameQualified: failure.qualified !== false,
+          targetLines,
+          isShell: source.endsWith('.sh'),
+          runVitestRaw,
+        }),
+    });
+  };
+}
+
 function defaultRunVitest(pkg, testFiles) {
-  const rel = testFiles.map((f) => path.relative(path.join(WORKSPACE_ROOT, pkg), f));
+  // `--filter ./<pkg>` only resolves for a workspace package. The harness and the hooks are neither,
+  // and their tests run from the repository root, so the invocation follows the subject rather than
+  // assuming every subject is a package.
+  const isWorkspacePackage = /^(?:packages|apps)\//.test(pkg);
+  const args = isWorkspacePackage
+    ? [
+        '--filter',
+        `./${pkg}`,
+        'exec',
+        'vitest',
+        'run',
+        '--reporter=json',
+        ...testFiles.map((f) => path.relative(path.join(WORKSPACE_ROOT, pkg), f)),
+      ]
+    : ['exec', 'vitest', 'run', '--reporter=json', ...testFiles];
   try {
-    const out = execFileSync(
-      'pnpm',
-      ['--filter', `./${pkg}`, 'exec', 'vitest', 'run', '--reporter=json', ...rel],
-      { cwd: WORKSPACE_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    const out = execFileSync('pnpm', args, {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     return JSON.parse(extractJson(out));
   } catch (err) {
     // vitest exits non-zero on failure; its JSON is still on stdout.
@@ -361,9 +772,33 @@ function extractJson(text) {
   return start >= 0 && end > start ? text.slice(start, end + 1) : text;
 }
 
+/**
+ * Which verdicts BLOCK, and which merely report.
+ *
+ * Extracted from the CLI block so the promotion this encodes is reachable by a test. It sat inline,
+ * where the one decision INFRA-046 changes could not be exercised at all — a policy nothing could
+ * check, which is the shape this repository files items about.
+ *
+ * Exactly one verdict blocks: `accidental-green`. A test that still passes with the fix reversed
+ * guards nothing, and that is a defect whatever else the run found. Every other verdict is a
+ * statement about what the checker COULD NOT establish — the test never imported the reversed file,
+ * the range carried no fix, vitest could not evaluate — and a conclusion never reached must not
+ * refuse a merge. That asymmetry is the whole of the promotion: it blocks on a proven defect and
+ * never on an absence of proof.
+ */
+/** Whether an orchestration CRASH may fail the job — the same switch the verdicts are judged by. */
+export function enforceOnCrash(env = process.env) {
+  return env['REGRESSION_RED_PROOF_ENFORCE'] === '1';
+}
+
+export function exitCodeFor(verdict, enforce) {
+  if (verdict === VERDICT.ACCIDENTAL_GREEN) return enforce ? 1 : 0;
+  return 0;
+}
+
 // ── CLI entry ───────────────────────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   runRegressionRedProof()
     .then(({ verdict }) => {
       const enforce = process.env.REGRESSION_RED_PROOF_ENFORCE === '1';
@@ -372,7 +807,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           '\n❌ accidental-green: a regression test passes even with the fix reversed — it guards nothing.\n' +
             '   Rewrite it to FAIL on the pre-fix code, or opt out with `allow-green-at-base: <reason>`.',
         );
-        process.exit(enforce ? 1 : 0); // advisory in v1 (not a required check); flip via env once stable
+        process.exit(exitCodeFor(verdict, enforce));
+      }
+      if (verdict === VERDICT.PROOF_UNREACHED) {
+        log(
+          '\n⚠︎  red-proof-unreached: the case that failed on the reversed source executed no line\n' +
+            '   this fix changed. Its red says the reversed tree is broken, not that the case depends\n' +
+            '   on the behaviour it names. Report-only — INFRA-046 owns whether this ever blocks.',
+        );
       }
       if (verdict === VERDICT.INCONCLUSIVE) {
         log('\n⚠︎  inconclusive — see decisions above (advisory).');
@@ -380,7 +822,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(0);
     })
     .catch((err) => {
-      log(`regression-red-proof: orchestration error — ${err?.message ?? err}`);
-      process.exit(0); // never block the pipeline on the checker's own failure (advisory)
+      log(`\n❌ regression-red-proof: orchestration error — ${err?.message ?? err}`);
+      log('   The checker did not reach a verdict. That is not a pass, and it is not a defect in');
+      log(
+        '   the change either — it is this tool failing, and it says so instead of exiting green.',
+      );
+      // Non-zero ONLY when enforcing, and the reasoning that first made this unconditional was
+      // wrong in a way worth keeping: it said a red here "blocks nothing" because the job is not a
+      // required check. In THIS repository that is false — `merge-gate.sh` refuses on any
+      // `mergeStateStatus` other than CLEAN, and GitHub reports UNSTABLE precisely when a
+      // NON-required check fails. So a transient crash would have forced every merge through the
+      // manual override until someone fixed it: the untested refusal in the merge path this
+      // promotion holds required-check membership specifically to avoid, arriving by another door.
+      //
+      // It still must not report success. A crash that exits green is indistinguishable from "ran
+      // and found nothing wrong", which is the vacuity this harness spends its time removing — so
+      // the failure is stated loudly above whichever way this exits.
+      process.exit(exitCodeFor(VERDICT.ACCIDENTAL_GREEN, enforceOnCrash()));
     });
 }

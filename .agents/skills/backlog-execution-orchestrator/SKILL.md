@@ -1,6 +1,8 @@
 ---
 name: backlog-execution-orchestrator
 description: The state machine for executing ONE backlog item or named work unit end to end. Sequences five phases — recommendation gate, scenario planning, implementation, done gate, completion — dispatching proposal-reviewer and the user-execution-scenario sub-pipeline, and routing on each outcome (advance / repeat / return to an earlier phase / terminate). It holds NO backlog policy: every gate definition, PR contract, status invariant, and stop condition is owned by the project's backlog-execution rule and is pointed at, never restated. Use when working a backlog item; for an initiative spanning several items, multi-backlog-initiative is the entry point and dispatches this once per item.
+loop: over=finding-set; escape=no-progress; bound=2 rounds
+invocable: true
 ---
 
 # Backlog Execution Orchestrator — pipeline only
@@ -42,13 +44,23 @@ here. See "The recommendation is not self-judged" below — this is a deliberate
 rule's previous self-assessment wording, made because an orchestrator forming a verdict on its own output
 is exactly what [enforcement-architecture.md](../../rules/enforcement-architecture.md) forbids.
 
-| Outcome                                                        | Route                                                                                                                                                                             |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The decision is one the rule reserves for the user             | **Terminate — halt for the user** before dispatching anyone. An independent review is not a substitute for approval the rule says only the user can give.                         |
-| `REVIEW VERDICT: ENDORSE`                                      | Advance to phase 2. Record the endorsed recommendation; it is what the PR description must later reflect.                                                                         |
-| `REVIEW VERDICT: REVISE`                                       | Revise the recommendation against the reviewer's findings and **repeat phase 1**. Bounded: **2 revisions**; on the third, terminate and hand the reviewer's findings to the user. |
-| `REVIEW VERDICT: REJECT`                                       | **Terminate — halt for the user** with the reviewer's reasoning. Never proceed by overriding a REJECT; the reviewer exists precisely to be able to say no.                        |
-| The reviewer's finding is that the item's own premise is wrong | Terminate. Re-scoping an item is a decision above this pipeline.                                                                                                                  |
+**Also dispatch `finding-depth-triager` on the item's problem statement, before the recommendation is
+formed.** Two different questions, and both have to hold: `proposal-reviewer` asks whether the chosen
+decision is right AMONG THE ALTERNATIVES; the depth verdict asks whether the problem being solved is the
+real one ([finding-depth.md](../../rules/finding-depth.md)). An item scoped to a SYMPTOM produces a plan
+that cannot be right, and every gate after this one will pass it — because each of them judges the plan
+against the item rather than the item against reality.
+
+A `FOUNDATIONAL` verdict here routes to the last row of the table below: re-scoping an item is a decision
+above this pipeline. Asking at this moment is what makes that a cheap answer instead of an expensive one.
+
+| Outcome                                                        | Route                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The decision is one the rule reserves for the user             | **Terminate — halt for the user** before dispatching anyone. An independent review is not a substitute for approval the rule says only the user can give.                                                                                                                                                                  |
+| `REVIEW VERDICT: ENDORSE`                                      | Advance to phase 2. Record the endorsed recommendation; it is what the PR description must later reflect.                                                                                                                                                                                                                  |
+| `REVIEW VERDICT: REVISE`                                       | Revise the recommendation against the reviewer's findings and **repeat phase 1**. Stop when the same findings recur unchanged and escalate ([no-progress escape](../../rules/enforcement-architecture.md)); bounded additionally at **2 revisions**; on the third, terminate and hand the reviewer's findings to the user. |
+| `REVIEW VERDICT: REJECT`                                       | **Terminate — halt for the user** with the reviewer's reasoning. Never proceed by overriding a REJECT; the reviewer exists precisely to be able to say no.                                                                                                                                                                 |
+| The reviewer's finding is that the item's own premise is wrong | Terminate. Re-scoping an item is a decision above this pipeline.                                                                                                                                                                                                                                                           |
 
 ### Phase 2 — Scenario planning
 
@@ -77,11 +89,11 @@ and it does not absorb what an owner skill defines.
 
 Dispatch [user-execution-scenario](../user-execution-scenario/SKILL.md) in **GATE** mode.
 
-| Outcome                 | Route                                                                                                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VERIFIED`              | Advance to phase 5.                                                                                                                                              |
-| `IMPLEMENTATION-DEFECT` | **Return to phase 3**, fix, then re-enter phase 4. Bounded: **2 rounds**; on the third, terminate — a defect that survives two targeted fixes is not understood. |
-| `HALT`                  | **Terminate.** Status is not set, the item is not moved, and the PR does not claim the gate passed.                                                              |
+| Outcome                 | Route                                                                                                                                                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `VERIFIED`              | Advance to phase 5.                                                                                                                                                                                                                                                                                          |
+| `IMPLEMENTATION-DEFECT` | **Return to phase 3**, fix, then re-enter phase 4. Stop when the same defect set recurs unchanged and escalate ([no-progress escape](../../rules/enforcement-architecture.md)); bounded additionally at **2 rounds**; on the third, terminate — a defect that survives two targeted fixes is not understood. |
+| `HALT`                  | **Terminate.** Status is not set, the item is not moved, and the PR does not claim the gate passed.                                                                                                                                                                                                          |
 
 Never advance past this phase on anything other than `VERIFIED` or a phase-2 `NOT-APPLICABLE`. This is the
 single edge the rule marks absolute.

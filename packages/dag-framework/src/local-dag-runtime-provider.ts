@@ -13,7 +13,6 @@ import type {
   IDagRuntimeResult,
   IDagNodeManifest,
   INodePortSpec,
-  IDagWorkflowFile,
   ITaskExecutorPort,
   TPortPayload,
   TRunProgressEvent,
@@ -34,7 +33,6 @@ import {
   StaticNodeManifestRegistry,
   StaticNodeTaskHandlerRegistry,
 } from '@robota-sdk/dag-node';
-import { fromDagWorkflowFile } from '@robota-sdk/dag-builder';
 
 import { loadDefaultNodeRegistrySync } from './load-default-node-registry.js';
 import { createExecutionComposition } from './composition/create-execution-composition.js';
@@ -83,9 +81,9 @@ export interface ILocalDagRuntimeProviderOptions {
 /**
  * Local (in-process) implementation of {@link IDagRuntimeProvider}.
  *
- * Surfaces the node catalog via {@link listNodes} and accepts a `.dag.json`
- * workflow file via {@link execute}, emitting {@link IDagRuntimeProgressEvent}s
- * as the run progresses.
+ * Surfaces the node catalog via {@link listNodes} and runs an {@link IDagDefinition} via
+ * {@link execute} (DAG-002 — it took a `.dag.json` workflow file before), emitting
+ * {@link IDagRuntimeProgressEvent}s as the run progresses.
  */
 export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly providerId = 'local';
@@ -99,12 +97,13 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   }
 
   public async execute(
-    dag: IDagWorkflowFile,
+    dag: IDagDefinition,
     inputs: Record<string, unknown>,
     options?: IDagRuntimeExecuteOptions,
   ): Promise<IDagRuntimeResult> {
     const nodeDefinitions = await this.buildNodeRegistry();
-    const definition = fromDagWorkflowFile(dag, undefined);
+    // DAG-002: run as given. `fromDagWorkflowFile(dag, undefined)` used to sit here, rewriting every
+    // node id to `node-<n>` — undoing a conversion the caller had just performed.
 
     const startMs = Date.now();
     let aborted = false;
@@ -115,7 +114,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
 
     try {
       const result = await runDagOnce(
-        definition,
+        dag,
         nodeDefinitions,
         inputs as TPortPayload,
         options?.onProgress,

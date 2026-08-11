@@ -1,6 +1,7 @@
 ---
 name: automated-review-convergence
 description: Procedure for iterating on a PR's automated review feedback until it converges — fetch the findings (not the check status), judge each one, fix or refute it, push, then re-read the review the push re-triggered, and repeat until a fresh round yields nothing actionable. Use whenever a PR carries automated review output, before the merge is armed.
+loop: over=finding-set; escape=no-progress
 ---
 
 # Automated Review Convergence
@@ -37,6 +38,11 @@ annotation, and analysis-alert streams a PR carries — because those _are_ the 
 
 ## The Loop
 
+**Its escape is no-progress, and it is the only one.** Compare each round's finding-identity set to
+the previous round's; if the same findings recur unchanged, STOP and escalate to the user. There is no
+round cap — a stuck loop and a productive one look identical to a counter and different to the finding
+set. [no-progress escape](../../rules/enforcement-architecture.md) owns the form; this skill is one of its subjects.
+
 ### 1. Fetch the findings — the check status is not the review
 
 Review-producing automation is typically **advisory**: it reports `pass` whether or not it commented, because
@@ -51,6 +57,16 @@ the rule — whether the defect is real: establish what actually reaches that co
 guarantees. Then record it as **fixed**, **refuted**, or **deferred** (the rules' taxonomy, resolved on the PR
 as those rules require). A refutation needs a specific written reason naming **why the rule's premise fails at
 this call site**; "looks fine" or "false positive" alone is not a reason and resolves nothing.
+
+**A finding may outrank a harness rule — and then the rule changes by AMENDMENT, not by this loop.** When the
+reviewer argues from a universal engineering principle and a rule in this repo says otherwise, "our rule says
+X" is not a refutation; neither is agreeing with the reviewer and quietly departing from the rule. The rule
+binds until amended, and the minimum evidence of an amendment attempt is a filed backlog item — so the honest
+resolutions here are **fixed** (comply and file the amendment) or **deferred** (file it, say so on the PR),
+never a fourth thing. See [agent-conduct.md](../../rules/agent-conduct.md) § "A local rule is an encoding"
+and [rules/index.md](../../rules/index.md) § "Amendable by amendment", which own the precedence, the
+narrow exceptions and the bar. This loop's job is to surface the case, not to settle it by
+citation in either direction.
 
 ### 3. A finding on a line you touched may be pre-existing
 
@@ -111,12 +127,12 @@ observed the round-2 push and returned nothing.
 
 ## What This Skill Does NOT Do
 
-| Not this skill's job                       | Owner                                                          |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| Define what "resolved" means / gate merges | `.agents/rules/git-branch.md`                                  |
-| Define build / test / scan verification    | `.agents/rules/verification.md`                                |
-| Judge the PR's overall quality             | the code-review gate the rules own                             |
-| Drive the reviewer→fixer agent pipeline    | [pr-review-orchestration](../pr-review-orchestration/SKILL.md) |
-| Merge, or decide when to arm the merge     | the merge procedure the git rules own                          |
+| Not this skill's job                       | Owner                                                                |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| Define what "resolved" means / gate merges | `.agents/rules/git-branch.md`                                        |
+| Define build / test / scan verification    | `.agents/rules/verification.md`                                      |
+| Judge the PR's overall quality             | the code-review gate the rules own                                   |
+| Drive the reviewer→fixer agent pipeline    | [pr-finding-resolution-loop](../pr-finding-resolution-loop/SKILL.md) |
+| Merge, or decide when to arm the merge     | the merge procedure the git rules own                                |
 
 If you find yourself restating a rule here, stop — link the rule instead.

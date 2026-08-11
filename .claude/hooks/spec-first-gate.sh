@@ -23,18 +23,17 @@
 
 set -uo pipefail
 
+# One reader for a payload field, not one per hook. See lib/hook-facts.sh.
+# shellcheck source=lib/hook-facts.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/hook-facts.sh"
+
 INPUT=$(cat)
 
-read_json() {
-  local expression="$1"
-  if [ -z "$INPUT" ]; then
-    echo ""
-    return
-  fi
-  printf '%s' "$INPUT" | jq -r "$expression // \"\"" 2>/dev/null || echo ""
-}
-
-PROMPT=$(read_json '.prompt // .user_prompt // .message')
+# This hook carried its own `read_json()` — jq, and NO python3 fallback — copied byte-for-byte into
+# correction-detect and revert-detect. Measured on a host with jq hidden: this gate printed nothing
+# at all while branch-guard beside it kept working, so half the directory was silently off and the
+# other half was not. The shared reader falls back to python3, so both halves answer the same.
+PROMPT=$(hook_prompt_of "$INPUT" || printf '')
 if [ -z "$PROMPT" ]; then
   exit 0
 fi

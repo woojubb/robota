@@ -13,9 +13,13 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 ### Browser Verification Requirement
 
-- After changes to web apps such as `apps/agent-web` or `packages/agent-playground`, you MUST verify in a browser before reporting completion.
-- Use Playwright MCP to navigate to the app URL, take a screenshot, and verify the UI renders correctly.
-- Check for: page loads without error, key elements visible, no console errors.
+- After changes to a web app or any package whose output is rendered in a browser, you MUST verify in a browser before reporting completion.
+- Drive a real browser against the running app. Whatever driver is configured, the obligation is
+  the same and the evidence is the same: the page loaded, the elements the change concerns are
+  present, and the console is clean. Name the driver you used in the report.
+- If no browser driver is configured in this repository, that is a missing capability, not an
+  exemption. File it and say plainly that the change is unverified — an unverified change reported
+  as done is the failure this rule exists to prevent.
 - If the dev server is not running, start it and wait for it to be ready before checking.
 - This is non-negotiable — do NOT claim UI changes work without browser verification.
 
@@ -30,7 +34,7 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - **NEVER push new repository content without first running the affected local checks.** Remote CI failure after a local-only fix is a preventable waste.
 - The default fast local gate is `pnpm harness:pre-push`, which resolves the branch base and runs the scoped package checks for content that is actually being pushed.
 - Default pre-push MUST verify directly changed scopes and repository checks only. Dependent scope expansion is intentionally opt-in through `HARNESS_PRE_PUSH_MODE=full pnpm harness:pre-push` or explicit `pnpm harness:verify -- --base-ref <ref>` so local push latency stays bounded.
-- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — it runs the same `harness:verify` over the affected scopes, plus the build, the scan suite, the e2e suites and commitlint (INFRA-056). If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
+- Do not duplicate a stronger gate with a weaker one. The CI-equivalent verification entry point is a strict SUPERSET of the pre-push hook — what it runs is owned by [git-branch.md](git-branch.md) → Clean Working Tree Before Every Commit and Push, and is not restated here. If it, `pnpm harness:verify -- --base-ref <ref> --skip-record-check`, or release-grade verification has already passed for the final diff, the pre-push hook is the final safety net, not a separate manual command — and re-running the build by hand after it is wasted minutes.
 - Delete-only pushes, branch cleanup after a squash-merged PR, and tree-equivalent pushes MUST NOT re-run package build/test/lint/typecheck. The pre-push hook must skip these mechanically.
 - Tree-equivalent skip is valid only when the working tree is clean. Dirty working tree changes must still be planned and verified when `pnpm harness:pre-push` is run manually.
 - If the hook skips because no repository content is being published, do not run full checks by habit.
@@ -99,11 +103,60 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 
 - After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
 - Run the CI-equivalent verification entry point named in [git-branch.md](git-branch.md) → Clean
-  Working Tree Before Every Commit and Push. It runs the build, the affected packages' tests, the
-  scan suite and typecheck as ordered stages, and reports which required contexts it could not run.
-  Do not substitute a hand-written list of those commands: a second list is what drifts (INFRA-056).
+  Working Tree Before Every Commit and Push. What it runs is owned there; it reports which required
+  contexts it could not run. Do not substitute a hand-written list of those commands: a second list
+  is what drifts.
 - For release prep — a promotion to `main` — run `pnpm harness:verify:release`, which is what the
   `release-grade verification` required check executes.
 - If any stage fails, fix the issue before proceeding.
 - The harness results must be reported with counts (total tests, failures, build status).
 - This is a blocking gate — no merge to `main` or `release/*` without harness pass.
+
+### A Fixture Decides Nothing Until It Reproduces Reality
+
+**A measurement made against something you wrote is a measurement of what you wrote.** Before a
+probe, stub or fixture is allowed to settle a question about the real code, run it once against the
+real subject and confirm it reproduces a state you already know. If it cannot, the fixture is the
+thing under test, and its answer is about the fixture.
+
+This is not a style preference. The ways a fixture lies are few and recognizable, and each reverses
+a conclusion when trusted:
+
+- a stub with no suspension point "proves" a race does not exist — when the real path opens with an
+  `await`, the race is real and the stub cannot exhibit it;
+- a stub that ignores a flag lets the check for the property that flag carries keep passing after
+  the check has lost the property;
+- a test run from the wrong directory "proves" its cases never ran — under the config that actually
+  governs them, they all do;
+- a probe built on an assumed argument grammar measures a different invocation than the one the
+  interpreter actually performs.
+
+In each shape the code is fine and the instrument is wrong — and the wrong answer is reported as a
+property of the code.
+
+**How to apply.** State, in the change, what the fixture was checked against. A fixture that cannot
+be checked against reality is a reason to measure differently, not a reason to proceed.
+
+Enforced by: nothing — whether a fixture was validated before it was trusted leaves no trace a
+machine can read, and a check that claimed to decide it would be asserting the very thing it cannot
+see.
+
+### Prose Is Written Last, Against the Diff
+
+**A comment, SPEC line, PR body or commit message is written after the code it describes, by reading
+the finished diff.** Not from the intent that produced the change.
+
+The dominant defect class in review is a claim that does not match the code — and it is produced by
+writing both in one pass, where the sentence describes what the author meant to do and the code
+records what they did. It appears in every artifact: a comment explaining a method the same change
+deleted; a SPEC naming an export the same change moved; a PR body asserting a measurement that was
+taken with the wrong instrument; a changeset advertising a member no code path produces.
+
+**How to apply.** After the code is final, re-read every sentence the change adds or leaves behind
+and ask what in the diff makes it true. Delete or correct what nothing supports. Prose about a
+change is a claim, and a claim is checked against the diff — the same standard the commit-message
+rule already applies to citations.
+
+Enforced by: nothing — whether a sentence describes the code beneath it is not decidable by a
+machine, and this repository's experience is that the checks which try end up asserting file
+existence while the sentence stays wrong.

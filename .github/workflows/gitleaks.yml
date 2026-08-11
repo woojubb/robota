@@ -22,6 +22,13 @@ env:
   #   curl -fsSL <url> | sha256sum -
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
 
+# A superseded push should not keep a runner. Without this, every rapid re-push leaves the
+# previous run to finish work whose answer is already stale, and it is billed in full.
+# Scoped to the pull request, so runs on different PRs never cancel each other.
+concurrency:
+  group: secret-scan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   gitleaks:
     name: Secret scan (gitleaks)

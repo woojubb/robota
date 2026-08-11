@@ -92,15 +92,30 @@ const response = await agent.run('Find all .ts files in src/ and show me the sma
 
 ```typescript
 import { Robota, type IAIProvider } from '@robota-sdk/agent-core';
-import { bashTool, readTool, globTool, grepTool } from '@robota-sdk/agent-tools';
+import {
+  createBashTool,
+  createReadTool,
+  createGlobTool,
+  createGrepTool,
+} from '@robota-sdk/agent-tools';
 
 declare const provider: IAIProvider;
+
+// Every file tool is built against an explicit containment root (ARCH-010). There are no ready-made
+// tool instances: one bound at import time could carry no root, and a file tool with no root has no
+// boundary. Pass the directory the agent is meant to work in.
+const workspaceRoot = process.cwd();
 
 const agent = new Robota({
   name: 'DevAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [bashTool, readTool, globTool, grepTool],
+  tools: [
+    createBashTool({ cwd: workspaceRoot }),
+    createReadTool({ cwd: workspaceRoot }),
+    createGlobTool({ cwd: workspaceRoot }),
+    createGrepTool({ cwd: workspaceRoot }),
+  ],
 });
 
 const response = await agent.run('Find all TODO comments in the project');
@@ -138,10 +153,12 @@ const agent = new Robota({
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   tools: [
-    createBashTool({ sandboxClient }),
-    createReadTool({ sandboxClient }),
-    createWriteTool({ sandboxClient }),
-    createEditTool({ sandboxClient }),
+    // `cwd` is required even with a sandbox client (ARCH-010): it is the root inside the sandbox,
+    // and it still contains any tool that falls through to the host filesystem.
+    createBashTool({ sandboxClient, cwd: '/workspace' }),
+    createReadTool({ sandboxClient, cwd: '/workspace' }),
+    createWriteTool({ sandboxClient, cwd: '/workspace' }),
+    createEditTool({ sandboxClient, cwd: '/workspace' }),
   ],
 });
 ```

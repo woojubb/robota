@@ -99,6 +99,7 @@ import path from 'node:path';
 
 import * as ts from './lib/ts-ast.mjs';
 import { ADVISORY_MARKER } from './run-all-scans.mjs';
+import { envWithoutGitVars } from './shared.mjs';
 
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 const BASELINE_PATH = path.join(WORKSPACE_ROOT, 'scripts/harness/legacy-typescript-baseline.json');
@@ -432,10 +433,41 @@ export function findLegacyDependencies(manifest) {
   return sections;
 }
 
-function gitTrackedFiles(root) {
-  return execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 })
+/**
+ * Tracked files that are actually PRESENT.
+ *
+ * `git ls-files` lists what the index knows, which is not always what is on disk: a change that
+ * DELETES a source file, or a materialised tree built from HEAD plus working changes, leaves entries
+ * naming files that are gone. This function used to hand those straight to `readFileSync`, so any
+ * commit removing a `.ts` file crashed the scan with an ENOENT stack instead of a verdict — a gate
+ * that blocks correct work is one people route around.
+ *
+ * Absent entries are skipped and COUNTED, not skipped quietly: a scan that silently examines less
+ * than it was asked to is the vacuity this suite is elsewhere measuring.
+ */
+export function gitTrackedFiles(root, notices = []) {
+  // Ambient git context is scrubbed, or the reading is not about `root` at all. A git hook exports
+  // GIT_DIR into everything it launches, so under `git push` from a linked worktree this listing
+  // answered from THAT repository while `cwd` pointed at a probe directory — every listed path was
+  // then absent from disk, the finder returned an empty, noticed result over a tree it never read,
+  // and the fail-closed ledger measured it `vacuous`. The same redirection, aimed at a real
+  // repository, is how fixture commits have overwritten a shared branch (git-ambient-env.json).
+  const listed = execFileSync('git', ['ls-files'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    env: envWithoutGitVars(),
+  })
     .split('\n')
     .filter(Boolean);
+  const present = listed.filter((file) => existsSync(path.join(root, file)));
+  if (present.length !== listed.length) {
+    notices.push(
+      `legacy-typescript: ${listed.length - present.length} tracked path(s) are absent from disk ` +
+        '(a deletion in this change, or a materialised tree) and were not examined.',
+    );
+  }
+  return present;
 }
 
 export function findLegacyTypeScriptFindings(root = WORKSPACE_ROOT, options = {}) {
@@ -443,7 +475,7 @@ export function findLegacyTypeScriptFindings(root = WORKSPACE_ROOT, options = {}
   const notices = options.notices ?? [];
   const baseline = new Set(options.baseline ?? loadDependencyBaseline());
   const stillDeclaring = new Set();
-  const files = gitTrackedFiles(root);
+  const files = gitTrackedFiles(root, notices);
   /** Files that produced at least one real import finding — used for stale-annotation detection. */
   const suppressedFiles = new Set();
 
@@ -659,6 +691,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }

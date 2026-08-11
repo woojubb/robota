@@ -1,61 +1,71 @@
+---
+title: 'CLI Command Effect State Boundary'
+status: done
+---
+
 # CLI Command Effect State Boundary
 
-- **Status**: completed
-- **Created**: 2026-05-05
-- **Branch**: fix/cli-command-effect-boundary
-- **Scope**: packages/agent-cli, packages/agent-framework command result integration docs
+Completed: 2026-05-05
 
-## Objective
+Implementation branch: fix/cli-command-effect-boundary
 
-Remove implicit command interaction/effect transport through ad hoc fields on `InteractiveSession`.
-The CLI should keep command result state in a CLI-owned controller or React state while command
-packages continue returning typed SDK `ICommandResult` values.
+## Priority
 
-## Plan
+P1 - removes implicit UI state mutation from the SDK session object.
 
-- [x] Characterize current slash routing effect behavior with tests.
-- [x] Introduce an explicit CLI-owned command effect boundary.
-- [x] Remove `_pendingCommandInteraction`, `_pendingCommandEffects`, and
-      `InteractiveSession & ISideEffects` casts.
-- [x] Update slash routing/effect tests for the explicit boundary.
-- [x] Update `ARCHITECTURE-MAP.md` and archive the backlog item.
-- [x] Run targeted CLI verification and harness scans.
+## Problem
 
-## Progress
+The CLI TUI currently passes command interactions and deferred command effects between hooks by
+casting `InteractiveSession` to an `ISideEffects` intersection and attaching ad hoc fields such as
+`_pendingCommandInteraction` and `_pendingCommandEffects`.
 
-### 2026-05-05
+Known current files:
 
-- Started from `develop` on branch `fix/cli-command-effect-boundary`.
-- Added a failing slash-routing test expectation for an explicit command effect queue.
-- Implemented `CommandEffectQueue` and wired it through `useInteractiveSession`, `useSlashRouting`,
-  `App`, and `useSideEffects`.
-- Removed command effect/interactions from the `ISideEffects` session mutation path.
-- Added command-layering harness coverage for the old `_pendingCommand*` session-state pattern.
-- Updated `ARCHITECTURE-MAP.md` and moved the backlog item to completed.
-- Verified CLI tests, CLI typecheck/build, docs build, command-layering scan, test-plan scan, and
-  harness regression tests.
+- `packages/agent-cli/src/ui/hooks/useSlashRouting.ts`
+- `packages/agent-cli/src/ui/hooks/useSideEffects.ts`
+- `packages/agent-cli/src/ui/hooks/side-effects-types.ts`
+- `packages/agent-cli/src/ui/__tests__/slash-routing-effects.test.ts`
 
-## Decisions
+This keeps the SDK type clean only at compile time. Runtime state still lands on the SDK session
+object, which makes ownership ambiguous and makes future command/UI behavior harder to reason about.
 
-- Follow the target architecture from `packages/agent-cli/docs/ARCHITECTURE-MAP.md`: command
-  result/effect state belongs to the CLI host boundary, not the SDK session instance.
-- Use a small FIFO queue rather than adding an SDK result channel because only the Ink host needs
-  this post-submit handoff today.
+## Recommended Direction
 
-## Blockers
+Introduce an explicit command result/effect state boundary owned by the CLI or SDK.
 
-- None.
+Preferred near-term design:
 
-## Test Plan
+- Create a small CLI-owned command effect queue/controller used by `useSlashRouting()` and
+  `useSideEffects()`.
+- Store `ICommandInteraction` and deferred `TCommandEffect[]` in that controller or React state.
+- Stop mutating `InteractiveSession` with `_pending*` fields.
+- Keep command packages returning only SDK `ICommandResult` values.
 
-- Run the existing slash routing tests first to confirm the current behavior and identify the
-  assertions that depend on `_pending*` session mutation.
-- Run targeted CLI tests after implementation, including `slash-routing-effects`.
-- Run `pnpm --filter @robota-sdk/agent-cli typecheck`, `pnpm --filter @robota-sdk/agent-cli build`,
-  and command-layer harness scans because this change touches CLI/SDK command boundaries.
+Longer-term option:
+
+- If multiple hosts need the same behavior, move the result channel into an SDK-owned command host
+  helper while keeping UI-specific rendering in the CLI.
+
+## Acceptance Criteria
+
+- [x] `InteractiveSession` is no longer cast to `InteractiveSession & ISideEffects` for command
+      effect transport.
+- [x] No `_pendingCommandInteraction` or `_pendingCommandEffects` fields are written to the SDK
+      session instance.
+- [x] Command interactions and effects remain generic and typed.
+- [x] Existing slash routing and command effect tests are updated to assert the explicit boundary.
+- [x] `packages/agent-cli/docs/ARCHITECTURE-MAP.md` reflects the final state.
+
+## Verification Plan
+
+- `rg -n "_pendingCommandInteraction|_pendingCommandEffects|InteractiveSession & ISideEffects" packages/agent-cli/src`
+- `pnpm --filter @robota-sdk/agent-cli test -- slash-routing`
+- `pnpm --filter @robota-sdk/agent-cli test`
+- `pnpm --filter @robota-sdk/agent-cli typecheck`
 
 ## Result
 
-Completed. Command results now pass from slash routing to side-effect application through an
-explicit CLI-owned queue, and the old session-mutation pattern is covered by the command-layering
-harness.
+Completed by adding `CommandEffectQueue` as the explicit CLI-owned boundary between slash routing
+and side-effect application. Command interactions and host effects are no longer stored on
+`InteractiveSession`, and command-layering harness coverage prevents the old `_pendingCommand*`
+pattern from returning.

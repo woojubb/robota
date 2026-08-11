@@ -258,7 +258,17 @@ export function collectFiringEvents(root = WORKSPACE_ROOT) {
   return [...firing];
 }
 
+/**
+ * How many hook events the last sweep actually READ from the union.
+ *
+ * A module-level holder rather than a widened return: the finder's shape is asserted by its own
+ * cases (HARNESS-057). RESET at the top of the sweep, so a run that read nothing cannot report the
+ * previous run's number — the failure this marker exists to expose.
+ */
+let eventsRead = 0;
+
 export function findHookCatalogFindings(root = WORKSPACE_ROOT) {
+  eventsRead = 0;
   const unionEvents = parseUnionEvents(readFileSync(path.join(root, UNION_FILE), 'utf8'));
   const docEvents = parseDocEvents(readFileSync(path.join(root, CATALOG_DOC), 'utf8'));
   const firingEvents = collectFiringEvents(root);
@@ -267,12 +277,14 @@ export function findHookCatalogFindings(root = WORKSPACE_ROOT) {
   const guideEvents = existsSync(guidePath)
     ? parseGuideEventTable(readFileSync(guidePath, 'utf8'))
     : null;
+  eventsRead = unionEvents.length;
   return computeCatalogDrift({ unionEvents, docEvents, firingEvents, guideEvents });
 }
 
 function main() {
   const findings = findHookCatalogFindings();
   if (findings.length === 0) {
+    console.log(`::examined:: ${eventsRead} declared hook events`);
     console.log('hook-catalog scan passed.');
     process.exit(0);
   }
@@ -288,6 +300,6 @@ function main() {
   process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {
   main();
 }
