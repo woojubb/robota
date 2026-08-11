@@ -202,7 +202,13 @@ export async function main({
       // the gate must run in the SAME repository or it verifies the wrong tree while reporting on
       // this one. Omitted at first, which would have made a scratch-root invocation silently verify
       // the developer's own checkout.
-      const gate = spawn('pnpm', ['harness:verify:release'], {
+      // Run pnpm through Corepack instead of relying on a package-manager shim being exported in
+      // the child PATH. Volta can make `pnpm` available to an interactive shell without exporting
+      // its shim directory to Node children; in that environment spawnSync('pnpm') returns ENOENT
+      // and the sanctioned `node scripts/harness/promote.mjs` entrypoint cannot run its gate.
+      // Corepack ships with the repository's pinned Node 22 toolchain and selects packageManager's
+      // pnpm version, so this preserves the command semantics without the shell-specific lookup.
+      const gate = spawn('corepack', ['pnpm', 'harness:verify:release'], {
         cwd,
         stdio: 'inherit',
         shell: false,
@@ -213,10 +219,14 @@ export async function main({
       });
       if (gate.status !== 0) {
         restore(previousBranch, branchExisted);
+        const launchFailure = gate.error
+          ? `\nThe release-gate process could not start (${gate.error.code ?? 'spawn error'}): ${gate.error.message}`
+          : '';
         throw new PromoteError(
           'the release gate FAILED, so the promotion branch was discarded rather than pushed.\n' +
             'This is the same check `release-grade verification` runs on the promotion PR — fixing it\n' +
-            'here costs one local run instead of an open-PR round trip. Re-run promote when green.',
+            'here costs one local run instead of an open-PR round trip. Re-run promote when green.' +
+            launchFailure,
         );
       }
     }

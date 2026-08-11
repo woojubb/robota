@@ -224,8 +224,8 @@ describe('promote.mjs (INFRA-051)', () => {
 
     expect(code).toBe(0);
     expect(output).toMatch(/release gate PASSED locally/);
-    expect(invocation.command).toBe('pnpm');
-    expect(invocation.args).toEqual(['harness:verify:release']);
+    expect(invocation.command).toBe('corepack');
+    expect(invocation.args).toEqual(['pnpm', 'harness:verify:release']);
     expect(invocation.options.env.HARNESS_BASE_REF).toBe('develop');
     expect(invocation.options.env.GITHUB_BASE_REF).toBe(process.env.GITHUB_BASE_REF);
   });

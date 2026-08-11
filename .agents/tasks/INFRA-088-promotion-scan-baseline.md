@@ -48,6 +48,15 @@ develop tree being promoted, while preserving `GITHUB_BASE_REF=main` for promoti
 - Regression: `pnpm harness:scan` passed 107 scans and `pnpm harness:test` passed 173 files / 3,182
   tests. TC-04 remains pending until this fix lands on `develop` and the sanctioned promotion can
   exercise the real develop ref.
+- PR #1691 landed the baseline fix on `develop`; an independent verifier confirmed identical source
+  and target trees, preserved ancestry, and 9/9 required checks passing.
+- The first real promotion attempt exposed a separate launch-boundary defect: the interactive shell
+  resolved Volta's `pnpm` shim, but Node's exported child `PATH` did not, so `spawnSync('pnpm')`
+  returned `ENOENT`. Running the identical gate directly with `HARNESS_BASE_REF=origin/develop`
+  passed the full build, scan, test, release-suite, typecheck, and lint chain.
+- RED/GREEN: the promotion test first failed when requiring `corepack pnpm`, then passed 9/9 after
+  the runner used Node 22's Corepack entrypoint. This keeps pnpm pinned to packageManager 8.15.4
+  while removing reliance on shell-only PATH mutation.
 
 ## Decisions
 
