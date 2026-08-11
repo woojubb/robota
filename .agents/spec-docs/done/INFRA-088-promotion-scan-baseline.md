@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [harness, ci]
 ---
@@ -130,28 +130,28 @@ promotion-context reader unchanged.
 
 ## Completion Criteria
 
-- [ ] TC-01: The `release-grade verification` workflow step runs with
+- [x] TC-01: The `release-grade verification` workflow step runs with
       `HARNESS_BASE_REF=origin/develop` while `GITHUB_BASE_REF` remains the GitHub-provided `main`, and a
       focused workflow test verifies the declaration.
-- [ ] TC-02: `scripts/harness/promote.mjs` runs its local `pnpm harness:verify:release` child with
+- [x] TC-02: `scripts/harness/promote.mjs` runs its local `pnpm harness:verify:release` child with
       `HARNESS_BASE_REF` equal to its configured develop ref, and the preflight parity test verifies it.
-- [ ] TC-03: `check-document-authority.mjs` resolves an existing `HARNESS_BASE_REF` before
+- [x] TC-03: `check-document-authority.mjs` resolves an existing `HARNESS_BASE_REF` before
       `GITHUB_BASE_REF`, while ordinary PR resolution remains covered and unchanged.
-- [ ] TC-04: A fresh sanctioned promotion runs the full release gate without reporting historical
+- [x] TC-04: A fresh sanctioned promotion runs the full release gate without reporting historical
       develop rules as promotion-local additions.
 
 ## Test Plan
 
-| TC-ID | Test Type                   | Tool / Approach                                                      | Notes                                                                                     |
-| ----- | --------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| TC-01 | CI configuration regression | Vitest source assertion over `.github/workflows/ci.yml`              | Assert step scope and preserve promotion context.                                         |
-| TC-02 | Unit/integration            | Vitest injected promotion fixture                                    | Assert child process environment matches configured develop ref.                          |
-| TC-03 | Unit                        | Vitest temporary git fixture                                         | Assert resolver precedence and ordinary PR behavior.                                      |
-| TC-04 | Release smoke               | `node scripts/harness/promote.mjs` and `pnpm harness:verify:release` | Require a green, non-skipped local promotion preflight before opening the replacement PR. |
+| TC-ID | Test Type                   | Tool / Approach                                                                                                                                                                                                  | Notes                                                                                     |
+| ----- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| TC-01 | CI configuration regression | `scripts/harness/__tests__/promotion-preflight-parity.test.mjs` > `promotion preflight mirrors protect-main` > `compares promotion-local novelty against develop in the main-only release job`                   | Assert step scope and preserve promotion context.                                         |
+| TC-02 | Unit/integration            | `scripts/harness/__tests__/promote.test.mjs` > `promote.mjs (INFRA-051)` > `runs the release gate against the configured develop novelty baseline`                                                               | Assert child process environment matches configured develop ref.                          |
+| TC-03 | Unit                        | `scripts/harness/__tests__/check-document-authority.test.mjs` > `base-ref resolution` > `prefers HARNESS_BASE_REF over the GitHub PR target`                                                                     | Assert resolver precedence and ordinary PR behavior.                                      |
+| TC-04 | Release smoke               | Automated test skipped: the release gate is exercised by the sanctioned real-repository `node scripts/harness/promote.mjs` smoke action because a fixture cannot reproduce the complete workspace release chain. | Require a green, non-skipped local promotion preflight before opening the replacement PR. |
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-088-promotion-scan-baseline.md` — TC-01 through TC-04 implementation and verification plan
+- [x] `.agents/tasks/completed/INFRA-088-promotion-scan-baseline.md` — TC-01 through TC-04 implementation and verification plan
 
 ## Evidence Log
 
@@ -188,3 +188,73 @@ TC-03 task: red-prove and align `check-document-authority.mjs` explicit-override
 TC-04 task: run the focused suites and full release verification, then create a fresh sanctioned promotion without skipping the release gate; this maps directly to Completion Criterion TC-04.
 Task test plan: the tasks file contains a substantive `## Test Plan` section covering the two focused Vitest suites, `pnpm harness:test`, `pnpm harness:scan`, the release gate, and the sanctioned promotion command; its content exceeds the required 50 characters.
 Process integrity: no implementation commit for the INFRA-088 affected files exists on the current branch; the spec and tasks files are untracked and implementation has not begun, so the missing-task NON-COMPLIANCE trigger does not apply.
+
+### Implementation Evidence | 2026-08-12
+
+- TC-01: `promotion-preflight-parity.test.mjs` verifies the main-only release step declares
+  `HARNESS_BASE_REF: origin/develop` while retaining `PR_HEAD_SHA`; PR #1691 CI passed.
+- TC-02: `promote.test.mjs` verifies the configured develop ref is passed as `HARNESS_BASE_REF` and
+  package-manager homes are propagated to the child process tree; focused suite passed 9/9.
+- TC-03: `check-document-authority.test.mjs` verifies `HARNESS_BASE_REF` precedence over
+  `GITHUB_BASE_REF`; the focused baseline suite passed and PR #1691 CI passed all required checks.
+- TC-04: `node scripts/harness/promote.mjs` created promotion head `caced9feba4ed467ac6f1f61add561abf712926f`
+  from `origin/develop` `d1a9a98621b9a0c179d709273267e7afbc152d52`, reported
+  `release gate PASSED locally`, and exited 0. The head and develop tree hashes were both
+  `dbff4d8ffdc5754574f514d9aa5bb9e18083268c`; no historical-rule novelty finding occurred.
+- Full release evidence: build, 107 harness scans, 173 harness files / 3,182 tests, workspace tests,
+  release suites, typecheck, and lint all completed with exit 0. Lint reported 1,969 warnings and
+  zero errors.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** in-progress → verifying
+Ordering: GATE-IMPLEMENT has a criterion-specific recorded PASS, and the document is `status: in-progress` in `.agents/spec-docs/active/`, matching the required input state and folder.
+Task completion: `.agents/tasks/INFRA-088-promotion-scan-baseline.md` has TC-01 through TC-04 checked (4/4 = 100%); `## Blockers` says `None`, and no unchecked task or pending/blocked work remains.
+Build: the independent gate guard ran `pnpm build` at develop commit `d1a9a98621b9a0c179d709273267e7afbc152d52`; all workspace JavaScript and ordered type builds completed with exit code 0.
+Tests: the independent gate guard ran `pnpm test` at the same commit; all workspace project test commands completed with exit code 0. It also ran the three affected harness files with `pnpm exec vitest run scripts/harness/__tests__/promotion-preflight-parity.test.mjs scripts/harness/__tests__/promote.test.mjs scripts/harness/__tests__/check-document-authority.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`; 3/3 files and 31/31 tests passed with exit code 0.
+Implementation traceability: PRs #1691, #1692, and #1693 are merged into `develop` with successful build/scans/quality/review checks; promotion head `caced9feba4ed467ac6f1f61add561abf712926f` contains develop `d1a9a98621b9a0c179d709273267e7afbc152d52` as an ancestor, and both resolve to tree `dbff4d8ffdc5754574f514d9aa5bb9e18083268c`, corroborating TC-04's recorded full-gate run.
+
+### [GATE-COMPLETE: TC-01] | 2026-08-12
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/promotion-preflight-parity.test.mjs scripts/harness/__tests__/promote.test.mjs scripts/harness/__tests__/check-document-authority.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`
+- Result: 3 test files and 31 tests passed, including `promotion preflight mirrors protect-main > compares promotion-local novelty against develop in the main-only release job`.
+- Exit code: 0.
+
+### [GATE-COMPLETE: TC-02] | 2026-08-12
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/promotion-preflight-parity.test.mjs scripts/harness/__tests__/promote.test.mjs scripts/harness/__tests__/check-document-authority.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`
+- Result: 3 test files and 31 tests passed, including `promote.mjs (INFRA-051) > runs the release gate against the configured develop novelty baseline`.
+- Exit code: 0.
+
+### [GATE-COMPLETE: TC-03] | 2026-08-12
+
+- Command: `pnpm exec vitest run scripts/harness/__tests__/promotion-preflight-parity.test.mjs scripts/harness/__tests__/promote.test.mjs scripts/harness/__tests__/check-document-authority.test.mjs --pool=threads --maxWorkers=2 --testTimeout=30000 --reporter=dot`
+- Result: 3 test files and 31 tests passed, including `base-ref resolution > prefers HARNESS_BASE_REF over the GitHub PR target` while the neighboring explicit and unresolved-base cases also passed.
+- Exit code: 0.
+
+### [GATE-COMPLETE: TC-04] | 2026-08-12
+
+- Action: ran `node scripts/harness/promote.mjs` on `origin/develop` `d1a9a98621b9a0c179d709273267e7afbc152d52` without `--skip-release-gate`.
+- Result: the command reported `release gate PASSED locally`; build, 107 scans, 173 harness files / 3,182 tests, workspace tests, release suites, typecheck, and lint completed. Promotion head `caced9feba4ed467ac6f1f61add561abf712926f` and develop both had tree `dbff4d8ffdc5754574f514d9aa5bb9e18083268c`, with no historical-rule novelty finding.
+- Exit code: 0.
+
+### [GATE-COMPLETE] — ❌ FAIL | 2026-08-12
+
+**Status remains:** verifying
+**Failed criteria:**
+
+- TC-specific completion evidence: TC-01 through TC-04 are checked, but no `[GATE-COMPLETE: TC-01]` through `[GATE-COMPLETE: TC-04]` Evidence Log entries exist with each criterion's exact verification command/action, observed result, and applicable exit code.
+  **Required action:** Add one `[GATE-COMPLETE: TC-N]` entry per criterion containing the exact command or action, actual output/result, exit code where applicable, and its test reference or explicit skip reason.
+- Test Plan traceability: all four Test Plan rows describe tools or approaches, but none records the required exact test file path plus test/describe name; TC-04 also has neither an automated-test reference nor an explicit automated-test skip reason.
+  **Required action:** Update every Test Plan row with an exact test file path and test/describe name, or record a specific reason automated coverage was skipped.
+- Task archival: `.agents/tasks/INFRA-088-promotion-scan-baseline.md` remains in the active tasks directory, and the spec's `## Tasks` section still points there.
+  **Required action:** Archive the task as `.agents/tasks/completed/INFRA-088-promotion-scan-baseline.md` and update the spec's `## Tasks` path before re-running GATE-COMPLETE.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** verifying → done
+Ordering: GATE-VERIFY has a criterion-specific recorded PASS, and the document is `status: verifying` in `.agents/spec-docs/active/`, matching the required input state and folder.
+Completion Criteria: TC-01 through TC-04 are checked (4/4 = 100%).
+TC evidence: four `[GATE-COMPLETE: TC-N]` entries exist (4/4 = 100%); each records the exact command or action, observed result, and exit code 0. The three cited test names resolve in their stated files, and TC-04's develop/promotion SHAs resolve to the same tree with develop ancestry preserved.
+Test Plan: TC-01 through TC-03 record exact test file paths plus test names; TC-04 records a specific automated-test skip reason and the sanctioned real-repository smoke action (4/4 = 100%). No TC is silently unaddressed.
+Task archival: `.agents/tasks/completed/INFRA-088-promotion-scan-baseline.md` exists, the former active task path no longer exists, and this document's `## Tasks` section points to the archived path.
