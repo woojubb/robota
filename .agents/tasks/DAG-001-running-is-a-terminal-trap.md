@@ -117,8 +117,18 @@ redelivering, because the message is now gone.
   indefinitely; the status query never changes, and on the redelivering adapter the task is silently
   dropped.
 - **Cleanup:** delete the run's state/store artifacts created by the scenario.
-- **Evidence (fill in after implementation):** the status output before the kill, after the restart,
-  and at terminal state, with timestamps.
+- **Evidence (2026-08-12):** executed the real two-process scenario with evidence root
+  `/tmp/robota-dag001.9pq1Ms` and run id
+  `dag-001-crash-recovery:run:1786466118889`. The first process reported the run started at
+  `2026-08-11T16:35:18.892Z` and the first node entered execution at
+  `2026-08-11T16:35:18.949Z`; it was then killed with `SIGKILL`. At
+  `2026-08-11T16:35:24.973Z`, persisted storage showed the run and first task both `running`,
+  attempt `1`, owned by the terminated `dag-001-start` worker. After the recorded lease expired,
+  a fresh process reopened the same storage. At `2026-08-11T16:36:08.310Z` it reported the run
+  `success`: the first task was reclaimed and completed at attempt `2`, and the dependent second
+  task completed at attempt `1` with restored input `{ "previous": true }`. The terminal run record
+  has `endedAt: 2026-08-11T16:36:08.280Z`. After recording these values, the evidence root was
+  moved to the system trash as the scenario's cleanup step.
 
 ## Progress
 
@@ -175,13 +185,18 @@ Whole workspace green: build, typecheck, every package's test suite. `spec-publi
 LIST, which the scan cannot read, so every export in it counted as undocumented; converting it to a
 table made the existing documentation visible. Baseline re-frozen in the same change.
 
-### Remaining
+### User execution test scenario run complete; durable gate artifact remains
 
-**User Execution Test Scenarios.** The scenario is written against the product's workflow surface with
-a real worker process killed mid-node. The contract-level regressions are covered here; the
-end-to-end kill/restart scenario needs the two-node fixture the scenario itself calls for, and is not
-expressible in-process — a real mid-node kill is a separate process. Tracked as the remaining item on
-this task.
+The recorded two-node scenario now runs through the real framework surface with file-backed state and
+two separate worker processes. Killing the first process mid-node leaves durable `running` state;
+starting the second process after lease expiry reclaims the abandoned task, restores its input,
+executes the dependent node, and drives the run to `success`. The exact run id, timestamps, attempts,
+and terminal state are recorded above. The four affected package suites also pass: 474 tests across
+`dag-core`, `dag-worker`, `dag-adapters-local`, and `dag-framework`.
+
+The DONE-GATE guardian accepted the observed runtime behavior but requires the exact Bash recipe and
+a durable in-repository scenario artifact before Stage 1 and Stage 2 can pass. Until that artifact is
+landed and both stages are re-run in order, this task intentionally remains `in-progress`.
 
 ### Review round — three MUSTs, all measured, all real
 
