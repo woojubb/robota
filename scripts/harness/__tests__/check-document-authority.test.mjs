@@ -169,6 +169,17 @@ describe('base-ref resolution', () => {
     expect(resolveBaseRef({ argv: ['--base-ref', 'base'], env: {}, cwd: root })).toBe('base');
   });
 
+  it('prefers HARNESS_BASE_REF over the GitHub PR target', async () => {
+    const root = await createGitFixture({});
+    expect(
+      resolveBaseRef({
+        argv: [],
+        env: { HARNESS_BASE_REF: 'base', GITHUB_BASE_REF: 'main' },
+        cwd: root,
+      }),
+    ).toBe('base');
+  });
+
   it('returns undefined when no candidate resolves (the caller must FAIL, not pass)', async () => {
     const root = await createGitFixture({});
     expect(resolveBaseRef({ argv: [], env: {}, cwd: root })).toBeUndefined();

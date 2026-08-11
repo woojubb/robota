@@ -59,6 +59,7 @@ export async function main({
   cwd = WORKSPACE_ROOT,
   out = (text) => process.stdout.write(text),
   fetch: shouldFetch = true,
+  spawn = spawnSync,
 } = {}) {
   const git = (args) => runGit(args, cwd);
   const branch = flag(argv, '--branch', DEFAULT_BRANCH);
@@ -201,10 +202,14 @@ export async function main({
       // the gate must run in the SAME repository or it verifies the wrong tree while reporting on
       // this one. Omitted at first, which would have made a scratch-root invocation silently verify
       // the developer's own checkout.
-      const gate = spawnSync('pnpm', ['harness:verify:release'], {
+      const gate = spawn('pnpm', ['harness:verify:release'], {
         cwd,
         stdio: 'inherit',
         shell: false,
+        // The promotion tree is develop's tree. The PR target (`GITHUB_BASE_REF=main`) remains the
+        // promotion-context signal, while this explicit override scopes novelty diffs to content the
+        // promotion step itself introduced. The CI release job declares the same environment.
+        env: { ...process.env, HARNESS_BASE_REF: developRef },
       });
       if (gate.status !== 0) {
         restore(previousBranch, branchExisted);
