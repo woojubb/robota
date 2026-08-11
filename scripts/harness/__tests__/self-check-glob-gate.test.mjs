@@ -20,7 +20,14 @@ describe('harness test suite runs as a glob, not an enumerated list (TEST-011)',
   it('verify-change harness-tests check passes the whole __tests__ directory to vitest', () => {
     const content = read('scripts/harness/verify-change.mjs');
 
-    expect(content).toContain(`['exec', 'vitest', 'run', '${HARNESS_TESTS_DIR}']`);
+    expect(content).toContain(`'scripts/harness/__tests__'`);
+  });
+
+  it('verify-change writes its harness-suite result as JSON too', () => {
+    const content = read('scripts/harness/verify-change.mjs');
+
+    expect(content).toContain("'--reporter=json'");
+    expect(content).toContain("'--outputFile=node_modules/.cache/robota/harness-test-report.json'");
   });
 
   it('verify-change never enumerates individual harness test files', () => {
