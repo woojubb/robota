@@ -1,5 +1,5 @@
 ---
-status: review-ready
+status: approved
 type: AGREEMENT
 tags: [typescript, async, cli]
 ---
@@ -238,3 +238,20 @@ unresolved rule conflict remains. `REVIEW VERDICT: ENDORSE`.
   **Required action:** Obtain a direct, unambiguous user statement approving this revised AGREEMENT-001 spec and authorizing implementation.
 - Approval is a direct, unambiguous statement directed at this spec document: no quoted statement in the current conversation identifies or unambiguously confirms the revised AGREEMENT-001 design.
   **Required action:** Ask the user to explicitly approve the revised spec document after reviewing its current Decision and Completion Criteria.
+
+### [GATE-APPROVAL] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** review-ready → approved
+User approval: `다시 이어서 진행하고 커밋과 푸시 모두 다시 재개해` explicitly resumes the implementation that had paused at the immediately preceding request to approve revised AGREEMENT-001, and separately resumes its commit and push authority.
+Approval directness: in that immediate gate context, “다시 이어서 진행” unambiguously authorizes implementation from the current revised AGREEMENT-001 rather than approving a different item.
+Post-approval integrity: no Architecture Review content or frontmatter `type` / `tags` was modified after this current approval statement.
+Independent architecture validation: the Evidence Log contains a 2026-08-12 independent `proposal-review` `ENDORSE` verdict for the revised session-capability and headless-runtime placement.
+Exact user statement: `다시 이어서 진행하고 커밋과 푸시 모두 다시 재개해`
+
+### [GATE-IMPLEMENT] — ❌ FAIL | 2026-08-12
+
+**Status remains:** approved
+**Failed criteria:**
+
+- Tasks file path is recorded in the `## Tasks` section of the spec document: the initiative Task exists at `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`, but the spec's `## Tasks` section records only the twelve source ARCH/DAG/RUNTIME Task paths and does not record this initiative Task path.
+  **Required action:** Add `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` to the spec document's `## Tasks` section before re-running GATE-IMPLEMENT.
