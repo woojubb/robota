@@ -62,6 +62,12 @@ export class PendingInputQueue {
    * emits an attributed notice). Releases a coalesced-away / dropped entry's `wakeTaskId` (CORE-024).
    */
   enqueue(entry: IQueuedInput): 'queued' | 'coalesced' | 'dropped' {
+    // Internal TypeScript callers cannot omit this required field. Keep a runtime assertion for
+    // untyped/JavaScript misuse so an invalid entry fails at admission instead of becoming a handle
+    // that no settlement path can ever resolve.
+    if (entry.turnId === undefined) {
+      throw new Error('pending queue: a queued submission needs its turnId');
+    }
     const tail = this.entries[this.entries.length - 1];
     if (tail && tail.options.driverId === entry.options.driverId) {
       if (

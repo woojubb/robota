@@ -17,6 +17,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSessionStub } from './helpers/session-stub.js';
+import { acceptSubmission } from '../interactive-session-accept-submission.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
@@ -232,6 +233,15 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
 });
 
 describe('RUNTIME-006: turn identity is required only on internal accepted-turn paths', () => {
+  it('mints identity even when an untyped caller forges the removed resume option', () => {
+    const controller = createController();
+    const forgedTurnId = 'caller-selected-existing-turn';
+    const accepted = acceptSubmission({ resumeTurnId: forgedTurnId } as never, controller);
+    void accepted.completed.catch(() => undefined);
+
+    expect(accepted.turnId).not.toBe(forgedTurnId);
+  });
+
   it('keeps resume authority out of public options and requires identity downstream', () => {
     type PublicSubmitOptions = NonNullable<Parameters<InteractiveSession['submit']>[3]>;
     const publicOptions: PublicSubmitOptions = { driverId: 'owner' };
