@@ -40,6 +40,7 @@ import type { ICreatePromptNodeInput } from '../index.js';
 import type { IDagDefinition, INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
 
 const MOCK_CONTEXT: INodeExecutionContext = {
+  executionRoot: '/test/execution-root',
   dagId: 'test-dag',
   dagRunId: 'test-run',
   taskRunId: 'test-task',

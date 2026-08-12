@@ -242,6 +242,7 @@ export function parseScopeArgs(argv) {
     includeScenarios: false,
     skipRecordCheck: false,
     skipRepositoryChecks: false,
+    skipRepositoryCheckNames: [],
     skipDependentScopes: false,
     reportFile: null,
     reportFormat: null,
@@ -286,6 +287,15 @@ export function parseScopeArgs(argv) {
       case '--skip-repository-checks':
         options.skipRepositoryChecks = true;
         break;
+      case '--skip-repository-check': {
+        const value = argv[index + 1];
+        if (!value) {
+          throw new Error('--skip-repository-check requires a value');
+        }
+        options.skipRepositoryCheckNames.push(value);
+        index += 1;
+        break;
+      }
       case '--skip-dependent-scopes':
         options.skipDependentScopes = true;
         break;
@@ -601,6 +611,26 @@ export function classifyPackageManifestChange({ before, after }) {
   };
 }
 
+const DEVELOPER_QUALITY_SCRIPT_NAMES = new Set(['lint:fix', 'lint:fix:staged']);
+
+export function classifyRootManifestChange({ before, after }) {
+  const changedKeys = changedManifestKeys(before, after);
+  const changedScriptKeys =
+    changedKeys.length === 1 && changedKeys[0] === 'scripts'
+      ? changedManifestKeys(before?.scripts ?? {}, after?.scripts ?? {})
+      : [];
+  const developerQualityOnly =
+    changedScriptKeys.length > 0 &&
+    changedScriptKeys.every((key) => DEVELOPER_QUALITY_SCRIPT_NAMES.has(key));
+
+  return {
+    kind: developerQualityOnly ? 'developer-quality-only' : 'workspace-wide',
+    changedKeys,
+    changedScriptKeys,
+    workspaceWide: !developerQualityOnly,
+  };
+}
+
 function readGitFile(ref, file) {
   const result = spawnSync('git', ['show', `${ref}:${file}`], {
     cwd: WORKSPACE_ROOT,
@@ -640,6 +670,34 @@ export async function collectPackageManifestChanges({ scopes, changedFiles, base
   }
 
   return manifestChangesByScope;
+}
+
+export async function collectRootManifestChange({ changedFiles, baseRef }) {
+  if (!changedFiles.includes('package.json')) {
+    return null;
+  }
+
+  const resolvedBaseRef = resolveGitBaseRef(baseRef);
+  if (!resolvedBaseRef) {
+    return { kind: 'unclassified-workspace-wide', workspaceWide: true };
+  }
+
+  try {
+    const beforeText = readGitFile(resolvedBaseRef, 'package.json');
+    if (!beforeText) {
+      return { kind: 'unclassified-workspace-wide', workspaceWide: true };
+    }
+    const afterPath = path.join(WORKSPACE_ROOT, 'package.json');
+    if (!(await pathExists(afterPath))) {
+      return { kind: 'workspace-wide', workspaceWide: true };
+    }
+    return classifyRootManifestChange({
+      before: JSON.parse(beforeText),
+      after: await readJson(afterPath),
+    });
+  } catch {
+    return { kind: 'unclassified-workspace-wide', workspaceWide: true };
+  }
 }
 
 function isTestFile(file) {

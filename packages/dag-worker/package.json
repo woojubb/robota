@@ -50,10 +50,12 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/dag-adapters-local": "workspace:*",
+    "@robota-sdk/dag-adapters-sqlite": "workspace:*",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsdown": "^0.22.14",

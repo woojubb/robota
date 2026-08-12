@@ -4,6 +4,7 @@ import { TransformNodeDefinition } from './index.js';
 
 function createContext(prefix = 'PREFIX: '): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

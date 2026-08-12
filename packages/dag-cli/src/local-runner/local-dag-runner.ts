@@ -6,6 +6,7 @@ import type {
   ITaskExecutorPort,
   TPortPayload,
 } from '@robota-sdk/dag-core';
+import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
 import { LifecycleTaskExecutorPort } from '@robota-sdk/dag-core';
 import {
   InMemoryStoragePort,
@@ -54,7 +55,8 @@ export class LocalDagRunner {
   private readonly composition: IDagExecutionComposition;
   private readonly storage: InMemoryStoragePort;
 
-  public constructor(nodeDefinitions: IDagNodeDefinition[]) {
+  public constructor(nodeDefinitions: IDagNodeDefinition[], executionRoot: string) {
+    const trustedExecutionRoot = resolveTrustedExecutionRoot(executionRoot);
     const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
     if (!assemblyResult.ok) {
       throw new Error(`Node definition assembly failed: ${assemblyResult.error.code}`);
@@ -72,6 +74,7 @@ export class LocalDagRunner {
     this.storage = new InMemoryStoragePort();
     this.composition = createExecutionComposition(
       {
+        executionRoot: trustedExecutionRoot,
         storage: this.storage,
         queue: new InMemoryQueuePort(),
         deadLetterQueue: new InMemoryQueuePort(),

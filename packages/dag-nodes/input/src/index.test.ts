@@ -4,6 +4,7 @@ import { InputNodeDefinition } from './index.js';
 
 function createContext(config: INodeConfigObject = { text: 'hello' }): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

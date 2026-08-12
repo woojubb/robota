@@ -1,9 +1,3 @@
-// PROVIDER-002: LocalDagRuntimeProvider — in-process DAG runtime.
-//
-// Provides the local execution backend that satisfies the
-// `IDagRuntimeProvider` contract. Wraps an in-process worker loop and
-// emits {@link IDagRuntimeProgressEvent}s as the run progresses.
-
 import type {
   IDagDefinition,
   IDagNodeDefinition,
@@ -20,6 +14,7 @@ import type {
   ITaskRun,
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
+import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
 import { LifecycleTaskExecutorPort } from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
@@ -59,22 +54,21 @@ function sleep(ms: number): Promise<void> {
 
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
+  /** Trusted absolute filesystem root propagated to every node. */
+  executionRoot: string;
   /**
    * Base node registry. Defaults to the lazily-loaded `createDefaultNodeRegistrySync` from
    * `@robota-sdk/dag-nodes-default` (ARCH-PROVIDER-004). The CLI layer typically passes
    * `createCliNodeRegistry()` to include LLM and provider-backed nodes.
    */
   nodeRegistry?: IDagNodeDefinition[];
-  /** DAG project directory — reserved for future local node-file scanning. */
   projectDir?: string;
   /**
    * FLOW-007: injected workspace layout (root dir + workflow ext). Reserved for local node discovery
    * from `<root>/nodes/` when running authored workflows that reference local prompt/code nodes.
    */
   workspace?: IWorkspaceLayout;
-  /** Instant nodes (typically injected from an MCP session context). */
   instantNodes?: IDagNodeDefinition[];
-  /** Extra nodes appended at the end (test/special-purpose). */
   extraNodes?: IDagNodeDefinition[];
 }
 
@@ -89,7 +83,10 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly providerId = 'local';
   public readonly displayName = 'Local (in-process)';
 
-  public constructor(private readonly options: ILocalDagRuntimeProviderOptions = {}) {}
+  private readonly executionRoot: string;
+  public constructor(private readonly options: ILocalDagRuntimeProviderOptions) {
+    this.executionRoot = resolveTrustedExecutionRoot(options.executionRoot);
+  }
 
   public async listNodes(): Promise<IDagNodeManifest[]> {
     const allDefs = await this.buildNodeRegistry();
@@ -116,6 +113,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
       const result = await runDagOnce(
         dag,
         nodeDefinitions,
+        this.executionRoot,
         inputs as TPortPayload,
         options?.onProgress,
         () => aborted,
@@ -189,6 +187,7 @@ interface IDagRunOutcome {
 async function runDagOnce(
   dagDefinition: IDagDefinition,
   nodeDefinitions: IDagNodeDefinition[],
+  executionRoot: string,
   inputs: TPortPayload,
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
   isAborted: () => boolean,
@@ -210,6 +209,7 @@ async function runDagOnce(
   const storage = new InMemoryStoragePort();
   const composition = createExecutionComposition(
     {
+      executionRoot,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),

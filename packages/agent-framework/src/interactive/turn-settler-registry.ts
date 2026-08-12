@@ -50,53 +50,20 @@ export class TurnSettlerRegistry {
     return { turnId, completed };
   }
 
-  /**
-   * The promise already registered for an accepted submission.
-   *
-   * The queue drain re-enters `submit` for an input that was accepted earlier, and its caller is
-   * holding the promise from THAT acceptance. Handing back the same one is the whole point: minting
-   * a second promise here would settle something nobody is waiting on. Returns a rejected promise
-   * for an id this controller does not know.
-   *
-   * "Already settled" is the ordinary way to get there and was once written here as the ONLY way.
-   * Review showed another: `resumeTurnId` is documented as set only by the queue drain, and nothing
-   * enforces that, so an internal caller passing an unregistered id reaches this same rejection.
-   * Both are refusals the caller can act on, and neither is a state this registry can distinguish —
-   * which is the argument for typing the optionality away rather than for guessing here.
-   */
-  completionOf(turnId: string): Promise<IExecutionResult> {
-    const registered = this.settlers.get(turnId);
-    if (registered) return registered.promise;
-    const orphan = Promise.reject(new TurnNotRunError(turnId, 'cancelled'));
-    orphan.catch(() => {});
-    return orphan;
-  }
-
-  // The three settle paths below no-op on an undefined `turnId`, and that is the silent-swallow
-  // shape this repository's no-fallback rule refuses — it is how the queued half of RUNTIME-003
-  // once shipped inert. It is still here because removing the guards means making `turnId`
-  // non-optional across `ITurnOptions`, `IQueuedInput` and these three signatures, which is
-  // RUNTIME-006 and a signature change rather than an edit.
-  //
-  // What holds the invariant meanwhile is upstream: `PendingInputQueue.enqueue` THROWS on an entry
-  // with no id, so the one construction site that produced the inert case now cannot.
   /** The turn ended. Settles the caller's handle with the result it produced. */
-  settle(turnId: string | undefined, result: IExecutionResult): void {
-    if (turnId === undefined) return;
+  settle(turnId: string, result: IExecutionResult): void {
     this.settlers.get(turnId)?.resolve(result);
     this.settlers.delete(turnId);
   }
 
   /** The turn threw. The caller's handle rejects with the same error the turn failed on. */
-  fail(turnId: string | undefined, error: Error): void {
-    if (turnId === undefined) return;
+  fail(turnId: string, error: Error): void {
     this.settlers.get(turnId)?.reject(error);
     this.settlers.delete(turnId);
   }
 
   /** The submission never became a turn, and the caller is told which of the ways happened. */
-  refuse(turnId: string | undefined, reason: TTurnNotRunReason): void {
-    if (turnId === undefined) return;
+  refuse(turnId: string, reason: TTurnNotRunReason): void {
     this.settlers.get(turnId)?.reject(new TurnNotRunError(turnId, reason));
     this.settlers.delete(turnId);
   }

@@ -13,6 +13,7 @@ import {
 function makeContext(config: Record<string, unknown>): INodeExecutionContext {
   const node = new ToolNodeDefinition();
   return {
+    executionRoot: process.cwd(),
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

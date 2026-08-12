@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   IME_CURSOR_SETTINGS,
   TERMINAL_PROFILES,
+  REPRESENTATIVE_IME_PTY_CELLS,
   cellLabel,
   expectedImeCursorEnabled,
 } from './helpers/terminal-profiles.js';
@@ -128,5 +129,14 @@ describe('CLI-062 terminal matrix — supportsImeCursorPositioning per terminal'
         expect(profile.note, profile.id).toMatch(/Captured|pty harness/);
       }
     }
+  });
+
+  it('keeps the process-spawning PTY tier to four boundary representatives', () => {
+    expect(REPRESENTATIVE_IME_PTY_CELLS).toEqual([
+      { profileId: 'ghostty', override: undefined },
+      { profileId: 'apple-terminal', override: undefined },
+      { profileId: 'apple-terminal', override: '1' },
+      { profileId: 'ghostty', override: '0' },
+    ]);
   });
 });

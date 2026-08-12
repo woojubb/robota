@@ -296,7 +296,7 @@ async function runProvider(
   const nodeDefinitions = createCliNodeRegistry();
   let runner: LocalDagRunner;
   try {
-    runner = new LocalDagRunner(nodeDefinitions);
+    runner = new LocalDagRunner(nodeDefinitions, process.cwd());
   } catch (err) {
     // allow-fallback: runner creation failure is returned as a structured error result
     return {

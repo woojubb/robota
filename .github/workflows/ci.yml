@@ -150,9 +150,9 @@ jobs:
   # PR skips the heavy build/test/e2e matrix. Those gated jobs are NOT required status checks on `protect-main`
   # (required there = promotion ancestry / main PR source guard / release-grade verification), so skipping them
   # is safe for branch protection — a skipped non-required job does not block the merge. On `protect-develop`
-  # tui-e2e / examples-typecheck / windows-shell ARE required and DO skip on a docs-only PR; that is deliberate
-  # and predates this file — a skipped required check is accepted, which is exactly why the `changes` classifier
-  # is fail-safe (every undeterminable case classifies as CODE).
+  # tui-e2e / examples-typecheck / windows-shell ARE required and remain present for non-product changes,
+  # where they publish explicit non-applicability rather than disappearing. Every undeterminable case enables
+  # all safety-relevant capabilities, so classifier failure cannot turn required work into N/A.
   #
   # INFRA-058: the classifier being fail-safe was only HALF the property. `classify-changed-paths.mjs`
   # always exits 0 (the verdict is its output, not its status), so it can only classify fail-safe —
@@ -169,6 +169,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      product: ${{ steps.filter.outputs.product }}
+      tui: ${{ steps.filter.outputs.tui }}
+      examples: ${{ steps.filter.outputs.examples }}
     steps:
       # INFRA-050: `fetch-depth: 0`, and NO depth-limited fetch anywhere in this job. A `--depth`
       # fetch GRAFTS the whole repository (INFRA-049 measured 109 commits locally vs 97 — a
@@ -182,7 +185,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: filter
-        name: Classify changed paths (code vs docs-only)
+        name: Classify changed paths and affected capabilities
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -223,37 +226,46 @@ jobs:
   # direction (nothing vacuous may be required).
   build:
     name: build
-    if: github.base_ref != 'main'
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
+    needs: changes
+    env:
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
     outputs:
-      package_dist_required: ${{ steps.build_requirement.outputs.required }}
+      package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — `harness:plan --base-ref origin/<base>`
       # resolves the affected scopes from a merge-base diff, so a grafted ancestry changes which
       # checks this PR is planned to run at all.
       - uses: actions/checkout@v7
+        if: env.PRODUCT_APPLICABLE == 'true'
         with:
           fetch-depth: 0
 
       - name: Install pnpm
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Show verification plan
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:plan -- --base-ref origin/${{ github.base_ref }} --report-file .agents/evals/local-metrics/ci-plan.json
 
       - name: Upload verification plan
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: verification-plan
@@ -263,6 +275,7 @@ jobs:
 
       - name: Detect build requirement
         id: build_requirement
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: |
           node --input-type=module <<'EOF'
           import { appendFileSync, readFileSync } from 'node:fs';
@@ -282,15 +295,15 @@ jobs:
           EOF
 
       - name: Build monorepo
-        if: steps.build_requirement.outputs.required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         run: pnpm build
 
       - name: Archive package build output
-        if: steps.build_requirement.outputs.required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         run: tar -czf package-dist.tgz packages/*/dist packages/dag-nodes/*/dist
 
       - name: Upload package build output
-        if: steps.build_requirement.outputs.required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: package-dist
@@ -299,50 +312,64 @@ jobs:
           retention-days: 1
 
       - name: Skip monorepo build when no build output is required
-        if: steps.build_requirement.outputs.required != 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && steps.build_requirement.outputs.required != 'true'
         run: echo "No package or app verification requires build output."
+
+      - name: Product verification not applicable
+        id: build_requirement_na
+        if: env.PRODUCT_APPLICABLE != 'true'
+        run: |
+          echo "Infrastructure-only change: product build is not applicable."
+          echo "required=false" >> "$GITHUB_OUTPUT"
 
   quality:
     name: quality
-    if: github.base_ref != 'main'
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: [changes, build]
+    env:
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
 
     steps:
       # INFRA-050: full history, no `--depth` fetch — `harness:verify --base-ref origin/<base>`
       # selects the affected scopes from a merge-base diff; a grafted ancestry silently changes
       # what this REQUIRED check verifies.
       - uses: actions/checkout@v7
+        if: env.PRODUCT_APPLICABLE == 'true'
         with:
           fetch-depth: 0
 
       - name: Install pnpm
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Download package build output
-        if: needs.build.outputs.package_dist_required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         uses: actions/download-artifact@v8
         with:
           name: package-dist
           path: .artifacts/package-dist
 
       - name: Restore package build output
-        if: needs.build.outputs.package_dist_required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         run: tar -xzf .artifacts/package-dist/package-dist.tgz
 
       - name: Verify affected quality checks
-        run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check
+        if: env.PRODUCT_APPLICABLE == 'true'
+        run: pnpm harness:verify -- --base-ref origin/${{ github.base_ref }} --skip-build --skip-record-check --skip-repository-check harness-tests
 
       # INFRA-037: build-contracts is the ONE scan that reads packages/*/dist (validates that declared
       # main/types/exports paths resolve to built files) and silently no-ops without dist. It stays in
@@ -350,6 +377,7 @@ jobs:
       # harness test suite moved to the `needs`-less `scans` job (parallel with build). The full scan
       # suite remains a develop-merge gate (INFRA-026) — split across `scans` + this step, both required.
       - name: Build-output contracts scan (dist-dependent)
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm harness:scan:build-contracts
 
       # RUNTIME-001: build-gated black-box e2e for the real `robota --serve` binary (+ the cross-fidelity
@@ -357,8 +385,13 @@ jobs:
       # here rather than in the dist-independent `scans` job. Deterministic (replay provider over loopback
       # WS; no model key, no network). Gated on dist actually being restored so unrelated PRs skip cleanly.
       - name: Binary e2e (agent-cli bintests, dist-dependent)
-        if: needs.build.outputs.package_dist_required == 'true'
+        if: env.PRODUCT_APPLICABLE == 'true' && needs.build.outputs.package_dist_required == 'true'
         run: pnpm --filter @robota-sdk/agent-cli test:bin
+
+      - name: Product verification not applicable
+        if: env.PRODUCT_APPLICABLE != 'true'
+        run: |
+          echo "Infrastructure-only change: product quality checks are not applicable."
 
   # INFRA-037: the dist-INDEPENDENT scan suite + harness unit tests run here with NO `needs: build`, so
   # they start immediately and run in parallel with `build` (removing the ~3-min build-wait for work that
@@ -664,30 +697,36 @@ jobs:
     # `!cancelled()`, which disables the implicit `success()` over `needs` — so a failed `build` does
     # NOT turn this required check into a skip; the job runs and falls back to building.
     needs: [changes, build]
+    env:
+      EXAMPLES_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.examples == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
       - uses: actions/checkout@v7
+        if: env.EXAMPLES_APPLICABLE == 'true'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
+        if: env.EXAMPLES_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: env.EXAMPLES_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: env.EXAMPLES_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
@@ -701,7 +740,7 @@ jobs:
       # than failing the gate.
       - name: Download package build output
         id: dist
-        if: needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        if: env.EXAMPLES_APPLICABLE == 'true' && needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
@@ -710,17 +749,22 @@ jobs:
 
       - name: Restore package build output
         id: restore
-        if: steps.dist.outcome == 'success'
+        if: env.EXAMPLES_APPLICABLE == 'true' && steps.dist.outcome == 'success'
         run: |
           tar -xzf .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
       - name: Build packages (only when the artifact was not restored)
-        if: steps.restore.outputs.restored != 'true'
+        if: env.EXAMPLES_APPLICABLE == 'true' && steps.restore.outputs.restored != 'true'
         run: pnpm build:deps
 
       - name: Typecheck examples
+        if: env.EXAMPLES_APPLICABLE == 'true'
         run: pnpm examples:typecheck
+
+      - name: Examples verification not applicable
+        if: env.EXAMPLES_APPLICABLE != 'true'
+        run: echo "This change does not affect product examples."
 
   # TERM-007 item 2 / TERM-008: verify cross-platform shell execution on real Windows.
   # The resolver + Shell tool spawn PowerShell here, so these tests exercise the win32 path
@@ -731,33 +775,40 @@ jobs:
     name: windows-shell
     runs-on: windows-latest
     needs: changes
+    env:
+      PRODUCT_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.product == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
       - uses: actions/checkout@v7
+        if: env.PRODUCT_APPLICABLE == 'true'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: env.PRODUCT_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: env.PRODUCT_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build agent-core + agent-process for dependent tests
+        if: env.PRODUCT_APPLICABLE == 'true'
         # CORE-023: shell-tool now imports @robota-sdk/agent-process (killProcessTree); this
         # minimal job resolves workspace deps from built dist, so agent-process must be built too.
         run: pnpm --filter @robota-sdk/agent-core --filter @robota-sdk/agent-process build
@@ -790,9 +841,14 @@ jobs:
       # scope. Measured: touching `platform-shell.ts` selects `packages/agent-core: build, test,
       # lint, typecheck`, which the REQUIRED `quality` job runs.
       - name: Verify the Shell tool actually spawns PowerShell on Windows
+        if: env.PRODUCT_APPLICABLE == 'true'
         # The genuinely win32-only half: it SPAWNS a real shell and asserts PowerShell answers. No
         # Linux or macOS runner can execute this, which is what buys the runner the job runs on.
         run: pnpm --filter @robota-sdk/agent-tools exec vitest run shell-tool
+
+      - name: Product verification not applicable
+        if: env.PRODUCT_APPLICABLE != 'true'
+        run: echo "This change does not affect Windows product behavior."
 
   # TEST-010: run the TUI PTY E2E suite (`*.ptytest.ts`) against the BUILT robota binary on every PR,
   # so the live-TUI behaviours — the SCREEN-013 Ctrl+B drill-in entry point and the existing
@@ -802,30 +858,36 @@ jobs:
     runs-on: ubuntu-latest
     # See examples-typecheck: `!cancelled()` keeps a failed `build` from skipping this required check.
     needs: [changes, build]
+    env:
+      TUI_APPLICABLE: ${{ needs.changes.result != 'success' || needs.changes.outputs.tui == 'true' }}
     # INFRA-058 fail-safe: `!cancelled()` disables GitHub's implicit `success()` over `needs`, so a
     # `changes` job that FAILED (as opposed to classifying docs-only) no longer turns this required
     # check into a `skipped` conclusion that branch protection accepts — it runs, matching the
     # classifier's own rule that every undeterminable case is CODE. A cancelled run still skips,
     # because a cancelled run is superseded, not unverified.
-    if: ${{ !cancelled() && github.base_ref != 'main' && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    if: ${{ !cancelled() && github.base_ref != 'main' && needs.changes.result != 'cancelled' }}
 
     steps:
       - uses: actions/checkout@v7
+        if: env.TUI_APPLICABLE == 'true'
         with:
           fetch-depth: 50
 
       - name: Install pnpm
+        if: env.TUI_APPLICABLE == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
 
       - name: Use Node.js 22.x
+        if: env.TUI_APPLICABLE == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: env.TUI_APPLICABLE == 'true'
         run: pnpm install --frozen-lockfile
 
       # Reuse the build the `build` job already produced and uploaded, instead of repeating it.
@@ -839,7 +901,7 @@ jobs:
       # than failing the gate.
       - name: Download package build output
         id: dist
-        if: needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
+        if: env.TUI_APPLICABLE == 'true' && needs.build.result == 'success' && needs.build.outputs.package_dist_required == 'true'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
@@ -848,17 +910,22 @@ jobs:
 
       - name: Restore package build output
         id: restore
-        if: steps.dist.outcome == 'success'
+        if: env.TUI_APPLICABLE == 'true' && steps.dist.outcome == 'success'
         run: |
           tar -xzf .artifacts/package-dist/package-dist.tgz
           echo "restored=true" >> "$GITHUB_OUTPUT"
 
       - name: Build packages (only when the artifact was not restored — provides the robota binary)
-        if: steps.restore.outputs.restored != 'true'
+        if: env.TUI_APPLICABLE == 'true' && steps.restore.outputs.restored != 'true'
         run: pnpm build:deps
 
       - name: Run the TUI PTY E2E suite against the real binary
+        if: env.TUI_APPLICABLE == 'true'
         run: pnpm --filter @robota-sdk/agent-transport-tui test:pty
+
+      - name: TUI verification not applicable
+        if: env.TUI_APPLICABLE != 'true'
+        run: echo "This change does not affect TUI behavior."
 
   # HARNESS-041: mechanical floor for accidental-green regression tests. For a `fix:` PR with a
   # same-package (source+test) pair, it reverse-applies the source hunks and requires the changed test

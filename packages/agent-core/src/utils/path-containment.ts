@@ -16,8 +16,43 @@
  * declares `@robota-sdk/agent-core` in its runtime `dependencies`, so agent-core is in `dag-cli`'s
  * closure regardless, and a direct edge only makes that explicit.
  */
-import { realpathSync } from 'node:fs';
-import { basename, dirname, join, resolve, sep } from 'node:path';
+import { accessSync, constants, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
+
+/**
+ * Validate an authority root more strictly than candidate-path canonicalization.
+ *
+ * Candidate write paths may have a missing tail, but an authority root must already exist and be a
+ * traversable directory. Keeping the contracts separate prevents a typo in a root from degrading to
+ * a lexical boundary that the caller did not actually select.
+ */
+export function resolveTrustedExecutionRoot(input: unknown): string {
+  if (typeof input !== 'string') {
+    throw new TypeError('executionRoot must be a string');
+  }
+  if (input.trim().length === 0) {
+    throw new TypeError('executionRoot must be a non-empty string');
+  }
+  if (!isAbsolute(input)) {
+    throw new TypeError('executionRoot must be an absolute path');
+  }
+
+  let canonicalRoot: string;
+  try {
+    canonicalRoot = realpathSync(input);
+  } catch {
+    throw new TypeError('executionRoot must name an existing accessible directory');
+  }
+  if (!statSync(canonicalRoot).isDirectory()) {
+    throw new TypeError('executionRoot must name a directory');
+  }
+  try {
+    accessSync(canonicalRoot, constants.R_OK | constants.X_OK);
+  } catch {
+    throw new TypeError('executionRoot directory must be readable and traversable');
+  }
+  return canonicalRoot;
+}
 
 /**
  * Resolve `p` to its canonical form, following symlinks, tolerating a path that does not exist yet.

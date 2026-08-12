@@ -262,6 +262,27 @@ describe('workspace-wide build tooling (INFRA-060 D4)', () => {
     }
   });
 
+  it('keeps a semantically proven fixer-only root manifest change out of workspace checks', () => {
+    const plan = createVerificationPlan({
+      scopes,
+      changedFiles: ['package.json'],
+      rootManifestChange: { kind: 'developer-quality-only', workspaceWide: false },
+    });
+
+    expect(plan.scopes).toEqual([]);
+    expect(plan.workspaceWideTriggers).toEqual([]);
+    expect(plan.rootManifestClassification).toBe('developer-quality-only');
+    expect(renderPlanSummary(plan)).toContain('Root manifest: developer-quality-only');
+  });
+
+  it('fails closed when root manifest semantics are unavailable', () => {
+    const plan = createVerificationPlan({ scopes, changedFiles: ['package.json'] });
+
+    expect(plan.scopes).toHaveLength(scopes.length);
+    expect(plan.workspaceWideTriggers).toEqual(['package.json']);
+    expect(plan.rootManifestClassification).toBe('unclassified-workspace-wide');
+  });
+
   it('leaves a docs-only change at zero scopes — over-correction is the other failure', () => {
     const plan = createVerificationPlan({
       scopes,

@@ -49,6 +49,7 @@ function stubDefinition(
 
 function createContext(config: Record<string, unknown> = {}): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

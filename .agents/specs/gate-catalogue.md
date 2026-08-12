@@ -224,12 +224,19 @@ After all criteria:
 
 - [ ] Spec document `## Completion Criteria` checkboxes are all `[x]`
 - [ ] `## Test Plan` updated with test references or skip reasons for all TC-N rows
-- [ ] Tasks file archived to `.agents/tasks/completed/<ID>.md`
-- [ ] `## Tasks` section updated to reflect archived path
+- [ ] The spec's `## Tasks` section names the exact active task path under `.agents/tasks/`
+- [ ] That active task exists and is completion-ready: all tasks are `[x]`, with no pending or blocked item
 
 **Evidence to record:** One Evidence entry per TC-N (verification + test reference/skip), then a final summary entry.
 
 **FAIL trigger:** Any TC-N unchecked, or checked without a matching Evidence entry. Any TC-N in Test Plan missing both a test reference and a skip reason.
+
+**Post-PASS handoff:** task terminal status/date, task archival, the spec's archived task pointer, and
+the spec's `verifying/active → done/done` transition are PASS outputs, not guardian preconditions. Their
+atomic completion order is owned by
+[`backlog-execution-orchestrator`](../skills/backlog-execution-orchestrator/SKILL.md) Phase 5 and the
+status/folder mapping in [`spec-workflow.md`](../rules/spec-workflow.md). After assembling that one closing
+commit, run the placement and task-archival scans against the final state.
 
 ---
 

@@ -5,26 +5,28 @@
  * in goal/__tests__/goal-controller.test.ts.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IGoalEvent } from '@robota-sdk/agent-interface-transport';
-import {
-  EMPTY_TURN_RESULT,
-  createSessionStub as createSharedSessionStub,
-} from './helpers/session-stub.js';
+import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+
+import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
+
+function getExecCtrl(session: InteractiveSession): SessionExecutionController {
+  return (session as unknown as { execCtrl: SessionExecutionController }).execCtrl;
+}
 
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
     const session = new InteractiveSession({
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
-    const submitSpy = vi
-      .spyOn(session, 'submit')
-      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
+    const execCtrl = getExecCtrl(session);
+    execCtrl.executing = true;
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 
@@ -36,20 +38,16 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
     expect(events[0]?.type).toBe('goal_started');
 
     await tick(); // let the scheduled wakeup fire
-    expect(submitSpy).toHaveBeenCalledTimes(1);
-    const [prompt, , , options] = submitSpy.mock.calls[0]!;
-    expect(prompt).toContain('write a file');
-    expect(options).toMatchObject({ turnSource: 'agent-wakeup' });
+    expect(execCtrl.pending.contents).toHaveLength(1);
+    expect(execCtrl.pending.contents[0]?.input).toContain('write a file');
+    expect(execCtrl.pending.contents[0]?.options).toMatchObject({ turnSource: 'agent-wakeup' });
   });
 
   it('cancelGoal stops an active goal and emits goal_stopped', async () => {
     const session = new InteractiveSession({
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
-    vi.spyOn(session, 'submit').mockResolvedValue({
-      turnId: 'stub-turn',
-      completed: Promise.resolve(EMPTY_TURN_RESULT),
-    });
+    getExecCtrl(session).executing = true;
     const events: IGoalEvent[] = [];
     session.on('goal_event', (event) => events.push(event));
 

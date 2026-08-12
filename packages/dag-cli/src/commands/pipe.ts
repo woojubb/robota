@@ -142,7 +142,7 @@ export async function pipeCommand(
   };
 
   // Run with stdin text as input.text
-  const runner = new LocalDagRunner(createCliNodeRegistry());
+  const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let runResult;
   try {
     runResult = await runner.run(dagDefinition, { text: stdinText.trimEnd() }); // allow-fallback: run error reported as structured output and non-zero exit

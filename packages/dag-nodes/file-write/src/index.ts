@@ -21,16 +21,17 @@ const FileWriteConfigSchema = z.object({
   createDirs: z.boolean().default(true),
 });
 
-/** Refuse a path that escapes the invocation directory. See {@link FileWriteNodeDefinition} for why. */
+/** Refuse a path that escapes the trusted execution root. See {@link FileWriteNodeDefinition}. */
 function containmentDenial(
+  executionRoot: string,
   inputPath: string,
   resolvedPath: string,
   nodeId: string,
 ): IDagError | undefined {
-  if (isPathInside(process.cwd(), resolvedPath)) return undefined;
+  if (isPathInside(executionRoot, resolvedPath)) return undefined;
   return buildValidationError(
     'DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT',
-    `path "${inputPath}" resolves outside the working directory`,
+    `path "${inputPath}" resolves outside the execution root`,
     { nodeId },
   );
 }
@@ -44,7 +45,7 @@ function containmentDenial(
  * a file anywhere the process could reach: a shell profile, an `authorized_keys`. That turns "run
  * this workflow" into code execution on the next login.
  *
- * Boundary and rationale as in `file-read`: the invocation directory, decided canonically through
+ * Boundary and rationale as in `file-read`: `context.executionRoot`, decided canonically through
  * agent-core's shared `isPathInside` SSOT so an escaping symlink is refused. The check runs BEFORE
  * `mkdir`, which would otherwise leave a directory behind as the side effect of a request that was
  * about to be denied.
@@ -97,8 +98,13 @@ export class FileWriteNodeDefinition extends AbstractNodeDefinition<typeof FileW
       };
     }
 
-    const resolvedPath = resolve(process.cwd(), inputPath);
-    const denial = containmentDenial(inputPath, resolvedPath, context.nodeDefinition.nodeId);
+    const resolvedPath = resolve(context.executionRoot, inputPath);
+    const denial = containmentDenial(
+      context.executionRoot,
+      inputPath,
+      resolvedPath,
+      context.nodeDefinition.nodeId,
+    );
     if (denial) return { ok: false, error: denial };
 
     try {

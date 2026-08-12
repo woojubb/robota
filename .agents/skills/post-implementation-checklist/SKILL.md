@@ -18,22 +18,28 @@ skill/rule linked below.
    until the same finding set recurs unchanged — then STOP and escalate to the user ([no-progress escape](../../rules/enforcement-architecture.md), which owns what that means) →
    [spec-code-conformance](../spec-code-conformance/SKILL.md). Do not proceed until SPECs are
    updated and committed.
-2. **Build and test.** `pnpm build` + `pnpm test` for modified packages must pass; check for stale
+2. **Auto-fix before final verification.** Stage only the intended paths, run
+   `pnpm lint:fix:staged`, inspect the automatically restaged result, and make every subsequent
+   verification judge that post-fix tree. Use `pnpm lint:fix` only as an intentional occasional
+   whole-repository sweep; review its complete diff before staging it, then run the same verification
+   sequence. The pre-commit hook repeats the staged command only as a safety net — it is not the first
+   time fixes should appear.
+3. **Build and test.** `pnpm build` + `pnpm test` for modified packages must pass; check for stale
    references (deleted files, renamed types, removed exports). If any part was delegated, the
    delegated "green" must be independently reproduced before it counts →
    [verification.md](../../rules/verification.md) > Delegated Verification Claims (the pipeline for a
    single delegated mechanical change is
    [delegated-refactor-green-gate](../delegated-refactor-green-gate/SKILL.md)).
-3. **README.** Update each modified package's `README.md` to match the SPEC changes (create it for
+4. **README.** Update each modified package's `README.md` to match the SPEC changes (create it for
    new packages).
-4. **Commit + PR.** Commit SPEC + README + code; keep one coherent work-unit in ONE multi-commit PR
+5. **Commit + PR.** Commit SPEC + README + code; keep one coherent work-unit in ONE multi-commit PR
    per the PR Batching policy and ship per [git-branch.md](../../rules/git-branch.md).
-5. **npm publish (if public packages changed)** → [version-management](../version-management/SKILL.md)
+6. **npm publish (if public packages changed)** → [version-management](../version-management/SKILL.md)
    (changesets, prerelease mode, `pnpm publish:beta` only — never `pnpm publish --filter` /
    `npm publish` / `pnpm changeset publish`).
-6. **content/ docs.** Update the affected `content/guide/*.md` for any user-facing behavior change.
+7. **content/ docs.** Update the affected `content/guide/*.md` for any user-facing behavior change.
    `content/v2.0.0/` is frozen — never modify.
-7. **Docs deploy (GATE — 3 and 6 must be complete first).** Verify every modified SPEC has a
+8. **Docs deploy (GATE — 4 and 7 must be complete first).** Verify every modified SPEC has a
    matching README update and every user-facing change a matching `content/guide/*.md` update, then
    `pnpm docs:build`; production deploys from `main` (Cloudflare Pages). `pnpm docs:deploy` is
    manual-upload only, on explicit intent.

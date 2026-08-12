@@ -33,6 +33,7 @@ export async function createWorkspaceRuntime(
 ): Promise<IWorkspaceRuntime> {
   const instantNodes = await loadInstantNodes(cwd, layout);
   const provider = new LocalDagRuntimeProvider({
+    executionRoot: cwd,
     workspace: layout,
     projectDir: cwd,
     ...(instantNodes.length > 0 ? { instantNodes } : {}),

@@ -54,6 +54,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
     const executed = await this.runner.runNode({
       input: input.input,
       context: {
+        executionRoot: input.executionRoot,
         dagId: input.dagId,
         dagRunId: input.dagRunId,
         taskRunId: input.taskRunId,

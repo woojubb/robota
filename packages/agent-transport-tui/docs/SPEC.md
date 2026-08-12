@@ -216,7 +216,12 @@ new error classes.
 ## Test Strategy
 
 Component/flow unit tests (ink-testing-library) under `src/__tests__`; a real-terminal PTY suite
-(`*.ptytest.ts`, `vitest.pty.config.ts`) runs against the built CLI via `pnpm test:pty`.
+(`*.ptytest.ts`, `vitest.pty.config.ts`) runs against the built CLI via `pnpm test:pty`. The IME
+terminal/override capability matrix is exhaustive in the pure unit suite. PTY coverage proves the
+binary boundary with representative supported-default, Terminal.app-default-off,
+Terminal.app-force-on, and supported-force-off cells, both viewport geometries when positioning is
+enabled, plus the dedicated real-tmux suite; it does not repeat every pure capability cell through a
+fresh process.
 
 ## Dependencies
 

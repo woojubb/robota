@@ -10,6 +10,8 @@ import { WorkerLoopService, type IWorkerLoopOptions } from '../services/worker-l
 
 /** Port dependencies required to construct a WorkerLoopService. */
 export interface IWorkerLoopDependencies {
+  /** Trusted canonical absolute directory propagated into every task execution. */
+  executionRoot: string;
   storage: IStoragePort;
   queue: IQueuePort;
   deadLetterQueue?: IQueuePort;
@@ -49,6 +51,7 @@ export function createWorkerLoopService(
     dependencies.lease,
     dependencies.executor,
     dependencies.clock,
+    dependencies.executionRoot,
     resolvedOptions,
     dependencies.runProgressEventReporter,
   );

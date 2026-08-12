@@ -332,7 +332,7 @@ export async function fixCommand(
     const nodeList = buildNodeListContext(manifests);
     const prompt = buildFixPrompt(dag, errors, nodeList);
 
-    const runner = new LocalDagRunner(createCliNodeRegistry());
+    const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
     let llmResult;
     try {
       llmResult = await runner.run(LLM_DAG, { text: prompt });
@@ -441,7 +441,7 @@ export async function fixCommand(
     inputPayload[raw.slice(0, eqIdx)] = raw.slice(eqIdx + 1);
   }
 
-  const runRunner = new LocalDagRunner(createCliNodeRegistry());
+  const runRunner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let runResult;
   try {
     runResult = await runRunner.run(fixedDag, inputPayload);

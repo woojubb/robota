@@ -1,7 +1,8 @@
 ---
 title: 'DAG-001: `running` is a terminal trap — the DAG subsystem has no crash-recovery path at the contract level'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-12
 priority: critical
 urgency: now
 area: packages/dag-core, packages/dag-worker, packages/dag-runtime, packages/dag-adapters-local
@@ -104,6 +105,17 @@ redelivering, because the message is now gone.
 
 **Applies.** A workflow run that never terminates is user-visible on the workflow surface.
 
+- **Durable agent-run scenario:**
+  [`.agents/evals/scenarios/dag-001-crash-recovery-agent-run.md`](../../evals/scenarios/dag-001-crash-recovery-agent-run.md)
+- **Current Done Gate evidence:** the durable scenario was executed by the agent after its corrected
+  Stage 1 PASS. It exited `0` with run `success`, attempts `{ first: 2, second: 1 }`, restored second-node
+  input `{ previous: true }`, and terminal `endedAt: 2026-08-12T13:37:01.596Z`. The exact command,
+  output, run id, cleanup, and exit evidence live in the linked artifact. The dated `/tmp` observation
+  below remains historical context only.
+- **Recovery timing:** the replacement process starts immediately and polls the public run-status
+  surface for up to 60 seconds. The scenario waits for the persisted ownership lease itself to expire;
+  it does not treat the configured 100 ms lease duration as the task-ownership horizon.
+
 - **Prerequisites:** built `robota` CLI with the workflow/DAG surface available, and a workflow
   definition with at least two nodes. A minimal two-node workflow fixture is needed; the workflow
   authoring surface already exists, so the fixture is authored as part of this work.
@@ -129,6 +141,28 @@ redelivering, because the message is now gone.
   task completed at attempt `1` with restored input `{ "previous": true }`. The terminal run record
   has `endedAt: 2026-08-11T16:36:08.280Z`. After recording these values, the evidence root was
   moved to the system trash as the scenario's cleanup step.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** scenario drafted → scenario written
+Scenario `DAG-001 — two-process crash recovery through createDagFramework (agent-run)`: PASS — the linked durable artifact records an `agent-executable` decision, complete repository-root prerequisites, an exact non-interactive Bash command that materializes its two-node fixture, ordered kill/restart steps, explicit exit-code and JSON observables, bounded cleanup, and an `Observed evidence` field reserved for Stage 2.
+Product surface: PASS — the scenario drives the public `createDagFramework` export from two real Node.js processes and observes recovery with `framework.client.getRunStatus(...)`; its observable is runtime workflow behavior rather than an engineering check or repository-text inspection.
+Credentials/external services: PASS — the scenario explicitly states that no live provider credentials or network service is required.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** scenario re-authored → scenario written
+Scenario `DAG-001 — two-process crash recovery through createDagFramework (agent-run)`: PASS — the revised linked artifact retains its `agent-executable` decision, complete prerequisites, exact non-interactive Bash fixture and ordered kill/restart command, explicit exit-code and JSON observables, bounded cleanup, and an `Observed evidence` field that remains `EMPTY` for Stage 2.
+Recovery-timing correction: PASS — the replacement process now starts immediately and polls the public status surface for up to 60 seconds while the persisted ownership lease expires; the scenario no longer assumes that `leaseDurationMs: 100` makes recovery available after 0.3 seconds.
+Product surface: PASS — two real Node.js processes drive the public `createDagFramework` and `framework.client.getRunStatus(...)` surfaces; the observable is terminal workflow recovery, attempt counts, restored edge input, and `endedAt`, not an engineering check.
+Credentials/external services: PASS — the scenario explicitly requires no live provider credentials or network service.
+
+### [DONE-GATE-STAGE-2] — ✅ PASS | 2026-08-12
+
+**Status upgrade:** scenario written → scenario executed
+Scenario `DAG-001 — two-process crash recovery through createDagFramework (agent-run)`: PASS — the agent executed the linked artifact's exact Bash command against the completed implementation after the corrected Stage 1 PASS; it exited `0` and the cleanup trap removed both the materialized script and bounded `/tmp/robota-dag001.AMOCgc` root.
+Observed result: PASS — the first-process marker confirmed the worker was killed after node admission, and the replacement process reported run `dag-001-crash-recovery:run:1786541780529` as `success`, attempts `{ first: 2, second: 1 }`, restored input `{ previous: true }`, and terminal `endedAt: 2026-08-12T13:37:01.596Z`, matching every declared observable and final grep assertion.
+Durable evidence: PASS — the exact command and captured exit/output/cleanup evidence live at `.agents/evals/scenarios/dag-001-crash-recovery-agent-run.md` and are referenced from this scenario section; no engineering verification or capability-absence exception is used as user-execution evidence.
 
 ## Progress
 
@@ -185,7 +219,7 @@ Whole workspace green: build, typecheck, every package's test suite. `spec-publi
 LIST, which the scan cannot read, so every export in it counted as undocumented; converting it to a
 table made the existing documentation visible. Baseline re-frozen in the same change.
 
-### User execution test scenario run complete; durable gate artifact remains
+### Durable user execution test scenario and queue-adapter matrix complete
 
 The recorded two-node scenario now runs through the real framework surface with file-backed state and
 two separate worker processes. Killing the first process mid-node leaves durable `running` state;
@@ -194,9 +228,24 @@ executes the dependent node, and drives the run to `success`. The exact run id, 
 and terminal state are recorded above. The four affected package suites also pass: 474 tests across
 `dag-core`, `dag-worker`, `dag-adapters-local`, and `dag-framework`.
 
-The DONE-GATE guardian accepted the observed runtime behavior but requires the exact Bash recipe and
-a durable in-repository scenario artifact before Stage 1 and Stage 2 can pass. Until that artifact is
-landed and both stages are re-run in order, this task intentionally remains `in-progress`.
+The missing durable proof is now linked above. The recommendation gate first returned `REVISE` because
+the proposed order put scenario execution before Stage 1 and treated the two queue adapters as though
+they had identical redelivery behavior. After revision, the independent reviewer returned
+`REVIEW VERDICT: ENDORSE` on 2026-08-12: keep in-memory redelivery coverage, prove SQLite through its
+idle-sweep path, and run Stage 1 before execution and Stage 2.
+
+The adapter-semantic matrix is now complete. Existing `abandoned-task-recovery.test.ts` covers
+`InMemoryQueuePort` redelivery. New `sqlite-abandoned-task-recovery.test.ts` reopens real
+`SqliteStorageAdapter` and `SqliteQueueAdapter` state, leaves the original message persisted in flight,
+runs `WorkerLoopService` once to sweep a distinct attempt-2 reclaim message, and runs it again to reach
+task and run `success` with restored input. Targeted evidence: `dag-worker` build plus 81 tests PASS;
+`dag-adapters-sqlite` build plus 22 tests PASS.
+
+The first durable-scenario execution correctly failed because the written scenario confused the
+100 ms lock lease with the longer task-ownership horizon. The scenario was re-authored before rerun,
+passed Stage 1 again, and then exited `0` with the exact terminal evidence recorded above. Stage 2 and
+the required `harness:verify-like-ci` subsequently passed; the local CI mirror completed all 11 stages,
+including 3,182 harness tests, full build/typecheck/scans, affected verification, binary E2E, and TUI PTY.
 
 ### Review round — three MUSTs, all measured, all real
 
@@ -368,7 +417,7 @@ left to recover. Only `SqliteStorageAdapter` gets crash-durable recovery. The ga
 this task's own SPEC named "the sqlite/file path" as the sweeper's two target adapters, so the
 documentation promised a guarantee one of them cannot give.
 
-FOUNDATIONAL, so it is filed as [DAG-003](completed/DAG-003-file-storage-persists-only-definitions.md) rather
+FOUNDATIONAL, so it is filed as [DAG-003](DAG-003-file-storage-persists-only-definitions.md) rather
 than patched here, and the overclaim is corrected in three places: the adapter's SPEC row, this
 task's § Crash Recovery (which now names which adapter is actually protected), and the
 `task-run-recovery.ts` comment that had recorded the fact in passing while the change depended on the

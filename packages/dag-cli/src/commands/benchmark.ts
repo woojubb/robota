@@ -704,7 +704,7 @@ export async function benchmarkCommand(
   let cumulativeCostUsd = 0;
 
   const executeRun = async (index: number): Promise<IRunSample> => {
-    const runner = new LocalDagRunner(createCliNodeRegistry());
+    const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
     const startMs = Date.now();
     let result: ILocalRunResult | null = null;
     let ok = false;

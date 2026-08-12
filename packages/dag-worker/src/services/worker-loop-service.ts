@@ -17,6 +17,7 @@ import {
   type TPortPayload,
   type TResult,
 } from '@robota-sdk/dag-core';
+import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
 import { dispatchDownstreamReadyTasks } from './downstream-task-dispatcher.js';
 import { finalizeDagRunIfTerminal } from './dag-run-finalizer.js';
 import { StaleTaskSweepThrottle } from './stale-task-sweep-throttle.js';
@@ -68,15 +69,20 @@ export interface IWorkerLoopResult {
  * @see TaskRunStateMachine for task state transitions
  */
 export class WorkerLoopService {
+  private readonly executionRoot: string;
+
   public constructor(
     private readonly storage: IStoragePort,
     private readonly queue: IQueuePort,
     private readonly lease: ILeasePort,
     private readonly executor: ITaskExecutorPort,
     private readonly clock: IClockPort,
+    executionRoot: string,
     private readonly options: IWorkerLoopOptions,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
-  ) {}
+  ) {
+    this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
+  }
 
   /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
   private sweeper: StaleTaskSweepThrottle | undefined;
@@ -183,6 +189,7 @@ export class WorkerLoopService {
     const allTaskRunsForCost = await this.storage.listTaskRunsByDagRunId(message.dagRunId);
     const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
     return {
+      executionRoot: this.executionRoot,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

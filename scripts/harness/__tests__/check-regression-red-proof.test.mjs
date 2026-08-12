@@ -18,6 +18,8 @@ import {
   classifyVitestOutcome,
   decidePairVerdict,
   defaultReverseApply,
+  filesForDefectFixCommits,
+  hasRuntimeSemanticChange,
   isDefectFixRange,
   isSourceFile,
   isTestFile,
@@ -38,6 +40,30 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
 
 describe('HARNESS-041 file classification', () => {
+  it('distinguishes runtime mutations from comments and TypeScript-only contracts', () => {
+    expect(
+      hasRuntimeSemanticChange(
+        'packages/example/src/contracts.ts',
+        'export interface Input { executionRoot: string; }',
+        'export interface Input {}',
+      ),
+    ).toBe(false);
+    expect(
+      hasRuntimeSemanticChange(
+        'scripts/harness/check.mjs',
+        '// clarified wording\nexport const value = 1;',
+        '// old wording\nexport const value = 1;',
+      ),
+    ).toBe(false);
+    expect(
+      hasRuntimeSemanticChange(
+        'scripts/harness/check.mjs',
+        'export function value() { return 2; }',
+        'export function value() { return 1; }',
+      ),
+    ).toBe(true);
+  });
+
   it('pkgOf extracts the package/app root for src files', () => {
     expect(pkgOf('packages/agent-transport-tui/src/CjkTextInput.tsx')).toBe(
       'packages/agent-transport-tui',
@@ -259,6 +285,45 @@ describe('HARNESS-041 file classification', () => {
 });
 
 describe('HARNESS-041 scoping (C2) + opt-out', () => {
+  it('judges only files owned by defect-fix or floor-adding commits in a mixed range', () => {
+    expect(
+      filesForDefectFixCommits(
+        [
+          {
+            subject: 'feat(dag): propagate trusted execution root',
+            files: ['packages/dag-core/src/interfaces/ports.ts'],
+            addedFiles: [],
+          },
+          {
+            subject: 'fix(framework): require accepted turn identity',
+            files: [
+              'packages/agent-framework/src/interactive/accept.ts',
+              'scripts/harness/reverted-before-head.mjs',
+            ],
+            addedFiles: [],
+          },
+          {
+            subject: 'feat(harness): add a mechanical floor',
+            files: [
+              'scripts/harness/check-new-floor.mjs',
+              'scripts/harness/__tests__/new-floor.test.mjs',
+            ],
+            addedFiles: ['scripts/harness/__tests__/new-floor.test.mjs'],
+          },
+        ],
+        [
+          'packages/agent-framework/src/interactive/accept.ts',
+          'scripts/harness/check-new-floor.mjs',
+          'scripts/harness/__tests__/new-floor.test.mjs',
+        ],
+      ),
+    ).toEqual([
+      'packages/agent-framework/src/interactive/accept.ts',
+      'scripts/harness/check-new-floor.mjs',
+      'scripts/harness/__tests__/new-floor.test.mjs',
+    ]);
+  });
+
   it('a range that ADDS A FLOOR is a defect fix, whatever its subject says', () => {
     // Measured 2026-08-01: five mechanical floors were written in one session and not one of them
     // was judged by this gate, because a floor lands as `feat:` — it adds a capability — while being

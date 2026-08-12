@@ -368,6 +368,8 @@ describe('startStudioServer', () => {
     });
     expect(result.status).toBe(200);
     expect(result.body).toContain('data:');
+    const { LocalDagRunner } = await import('../local-runner/index.js');
+    expect(LocalDagRunner).toHaveBeenLastCalledWith(expect.any(Array), '/fake/cwd');
   });
 
   it('POST /api/run returns error SSE when body is invalid JSON', async () => {

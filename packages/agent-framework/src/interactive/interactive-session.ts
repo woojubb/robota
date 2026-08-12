@@ -1,11 +1,9 @@
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
-import { acceptSubmission } from './interactive-session-accept-submission.js';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
-import { MAX_PENDING_QUEUE_DEPTH } from './interactive-session-pending-queue.js';
 import { runSkillInFork } from './interactive-session-fork.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
@@ -17,6 +15,7 @@ import { initializeInteractiveSessionAsync } from './interactive-session-init.js
 import { persistSession } from './interactive-session-persistence.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
+import { submitNewTurn } from './interactive-session-turn-submission.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -37,7 +36,7 @@ import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
-import type { ITurnOptions } from './interactive-session-execution-controller.js';
+import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
   TInteractiveSessionOptions,
@@ -53,8 +52,6 @@ import type { IBackgroundTaskManager } from '../background-tasks/index.js';
 import type { ICommandHostContext } from '../command-api/index.js';
 import type {
   IAgentJobHostContext,
-  ICommandResult,
-  IRemoteCommandPolicy,
   IUnknownCommandModuleName,
   TAutoCompactThresholdSource,
   TAutoCompactThreshold,
@@ -77,6 +74,7 @@ import type {
   IGoalState,
   ITurnHandle,
   IPlanArtifact,
+  ISubmitOptions,
   ITerminalHandoff,
   TTurnSource,
   TDriverId,
@@ -91,11 +89,7 @@ export interface IInteractiveSessionShutdownOptions {
   message?: string;
 }
 
-/**
- * REMOTE-007 fail-closed backstop (D2): the unconditional last resort for a parked permission/ask
- * whose subscribed surface died WITHOUT unsubscribing (so reconcile-on-detach never fired). Generous —
- * a human deliberating over a prompt never reaches it; it only rescues a truly-stuck await.
- */
+/** REMOTE-007: fail-closed last resort for a parked prompt whose subscribed surface disappeared. */
 const PROMPT_BACKSTOP_MS = 30 * 60 * 1000;
 
 export class InteractiveSession
@@ -248,10 +242,10 @@ export class InteractiveSession
           displayInput,
           qualifiedName,
           invocation,
-          (p, d, r) => this.submit(p, d, r),
+          (entry) => this.resumeQueuedTurn(entry),
         ),
       (execute) =>
-        this.execCtrl.executeForegroundCommand(execute, (p, d, r) => this.submit(p, d, r)),
+        this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
     );
@@ -482,30 +476,40 @@ export class InteractiveSession
     input: string,
     displayInput?: string,
     rawInput?: string,
+    options: ISubmitOptions = {},
+  ): Promise<ITurnHandle> {
+    return this.submitNewTurn(input, displayInput, rawInput, {
+      ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
+    });
+  }
+  private async submitNewTurn(
+    input: string,
+    displayInput?: string,
+    rawInput?: string,
     options: ITurnOptions = {},
   ): Promise<ITurnHandle> {
-    await this.ensureInitialized();
-    if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
-    // REMOTE-014 E5 attribution + RUNTIME-003 identity, resolved together because both are decided
-    // at ACCEPTANCE and both travel on the same options object.
-    const { driverId, turnId, completed, resolvedOptions, queueBehindRunningTurn } =
-      acceptSubmission(options, this.execCtrl);
-    if (this.execCtrl.executing) {
-      const outcome = queueBehindRunningTurn({ input, displayInput, rawInput });
-      if (outcome === 'dropped') {
+    return submitNewTurn(input, displayInput, rawInput, options, {
+      execCtrl: this.execCtrl,
+      ensureInitialized: () => this.ensureInitialized(),
+      executeAcceptedTurn: (entry) => this.executeAcceptedTurn(entry),
+      emitDropped: (driverId, maxDepth) =>
         this.emit(
           'user_message',
           `[remote-control] input from ${driverId} was dropped — the co-drive queue is full ` +
-            `(max ${MAX_PENDING_QUEUE_DEPTH}). Try again after the current work settles.`,
-        );
-      }
-      // The queued path returns on acceptance, as before; the handle is how a caller waits.
-      return { turnId, completed };
-    }
+            `(max ${maxDepth}). Try again after the current work settles.`,
+        ),
+    });
+  }
+  private async resumeQueuedTurn(entry: IQueuedInput): Promise<void> {
+    if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    await this.executeAcceptedTurn(entry);
+  }
+
+  private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
     await this.execCtrl.executePrompt(
-      input,
-      displayInput,
-      rawInput,
+      entry.input,
+      entry.displayInput,
+      entry.rawInput,
       this.agentsFileEntries,
       this.projectNotesFileEntries,
       this.rebuildSystemMessage,
@@ -514,34 +518,30 @@ export class InteractiveSession
         this.projectNotesFileEntries = claude;
         this.histTracker.recordSystemContextFiles([...agents, ...claude]);
       },
-      (p, d, r, o) => this.submit(p, d, r, o),
-      resolvedOptions,
+      (queuedEntry) => this.resumeQueuedTurn(queuedEntry),
+      entry.turnId,
+      entry.options,
     );
-    return { turnId, completed };
   }
 
-  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at emit time for attribution. */
+  // REMOTE-014 E5: active-turn attribution; null when idle.
   getActiveDriverId(): TDriverId | null {
     return this.execCtrl.activeDriverId;
   }
 
-  /** REMOTE-014 E5: number of queued co-drive inputs (0 when idle) — a "N queued" hint for both surfaces. */
+  // REMOTE-014 E5: queued co-drive input count.
   getPendingCount(): number {
     return this.execCtrl.pendingCount();
   }
 
-  /**
-   * FLOW-002: re-enter the agent loop with a non-user turn triggered by a background wake
-   * (a scheduled fire or, later, a monitor match). Coalesces by source task id so repeated
-   * wakes for the same task while one is still in flight collapse to a single turn.
-   */
+  /** FLOW-002: inject a background wake; coalesce repeated in-flight wakes by source task id. */
   requestWakeup(instruction: string, sourceTaskId: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     if (this.execCtrl.wakeTaskIds.has(sourceTaskId)) return false;
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
     // letting it vanish (e.g. a turn error, or the "shutting down" throw when a wake races teardown).
-    void this.submit(instruction, undefined, undefined, {
+    void this.submitNewTurn(instruction, undefined, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
     }).catch((error) =>

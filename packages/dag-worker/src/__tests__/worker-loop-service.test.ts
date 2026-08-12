@@ -79,7 +79,7 @@ describe('WorkerLoopService', () => {
     clock: ManualClockPort,
     retryEnabled = false,
   ): WorkerLoopService {
-    return new WorkerLoopService(storage, queue, lease, executor, clock, {
+    return new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-1',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,
@@ -102,10 +102,11 @@ describe('WorkerLoopService', () => {
     await storage.createTaskRun(taskRun);
     await queue.enqueue(message);
 
-    const executor = new ScriptedTaskExecutorPort(async () => ({
-      ok: true,
-      output: { done: true },
-    }));
+    let observedExecutionRoot: string | undefined;
+    const executor = new ScriptedTaskExecutorPort(async (input) => {
+      observedExecutionRoot = input.executionRoot;
+      return { ok: true, output: { done: true } };
+    });
 
     const service = createService(executor, storage, queue, lease, clock);
     const result = await service.processOnce();
@@ -120,6 +121,7 @@ describe('WorkerLoopService', () => {
     expect(updated?.status).toBe('success');
     const run = await storage.getDagRun(dagRun.dagRunId);
     expect(run?.status).toBe('success');
+    expect(observedExecutionRoot).toBe(process.cwd());
 
     const next = await queue.dequeue('worker-2', 1_000);
     expect(next).toBeUndefined();
@@ -142,7 +144,7 @@ describe('WorkerLoopService', () => {
       output: { done: true },
     }));
 
-    const service = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const service = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-1',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,
@@ -310,7 +312,7 @@ describe('WorkerLoopService', () => {
       },
     }));
 
-    const service = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const service = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-1',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,
@@ -361,7 +363,7 @@ describe('WorkerLoopService', () => {
       output: { done: true },
     }));
 
-    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-2',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,
@@ -414,7 +416,7 @@ describe('WorkerLoopService', () => {
       },
     }));
 
-    const service = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const service = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-1',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,
@@ -585,7 +587,7 @@ describe('WorkerLoopService', () => {
       output: { done: true },
     }));
 
-    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-2',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,

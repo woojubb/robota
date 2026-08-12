@@ -92,7 +92,7 @@ describe('createWorkerLoopService', () => {
     }));
 
     const service = createWorkerLoopService(
-      { storage, queue, lease, executor, clock },
+      { executionRoot: process.cwd(), storage, queue, lease, executor, clock },
       {
         workerId: 'worker-1',
         leaseDurationMs: 30_000,
@@ -115,4 +115,35 @@ describe('createWorkerLoopService', () => {
     const retriedMessage = await queue.dequeue('worker-2', 1_000);
     expect(retriedMessage).toBeUndefined();
   });
+
+  it.each([undefined, '', '.', '/definitely/missing/robota-execution-root'])(
+    'rejects an invalid execution root before polling the queue: %s',
+    (executionRoot) => {
+      const storage = new InMemoryStoragePort();
+      const queue = new InMemoryQueuePort();
+      const lease = new InMemoryLeasePort();
+      const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+      const executor = new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} }));
+
+      expect(() =>
+        createWorkerLoopService(
+          {
+            executionRoot: executionRoot as string,
+            storage,
+            queue,
+            lease,
+            executor,
+            clock,
+          },
+          {
+            workerId: 'worker-1',
+            leaseDurationMs: 30_000,
+            visibilityTimeoutMs: 30_000,
+            maxAttempts: 3,
+            defaultTimeoutMs: 50,
+          },
+        ),
+      ).toThrow();
+    },
+  );
 });

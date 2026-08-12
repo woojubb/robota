@@ -14,7 +14,7 @@
 ## Architecture Overview
 
 - `FileReadNodeDefinition` — node that accepts an optional `path` input port and produces `text`, `path`, and `sizeBytes` output ports.
-- Path resolution: input port value overrides the static `config.path`; `resolve(cwd, path)` is applied.
+- Path resolution: input port value overrides the static `config.path`; it is resolved against the required trusted `context.executionRoot` and its canonical path must remain inside that root.
 - Encoding: `utf8` (default) or `base64`, controlled by `config.encoding`.
 - File system errors (`ENOENT`, `EACCES`) are converted to structured `TResult` failures — no unhandled exceptions.
 - Zero cost estimate (`estimatedCredits: 0`).
@@ -34,4 +34,4 @@
 
 - Config `path`: static file path (overridable at runtime via the `path` input port).
 - Config `encoding`: `'utf8'` | `'base64'`.
-- Error codes: `DAG_VALIDATION_FILE_READ_PATH_REQUIRED`, `DAG_TASK_EXECUTION_FILE_READ_FAILED`.
+- Error codes: `DAG_VALIDATION_FILE_READ_PATH_REQUIRED`, `DAG_VALIDATION_FILE_READ_PATH_OUTSIDE_ROOT`, `DAG_TASK_EXECUTION_FILE_READ_FAILED`.

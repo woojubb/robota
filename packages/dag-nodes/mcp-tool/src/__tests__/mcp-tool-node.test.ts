@@ -5,6 +5,7 @@ import { McpToolNodeDefinition, McpToolNodeConfigSchema } from '../index.js';
 function makeContext(config: Record<string, unknown>): INodeExecutionContext {
   const node = new McpToolNodeDefinition();
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

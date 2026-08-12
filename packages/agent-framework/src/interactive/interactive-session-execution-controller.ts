@@ -30,7 +30,7 @@ import type {
   IExecutionControllerCallbacks,
   ITurnOptions,
   IQueuedInput,
-  TSubmitFn,
+  TResumeQueuedTurnFn,
 } from './interactive-session-execution-contracts.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
@@ -41,12 +41,9 @@ import type { TExecutionWorkspaceUpdateCause } from '../background-tasks/index.j
 import type { ICommand, ICommandResult, ISkillExecutionResult } from '../commands/index.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import type { IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { ITurnHandle } from '@robota-sdk/agent-interface-transport';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-transport';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-transport';
-import type { Session } from '@robota-sdk/agent-session';
 
 export type { TTurnSource };
 
@@ -56,6 +53,7 @@ export type {
   IExecutionControllerCallbacks,
   ITurnOptions,
   IQueuedInput,
+  TResumeQueuedTurnFn,
   TSubmitFn,
 } from './interactive-session-execution-contracts.js';
 
@@ -182,37 +180,27 @@ export class SessionExecutionController {
   // handle, and a case that drives it directly is the only way to reach the throw-on-resubmit
   // outcome without standing up a whole session and a real shutdown race. A subclass is what the
   // modifier permits — the same reasoning the settles suite already applies to `enqueuePending`.
-  protected drainPendingQueue(submit: TSubmitFn): void {
+  protected drainPendingQueue(resumeQueuedTurn: TResumeQueuedTurnFn): void {
     if (!this.shuttingDown && this.pending.size > 0) {
       // Dequeue the HEAD (submission order); resubmit it. Its wakeTaskId is NOT released here — the turn it
       // starts will release it on completion (or `clearPendingQueue` if aborted).
       const head = this.pending.shift() as IQueuedInput;
-      // RUNTIME-003: the queued submission keeps its id, so its caller's handle settles for it.
-      //
-      // ONE source: the entry's own id, which is what every settle point uses (review).
-      //
-      // The resubmission is GUARDED, and review found why it has to be. `shift()` removes the entry
-      // from `pending` before this timer fires, so nothing else can settle it — and `submit` throws
-      // SYNCHRONOUSLY at the top of `interactive-session.ts` when `shuttingDown` was set in the
-      // meantime. The caller's `completed` would then never settle at all, which is the one promise
-      // `ITurnHandle` makes. `await`ed rejections are covered by the same catch.
-      setTimeout(() => {
-        void (async () => {
-          try {
-            await submit(head.input, head.displayInput, head.rawInput, {
-              ...head.options,
-              ...(head.turnId !== undefined ? { resumeTurnId: head.turnId } : {}),
-            });
-          } catch (error) {
-            if (head.turnId !== undefined) {
-              this.turns.fail(
-                head.turnId,
-                error instanceof Error ? error : new Error(String(error)),
-              );
-            }
-          }
-        })();
-      }, 0);
+      // RUNTIME-006: resume the complete accepted entry through the private execution path. The
+      // entry's own required id is what every settle point uses; public submit is never re-entered.
+      // Start in this tick: deferring leaves `executing === false`, letting a public submission
+      // start before the queued turn claims continuous execution ownership.
+      let resumed: Promise<void>;
+      try {
+        resumed = resumeQueuedTurn(head);
+      } catch (error) {
+        this.executing = false;
+        this.turns.fail(head.turnId, error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
+      void resumed.catch((error: unknown) => {
+        this.executing = false;
+        this.turns.fail(head.turnId, error instanceof Error ? error : new Error(String(error)));
+      });
     }
   }
 
@@ -224,7 +212,8 @@ export class SessionExecutionController {
     projectNotesFileEntries: IContextFileEntry[],
     rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null,
     setEntries: (agents: IContextFileEntry[], claude: IContextFileEntry[]) => void,
-    submit: TSubmitFn,
+    resumeQueuedTurn: TResumeQueuedTurnFn,
+    turnId: string,
     turnOptions: ITurnOptions = {},
   ): Promise<void> {
     // RUNTIME-12: claim the turn SYNCHRONOUSLY at entry. The caller's `if (execCtrl.executing)` gate
@@ -235,7 +224,6 @@ export class SessionExecutionController {
     // checkAndRefreshContextIfStale now runs INSIDE the try.
     this.executing = true;
     // RUNTIME-003: which submission this turn belongs to; the handle minted then settles here.
-    const activeTurnId = turnOptions.resumeTurnId;
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
@@ -326,12 +314,6 @@ export class SessionExecutionController {
       } catch (error) {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
-      this.executing = false;
-      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
-      this.callbacks.emit('thinking', false);
-      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
-      if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
-      this.emitExecutionWorkspaceUpdated('main_thread');
       // SELFHOST-008 P2: post-turn auto-capture, awaited here so its events land in THIS turn's record.
       await capturePostTurnMemory({
         capture: this.callbacks.captureMemory,
@@ -344,9 +326,15 @@ export class SessionExecutionController {
       this.callbacks.persistSession();
       // RUNTIME-003: settled BEFORE draining, in the `finally` that always runs — so a caller is
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
-      if (terminalResult !== undefined) this.turns.settle(activeTurnId, terminalResult);
-      else this.turns.fail(activeTurnId, turnError ?? new Error('the turn ended without a result'));
-      this.drainPendingQueue(submit);
+      if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
+      else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
+      this.executing = false;
+      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
+      this.callbacks.emit('thinking', false);
+      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
+      if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
+      this.emitExecutionWorkspaceUpdated('main_thread');
+      this.drainPendingQueue(resumeQueuedTurn);
     }
   }
 
@@ -356,7 +344,7 @@ export class SessionExecutionController {
     displayInput: string | undefined,
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
-    submit: TSubmitFn,
+    resumeQueuedTurn: TResumeQueuedTurnFn,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
@@ -391,13 +379,13 @@ export class SessionExecutionController {
       this.callbacks.emit('thinking', false);
       this.emitExecutionWorkspaceUpdated('main_thread');
       this.callbacks.persistSession();
-      this.drainPendingQueue(submit);
+      this.drainPendingQueue(resumeQueuedTurn);
     }
   }
 
   async executeForegroundCommand(
     execute: () => Promise<ICommandResult>,
-    submit: TSubmitFn,
+    resumeQueuedTurn: TResumeQueuedTurnFn,
   ): Promise<ICommandResult> {
     this.executing = true;
     this.clearStreaming();
@@ -415,7 +403,7 @@ export class SessionExecutionController {
       this.callbacks.emit('thinking', false);
       this.emitExecutionWorkspaceUpdated('main_thread');
       this.callbacks.persistSession();
-      this.drainPendingQueue(submit);
+      this.drainPendingQueue(resumeQueuedTurn);
     }
   }
 

@@ -312,7 +312,7 @@ export async function fromMermaidCommand(
     inputPayload[raw.slice(0, eqIdx)] = raw.slice(eqIdx + 1);
   }
 
-  const runner = new LocalDagRunner(createCliNodeRegistry());
+  const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let runResult;
   try {
     runResult = await runner.run(dagDefinition, inputPayload); // allow-fallback: run error reported as structured output and non-zero exit

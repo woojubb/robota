@@ -61,6 +61,8 @@ export interface IDagFrameworkLogger {
 }
 
 export interface IDagFrameworkOptions {
+  /** Trusted absolute filesystem root. Defaults only at this product boundary to process.cwd(). */
+  readonly executionRoot?: string;
   /** Node definitions to register. Defaults to the lazily-loaded catalog from `@robota-sdk/dag-nodes-default`. */
   readonly nodes?: readonly IDagNodeDefinition[];
   /**

@@ -19,15 +19,39 @@ import {
 // one as a GATE — `verify-like-ci.mjs` and `pre-push.mjs` — which own a real repository root.
 import { resolveScenarioVerification } from './scenario-owner-map.mjs';
 import {
+  createWorkspaceCheckBatches,
+  executeWorkspaceCheckBatches,
+} from './workspace-check-batches.mjs';
+import {
   WORKSPACE_ROOT,
   appendJobSummary,
   classifyScopeChanges,
   collectPackageManifestChanges,
+  collectRootManifestChange,
   detectChangedFiles,
   listWorkspaceScopes,
   parseScopeArgs,
   runCommand,
 } from './shared.mjs';
+
+const REPOSITORY_CHECK_NAMES = new Set([
+  'task-plan-scan',
+  'harness-consistency',
+  'publish-safety',
+  'harness-tests',
+  'repository-review',
+]);
+
+export function selectRepositoryChecks(repositoryChecks, omittedNames) {
+  for (const name of omittedNames) {
+    if (!REPOSITORY_CHECK_NAMES.has(name)) {
+      throw new Error(`Unknown repository check omission: ${name}`);
+    }
+  }
+
+  const omitted = new Set(omittedNames);
+  return repositoryChecks.filter((check) => !omitted.has(check));
+}
 
 function inferReportFormat(reportFile, explicitFormat) {
   if (explicitFormat) {
@@ -100,11 +124,16 @@ async function main() {
     changedFiles,
     baseRef: options.baseRef,
   });
+  const rootManifestChange = await collectRootManifestChange({
+    changedFiles,
+    baseRef: options.baseRef,
+  });
   const plan = createVerificationPlan({
     scopes,
     changedFiles,
     scopeTokens: options.scopeTokens,
     manifestChangesByScope,
+    rootManifestChange,
     includeDependentScopes: !options.skipDependentScopes,
   });
 
@@ -114,13 +143,21 @@ async function main() {
   process.stdout.write(`${coverageLine}\n`);
   appendJobSummary(`### Affected-scope verification\n\n${coverageLine}\n`);
 
-  if (plan.repositoryChecks.length > 0 && !options.skipRepositoryChecks) {
-    process.stdout.write(`Repository checks: ${plan.repositoryChecks.join(', ')}\n`);
-    for (const check of plan.repositoryChecks) {
+  const selectedRepositoryChecks = options.skipRepositoryChecks
+    ? []
+    : selectRepositoryChecks(plan.repositoryChecks, options.skipRepositoryCheckNames);
+  const omittedRepositoryChecks = plan.repositoryChecks.filter(
+    (check) => !selectedRepositoryChecks.includes(check),
+  );
+
+  if (selectedRepositoryChecks.length > 0) {
+    process.stdout.write(`Repository checks: ${selectedRepositoryChecks.join(', ')}\n`);
+    for (const check of selectedRepositoryChecks) {
       runRepositoryCheck(check, options.dryRun);
     }
-  } else if (plan.repositoryChecks.length > 0) {
-    process.stdout.write(`Repository checks skipped: ${plan.repositoryChecks.join(', ')}\n`);
+  }
+  if (omittedRepositoryChecks.length > 0) {
+    process.stdout.write(`Repository checks skipped: ${omittedRepositoryChecks.join(', ')}\n`);
   }
 
   if (plan.scopes.length === 0) {
@@ -135,6 +172,37 @@ async function main() {
     process.stdout.write('\n[verify] monorepo build\n');
     runCommand('pnpm', ['build'], WORKSPACE_ROOT, options.dryRun);
   }
+
+  const fullWorkspacePlan =
+    options.scopeTokens.length === 0 &&
+    plan.workspaceScopeCount > 1 &&
+    plan.scopes.length === plan.workspaceScopeCount;
+  const enabledBatchChecks = new Set([
+    ...(!options.skipTests ? ['test'] : []),
+    ...(!options.skipLint ? ['lint'] : []),
+    ...(!options.skipTypecheck ? ['typecheck'] : []),
+  ]);
+  const batches = fullWorkspacePlan
+    ? createWorkspaceCheckBatches({
+        planScopes: plan.scopes.map((planScope) => ({
+          ...planScope,
+          checks: planScope.checks.filter((check) => enabledBatchChecks.has(check)),
+        })),
+        scopes,
+      })
+    : [];
+  const batchResult = executeWorkspaceCheckBatches(batches, (batch) => {
+    process.stdout.write(`\n[verify batch] ${batch.check}: ${batch.scopeNames.length} scope(s)\n`);
+    try {
+      runCommand('pnpm', batch.args, WORKSPACE_ROOT, options.dryRun);
+      return { status: 0 };
+    } catch {
+      return { status: 1 };
+    }
+  });
+  const batchEvidence = new Map(
+    batchResult.evidence.map((entry) => [`${entry.scope}:${entry.check}`, entry.status]),
+  );
 
   const summary = [];
 
@@ -176,41 +244,56 @@ async function main() {
     }
 
     if (!options.skipTests && plannedChecks.has('test')) {
-      try {
-        runCommand('pnpm', ['test'], workdir, options.dryRun);
-        stepResults.test = 'pass';
-      } catch (error) {
-        stepResults.test = 'fail';
-        throw error;
+      const batched = batchEvidence.get(`${scope.relativeDir}:test`);
+      if (batched) {
+        stepResults.test = batched;
+      } else {
+        try {
+          runCommand('pnpm', ['test'], workdir, options.dryRun);
+          stepResults.test = 'pass';
+        } catch (error) {
+          stepResults.test = 'fail';
+          throw error;
+        }
       }
     }
 
     if (!options.skipLint && plannedChecks.has('lint')) {
-      try {
-        runCommand('pnpm', ['lint'], workdir, options.dryRun);
-        stepResults.lint = 'pass';
-      } catch (error) {
-        stepResults.lint = 'fail';
-        throw error;
+      const batched = batchEvidence.get(`${scope.relativeDir}:lint`);
+      if (batched) {
+        stepResults.lint = batched;
+      } else {
+        try {
+          runCommand('pnpm', ['lint'], workdir, options.dryRun);
+          stepResults.lint = 'pass';
+        } catch (error) {
+          stepResults.lint = 'fail';
+          throw error;
+        }
       }
     }
 
     if (!options.skipTypecheck && plannedChecks.has('typecheck')) {
-      try {
-        if (await hasPackageScript(workdir, 'typecheck')) {
-          runCommand('pnpm', ['typecheck'], workdir, options.dryRun);
-        } else {
-          runCommand(
-            'pnpm',
-            ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
-            workdir,
-            options.dryRun,
-          );
+      const batched = batchEvidence.get(`${scope.relativeDir}:typecheck`);
+      if (batched) {
+        stepResults.typecheck = batched;
+      } else {
+        try {
+          if (await hasPackageScript(workdir, 'typecheck')) {
+            runCommand('pnpm', ['typecheck'], workdir, options.dryRun);
+          } else {
+            runCommand(
+              'pnpm',
+              ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
+              workdir,
+              options.dryRun,
+            );
+          }
+          stepResults.typecheck = 'pass';
+        } catch (error) {
+          stepResults.typecheck = 'fail';
+          throw error;
         }
-        stepResults.typecheck = 'pass';
-      } catch (error) {
-        stepResults.typecheck = 'fail';
-        throw error;
       }
     }
 
@@ -357,6 +440,14 @@ async function main() {
     for (const note of item.notes) {
       process.stdout.write(`  note: ${note}\n`);
     }
+  }
+
+  if (batchResult.failures.length > 0) {
+    throw new Error(
+      `Full-workspace batch failures: ${batchResult.failures
+        .map((failure) => `${failure.check} (${failure.scopes.length} scope(s))`)
+        .join(', ')}`,
+    );
   }
 
   if (options.reportFile) {

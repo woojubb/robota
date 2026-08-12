@@ -31,6 +31,7 @@ let originalCwd: string;
 
 function makeContext(config: Record<string, unknown> = {}): INodeExecutionContext {
   return {
+    executionRoot: workdir,
     nodeDefinition: { nodeId: 'n1', nodeType: 'file-write', config, inputs: [], outputs: [] },
     dagRunId: 'run-1',
     dagId: 'dag-1',
@@ -61,6 +62,13 @@ afterEach(() => {
 });
 
 describe('file-write — confined to the invocation directory (SEC-007)', () => {
+  it('uses context.executionRoot rather than the ambient process cwd', async () => {
+    process.chdir(outside);
+    const target = join(workdir, 'ambient-independent.txt');
+    expect(await write(target, 'inside-root')).toBe(true);
+    expect(readFileSync(target, 'utf8')).toBe('inside-root');
+  });
+
   const node = new FileWriteNodeDefinition();
 
   async function write(path: string, text: string, append = false): Promise<boolean> {

@@ -19,16 +19,17 @@ const FileReadConfigSchema = z.object({
   encoding: z.enum(['utf8', 'base64']).default('utf8'),
 });
 
-/** Refuse a path that escapes the invocation directory. See {@link FileReadNodeDefinition} for why. */
+/** Refuse a path that escapes the trusted execution root. See {@link FileReadNodeDefinition}. */
 function containmentDenial(
+  executionRoot: string,
   inputPath: string,
   resolvedPath: string,
   nodeId: string,
 ): IDagError | undefined {
-  if (isPathInside(process.cwd(), resolvedPath)) return undefined;
+  if (isPathInside(executionRoot, resolvedPath)) return undefined;
   return buildValidationError(
     'DAG_VALIDATION_FILE_READ_PATH_OUTSIDE_ROOT',
-    `path "${inputPath}" resolves outside the working directory`,
+    `path "${inputPath}" resolves outside the execution root`,
     { nodeId },
   );
 }
@@ -40,9 +41,8 @@ function containmentDenial(
  * with NO containment check whatsoever: an absolute path was honoured outright, so a downloaded or
  * agent-authored workflow could read `~/.ssh/id_rsa` on the machine that ran it.
  *
- * The boundary is the directory the run was invoked from — the anchor this node already used for
- * relative paths. `INodeExecutionContext` carries no workspace root to use instead, so this makes
- * explicit the boundary the node was already implicitly claiming rather than inventing a new concept.
+ * The boundary is the trusted canonical absolute `INodeExecutionContext.executionRoot`; relative
+ * paths resolve from it and node-authored paths cannot replace it.
  *
  * Decided on the CANONICAL path through agent-core's shared `isPathInside` SSOT, so a symlink inside
  * the root pointing out of it is refused too. A lexical check would pass it and `readFile` would
@@ -91,8 +91,13 @@ export class FileReadNodeDefinition extends AbstractNodeDefinition<typeof FileRe
       };
     }
 
-    const resolvedPath = resolve(process.cwd(), inputPath);
-    const denial = containmentDenial(inputPath, resolvedPath, context.nodeDefinition.nodeId);
+    const resolvedPath = resolve(context.executionRoot, inputPath);
+    const denial = containmentDenial(
+      context.executionRoot,
+      inputPath,
+      resolvedPath,
+      context.nodeDefinition.nodeId,
+    );
     if (denial) return { ok: false, error: denial };
 
     try {

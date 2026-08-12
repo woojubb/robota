@@ -21,6 +21,7 @@ export async function executeDefinition(
   inputs: Record<string, unknown>,
 ): Promise<IWorkflowRunOutcome> {
   const provider = new LocalDagRuntimeProvider({
+    executionRoot: cwd,
     workspace: layout,
     projectDir: cwd,
     ...(instantNodes.length > 0 ? { instantNodes } : {}),

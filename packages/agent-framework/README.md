@@ -177,8 +177,11 @@ session.on('interrupted', (result) => {
   // abort completed
 });
 
-// Submit a prompt (queues if already executing, max 1 queued)
-await session.submit('Explain this code');
+// Submit a prompt. The handle identifies this accepted turn even if it waits in the queue.
+const handle = await session.submit('Explain this code', undefined, undefined, {
+  driverId: 'owner',
+});
+await handle.completed;
 
 // Path-like @file references are expanded into model-only prompt context by the SDK.
 // The user-visible history keeps the original prompt plus a structured file-reference event.

@@ -71,6 +71,36 @@ These are engineering targets, not correctness exceptions:
 
 If a future implementation cannot meet these targets for a common change class, the check plan must show which retained check is responsible so the team can decide whether to optimize, cache, parallelize, or reclassify it.
 
+## Verification Evidence Reuse and Single Ownership (INFRA-091)
+
+Routine verification has one substantive owner per check. The required `scans` job owns the complete
+harness test suite; `quality` owns affected package checks and must not rediscover that suite as a
+repository check. The local CI-equivalent command follows the same graph: its harness-self-test stage
+owns the suite, and its affected stage reuses that result. Standalone `harness:verify` retains every
+repository check unless its caller names an already-covered check explicitly; unknown omissions fail.
+
+A completed CI-equivalent local gate may satisfy the weaker pre-push gate only through an exact
+verification receipt. A receipt is created only for a full successful stage set on a clean tracked
+tree and binds the pushed commit/tree, resolved base commit, verification profile, Node/pnpm versions,
+lockfile, and verification-owner fingerprint. It lives under Git's common directory and is written
+atomically. Partial runs and approximate matches never certify a full gate. Missing, malformed, dirty,
+stale-base, stale-tool, different-object, or weaker-profile evidence is a cache miss and runs the normal
+fail-closed verification path.
+
+Root manifest planning is semantic. Changes confined to the explicitly allowlisted developer-only
+`lint:fix` and `lint:fix:staged` scripts are repository-quality changes, not workspace-wide product
+changes. Dependency/override/engine/workspace, lifecycle, build/test/typecheck/lint/verification,
+mixed, parse-error, and unknown deltas remain workspace-wide.
+
+CI applicability is capability-based rather than a single `code` bit. Harness/governance code remains
+code for CodeQL and harness gates but is not automatically product, TUI, examples, or Windows-runtime
+work. Classifier failures enable every safety-relevant capability. Stable required jobs remain present
+and report explicit non-applicability instead of disappearing.
+
+When the plan genuinely selects the full workspace, package-owned commands run through a bounded pnpm
+recursive/filter scheduler with complete per-scope result accounting; no global worker ceiling is
+raised. Every CI-equivalent stage and the total command report measured elapsed time.
+
 ## Prior Art Findings
 
 - GitHub Actions supports branch and path filters, but skipped required workflows can remain pending; GitHub also limits path-filter diff evaluation, so path filters should not be the only correctness boundary.

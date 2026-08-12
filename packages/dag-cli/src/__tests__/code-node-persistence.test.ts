@@ -30,6 +30,7 @@ function collectingIo(): { io: Parameters<typeof runCommand>[1]['io']; written: 
 
 function makeExecContext(nodeType: string): INodeExecutionContext {
   return {
+    executionRoot: process.cwd(),
     dagId: 'd',
     dagRunId: 'r',
     taskRunId: 't',
@@ -132,7 +133,7 @@ describe('DATA-002 P2 — code node persistence', () => {
       edges: [{ from: 'in', to: 'shout', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
     } as unknown as IDagDefinition;
 
-    const runner = new LocalDagRunner([...createCliNodeRegistry(), ...loaded]);
+    const runner = new LocalDagRunner([...createCliNodeRegistry(), ...loaded], process.cwd());
     const result = await runner.run(dag, {});
     expect(result.dagRun.status).toBe('success');
     const shout = result.taskRuns.find((t) => t.nodeId === 'shout');

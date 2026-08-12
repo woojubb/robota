@@ -164,7 +164,7 @@ export async function handleDagInstantNodeCreateComposite(
     );
   }
 
-  const runner = buildCompositeRunner(ctx.instantNodeDefinitions);
+  const runner = buildCompositeRunner(ctx.instantNodeDefinitions, projectDirOf(ctx));
 
   const spec: ICreateCompositeNodeInput = {
     nodeType: nodeType.trim(),
