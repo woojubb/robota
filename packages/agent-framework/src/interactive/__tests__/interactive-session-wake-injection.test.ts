@@ -6,7 +6,7 @@
  */
 
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
@@ -20,10 +20,7 @@ import type { SessionExecutionController } from '../interactive-session-executio
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
 import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-transport';
-import {
-  EMPTY_TURN_RESULT,
-  createSessionStub as createSharedSessionStub,
-} from './helpers/session-stub.js';
+import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 
 function createSessionStub(): Session {
   // Through the shared helper, with the two members this file's cases actually need: a session id
@@ -103,35 +100,41 @@ async function setupSession(): Promise<{
 describe('FLOW-002 session wake injection', () => {
   it('TC-01/TC-04: a wake injects one agent-wakeup turn carrying the instruction', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi
-      .spyOn(session, 'submit')
-      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
+    const execCtrl = getExecCtrl(session);
+    execCtrl.executing = true;
 
     const created = await manager.spawn(scheduledWakeRequest('check the build'));
     await Promise.resolve();
     fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'check the build' });
+    await Promise.resolve();
 
-    expect(submitSpy).toHaveBeenCalledTimes(1);
-    expect(submitSpy).toHaveBeenCalledWith('check the build', undefined, undefined, {
-      turnSource: 'agent-wakeup',
-      wakeTaskId: created.id,
+    expect(execCtrl.pending.contents).toHaveLength(1);
+    expect(execCtrl.pending.contents[0]).toMatchObject({
+      input: 'check the build',
+      turnId: expect.any(String),
+      options: {
+        turnSource: 'agent-wakeup',
+        wakeTaskId: created.id,
+      },
     });
   });
 
   it('TC-03: duplicate wakes for the same task id coalesce to a single turn', async () => {
     const { session, manager, started } = await setupSession();
-    const submitSpy = vi
-      .spyOn(session, 'submit')
-      .mockResolvedValue({ turnId: 'stub-turn', completed: Promise.resolve(EMPTY_TURN_RESULT) });
+    const execCtrl = getExecCtrl(session);
+    execCtrl.executing = true;
 
     await manager.spawn(scheduledWakeRequest('do X'));
     await Promise.resolve();
     // Two real fire cycles (sleeping → waking) for the same task while the first wake is
-    // still in flight (submit is mocked, so the turn never completes to clear the wake id).
+    // still in flight (the first wake is queued, so its task id remains claimed).
     fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'do X' });
+    await Promise.resolve();
     fire(started[0]?.emit, { type: 'background_task_waking', instruction: 'do X' });
+    await Promise.resolve();
 
-    expect(submitSpy).toHaveBeenCalledTimes(1);
+    expect(execCtrl.pending.contents).toHaveLength(1);
+    expect(execCtrl.pendingPrompt).toBe('do X');
   });
 
   it('TC-02: while a turn is executing, the wake queues (not interleaved)', async () => {

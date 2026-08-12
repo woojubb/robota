@@ -15,8 +15,8 @@ import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IContextWindowState } from '@robota-sdk/agent-core';
 import type {
   IExecutionWorkspaceSnapshot,
+  ISubmitOptions,
   ITurnHandle,
-  TDriverId,
   TTurnSource,
 } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -50,14 +50,10 @@ export interface IExecutionControllerCallbacks {
 }
 
 /** Options threaded through submit/executePrompt for non-user turns (FLOW-002). */
-export interface ITurnOptions {
+export interface ITurnOptions extends ISubmitOptions {
   turnSource?: TTurnSource;
   /** When set, the in-flight wake for this background task id is cleared on turn completion. */
   wakeTaskId?: string;
-  /** REMOTE-014 E5: the SERVER-ASSIGNED driver id for this turn (co-drive attribution; display-only). */
-  driverId?: TDriverId;
-  /** RUNTIME-003: the id this submission already has, set ONLY by the queue drain — never by a caller. */
-  resumeTurnId?: string;
 }
 
 /** REMOTE-014 E5: one queued input awaiting its turn (attributed). */
@@ -66,16 +62,8 @@ export interface IQueuedInput {
   readonly displayInput?: string;
   readonly rawInput?: string;
   readonly options: ITurnOptions;
-  /**
-   * RUNTIME-003: this submission's id. EVERY refusal path settles by it.
-   *
-   * Optional on the TYPE and required in fact: `PendingInputQueue.enqueue` throws on an entry
-   * without one, because a queued submission nothing can settle leaves its caller waiting forever —
-   * which is how the queued half of this feature once shipped inert, with nothing failing.
-   *
-   * The optionality itself is RUNTIME-006. Until that lands, the throw is what holds the invariant.
-   */
-  readonly turnId?: string;
+  /** RUNTIME-006: this already-accepted submission's identity. Every terminal path settles by it. */
+  readonly turnId: string;
 }
 
 /**
@@ -92,5 +80,8 @@ export type TSubmitFn = (
   prompt: string,
   displayInput?: string,
   rawInput?: string,
-  options?: ITurnOptions,
+  options?: ISubmitOptions,
 ) => Promise<ITurnHandle>;
+
+/** RUNTIME-006: resume one complete already-accepted queue entry without re-entering public submit. */
+export type TResumeQueuedTurnFn = (entry: IQueuedInput) => Promise<void>;

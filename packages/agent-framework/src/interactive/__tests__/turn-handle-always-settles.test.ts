@@ -115,23 +115,12 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
 
     expect(await reasonOf(waiting.completed)).toBe('cancelled');
   });
-
-  it('hands the queued submission back the SAME promise when its turn finally starts', () => {
-    // The drain re-enters `submit` for an input accepted earlier, and its caller is holding the
-    // promise from that acceptance. Minting a second one there would settle something nobody is
-    // waiting on — the hang this whole type exists to prevent, reintroduced at the last step.
-    const controller = createController();
-    const accepted = controller.turns.begin();
-
-    expect(controller.turns.completionOf(accepted.turnId)).toBe(accepted.completed);
-  });
 });
 
 describe('RUNTIME-003: the identity survives the whole queued path', () => {
-  // Review found the gap that made the queued half of this feature inert: the entry `submit()` builds
-  // never set its top-level `turnId`, so every settle point in the queue was called with `undefined`
-  // and settled nothing. The cases above passed because they build entries BY HAND — they prove the
-  // queue's behaviour and not the wiring that reaches it.
+  // Review found the gap that once made the queued half inert: the entry `submit()` built had no
+  // top-level identity. The cases above build entries directly, so this group also proves the real
+  // public acceptance wiring carries its required id and rejects forged resume authority.
   //
   // `execCtrl` is protected, and a case that cast that away would be breaking encapsulation to look
   // at something. A subclass is what the modifier permits, so the observation costs nothing the
@@ -177,6 +166,41 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
     expect(outcome).toMatch(/shutting down/);
   });
 
+  it('hands queue ownership to the next turn before a new public submission can enter', async () => {
+    const controller = createController();
+    const first = controller.turns.begin();
+    const second = controller.turns.begin();
+    controller.enqueuePending({ input: 'B', options: { driverId: 'B' }, turnId: first.turnId });
+    controller.enqueuePending({ input: 'C', options: { driverId: 'C' }, turnId: second.turnId });
+    const order: string[] = [];
+    let concurrent = 0;
+    let maxConcurrent = 0;
+
+    const resume = async (entry: IQueuedInput): Promise<void> => {
+      controller.executing = true;
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      order.push(entry.input);
+      await Promise.resolve();
+      concurrent -= 1;
+      controller.executing = false;
+      controller.turns.settle(entry.turnId, { content: entry.input } as never);
+      controller.drainNow(resume);
+    };
+
+    controller.executing = false;
+    controller.drainNow(resume);
+
+    expect(controller.executing, 'queue handoff released execution ownership for one tick').toBe(
+      true,
+    );
+    expect(order).toEqual(['B']);
+    await first.completed;
+    await second.completed;
+    expect(order).toEqual(['B', 'C']);
+    expect(maxConcurrent).toBe(1);
+  });
+
   it('what submit() enqueues carries the id it minted', async () => {
     const session = new ObservableSession({ session: createSessionStub() });
     session.watchTheQueue();
@@ -188,5 +212,49 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
       session.enqueued[0]?.turnId,
       'the queue entry has no identity, so no refusal can settle its handle',
     ).toBe(handle.turnId);
+  });
+
+  it('ignores a forged resume identity at the exported concrete submit boundary', async () => {
+    const session = new ObservableSession({ session: createSessionStub() });
+    session.watchTheQueue();
+    const forgedTurnId = 'caller-selected-existing-turn';
+
+    const handle = await Reflect.apply(session.submit, session, [
+      'queued behind a running turn',
+      undefined,
+      undefined,
+      { driverId: 'owner', resumeTurnId: forgedTurnId },
+    ]);
+
+    expect(handle.turnId).not.toBe(forgedTurnId);
+    expect(session.enqueued[0]?.turnId).toBe(handle.turnId);
+  });
+});
+
+describe('RUNTIME-006: turn identity is required only on internal accepted-turn paths', () => {
+  it('keeps resume authority out of public options and requires identity downstream', () => {
+    type PublicSubmitOptions = NonNullable<Parameters<InteractiveSession['submit']>[3]>;
+    const publicOptions: PublicSubmitOptions = { driverId: 'owner' };
+
+    // @ts-expect-error RUNTIME-006: callers cannot express queued-turn resume authority.
+    const forgedPublicOptions: PublicSubmitOptions = { resumeTurnId: 'forged' };
+    // @ts-expect-error RUNTIME-006: every queued entry has already been assigned an identity.
+    const missingQueueIdentity: IQueuedInput = { input: 'missing id', options: {} };
+
+    const turns = new SessionExecutionController(
+      {} as never,
+      {} as never,
+      { emit: vi.fn() } as never,
+    ).turns;
+    // @ts-expect-error RUNTIME-006: settlement cannot silently ignore a missing identity.
+    turns.settle(undefined, {} as never);
+    // @ts-expect-error RUNTIME-006: failure cannot silently ignore a missing identity.
+    turns.fail(undefined, new Error('missing identity'));
+    // @ts-expect-error RUNTIME-006: refusal cannot silently ignore a missing identity.
+    turns.refuse(undefined, 'cancelled');
+
+    expect(publicOptions.driverId).toBe('owner');
+    expect((forgedPublicOptions as { resumeTurnId: string }).resumeTurnId).toBe('forged');
+    expect(missingQueueIdentity.input).toBe('missing id');
   });
 });
