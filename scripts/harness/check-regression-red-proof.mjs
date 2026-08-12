@@ -18,10 +18,17 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import fs, { existsSync } from 'node:fs';
+import fs, {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-
-import ts from 'typescript';
 
 import {
   WITNESS,
@@ -99,16 +106,45 @@ export function hasRuntimeSemanticChange(filePath, fixedText, reversedText) {
   if (/\.sh$/.test(filePath)) return fixedText !== reversedText;
   if (!/\.[cm]?[jt]sx?$/.test(filePath)) return fixedText !== reversedText;
 
-  const compilerOptions = {
-    allowJs: true,
-    jsx: ts.JsxEmit.ReactJSX,
-    module: ts.ModuleKind.ESNext,
-    removeComments: true,
-    target: ts.ScriptTarget.ESNext,
-  };
-  const emit = (source) =>
-    ts.transpileModule(source, { compilerOptions, fileName: filePath }).outputText.trim();
-  return emit(fixedText) !== emit(reversedText);
+  const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'robota-red-proof-emit-'));
+  const outDir = path.join(tempRoot, 'out');
+  const extension = path.extname(filePath);
+  const fixedPath = path.join(tempRoot, `fixed${extension}`);
+  const reversedPath = path.join(tempRoot, `reversed${extension}`);
+  try {
+    mkdirSync(outDir);
+    writeFileSync(fixedPath, fixedText);
+    writeFileSync(reversedPath, reversedText);
+    execFileSync(
+      path.join(WORKSPACE_ROOT, 'node_modules/.bin/tsgo'),
+      [
+        fixedPath,
+        reversedPath,
+        '--ignoreConfig',
+        '--allowJs',
+        '--noCheck',
+        '--target',
+        'esnext',
+        '--module',
+        'preserve',
+        '--jsx',
+        'react-jsx',
+        '--removeComments',
+        '--outDir',
+        outDir,
+      ],
+      { stdio: 'ignore' },
+    );
+    const outputs = readdirSync(outDir);
+    const emitted = (prefix) => {
+      const output = outputs.find((name) => name.startsWith(`${prefix}.`));
+      if (!output) throw new Error(`red-proof native emit produced no ${prefix} output`);
+      return readFileSync(path.join(outDir, output), 'utf8').trim();
+    };
+    return emitted('fixed') !== emitted('reversed');
+  } finally {
+    rmSync(tempRoot, { force: true, recursive: true });
+  }
 }
 
 /**
