@@ -82,14 +82,14 @@ CEL vs JEXL vs JSONata vs JsonLogic vs expr-eval 등 8개 엔진 비교 후 CEL 
 
 ```typescript
 interface ICostMeta {
-  nodeType: string;              // ComfyUI 노드 타입 (PK)
-  displayName: string;           // 관리 UI용 표시명
+  nodeType: string; // ComfyUI 노드 타입 (PK)
+  displayName: string; // 관리 UI용 표시명
   category: 'ai-inference' | 'transform' | 'io' | 'custom';
-  estimateFormula: string;       // CEL 수식 (사전 추정, 크레딧 반환)
-  calculateFormula?: string;     // CEL 수식 (사후 계산, 선택)
-  variables: Record<string, unknown>;  // 수식에 주입할 고정값
-  enabled: boolean;              // 활성/비활성
-  updatedAt: string;             // ISO 8601
+  estimateFormula: string; // CEL 수식 (사전 추정, 크레딧 반환)
+  calculateFormula?: string; // CEL 수식 (사후 계산, 선택)
+  variables: Record<string, unknown>; // 수식에 주입할 고정값
+  enabled: boolean; // 활성/비활성
+  updatedAt: string; // ISO 8601
 }
 ```
 
@@ -257,17 +257,17 @@ estimateCost(prompt: TPrompt, objectInfo: TObjectInfo)
 function estimateNodeCost(
   nodeType: string,
   input: TPortPayload,
-  config: INodeConfigObject
+  config: INodeConfigObject,
 ): number {
-  const costMeta = storage.getCostMeta(nodeType)
-  if (!costMeta) return 0
+  const costMeta = storage.getCostMeta(nodeType);
+  if (!costMeta) return 0;
 
   const context = {
     input,
     config,
-    ...costMeta.variables
-  }
-  return evaluate(costMeta.estimateFormula, context)
+    ...costMeta.variables,
+  };
+  return evaluate(costMeta.estimateFormula, context);
 }
 ```
 
@@ -376,12 +376,12 @@ dag-designer 내에 "비용 관리" 버튼 → 비용 관리 패널 오픈
 
 기존 dag-core에 하드코딩된 `Usd` 접미사 필드를 크레딧으로 변경:
 
-| 기존 | 변경 |
-|------|------|
-| `estimatedCostUsd` | `estimatedCredits` |
-| `totalCostUsd` | `totalCredits` |
-| `maxCostPerPromptUsd` | `maxCreditsPerPrompt` |
-| `runCostLimitUsd` | `runCreditLimit` |
+| 기존                             | 변경                             |
+| -------------------------------- | -------------------------------- |
+| `estimatedCostUsd`               | `estimatedCredits`               |
+| `totalCostUsd`                   | `totalCredits`                   |
+| `maxCostPerPromptUsd`            | `maxCreditsPerPrompt`            |
+| `runCostLimitUsd`                | `runCreditLimit`                 |
 | `ICostEstimate.estimatedCostUsd` | `ICostEstimate.estimatedCredits` |
 
 ### 기존 포트 변경
@@ -394,22 +394,22 @@ dag-designer 내에 "비용 관리" 버튼 → 비용 관리 패널 오픈
 
 ## 비용 원천
 
-| 원천 | 예시 | 수식에서 참조하는 필드 |
-|------|------|---------------------|
-| AI API 호출 | LLM 토큰, 이미지 생성, 비디오 생성 | `input.prompt`, `config.model`, `config.maxTokens`, `config.durationSeconds` |
-| GPU/CPU 컴퓨팅 | 이미지 처리, 변환 | `config.resolution`, 처리 시간 추정 |
-| DB/스토리지 | 쿼리, 저장 | `config.queryCount`, 데이터 크기 |
-| 외부 서비스 | 제3자 API 호출 | per-call 고정 크레딧 |
+| 원천           | 예시                               | 수식에서 참조하는 필드                                                       |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| AI API 호출    | LLM 토큰, 이미지 생성, 비디오 생성 | `input.prompt`, `config.model`, `config.maxTokens`, `config.durationSeconds` |
+| GPU/CPU 컴퓨팅 | 이미지 처리, 변환                  | `config.resolution`, 처리 시간 추정                                          |
+| DB/스토리지    | 쿼리, 저장                         | `config.queryCount`, 데이터 크기                                             |
+| 외부 서비스    | 제3자 API 호출                     | per-call 고정 크레딧                                                         |
 
 ---
 
 ## 리서치 문서
 
-| 문서 | 내용 |
-|------|------|
-| `.design/dag-benchmark/09-cost-estimation-research.md` | 업계 비교 + Weavy.ai 분석 |
-| `.design/dag-benchmark/10-expression-engine-research.md` | 수식 엔진 비교 (8개) |
-| `.design/dag-benchmark/11-cel-vs-jexl-comparison.md` | CEL vs JEXL 직접 비교 |
+| 문서                                                     | 내용                      |
+| -------------------------------------------------------- | ------------------------- |
+| `.design/dag-benchmark/09-cost-estimation-research.md`   | 업계 비교 + Weavy.ai 분석 |
+| `.design/dag-benchmark/10-expression-engine-research.md` | 수식 엔진 비교 (8개)      |
+| `.design/dag-benchmark/11-cel-vs-jexl-comparison.md`     | CEL vs JEXL 직접 비교     |
 
 ---
 

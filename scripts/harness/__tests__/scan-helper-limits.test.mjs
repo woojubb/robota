@@ -39,7 +39,8 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     // The failure this exists to catch: the import is the whole diff, and it reads as reuse.
     const { findings } = analyze({
       [OWNER]: ownerText,
-      'scripts/harness/consumer.mjs': "import { roughRelation } from './owner.mjs';\nroughRelation('x');",
+      'scripts/harness/consumer.mjs':
+        "import { roughRelation } from './owner.mjs';\nroughRelation('x');",
     });
 
     expect(findings).toHaveLength(1);
@@ -84,16 +85,12 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     // Anti-rot, the convention `allow-fake` and `allow-fallback` already use: a marker that says
     // nothing is a marker that stops being read, and then the floor is decorative.
     const { findings } = analyze({
-      'scripts/harness/empty.mjs': [
-        '/**',
-        ' * @limits',
-        ' */',
-        'export function bare() {}',
-      ].join('\n'),
-      'scripts/harness/user.mjs': [
-        "import { bare } from './empty.mjs';",
-        '// LIMITS bare:',
-      ].join('\n'),
+      'scripts/harness/empty.mjs': ['/**', ' * @limits', ' */', 'export function bare() {}'].join(
+        '\n',
+      ),
+      'scripts/harness/user.mjs': ["import { bare } from './empty.mjs';", '// LIMITS bare:'].join(
+        '\n',
+      ),
     });
 
     expect(findings.map((f) => f.message).join(' ')).toMatch(/states nothing/);
@@ -232,7 +229,9 @@ describe('a @limits helper is acknowledged where it is consumed', () => {
     ]);
     // Not a local module: a package import has no declaring file here to carry limits.
     expect(localImports("import { z } from 'node:path';")).toEqual([]);
-    expect(acknowledgements('// LIMITS foo: because.')).toEqual([{ name: 'foo', reason: 'because.' }]);
+    expect(acknowledgements('// LIMITS foo: because.')).toEqual([
+      { name: 'foo', reason: 'because.' },
+    ]);
     expect(acknowledgements(' * LIMITS foo: inside a docblock.')).toHaveLength(1);
   });
 });

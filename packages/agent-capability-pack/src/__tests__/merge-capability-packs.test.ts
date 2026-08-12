@@ -95,8 +95,16 @@ describe('mergeCapabilityPacks — conflict rejection channel (R5)', () => {
   });
 
   it('rejects colliding tool names and subagent ids with a reason, keeping the first', () => {
-    const packA: ICapabilityPack = { id: 'a', tools: [tool('Read')], subagents: [subagent('Plan')] };
-    const packB: ICapabilityPack = { id: 'b', tools: [tool('Read')], subagents: [subagent('Plan')] };
+    const packA: ICapabilityPack = {
+      id: 'a',
+      tools: [tool('Read')],
+      subagents: [subagent('Plan')],
+    };
+    const packB: ICapabilityPack = {
+      id: 'b',
+      tools: [tool('Read')],
+      subagents: [subagent('Plan')],
+    };
 
     const result = mergeCapabilityPacks([], [packA, packB]);
 

@@ -6,6 +6,7 @@
 ## Problem
 
 Three critical packages lack specification documents and contract tests:
+
 - `dag-runtime-server` — no SPEC.md, no tests, ComfyUI-compatible API undocumented
 - `dag-orchestrator-server` — no SPEC.md, 1 test file, Robota API undocumented
 - `dag-orchestrator` (package) — no SPEC.md, orchestration contracts implicit
@@ -33,6 +34,7 @@ Phase 4: dag-designer SPEC update
 ### Phase 1: dag-runtime-server
 
 **SPEC.md scope:**
+
 - All ComfyUI-compatible endpoints (12 HTTP + 1 WS) with implementation status
 - Error response format = ComfyUI native (not IProblemDetails)
 - WS event types (6 ComfyUI message types)
@@ -40,6 +42,7 @@ Phase 4: dag-designer SPEC update
 - Reference: `.design/dag-benchmark/03-comfyui.md`
 
 **Contract tests:**
+
 - Each endpoint response shape vs ComfyUI spec
 - WS message format
 - Error response format
@@ -47,6 +50,7 @@ Phase 4: dag-designer SPEC update
 ### Phase 2: dag-orchestrator (package)
 
 **SPEC.md scope:**
+
 - `IPromptApiClientPort` — contract for ComfyUI API consumption
 - `OrchestratorRunService` — run lifecycle (create → start → recordEvent → getResult)
 - `translateDefinitionToPrompt` — translation rules including object config handling
@@ -54,6 +58,7 @@ Phase 4: dag-designer SPEC update
 - Type ownership: dag-core owns IRunResult/IRunNodeError, this package composes
 
 **Contract tests:**
+
 - Translator input/output contract (including nested object configs)
 - Run service state transitions
 - IPromptApiClientPort implementation contract
@@ -61,6 +66,7 @@ Phase 4: dag-designer SPEC update
 ### Phase 3: dag-orchestrator-server
 
 **SPEC.md scope:**
+
 - Robota API endpoints: definition CRUD (7) + run (4) + asset (3) + admin (1) + WS (1)
 - Response envelope: success `{ ok, status, data }`, error `{ ok, status, errors: IProblemDetails[] }`
 - WS progress streaming protocol: envelope `{ event: TRunProgressEvent }`
@@ -68,6 +74,7 @@ Phase 4: dag-designer SPEC update
 - Error code → HTTP status mapping
 
 **Contract tests:**
+
 - Each endpoint response shape
 - IProblemDetails format consistency
 - WS event envelope format
@@ -75,11 +82,13 @@ Phase 4: dag-designer SPEC update
 ### Phase 4: dag-designer SPEC update
 
 **Scope:**
+
 - Sync `IDesignerApiClient` with orchestrator-server spec
 - Remove SSE references, confirm WS protocol
 - Reflect new IRunResult fields (status, nodeErrors)
 
 **Contract tests:**
+
 - API client response parsing (success/error)
 - WS event parsing
 

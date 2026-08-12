@@ -17,6 +17,7 @@
 ### Task 1: `/v1/dag/object_info` 엔드포인트 추가
 
 **Files:**
+
 - Modify: `apps/dag-orchestrator-server/src/routes/definition-routes.ts:112-117`
 - Modify: `apps/dag-orchestrator-server/src/server.ts` (orchestrator 인스턴스를 라우트에 전달)
 
@@ -30,12 +31,12 @@
 
 ```typescript
 router.get('/v1/dag/object_info', async (req: Request, res: Response) => {
-    const result = await orchestrator.getObjectInfo();
-    if (!result.ok) {
-        res.status(502).json({ error: result.error });
-        return;
-    }
-    res.json({ ok: true, status: 200, data: result.value });
+  const result = await orchestrator.getObjectInfo();
+  if (!result.ok) {
+    res.status(502).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true, status: 200, data: result.value });
 });
 ```
 
@@ -62,12 +63,14 @@ git commit -m "feat(dag-orchestrator-server): add /v1/dag/object_info endpoint"
 ### Task 2: designer-api-client에 `listObjectInfo()` 메서드 추가
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/contracts/designer-api.ts:77`
 - Modify: `packages/dag-designer/src/client/designer-api-client.ts:181-198`
 
 **Step 1: Add method to contract interface**
 
 `designer-api.ts`의 `IDesignerApiClient`에 추가:
+
 ```typescript
 listObjectInfo(): Promise<TResult<TObjectInfo, IProblemDetails[]>>;
 ```
@@ -107,12 +110,14 @@ git commit -m "feat(dag-designer): add listObjectInfo() to designer API client"
 ### Task 3: dag-designer-context에서 manifests → objectInfo 타입 전환
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/dag-designer-context.tsx`
 - Modify: `packages/dag-designer/src/hooks/use-dag-designer-state.ts`
 
 **Step 1: Update context props and state**
 
 `dag-designer-context.tsx`:
+
 - `IDagDesignerRootProps.manifests: INodeManifest[]` → `objectInfo: TObjectInfo`
 - `IDagDesignerStateValue.manifests: INodeManifest[]` → `objectInfo: TObjectInfo`
 - `addNodeFromManifest(manifest: INodeManifest)` → `addNodeFromObjectInfo(nodeType: string, info: INodeObjectInfo)`
@@ -123,14 +128,14 @@ Import `TObjectInfo`, `INodeObjectInfo` from `@robota-sdk/dag-core`.
 
 ```typescript
 const addNodeFromObjectInfo = useCallback((nodeType: string, info: INodeObjectInfo): void => {
-    const def = definitionRef.current;
-    const nextNode = createNodeFromObjectInfo(nodeType, info, def.nodes.length);
-    setBindingCleanupMessage(undefined);
-    resetRunProgress();
-    onDefinitionChangeRef.current({
-        ...def,
-        nodes: [...def.nodes, nextNode]
-    });
+  const def = definitionRef.current;
+  const nextNode = createNodeFromObjectInfo(nodeType, info, def.nodes.length);
+  setBindingCleanupMessage(undefined);
+  resetRunProgress();
+  onDefinitionChangeRef.current({
+    ...def,
+    nodes: [...def.nodes, nextNode],
+  });
 }, []);
 ```
 
@@ -152,65 +157,78 @@ git commit -m "refactor(dag-designer): change context from INodeManifest to TObj
 ### Task 4: canvas-utils — createNodeFromObjectInfo
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/canvas-utils.ts:138-148`
 
 **Step 1: Replace createNodeFromManifest with createNodeFromObjectInfo**
 
 ```typescript
 export function createNodeFromObjectInfo(
-    nodeType: string,
-    info: INodeObjectInfo,
-    index: number
+  nodeType: string,
+  info: INodeObjectInfo,
+  index: number,
 ): IDagNode {
-    const inputs: IPortDefinition[] = [];
-    const outputs: IPortDefinition[] = [];
+  const inputs: IPortDefinition[] = [];
+  const outputs: IPortDefinition[] = [];
 
-    // Convert INodeObjectInfo outputs to IPortDefinition[]
-    for (let i = 0; i < info.output.length; i++) {
-        outputs.push({
-            key: info.output_name[i] ?? info.output[i] ?? `output_${i}`,
-            label: info.output_name[i] ?? info.output[i],
-            order: i,
-            type: mapComfyTypeToPortType(info.output[i] ?? 'string'),
-            required: true,
-            isList: info.output_is_list[i] ?? false,
-        });
+  // Convert INodeObjectInfo outputs to IPortDefinition[]
+  for (let i = 0; i < info.output.length; i++) {
+    outputs.push({
+      key: info.output_name[i] ?? info.output[i] ?? `output_${i}`,
+      label: info.output_name[i] ?? info.output[i],
+      order: i,
+      type: mapComfyTypeToPortType(info.output[i] ?? 'string'),
+      required: true,
+      isList: info.output_is_list[i] ?? false,
+    });
+  }
+
+  // Convert INodeObjectInfo required inputs to IPortDefinition[]
+  if (info.input.required) {
+    let order = 0;
+    for (const [key, spec] of Object.entries(info.input.required)) {
+      const typeName = Array.isArray(spec)
+        ? typeof spec[0] === 'string'
+          ? spec[0]
+          : 'string'
+        : 'string';
+      inputs.push({
+        key,
+        label: key,
+        order: order++,
+        type: mapComfyTypeToPortType(typeName),
+        required: true,
+      });
     }
+  }
 
-    // Convert INodeObjectInfo required inputs to IPortDefinition[]
-    if (info.input.required) {
-        let order = 0;
-        for (const [key, spec] of Object.entries(info.input.required)) {
-            const typeName = Array.isArray(spec) ? (typeof spec[0] === 'string' ? spec[0] : 'string') : 'string';
-            inputs.push({
-                key,
-                label: key,
-                order: order++,
-                type: mapComfyTypeToPortType(typeName),
-                required: true,
-            });
-        }
-    }
-
-    return {
-        nodeId: `${nodeType}_${index + 1}`,
-        nodeType,
-        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
-        dependsOn: [],
-        config: {},
-        inputs,
-        outputs,
-    };
+  return {
+    nodeId: `${nodeType}_${index + 1}`,
+    nodeType,
+    position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
+    dependsOn: [],
+    config: {},
+    inputs,
+    outputs,
+  };
 }
 
 function mapComfyTypeToPortType(comfyType: string): TPortValueType {
-    const upper = comfyType.toUpperCase();
-    if (upper === 'INT' || upper === 'FLOAT') return 'number';
-    if (upper === 'STRING') return 'string';
-    if (upper === 'BOOLEAN' || upper === 'BOOL') return 'boolean';
-    if (upper === 'IMAGE' || upper === 'MASK' || upper === 'VIDEO' || upper === 'AUDIO') return 'binary';
-    if (upper === 'LATENT' || upper === 'MODEL' || upper === 'CLIP' || upper === 'VAE' || upper === 'CONDITIONING') return 'object';
-    return 'object'; // Unknown ComfyUI types → object
+  const upper = comfyType.toUpperCase();
+  if (upper === 'INT' || upper === 'FLOAT') return 'number';
+  if (upper === 'STRING') return 'string';
+  if (upper === 'BOOLEAN' || upper === 'BOOL') return 'boolean';
+  if (upper === 'IMAGE' || upper === 'MASK' || upper === 'VIDEO' || upper === 'AUDIO')
+    return 'binary';
+  if (
+    upper === 'LATENT' ||
+    upper === 'MODEL' ||
+    upper === 'CLIP' ||
+    upper === 'VAE' ||
+    upper === 'CONDITIONING'
+  )
+    return 'object';
+  return 'object'; // Unknown ComfyUI types → object
 }
 ```
 
@@ -236,6 +254,7 @@ git commit -m "feat(dag-designer): add createNodeFromObjectInfo with ComfyUI typ
 ### Task 5: node-explorer-panel — INodeObjectInfo 기반으로 전환
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/node-explorer-panel.tsx`
 
 **Step 1: Change props**
@@ -254,14 +273,14 @@ onAddNode: (nodeType: string, info: INodeObjectInfo) => void;
 
 ```typescript
 const categoryMap = useMemo(() => {
-    const map = new Map<string, Array<{ nodeType: string; info: INodeObjectInfo }>>();
-    for (const [nodeType, info] of Object.entries(props.objectInfo)) {
-        const category = info.category || 'uncategorized';
-        const current = map.get(category) ?? [];
-        current.push({ nodeType, info });
-        map.set(category, current);
-    }
-    return map;
+  const map = new Map<string, Array<{ nodeType: string; info: INodeObjectInfo }>>();
+  for (const [nodeType, info] of Object.entries(props.objectInfo)) {
+    const category = info.category || 'uncategorized';
+    const current = map.get(category) ?? [];
+    current.push({ nodeType, info });
+    map.set(category, current);
+  }
+  return map;
 }, [props.objectInfo]);
 ```
 
@@ -284,6 +303,7 @@ git commit -m "refactor(dag-designer): node-explorer-panel uses INodeObjectInfo"
 ### Task 6: node-config-panel — configSchema 대신 INodeObjectInfo.input 사용
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/node-config-panel.tsx`
 
 **Step 1: Change props**
@@ -312,6 +332,7 @@ git commit -m "refactor(dag-designer): node-config-panel uses INodeObjectInfo"
 ### Task 7: dag-designer-panels — 연결 레이어 업데이트
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/dag-designer-panels.tsx`
 
 **Step 1: Update manifest references**
@@ -346,6 +367,7 @@ git commit -m "refactor(dag-designer): update panels wiring for INodeObjectInfo"
 ### Task 8: hooks + index.ts 업데이트 및 빌드 확인
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/hooks/use-dag-design-api.ts`
 - Modify: `packages/dag-designer/src/index.ts`
 
@@ -374,6 +396,7 @@ git commit -m "refactor(dag-designer): update hooks and exports for INodeObjectI
 ### Task 9: apps/web — catalogNodes를 TObjectInfo로 전환
 
 **Files:**
+
 - Modify: `apps/web/src/app/dag-designer/_components/dag-designer-screen.tsx`
 
 **Step 1: Update state**
@@ -390,12 +413,14 @@ const [objectInfo, setObjectInfo] = useState<TObjectInfo>({});
 
 ```typescript
 const refreshNodeCatalog = useCallback(async (): Promise<void> => {
-    const result = await designApi.listObjectInfo();
-    if (result.ok) {
-        setObjectInfo(result.value);
-        return;
-    }
-    setLog(`Node catalog refresh failed: ${"error" in result ? result.error[0]?.code : "UNKNOWN_ERROR"}`);
+  const result = await designApi.listObjectInfo();
+  if (result.ok) {
+    setObjectInfo(result.value);
+    return;
+  }
+  setLog(
+    `Node catalog refresh failed: ${'error' in result ? result.error[0]?.code : 'UNKNOWN_ERROR'}`,
+  );
 }, [designApi]);
 ```
 
@@ -427,6 +452,7 @@ git commit -m "refactor(web): use TObjectInfo for node catalog in dag-designer-s
 ### Task 10: `/v1/dag/nodes` 제거, `/v1/dag/object_info` → `/v1/dag/nodes` rename
 
 **Files:**
+
 - Modify: `apps/dag-orchestrator-server/src/routes/definition-routes.ts` (또는 server.ts)
 - Modify: `apps/dag-orchestrator-server/src/server.ts` — `BundledNodeCatalogService` 제거
 - Modify: `packages/dag-designer/src/client/designer-api-client.ts` — endpoint path 변경

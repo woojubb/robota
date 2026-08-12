@@ -17,6 +17,7 @@
 ### Task 1: dag-core 타입 변경
 
 **Files:**
+
 - Modify: `packages/dag-core/src/types/domain.ts:111-112`
 
 **Step 1: Make inputs/outputs optional**
@@ -58,6 +59,7 @@ git commit -m "refactor(dag-core): make IDagNode.inputs/outputs optional"
 ### Task 2: dag-designer — createNodeFromObjectInfo에서 inputs/outputs 제거
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/canvas-utils.ts`
 - Modify: `packages/dag-designer/src/components/dag-designer-context.tsx`
 
@@ -65,18 +67,18 @@ git commit -m "refactor(dag-core): make IDagNode.inputs/outputs optional"
 
 ```typescript
 export function createNodeFromObjectInfo(
-    nodeType: string,
-    info: INodeObjectInfo,
-    index: number
+  nodeType: string,
+  info: INodeObjectInfo,
+  index: number,
 ): IDagNode {
-    // No inputs/outputs — they come from objectInfo at render time
-    return {
-        nodeId: `${nodeType}_${index + 1}`,
-        nodeType,
-        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
-        dependsOn: [],
-        config: {},
-    };
+  // No inputs/outputs — they come from objectInfo at render time
+  return {
+    nodeId: `${nodeType}_${index + 1}`,
+    nodeType,
+    position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
+    dependsOn: [],
+    config: {},
+  };
 }
 ```
 
@@ -97,6 +99,7 @@ git commit -m "refactor(dag-designer): createNodeFromObjectInfo without inputs/o
 ### Task 3: canvas-utils — toNode()에서 objectInfo 참조
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/canvas-utils.ts`
 
 **Step 1: Update toNode() to accept objectInfo**
@@ -105,21 +108,17 @@ git commit -m "refactor(dag-designer): createNodeFromObjectInfo without inputs/o
 
 ```typescript
 export function toNode(
-    nodeDefinition: IDagNode,
-    objectInfo?: TObjectInfo,
-    // ... other params
+  nodeDefinition: IDagNode,
+  objectInfo?: TObjectInfo,
+  // ... other params
 ): Node<IDagNodeViewData> {
-    const nodeInfo = objectInfo?.[nodeDefinition.nodeType];
+  const nodeInfo = objectInfo?.[nodeDefinition.nodeType];
 
-    // Port definitions: objectInfo 우선, fallback to node
-    const inputs = nodeInfo
-        ? convertObjectInfoInputs(nodeInfo)
-        : (nodeDefinition.inputs ?? []);
-    const outputs = nodeInfo
-        ? convertObjectInfoOutputs(nodeInfo)
-        : (nodeDefinition.outputs ?? []);
+  // Port definitions: objectInfo 우선, fallback to node
+  const inputs = nodeInfo ? convertObjectInfoInputs(nodeInfo) : (nodeDefinition.inputs ?? []);
+  const outputs = nodeInfo ? convertObjectInfoOutputs(nodeInfo) : (nodeDefinition.outputs ?? []);
 
-    // ... rest of toNode
+  // ... rest of toNode
 }
 ```
 
@@ -144,6 +143,7 @@ git commit -m "refactor(dag-designer): toNode() uses objectInfo for port definit
 ### Task 4: 나머지 dag-designer 컴포넌트 — optional inputs/outputs 대응
 
 **Files:**
+
 - Modify: `packages/dag-designer/src/components/dag-designer-canvas.tsx` — `computeInputHandlesByPortKey` 호출 시 objectInfo 활용
 - Modify: `packages/dag-designer/src/components/node-config-panel.tsx` — port section에 objectInfo 기반 port 전달
 - Modify: `packages/dag-designer/src/components/edge-inspector-panel.tsx` — port 정렬 시 optional 대응
@@ -170,6 +170,7 @@ git commit -m "refactor(dag-designer): handle optional inputs/outputs across com
 ### Task 5: dag-worker, dag-node, dag-orchestrator — optional 대응
 
 **Files:**
+
 - Modify: `packages/dag-worker/src/services/downstream-payload-builder.ts` — `node.inputs ?? []`
 - Modify: `packages/dag-node/src/lifecycle/registered-node-lifecycle.ts` — `node.inputs ?? []`, `node.outputs ?? []`
 - Modify: `packages/dag-node/src/node-definition-assembly.ts` — 기존과 동일 (INodeManifest에서는 여전히 필수)
@@ -192,6 +193,7 @@ git commit -m "refactor: handle optional IDagNode.inputs/outputs in worker, node
 ### Task 6: Preset JSON 업데이트
 
 **Files:**
+
 - Modify: `apps/web/src/app/dag-designer/presets/*.json`
 
 **Step 1: 기존 preset에서 inputs/outputs 제거 (optional)**

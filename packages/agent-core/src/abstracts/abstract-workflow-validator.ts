@@ -57,9 +57,9 @@ export interface IValidationRuleConfig {
  * Provides statistics tracking, logging with DI, rule management, and performance monitoring.
  * @template TWorkflowData - Type of workflow data to validate
  */
-export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowData>
-  implements IWorkflowValidator<TWorkflowData>
-{
+export abstract class AbstractWorkflowValidator<
+  TWorkflowData extends IWorkflowData,
+> implements IWorkflowValidator<TWorkflowData> {
   abstract readonly name: string;
   abstract readonly version: string;
   abstract readonly dataFormat: string;

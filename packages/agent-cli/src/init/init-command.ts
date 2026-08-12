@@ -163,8 +163,7 @@ export async function runInitCommand(
         );
       } else {
         const claudePerms = claudeSettings.permissions as
-          | { allow?: string[]; deny?: string[] }
-          | undefined;
+          { allow?: string[]; deny?: string[] } | undefined;
         settingsData = {
           ...claudeSettings,
           permissions: {

@@ -115,9 +115,7 @@ type ToolResult =
   | { success: false; error: string; code?: string };
 
 type StreamChunk =
-  | { type: 'content'; content: string }
-  | { type: 'error'; error: string }
-  | { type: 'end' };
+  { type: 'content'; content: string } | { type: 'error'; error: string } | { type: 'end' };
 ```
 
 ### Generic Type Patterns

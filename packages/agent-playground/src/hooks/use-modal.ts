@@ -3,13 +3,7 @@
 import { useState, useCallback } from 'react';
 
 export type TModalKind =
-  | 'configuration'
-  | 'chat'
-  | 'systemStatus'
-  | 'workflowStatus'
-  | 'createAgent'
-  | 'addTool'
-  | null;
+  'configuration' | 'chat' | 'systemStatus' | 'workflowStatus' | 'createAgent' | 'addTool' | null;
 
 export interface IUseModalReturn {
   activeModal: TModalKind;

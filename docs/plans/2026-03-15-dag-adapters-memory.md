@@ -13,6 +13,7 @@
 ## Task 1: dag-adapters-local 패키지 scaffold
 
 **Files:**
+
 - Create: `packages/dag-adapters-local/package.json`
 - Create: `packages/dag-adapters-local/tsconfig.json`
 - Create: `packages/dag-adapters-local/src/index.ts`
@@ -73,6 +74,7 @@ git commit -m "feat(dag-adapters-local): scaffold package"
 ## Task 2: 구현체 파일 이동
 
 **Files:**
+
 - Move: `packages/dag-core/src/testing/in-memory-storage-port.ts` → `packages/dag-adapters-local/src/in-memory-storage-port.ts`
 - Move: `packages/dag-core/src/testing/in-memory-queue-port.ts` → `packages/dag-adapters-local/src/in-memory-queue-port.ts`
 - Move: `packages/dag-core/src/testing/in-memory-lease-port.ts` → `packages/dag-adapters-local/src/in-memory-lease-port.ts`
@@ -127,6 +129,7 @@ git commit -m "refactor: move in-memory adapters from dag-core to dag-adapters-l
 ## Task 3: dag-core 내부 테스트 import 수정
 
 **Files:**
+
 - Modify: `packages/dag-core/package.json` (add devDependency on dag-adapters-local)
 - Modify: All test files in `packages/dag-core/src/__tests__/` that import from `../testing/`
 
@@ -155,6 +158,7 @@ import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 ```
 
 grep으로 모든 참조 찾기:
+
 ```bash
 grep -r "from.*testing" packages/dag-core/src/__tests__/
 grep -r "from.*testing" packages/dag-core/src/
@@ -177,9 +181,11 @@ git commit -m "refactor(dag-core): update test imports to use dag-adapters-local
 ## Task 4: 외부 패키지 import 수정 (dag-* packages)
 
 **Files:**
+
 - Modify: All packages that import from `@robota-sdk/dag-core` testing exports
 
 Packages to check (grep results from research):
+
 - `packages/dag-runtime/` — tests
 - `packages/dag-worker/` — tests
 - `packages/dag-scheduler/` — tests
@@ -238,6 +244,7 @@ git commit -m "refactor: update all dag-* package imports to use dag-adapters-lo
 ## Task 5: 앱 import 수정 (servers + web)
 
 **Files:**
+
 - Modify: `apps/dag-orchestrator-server/src/server.ts`
 - Modify: `apps/dag-orchestrator-server/package.json`
 - Modify: `apps/dag-runtime-server/src/server.ts`
@@ -267,7 +274,12 @@ grep -r "InMemoryStoragePort\|InMemoryQueuePort\|InMemoryLeasePort\|SystemClockP
 import { InMemoryStoragePort } from '@robota-sdk/dag-core';
 
 // After
-import { InMemoryStoragePort, InMemoryQueuePort, InMemoryLeasePort, SystemClockPort } from '@robota-sdk/dag-adapters-local';
+import {
+  InMemoryStoragePort,
+  InMemoryQueuePort,
+  InMemoryLeasePort,
+  SystemClockPort,
+} from '@robota-sdk/dag-adapters-local';
 ```
 
 **Step 4: Update app test files too**
@@ -293,6 +305,7 @@ git commit -m "refactor: update app imports to use dag-adapters-local"
 ## Task 6: dag-core SPEC.md 및 프로젝트 구조 업데이트
 
 **Files:**
+
 - Modify: `packages/dag-core/docs/SPEC.md` (testing section 제거/업데이트)
 - Modify: `.agents/project-structure.md` (새 패키지 추가)
 - Create: `packages/dag-adapters-local/docs/SPEC.md` (최소 스펙)
@@ -305,6 +318,7 @@ git commit -m "refactor: update app imports to use dag-adapters-local"
 **Step 2: Update project-structure.md**
 
 새 패키지 추가:
+
 ```markdown
 | dag-adapters-local | 인메모리 포트 어댑터 (Storage, Queue, Lease, Clock) | dag-core |
 ```
@@ -321,6 +335,7 @@ Expected: All pass, zero `@robota-sdk/dag-core` testing imports remaining
 ```bash
 grep -r "dag-core.*testing\|dag-core/testing" packages/ apps/ --include="*.ts"
 ```
+
 Expected: Zero results
 
 **Step 6: Commit**
@@ -343,6 +358,7 @@ All tasks are sequential — each depends on the previous.
 ## Verification Checklist
 
 After all tasks:
+
 - [ ] `grep -r "dag-core.*testing" packages/ apps/ --include="*.ts"` returns 0 results
 - [ ] `packages/dag-core/src/testing/` directory does not exist
 - [ ] `pnpm build` passes

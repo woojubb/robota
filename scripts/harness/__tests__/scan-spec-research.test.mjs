@@ -98,10 +98,7 @@ describe('scan-spec-research CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/scan-spec-research.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
-    copyFileSync(
-      GOVERNED_TREE_MODULE,
-      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
-    );
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     return { root, scriptCopy };
   }
 

@@ -5,11 +5,7 @@ import type { TResult } from '../types/result.js';
 
 /** Events that can trigger a DAG run state transition. */
 export type TDagRunTransitionEvent =
-  | 'QUEUE'
-  | 'START'
-  | 'COMPLETE_SUCCESS'
-  | 'COMPLETE_FAILURE'
-  | 'CANCEL';
+  'QUEUE' | 'START' | 'COMPLETE_SUCCESS' | 'COMPLETE_FAILURE' | 'CANCEL';
 
 /** Result of a successful DAG run state transition. */
 export interface IDagRunTransitionValue {

@@ -16,11 +16,7 @@ export type TErrorContextData = Record<
  * Used for handling external errors from unknown sources
  */
 export type TErrorExternalInput =
-  | Error
-  | string
-  | Record<string, string | number | boolean>
-  | null
-  | undefined;
+  Error | string | Record<string, string | number | boolean> | null | undefined;
 
 /**
  * Base error class for all Robota errors

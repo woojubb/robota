@@ -34,42 +34,42 @@ dag-nodes/* -+  (concrete nodes: import infra from dag-node, types from dag-core
 
 ### Lifecycle implementations
 
-| File | Exports |
-|------|---------|
-| `lifecycle/abstract-node-definition.ts` | `AbstractNodeDefinition<TSchema>` |
-| `lifecycle/node-io-accessor.ts` | `NodeIoAccessor` |
-| `lifecycle/registered-node-lifecycle.ts` | `RegisteredNodeLifecycle` |
-| `lifecycle/binary-value-parser.ts` | `IParsedBinaryValue`, `parseBinaryValue()` |
+| File                                         | Exports                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `lifecycle/abstract-node-definition.ts`      | `AbstractNodeDefinition<TSchema>`                                  |
+| `lifecycle/node-io-accessor.ts`              | `NodeIoAccessor`                                                   |
+| `lifecycle/registered-node-lifecycle.ts`     | `RegisteredNodeLifecycle`                                          |
+| `lifecycle/binary-value-parser.ts`           | `IParsedBinaryValue`, `parseBinaryValue()`                         |
 | `lifecycle/static-node-lifecycle-factory.ts` | `StaticNodeLifecycleFactory`, `createStaticNodeLifecycleFactory()` |
-| `lifecycle/default-node-task-handlers.ts` | `StaticNodeTaskHandlerRegistry` |
+| `lifecycle/default-node-task-handlers.ts`    | `StaticNodeTaskHandlerRegistry`                                    |
 
 ### Registry implementations
 
-| File | Exports |
-|------|---------|
+| File                                        | Exports                      |
+| ------------------------------------------- | ---------------------------- |
 | `registry/static-node-manifest-registry.ts` | `StaticNodeManifestRegistry` |
 
 ### Value objects and schemas
 
-| File | Exports |
-|------|---------|
-| `value-objects/media-reference.ts` | `MediaReference`, `IMediaReferenceCandidate` |
+| File                                | Exports                                                      |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `value-objects/media-reference.ts`  | `MediaReference`, `IMediaReferenceCandidate`                 |
 | `schemas/media-reference-schema.ts` | `MediaReferenceSchema`, `createMediaReferenceConfigSchema()` |
 
 ### Utilities
 
-| File | Exports |
-|------|---------|
+| File                       | Exports               |
+| -------------------------- | --------------------- |
 | `utils/node-descriptor.ts` | `buildConfigSchema()` |
 
 ### Port definition helpers (extract from `types/domain.ts`)
 
-| Export | Type |
-|--------|------|
-| `createBinaryPortDefinition()` | function |
-| `BINARY_PORT_PRESETS` | const |
-| `IBinaryPortDefinitionInput` | interface |
-| `IBinaryPortPreset` | interface |
+| Export                         | Type      |
+| ------------------------------ | --------- |
+| `createBinaryPortDefinition()` | function  |
+| `BINARY_PORT_PRESETS`          | const     |
+| `IBinaryPortDefinitionInput`   | interface |
+| `IBinaryPortPreset`            | interface |
 
 ### Corresponding tests
 
@@ -90,10 +90,10 @@ All test files for the above modules move to `dag-node/src/__tests__/`.
 ```typescript
 // Backward compat — owner is @robota-sdk/dag-node
 export {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
-    MediaReference,
-    // ...
+  AbstractNodeDefinition,
+  NodeIoAccessor,
+  MediaReference,
+  // ...
 } from '@robota-sdk/dag-node';
 ```
 
@@ -104,6 +104,7 @@ This follows AGENTS.md rule: "`export type { X } from` is allowed." Consumers ou
 ### New: `packages/dag-node/docs/SPEC.md`
 
 SSOT for node authoring infrastructure:
+
 - `AbstractNodeDefinition` contract and lifecycle hooks
 - `NodeIoAccessor` API
 - Media reference schema and value object

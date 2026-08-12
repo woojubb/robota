@@ -160,7 +160,7 @@ _Corrected 2026-06-13 to the real on-disk layout + the two integration fixes:_
 
 ## Tasks
 
-- [x] `.agents/tasks/completed/OBS-001.md` — archived at GATE-COMPLETE (T1~T9, TC-01~TC-07 매핑)
+- [x] `.agents/tasks/completed/OBS-001.md` — archived at GATE-COMPLETE (T1~~T9, TC-01~~TC-07 매핑)
 
 ## Evidence Log
 

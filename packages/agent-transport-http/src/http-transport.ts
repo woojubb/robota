@@ -5,16 +5,16 @@
  * while exposing the underlying Hono app via getApp().
  */
 
+import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+
 import { createAgentRoutes } from './routes.js';
 
-import { resolveAdmission } from '@robota-sdk/agent-transport-protocol';
+import type { TStreamFailureListener } from './submit-stream.js';
 import type {
   IInteractiveSession,
   ITransportAdapter,
   ITransportAdmissionConfig,
 } from '@robota-sdk/agent-interface-transport';
-
-import type { TStreamFailureListener } from './submit-stream.js';
 import type { Hono } from 'hono';
 
 export interface IHttpTransportOptions {

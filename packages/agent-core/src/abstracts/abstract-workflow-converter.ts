@@ -68,8 +68,7 @@ interface IConverterStats {
 export abstract class AbstractWorkflowConverter<
   TInput extends IWorkflowData,
   TOutput extends IWorkflowData,
-> implements IWorkflowConverter<TInput, TOutput>
-{
+> implements IWorkflowConverter<TInput, TOutput> {
   // Abstract properties that must be implemented by subclasses
   abstract readonly name: string;
   abstract readonly version: string;

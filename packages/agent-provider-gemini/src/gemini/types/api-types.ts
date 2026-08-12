@@ -63,12 +63,7 @@ export interface IGoogleFunctionResponse {
 }
 
 export type TGoogleJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | TGoogleJsonValue[]
-  | { [key: string]: TGoogleJsonValue };
+  string | number | boolean | null | TGoogleJsonValue[] | { [key: string]: TGoogleJsonValue };
 
 export interface IGoogleSafetySetting {
   category: string;
@@ -122,12 +117,7 @@ export interface IGoogleCandidate {
 }
 
 export type TGoogleFinishReason =
-  | 'FINISH_REASON_UNSPECIFIED'
-  | 'STOP'
-  | 'MAX_TOKENS'
-  | 'SAFETY'
-  | 'RECITATION'
-  | 'OTHER';
+  'FINISH_REASON_UNSPECIFIED' | 'STOP' | 'MAX_TOKENS' | 'SAFETY' | 'RECITATION' | 'OTHER';
 
 export interface IGoogleSafetyRating {
   category: TGoogleHarmCategory;
@@ -144,11 +134,7 @@ export type TGoogleHarmCategory =
   | 'HARM_CATEGORY_DANGEROUS';
 
 export type TGoogleHarmProbability =
-  | 'HARM_PROBABILITY_UNSPECIFIED'
-  | 'NEGLIGIBLE'
-  | 'LOW'
-  | 'MEDIUM'
-  | 'HIGH';
+  'HARM_PROBABILITY_UNSPECIFIED' | 'NEGLIGIBLE' | 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface IGoogleCitationMetadata {
   citationSources: IGoogleCitationSource[];

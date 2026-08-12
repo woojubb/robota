@@ -25,6 +25,7 @@ dag-designer      ← React UI 클라이언트
 **Import 방향**: 모든 패키지가 `dag-core` 방향으로 import. 역방향 의존성 없음.
 
 **특징**:
+
 - 각 레이어가 독립 패키지로 분리되어 있어 교체/테스트 용이
 - dag-runtime, dag-worker, dag-projection이 dag-core만 의존 (sibling 독립)
 - dag-api가 조합 레이어 역할 (모든 실행 패키지를 wiring)
@@ -57,8 +58,16 @@ interface IDagDefinition {
 ```typescript
 abstract class AbstractNodeDefinition<TSchema> implements INodeLifecycle {
   // Zod를 통한 config 파싱 → *WithConfig 메서드로 위임
-  abstract executeWithConfig(input, context, config): Promise<TResult<INodeExecutionResult, IDagError>>;
-  abstract estimateCostWithConfig(input, context, config): Promise<TResult<ICostEstimate, IDagError>>;
+  abstract executeWithConfig(
+    input,
+    context,
+    config,
+  ): Promise<TResult<INodeExecutionResult, IDagError>>;
+  abstract estimateCostWithConfig(
+    input,
+    context,
+    config,
+  ): Promise<TResult<ICostEstimate, IDagError>>;
   // optional: initializeWithConfig, validateInputWithConfig, validateOutputWithConfig, disposeWithConfig
 }
 ```
@@ -78,19 +87,19 @@ abstract class AbstractNodeDefinition<TSchema> implements INodeLifecycle {
 
 ### 구체 노드 (11개)
 
-| 노드 | 역할 |
-|------|------|
-| InputNode | DAG 입력 진입점 |
-| TextOutputNode | 텍스트 출력 싱크 |
-| TextTemplateNode | 문자열 템플릿 보간 |
-| ImageSourceNode | 이미지 소스/업로드 |
-| ImageLoaderNode | 이미지 참조 로딩 |
-| TransformNode | 범용 데이터 변환 |
-| OkEmitterNode | 항상 성공 (테스트용) |
-| LlmTextOpenAiNode | OpenAI 텍스트 생성 |
-| GeminiImageEditNode | Gemini 이미지 편집 |
-| GeminiImageComposeNode | Gemini 이미지 합성 |
-| SeedanceVideoNode | Seedance 비디오 생성 |
+| 노드                   | 역할                 |
+| ---------------------- | -------------------- |
+| InputNode              | DAG 입력 진입점      |
+| TextOutputNode         | 텍스트 출력 싱크     |
+| TextTemplateNode       | 문자열 템플릿 보간   |
+| ImageSourceNode        | 이미지 소스/업로드   |
+| ImageLoaderNode        | 이미지 참조 로딩     |
+| TransformNode          | 범용 데이터 변환     |
+| OkEmitterNode          | 항상 성공 (테스트용) |
+| LlmTextOpenAiNode      | OpenAI 텍스트 생성   |
+| GeminiImageEditNode    | Gemini 이미지 편집   |
+| GeminiImageComposeNode | Gemini 이미지 합성   |
+| SeedanceVideoNode      | Seedance 비디오 생성 |
 
 ## 실행 모델
 
@@ -132,24 +141,24 @@ WorkerLoopService.processOnce()
 type TPortPayload = Record<string, TPortValue>;
 
 type TPortValue =
-  | TPortPrimitive        // string | number | boolean | null
-  | IPortBinaryValue      // kind, mimeType, uri, referenceType, assetId, sizeBytes
-  | TPortArrayValue       // TPortValue[]
-  | TPortObjectValue;     // Record<string, TPortPrimitive>
+  | TPortPrimitive // string | number | boolean | null
+  | IPortBinaryValue // kind, mimeType, uri, referenceType, assetId, sizeBytes
+  | TPortArrayValue // TPortValue[]
+  | TPortObjectValue; // Record<string, TPortPrimitive>
 ```
 
 ### 엣지 바인딩
 
 ```typescript
 interface IDagEdgeDefinition {
-  from: string;      // 소스 노드 ID
-  to: string;        // 타겟 노드 ID
+  from: string; // 소스 노드 ID
+  to: string; // 타겟 노드 ID
   bindings: IEdgeBinding[];
 }
 
 interface IEdgeBinding {
-  outputKey: string;  // 소스 노드의 출력 포트 키
-  inputKey: string;   // 타겟 노드의 입력 포트 키
+  outputKey: string; // 소스 노드의 출력 포트 키
+  inputKey: string; // 타겟 노드의 입력 포트 키
 }
 ```
 
@@ -200,6 +209,7 @@ created ──QUEUE──→ queued ──START──→ running ──COMPLETE_
 ### 도메인 이벤트
 
 상태 전이 시 도메인 이벤트 발행:
+
 - Run: `run.queued`, `run.running`, `run.success`, `run.failed`, `run.cancelled`
 - Task: `task.queued`, `task.running`, `task.success`, `task.failed`, `task.upstream_failed`, `task.skipped`, `task.cancelled`
 
@@ -209,11 +219,11 @@ created ──QUEUE──→ queued ──START──→ running ──COMPLETE_
 
 `IStoragePort` 인터페이스 — 구현체 교체 가능:
 
-| 메서드 그룹 | 주요 메서드 |
-|------------|------------|
-| Definition | `saveDefinition`, `getDefinition`, `listDefinitions` |
-| DagRun | `createDagRun`, `getDagRun`, `updateDagRunStatus` |
-| TaskRun | `createTaskRun`, `getTaskRun`, `updateTaskRunStatus`, `saveTaskRunSnapshots`, `incrementTaskAttempt` |
+| 메서드 그룹 | 주요 메서드                                                                                          |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| Definition  | `saveDefinition`, `getDefinition`, `listDefinitions`                                                 |
+| DagRun      | `createDagRun`, `getDagRun`, `updateDagRunStatus`                                                    |
+| TaskRun     | `createTaskRun`, `getTaskRun`, `updateTaskRunStatus`, `saveTaskRunSnapshots`, `incrementTaskAttempt` |
 
 ### 구현체
 
@@ -224,14 +234,14 @@ created ──QUEUE──→ queued ──START──→ running ──COMPLETE_
 
 Express REST API (dag-server-core):
 
-| 엔드포인트 그룹 | 경로 | 기능 |
-|----------------|------|------|
-| Definition CRUD | `/v1/dag/definitions/*` | 생성, 수정, 검증, 발행, 조회, 목록 |
-| Run Lifecycle | `/v1/dag/runs/*` | 트리거, 조회, 취소, 결과 |
-| Asset Management | `/v1/dag/assets/*` | 업로드, 참조, 메타데이터, 콘텐츠 |
-| Node Catalog | `/v1/dag/nodes` | 노드 매니페스트 목록 |
-| SSE Progress | `/v1/dag/runs/{dagRunId}/progress` | 실시간 진행 스트리밍 |
-| Documentation | `/api-docs` | Swagger UI (OpenAPI 3.0.3) |
+| 엔드포인트 그룹  | 경로                               | 기능                               |
+| ---------------- | ---------------------------------- | ---------------------------------- |
+| Definition CRUD  | `/v1/dag/definitions/*`            | 생성, 수정, 검증, 발행, 조회, 목록 |
+| Run Lifecycle    | `/v1/dag/runs/*`                   | 트리거, 조회, 취소, 결과           |
+| Asset Management | `/v1/dag/assets/*`                 | 업로드, 참조, 메타데이터, 콘텐츠   |
+| Node Catalog     | `/v1/dag/nodes`                    | 노드 매니페스트 목록               |
+| SSE Progress     | `/v1/dag/runs/{dagRunId}/progress` | 실시간 진행 스트리밍               |
+| Documentation    | `/api-docs`                        | Swagger UI (OpenAPI 3.0.3)         |
 
 ### 에러 응답
 
@@ -239,7 +249,7 @@ RFC 7807 Problem Details 형식:
 
 ```typescript
 interface IProblemDetails {
-  type: string;       // urn:robota:problems:dag:{category}
+  type: string; // urn:robota:problems:dag:{category}
   title: string;
   status: number;
   detail: string;
@@ -254,17 +264,18 @@ interface IProblemDetails {
 
 ```typescript
 type TRunProgressEvent =
-  | IExecutionStartedProgressEvent     // execution.started
-  | IExecutionCompletedProgressEvent   // execution.completed
-  | IExecutionFailedProgressEvent      // execution.failed
-  | ITaskStartedProgressEvent          // task.started
-  | ITaskCompletedProgressEvent        // task.completed
-  | ITaskFailedProgressEvent;          // task.failed
+  | IExecutionStartedProgressEvent // execution.started
+  | IExecutionCompletedProgressEvent // execution.completed
+  | IExecutionFailedProgressEvent // execution.failed
+  | ITaskStartedProgressEvent // task.started
+  | ITaskCompletedProgressEvent // task.completed
+  | ITaskFailedProgressEvent; // task.failed
 ```
 
 ### 이벤트 버스
 
 `RunProgressEventBus` (dag-api):
+
 - 인메모리 pub/sub
 - `publish(event)` / `subscribe(listener) => unsubscribe`
 - SSE 엔드포인트를 통해 클라이언트에 스트리밍
@@ -272,6 +283,7 @@ type TRunProgressEvent =
 ### 클라이언트 수신
 
 `DesignerApiClient.subscribeToRunProgress()`:
+
 - SSE 클라이언트
 - 지수 백오프 재연결 지원
 
@@ -299,11 +311,11 @@ interface IDagError {
 }
 
 type TErrorCategory =
-  | 'validation'         // retryable: false
-  | 'state_transition'   // retryable: false
-  | 'lease'              // retryable: false
-  | 'dispatch'           // retryable: true
-  | 'task_execution';    // varies
+  | 'validation' // retryable: false
+  | 'state_transition' // retryable: false
+  | 'lease' // retryable: false
+  | 'dispatch' // retryable: true
+  | 'task_execution'; // varies
 ```
 
 ### 재시도 메커니즘
@@ -323,6 +335,7 @@ type TErrorCategory =
 **현재 캐싱 전략 없음** — 매 실행마다 전체 수행.
 
 단, 다음의 암묵적 캐싱이 존재:
+
 - Definition snapshot — 런 생성 시 스냅샷 저장, 이후 파싱된 결과 재사용
 - Task 출력 스냅샷 — 하류 태스크 입력 조립 시 재사용
 

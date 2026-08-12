@@ -195,8 +195,7 @@ export class MediaReference {
   }
 
   public toAssetIdOrUri():
-    | { referenceType: 'asset'; assetId: string }
-    | { referenceType: 'uri'; uri: string } {
+    { referenceType: 'asset'; assetId: string } | { referenceType: 'uri'; uri: string } {
     if (this.value.referenceType === 'asset' && typeof this.value.assetId === 'string') {
       return {
         referenceType: 'asset',

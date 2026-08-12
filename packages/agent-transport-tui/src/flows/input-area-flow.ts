@@ -17,8 +17,7 @@ export type TPendingPromptInputAction = 'cancelQueue';
 export type TPromptHistoryInputAction = 'previous' | 'next';
 
 export type TCommandSelectionResult =
-  | { type: 'insert'; value: string; selectedIndex?: number }
-  | { type: 'submit'; value: string };
+  { type: 'insert'; value: string; selectedIndex?: number } | { type: 'submit'; value: string };
 
 export interface IPasteLabelChange {
   value: string;

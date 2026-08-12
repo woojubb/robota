@@ -8,17 +8,17 @@
 
 ## 1. 기본 정보
 
-| | JEXL | CEL (`@marcbachmann/cel-js`) |
-|---|------|-----|
-| **만든 곳** | TomFrost (개인) | Google (공식 사양) |
-| **주간 다운로드** | 82K | 78K (CEL 전체 구현 합산 262K) |
-| **마지막 업데이트** | 2022년 6월 (4년 전) | 2026년 3월 10일 |
-| **미해결 이슈** | 26개 | 1개 |
-| **의존성** | 1개 (@babel/runtime) | 0개 |
-| **TypeScript** | 커뮤니티 @types | 내장 |
-| **라이선스** | MIT | MIT |
-| **GitHub Stars** | 644 | 127 |
-| **사양 표준** | 없음 (개인 설계) | Google CEL 공식 사양 |
+|                     | JEXL                 | CEL (`@marcbachmann/cel-js`)  |
+| ------------------- | -------------------- | ----------------------------- |
+| **만든 곳**         | TomFrost (개인)      | Google (공식 사양)            |
+| **주간 다운로드**   | 82K                  | 78K (CEL 전체 구현 합산 262K) |
+| **마지막 업데이트** | 2022년 6월 (4년 전)  | 2026년 3월 10일               |
+| **미해결 이슈**     | 26개                 | 1개                           |
+| **의존성**          | 1개 (@babel/runtime) | 0개                           |
+| **TypeScript**      | 커뮤니티 @types      | 내장                          |
+| **라이선스**        | MIT                  | MIT                           |
+| **GitHub Stars**    | 644                  | 127                           |
+| **사양 표준**       | 없음 (개인 설계)     | Google CEL 공식 사양          |
 
 ---
 
@@ -74,13 +74,13 @@ tokens * rates[model]
 
 ## 4. 비용 계산에 치명적인 차이
 
-| 상황 | JEXL | CEL |
-|------|------|-----|
-| `"5" + 3` | `"53"` (JS 암묵적 변환) | **타입 에러** (컴파일 시점 거부) |
-| `0 / 0` | `NaN` (무음 실패) | **런타임 에러** (잡을 수 있음) |
-| 없는 필드 접근 | `undefined` → 계산에 `NaN` 전파 | **no_such_field 에러** |
-| `null.field` | 예외 던짐 | `has(obj.field)` 로 안전 검사 |
-| 정수 나눗셈 `7 / 2` | `3.5` (JS float) | `3` (정수), `7.0 / 2.0` → `3.5` |
+| 상황                | JEXL                            | CEL                              |
+| ------------------- | ------------------------------- | -------------------------------- |
+| `"5" + 3`           | `"53"` (JS 암묵적 변환)         | **타입 에러** (컴파일 시점 거부) |
+| `0 / 0`             | `NaN` (무음 실패)               | **런타임 에러** (잡을 수 있음)   |
+| 없는 필드 접근      | `undefined` → 계산에 `NaN` 전파 | **no_such_field 에러**           |
+| `null.field`        | 예외 던짐                       | `has(obj.field)` 로 안전 검사    |
+| 정수 나눗셈 `7 / 2` | `3.5` (JS float)                | `3` (정수), `7.0 / 2.0` → `3.5`  |
 
 비용 계산에서 암묵적 타입 변환은 위험하다. `"5" + 3 = "53"`이 DB에 저장된 수식에서 발생하면 찾기 매우 어렵다.
 
@@ -90,15 +90,15 @@ tokens * rates[model]
 
 ```typescript
 const env = new Environment({
-  limits: { maxAstNodes: 500, maxDepth: 20 }
-})
+  limits: { maxAstNodes: 500, maxDepth: 20 },
+});
 
 // DB에 수식 저장할 때 — 문법/타입 검증
-const errors = env.check(formulaFromAdmin)
-if (errors) throw new Error('잘못된 수식')
+const errors = env.check(formulaFromAdmin);
+if (errors) throw new Error('잘못된 수식');
 
 // 런타임 평가 — 이미 검증된 수식
-const cost = env.evaluate(formula, context)
+const cost = env.evaluate(formula, context);
 ```
 
 JEXL에는 사전 검증(compile-time check) API가 없다.
@@ -110,26 +110,26 @@ JEXL에는 사전 검증(compile-time check) API가 없다.
 ### JEXL 커스텀 함수/Transform
 
 ```javascript
-jexl.addTransform('upper', (val) => val.toUpperCase())
+jexl.addTransform('upper', (val) => val.toUpperCase());
 // 사용: name|upper
 
-jexl.addFunction('min', (...args) => Math.min(...args))
+jexl.addFunction('min', (...args) => Math.min(...args));
 // 사용: min(a, b, c)
 
-jexl.addBinaryOp('**', 100, (left, right) => Math.pow(left, right))
+jexl.addBinaryOp('**', 100, (left, right) => Math.pow(left, right));
 // 사용: 2 ** 3
 ```
 
 ### CEL 커스텀 함수
 
 ```typescript
-const env = new Environment()
-env.registerFunction('max(double, double) -> double', Math.max)
-env.registerFunction('min(double, double) -> double', Math.min)
-env.registerFunction('ceil(double) -> double', Math.ceil)
-env.registerFunction('floor(double) -> double', Math.floor)
-env.registerFunction('round(double) -> double', Math.round)
-env.registerConstant('PI', 'double', 3.14159)
+const env = new Environment();
+env.registerFunction('max(double, double) -> double', Math.max);
+env.registerFunction('min(double, double) -> double', Math.min);
+env.registerFunction('ceil(double) -> double', Math.ceil);
+env.registerFunction('floor(double) -> double', Math.floor);
+env.registerFunction('round(double) -> double', Math.round);
+env.registerConstant('PI', 'double', 3.14159);
 ```
 
 CEL은 함수 시그니처(타입 포함)를 명시해야 하므로 약간 더 장황하지만, 타입 안전이 보장된다.
@@ -138,23 +138,23 @@ CEL은 함수 시그니처(타입 포함)를 명시해야 하므로 약간 더 �
 
 ## 7. 종합 점수
 
-| 항목 | JEXL | CEL | 승자 |
-|------|------|-----|------|
-| 수식 가독성 | JS와 유사 | 약간 명시적 | 동점 |
-| 수학 연산 | 커스텀 추가 필요 | 커스텀 추가 필요 | 동점 |
-| 커스텀 함수 | 쉬움 (addFunction) | 쉬움 (registerFunction + 타입) | 동점 |
-| 비동기 지원 | 네이티브 | 지원 | 동점 |
-| 배열 필터 | `arr[.age > 30]` | `arr.filter(x, x.age > 30)` | 동점 |
-| **타입 안전** | 없음 | 컴파일 타임 검사 | **CEL** |
-| **보안/샌드박스** | 좋음 (글로벌 접근 차단) | 비튜링완전 + 구조 제한 | **CEL** |
-| **null 안전** | 취약 (JS 변환) | 명시적, has() | **CEL** |
-| **에러 품질** | 기본적 | 컴파일+런타임 타입 에러 | **CEL** |
-| **성능** | 좋음 | 10x 빠름 (벤치마크) | **CEL** |
-| **유지보수** | 4년째 방치 | 활발 (2026년 3월) | **CEL** |
-| **의존성** | 1개 | 0개 | **CEL** |
-| **사양 표준** | 없음 (개인) | Google 공식 사양 | **CEL** |
-| 파이프 문법 | `value\|transform` | 없음 | JEXL |
-| 학습 곡선 | 낮음 | 약간 높음 | JEXL |
+| 항목              | JEXL                    | CEL                            | 승자    |
+| ----------------- | ----------------------- | ------------------------------ | ------- |
+| 수식 가독성       | JS와 유사               | 약간 명시적                    | 동점    |
+| 수학 연산         | 커스텀 추가 필요        | 커스텀 추가 필요               | 동점    |
+| 커스텀 함수       | 쉬움 (addFunction)      | 쉬움 (registerFunction + 타입) | 동점    |
+| 비동기 지원       | 네이티브                | 지원                           | 동점    |
+| 배열 필터         | `arr[.age > 30]`        | `arr.filter(x, x.age > 30)`    | 동점    |
+| **타입 안전**     | 없음                    | 컴파일 타임 검사               | **CEL** |
+| **보안/샌드박스** | 좋음 (글로벌 접근 차단) | 비튜링완전 + 구조 제한         | **CEL** |
+| **null 안전**     | 취약 (JS 변환)          | 명시적, has()                  | **CEL** |
+| **에러 품질**     | 기본적                  | 컴파일+런타임 타입 에러        | **CEL** |
+| **성능**          | 좋음                    | 10x 빠름 (벤치마크)            | **CEL** |
+| **유지보수**      | 4년째 방치              | 활발 (2026년 3월)              | **CEL** |
+| **의존성**        | 1개                     | 0개                            | **CEL** |
+| **사양 표준**     | 없음 (개인)             | Google 공식 사양               | **CEL** |
+| 파이프 문법       | `value\|transform`      | 없음                           | JEXL    |
+| 학습 곡선         | 낮음                    | 약간 높음                      | JEXL    |
 
 **CEL 11승, JEXL 2승, 동점 5**
 
@@ -180,6 +180,7 @@ CEL은 함수 시그니처(타입 포함)를 명시해야 하므로 약간 더 �
 ### 사용할 구현체
 
 `@marcbachmann/cel-js` (v7.5.3+)
+
 - 의존성 0, ESM, TypeScript 내장
 - 가장 활발한 유지보수
 - 가장 빠른 성능

@@ -14,15 +14,10 @@ export interface ITextPromptInputKey {
 }
 
 export type TTextPromptInputAction =
-  | { type: 'cancel' }
-  | { type: 'submit' }
-  | { type: 'delete' }
-  | { type: 'insert'; value: string };
+  { type: 'cancel' } | { type: 'submit' } | { type: 'delete' } | { type: 'insert'; value: string };
 
 export type TTextPromptEffect =
-  | { type: 'none' }
-  | { type: 'cancel' }
-  | { type: 'submit'; value: string };
+  { type: 'none' } | { type: 'cancel' } | { type: 'submit'; value: string };
 
 export interface ITextPromptFlowOptions {
   allowEmpty: boolean;

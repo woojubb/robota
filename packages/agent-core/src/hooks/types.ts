@@ -32,12 +32,7 @@ export type THookEvent =
 
 /** Claude Code compatible session end reasons. */
 export type TSessionEndReason =
-  | 'clear'
-  | 'resume'
-  | 'logout'
-  | 'prompt_input_exit'
-  | 'bypass_permissions_disabled'
-  | 'other';
+  'clear' | 'resume' | 'logout' | 'prompt_input_exit' | 'bypass_permissions_disabled' | 'other';
 
 /** Command hook — executes a shell command */
 export interface ICommandHookDefinition {

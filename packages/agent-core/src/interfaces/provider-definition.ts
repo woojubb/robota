@@ -64,12 +64,7 @@ export interface IProviderSetupHelpLink {
 export type TProviderModelCatalogStatus = 'live' | 'generated' | 'fallback' | 'unavailable';
 export type TProviderModelLifecycle = 'active' | 'preview' | 'deprecated' | 'unavailable';
 export type TProviderModelCapability =
-  | 'tools'
-  | 'vision'
-  | 'json_schema'
-  | 'reasoning'
-  | 'native_web'
-  | 'streaming';
+  'tools' | 'vision' | 'json_schema' | 'reasoning' | 'native_web' | 'streaming';
 
 export interface IProviderModelCatalogEntry {
   id: string;

@@ -35,14 +35,12 @@ function createFakeBase(overrides: { deduplicated?: boolean } = {}): IMemoryStor
     loadStartupMemory: vi.fn(async () => ({ content: '', references: [] })),
     list: vi.fn(async () => ({ topics: [], indexPath: '', hasIndex: false })),
     readTopic: vi.fn(async () => ''),
-    append: vi.fn(
-      async (): Promise<IAppendMemoryResult> => ({
-        indexPath: 'i',
-        topicPath: 't',
-        topic: 'x',
-        deduplicated: overrides.deduplicated ?? false,
-      }),
-    ),
+    append: vi.fn(async (): Promise<IAppendMemoryResult> => ({
+      indexPath: 'i',
+      topicPath: 't',
+      topic: 'x',
+      deduplicated: overrides.deduplicated ?? false,
+    })),
     recall: vi.fn(async () => KEYWORD),
     getPending: vi.fn(async () => undefined),
     listPending: vi.fn(async () => []),

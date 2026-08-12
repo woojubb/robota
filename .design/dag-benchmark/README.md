@@ -6,13 +6,13 @@ Robota 모노레포의 `packages/dag-*` 패키지들(9개)의 계약 관계와 �
 
 ## 비교 대상 솔루션
 
-| 솔루션 | 언어 | 시작 연도 | 특성 |
-|--------|------|-----------|------|
-| Apache Airflow | Python | 2014 | 데이터 파이프라인의 사실상 표준. Airflow 3.0(2025.04)으로 대규모 아키텍처 전환 |
-| ComfyUI | Python | 2023 | AI 이미지 생성 워크플로우. 노드 기반 UI, WebSocket 실시간 스트리밍, 캐싱 전략 |
-| Dagster | Python | 2019 | 자산 중심(Asset-Centric) 패러다임. IO Manager, 타입 시스템, 이벤트 로그 |
-| Prefect | Python | 2018 | "Negative Engineering" 철학. DAG 강제 없음, 네이티브 Python 흐름 |
-| n8n | TypeScript | 2019 | Robota와 동일 기술 스택. 200+ 통합, Bull Queue 분산 실행, AI 에이전트 루프 |
+| 솔루션         | 언어       | 시작 연도 | 특성                                                                           |
+| -------------- | ---------- | --------- | ------------------------------------------------------------------------------ |
+| Apache Airflow | Python     | 2014      | 데이터 파이프라인의 사실상 표준. Airflow 3.0(2025.04)으로 대규모 아키텍처 전환 |
+| ComfyUI        | Python     | 2023      | AI 이미지 생성 워크플로우. 노드 기반 UI, WebSocket 실시간 스트리밍, 캐싱 전략  |
+| Dagster        | Python     | 2019      | 자산 중심(Asset-Centric) 패러다임. IO Manager, 타입 시스템, 이벤트 로그        |
+| Prefect        | Python     | 2018      | "Negative Engineering" 철학. DAG 강제 없음, 네이티브 Python 흐름               |
+| n8n            | TypeScript | 2019      | Robota와 동일 기술 스택. 200+ 통합, Bull Queue 분산 실행, AI 에이전트 루프     |
 
 ## 비교 축
 
@@ -30,20 +30,20 @@ Robota 모노레포의 `packages/dag-*` 패키지들(9개)의 계약 관계와 �
 
 ## 문서 구성
 
-| 파일 | 내용 |
-|------|------|
-| `01-architecture-comparison.md` | 11개 비교 축별 대조표 |
-| `02-airflow.md` | Apache Airflow 상세 분석 |
-| `03-comfyui.md` | ComfyUI 상세 분석 |
-| `04-dagster.md` | Dagster 상세 분석 |
-| `05-prefect.md` | Prefect 상세 분석 |
-| `06-n8n.md` | n8n 상세 분석 |
-| `07-robota-current-state.md` | Robota DAG 현황 정리 |
-| `08-gap-analysis.md` | 비교 분석 및 갭 평가 (드래프트) |
-| `09-cost-estimation-research.md` | DAG 비용 추정 리서치 (업계 비교 + Weavy.ai 분석) |
-| `10-expression-engine-research.md` | 비용 계산 수식 엔진 리서치 (CEL, JEXL, JSONata 등 비교) |
-| `11-cel-vs-jexl-comparison.md` | CEL vs JEXL 직접 비교 및 CEL 선택 근거 |
-| `12-comfyui-dynamic-inputs-research.md` | ComfyUI 동적/가변 Input 리서치 (isList 호환성) |
+| 파일                                    | 내용                                                    |
+| --------------------------------------- | ------------------------------------------------------- |
+| `01-architecture-comparison.md`         | 11개 비교 축별 대조표                                   |
+| `02-airflow.md`                         | Apache Airflow 상세 분석                                |
+| `03-comfyui.md`                         | ComfyUI 상세 분석                                       |
+| `04-dagster.md`                         | Dagster 상세 분석                                       |
+| `05-prefect.md`                         | Prefect 상세 분석                                       |
+| `06-n8n.md`                             | n8n 상세 분석                                           |
+| `07-robota-current-state.md`            | Robota DAG 현황 정리                                    |
+| `08-gap-analysis.md`                    | 비교 분석 및 갭 평가 (드래프트)                         |
+| `09-cost-estimation-research.md`        | DAG 비용 추정 리서치 (업계 비교 + Weavy.ai 분석)        |
+| `10-expression-engine-research.md`      | 비용 계산 수식 엔진 리서치 (CEL, JEXL, JSONata 등 비교) |
+| `11-cel-vs-jexl-comparison.md`          | CEL vs JEXL 직접 비교 및 CEL 선택 근거                  |
+| `12-comfyui-dynamic-inputs-research.md` | ComfyUI 동적/가변 Input 리서치 (isList 호환성)          |
 
 ## 범위
 

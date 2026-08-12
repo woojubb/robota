@@ -42,9 +42,7 @@ export interface IUriImageMessagePart {
 }
 
 export type TUniversalMessagePart =
-  | ITextMessagePart
-  | IInlineImageMessagePart
-  | IUriImageMessagePart;
+  ITextMessagePart | IInlineImageMessagePart | IUriImageMessagePart;
 
 /**
  * Tool call (OpenAI tool calling format).

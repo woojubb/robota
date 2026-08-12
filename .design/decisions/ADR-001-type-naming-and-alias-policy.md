@@ -1,6 +1,7 @@
 # ADR-001: I/T Prefix 유지 및 Type Alias 제한 정책
 
 ## Status
+
 accepted
 
 ## Context
@@ -50,6 +51,7 @@ prefix 없이 운영했을 때 `ConversationMessage`라는 이름이 type과 cla
 `I*` prefix는 interface 전용, `T*` prefix는 type alias 전용으로 확정 유지한다. prefix-free 전환은 하지 않는다.
 
 **선택 이유**:
+
 1. 이 프로젝트에서 prefix-free 시 실제 충돌이 발생했던 실증 경험.
 2. VS Code(150만 줄, DI 기반)가 같은 선택을 하고 있다는 대규모 검증 사례.
 3. AI 에이전트가 prefix 기반으로 기계적/일관적으로 판단할 수 있다는 운영상 이점.
@@ -63,6 +65,7 @@ prefix 없이 운영했을 때 `ConversationMessage`라는 이름이 type과 cla
 4. **trivial 1:1 alias 금지**: `type X = Y`는 의미적 확장이 없으므로 금지.
 
 **선택 이유**:
+
 1. SSOT 파괴의 근본 원인이 "alias를 만들어도 되는 조건"의 부재였음.
 2. 자동 감지 ESLint 규칙이 존재하지 않으므로 규칙 명시 + 코드 리뷰 + SSOT 스캔으로 방어.
 3. `export type { X } from`은 새 타입을 만들지 않으므로 SSOT를 보존하는 유일한 안전한 re-export 방법.
@@ -70,19 +73,23 @@ prefix 없이 운영했을 때 `ConversationMessage`라는 이름이 type과 cla
 ## Consequences
 
 ### 긍정적
+
 - 클래스-타입 이름 충돌이 규칙 수준에서 원천 차단된다.
 - type alias 남발로 인한 유령 중복이 방지된다.
 - AI 에이전트가 `I*`/`T*` prefix를 기계적으로 적용하여 일관성을 유지할 수 있다.
 - `ssot-scan-declarations.mjs`로 위반을 기계적으로 감지할 수 있다.
 
 ### 부정적
+
 - TypeScript 업계 주류 방향(prefix-free)과 다르다. 외부 기여자가 "왜 I prefix를 쓰나요?"라고 물을 수 있다 → 이 ADR을 참조.
 - 객체 형태를 type alias로 선언할 수 없으므로 intersection으로 객체를 조합하는 패턴에 제약이 생길 수 있다 → union/intersection 결과가 객체더라도 type alias로 선언 가능 (규칙은 "순수 객체 리터럴 형태"에만 적용).
 
 ### 후속 작업
+
 - 없음. 기존 코드가 이미 이 규칙을 따르고 있다.
 
 ## References
+
 - [Google TypeScript Style Guide — Naming](https://google.github.io/styleguide/tsguide.html)
 - [Microsoft TypeScript Coding Guidelines](https://github.com/microsoft/TypeScript/wiki/Coding-guidelines) — "Do not use I as a prefix for interface names" (팀 내부 규칙이며 커뮤니티 규범 아님을 명시)
 - [VS Code Coding Guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines) — I prefix 적극 사용

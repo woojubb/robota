@@ -122,9 +122,7 @@ const fixtureSessionWithToolCall: IInteractiveSessionRecord = {
       timestamp: '...',
     },
   ],
-  history: [
-    /* IHistoryEntry[] */
-  ],
+  history: [/* IHistoryEntry[] */],
   // ... 나머지 필드
 };
 ```
@@ -149,16 +147,16 @@ const fixtureSessionWithToolCall: IInteractiveSessionRecord = {
 
 ## Test Plan
 
-| TC-ID | Test Type   | Tool / Approach                                       | Notes                                      |
-| ----- | ----------- | ----------------------------------------------------- | ------------------------------------------ |
-| TC-01 | Unit        | vitest — `session.getMessages()` 구조 검증            | `IInteractiveSessionStore` mock 사용       |
-| TC-02 | Unit        | vitest — messages 배열 길이 일치 검증                 | fixture: 4-message session                 |
-| TC-03 | Integration | vitest — mock provider로 submit 후 전달 messages 캡처 | `createMockProvider` 활용                  |
-| TC-04 | Unit        | vitest — `histTracker.getHistory()` turn count 검증   |                                            |
-| TC-05 | Unit        | vitest — `getName()` 반환값 검증                      |                                            |
+| TC-ID | Test Type   | Tool / Approach                                       | Notes                                     |
+| ----- | ----------- | ----------------------------------------------------- | ----------------------------------------- |
+| TC-01 | Unit        | vitest — `session.getMessages()` 구조 검증            | `IInteractiveSessionStore` mock 사용      |
+| TC-02 | Unit        | vitest — messages 배열 길이 일치 검증                 | fixture: 4-message session                |
+| TC-03 | Integration | vitest — mock provider로 submit 후 전달 messages 캡처 | `createMockProvider` 활용                 |
+| TC-04 | Unit        | vitest — `histTracker.getHistory()` turn count 검증   |                                           |
+| TC-05 | Unit        | vitest — `getName()` 반환값 검증                      |                                           |
 | TC-06 | Unit        | vitest — 3-tool-call fixture로 pairing 검증           | tool_use id ↔ tool_result toolCallId 매핑 |
-| TC-07 | Integration | `pnpm --filter @robota-sdk/agent-framework test`      | CI 통과 필수                               |
-| TC-08 | Integration | `pnpm typecheck`                                      | CI 통과 필수                               |
+| TC-07 | Integration | `pnpm --filter @robota-sdk/agent-framework test`      | CI 통과 필수                              |
+| TC-08 | Integration | `pnpm typecheck`                                      | CI 통과 필수                              |
 
 ## Tasks
 
@@ -192,7 +190,7 @@ const fixtureSessionWithToolCall: IInteractiveSessionRecord = {
 
 - Tasks file created: `.agents/tasks/BEHAVIOR-001.md`
 - Tasks recorded in `## Tasks` section of spec.
-- T-01~T-10 defined, one task per TC-N (TC-01~TC-08) plus supporting implementation tasks.
+- T-01~~T-10 defined, one task per TC-N (TC-01~~TC-08) plus supporting implementation tasks.
 
 ### [GATE-VERIFY] — ✅ PASS | 2026-05-31
 

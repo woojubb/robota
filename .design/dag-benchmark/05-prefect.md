@@ -83,18 +83,19 @@ def etl_pipeline():
 
 ### Task Runner
 
-| Runner | 실행 방식 |
-|--------|-----------|
-| `ThreadPoolTaskRunner` | 로컬 스레드 풀 |
+| Runner                  | 실행 방식        |
+| ----------------------- | ---------------- |
+| `ThreadPoolTaskRunner`  | 로컬 스레드 풀   |
 | `ProcessPoolTaskRunner` | 로컬 프로세스 풀 |
-| `PrefectTaskRunner` | Prefect 기본 |
-| Ray / Dask | 외부 분산 플랫폼 |
+| `PrefectTaskRunner`     | Prefect 기본     |
+| Ray / Dask              | 외부 분산 플랫폼 |
 
 ## 실행 모델
 
 ### Work Pool + Worker 구조
 
 **Work Pool (3가지 유형)**:
+
 1. **Managed**: Prefect가 제출과 실행 모두 관리
 2. **Push**: 서버리스 인프라에 직접 제출 (폴링 불필요)
 3. **Pull**: Worker가 능동적으로 폴링하여 실행
@@ -104,6 +105,7 @@ def etl_pipeline():
 **Work Queue**: 각 Work Pool에 "default" 큐 포함. 추가 큐로 우선순위/동시성 제어.
 
 **실행 흐름**:
+
 ```
 Deployment → Flow Run 생성 → Work Pool에 스케줄링 → Worker 폴링 → 실행 환경에서 실행
 ```
@@ -136,6 +138,7 @@ def pipeline():
 ### Result Store
 
 **"Decomposed Durability" 설계 원칙**:
+
 - 결과가 오케스트레이터 DB에 잠기지 않고 사용자 소유 스토리지에 저장
 - 주소 지정 가능(addressable) → 워크플로우 간 공유 가능
 
@@ -147,19 +150,20 @@ def pipeline():
 
 ### State Type vs State Name
 
-| 카테고리 | State Type | 설명 |
-|---------|-----------|------|
-| 비종료 | `SCHEDULED` | 미래 시간에 시작 예정 |
-| 비종료 | `PENDING` | 제출됨, 전제 조건 대기 |
-| 비종료 | `RUNNING` | 현재 실행 중 |
-| 비종료 | `CANCELLING` | 취소 진행 중 |
-| 비종료 | `PAUSED` | 일시 중지 |
-| 종료 | `COMPLETED` | 성공 반환 |
-| 종료 | `FAILED` | 에러/예외 발생 |
-| 종료 | `CANCELLED` | 사용자 취소 |
-| 종료 | `CRASHED` | 인프라 문제로 중단 |
+| 카테고리 | State Type   | 설명                   |
+| -------- | ------------ | ---------------------- |
+| 비종료   | `SCHEDULED`  | 미래 시간에 시작 예정  |
+| 비종료   | `PENDING`    | 제출됨, 전제 조건 대기 |
+| 비종료   | `RUNNING`    | 현재 실행 중           |
+| 비종료   | `CANCELLING` | 취소 진행 중           |
+| 비종료   | `PAUSED`     | 일시 중지              |
+| 종료     | `COMPLETED`  | 성공 반환              |
+| 종료     | `FAILED`     | 에러/예외 발생         |
+| 종료     | `CANCELLED`  | 사용자 취소            |
+| 종료     | `CRASHED`    | 인프라 문제로 중단     |
 
 **State Name vs Type 분리**:
+
 - Name: 시각적 표시/기록 (예: `Retrying`)
 - Type: 오케스트레이션 로직의 근거 (예: `RUNNING`)
 - 첫 실행: name=`Running`, type=`RUNNING`. 재시도: name=`Retrying`, type=`RUNNING`
@@ -167,6 +171,7 @@ def pipeline():
 **State 객체 속성**: `type`, `name`, `timestamp`, `message`, `result`, `state_details`
 
 **Robota 대비 특이점**:
+
 - `PAUSED` 상태 (Robota에 없음)
 - `CRASHED` 상태 (인프라 문제 구분)
 - `PENDING` 상태 (Robota의 `created`와 유사하지만 전제 조건 대기 의미)
@@ -180,11 +185,13 @@ def pipeline():
 - **OrchestrationRule**: 상태 전환을 통제하는 상태풀 컨텍스트 매니저
 
 **규칙의 3가지 훅**:
+
 1. `before_transition` — 부작용 생성, proposed state 변경 가능
 2. `after_transition` — 검증된 상태에 대한 후처리
 3. `cleanup` — before_transition의 부작용 되돌림
 
 **상태 전환 검증 흐름**:
+
 1. 클라이언트가 proposed state를 API에 제출
 2. OrchestrationRule 체인이 순차적으로 검증/수정
 3. 통과 시 SQLAlchemy 세션에 추가 + flush
@@ -192,11 +199,11 @@ def pipeline():
 
 ## 스토리지/영속성
 
-| 대상 | 저장소 |
-|------|--------|
-| 실행 메타데이터 (Flow/Task run) | PostgreSQL / SQLite |
-| 실행 결과 | Result Store (S3/GCS/Azure/로컬) |
-| 이벤트 (Prefect Cloud) | ClickHouse |
+| 대상                            | 저장소                           |
+| ------------------------------- | -------------------------------- |
+| 실행 메타데이터 (Flow/Task run) | PostgreSQL / SQLite              |
+| 실행 결과                       | Result Store (S3/GCS/Azure/로컬) |
+| 이벤트 (Prefect Cloud)          | ClickHouse                       |
 
 - 오케스트레이션과 결과 저장 **분리** ("Decomposed Durability")
 - DB는 실행 상태의 SSOT
@@ -207,12 +214,14 @@ def pipeline():
 ### REST API
 
 **설계 규칙**:
+
 - 컬렉션명 복수형: `/flows`, `/task_runs`
 - snake_case 라우트명
 - 중첩 리소스 회피: `/task_runs`는 flow run 필터로 조회
 - GET, PUT, DELETE는 항상 멱등
 
 **주요 엔드포인트**:
+
 - `POST /flow_runs/filter` — Flow run 필터링
 - `POST /flow_runs/count` — 집계
 - `POST /flow_runs/history` — 이력
@@ -220,6 +229,7 @@ def pipeline():
 - `POST /task_runs/set_state` — Task run 상태 설정
 
 **필터링/페이지네이션**:
+
 - POST 요청 본문에 필터, 정렬, 페이지네이션
 - `limit` + `offset` 페이지네이션
 - 단일 `sort` 파라미터
@@ -285,13 +295,13 @@ def expensive_computation(data):
 
 ### Prefect 3 방식 (Cache Policy)
 
-| 정책 | 설명 |
-|------|------|
-| `DEFAULT` | 입력 + 코드 + flow_run_id |
-| `INPUTS` | 입력만 |
-| `TASK_SOURCE` | 소스코드 |
-| `FLOW_PARAMETERS` | 부모 flow 파라미터 |
-| `NO_CACHE` | 캐싱 비활성화 |
+| 정책              | 설명                      |
+| ----------------- | ------------------------- |
+| `DEFAULT`         | 입력 + 코드 + flow_run_id |
+| `INPUTS`          | 입력만                    |
+| `TASK_SOURCE`     | 소스코드                  |
+| `FLOW_PARAMETERS` | 부모 flow 파라미터        |
+| `NO_CACHE`        | 캐싱 비활성화             |
 
 - 정책 합성: Python `+` 연산자로 결합 (`INPUTS + TASK_SOURCE`)
 - 격리 수준: `READ_COMMITTED`(기본) / `SERIALIZABLE`(분산 락)

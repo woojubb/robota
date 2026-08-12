@@ -83,15 +83,13 @@ async function fetchModelCatalog(
       (item): item is { id: string; display_name?: string; type?: string } =>
         typeof item.id === 'string' && item.id.length > 0,
     )
-    .map(
-      (item): IProviderModelCatalogEntry => ({
-        id: item.id,
-        displayName: item.display_name ?? item.id,
-        lifecycle: 'active',
-        sourceUrl: ANTHROPIC_MODEL_SOURCE_URL,
-        lastVerifiedAt: now,
-      }),
-    );
+    .map((item): IProviderModelCatalogEntry => ({
+      id: item.id,
+      displayName: item.display_name ?? item.id,
+      lifecycle: 'active',
+      sourceUrl: ANTHROPIC_MODEL_SOURCE_URL,
+      lastVerifiedAt: now,
+    }));
 
   return {
     status: 'live',

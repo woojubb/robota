@@ -61,8 +61,7 @@ export interface IActionRequest {
  * available to answer it.
  */
 export type TActionResponse =
-  | { type: 'answer'; values: readonly string[]; text?: string }
-  | { type: 'cancelled' };
+  { type: 'answer'; values: readonly string[]; text?: string } | { type: 'cancelled' };
 
 /**
  * The injected "ask the user" port — a single seam reachable by every interaction source (command

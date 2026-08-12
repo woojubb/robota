@@ -73,8 +73,10 @@ export interface ILogStorage {
 }
 
 /** Structured context data for log entries */
-export interface ILoggingContextData
-  extends Record<string, string | number | boolean | Date | undefined> {
+export interface ILoggingContextData extends Record<
+  string,
+  string | number | boolean | Date | undefined
+> {
   userInput?: string;
   duration?: number;
   toolName?: string;
