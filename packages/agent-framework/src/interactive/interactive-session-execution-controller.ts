@@ -328,9 +328,6 @@ export class SessionExecutionController {
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
       else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
-      // Release and hand off synchronously. No await may appear between these assignments and the
-      // drain: a public submit in that gap could start a new turn before the queued head claims the
-      // same execution ownership, allowing both turns to run concurrently.
       this.executing = false;
       this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
       this.callbacks.emit('thinking', false);
