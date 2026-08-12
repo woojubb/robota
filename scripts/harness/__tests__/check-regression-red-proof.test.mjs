@@ -287,26 +287,36 @@ describe('HARNESS-041 file classification', () => {
 describe('HARNESS-041 scoping (C2) + opt-out', () => {
   it('judges only files owned by defect-fix or floor-adding commits in a mixed range', () => {
     expect(
-      filesForDefectFixCommits([
-        {
-          subject: 'feat(dag): propagate trusted execution root',
-          files: ['packages/dag-core/src/interfaces/ports.ts'],
-          addedFiles: [],
-        },
-        {
-          subject: 'fix(framework): require accepted turn identity',
-          files: ['packages/agent-framework/src/interactive/accept.ts'],
-          addedFiles: [],
-        },
-        {
-          subject: 'feat(harness): add a mechanical floor',
-          files: [
-            'scripts/harness/check-new-floor.mjs',
-            'scripts/harness/__tests__/new-floor.test.mjs',
-          ],
-          addedFiles: ['scripts/harness/__tests__/new-floor.test.mjs'],
-        },
-      ]),
+      filesForDefectFixCommits(
+        [
+          {
+            subject: 'feat(dag): propagate trusted execution root',
+            files: ['packages/dag-core/src/interfaces/ports.ts'],
+            addedFiles: [],
+          },
+          {
+            subject: 'fix(framework): require accepted turn identity',
+            files: [
+              'packages/agent-framework/src/interactive/accept.ts',
+              'scripts/harness/reverted-before-head.mjs',
+            ],
+            addedFiles: [],
+          },
+          {
+            subject: 'feat(harness): add a mechanical floor',
+            files: [
+              'scripts/harness/check-new-floor.mjs',
+              'scripts/harness/__tests__/new-floor.test.mjs',
+            ],
+            addedFiles: ['scripts/harness/__tests__/new-floor.test.mjs'],
+          },
+        ],
+        [
+          'packages/agent-framework/src/interactive/accept.ts',
+          'scripts/harness/check-new-floor.mjs',
+          'scripts/harness/__tests__/new-floor.test.mjs',
+        ],
+      ),
     ).toEqual([
       'packages/agent-framework/src/interactive/accept.ts',
       'scripts/harness/check-new-floor.mjs',

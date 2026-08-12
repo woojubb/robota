@@ -195,11 +195,14 @@ export function isDefectFixRange(commitSubjects, addedFiles = []) {
 }
 
 /** Files changed by commits that individually qualify as defect fixes or add a harness floor. */
-export function filesForDefectFixCommits(commits) {
+export function filesForDefectFixCommits(commits, netChangedFiles = null) {
   const files = new Set();
+  const netChanged = netChangedFiles ? new Set(netChangedFiles) : null;
   for (const commit of commits) {
     if (!isDefectFixRange([commit.subject], commit.addedFiles)) continue;
-    for (const file of commit.files) files.add(file);
+    for (const file of commit.files) {
+      if (!netChanged || netChanged.has(file)) files.add(file);
+    }
   }
   return [...files];
 }
@@ -488,7 +491,7 @@ function gitRaw(args, opts = {}) {
   return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts });
 }
 
-function defaultDefectFixFiles(base) {
+function defaultDefectFixFiles(base, netChangedFiles) {
   const commits = gitRaw(['log', '--format=%H%x00%s', `${base}..HEAD`])
     .split('\n')
     .filter(Boolean)
@@ -506,7 +509,7 @@ function defaultDefectFixFiles(base) {
         addedFiles: changed(['--diff-filter=A']),
       };
     });
-  return filesForDefectFixCommits(commits);
+  return filesForDefectFixCommits(commits, netChangedFiles);
 }
 
 /**
@@ -581,7 +584,7 @@ export async function runRegressionRedProof(io = {}) {
     io.defectFixFiles ??
     (io.changedFiles !== undefined || io.commitSubjects !== undefined
       ? changedFiles
-      : defaultDefectFixFiles(base));
+      : defaultDefectFixFiles(base, changedFiles));
   const pairs = qualifyingPairs(classifyChanges(defectFixFiles));
   if (pairs.length === 0) {
     log('↩︎  SKIPPED: no same-package (source+test) pair to red-prove.');
