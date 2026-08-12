@@ -257,9 +257,7 @@ Complete TypeScript coverage without `any` types:
 
 ```typescript
 // All configurations are fully typed
-const config: RobotaConfig = {
-  /* fully typed */
-};
+const config: RobotaConfig = {/* fully typed */};
 
 // Plugin interactions are type-safe
 const usagePlugin = robota.getPlugin<UsagePlugin>('usage-plugin');

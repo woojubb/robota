@@ -1,10 +1,6 @@
 /** Classification of DAG errors by their origin and nature. */
 export type TErrorCategory =
-  | 'validation'
-  | 'state_transition'
-  | 'lease'
-  | 'dispatch'
-  | 'task_execution';
+  'validation' | 'state_transition' | 'lease' | 'dispatch' | 'task_execution';
 
 /**
  * Corrective action an agent can take to resolve an error without human intervention.

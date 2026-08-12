@@ -37,16 +37,16 @@ designer                    orchestrator                   ComfyUI
 
 ## Event Mapping (ComfyUI -> Robota)
 
-| ComfyUI Event | Robota Event |
-|---|---|
-| `{type:"execution_start", data:{prompt_id}}` | `{event:{dagRunId, eventType:"execution.started", occurredAt}}` |
-| `{type:"executing", data:{node:"id", prompt_id}}` | `{event:{dagRunId, eventType:"task.started", nodeId, taskRunId, occurredAt}}` |
-| `{type:"executed", data:{node:"id", output, prompt_id}}` | `{event:{dagRunId, eventType:"task.completed", nodeId, taskRunId, output, occurredAt}}` |
-| `{type:"execution_success", data:{prompt_id}}` | `{event:{dagRunId, eventType:"execution.completed", occurredAt}}` |
-| `{type:"execution_error", data:{prompt_id, node_id, exception_message}}` | `task.failed` + `execution.failed` |
-| `{type:"executing", data:{node:null}}` | Ignored (handled by `execution_success`) |
-| `{type:"progress", ...}` | Ignored (future extension) |
-| `{type:"status", ...}`, `{type:"execution_cached", ...}` | Ignored |
+| ComfyUI Event                                                            | Robota Event                                                                            |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `{type:"execution_start", data:{prompt_id}}`                             | `{event:{dagRunId, eventType:"execution.started", occurredAt}}`                         |
+| `{type:"executing", data:{node:"id", prompt_id}}`                        | `{event:{dagRunId, eventType:"task.started", nodeId, taskRunId, occurredAt}}`           |
+| `{type:"executed", data:{node:"id", output, prompt_id}}`                 | `{event:{dagRunId, eventType:"task.completed", nodeId, taskRunId, output, occurredAt}}` |
+| `{type:"execution_success", data:{prompt_id}}`                           | `{event:{dagRunId, eventType:"execution.completed", occurredAt}}`                       |
+| `{type:"execution_error", data:{prompt_id, node_id, exception_message}}` | `task.failed` + `execution.failed`                                                      |
+| `{type:"executing", data:{node:null}}`                                   | Ignored (handled by `execution_success`)                                                |
+| `{type:"progress", ...}`                                                 | Ignored (future extension)                                                              |
+| `{type:"status", ...}`, `{type:"execution_cached", ...}`                 | Ignored                                                                                 |
 
 ## Connection Lifecycle
 
@@ -92,6 +92,7 @@ designer                    orchestrator                   ComfyUI
 ### Unit Tests
 
 **Orchestrator WS event translator:**
+
 - ComfyUI `executing` -> Robota `task.started` conversion accuracy
 - ComfyUI `executed` -> Robota `task.completed` + output pass-through
 - ComfyUI `execution_error` -> `task.failed` + `execution.failed` dual emit
@@ -100,6 +101,7 @@ designer                    orchestrator                   ComfyUI
 - prompt_id filtering — other prompt events not forwarded
 
 **Designer WS client (`subscribeRunProgress`):**
+
 - Connection success triggers `onEvent` callback
 - Disconnect triggers exponential backoff reconnection
 - `maxReconnectAttempts` exceeded triggers `onError`
@@ -109,16 +111,19 @@ designer                    orchestrator                   ComfyUI
 ### Integration Tests
 
 **Orchestrator WS proxy E2E:**
+
 - Mock ComfyUI WS server -> orchestrator -> mock designer WS client
 - Full flow: WS connect -> `POST /start` -> mock ComfyUI emits `executing` -> `executed` -> `execution_success` -> designer receives `task.started` -> `task.completed` -> `execution.completed`
 - prompt_id filtering: mixed prompt events, only matching dagRunId forwarded
 - Connection cleanup: both WS closed after terminal event
 
 **Connection order enforcement:**
+
 - `POST /start` before WS connect returns error
 - WS connect -> ComfyUI WS ready -> then start allowed
 
 **Error scenarios:**
+
 - ComfyUI WS connection failure -> designer receives error
 - ComfyUI WS mid-stream disconnect -> designer receives `execution.failed`
 - Designer WS disconnect -> ComfyUI WS cleaned up

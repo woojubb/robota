@@ -32,11 +32,10 @@ export interface ITeamRoleDefinition {
   color: string;
 }
 
-export interface IResolvedAgentContainerBlockProps
-  extends Omit<
-    IAgentContainerBlockProps,
-    'className' | 'draggable' | 'isActive' | 'isExecuting' | 'isLeader' | 'priority' | 'teamRole'
-  > {
+export interface IResolvedAgentContainerBlockProps extends Omit<
+  IAgentContainerBlockProps,
+  'className' | 'draggable' | 'isActive' | 'isExecuting' | 'isLeader' | 'priority' | 'teamRole'
+> {
   className: string;
   draggable: boolean;
   isActive: boolean;

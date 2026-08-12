@@ -182,9 +182,7 @@ const myHook = async (input, toolUseID, { signal }) => {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow' | 'deny' | 'ask',
       permissionDecisionReason: 'reason',
-      updatedInput: {
-        /* modified tool input */
-      },
+      updatedInput: {/* modified tool input */},
     },
   };
 };
@@ -231,9 +229,7 @@ Hook output protocol (CLI):
     "ask": ["Edit"],
     "deny": ["Bash(rm -rf *)"]
   },
-  "hooks": {
-    /* see Hook section */
-  },
+  "hooks": {/* see Hook section */},
   "env": { "DEBUG": "false" },
   "sandbox": {
     "enabled": true,

@@ -4,7 +4,7 @@
 
 Owns the **additive capability-bundle contract** for the Robota SDK: the `ICapabilityPack` definition
 shape, the `IMergedCapabilities` result shape, and the pure `mergeCapabilityPacks` merger. A capability
-pack is the *additive* composition unit — a plain data record of named capability buckets (command
+pack is the _additive_ composition unit — a plain data record of named capability buckets (command
 modules, tools, subagents) a consumer brings on top of a product's base command modules. It is the
 additive analog of `@robota-sdk/agent-preset`: where a preset dials **behavior** (subtractive
 tool/command selection, persona, permission posture), a pack contributes **capability** (new tools,
@@ -67,7 +67,7 @@ this widens, the preset delta filters, they compose.
 Types owned by this package (SSOT):
 
 | Type                  | Location                   | Purpose                                                                              |
-| --------------------- | -------------------------- | ----------------------------------------------------------------------------------- |
+| --------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
 | `ICapabilityPack`     | `capability-pack-types.ts` | Additive bundle: identity triple + optional `commandModules` / `tools` / `subagents` |
 | `IMergedCapabilities` | `capability-pack-types.ts` | `{ merged: { commandModules, tools, subagents }; rejected }` fold result             |
 | `IRejectedCapability` | `capability-pack-types.ts` | `{ kind, id, reason }` — a contribution dropped for a colliding id                   |
@@ -75,13 +75,13 @@ Types owned by this package (SSOT):
 
 ## Public API Surface
 
-| Export                  | Kind      | Description                                                                                                                     |
-| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `ICapabilityPack`       | Interface | Additive capability bundle (identity triple + optional command-module/tool/subagent buckets)                                   |
-| `IMergedCapabilities`   | Interface | `{ merged: { commandModules, tools, subagents }; rejected }` — the pure merge result                                           |
-| `IRejectedCapability`   | Interface | `{ kind, id, reason }` — a contribution rejected for a colliding id                                                            |
-| `TCapabilityKind`       | Type      | `'commandModule' \| 'tool' \| 'subagent'`                                                                                      |
-| `mergeCapabilityPacks`  | Function  | `(baseCommandModules, packs) => IMergedCapabilities`; pure additive fold, deterministic profile-order precedence, `{ merged, rejected }` |
+| Export                 | Kind      | Description                                                                                                                              |
+| ---------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ICapabilityPack`      | Interface | Additive capability bundle (identity triple + optional command-module/tool/subagent buckets)                                             |
+| `IMergedCapabilities`  | Interface | `{ merged: { commandModules, tools, subagents }; rejected }` — the pure merge result                                                     |
+| `IRejectedCapability`  | Interface | `{ kind, id, reason }` — a contribution rejected for a colliding id                                                                      |
+| `TCapabilityKind`      | Type      | `'commandModule' \| 'tool' \| 'subagent'`                                                                                                |
+| `mergeCapabilityPacks` | Function  | `(baseCommandModules, packs) => IMergedCapabilities`; pure additive fold, deterministic profile-order precedence, `{ merged, rejected }` |
 
 ## Merge Semantics — conflict resolution (R5)
 
@@ -103,7 +103,7 @@ Types owned by this package (SSOT):
 ## Extension Points
 
 | Extension Point   | Kind      | How to extend                                                                                        |
-| ----------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| ----------------- | --------- | ---------------------------------------------------------------------------------------------------- |
 | `ICapabilityPack` | Interface | Author a pack object conforming to `ICapabilityPack` (see `@robota-sdk/pack-coding` for a reference) |
 
 ## Error Taxonomy

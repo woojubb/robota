@@ -112,12 +112,7 @@ function isEnrollFrame(value: unknown): value is IEnrollFrame {
 }
 
 type TGateState =
-  | 'awaiting-mode'
-  | 'pairing'
-  | 'enrolling'
-  | 'reconnecting'
-  | 'accepted'
-  | 'closed';
+  'awaiting-mode' | 'pairing' | 'enrolling' | 'reconnecting' | 'accepted' | 'closed';
 
 export class PairingGate {
   private state: TGateState;

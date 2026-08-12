@@ -265,8 +265,7 @@ async function createGist(
 }
 
 type TReadFileResult =
-  | { readonly ok: true; readonly text: string }
-  | { readonly ok: false; readonly message: string };
+  { readonly ok: true; readonly text: string } | { readonly ok: false; readonly message: string };
 
 async function tryReadFile(filePath: string): Promise<TReadFileResult> {
   try {
@@ -279,8 +278,7 @@ async function tryReadFile(filePath: string): Promise<TReadFileResult> {
 }
 
 type TParseJsonResult =
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly message: string };
+  { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly message: string };
 
 function tryParseJson(text: string): TParseJsonResult {
   try {

@@ -13,8 +13,7 @@ export abstract class AbstractAgent<
   TConfig = IAgentConfig,
   TContext = IRunOptions,
   TMessage = TUniversalMessage,
-> implements IAgent<TConfig, TContext, TMessage>
-{
+> implements IAgent<TConfig, TContext, TMessage> {
   protected history: TMessage[] = [];
   protected isInitialized = false;
   protected config?: TConfig;

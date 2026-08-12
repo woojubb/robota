@@ -151,8 +151,7 @@ export function startHostReconnect(options: IHostReconnectOptions): IReconnectCo
   const settle = makeSettle(resolve, reject, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
   let pending:
-    | { deviceId: string; devicePublicKey: CryptoKey; challenge: IReconnectChallenge }
-    | undefined;
+    { deviceId: string; devicePublicKey: CryptoKey; challenge: IReconnectChallenge } | undefined;
 
   return {
     result,

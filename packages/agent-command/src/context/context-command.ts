@@ -245,8 +245,7 @@ function formatApplyMessage(
 }
 
 type TParseThresholdResult =
-  | { success: true; threshold: number }
-  | { success: false; message: string };
+  { success: true; threshold: number } | { success: false; message: string };
 
 function parseThreshold(raw: string): TParseThresholdResult {
   if (raw.endsWith('%')) {

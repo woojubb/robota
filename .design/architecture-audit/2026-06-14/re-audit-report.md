@@ -63,7 +63,7 @@ All 17 remediated in this pass (documentation-only, no code touched), verified a
 
 - **RA-01~RA-06** — architecture-map docs: removed the `agent-team` ghost node/link, corrected
   `ITuiCliAdapter` ownership, removed the false zero-dep absolute, added the Commands → Preset edge.
-- **RB-01~RB-09 / RC-01~RC-02** — package SPECs: `selectCommandModules` marked internal, `Session extends
+- **RB-01~~RB-09 / RC-01~~RC-02** — package SPECs: `selectCommandModules` marked internal, `Session extends
 SessionBase` corrected, phantom `orgPolicy` removed, `agent-sdk → agent-framework` ghost refs purged,
   `headless/` dedup, counts refreshed, ghost `OpenAPITool`/`createOpenAPITool` removed, interface-transport
   type ownership enumerated correctly.

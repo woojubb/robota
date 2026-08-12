@@ -52,7 +52,12 @@ console.log('\nRecorded goal outcome:');
 console.log(`  status      : ${goal.status} / stopReason: ${goal.stopReason}`);
 console.log(`  iterations  : ${goal.iterations} / max: ${goal.maxIterations}`);
 console.log(`  GOAL.txt    : ${harness.exists('GOAL.txt') ? 'created' : '(not created)'}`);
-console.log(`  tool calls  : ${harness.toolCalls().map((call) => call.name).join(', ')}`);
+console.log(
+  `  tool calls  : ${harness
+    .toolCalls()
+    .map((call) => call.name)
+    .join(', ')}`,
+);
 console.log(`  cassette    : ${GOAL_CASSETTE_PATH}`);
 
 await harness.dispose();

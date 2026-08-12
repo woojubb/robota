@@ -70,9 +70,9 @@ const ID_RANDOM_LENGTH = 9;
  * - Adding a Module should only grant new capabilities or features
  */
 export abstract class AbstractModule<
-    TOptions extends IBaseModuleOptions = IBaseModuleOptions,
-    TStats = IModuleStats,
-  >
+  TOptions extends IBaseModuleOptions = IBaseModuleOptions,
+  TStats = IModuleStats,
+>
   implements IModule<TOptions, TStats>, IModuleHooks
 {
   abstract readonly name: string;

@@ -31,15 +31,15 @@ Prompt 변환: edge binding의 key를 그대로 사용 (port 정의 불필요)
 
 ## 영향 범위
 
-| 파일 | 변경 |
-|------|------|
-| `dag-core/types/domain.ts` | `IDagNode.inputs`, `outputs` optional로 변경 |
-| `canvas-utils.ts` | `createNodeFromObjectInfo()` — inputs/outputs 생성 제거 |
-| `dag-node-view.tsx` | props에서 objectInfo 참조하여 port 렌더링 |
-| `dag-designer-context.tsx` | `addNodeFromObjectInfo()` — inputs/outputs 없이 노드 생성, objectInfo를 노드 뷰에 전달 |
-| `dag-designer-panels.tsx` | port 표시 시 objectInfo 참조 |
-| `node-config-panel.tsx` | port section에 objectInfo 기반 port 전달 |
-| `definition-to-prompt-translator.ts` | port 정의 없이 edge binding만으로 prompt 변환 |
+| 파일                                 | 변경                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------- |
+| `dag-core/types/domain.ts`           | `IDagNode.inputs`, `outputs` optional로 변경                                           |
+| `canvas-utils.ts`                    | `createNodeFromObjectInfo()` — inputs/outputs 생성 제거                                |
+| `dag-node-view.tsx`                  | props에서 objectInfo 참조하여 port 렌더링                                              |
+| `dag-designer-context.tsx`           | `addNodeFromObjectInfo()` — inputs/outputs 없이 노드 생성, objectInfo를 노드 뷰에 전달 |
+| `dag-designer-panels.tsx`            | port 표시 시 objectInfo 참조                                                           |
+| `node-config-panel.tsx`              | port section에 objectInfo 기반 port 전달                                               |
+| `definition-to-prompt-translator.ts` | port 정의 없이 edge binding만으로 prompt 변환                                          |
 
 ## ComfyUI 호환성
 

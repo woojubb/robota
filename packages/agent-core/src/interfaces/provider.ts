@@ -34,13 +34,7 @@ export type TParameterDefaultValue = string | number | boolean | null;
  * JSON Schema primitive types
  */
 export type TJSONSchemaKind =
-  | 'string'
-  | 'number'
-  | 'integer'
-  | 'boolean'
-  | 'array'
-  | 'object'
-  | 'null';
+  'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
 
 /**
  * JSON Schema enum values

@@ -23,15 +23,15 @@ a transport (React/browser packages carry no transport `name`) and is out of sco
 `name: 'headless'` in exactly the factory form the scan parses — could never contribute a name. The set above had
 been asserted as complete by a check structurally incapable of reading one of its members.
 
-| Surface         | Runtime                                           | Transport `name`   | Client / presentation        | Prior art in-repo     |
-| --------------- | ------------------------------------------------- | ------------------ | ---------------------------- | --------------------- |
-| CLI / terminal  | local `agent-cli` process                         | `tui`              | `agent-transport` print      | —                     |
-| CLI / one-shot  | local `agent-cli` print mode (`-p`), non-interactive | `headless`      | —                            | `agent-transport/headless` (print / JSON / stream-json runner) |
-| Desktop        | headless `robota --serve` spawned by Electron     | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001 |
-| Web            | `apps/agent-server` (Express + WS) / browser peer | `ws`               | `agent-transport-webrtc-web` | playground stack      |
-| HTTP/WS server | headless `robota --serve` / `apps/agent-server`   | `http` / `ws`      | —                            | RUNTIME-001           |
-| Remote (P2P)   | local host + signaling relay                      | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001            |
-| MCP host       | any MCP client                                    | `mcp`              | —                            | —                     |
+| Surface        | Runtime                                              | Transport `name`   | Client / presentation        | Prior art in-repo                                              |
+| -------------- | ---------------------------------------------------- | ------------------ | ---------------------------- | -------------------------------------------------------------- |
+| CLI / terminal | local `agent-cli` process                            | `tui`              | `agent-transport` print      | —                                                              |
+| CLI / one-shot | local `agent-cli` print mode (`-p`), non-interactive | `headless`         | —                            | `agent-transport/headless` (print / JSON / stream-json runner) |
+| Desktop        | headless `robota --serve` spawned by Electron        | `ws` (nonce auth)  | `agent-transport-gui`        | GUI-002 / RUNTIME-001                                          |
+| Web            | `apps/agent-server` (Express + WS) / browser peer    | `ws`               | `agent-transport-webrtc-web` | playground stack                                               |
+| HTTP/WS server | headless `robota --serve` / `apps/agent-server`      | `http` / `ws`      | —                            | RUNTIME-001                                                    |
+| Remote (P2P)   | local host + signaling relay                         | `webrtc` (pairing) | `agent-transport-webrtc-web` | REMOTE-001                                                     |
+| MCP host       | any MCP client                                       | `mcp`              | —                            | —                                                              |
 
 ## Transport `name` declaration forms
 

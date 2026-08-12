@@ -215,12 +215,7 @@ interface ISubagentJobState {
 }
 
 type TSubagentJobStatus =
-  | 'queued'
-  | 'running'
-  | 'waiting_permission'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'waiting_permission' | 'completed' | 'failed' | 'cancelled';
 ```
 
 Allowed state transitions:

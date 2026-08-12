@@ -23,34 +23,34 @@ const packages = ['core', 'openai', 'anthropic', 'google', 'tools'];
 
 // Console output colors
 const colors = {
-    reset: '\x1b[0m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m',
-    red: '\x1b[31m'
+  reset: '\x1b[0m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
 };
 
 console.log(`\n${colors.magenta}🧹 Cleaning up temporary README files${colors.reset}`);
 
 // Clean up README files - DISABLED to preserve README.md files
-packages.forEach(pkg => {
-    const readmePath = path.join(packagesPath, pkg, 'README.md');
+packages.forEach((pkg) => {
+  const readmePath = path.join(packagesPath, pkg, 'README.md');
 
-    // DISABLED: Do not remove README.md files
-    console.log(`ℹ️  Preserved README.md: ${readmePath}`);
+  // DISABLED: Do not remove README.md files
+  console.log(`ℹ️  Preserved README.md: ${readmePath}`);
 
-    // Original deletion code commented out:
-    // try {
-    //     if (fs.existsSync(readmePath)) {
-    //         fs.unlinkSync(readmePath);
-    //         console.log(`✅ Removed: ${readmePath}`);
-    //     }
-    // } catch (error) {
-    //     console.error(`❌ Error removing ${pkg} README:`, error);
-    // }
+  // Original deletion code commented out:
+  // try {
+  //     if (fs.existsSync(readmePath)) {
+  //         fs.unlinkSync(readmePath);
+  //         console.log(`✅ Removed: ${readmePath}`);
+  //     }
+  // } catch (error) {
+  //     console.error(`❌ Error removing ${pkg} README:`, error);
+  // }
 });
 
 // Output completion message
-console.log(`${colors.green}🎉 README files cleanup completed!${colors.reset}`); 
+console.log(`${colors.green}🎉 README files cleanup completed!${colors.reset}`);

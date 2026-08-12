@@ -34,9 +34,7 @@ export interface ISubagentWorkerCancelMessage {
 }
 
 export type TSubagentWorkerParentMessage =
-  | ISubagentWorkerStartMessage
-  | ISubagentWorkerSendMessage
-  | ISubagentWorkerCancelMessage;
+  ISubagentWorkerStartMessage | ISubagentWorkerSendMessage | ISubagentWorkerCancelMessage;
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';

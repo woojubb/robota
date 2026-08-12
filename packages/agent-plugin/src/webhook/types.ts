@@ -11,11 +11,7 @@ import type {
  */
 
 export type TWebhookEventName =
-  | TExecutionEventName
-  | 'conversation.complete'
-  | 'tool.executed'
-  | 'error.occurred'
-  | 'custom';
+  TExecutionEventName | 'conversation.complete' | 'tool.executed' | 'error.occurred' | 'custom';
 
 /**
  * Base webhook context data

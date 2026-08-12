@@ -30,8 +30,7 @@ export function convertToOpenAICompatibleTools(
 }
 
 type OpenAIContentBlock =
-  | OpenAI.Chat.ChatCompletionContentPartText
-  | OpenAI.Chat.ChatCompletionContentPartImage;
+  OpenAI.Chat.ChatCompletionContentPartText | OpenAI.Chat.ChatCompletionContentPartImage;
 
 function convertUserParts(msg: IUserMessage): string | OpenAIContentBlock[] {
   if (!msg.parts || msg.parts.length === 0) return msg.content || '';

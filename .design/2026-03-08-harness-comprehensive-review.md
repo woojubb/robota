@@ -9,34 +9,34 @@
 
 ### 1.1 구현 완료된 요소
 
-| 구성 요소 | 스크립트 | 상태 |
-|----------|---------|------|
-| Consistency Scan | `scan-consistency.mjs` | 통과 |
-| Spec Coverage Audit | `audit-spec-coverage.mjs` | 100% |
-| Docs Structure Validation | `validate-package-docs-structure.mjs` | 통과 |
-| Change Verification | `verify-change.mjs` | 구현됨 |
-| Change Review | `review-change.mjs` | 구현됨 |
-| Change Recording | `record-change.mjs` | 구현됨 |
-| Scenario Owner Map | `scenario-owner-map.mjs` | 구현됨 |
-| Owner Scenario Recording | `record-owner-scenario.mjs` | 구현됨 |
-| Self-Check | `self-check.mjs` | 통과 |
+| 구성 요소                 | 스크립트                              | 상태   |
+| ------------------------- | ------------------------------------- | ------ |
+| Consistency Scan          | `scan-consistency.mjs`                | 통과   |
+| Spec Coverage Audit       | `audit-spec-coverage.mjs`             | 100%   |
+| Docs Structure Validation | `validate-package-docs-structure.mjs` | 통과   |
+| Change Verification       | `verify-change.mjs`                   | 구현됨 |
+| Change Review             | `review-change.mjs`                   | 구현됨 |
+| Change Recording          | `record-change.mjs`                   | 구현됨 |
+| Scenario Owner Map        | `scenario-owner-map.mjs`              | 구현됨 |
+| Owner Scenario Recording  | `record-owner-scenario.mjs`           | 구현됨 |
+| Self-Check                | `self-check.mjs`                      | 통과   |
 
 ### 1.2 미구현 요소 (전면 하네스 계획 대비)
 
-| Workstream | 요소 | 우선순위 |
-|-----------|------|---------|
-| WS4. Observability | `collect-run-context.mjs` | 중간 |
-| WS4. Observability | strict policy 로그 추출기 | 중간 |
-| WS4. Observability | ownerPath 흐름 요약기 | 중간 |
-| WS7. Cleanup | `harness:cleanup` | 높음 |
-| WS7. Cleanup | drift scan 리포트 | 높음 |
-| WS8. App Boot | `harness:bootstrap -- web` | 낮음 |
-| WS8. App Boot | `harness:bootstrap -- api-server` | 낮음 |
-| WS9. Evaluation | representative eval set | 낮음 |
-| WS5. Policy Enforcement | `dependency-direction-check` | 높음 |
-| WS5. Policy Enforcement | `boundary-validation-check` | 중간 |
-| WS5. Policy Enforcement | `agent-identity-check` | 낮음 |
-| WS5. Policy Enforcement | `import-policy-check` | 중간 |
+| Workstream              | 요소                              | 우선순위 |
+| ----------------------- | --------------------------------- | -------- |
+| WS4. Observability      | `collect-run-context.mjs`         | 중간     |
+| WS4. Observability      | strict policy 로그 추출기         | 중간     |
+| WS4. Observability      | ownerPath 흐름 요약기             | 중간     |
+| WS7. Cleanup            | `harness:cleanup`                 | 높음     |
+| WS7. Cleanup            | drift scan 리포트                 | 높음     |
+| WS8. App Boot           | `harness:bootstrap -- web`        | 낮음     |
+| WS8. App Boot           | `harness:bootstrap -- api-server` | 낮음     |
+| WS9. Evaluation         | representative eval set           | 낮음     |
+| WS5. Policy Enforcement | `dependency-direction-check`      | 높음     |
+| WS5. Policy Enforcement | `boundary-validation-check`       | 중간     |
+| WS5. Policy Enforcement | `agent-identity-check`            | 낮음     |
+| WS5. Policy Enforcement | `import-policy-check`             | 중간     |
 
 ### 1.3 하네스 보강 필수 항목
 
@@ -45,6 +45,7 @@
 저장소 엔트로피 정리를 자동화하는 명령이 아직 없다.
 
 필요 기능:
+
 - 스테일 `.design/tmp/` 문서 감지
 - 죽은 skill anchor 탐지
 - 미사용 예제/코드 drift 감지
@@ -66,18 +67,19 @@ review/verify 결과를 비교 가능한 JSON schema로 고정해야 한다.
 ### 2.1 실제 충돌: 0건
 
 이전 `.design/tmp/` 분석 문서에서 제기된 충돌 3건은 모두 거짓 양성이었다.
+
 - `unknown` 정책: AGENTS.md가 trust boundary에서 명시적으로 허용
 - 의존 방향: 올바르게 기술됨
 - terminal state: explicit policy gate 조건 명시됨
 
 ### 2.2 관리상 갭
 
-| 항목 | 상태 | 조치 |
-|------|------|------|
+| 항목                                          | 상태                                             | 조치                         |
+| --------------------------------------------- | ------------------------------------------------ | ---------------------------- |
 | AGENTS.md Skills Reference에 미등재 skill 2개 | `scenario-guard-checklist`, `verification-guard` | 삭제 또는 등재 (이미 통합됨) |
-| `Path-Only` 미정의 용어 | `.design/tmp/` 에만 존재 | tmp 정리 시 삭제 |
-| Agent Identity 규칙의 대응 skill 없음 | harness-governance에 포함 필요 | scan에 용어 검사 추가 |
-| Styling 규칙의 대응 skill 불완전 | tailwind-truncation은 범위 좁음 | 필요 시 확장 |
+| `Path-Only` 미정의 용어                       | `.design/tmp/` 에만 존재                         | tmp 정리 시 삭제             |
+| Agent Identity 규칙의 대응 skill 없음         | harness-governance에 포함 필요                   | scan에 용어 검사 추가        |
+| Styling 규칙의 대응 skill 불완전              | tailwind-truncation은 범위 좁음                  | 필요 시 확장                 |
 
 ### 2.3 중복 영역 4개
 
@@ -104,16 +106,16 @@ review/verify 결과를 비교 가능한 JSON schema로 고정해야 한다.
 대부분의 SPEC.md가 2~5줄의 최소 내용만 포함한다.
 보편적인 개발 방법론 관점에서 다음이 누락되어 있다:
 
-| 누락 항목 | 설명 | 관련 방법론 |
-|----------|------|-----------|
+| 누락 항목             | 설명                       | 관련 방법론                   |
+| --------------------- | -------------------------- | ----------------------------- |
 | Architecture Overview | 레이어 구조, 핵심 컴포넌트 | Clean Architecture, Hexagonal |
-| Type Ownership Map | 타입 SSOT 소유권 | DDD Bounded Context |
-| Public API Surface | 공개 인터페이스 목록 | API-First Design |
-| Extension Points | 확장 포인트 정의 | Open-Closed Principle |
-| Error Taxonomy | 에러 코드 분류 | Effect-Style Error Modeling |
-| State Lifecycle | 상태 전이 규칙 | State Machine Design |
-| Dependency Contract | 의존 관계 계약 | Dependency Inversion |
-| Test Strategy | 테스트 레이어 정의 | Testing Pyramid |
+| Type Ownership Map    | 타입 SSOT 소유권           | DDD Bounded Context           |
+| Public API Surface    | 공개 인터페이스 목록       | API-First Design              |
+| Extension Points      | 확장 포인트 정의           | Open-Closed Principle         |
+| Error Taxonomy        | 에러 코드 분류             | Effect-Style Error Modeling   |
+| State Lifecycle       | 상태 전이 규칙             | State Machine Design          |
+| Dependency Contract   | 의존 관계 계약             | Dependency Inversion          |
+| Test Strategy         | 테스트 레이어 정의         | Testing Pyramid               |
 
 ### 3.3 Scenario 커버리지
 
@@ -127,16 +129,16 @@ review/verify 결과를 비교 가능한 JSON schema로 고정해야 한다.
 
 ### 4.1 아키텍처 평가
 
-| 영역 | 평가 | 비고 |
-|------|------|------|
-| 타입 안전성 | 매우 우수 | `any` 0건, strict 준수 |
-| DI 패턴 | 모범적 | Null Object, 생성자 주입, 싱글톤 0 |
-| 이벤트 시스템 | 우수 | 계층화 설계, ownerPath 지원 |
-| 플러그인 시스템 | 우수 | 10개 내장, 라이프사이클 훅 |
-| 도구 시스템 | 견고 | Zod 스키마 검증, 4종 도구 타입 |
-| Fallback 정책 | 완벽 준수 | silent fallback 0건 |
-| 로깅 정책 | 완벽 준수 | console.* 0건, ILogger 주입 |
-| 에이전트 용어 | 완벽 준수 | 금지 용어 0건 |
+| 영역            | 평가      | 비고                               |
+| --------------- | --------- | ---------------------------------- |
+| 타입 안전성     | 매우 우수 | `any` 0건, strict 준수             |
+| DI 패턴         | 모범적    | Null Object, 생성자 주입, 싱글톤 0 |
+| 이벤트 시스템   | 우수      | 계층화 설계, ownerPath 지원        |
+| 플러그인 시스템 | 우수      | 10개 내장, 라이프사이클 훅         |
+| 도구 시스템     | 견고      | Zod 스키마 검증, 4종 도구 타입     |
+| Fallback 정책   | 완벽 준수 | silent fallback 0건                |
+| 로깅 정책       | 완벽 준수 | console.* 0건, ILogger 주입        |
+| 에이전트 용어   | 완벽 준수 | 금지 용어 0건                      |
 
 ### 4.2 개선 필요 영역
 
@@ -146,13 +148,13 @@ review/verify 결과를 비교 가능한 JSON schema로 고정해야 한다.
 
 현재 8개 테스트 파일 / 125개 소스 파일.
 
-| 미테스트 영역 | 파일 수 | 우선순위 |
-|-------------|--------|---------|
-| plugins/ (logging, usage, performance, webhook 등) | ~30 | 높음 |
-| tools/implementations/ (function-tool, mcp-tool 등) | ~10 | 높음 |
-| utils/ (errors, validation, message-converter) | ~6 | 중간 |
-| abstracts/ | ~10 | 중간 |
-| services/ (tool-execution, task-events) | ~4 | 높음 |
+| 미테스트 영역                                       | 파일 수 | 우선순위 |
+| --------------------------------------------------- | ------- | -------- |
+| plugins/ (logging, usage, performance, webhook 등)  | ~30     | 높음     |
+| tools/implementations/ (function-tool, mcp-tool 등) | ~10     | 높음     |
+| utils/ (errors, validation, message-converter)      | ~6      | 중간     |
+| abstracts/                                          | ~10     | 중간     |
+| services/ (tool-execution, task-events)             | ~4      | 높음     |
 
 **B. SPEC.md 보강**
 
@@ -172,6 +174,7 @@ review/verify 결과를 비교 가능한 JSON schema로 고정해야 한다.
 **C. 실행 캐싱 미구현**
 
 AGENTS.md 규칙:
+
 - LLM 호출 전 캐시 확인 필수
 - 성공 결과 캐시 저장 필수
 - 동등 실행 반복 금지
@@ -194,13 +197,13 @@ ownerPath가 있으나 depth, spanId 등 분산 추적 호환 필드가 누락.
 
 ### 5.1 현재 skill에서 커버하지 못하는 방법론
 
-| 방법론 | 현재 커버리지 | 제안 |
-|--------|------------|------|
-| **Testing Pyramid / Test Strategy** | vitest-testing-strategy 있음 | agents 패키지에 적용 가이드 보강 |
-| **API-First Design** | semver-api-surface 부분 커버 | 패키지별 public API surface 관리 skill 필요 |
-| **Observability Engineering** | 없음 | 신규 skill 제안 |
-| **Package Spec Writing** | 없음 | 신규 skill 제안 |
-| **Refactoring Workflow** | repo-change-loop 부분 커버 | 리팩토링 특화 skill 제안 |
+| 방법론                              | 현재 커버리지                | 제안                                        |
+| ----------------------------------- | ---------------------------- | ------------------------------------------- |
+| **Testing Pyramid / Test Strategy** | vitest-testing-strategy 있음 | agents 패키지에 적용 가이드 보강            |
+| **API-First Design**                | semver-api-surface 부분 커버 | 패키지별 public API surface 관리 skill 필요 |
+| **Observability Engineering**       | 없음                         | 신규 skill 제안                             |
+| **Package Spec Writing**            | 없음                         | 신규 skill 제안                             |
+| **Refactoring Workflow**            | repo-change-loop 부분 커버   | 리팩토링 특화 skill 제안                    |
 
 ### 5.2 신규 skill 제안
 
@@ -209,6 +212,7 @@ ownerPath가 있으나 depth, spanId 등 분산 추적 호환 필드가 누락.
 목적: 패키지 SPEC.md 작성 표준과 품질 게이트 정의
 
 포함:
+
 - SPEC.md 필수 섹션 목록
 - 섹션별 최소 내용 기준
 - SPEC.md와 코드의 drift 감지 방법
@@ -219,6 +223,7 @@ ownerPath가 있으나 depth, spanId 등 분산 추적 호환 필드가 누락.
 목적: 이벤트 흐름, 에러 추적, 실행 맥락 관찰 표준
 
 포함:
+
 - ownerPath 기반 이벤트 추적 워크플로
 - strict policy 에러 분류 및 수집
 - 구조적 로그 수집 기준
@@ -229,6 +234,7 @@ ownerPath가 있으나 depth, spanId 등 분산 추적 호환 필드가 누락.
 목적: 안전한 리팩토링 루프 정의
 
 포함:
+
 - 영향 범위 식별 (harness:review 활용)
 - 기존 테스트 통과 확인 → 리팩토링 → 재검증
 - API surface 변경 시 semver 판단
@@ -275,6 +281,7 @@ When modifying a package, agents should:
 ### Phase 1: SPEC.md 보강 (즉시)
 
 SPEC.md를 다음 구조로 확장:
+
 - Scope (기존 유지)
 - Architecture Overview
 - Layer Structure (Robota → ExecutionService → Managers → Services → Plugins)
@@ -290,6 +297,7 @@ SPEC.md를 다음 구조로 확장:
 ### Phase 2: 테스트 커버리지 확대 (1-2주)
 
 우선순위:
+
 1. 플러그인 테스트 7건 추가 (logging, usage, performance, webhook, limits, error-handling, conversation-history)
 2. 도구 구현 테스트 4건 추가 (function-tool, mcp-tool, openapi-tool, relay-mcp-tool)
 3. 서비스 에지 케이스 3건 추가 (tool-execution, task-events, user-events)
@@ -317,27 +325,27 @@ SPEC.md를 다음 구조로 확장:
 
 ## 8. 즉시 실행 항목 요약
 
-| 번호 | 항목 | 범위 | 상태 |
-|------|------|------|------|
-| 1 | agents SPEC.md 보강 | packages/agents/docs/SPEC.md | ✅ 완료 (49→3 drift) |
-| 2 | `spec-writing-standard` skill 생성 | .agents/skills/spec-writing-standard/ | ✅ 완료 |
-| 3 | AGENTS.md에 Spec Quality Gate 규칙 추가 | AGENTS.md | ✅ 완료 |
-| 4 | AGENTS.md에 Continuous Improvement 규칙 추가 | AGENTS.md | ✅ 완료 |
-| 5 | `.design/tmp/` 스테일 문서 정리 | CURRENT-TASKS.md 업데이트 | ✅ 완료 — tmp/ 삭제, 잔여 항목 CURRENT-TASKS.md로 이관 |
-| 6 | `harness:cleanup` 스크립트 초안 | scripts/harness/cleanup-drift.mjs | ✅ 완료 |
-| 7 | `dependency-direction-check` 스크립트 초안 | scripts/harness/ | 미완 — CURRENT-TASKS.md Priority 2로 등재 |
+| 번호 | 항목                                         | 범위                                  | 상태                                                   |
+| ---- | -------------------------------------------- | ------------------------------------- | ------------------------------------------------------ |
+| 1    | agents SPEC.md 보강                          | packages/agents/docs/SPEC.md          | ✅ 완료 (49→3 drift)                                   |
+| 2    | `spec-writing-standard` skill 생성           | .agents/skills/spec-writing-standard/ | ✅ 완료                                                |
+| 3    | AGENTS.md에 Spec Quality Gate 규칙 추가      | AGENTS.md                             | ✅ 완료                                                |
+| 4    | AGENTS.md에 Continuous Improvement 규칙 추가 | AGENTS.md                             | ✅ 완료                                                |
+| 5    | `.design/tmp/` 스테일 문서 정리              | CURRENT-TASKS.md 업데이트             | ✅ 완료 — tmp/ 삭제, 잔여 항목 CURRENT-TASKS.md로 이관 |
+| 6    | `harness:cleanup` 스크립트 초안              | scripts/harness/cleanup-drift.mjs     | ✅ 완료                                                |
+| 7    | `dependency-direction-check` 스크립트 초안   | scripts/harness/                      | 미완 — CURRENT-TASKS.md Priority 2로 등재              |
 
 ---
 
 ## 9. Agents 패키지 후속 완료 항목 (2026-03-08)
 
-| 항목 | 상태 |
-|------|------|
-| 테스트 커버리지 확대 (8→21 파일, 456 tests) | ✅ 완료 |
-| Skipped 테스트 활성화 (24 skipped → 0) | ✅ 완료 |
-| Execution Caching 구현 | ✅ 완료 |
-| DAG sibling dependency 해소 (3 drift → 0) | ✅ 완료 |
-| 레거시 skill 정리 (26→16) | 미완 — CURRENT-TASKS.md Priority 2로 등재 |
+| 항목                                        | 상태                                      |
+| ------------------------------------------- | ----------------------------------------- |
+| 테스트 커버리지 확대 (8→21 파일, 456 tests) | ✅ 완료                                   |
+| Skipped 테스트 활성화 (24 skipped → 0)      | ✅ 완료                                   |
+| Execution Caching 구현                      | ✅ 완료                                   |
+| DAG sibling dependency 해소 (3 drift → 0)   | ✅ 완료                                   |
+| 레거시 skill 정리 (26→16)                   | 미완 — CURRENT-TASKS.md Priority 2로 등재 |
 
 ## 10. `.design/tmp/` 정리 완료 기록
 

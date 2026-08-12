@@ -4,6 +4,7 @@
  * and all command/skill invocation logic.
  */
 
+import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 import {
   executeSkill,
   findUnknownModuleNames,
@@ -12,7 +13,6 @@ import {
   SystemCommandExecutor,
 } from '../commands/index.js';
 import { createSkillActivationEvent } from '../commands/skill-activation-events.js';
-import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 
 import type { TSubmitFn } from './interactive-session-execution-contracts.js';
 import type { ICommandHostContext } from '../command-api/index.js';

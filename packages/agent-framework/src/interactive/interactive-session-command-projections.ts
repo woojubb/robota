@@ -11,8 +11,8 @@
  * mapping is now one small unit whose whole content is what crosses the boundary.
  */
 
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
 import type { ICommandSkillListEntry } from '../commands/index.js';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface-transport';
 
 /** The internal command shape these projections read. Structural, so the executor stays uncoupled. */
 interface ISourceCommand {

@@ -1,11 +1,7 @@
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 export type TConnectionState =
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'error'
-  | 'reconnecting';
+  'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting';
 
 export interface IConnectionInfo {
   state: TConnectionState;

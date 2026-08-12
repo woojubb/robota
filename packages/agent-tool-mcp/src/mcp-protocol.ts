@@ -71,11 +71,7 @@ export interface IMCPError {
  * MCP connection status
  */
 export type TMCPConnectionStatus =
-  | 'connected'
-  | 'disconnected'
-  | 'connecting'
-  | 'disconnecting'
-  | 'error';
+  'connected' | 'disconnected' | 'connecting' | 'disconnecting' | 'error';
 
 /**
  * Build a JSON-RPC 2.0 `tools/call` request from tool name and parameters.

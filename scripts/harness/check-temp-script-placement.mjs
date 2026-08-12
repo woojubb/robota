@@ -26,8 +26,7 @@ export const TEMP_PATTERNS = ['*-user-execution.*', '*-proxy.mjs', '*-mode.txt']
 export function findParkedTempScripts(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'temp-script-placement',
-    why:
-      'It globs the two source families for parked temp scripts; over neither, "none parked" is a statement about an empty glob.',
+    why: 'It globs the two source families for parked temp scripts; over neither, "none parked" is a statement about an empty glob.',
   });
   const found = [];
   for (const tier of ['packages', 'apps']) {

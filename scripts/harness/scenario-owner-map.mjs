@@ -3,17 +3,8 @@ import path from 'node:path';
 import { WORKSPACE_ROOT } from './shared.mjs';
 
 const PACKAGE_SCRIPT_CANDIDATES = {
-  verify: [
-    'scenario:verify',
-    'verify:scenario',
-    'example:verify',
-    'verify:examples',
-  ],
-  record: [
-    'scenario:record',
-    'record:scenario',
-    'record:examples',
-  ],
+  verify: ['scenario:verify', 'verify:scenario', 'example:verify', 'verify:examples'],
+  record: ['scenario:record', 'record:scenario', 'record:examples'],
 };
 
 // Transitional extension point for scopes that cannot yet expose package-level

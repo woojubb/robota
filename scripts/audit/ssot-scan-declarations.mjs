@@ -41,7 +41,10 @@ const files = execSync('git ls-files', { encoding: 'utf8' })
   .filter(isTargetFile);
 
 const declPatterns = [
-  { kind: 'class', re: /^\s*(export\s+)?(declare\s+)?(abstract\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)\b/ },
+  {
+    kind: 'class',
+    re: /^\s*(export\s+)?(declare\s+)?(abstract\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)\b/,
+  },
   { kind: 'interface', re: /^\s*(export\s+)?(declare\s+)?interface\s+([A-Za-z_][A-Za-z0-9_]*)\b/ },
   { kind: 'type', re: /^\s*(export\s+)?(declare\s+)?type\s+([A-Za-z_][A-Za-z0-9_]*)\b\s*=/ },
 ];
@@ -101,18 +104,27 @@ const classifiedNonTest = duplicatesNonTest.map((d) => {
   const kindSet = new Set(d.occurrences.map((o) => o.kind));
   const roots = Array.from(new Set(d.occurrences.map((o) => rootOf(o.file)))).sort();
   const sameKind = kindSet.size === 1;
-  const isContractImplementationPair = kindSet.size === 2 && kindSet.has('class') && kindSet.has('interface') && d.count === 2;
+  const isContractImplementationPair =
+    kindSet.size === 2 && kindSet.has('class') && kindSet.has('interface') && d.count === 2;
 
   return {
     ...d,
     roots,
     kindSet: Array.from(kindSet).sort(),
-    classification: isContractImplementationPair ? 'contract_implementation_pair' : sameKind ? 'same_kind_duplicate' : 'mixed_kinds_duplicate',
+    classification: isContractImplementationPair
+      ? 'contract_implementation_pair'
+      : sameKind
+        ? 'same_kind_duplicate'
+        : 'mixed_kinds_duplicate',
   };
 });
 
-const contractImplementationPairsNonTest = classifiedNonTest.filter((d) => d.classification === 'contract_implementation_pair');
-const ssotViolationsNonTest = classifiedNonTest.filter((d) => d.classification !== 'contract_implementation_pair');
+const contractImplementationPairsNonTest = classifiedNonTest.filter(
+  (d) => d.classification === 'contract_implementation_pair',
+);
+const ssotViolationsNonTest = classifiedNonTest.filter(
+  (d) => d.classification !== 'contract_implementation_pair',
+);
 
 const report = {
   version: 3,
@@ -123,7 +135,8 @@ const report = {
   // NOTE: This count excludes contract+implementation pairs to focus on SSOT violations only.
   ssotViolationGroupsNonTest: ssotViolationsNonTest.length,
   crossRootGroupsNonTest: classifiedNonTest.filter((d) => d.roots.length > 1).length,
-  sameKindGroupsNonTest: classifiedNonTest.filter((d) => d.classification === 'same_kind_duplicate').length,
+  sameKindGroupsNonTest: classifiedNonTest.filter((d) => d.classification === 'same_kind_duplicate')
+    .length,
   contractImplementationPairsNonTest: contractImplementationPairsNonTest.length,
   keywordInventoryNonTest: {
     interfaceKeywordCount: interfaceKeywordMatches.length,
@@ -139,16 +152,17 @@ const report = {
   contractImplementationPairsNonTestDetails: contractImplementationPairsNonTest,
 };
 
-fs.writeFileSync('scripts/audit/output/ssot-duplicate-declarations-v3.json', JSON.stringify(report, null, 2));
+fs.writeFileSync(
+  'scripts/audit/output/ssot-duplicate-declarations-v3.json',
+  JSON.stringify(report, null, 2),
+);
 
 console.log(
   `[SSOT-SCAN:v3] scannedFiles=${report.scannedFiles} ` +
-  `dupAll=${report.duplicateGroupsAll} dupNonTest=${report.ssotViolationGroupsNonTest} ` +
-  `crossRootNonTest=${report.crossRootGroupsNonTest} sameKindNonTest=${report.sameKindGroupsNonTest} ` +
-  `contractImplPairsNonTest=${report.contractImplementationPairsNonTest} ` +
-  `kwInterface=${report.keywordInventoryNonTest.interfaceKeywordCount} ` +
-  `kwType=${report.keywordInventoryNonTest.typeKeywordCount} ` +
-  `kwTypeSafe=${report.keywordInventoryNonTest.typeSafeKeywordCount}`
+    `dupAll=${report.duplicateGroupsAll} dupNonTest=${report.ssotViolationGroupsNonTest} ` +
+    `crossRootNonTest=${report.crossRootGroupsNonTest} sameKindNonTest=${report.sameKindGroupsNonTest} ` +
+    `contractImplPairsNonTest=${report.contractImplementationPairsNonTest} ` +
+    `kwInterface=${report.keywordInventoryNonTest.interfaceKeywordCount} ` +
+    `kwType=${report.keywordInventoryNonTest.typeKeywordCount} ` +
+    `kwTypeSafe=${report.keywordInventoryNonTest.typeSafeKeywordCount}`,
 );
-
-

@@ -44,11 +44,13 @@ claude-opus-4-6, claude-sonnet-4-6에서 사용 가능:
 
 ```typescript
 context_management: {
-  edits: [{
-    type: "compact_20260112",
-    trigger: { type: "input_tokens", value: 150000 },
-    instructions: null // custom summarization instructions
-  }]
+  edits: [
+    {
+      type: 'compact_20260112',
+      trigger: { type: 'input_tokens', value: 150000 },
+      instructions: null, // custom summarization instructions
+    },
+  ];
 }
 ```
 
@@ -69,14 +71,14 @@ context_management: {
 
 ## Robota 현재 구현과의 차이점
 
-| 항목 | Claude Code | Robota (현재) |
-|------|------------|--------------|
-| 토큰 계산 | API `usage` 메타데이터 | chars/3 추정 (부정확) |
-| 체크 시점 | API 호출 직전 | execution round 시작 시 (부분 구현) |
-| 임계치 | 83.5% | 70% (보수적으로 설정) |
-| 요약 주입 | assistant 메시지로 history 교체 | pending summary를 다음 user message에 prepend |
-| Tool 결과 | 50K+ chars 디스크 오프로드 | 30K chars 중간 truncation만 |
-| Server-side | `context_management.edits` API 사용 가능 | 미구현 |
+| 항목        | Claude Code                              | Robota (현재)                                 |
+| ----------- | ---------------------------------------- | --------------------------------------------- |
+| 토큰 계산   | API `usage` 메타데이터                   | chars/3 추정 (부정확)                         |
+| 체크 시점   | API 호출 직전                            | execution round 시작 시 (부분 구현)           |
+| 임계치      | 83.5%                                    | 70% (보수적으로 설정)                         |
+| 요약 주입   | assistant 메시지로 history 교체          | pending summary를 다음 user message에 prepend |
+| Tool 결과   | 50K+ chars 디스크 오프로드               | 30K chars 중간 truncation만                   |
+| Server-side | `context_management.edits` API 사용 가능 | 미구현                                        |
 
 ## 적용 계획
 

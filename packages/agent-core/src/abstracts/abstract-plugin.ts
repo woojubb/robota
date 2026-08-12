@@ -53,9 +53,9 @@ export { PluginCategory, PluginPriority };
  * @template TStats - Plugin statistics type
  */
 export abstract class AbstractPlugin<
-    TOptions extends IPluginOptions = IPluginOptions,
-    TStats extends IPluginStats = IPluginStats,
-  >
+  TOptions extends IPluginOptions = IPluginOptions,
+  TStats extends IPluginStats = IPluginStats,
+>
   implements IPluginContract<TOptions, TStats>, IPluginHooks
 {
   abstract readonly name: string;

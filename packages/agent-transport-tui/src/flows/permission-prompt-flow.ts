@@ -15,12 +15,10 @@ export const PERMISSION_PROMPT_OPTIONS = [
 
 export type TPermissionPromptDecision = true | 'allow-session' | 'allow-project' | false;
 export type TPermissionPromptInputAction =
-  | TSelectionInputAction
-  | { type: 'shortcut'; index: number };
+  TSelectionInputAction | { type: 'shortcut'; index: number };
 
 export type TPermissionPromptEffect =
-  | { type: 'none' }
-  | { type: 'resolve'; decision: TPermissionPromptDecision };
+  { type: 'none' } | { type: 'resolve'; decision: TPermissionPromptDecision };
 
 export function getPermissionPromptInputAction(
   input: string,

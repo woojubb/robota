@@ -30,11 +30,7 @@ import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport
 
 /** Connection lifecycle for the RTC client (superset of the WS client's statuses: adds pairing/failed). */
 export type TRtcConnectionStatus =
-  | 'disconnected'
-  | 'connecting'
-  | 'pairing'
-  | 'connected'
-  | 'failed';
+  'disconnected' | 'connecting' | 'pairing' | 'connected' | 'failed';
 
 export interface IRtcSessionClientCallbacks {
   onMessage: (msg: TServerMessage) => void;

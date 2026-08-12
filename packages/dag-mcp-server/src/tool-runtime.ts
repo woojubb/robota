@@ -2,13 +2,7 @@ import type { IDagOrchestrationPort } from '@robota-sdk/dag-orchestration-client
 import type { IDagMcpToolCallResult, IDagMcpUsageErrorPayload } from './types.js';
 
 export type TDagMcpArgumentValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | TToolArgs
-  | readonly TDagMcpArgumentValue[];
+  string | number | boolean | null | undefined | TToolArgs | readonly TDagMcpArgumentValue[];
 
 export interface TToolArgs {
   readonly [key: string]: TDagMcpArgumentValue;

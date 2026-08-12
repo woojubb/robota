@@ -70,8 +70,7 @@ describe('findArchitectureMapPathFindings', () => {
    */
   it('does NOT exempt a line that merely narrates the move', async () => {
     const root = await createFixture({
-      [MAP_DOC]:
-        '# Map\n\nThe loader was relocated; `packages/pkg-a/src/old.ts` is gone.\n',
+      [MAP_DOC]: '# Map\n\nThe loader was relocated; `packages/pkg-a/src/old.ts` is gone.\n',
     });
 
     expect(await findArchitectureMapPathFindings(root)).toHaveLength(1);
@@ -97,10 +96,7 @@ describe('check-architecture-map-paths CLI', () => {
     const scriptCopy = path.join(root, 'scripts/harness/check-architecture-map-paths.mjs');
     mkdirSync(path.dirname(scriptCopy), { recursive: true });
     copyFileSync(SCAN_SCRIPT, scriptCopy);
-    copyFileSync(
-      GOVERNED_TREE_MODULE,
-      path.join(path.dirname(scriptCopy), 'governed-tree.mjs'),
-    );
+    copyFileSync(GOVERNED_TREE_MODULE, path.join(path.dirname(scriptCopy), 'governed-tree.mjs'));
     copyFileSync(CITED_PATHS_MODULE, path.join(path.dirname(scriptCopy), 'cited-paths.mjs'));
     return { root, scriptCopy };
   }

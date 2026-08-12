@@ -9,9 +9,7 @@ export function handleBackgroundQueryMessage(
     | { type: 'get-background-tasks' | 'get-background-task' | 'read-background-task-log' }
     | {
         type:
-          | 'get-background-job-groups'
-          | 'get-background-job-group'
-          | 'wait-background-job-group';
+          'get-background-job-groups' | 'get-background-job-group' | 'wait-background-job-group';
       }
   >,
 ): void {

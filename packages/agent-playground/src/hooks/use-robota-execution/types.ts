@@ -5,12 +5,7 @@ import type {
 } from '../../lib/playground/robota-executor';
 
 export type TExecutionState =
-  | 'idle'
-  | 'initializing'
-  | 'running'
-  | 'streaming'
-  | 'error'
-  | 'completed';
+  'idle' | 'initializing' | 'running' | 'streaming' | 'error' | 'completed';
 
 export interface IRobotaExecutionHookReturn {
   executionState: TExecutionState;

@@ -16,17 +16,9 @@ const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'
 export type TReversibleExecutionIsolation = 'none' | 'worktree' | 'provider-sandbox';
 export type TReversibleRollbackLayer = 'none' | 'edit-checkpoint' | 'worktree' | 'provider-sandbox';
 export type TReversibleSideEffect =
-  | 'none'
-  | 'file-mutation'
-  | 'shell-process'
-  | 'subagent'
-  | 'unknown';
+  'none' | 'file-mutation' | 'shell-process' | 'subagent' | 'unknown';
 export type TReversibleSafetyStatus =
-  | 'reversible'
-  | 'read-only'
-  | 'requires-checkpoint'
-  | 'requires-isolation'
-  | 'unknown';
+  'reversible' | 'read-only' | 'requires-checkpoint' | 'requires-isolation' | 'unknown';
 
 export interface IReversibleExecutionOptions {
   mode: 'local-first';

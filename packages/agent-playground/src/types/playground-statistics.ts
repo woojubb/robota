@@ -168,8 +168,7 @@ export type TPlaygroundStatisticsEventFullName =
   `${typeof PLAYGROUND_STATISTICS_EVENT_PREFIX}.${(typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS]}`;
 
 export type TPlaygroundStatisticsEventName =
-  | TExecutionEventName
-  | TPlaygroundStatisticsEventFullName;
+  TExecutionEventName | TPlaygroundStatisticsEventFullName;
 
 /**
  * Statistics event data

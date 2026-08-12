@@ -5,7 +5,7 @@
 
 /* Dark theme (default) */
 :root,
-[data-theme="dark"] {
+[data-theme='dark'] {
   --bg: #0a0e14;
   --bg-surface: #111820;
   --bg-elevated: #1a2130;
@@ -25,7 +25,7 @@
 }
 
 /* Light theme */
-[data-theme="light"] {
+[data-theme='light'] {
   --bg: #ffffff;
   --bg-surface: #f5f5f5;
   --bg-elevated: #eaeaea;
@@ -44,9 +44,14 @@
   --border: #e5e7eb;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
@@ -108,7 +113,8 @@ p {
 }
 
 /* ── Lists ── */
-ul, ol {
+ul,
+ol {
   padding-left: 24px;
   margin-bottom: 16px;
 }
@@ -251,7 +257,9 @@ td:first-child {
   font-weight: 500;
 }
 
-tr:last-child td { border-bottom: none; }
+tr:last-child td {
+  border-bottom: none;
+}
 
 /* ── Blockquote (used as section subtitle) ── */
 blockquote {
@@ -290,11 +298,28 @@ strong {
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
-  h1 { font-size: 1.8rem; }
-  h2 { font-size: 1.3rem; }
-  h3 { font-size: 1rem; }
-  p, li { font-size: 0.95rem; }
-  pre { font-size: 0.8rem; padding: 14px 16px; }
-  table { font-size: 0.85rem; }
-  td, th { padding: 8px 10px; }
+  h1 {
+    font-size: 1.8rem;
+  }
+  h2 {
+    font-size: 1.3rem;
+  }
+  h3 {
+    font-size: 1rem;
+  }
+  p,
+  li {
+    font-size: 0.95rem;
+  }
+  pre {
+    font-size: 0.8rem;
+    padding: 14px 16px;
+  }
+  table {
+    font-size: 0.85rem;
+  }
+  td,
+  th {
+    padding: 8px 10px;
+  }
 }
