@@ -18,6 +18,7 @@ import {
   classifyVitestOutcome,
   decidePairVerdict,
   defaultReverseApply,
+  filesForDefectFixCommits,
   hasRuntimeSemanticChange,
   isDefectFixRange,
   isSourceFile,
@@ -284,6 +285,35 @@ describe('HARNESS-041 file classification', () => {
 });
 
 describe('HARNESS-041 scoping (C2) + opt-out', () => {
+  it('judges only files owned by defect-fix or floor-adding commits in a mixed range', () => {
+    expect(
+      filesForDefectFixCommits([
+        {
+          subject: 'feat(dag): propagate trusted execution root',
+          files: ['packages/dag-core/src/interfaces/ports.ts'],
+          addedFiles: [],
+        },
+        {
+          subject: 'fix(framework): require accepted turn identity',
+          files: ['packages/agent-framework/src/interactive/accept.ts'],
+          addedFiles: [],
+        },
+        {
+          subject: 'feat(harness): add a mechanical floor',
+          files: [
+            'scripts/harness/check-new-floor.mjs',
+            'scripts/harness/__tests__/new-floor.test.mjs',
+          ],
+          addedFiles: ['scripts/harness/__tests__/new-floor.test.mjs'],
+        },
+      ]),
+    ).toEqual([
+      'packages/agent-framework/src/interactive/accept.ts',
+      'scripts/harness/check-new-floor.mjs',
+      'scripts/harness/__tests__/new-floor.test.mjs',
+    ]);
+  });
+
   it('a range that ADDS A FLOOR is a defect fix, whatever its subject says', () => {
     // Measured 2026-08-01: five mechanical floors were written in one session and not one of them
     // was judged by this gate, because a floor lands as `feat:` — it adds a capability — while being

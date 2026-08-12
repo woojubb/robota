@@ -194,6 +194,16 @@ export function isDefectFixRange(commitSubjects, addedFiles = []) {
   return addedFiles.some((f) => /^scripts\/harness\/__tests__\/.*\.test\.mjs$/.test(f));
 }
 
+/** Files changed by commits that individually qualify as defect fixes or add a harness floor. */
+export function filesForDefectFixCommits(commits) {
+  const files = new Set();
+  for (const commit of commits) {
+    if (!isDefectFixRange([commit.subject], commit.addedFiles)) continue;
+    for (const file of commit.files) files.add(file);
+  }
+  return [...files];
+}
+
 /** Parse `allow-green-at-base: <reason>` (opt-out) from any text (PR body / commit trailers). */
 export function parseOptOut(text) {
   const m = (text || '').match(/allow-green-at-base:\s*(\S.*)/i);
@@ -478,6 +488,27 @@ function gitRaw(args, opts = {}) {
   return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts });
 }
 
+function defaultDefectFixFiles(base) {
+  const commits = gitRaw(['log', '--format=%H%x00%s', `${base}..HEAD`])
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.indexOf('\0');
+      const sha = line.slice(0, separator);
+      const subject = line.slice(separator + 1);
+      const changed = (extraArgs = []) =>
+        git(['diff-tree', '--no-commit-id', '--name-only', ...extraArgs, '-r', sha])
+          .split('\n')
+          .filter(Boolean);
+      return {
+        subject,
+        files: changed(),
+        addedFiles: changed(['--diff-filter=A']),
+      };
+    });
+  return filesForDefectFixCommits(commits);
+}
+
 /**
  * Reverse the range's changes to `srcPaths` — the mutation the whole gate is built around.
  *
@@ -543,7 +574,15 @@ export async function runRegressionRedProof(io = {}) {
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 
-  const pairs = qualifyingPairs(classifyChanges(changedFiles));
+  // Scope by the commit that owns each file. A mixed PR must not turn unrelated `feat:` / `perf:`
+  // files into alleged defect fixes merely because another commit in the range is spelled `fix:`.
+  // Synthetic fixtures provide range inputs directly and retain whole-range scope.
+  const defectFixFiles =
+    io.defectFixFiles ??
+    (io.changedFiles !== undefined || io.commitSubjects !== undefined
+      ? changedFiles
+      : defaultDefectFixFiles(base));
+  const pairs = qualifyingPairs(classifyChanges(defectFixFiles));
   if (pairs.length === 0) {
     log('↩︎  SKIPPED: no same-package (source+test) pair to red-prove.');
     return { verdict: VERDICT.SKIPPED_NO_PAIR, decisions };
@@ -650,11 +689,14 @@ export async function runRegressionRedProof(io = {}) {
         const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
         reverseApply([source]);
         try {
-          const reversedText = readText(path.resolve(WORKSPACE_ROOT, source));
+          const sourceAbs = path.resolve(WORKSPACE_ROOT, source);
+          const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;
           // Injected orchestration fixtures may model reverseApply without mutating the real tree;
           // identical text in that seam must preserve their declared test-run outcome.
           runtimeMutation =
-            fixedText === reversedText || hasRuntimeSemanticChange(source, fixedText, reversedText);
+            reversedText === null ||
+            fixedText === reversedText ||
+            hasRuntimeSemanticChange(source, fixedText, reversedText);
           if (runtimeMutation) {
             const vitestJson = await runVitest(pair.pkg, testsForSource);
             outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
