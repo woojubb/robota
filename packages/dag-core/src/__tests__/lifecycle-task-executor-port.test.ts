@@ -22,6 +22,7 @@ const testManifest: INodeManifest = {
 
 function makeInput(overrides?: Partial<ITaskExecutionInput>): ITaskExecutionInput {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',
@@ -70,6 +71,7 @@ class TestNodeLifecycle implements INodeLifecycle {
 
   public async execute(input: TPortPayload): Promise<TResult<TPortPayload, IDagError>> {
     return this.handler.execute(input, {
+      executionRoot: '/test/execution-root',
       dagId: 'dag-1',
       dagRunId: 'run-1',
       taskRunId: 'task-1',

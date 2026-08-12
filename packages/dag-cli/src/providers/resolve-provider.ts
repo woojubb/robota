@@ -36,6 +36,7 @@ export async function resolveProvider(
 
   if (providerName === 'local') {
     return new LocalDagRuntimeProvider({
+      executionRoot: opts.projectDir ?? process.cwd(),
       nodeRegistry: createCliNodeRegistry(),
       ...(opts.projectDir !== undefined ? { projectDir: opts.projectDir } : {}),
     });

@@ -619,6 +619,8 @@ describe('handleDagCatalogRun', () => {
       ok: boolean;
     };
     expect(parsed.ok).toBe(true);
+    const { LocalDagRunner } = await import('../local-runner/index.js');
+    expect(LocalDagRunner).toHaveBeenLastCalledWith(expect.any(Array), '/fake/project');
   });
 });
 
@@ -775,6 +777,8 @@ describe('handleDagRunFile', () => {
     const result = await handleDagRunFile(ctx, { file: '/valid/file.dag.json' });
     const parsed = JSON.parse(getText(result.content, 0) || '{}') as { ok: boolean };
     expect(parsed.ok).toBe(true);
+    const { LocalDagRunner } = await import('../local-runner/index.js');
+    expect(LocalDagRunner).toHaveBeenLastCalledWith(expect.any(Array), '/fake/project');
   });
 });
 
@@ -797,6 +801,8 @@ describe('handleDagRunDefinition', () => {
     );
     const parsed = JSON.parse(getText(result.content, 0) || '{}') as { ok: boolean };
     expect(parsed.ok).toBe(true);
+    const { LocalDagRunner } = await import('../local-runner/index.js');
+    expect(LocalDagRunner).toHaveBeenLastCalledWith(expect.any(Array), '/fake/project');
   });
 
   it('calls addCompletedRun with run record', async () => {

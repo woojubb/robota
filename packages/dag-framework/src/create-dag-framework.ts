@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
 import {
   buildValidationError,
   DagDefinitionService,
@@ -96,6 +97,7 @@ export class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPor
 export async function createDagFramework(
   options: IDagFrameworkOptions = {},
 ): Promise<IDagFramework> {
+  const executionRoot = resolveTrustedExecutionRoot(options.executionRoot ?? process.cwd());
   // 1. Node registry → manifests + handlers.
   // When `options.nodes` is supplied, `options.providers` is intentionally ignored — a custom node set
   // carries its own provider wiring (ARCH-PROVIDER-003).
@@ -138,7 +140,7 @@ export async function createDagFramework(
     ...options.worker,
   };
   const execution = createExecutionComposition(
-    { storage, queue, deadLetterQueue, lease, executor, clock },
+    { executionRoot, storage, queue, deadLetterQueue, lease, executor, clock },
     { worker: workerOptions },
   );
 

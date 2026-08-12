@@ -146,6 +146,8 @@ export interface IStoragePort {
 
 /** Input bundle for executing a single task within a DAG run. */
 export interface ITaskExecutionInput {
+  /** Trusted canonical absolute directory selected by the product composition root. */
+  executionRoot: string;
   dagId: string;
   dagRunId: string;
   taskRunId: string;

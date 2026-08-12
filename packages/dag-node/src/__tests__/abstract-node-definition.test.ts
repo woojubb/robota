@@ -47,6 +47,7 @@ class TestNodeDefinition extends AbstractNodeDefinition<typeof TestSchema> {
 
 function makeContext(config: INodeConfigObject = { prompt: 'hello' }): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

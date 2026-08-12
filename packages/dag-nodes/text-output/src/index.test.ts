@@ -4,6 +4,7 @@ import { TextOutputNodeDefinition } from './index.js';
 
 function createContext(): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

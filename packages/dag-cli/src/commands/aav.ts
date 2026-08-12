@@ -164,7 +164,7 @@ export async function aavCommand(
 
   const t0 = Date.now();
   const nodeDefinitions = createCliNodeRegistry();
-  const runner = new LocalDagRunner(nodeDefinitions);
+  const runner = new LocalDagRunner(nodeDefinitions, process.cwd());
   const tBuildMs = Date.now() - t0;
 
   let runResult: Awaited<ReturnType<typeof runner.run>>;

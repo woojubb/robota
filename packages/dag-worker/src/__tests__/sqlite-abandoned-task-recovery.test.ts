@@ -61,6 +61,7 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
         return { ok: true, output: { done: true } };
       }),
       new ManualClockPort(NOW_MS),
+      process.cwd(),
       {
         workerId: 'replacement-worker',
         leaseDurationMs: 30_000,

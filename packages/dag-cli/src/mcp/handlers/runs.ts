@@ -22,6 +22,7 @@ export async function runDagDefinition(
   dag: IDagDefinition,
   inputs: TPortPayload,
   timeoutMs: number,
+  executionRoot: string,
   createRunner: (() => LocalDagRunner) | undefined,
   extraDefinitions: ReturnType<typeof createCliNodeRegistry> = [],
   onComplete?: (record: IRunRecord) => void,
@@ -29,7 +30,7 @@ export async function runDagDefinition(
   const runner =
     createRunner !== undefined
       ? createRunner()
-      : new LocalDagRunner([...createCliNodeRegistry(), ...extraDefinitions]);
+      : new LocalDagRunner([...createCliNodeRegistry(), ...extraDefinitions], executionRoot);
   const startMs = Date.now();
   let result: import('../../local-runner/index.js').ILocalRunResult;
   try {
@@ -111,6 +112,7 @@ export async function handleDagRunDefinition(
     defResult.value,
     inputs,
     timeoutMs,
+    ctx.options.projectDir ?? process.cwd(),
     ctx.options.createRunner,
     ctx.instantNodeDefinitions,
     (record) => ctx.addCompletedRun(record),
@@ -150,7 +152,13 @@ export async function handleDagRunFile(
       ? (args['timeoutMs'] as number)
       : DEFAULT_TIMEOUT_MS;
 
-  return runDagDefinition(dag, inputs, timeoutMs, ctx.options.createRunner);
+  return runDagDefinition(
+    dag,
+    inputs,
+    timeoutMs,
+    ctx.options.projectDir ?? process.cwd(),
+    ctx.options.createRunner,
+  );
 }
 
 export function handleDagRunsPollProgress(

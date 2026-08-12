@@ -14,9 +14,6 @@
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
       },
-      "browser": {
-        "import": "./dist/node/index.js"
-      },
       "default": {
         "import": "./dist/node/index.js",
         "require": "./dist/node/index.cjs"
@@ -44,6 +41,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",

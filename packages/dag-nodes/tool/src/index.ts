@@ -204,7 +204,11 @@ export class ToolNodeDefinition extends AbstractNodeDefinition<typeof ToolNodeCo
     const paramsResult = resolveInputParams(io.getInput('params'), config.toolName);
     if (!paramsResult.ok) return paramsResult;
 
-    const rootResult = resolveContainmentRoot(config.cwd, context.nodeDefinition.nodeId);
+    const rootResult = resolveContainmentRoot(
+      context.executionRoot,
+      config.cwd,
+      context.nodeDefinition.nodeId,
+    );
     if (!rootResult.ok) return rootResult;
 
     const merged = { ...config.params, ...paramsResult.value };

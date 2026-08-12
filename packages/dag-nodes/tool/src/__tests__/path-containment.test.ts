@@ -50,6 +50,7 @@ let originalCwd: string;
 
 function makeContext(config: Record<string, unknown>): INodeExecutionContext {
   return {
+    executionRoot: workdir,
     nodeDefinition: { nodeId: 'n1', nodeType: 'tool', config, inputs: [], outputs: [] },
     dagRunId: 'run-1',
     dagId: 'dag-1',
@@ -170,6 +171,16 @@ describe('tool node — enumeration is confined to the invocation directory (SEC
 });
 
 describe('tool node — the file builtins are contained too, not just the file-* nodes', () => {
+  it('uses the injected execution root even when the ambient process cwd differs', async () => {
+    process.chdir(outside);
+    const result = await run({
+      toolName: 'read',
+      params: { filePath: join(workdir, 'inside.txt') },
+    });
+    expect(result.isError).toBe(false);
+    expect(result.output).toContain('ordinary');
+  });
+
   it('refuses to READ an absolute path outside the invocation directory', async () => {
     const result = await run({
       toolName: 'read',

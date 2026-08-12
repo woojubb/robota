@@ -11,6 +11,8 @@ export interface ICostEstimate {
 
 /** Runtime context passed to every node lifecycle method during execution. */
 export interface INodeExecutionContext {
+  /** Trusted canonical absolute directory used as filesystem containment authority. */
+  executionRoot: string;
   dagId: string;
   dagRunId: string;
   taskRunId: string;

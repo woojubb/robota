@@ -106,6 +106,7 @@ export async function handleDagCatalogRun(
     entry.definition,
     inputs,
     timeoutMs,
+    ctx.options.projectDir ?? process.cwd(),
     ctx.options.createRunner,
     ctx.instantNodeDefinitions,
   );

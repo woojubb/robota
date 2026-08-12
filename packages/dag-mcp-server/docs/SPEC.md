@@ -17,7 +17,7 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 
 - `bin.ts` — stdio entrypoint; parses args, resolves mode, starts server.
 - `config.ts` — `resolveDagMcpConfig()` determines HTTP vs embedded mode.
-- `runner.ts` — resolves config via `resolveDagMcpConfig()`; lazy-imports `dag-framework` in embedded mode; starts the server.
+- `runner.ts` — resolves config via `resolveDagMcpConfig()`; lazy-imports `dag-framework` in embedded mode; captures the process working directory as the embedded runtime's trusted DAG execution root; starts the server.
 - `mcp-server.ts` — creates the low-level MCP `Server`, registers `tools/list` and `tools/call` handlers.
 - `tool-definitions.ts` — owns all 29 Tier 1 tool definitions (`DAG_MCP_TOOL_DEFINITIONS`).
 - `dag-mcp-tools.ts` — owns tool dispatch via `IDagOrchestrationPort` (`callDagMcpTool`).
@@ -32,7 +32,9 @@ Model Context Protocol server that exposes the Robota DAG orchestration HTTP API
 | 2        | `ROBOTA_DAG_SERVER_URL` env var | HTTP                     |
 | 3        | Neither set                     | Embedded (dag-framework) |
 
-In embedded mode the server boots with no external dependencies. In HTTP mode it proxies all tool calls to the configured runtime server.
+In embedded mode the server boots with no external dependencies and passes its process working
+directory explicitly as the trusted execution root. In HTTP mode it proxies all tool calls to the
+configured runtime server.
 
 ## MCP Tool Surface Tiers
 

@@ -297,7 +297,7 @@ export async function describeCommand(
 
   // Run LLM to generate IBuildSpec
   io.write('Generating pipeline...\n');
-  const runner = new LocalDagRunner(createCliNodeRegistry());
+  const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let llmResult;
   try {
     llmResult = await runner.run(LLM_DAG, { text: promptText });
@@ -381,7 +381,7 @@ export async function describeCommand(
     inputPayload[raw.slice(0, eqIdx)] = raw.slice(eqIdx + 1);
   }
 
-  const runRunner = new LocalDagRunner(createCliNodeRegistry());
+  const runRunner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let runResult;
   try {
     runResult = await runRunner.run(dagDefinition, inputPayload); // allow-fallback: run error returned as structured failure

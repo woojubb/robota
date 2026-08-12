@@ -11,13 +11,11 @@ import { isPathInside } from '@robota-sdk/agent-core/node';
 import { buildValidationError, type IDagError, type TResult } from '@robota-sdk/dag-core';
 
 /**
- * Resolve the root, refusing a `config.cwd` that escapes the directory the run was invoked from.
+ * Resolve the root, refusing a `config.cwd` that escapes the trusted execution root.
  *
- * The boundary is the invocation directory. That is the same anchor the `file-read` and `file-write`
- * nodes use, and for the same stated reason: `INodeExecutionContext` carries no workspace root, so
- * this makes explicit the boundary the node was already implicitly claiming rather than inventing a
- * new concept. Without it the `tool` node was the way AROUND those two — `toolName: "read"` with an
- * absolute path did what `file-read` refuses.
+ * The authority is `INodeExecutionContext.executionRoot`, selected and canonicalized by the product
+ * composition before task admission. Without it the `tool` node was the way AROUND `file-read` and
+ * `file-write` — `toolName: "read"` with an absolute path did what those nodes refuse.
  *
  * `config.cwd` may only NARROW that root. It comes out of the same LLM-authorable `.dag.json` as the
  * paths it is nominally containing, so honouring it as the boundary would let `{"cwd":"/"}` disarm
@@ -29,23 +27,23 @@ import { buildValidationError, type IDagError, type TResult } from '@robota-sdk/
  * `escape` is a perfectly plain segment.
  */
 export function resolveContainmentRoot(
+  executionRoot: string,
   configCwd: string | undefined,
   nodeId: string,
 ): TResult<string, IDagError> {
-  const invocationRoot = process.cwd();
-  if (configCwd === undefined) return { ok: true, value: invocationRoot };
+  if (configCwd === undefined) return { ok: true, value: executionRoot };
 
-  const requested = resolve(invocationRoot, configCwd);
-  if (!isPathInside(invocationRoot, requested)) {
+  const requested = resolve(executionRoot, configCwd);
+  if (!isPathInside(executionRoot, requested)) {
     return {
       ok: false,
       error: buildValidationError(
         'DAG_VALIDATION_TOOL_CWD_OUTSIDE_ROOT',
-        `cwd "${configCwd}" resolves outside the working directory`,
+        `cwd "${configCwd}" resolves outside the execution root`,
         { nodeId },
         {
           action: 'set_config',
-          suggestion: 'Set cwd to a directory inside the directory the run was invoked from',
+          suggestion: 'Set cwd to a directory inside the trusted execution root',
         },
       ),
     };

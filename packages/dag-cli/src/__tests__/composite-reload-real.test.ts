@@ -45,6 +45,7 @@ function makeRealContext(projectDir: string): ILocalMcpServerContext {
 
 function makeExecContext(node: IDagNodeDefinition): INodeExecutionContext {
   return {
+    executionRoot: process.cwd(),
     dagId: 'd',
     dagRunId: 'r',
     taskRunId: 't',

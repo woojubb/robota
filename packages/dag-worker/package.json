@@ -50,6 +50,7 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*"
   },
   "devDependencies": {

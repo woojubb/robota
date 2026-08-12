@@ -45,7 +45,7 @@ describe('Scheduler integration E2E', () => {
     const scheduler = new SchedulerTriggerService(
       new RunOrchestratorService(storage, queue, clock),
     );
-    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, {
+    const worker = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
       workerId: 'worker-1',
       leaseDurationMs: 30_000,
       visibilityTimeoutMs: 30_000,

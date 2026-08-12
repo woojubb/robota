@@ -78,7 +78,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `INodeTaskHandlerRegistry`    | `types/node-lifecycle.ts`           | Registry interface for looking up task handlers                                                                                                                        |
 | `IDagNodeDefinition`          | `types/node-lifecycle.ts`           | Composite definition combining manifest fields with a task handler                                                                                                     |
 | `INodeDefinitionAssembly`     | `types/node-lifecycle.ts`           | Assembly result of manifests and handlers from node definitions                                                                                                        |
-| `INodeExecutionContext`       | `types/node-lifecycle.ts`           | Execution context passed to lifecycle methods                                                                                                                          |
+| `INodeExecutionContext`       | `types/node-lifecycle.ts`           | Execution context passed to lifecycle methods, including required trusted canonical absolute `executionRoot`                                                           |
 | `INodeExecutionResult`        | `types/node-lifecycle.ts`           | Execution result with output payload and cost data                                                                                                                     |
 | `ICostEstimate`               | `types/node-lifecycle.ts`           | Cost estimate returned from `estimateCost` (`estimatedCredits`, `details?`)                                                                                            |
 | `IRunCostPolicyEvaluator`     | `types/node-lifecycle.ts`           | Interface for budget enforcement                                                                                                                                       |
@@ -104,7 +104,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `ITaskExecutorPort`           | `interfaces/ports.ts`               | Task execution infrastructure port                                                                                                                                     |
 | `IClockPort`                  | `interfaces/ports.ts`               | Clock infrastructure port (nowIso, nowEpochMs)                                                                                                                         |
 | `IQueueMessage`               | `interfaces/ports.ts`               | Queue message structure                                                                                                                                                |
-| `ITaskExecutionInput`         | `interfaces/ports.ts`               | Input payload for task execution                                                                                                                                       |
+| `ITaskExecutionInput`         | `interfaces/ports.ts`               | Input payload for task execution, including the required trusted canonical absolute `executionRoot`                                                                    |
 | `TTaskExecutionResult`        | `interfaces/ports.ts`               | Discriminated union result from task execution                                                                                                                         |
 | `IWorkspaceLayout`            | `types/workspace-layout.ts`         | **FLOW-007**: injectable per-product workspace layout — workspace `root` dir + workflow-file `workflowExt`. Pure data; path computation belongs to the runtime layer.  |
 | `TWorkflowLink`               | `types/workflow-file.ts`            | Link tuple in a workflow file: `[linkId, srcNodeNumId, srcSlot, dstNodeNumId, dstSlot, portType]`                                                                      |
@@ -233,6 +233,14 @@ Consumer packages implement these interfaces to provide infrastructure:
 ### INodeTaskHandler
 
 A lighter alternative to full `INodeLifecycle`. Only `execute` is required; all other lifecycle methods are optional. The `RegisteredNodeLifecycle` wrapper fills in defaults and adds base port validation for handlers that omit `validateInput`/`validateOutput`.
+
+### Trusted execution root (ARCH-010)
+
+`ITaskExecutionInput.executionRoot` and `INodeExecutionContext.executionRoot` are required carriers of
+one trusted canonical absolute directory. `LifecycleTaskExecutorPort` projects the former into the latter
+for every lifecycle phase. Neither contract may derive a root from `process.cwd()`, a DAG definition, a
+queue payload, or node configuration. `IWorkspaceLayout.root` remains project-relative
+workflow-definition layout metadata and is not execution authority.
 
 ## Error Taxonomy
 

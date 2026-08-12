@@ -19,8 +19,9 @@ mapping and the server entrypoint.
 `createDagRuntimeServer(port)` returns a Hono app. Every `/v1/dag/*` handler is a uniform mapping:
 parse path/query/body → call the matching `IDagOrchestrationPort` method → return
 `c.json(response.payload, response.status)` (every port method returns a uniform
-`IDagOrchestrationHttpResponse`). `startDagRuntimeServer()` composes `createDagFramework()`, starts the
-worker loop, and serves the app via `@hono/node-server`.
+`IDagOrchestrationHttpResponse`). `startDagRuntimeServer()` captures the server process working
+directory as the trusted DAG execution root, passes it explicitly to `createDagFramework()`, starts
+the worker loop, and serves the app via `@hono/node-server`.
 
 ## Route Surface (R1)
 

@@ -8,6 +8,7 @@ vi.mock('node:fs/promises', () => ({
 
 function makeContext(config: Record<string, unknown> = {}): INodeExecutionContext {
   return {
+    executionRoot: process.cwd(),
     nodeDefinition: {
       nodeId: 'test-node-id',
       nodeType: 'file-read',

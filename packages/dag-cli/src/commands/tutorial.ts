@@ -287,7 +287,7 @@ async function runLlmPipeline(provider: string, io: IDagCliIo): Promise<boolean>
   }
 
   const dagDefinition = buildLlmDagDefinition(provider);
-  const runner = new LocalDagRunner(nodeDefinitions);
+  const runner = new LocalDagRunner(nodeDefinitions, process.cwd());
 
   const startMs = Date.now();
   const result = await runner.run(dagDefinition, { text: 'What is a DAG in 10 words?' });

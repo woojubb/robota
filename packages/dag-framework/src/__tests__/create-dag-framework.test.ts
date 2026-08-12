@@ -122,3 +122,16 @@ describe('the default composition has no dead-letter reinject capability', () =>
     }
   });
 });
+
+describe('trusted execution root admission', () => {
+  it.each([
+    ['', 'non-empty'],
+    ['relative/project', 'absolute'],
+    [path.join(os.tmpdir(), 'arch010-root-that-does-not-exist'), 'existing'],
+  ])(
+    'refuses invalid explicit root %p before composition (%s)',
+    async (executionRoot, expected) => {
+      await expect(createDagFramework({ executionRoot })).rejects.toThrow(expected);
+    },
+  );
+});

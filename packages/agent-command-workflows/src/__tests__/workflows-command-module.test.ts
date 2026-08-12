@@ -21,7 +21,7 @@ function workflowsCommand(): ISystemCommand {
 }
 
 async function knownNodeType(): Promise<string> {
-  const manifests = await new LocalDagRuntimeProvider().listNodes();
+  const manifests = await new LocalDagRuntimeProvider({ executionRoot: process.cwd() }).listNodes();
   const first = manifests[0];
   if (!first) throw new Error('node catalog is empty');
   return first.nodeType;

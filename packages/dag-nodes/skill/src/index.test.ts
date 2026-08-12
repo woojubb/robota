@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import type { INodeExecutionContext, INodeConfigObject, TPortPayload } from '@robota-sdk/dag-core';
 import type { ICommand, ISkillExecutionPort } from '@robota-sdk/agent-interface-transport';
@@ -31,9 +34,13 @@ function makeNode(port: ISkillExecutionPort = stubPort): SkillNodeDefinition {
   return new SkillNodeDefinition({ skillPort: port });
 }
 
-function makeContext(config: Record<string, unknown>): INodeExecutionContext {
+function makeContext(
+  config: Record<string, unknown>,
+  executionRoot = process.cwd(),
+): INodeExecutionContext {
   const node = makeNode();
   return {
+    executionRoot,
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',
@@ -84,6 +91,55 @@ describe('SkillNodeConfigSchema', () => {
 });
 
 describe('SkillNodeDefinition execution', () => {
+  it('refuses an authored cwd that widens outside the trusted execution root', async () => {
+    const node = makeNode();
+    const result = await node.taskHandler.execute(
+      {},
+      makeContext({ skillName: 'greet', cwd: '/' }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT');
+  });
+
+  it('refuses symlink widening while allowing an internal discovery-root narrowing', async () => {
+    const fixture = realpathSync(mkdtempSync(join(tmpdir(), 'arch010-skill-root-')));
+    const project = join(fixture, 'project');
+    const outside = join(fixture, 'outside');
+    const inside = join(project, 'inside');
+    mkdirSync(inside, { recursive: true });
+    mkdirSync(outside);
+    symlinkSync(outside, join(project, 'escape'), 'dir');
+
+    let observedCwd: string | undefined;
+    const node = makeNode({
+      ...stubPort,
+      loadCommands: (cwd) => {
+        observedCwd = cwd;
+        return [greet, forkSkill];
+      },
+    });
+
+    try {
+      const escaped = await node.taskHandler.execute(
+        {},
+        makeContext({ skillName: 'greet', cwd: 'escape' }, project),
+      );
+      expect(escaped.ok).toBe(false);
+      if (!escaped.ok) {
+        expect(escaped.error.code).toBe('DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT');
+      }
+
+      const narrowed = await node.taskHandler.execute(
+        {},
+        makeContext({ skillName: 'greet', cwd: 'inside' }, project),
+      );
+      expect(narrowed.ok).toBe(true);
+      expect(observedCwd).toBe(inside);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it('resolves a skill and emits the prompt (config args)', async () => {
     const node = makeNode();
     const result = await node.taskHandler.execute(

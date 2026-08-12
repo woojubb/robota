@@ -121,7 +121,7 @@ export async function demoCommand(
 
   let runner: LocalDagRunner;
   try {
-    runner = new LocalDagRunner(nodeDefinitions);
+    runner = new LocalDagRunner(nodeDefinitions, process.cwd());
   } catch (err) {
     io.write(`Error: Failed to initialize runner: ${resolveErrorMessage(err)}\n`);
     return FAILURE_EXIT_CODE;

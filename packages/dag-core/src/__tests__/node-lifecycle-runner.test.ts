@@ -15,6 +15,7 @@ import { buildValidationError } from '../utils/error-builders.js';
 
 function makeContext(overrides?: Partial<INodeExecutionContext>): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

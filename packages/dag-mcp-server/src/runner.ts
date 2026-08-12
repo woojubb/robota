@@ -28,7 +28,7 @@ async function buildHttpClient(
 async function buildEmbeddedClient(): Promise<IClientHandle> {
   // eslint-disable-next-line no-restricted-syntax -- conditional lazy import for embedded mode
   const { createDagFramework } = await import('@robota-sdk/dag-framework');
-  const fw = await createDagFramework({ autoStart: true });
+  const fw = await createDagFramework({ autoStart: true, executionRoot: process.cwd() });
   return {
     client: fw.client,
     dispose: () => fw.stop(),
