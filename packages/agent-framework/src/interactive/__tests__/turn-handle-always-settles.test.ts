@@ -233,6 +233,31 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
 });
 
 describe('RUNTIME-006: turn identity is required only on internal accepted-turn paths', () => {
+  it('public submit forwards only public options into the internal new-turn path', async () => {
+    class PublicBoundarySession extends InteractiveSession {
+      interceptNewTurn(handler: (...args: unknown[]) => unknown): void {
+        Object.defineProperty(this, 'submitNewTurn', { configurable: true, value: handler });
+      }
+    }
+    const session = new PublicBoundarySession({ session: createSessionStub() });
+    const internalSubmit = vi.fn().mockResolvedValue({
+      turnId: 'server-minted',
+      completed: Promise.resolve({ content: '' }),
+    });
+    session.interceptNewTurn(internalSubmit);
+
+    await Reflect.apply(session.submit, session, [
+      'hello',
+      undefined,
+      undefined,
+      { driverId: 'owner', resumeTurnId: 'forged' },
+    ]);
+
+    expect(internalSubmit).toHaveBeenCalledWith('hello', undefined, undefined, {
+      driverId: 'owner',
+    });
+  });
+
   it('mints identity even when an untyped caller forges the removed resume option', () => {
     const controller = createController();
     const forgedTurnId = 'caller-selected-existing-turn';
@@ -256,6 +281,7 @@ describe('RUNTIME-006: turn identity is required only on internal accepted-turn 
       {} as never,
       { emit: vi.fn() } as never,
     ).turns;
+    expect('completionOf' in turns).toBe(false);
     // @ts-expect-error RUNTIME-006: settlement cannot silently ignore a missing identity.
     turns.settle(undefined, {} as never);
     // @ts-expect-error RUNTIME-006: failure cannot silently ignore a missing identity.
