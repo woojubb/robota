@@ -18,6 +18,7 @@ import {
   classifyVitestOutcome,
   decidePairVerdict,
   defaultReverseApply,
+  hasRuntimeSemanticChange,
   isDefectFixRange,
   isSourceFile,
   isTestFile,
@@ -38,6 +39,30 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const abs = (rel) => path.resolve(WORKSPACE_ROOT, rel);
 
 describe('HARNESS-041 file classification', () => {
+  it('distinguishes runtime mutations from comments and TypeScript-only contracts', () => {
+    expect(
+      hasRuntimeSemanticChange(
+        'packages/example/src/contracts.ts',
+        'export interface Input { executionRoot: string; }',
+        'export interface Input {}',
+      ),
+    ).toBe(false);
+    expect(
+      hasRuntimeSemanticChange(
+        'scripts/harness/check.mjs',
+        '// clarified wording\nexport const value = 1;',
+        '// old wording\nexport const value = 1;',
+      ),
+    ).toBe(false);
+    expect(
+      hasRuntimeSemanticChange(
+        'scripts/harness/check.mjs',
+        'export function value() { return 2; }',
+        'export function value() { return 1; }',
+      ),
+    ).toBe(true);
+  });
+
   it('pkgOf extracts the package/app root for src files', () => {
     expect(pkgOf('packages/agent-transport-tui/src/CjkTextInput.tsx')).toBe(
       'packages/agent-transport-tui',

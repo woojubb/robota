@@ -21,6 +21,8 @@ import { execFileSync } from 'node:child_process';
 import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
 
+import ts from 'typescript';
+
 import {
   WITNESS,
   changedNewLines,
@@ -84,6 +86,29 @@ export function isTestFile(filePath) {
 /** A source file is a package/app `src` file that is NOT a test file. */
 export function isSourceFile(filePath) {
   return pkgOf(filePath) !== null && !isTestFile(filePath);
+}
+
+/**
+ * Whether reversing a source hunk changes emitted JavaScript behavior.
+ *
+ * Vitest cannot prove TypeScript-only contracts red: interfaces and type aliases are erased before
+ * execution. Comments likewise have no runtime observable. Treating either as an executable mutant
+ * manufactures an accidental-green failure that only typecheck or a documentation scan can settle.
+ */
+export function hasRuntimeSemanticChange(filePath, fixedText, reversedText) {
+  if (/\.sh$/.test(filePath)) return fixedText !== reversedText;
+  if (!/\.[cm]?[jt]sx?$/.test(filePath)) return fixedText !== reversedText;
+
+  const compilerOptions = {
+    allowJs: true,
+    jsx: ts.JsxEmit.ReactJSX,
+    module: ts.ModuleKind.ESNext,
+    removeComments: true,
+    target: ts.ScriptTarget.ESNext,
+  };
+  const emit = (source) =>
+    ts.transpileModule(source, { compilerOptions, fileName: filePath }).outputText.trim();
+  return emit(fixedText) !== emit(reversedText);
 }
 
 /**
@@ -619,13 +644,22 @@ export async function runRegressionRedProof(io = {}) {
       const addedCases = exercised ? addedCaseMatchers(testsForSource, addedTestCaseDiff) : null;
       let outcome = null;
       let witness = WITNESS.UNKNOWN;
+      let runtimeMutation = true;
       if (exercised) {
         let deciders = [];
+        const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
         reverseApply([source]);
         try {
-          const vitestJson = await runVitest(pair.pkg, testsForSource);
-          outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
-          deciders = decidingFailures(vitestJson, testsForSource, addedCases);
+          const reversedText = readText(path.resolve(WORKSPACE_ROOT, source));
+          // Injected orchestration fixtures may model reverseApply without mutating the real tree;
+          // identical text in that seam must preserve their declared test-run outcome.
+          runtimeMutation =
+            fixedText === reversedText || hasRuntimeSemanticChange(source, fixedText, reversedText);
+          if (runtimeMutation) {
+            const vitestJson = await runVitest(pair.pkg, testsForSource);
+            outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
+            deciders = decidingFailures(vitestJson, testsForSource, addedCases);
+          }
         } finally {
           restore([source]);
         }
@@ -647,17 +681,20 @@ export async function runRegressionRedProof(io = {}) {
         witness,
         importsReversedFile: exercised,
         relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
+        runtimeMutation,
       });
       const icon =
         verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
       const note =
-        !exercised && undeterminedRelation
-          ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
-          : verdict === VERDICT.PROOF_UNREACHED
-            ? ' (the case that failed executed no line this fix changed)'
-            : outcome
-              ? ` (${outcome})`
-              : '';
+        exercised && !runtimeMutation
+          ? ' (type/comment-only change; runtime red proof is not applicable)'
+          : !exercised && undeterminedRelation
+            ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
+            : verdict === VERDICT.PROOF_UNREACHED
+              ? ' (the case that failed executed no line this fix changed)'
+              : outcome
+                ? ` (${outcome})`
+                : '';
       log(`${icon}  ${source}: ${verdict}${note}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }

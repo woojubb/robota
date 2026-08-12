@@ -69,18 +69,11 @@ class TestNodeLifecycle implements INodeLifecycle {
     return { ok: true, value: { estimatedCredits: 0 } };
   }
 
-  public async execute(input: TPortPayload): Promise<TResult<TPortPayload, IDagError>> {
-    return this.handler.execute(input, {
-      executionRoot: '/test/execution-root',
-      dagId: 'dag-1',
-      dagRunId: 'run-1',
-      taskRunId: 'task-1',
-      nodeDefinition: makeInput().nodeDefinition!,
-      nodeManifest: testManifest,
-      attempt: 1,
-      executionPath: [],
-      currentTotalCredits: 0,
-    });
+  public async execute(
+    input: TPortPayload,
+    context: Parameters<INodeTaskHandler['execute']>[1],
+  ): Promise<TResult<TPortPayload, IDagError>> {
+    return this.handler.execute(input, context);
   }
 
   public async validateOutput(): Promise<TResult<void, IDagError>> {
@@ -139,10 +132,14 @@ describe('LifecycleTaskExecutorPort', () => {
     const registry = new TestNodeManifestRegistry([testManifest]);
     const lifecycleFactory = new TestNodeLifecycleFactory({ 'test-node': handler });
     const port = new LifecycleTaskExecutorPort(registry, lifecycleFactory);
-    const result = await port.execute(makeInput());
+    const result = await port.execute(makeInput({ executionRoot: '/trusted/workspace' }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.output).toEqual({ result: 'done' });
+    expect(handler.execute).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ executionRoot: '/trusted/workspace' }),
+    );
   });
 
   it('uses MissingNodeLifecycleFactory when no factory is provided', async () => {
