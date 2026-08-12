@@ -19,7 +19,7 @@ evidence.
 
 ## Spec
 
-`.agents/spec-docs/todo/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`
+`.agents/spec-docs/active/AGREEMENT-001-complete-arch-dag-runtime-backlog.md`
 
 ## Plan
 
@@ -27,7 +27,7 @@ evidence.
 - [ ] TC-02: complete ARCH-010 trusted DAG execution-root propagation and containment.
 - [ ] TC-03: complete ARCH-012 session/command capability decomposition, then ARCH-011 six-transport conformance.
 - [ ] TC-04: complete ARCH-013 option reachability and projection across every product surface.
-- [ ] TC-05: complete DAG-001 recovery adapter matrix and durable executable scenario evidence.
+- [x] TC-05: complete DAG-001 recovery adapter matrix and durable executable scenario evidence.
 - [ ] TC-06: complete DAG-004 canonical validation at every external definition import boundary.
 - [ ] TC-07: complete RUNTIME-002 headless bootstrap, artifact, and agent-app packaging migration.
 - [ ] TC-08: complete RUNTIME-003 single DAG advancement ownership while retaining turn identity proofs.
@@ -51,6 +51,8 @@ evidence.
 
 - AGREEMENT-001 passed GATE-WRITE and independent proposal review after one revision round.
 - User explicitly approved implementation and resumed commit/push authority; GATE-APPROVAL passed.
+- DAG-001 completed: SQLite/worker recovery matrix, durable two-process scenario, both Done Gate stages,
+  `harness:verify-like-ci`, and zero-finding local review all passed.
 
 ## Decisions
 

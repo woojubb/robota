@@ -3551,6 +3551,9 @@ importers:
       '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
         version: link:../dag-adapters-local
+      '@robota-sdk/dag-adapters-sqlite':
+        specifier: workspace:*
+        version: link:../dag-adapters-sqlite
       eslint:
         specifier: ^8.56.0
         version: 8.57.1

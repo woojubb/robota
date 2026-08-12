@@ -185,7 +185,7 @@ Execute the twelve existing records without redefining their scope:
 - [ ] `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md` — existing
 - [ ] `.agents/tasks/ARCH-012-interactive-session-god-contract.md` — existing
 - [ ] `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md` — existing
-- [ ] `.agents/tasks/DAG-001-running-is-a-terminal-trap.md` — existing
+- [x] `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md` — completed 2026-08-12
 - [ ] `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md` — existing
 - [ ] `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md` — existing
 - [ ] `.agents/tasks/RUNTIME-003-no-turn-or-run-identity.md` — existing
