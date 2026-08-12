@@ -1,7 +1,8 @@
 ---
 title: 'ARCH-010: carry a trusted execution root through the remaining DAG execution contract'
-status: in-progress
+status: done
 created: 2026-08-02
+completed: 2026-08-13
 priority: critical
 urgency: now
 area: packages/agent-session, packages/agent-tools, packages/agent-framework, packages/agent-executor, packages/agent-subagent-runner, packages/dag-core, packages/dag-nodes
@@ -68,6 +69,23 @@ test/scenario plan, and ordering before RUNTIME-003/RUNTIME-004.
   Stage 1 PASS existed only in conversation, not in the designated repository evidence surface when
   Stage 2 began. Its Stage 2 behavior evidence was not evaluated.
 - This record is deliberately not a retroactive Stage 1 PASS and ARCH-010 remains `in-progress`.
+
+### One-time process disposition — approved 2026-08-13
+
+- The user explicitly approved the recommended ARCH-010-only recovery on 2026-08-13 after receiving
+  its scope, alternatives, evidence, and audit consequences. This approval does not establish a
+  reusable exception for any later backlog.
+- For this one item, the pre-implementation conversational `DONE-GATE-STAGE-1: PASS` is accepted as
+  historical Stage 1 evidence. The omission was its failure to land promptly in this designated Task
+  surface; the original Stage 2 `NON-COMPLIANCE` above remains part of the record and is not rewritten.
+- Completion still requires an unchanged fresh scenario run against the completed implementation and
+  a fresh independent Stage 2 verdict. Only a Stage 2 PASS permits `status: done` and atomic archival.
+- The unchanged scenario was freshly executed on 2026-08-13 after this disposition was recorded. It
+  exited `0` with execution root `/tmp/robota-arch010.eAZLog/project`; all expected containment and
+  narrowing observables matched, the outside sentinel was not disclosed, and bounded cleanup passed.
+  The fresh independent guardian then returned `GATE VERDICT: PASS`: direct execution, exit status,
+  every expected product observable, durable evidence, sentinel non-disclosure, cleanup, and use of a
+  public product surface all satisfied `DONE-GATE-STAGE-2`.
 
 ## Problem
 
@@ -171,7 +189,7 @@ _"a root the attacker supplies is not a root"_.
 to read.
 
 - **Durable provider-free DAG scenario:**
-  [`.agents/evals/scenarios/arch-010-dag-execution-root-agent-run.md`](../evals/scenarios/arch-010-dag-execution-root-agent-run.md)
+  [`.agents/evals/scenarios/arch-010-dag-execution-root-agent-run.md`](../../evals/scenarios/arch-010-dag-execution-root-agent-run.md)
 - **Executability:** `agent-executable`; it drives public `createDagFramework` with local fixtures and
   no provider credentials or external service.
 - **Current Done Gate evidence:** executed 2026-08-12; exit `0`. The public framework reported
@@ -260,10 +278,9 @@ workflow DEFINITIONS live — it is not an absolute execution root and cannot be
 without changing what it means. `INodeExecutionContext` also has 57 consumers, so adding a required
 member there is its own migration. P2 needs a design pass, not a mechanical edit.
 
-### P2 implementation checkpoint — 2026-08-12
+### P2 completion — 2026-08-13
 
-The endorsed DAG contract implementation is landed in the working branch but the Task is not complete
-because of the Done Gate non-compliance above. `dag-core` now requires `executionRoot` on task input and
+The endorsed DAG contract implementation is complete. `dag-core` now requires `executionRoot` on task input and
 node lifecycle context; framework/worker/CLI/workflow compositions propagate it; the generic framework
 factory alone preserves no-argument compatibility by validating and capturing its current directory.
 `agent-core/node` owns strict trusted-root validation. Tool, file-read, file-write, and skill nodes use
@@ -274,5 +291,13 @@ agent-core (949), dag-core (183), dag-worker (85), dag-framework (137), dag-cli 
 plus affected filesystem-node suites; `pnpm harness:scan` PASS (108 scans, 1 skipped). Final independent
 checkpoint review converged at `ACTIONABLE FINDINGS: 0`. A fresh `pnpm harness:verify-like-ci` passed all
 11 mirrored stages, including build, affected verification, binary E2E, examples typecheck, and TUI PTY
-E2E. The unchanged public scenario was rerun after those fixes and exited `0`, but cannot satisfy Stage 2
-until the process disposition is decided.
+E2E. Following the explicitly approved one-time disposition, the unchanged public scenario was rerun,
+exited `0`, and the independent Stage 2 guardian returned `GATE VERDICT: PASS`.
+
+## Result
+
+ARCH-010 is complete. Trusted execution authority now travels from product/framework composition through
+the worker task input into every DAG node lifecycle phase. Filesystem-capable nodes can narrow that root
+but cannot derive or widen it from ambient process state or authored configuration. Strict validation,
+canonical containment, symlink-escape regressions, package contract updates, and the durable public
+scenario prove the behavior. No follow-up work remains within this Task's corrected P2 scope.

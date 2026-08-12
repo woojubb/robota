@@ -252,3 +252,8 @@ Executed by the agent on 2026-08-12 against the completed, rebuilt implementatio
 - Final checkpoint rerun after review fixes: exit code `0`, with execution root
   `/tmp/robota-arch010.GMsX0N/project`; every exact assertion matched, the outside sentinel remained
   absent, and the bounded cleanup trap removed the fixture and materialized script.
+- Post-disposition gate rerun on 2026-08-13: the unchanged exact Bash block exited `0`, with execution
+  root `/tmp/robota-arch010.eAZLog/project`. It reported outside-read denial without disclosure, denied
+  absolute/parent/symlink cwd widening, and allowed internal narrowing. Every exact `grep -F` assertion
+  matched; `outsideSentinelDisclosed` was `false`; both the materialized script and bounded fixture root
+  were absent after the cleanup trap.
