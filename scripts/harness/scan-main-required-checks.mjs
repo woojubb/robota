@@ -70,7 +70,7 @@ const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../..');
 export const DECLARATION_FILE = path.join('.github', 'required-status-checks.json');
 
 /** The protected branch whose contexts this scan asserts can FAIL. `develop`'s required list
- *  deliberately contains jobs that skip on a docs-only PR (tui-e2e / examples-typecheck /
+ *  deliberately contains jobs that report N/A on a docs-only or infrastructure-only PR (tui-e2e / examples-typecheck /
  *  windows-shell, gated on `changes`), so the R1-R7 assertions below do not apply there.
  *  `protect-develop` is nonetheless DECLARED in the same file (INFRA-056) — as the list
  *  `verify-like-ci` claims equivalence with — and `--live` reconciles both (`RECONCILED_BRANCHES`). */

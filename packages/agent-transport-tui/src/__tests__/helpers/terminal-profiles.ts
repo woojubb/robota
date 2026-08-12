@@ -108,6 +108,16 @@ export const TERMINAL_PROFILES: readonly ITerminalProfile[] = [
 /** `ROBOTA_IME_CURSOR` settings the matrix sweeps. `undefined` means the variable is absent. */
 export const IME_CURSOR_SETTINGS: readonly (string | undefined)[] = [undefined, '1', '0'];
 
+export const REPRESENTATIVE_IME_PTY_CELLS: readonly {
+  profileId: string;
+  override: string | undefined;
+}[] = [
+  { profileId: 'ghostty', override: undefined },
+  { profileId: 'apple-terminal', override: undefined },
+  { profileId: 'apple-terminal', override: '1' },
+  { profileId: 'ghostty', override: '0' },
+];
+
 /**
  * The expected `supportsImeCursorPositioning()` verdict for a matrix cell, derived from the
  * documented precedence (explicit override wins; Apple_Terminal is off by default; every other

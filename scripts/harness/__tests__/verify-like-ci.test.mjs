@@ -424,7 +424,14 @@ describe('CI_STAGES', () => {
 });
 
 describe('stageGate', () => {
-  const base = { distRequired: false, codeChanged: false, missingDist: [] };
+  const base = {
+    distRequired: false,
+    codeChanged: true,
+    productChanged: false,
+    tuiChanged: false,
+    examplesChanged: false,
+    missingDist: [],
+  };
 
   it('builds when the plan needs build output, exactly as ci.yml → build does', () => {
     expect(stageGate('build', { ...base, distRequired: true }).run).toBe(true);
@@ -434,10 +441,11 @@ describe('stageGate', () => {
     expect(stageGate('build', { ...base, missingDist: ['packages/agent-core'] }).run).toBe(true);
   });
 
-  it('builds on ANY code change: tui-e2e and examples-typecheck build inside their own CI jobs', () => {
+  it('builds on product changes but not infrastructure-only code changes', () => {
     // The plan predicate alone does not see those two dist consumers — the narrow gate would leave
     // the PTY suite driving whatever stale binary happened to be in the worktree.
-    expect(stageGate('build', { ...base, codeChanged: true }).run).toBe(true);
+    expect(stageGate('build', { ...base, productChanged: true }).run).toBe(true);
+    expect(stageGate('build', base).run).toBe(false);
   });
 
   it('skips the build only when nothing needs it and dist is present', () => {
@@ -449,9 +457,9 @@ describe('stageGate', () => {
   it('gates binary-e2e and the e2e suites on the same conditions CI gates their jobs on', () => {
     expect(stageGate('binary-e2e', { ...base, distRequired: true }).run).toBe(true);
     expect(stageGate('binary-e2e', base).run).toBe(false);
-    expect(stageGate('tui-e2e', { ...base, codeChanged: true }).run).toBe(true);
+    expect(stageGate('tui-e2e', { ...base, tuiChanged: true }).run).toBe(true);
     expect(stageGate('tui-e2e', base).run).toBe(false);
-    expect(stageGate('examples-typecheck', { ...base, codeChanged: true }).run).toBe(true);
+    expect(stageGate('examples-typecheck', { ...base, examplesChanged: true }).run).toBe(true);
     expect(stageGate('examples-typecheck', base).run).toBe(false);
   });
 
@@ -488,10 +496,11 @@ describe('annotateNotMirrored', () => {
     ).toBe(false);
   });
 
-  it('marks windows-shell RELEVANT on a code diff — CI runs that job on every code PR', () => {
+  it('marks windows-shell relevant only when product code changes', () => {
     const find = (files) =>
       annotateNotMirrored(files).find((entry) => entry.context === 'windows-shell').relevant;
     expect(find(['packages/agent-core/src/index.ts'])).toBe(true);
+    expect(find(['scripts/harness/check-plan.mjs'])).toBe(false);
     expect(find(['README.md'])).toBe(false);
   });
 
@@ -510,6 +519,20 @@ describe('summarize', () => {
     ]);
     expect(exitCode).toBe(0);
     expect(lines.join('\n')).toContain('PASS');
+  });
+
+  it('prints per-stage and total elapsed times', () => {
+    const { lines } = summarize(
+      [
+        { name: 'format-check', status: 'pass', durationMs: 1234 },
+        { name: 'harness-self-test', status: 'pass', durationMs: 65_000 },
+      ],
+      { totalDurationMs: 66_234 },
+    );
+    const text = lines.join('\n');
+    expect(text).toContain('format-check [1.2s]');
+    expect(text).toContain('harness-self-test [1m 5.0s]');
+    expect(text).toContain('total elapsed: 1m 6.2s');
   });
 
   it('a PARTIAL run refuses to call itself CI-equivalent, and names what it did not run', () => {

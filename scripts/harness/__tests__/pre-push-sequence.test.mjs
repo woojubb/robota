@@ -36,6 +36,8 @@ function recordingSteps(decision) {
       assertCleanWorkingTree: record('clean-working-tree'),
       assertLockfileConsistency: record('lockfile-consistency'),
       decideVerification: record('decide-verification', decision),
+      findReusableReceipt: record('find-reusable-receipt', { reusable: false }),
+      reportReceiptReused: record('report-receipt-reused'),
       reportSkipped: record('report-skipped'),
       assertTreePrerequisites: record('tree-prerequisites'),
       runVerification: record('run-verification'),
@@ -56,6 +58,7 @@ describe('runPrePushGate step order', () => {
       'clean-working-tree',
       'lockfile-consistency',
       'decide-verification',
+      'find-reusable-receipt',
       'tree-prerequisites',
       'run-verification',
     ]);
@@ -67,7 +70,7 @@ describe('runPrePushGate step order', () => {
     // Stated as an ordering invariant rather than an index, so it keeps its meaning if steps are
     // added around it: a prerequisite is owed only by work that is going to happen.
     expect(order.indexOf('tree-prerequisites')).toBeGreaterThan(
-      order.indexOf('decide-verification'),
+      order.indexOf('find-reusable-receipt'),
     );
     expect(order.indexOf('tree-prerequisites')).toBeLessThan(order.indexOf('run-verification'));
   });
@@ -101,6 +104,28 @@ describe('runPrePushGate step order', () => {
   it('reports a verified run', () => {
     const { steps } = recordingSteps(VERIFY);
     expect(runPrePushGate(steps)).toEqual({ verified: true, reason: null });
+  });
+
+  it('reuses exact full-gate evidence before demanding build prerequisites', () => {
+    const { order, steps } = recordingSteps(VERIFY);
+    steps.findReusableReceipt = () => {
+      order.push('find-reusable-receipt');
+      return { reusable: true, headCommit: 'abc123' };
+    };
+
+    expect(runPrePushGate(steps)).toEqual({
+      verified: true,
+      reused: true,
+      reason: 'exact verify-like-ci receipt',
+    });
+    expect(order).toEqual([
+      'prune-worktrees',
+      'clean-working-tree',
+      'lockfile-consistency',
+      'decide-verification',
+      'find-reusable-receipt',
+      'report-receipt-reused',
+    ]);
   });
 });
 

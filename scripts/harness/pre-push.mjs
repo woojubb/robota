@@ -18,6 +18,8 @@ import {
   parsePrePushUpdates,
 } from './pre-push-updates.mjs';
 import { checkTreePrerequisites } from './tree-prerequisites.mjs';
+import { CI_STAGES } from './ci-mirror-map.mjs';
+import { findReusableVerification } from './verification-receipt.mjs';
 
 /**
  * The commands the REQUIRED `scans` context runs, mirrored locally.
@@ -247,6 +249,12 @@ export function runPrePushGate(steps) {
     return { verified: false, reason: decision.reason };
   }
 
+  const receipt = steps.findReusableReceipt();
+  if (receipt.reusable) {
+    steps.reportReceiptReused(receipt);
+    return { verified: true, reused: true, reason: 'exact verify-like-ci receipt' };
+  }
+
   // Everything below this line reads build output and installed binaries; nothing above it does.
   steps.assertTreePrerequisites();
   steps.runVerification();
@@ -259,6 +267,7 @@ function createPrePushSteps() {
   const baseArgs = baseRef ? ['--base-ref', baseRef] : [];
   const prePushMode = resolvePrePushMode(process.env.HARNESS_PRE_PUSH_MODE);
   const scopeExpansionArgs = prePushMode === 'fast' ? ['--skip-dependent-scopes'] : [];
+  const updates = parsePrePushUpdates(readPrePushInput());
 
   return {
     pruneAndWarnStaleWorktrees,
@@ -268,13 +277,26 @@ function createPrePushSteps() {
 
     decideVerification: () =>
       decidePrePushVerification({
-        updates: parsePrePushUpdates(readPrePushInput()),
+        updates,
         baseRef,
         treeMatchesBase:
           baseRef && !hasWorkingTreeChanges()
             ? runGitQuiet(['diff', '--quiet', baseRef, 'HEAD', '--'])
             : false,
       }),
+
+    findReusableReceipt: () =>
+      findReusableVerification({
+        baseRef,
+        stages: CI_STAGES.map((stage) => stage.name),
+        updates,
+        root: WORKSPACE_ROOT,
+      }),
+
+    reportReceiptReused: (receipt) =>
+      process.stdout.write(
+        `▶ exact verify-like-ci receipt reused for ${receipt.headCommit.slice(0, 12)}; pre-push verification is already covered\n`,
+      ),
 
     reportSkipped: (reason) =>
       process.stdout.write(`▶ scoped pre-push verification skipped: ${reason}\n`),
@@ -297,6 +319,8 @@ function createPrePushSteps() {
         ...baseArgs,
         ...scopeExpansionArgs,
         '--skip-record-check',
+        '--skip-repository-check',
+        'harness-tests',
       ]);
 
       process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');

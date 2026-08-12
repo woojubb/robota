@@ -10,6 +10,7 @@ import {
 import {
   appendJobSummary,
   collectPackageManifestChanges,
+  collectRootManifestChange,
   detectChangedFiles,
   listWorkspaceScopes,
   WORKSPACE_ROOT,
@@ -49,12 +50,17 @@ async function main() {
     changedFiles,
     baseRef: options.baseRef,
   });
+  const rootManifestChange = await collectRootManifestChange({
+    changedFiles,
+    baseRef: options.baseRef,
+  });
 
   const plan = createVerificationPlan({
     scopes,
     changedFiles,
     scopeTokens: options.scopeTokens,
     manifestChangesByScope,
+    rootManifestChange,
     includeDependentScopes: !options.skipDependentScopes,
   });
 

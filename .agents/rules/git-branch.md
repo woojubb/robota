@@ -62,8 +62,9 @@ gate, and neither is any narrower command. Which local gate runs at PUSH time â€
   and `pnpm harness:test` fails when they diverge.
 - **`--only` is not the gate.** A partial run prints `PARTIAL â€” this is NOT a CI-equivalent result`.
   Never report a partial run as green.
-- Cost: a markdown-only branch is ~20s; any other branch runs the build and the e2e suites and takes
-  roughly 3.5-5 minutes. Run it in the foreground and wait.
+- Cost is reported from the current plan, per stage and in total. Run it in the foreground and wait;
+  do not rely on a fixed historical duration, because selected scopes and retained E2E capabilities
+  determine the actual time.
 
 **A PR into `main` is a different gate.** `protect-main` requires `promotion ancestry`, `main PR
 source guard` and `release-grade verification`; the entry point that reproduces the last of those is

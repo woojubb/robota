@@ -86,6 +86,13 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - Caching execution results is allowed only through an explicit, audited policy.
 - Cache keys must be deterministic and content-addressed.
 - Stale cache entries must never silently corrupt execution output.
+- A verification receipt is correctness evidence, not a fuzzy performance cache: reuse requires an
+  exact clean-tree match for the pushed commit/tree, resolved base commit, verification profile and
+  stage set, runtime/tool versions, lockfile, and verification-owner fingerprint.
+- Only a complete successful gate may write a receipt. Partial, failed, malformed, stale, dirty,
+  different-object, different-base, or weaker-profile receipts MUST miss and run the normal gate.
+- A stronger exact receipt may satisfy a weaker local pre-push gate. The inverse is forbidden, and
+  clean-tree plus lockfile checks still run before any reuse decision.
 
 ### Harness Direction
 
