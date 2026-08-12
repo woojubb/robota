@@ -1,6 +1,5 @@
 export type TParsedInput =
-  | { type: 'slash-command'; name: string; args: string[] }
-  | { type: 'user-message'; text: string };
+  { type: 'slash-command'; name: string; args: string[] } | { type: 'user-message'; text: string };
 
 /** Return true if text starts with '/' followed by a non-whitespace character. */
 export function isSlashCommand(text: string): boolean {

@@ -26,11 +26,11 @@ Storage (PostgreSQL/SQLite)     ← 3가지 분리된 스토어
 
 ### 설정 3계층
 
-| 계층 | 파일 | 범위 |
-|------|------|------|
-| Instance | `dagster.yaml` | 배포 전역 (DB, Run Launcher 등) |
-| Workspace | `workspace.yaml` | Code Location 접근 및 로딩 |
-| Job Run | Run config | Job 단위 (Executor, Ops, Resources) |
+| 계층      | 파일             | 범위                                |
+| --------- | ---------------- | ----------------------------------- |
+| Instance  | `dagster.yaml`   | 배포 전역 (DB, Run Launcher 등)     |
+| Workspace | `workspace.yaml` | Code Location 접근 및 로딩          |
+| Job Run   | Run config       | Job 단위 (Executor, Ops, Resources) |
 
 ### 실행 흐름
 
@@ -92,6 +92,7 @@ Op/Asset의 출력 저장과 입력 로딩을 추상화하는 핵심 인터페�
 - `load_input(context)` — 업스트림 출력을 읽어 다운스트림 입력으로 제공
 
 **설계 의의**:
+
 - 비즈니스 로직에서 데이터 영속화를 완전히 분리
 - 환경별(개발/스테이징/프로덕션) IO Manager 교체 가능
 - Context 객체로 asset name, partition key 등 메타데이터 접근
@@ -113,15 +114,15 @@ EvenDagsterType = DagsterType(
 
 ### Executor 타입
 
-| Executor | 실행 방식 | 적합 환경 |
-|----------|-----------|-----------|
-| `in_process_executor` | Run Worker 내 직렬 실행 | 개발, 디버깅 |
-| `multiprocess_executor` (기본) | Step별 별도 프로세스 | 중간 규모 |
-| `dask_executor` | Dask 분산 실행 | Dask 클러스터 |
-| `celery_executor` | Celery 태스크 큐 | 분산 워커 |
-| `docker_executor` | Docker 컨테이너 격리 | 컨테이너 환경 |
-| `k8s_job_executor` | K8s Pod 격리 | Kubernetes |
-| `celery_k8s_job_executor` | K8s Pod + Celery 제어 | K8s + 큐잉 |
+| Executor                       | 실행 방식               | 적합 환경     |
+| ------------------------------ | ----------------------- | ------------- |
+| `in_process_executor`          | Run Worker 내 직렬 실행 | 개발, 디버깅  |
+| `multiprocess_executor` (기본) | Step별 별도 프로세스    | 중간 규모     |
+| `dask_executor`                | Dask 분산 실행          | Dask 클러스터 |
+| `celery_executor`              | Celery 태스크 큐        | 분산 워커     |
+| `docker_executor`              | Docker 컨테이너 격리    | 컨테이너 환경 |
+| `k8s_job_executor`             | K8s Pod 격리            | Kubernetes    |
+| `celery_k8s_job_executor`      | K8s Pod + Celery 제어   | K8s + 큐잉    |
 
 ### K8s + Celery 실행 흐름
 
@@ -154,19 +155,20 @@ NOT_STARTED → QUEUED → STARTING → STARTED → SUCCESS ✓
                                   → CANCELING → CANCELED ✓
 ```
 
-| 상태 | 설명 |
-|------|------|
-| `NOT_STARTED` | 생성, 실행 미시작 |
-| `QUEUED` | 실행 큐 대기 |
-| `STARTING` | Run Worker 초기화 |
-| `STARTED` | 활성 실행 중 |
-| `MANAGED` | 외부 시스템 관리 상태 |
-| `SUCCESS` | 성공 완료 |
-| `FAILURE` | 오류로 미완료 |
-| `CANCELING` | 취소 처리 중 |
-| `CANCELED` | 취소 완료 |
+| 상태          | 설명                  |
+| ------------- | --------------------- |
+| `NOT_STARTED` | 생성, 실행 미시작     |
+| `QUEUED`      | 실행 큐 대기          |
+| `STARTING`    | Run Worker 초기화     |
+| `STARTED`     | 활성 실행 중          |
+| `MANAGED`     | 외부 시스템 관리 상태 |
+| `SUCCESS`     | 성공 완료             |
+| `FAILURE`     | 오류로 미완료         |
+| `CANCELING`   | 취소 처리 중          |
+| `CANCELED`    | 취소 완료             |
 
 **Robota 대비 특이점**:
+
 - `NOT_STARTED` 상태 (Robota의 `created`와 유사)
 - `STARTING` 상태 (Worker 스핀업 과정)
 - `CANCELING` 중간 상태 (Robota는 즉시 `cancelled`)
@@ -175,6 +177,7 @@ NOT_STARTED → QUEUED → STARTING → STARTED → SUCCESS ✓
 ### Step 수준 이벤트
 
 Step 단위로 별도 상태 머신이 아닌 **이벤트 로그** 기반:
+
 - `STEP_START`, `STEP_SUCCESS`, `STEP_FAILURE`, `STEP_OUTPUT`, `STEP_INPUT`
 - Asset 이벤트: `ASSET_MATERIALIZATION`, `ASSET_OBSERVATION`, `ASSET_CHECK_EVALUATION`
 
@@ -184,15 +187,15 @@ Step 단위로 별도 상태 머신이 아닌 **이벤트 로그** 기반:
 
 ### Event Log Storage
 
-| 컬럼 | 역할 |
-|------|------|
-| `id` | auto-increment PK |
-| `run_id` | 인덱스 |
-| `dagster_event_type` | 인덱스 |
-| `asset_key` | 인덱스 |
-| `partition` | 인덱스 |
-| `timestamp` | 인덱스 |
-| `event` | 직렬화된 EventLogEntry blob |
+| 컬럼                 | 역할                        |
+| -------------------- | --------------------------- |
+| `id`                 | auto-increment PK           |
+| `run_id`             | 인덱스                      |
+| `dagster_event_type` | 인덱스                      |
+| `asset_key`          | 인덱스                      |
+| `partition`          | 인덱스                      |
+| `timestamp`          | 인덱스                      |
+| `event`              | 직렬화된 EventLogEntry blob |
 
 **비정규화 캐시 (`asset_keys` 테이블)**: 최신 materialization, 캐시 상태 등 → O(1) 조회.
 
@@ -206,11 +209,11 @@ Step 단위로 별도 상태 머신이 아닌 **이벤트 로그** 기반:
 
 ### 백엔드
 
-| 구현체 | 용도 |
-|--------|------|
-| SQLite | 로컬 개발/테스트 (파일 기반) |
+| 구현체            | 용도                             |
+| ----------------- | -------------------------------- |
+| SQLite            | 로컬 개발/테스트 (파일 기반)     |
 | PostgreSQL (권장) | 프로덕션 (LISTEN/NOTIFY, 동시성) |
-| MySQL | 프로덕션 대안 |
+| MySQL             | 프로덕션 대안                    |
 
 ### 실시간 구독
 
@@ -232,19 +235,23 @@ Step 단위로 별도 상태 머신이 아닌 **이벤트 로그** 기반:
 - 모든 요청은 `WorkspaceRequestContext` 내에서 실행
 
 **주요 Query**:
+
 - `get_assets()` — 커서 기반 페이지네이션으로 자산 목록
 - `gen_run_by_id()` — 단일 Run 조회
 - `get_runs()` — 필터 + 페이지네이션으로 Run 목록
 - `get_logs_for_run()` — Run별 이벤트 스트리밍
 
 **주요 Mutation**:
+
 - `launchPipelineExecution` — Run 실행 (권한 → 설정 검증 → DagsterRun 생성 → ExecutionPlan → RunCoordinator 제출)
 - `launchPartitionBackfill` / `cancelPartitionBackfill` / `resumePartitionBackfill` — 백필 관리
 
 **오류 처리**: GraphQL Union 타입으로 표현 (예외 아님):
+
 - `PythonError`, `UnauthorizedError`, `AssetNotFoundError`, `InvalidSubsetError`
 
 **성능 최적화**:
+
 - DataLoader 패턴으로 DB 쿼리 배칭
 - `CachingStaleStatusResolver`: staleness 계산 메모이제이션
 - `RepositoryScopedBatchLoader`: 반복 서브 쿼리 중복 제거
@@ -270,11 +277,11 @@ GraphQL 외에 REST API도 제공. 자산/런/이벤트 조회.
 
 ### 이벤트 카테고리
 
-| 카테고리 | 주요 이벤트 |
-|----------|-----------|
-| Asset | `ASSET_MATERIALIZATION`, `ASSET_OBSERVATION`, `ASSET_CHECK_EVALUATION` |
-| Run | `RUN_START`, `RUN_SUCCESS`, `RUN_FAILURE`, `RUN_CANCELED` |
-| Step | `STEP_START`, `STEP_SUCCESS`, `STEP_FAILURE`, `STEP_OUTPUT` |
+| 카테고리 | 주요 이벤트                                                            |
+| -------- | ---------------------------------------------------------------------- |
+| Asset    | `ASSET_MATERIALIZATION`, `ASSET_OBSERVATION`, `ASSET_CHECK_EVALUATION` |
+| Run      | `RUN_START`, `RUN_SUCCESS`, `RUN_FAILURE`, `RUN_CANCELED`              |
+| Step     | `STEP_START`, `STEP_SUCCESS`, `STEP_FAILURE`, `STEP_OUTPUT`            |
 
 ### UI 갱신
 
@@ -297,6 +304,7 @@ def my_op():
 ```
 
 **적용 수준**:
+
 1. Op 정의: `@op(retry_policy=...)`
 2. Op 호출: `.with_retry_policy()`
 3. Job 전체: `define_asset_job(op_retry_policy=...)`
@@ -304,6 +312,7 @@ def my_op():
 **수동 재시도**: `RetryRequested` 예외로 조건부 재시도 제어. `raise from`으로 원본 예외 보존.
 
 **Op Retry vs Run Retry**:
+
 - Op Retry: 개별 Op/Step 수준
 - Run Retry: 전체 Run 수준 (`run_retries` 설정)
 
@@ -314,14 +323,17 @@ def my_op():
 ### Memoization (버전 기반 캐싱)
 
 **코드 버전 (`code_version`)**:
+
 - Asset/Op에 문자열로 버전 할당
 - 결정론적 결과를 보장할 때만 사용
 
 **데이터 버전 (`DataVersion`)**:
+
 - 자산 데이터의 버전 문자열
 - 각 materialization마다 자동 계산: 코드 버전 + 입력 자산 데이터 버전 해싱
 
 **결과 스킵 로직**:
+
 - 코드 버전 동일 + 입력 데이터 버전 동일 → materialization 스킵
 - 불필요한 재계산 방지, 컴퓨팅 자원 절약
 

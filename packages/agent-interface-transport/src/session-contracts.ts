@@ -41,6 +41,7 @@ import type {
   ISkillActivationEvent,
 } from './event-contracts.js';
 import type { ISubagentJobState } from './subagent-contracts';
+import type { IExecutionResult, ITurnHandle } from './turn-contracts.js';
 import type {
   IExecutionWorkspaceEvent,
   IExecutionWorkspaceSnapshot,
@@ -212,7 +213,6 @@ export interface IToolSummary {
 }
 
 // RUNTIME-003: a submission's identity and the ways it can end live in `./turn-contracts.js`.
-import type { IExecutionResult, ITurnHandle } from './turn-contracts.js';
 export type {
   IExecutionResult,
   ITurnHandle,

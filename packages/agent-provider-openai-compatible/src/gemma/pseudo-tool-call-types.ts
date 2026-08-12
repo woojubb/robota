@@ -1,10 +1,5 @@
 export type TGemmaJsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | TGemmaJsonValue[]
-  | { [key: string]: TGemmaJsonValue };
+  string | number | boolean | null | TGemmaJsonValue[] | { [key: string]: TGemmaJsonValue };
 
 export interface IGemmaPseudoProjectionOptions {
   final: boolean;

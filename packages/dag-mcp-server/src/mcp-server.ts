@@ -23,12 +23,9 @@ export function createDagMcpServer(
   );
   const tools = createDagMcpToolDefinitions();
 
-  server.setRequestHandler(
-    ListToolsRequestSchema,
-    async (): Promise<ListToolsResult> => ({
-      tools: [...tools],
-    }),
-  );
+  server.setRequestHandler(ListToolsRequestSchema, async (): Promise<ListToolsResult> => ({
+    tools: [...tools],
+  }));
   server.setRequestHandler(CallToolRequestSchema, async (request) =>
     callDagMcpTool(request.params.name, request.params.arguments, options.client),
   );

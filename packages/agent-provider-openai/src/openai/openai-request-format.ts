@@ -24,9 +24,7 @@ export interface IOpenAIChatTextFormatJsonSchema {
 }
 
 export type TOpenAIChatResponseFormat =
-  | IOpenAIChatTextFormatText
-  | IOpenAIChatTextFormatJsonObject
-  | IOpenAIChatTextFormatJsonSchema;
+  IOpenAIChatTextFormatText | IOpenAIChatTextFormatJsonObject | IOpenAIChatTextFormatJsonSchema;
 
 /**
  * Merge a per-call `IChatOptions.responseFormat` onto the provider options (CORE-015).

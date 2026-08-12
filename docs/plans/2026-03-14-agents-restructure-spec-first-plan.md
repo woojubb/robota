@@ -13,6 +13,7 @@
 ### Task 1: Create `.agents/rules/` directory and `index.md`
 
 **Files:**
+
 - Create: `.agents/rules/index.md`
 
 **Step 1: Create index file**
@@ -23,13 +24,13 @@
 All rules are mandatory and non-negotiable. Domain-specific rules live in
 [skills](../skills/) and [package specs](../../packages/*/docs/SPEC.md).
 
-| Group | Document | Scope |
-|-------|----------|-------|
-| Code Quality | [code-quality.md](code-quality.md) | Type system, imports, development patterns |
-| Process | [process.md](process.md) | Spec-first, TDD, no fallback, planning, build |
-| API Boundary | [api-boundary.md](api-boundary.md) | Runtime/Orchestrator API rules, process lifecycle |
-| Naming & Style | [naming-style.md](naming-style.md) | Language policy, agent identity, styling |
-| Git & Branch | [git-branch.md](git-branch.md) | Git operations, branch policy, worktree isolation |
+| Group          | Document                           | Scope                                             |
+| -------------- | ---------------------------------- | ------------------------------------------------- |
+| Code Quality   | [code-quality.md](code-quality.md) | Type system, imports, development patterns        |
+| Process        | [process.md](process.md)           | Spec-first, TDD, no fallback, planning, build     |
+| API Boundary   | [api-boundary.md](api-boundary.md) | Runtime/Orchestrator API rules, process lifecycle |
+| Naming & Style | [naming-style.md](naming-style.md) | Language policy, agent identity, styling          |
+| Git & Branch   | [git-branch.md](git-branch.md)     | Git operations, branch policy, worktree isolation |
 ```
 
 **Step 2: Verify file exists**
@@ -41,11 +42,13 @@ Run: `cat .agents/rules/index.md`
 ### Task 2: Create `.agents/rules/code-quality.md`
 
 **Files:**
+
 - Create: `.agents/rules/code-quality.md`
 
 **Step 1: Extract from AGENTS.md**
 
 Copy the following sections verbatim from AGENTS.md into the new file, under a top-level heading:
+
 - `### Type System (Strict)` (lines 91–104)
 - `### Import Standards` (lines 136–139)
 - `### Development Patterns` (lines 141–150)
@@ -68,11 +71,13 @@ Run: `diff <(sed -n '91,104p' AGENTS.md) <(sed -n '7,20p' .agents/rules/code-qua
 ### Task 3: Create `.agents/rules/process.md`
 
 **Files:**
+
 - Create: `.agents/rules/process.md`
 
 **Step 1: Extract from AGENTS.md + add new rule**
 
 Copy these sections verbatim:
+
 - `### No Fallback Policy` (lines 106–113)
 - `### Test-Driven Development` (lines 115–120)
 - `### Planning Requirements` (lines 122–128)
@@ -113,11 +118,13 @@ Run: `grep -c '###' .agents/rules/process.md` — expected: 5 (No Fallback, TDD,
 ### Task 4: Create `.agents/rules/api-boundary.md`
 
 **Files:**
+
 - Create: `.agents/rules/api-boundary.md`
 
 **Step 1: Extract from AGENTS.md**
 
 Copy these sections verbatim:
+
 - `### API Specification` (line 152–154)
 - `### Runtime and Orchestrator API Boundary` (lines 156–177)
 - `### Process Lifecycle` (lines 179–183)
@@ -140,11 +147,13 @@ Run: `grep "single source of truth" .agents/rules/api-boundary.md` — should ma
 ### Task 5: Create `.agents/rules/naming-style.md`
 
 **Files:**
+
 - Create: `.agents/rules/naming-style.md`
 
 **Step 1: Extract from AGENTS.md**
 
 Copy these sections verbatim:
+
 - `### Language Policy` (lines 83–89)
 - `### Agent Identity` (lines 185–188)
 - `### Styling` (lines 190–193)
@@ -163,11 +172,13 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 ### Task 6: Create `.agents/rules/git-branch.md`
 
 **Files:**
+
 - Create: `.agents/rules/git-branch.md`
 
 **Step 1: Extract from AGENTS.md**
 
 Copy these sections verbatim:
+
 - `### Git Operations` (lines 195–199)
 - `### Branch Policy` (lines 201–210)
 - `### Worktree Isolation` (lines 212–216)
@@ -186,6 +197,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 ### Task 7: Rewrite AGENTS.md Mandatory Rules section
 
 **Files:**
+
 - Modify: `AGENTS.md` (lines 79–216)
 
 **Step 1: Replace the entire Mandatory Rules section (lines 79–216) with routing table**
@@ -197,13 +209,13 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule
 group has its own document with full details.
 See [rules index](.agents/rules/index.md).
 
-| Group | Document | Key rules |
-|-------|----------|-----------|
-| Code Quality | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
-| Process | [process.md](.agents/rules/process.md) | Spec-first, TDD, no fallback, build verification |
-| API Boundary | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own |
-| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only |
-| Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
+| Group          | Document                                         | Key rules                                               |
+| -------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| Code Quality   | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
+| Process        | [process.md](.agents/rules/process.md)           | Spec-first, TDD, no fallback, build verification        |
+| API Boundary   | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own      |
+| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only          |
+| Git & Branch   | [git-branch.md](.agents/rules/git-branch.md)     | Branch policy, conventional commits, worktree           |
 ```
 
 **Step 2: Update Document Discovery Policy tree**
@@ -245,6 +257,7 @@ Run: `wc -l AGENTS.md` — expected: ~120 lines (down from 275).
 ### Task 8: Create `spec-first-development` skill
 
 **Files:**
+
 - Create: `.agents/skills/spec-first-development/SKILL.md`
 
 **Step 1: Write skill file**
@@ -262,6 +275,7 @@ description: Use before implementing any change that touches a contract boundary
 ## When to Use
 
 Trigger this skill when a change affects any of these:
+
 - Package public API surface (exports, types, interfaces)
 - HTTP/WebSocket API endpoints (request/response shapes)
 - Class-to-class dependencies across module boundaries
@@ -273,12 +287,14 @@ Trigger this skill when a change affects any of these:
 
 List all package/service/class connections affected by the change.
 For each boundary, answer:
+
 - What is the current spec? (SPEC.md, OpenAPI, contract definition, or none)
 - What part of the spec changes?
 
 ### Step 2: Check existing specs
 
 For each identified boundary:
+
 - Package surface → check `packages/<name>/docs/SPEC.md`
 - HTTP API → check OpenAPI or API spec document
 - Class contract → check contract definition in owning package
@@ -296,6 +312,7 @@ The spec change must be reviewed and approved before implementation begins.
 ### Step 4: Define verification test plan
 
 For each spec change, define:
+
 - **What to test:** which contract assertions validate the change
 - **How to test:** unit / integration / contract test
 - **Commands to run:** exact verification commands
@@ -310,13 +327,13 @@ Use [`contract-audit`](../contract-audit/SKILL.md) for contract consistency chec
 
 ## Orchestrated Skills
 
-| Skill | Role in this workflow |
-|-------|----------------------|
-| `spec-writing-standard` | SPEC.md structure and quality gates |
-| `api-spec-management` | API spec format and update workflow |
-| `contract-audit` | Contract consistency verification |
-| `tdd-red-green-refactor` | Implementation cycle |
-| `repo-change-loop` | Build and verify loop |
+| Skill                    | Role in this workflow               |
+| ------------------------ | ----------------------------------- |
+| `spec-writing-standard`  | SPEC.md structure and quality gates |
+| `api-spec-management`    | API spec format and update workflow |
+| `contract-audit`         | Contract consistency verification   |
+| `tdd-red-green-refactor` | Implementation cycle                |
+| `repo-change-loop`       | Build and verify loop               |
 ```
 
 **Step 2: Add to Skills Reference in AGENTS.md**

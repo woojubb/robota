@@ -35,6 +35,7 @@ PromptServer (aiohttp)          ← HTTP REST + WebSocket 이중 프로토콜
 JSON 워크플로우 — 노드 + 링크로 구성. UI에서 편집 → JSON 직렬화.
 
 **API 포맷** (서버 실행용):
+
 ```json
 {
   "5": {
@@ -50,6 +51,7 @@ JSON 워크플로우 — 노드 + 링크로 구성. UI에서 편집 → JSON 직
 ```
 
 **UI 포맷** (별도 구조):
+
 - 6요소 배열 링크: `[link_id, source_node_id, source_output_index, dest_node_id, dest_input_index, data_type]`
 - API 포맷과 분리. 서버는 API 포맷만 사용.
 
@@ -61,12 +63,12 @@ Python 클래스 기반. `NODE_CLASS_MAPPINGS` 딕셔너리에 등록.
 
 ### 필수 속성
 
-| 속성 | 역할 | 예시 |
-|------|------|------|
+| 속성            | 역할                         | 예시                                  |
+| --------------- | ---------------------------- | ------------------------------------- |
 | `INPUT_TYPES()` | 입력 포트 정의 (classmethod) | `{"required": {"image": ("IMAGE",)}}` |
-| `RETURN_TYPES` | 출력 타입 튜플 | `("IMAGE",)` |
-| `FUNCTION` | 실행 메서드명 문자열 | `"execute"` |
-| `CATEGORY` | UI 메뉴 분류 | `"image/transform"` |
+| `RETURN_TYPES`  | 출력 타입 튜플               | `("IMAGE",)`                          |
+| `FUNCTION`      | 실행 메서드명 문자열         | `"execute"`                           |
+| `CATEGORY`      | UI 메뉴 분류                 | `"image/transform"`                   |
 
 ### 입력 카테고리
 
@@ -112,6 +114,7 @@ def INPUT_TYPES(cls):
 4. 모든 입력 준비 후에만 노드 실행 보장
 
 **실행 모델 반전 (PR #2666)**:
+
 - 기존: 뒤에서 앞으로(back-to-front) 재귀 호출
 - 현재: 앞에서 뒤로(front-to-back) 위상 정렬
 - 실행 중 그래프 수정 가능 (동적 노드 확장, 지연 평가)
@@ -134,6 +137,7 @@ def INPUT_TYPES(cls):
 ### 동적 노드 확장 (Node Expansion)
 
 `DynamicPrompt`를 통해 실행 중 그래프 구조 변경:
+
 - 노드의 `FUNCTION`이 서브그래프를 반환하면 DynamicPrompt가 임시(ephemeral) 노드로 등록
 - While 루프, 컴포넌트 등 고급 제어 흐름 구현 가능
 
@@ -163,6 +167,7 @@ API 포맷에서 링크 = `[source_node_id: string, output_index: int]`:
 ### 데이터 타입
 
 주로 PyTorch 텐서:
+
 - `IMAGE`: `[B, H, W, C]` float32 텐서 (0~1 범위)
 - `LATENT`: `{"samples": tensor}` 딕셔너리
 - `MODEL`: `ModelPatcher` 인스턴스 (가중치 패치 래퍼)
@@ -187,33 +192,33 @@ executed(node1) → executing(node2) → ... → executing(null) → execution_s
 
 파일시스템 기반. 메타데이터 DB 없음.
 
-| 대상 | 저장 방식 |
-|------|----------|
-| 출력 이미지 | `output/` 디렉토리에 파일 저장 |
-| 임시 이미지 | `temp/` 디렉토리 (프리뷰 등) |
-| 입력 이미지 | `input/` 디렉토리 |
-| 실행 히스토리 | 인메모리 딕셔너리 (서버 재시작 시 유실) |
+| 대상            | 저장 방식                                      |
+| --------------- | ---------------------------------------------- |
+| 출력 이미지     | `output/` 디렉토리에 파일 저장                 |
+| 임시 이미지     | `temp/` 디렉토리 (프리뷰 등)                   |
+| 입력 이미지     | `input/` 디렉토리                              |
+| 실행 히스토리   | 인메모리 딕셔너리 (서버 재시작 시 유실)        |
 | 워크플로우 정의 | 클라이언트 로컬 저장 (서버에 영속적 저장 없음) |
-| 모델 가중치 | `models/` 하위 디렉토리 |
+| 모델 가중치     | `models/` 하위 디렉토리                        |
 
 ## 서버 API
 
-| 엔드포인트 | 메서드 | 설명 |
-|-----------|--------|------|
-| `/prompt` | POST | 워크플로우 제출. 검증 후 큐 적재. 반환: `{prompt_id, number}` |
-| `/prompt` | GET | 현재 큐 상태 |
-| `/queue` | GET | 실행 중 + 대기 중 항목 |
-| `/queue` | POST | 큐 관리 (삭제/초기화) |
-| `/history` | GET | 실행 히스토리 |
-| `/history/{prompt_id}` | GET | 특정 실행 결과 |
-| `/object_info` | GET | 전체 노드 클래스 라이브러리 (입력, 출력, 기본값, 문서) |
-| `/object_info/{node_class}` | GET | 특정 노드 클래스 정보 |
-| `/system_stats` | GET | 시스템 통계 (VRAM, RAM, GPU) |
-| `/view` | GET | 이미지 조회 |
-| `/upload/image` | POST | 이미지 업로드 (multipart/form-data) |
-| `/interrupt` | POST | 현재 실행 중단 |
-| `/free` | POST | 메모리 해제 (모델 언로드) |
-| `/ws` | WebSocket | 실시간 양방향 통신 |
+| 엔드포인트                  | 메서드    | 설명                                                          |
+| --------------------------- | --------- | ------------------------------------------------------------- |
+| `/prompt`                   | POST      | 워크플로우 제출. 검증 후 큐 적재. 반환: `{prompt_id, number}` |
+| `/prompt`                   | GET       | 현재 큐 상태                                                  |
+| `/queue`                    | GET       | 실행 중 + 대기 중 항목                                        |
+| `/queue`                    | POST      | 큐 관리 (삭제/초기화)                                         |
+| `/history`                  | GET       | 실행 히스토리                                                 |
+| `/history/{prompt_id}`      | GET       | 특정 실행 결과                                                |
+| `/object_info`              | GET       | 전체 노드 클래스 라이브러리 (입력, 출력, 기본값, 문서)        |
+| `/object_info/{node_class}` | GET       | 특정 노드 클래스 정보                                         |
+| `/system_stats`             | GET       | 시스템 통계 (VRAM, RAM, GPU)                                  |
+| `/view`                     | GET       | 이미지 조회                                                   |
+| `/upload/image`             | POST      | 이미지 업로드 (multipart/form-data)                           |
+| `/interrupt`                | POST      | 현재 실행 중단                                                |
+| `/free`                     | POST      | 메모리 해제 (모델 언로드)                                     |
+| `/ws`                       | WebSocket | 실시간 양방향 통신                                            |
 
 모든 엔드포인트는 `/api` 접두사로도 접근 가능.
 
@@ -223,16 +228,16 @@ WebSocket 양방향 통신. 연결: `ws://server:8188/ws?clientId={sid}`
 
 ### 이벤트 타입
 
-| 이벤트 | 데이터 | 설명 |
-|--------|--------|------|
-| `status` | `{exec_info: {queue_remaining: N}}` | 큐 상태 |
-| `execution_start` | `{prompt_id}` | 실행 시작 |
-| `execution_cached` | `{nodes: [id, ...], prompt_id}` | 캐시 히트 노드 목록 |
-| `executing` | `{node: "id", prompt_id}` | 현재 실행 중 노드 (`null`이면 완료) |
-| `progress` | `{value: N, max: M, prompt_id, node}` | 샘플링 진행률 |
-| `executed` | `{node: "id", output: {...}, prompt_id}` | 노드 완료 및 출력 |
-| `execution_error` | `{prompt_id, node_id, exception_message}` | 실행 오류 |
-| `execution_success` | `{prompt_id}` | 전체 실행 성공 |
+| 이벤트              | 데이터                                    | 설명                                |
+| ------------------- | ----------------------------------------- | ----------------------------------- |
+| `status`            | `{exec_info: {queue_remaining: N}}`       | 큐 상태                             |
+| `execution_start`   | `{prompt_id}`                             | 실행 시작                           |
+| `execution_cached`  | `{nodes: [id, ...], prompt_id}`           | 캐시 히트 노드 목록                 |
+| `executing`         | `{node: "id", prompt_id}`                 | 현재 실행 중 노드 (`null`이면 완료) |
+| `progress`          | `{value: N, max: M, prompt_id, node}`     | 샘플링 진행률                       |
+| `executed`          | `{node: "id", output: {...}, prompt_id}`  | 노드 완료 및 출력                   |
+| `execution_error`   | `{prompt_id, node_id, exception_message}` | 실행 오류                           |
+| `execution_success` | `{prompt_id}`                             | 전체 실행 성공                      |
 
 프로그레스 이미지 프리뷰는 **바이너리 WebSocket 메시지**로 전송 (JSON이 아닌 raw bytes).
 
@@ -248,12 +253,12 @@ WebSocket 양방향 통신. 연결: `ws://server:8188/ws?clientId={sid}`
 
 4가지 전략으로 구성된 `CacheSet`:
 
-| 전략 | CLI 플래그 | 특성 |
-|------|-----------|------|
-| **CLASSIC** | `--cache-classic` (기본) | 제거 없음. 무제한 메모리 성장. 최대 성능 |
-| **LRU** | `--cache-lru N` | 고정 크기. 용량 초과 시 LRU 제거 |
-| **RAM_PRESSURE** | `--cache-ram [GB]` | 시스템 RAM 가용량 모니터링. 큰 항목부터 제거. 기본 여유: 4GB |
-| **NONE** | `--cache-none` | 캐싱 비활성화. 모든 노드 재실행. 디버깅용 |
+| 전략             | CLI 플래그               | 특성                                                         |
+| ---------------- | ------------------------ | ------------------------------------------------------------ |
+| **CLASSIC**      | `--cache-classic` (기본) | 제거 없음. 무제한 메모리 성장. 최대 성능                     |
+| **LRU**          | `--cache-lru N`          | 고정 크기. 용량 초과 시 LRU 제거                             |
+| **RAM_PRESSURE** | `--cache-ram [GB]`       | 시스템 RAM 가용량 모니터링. 큰 항목부터 제거. 기본 여유: 4GB |
+| **NONE**         | `--cache-none`           | 캐싱 비활성화. 모든 노드 재실행. 디버깅용                    |
 
 ### 캐시 구조
 
@@ -273,12 +278,14 @@ WebSocket 양방향 통신. 연결: `ws://server:8188/ws?clientId={sid}`
 6가지 VRAM 운영 모드 (DISABLED, NO_VRAM, LOW_VRAM, NORMAL_VRAM, HIGH_VRAM, SHARED).
 
 **ModelPatcher 패턴**:
+
 - 기본 모델 가중치를 즉시 수정하지 않음
 - 패치를 딕셔너리에 축적 → GPU 로딩 시점에 일괄 적용
 - `Base Model (frozen) → ModelPatcher (patches) → patch_model() → Patched Model (GPU)`
 - LoRA, ControlNet 등 다중 수정사항 효율적 적용
 
 **메모리 인식 제거**:
+
 - LRU 기반 모델 언로딩. 사용 타임스탬프 추적.
 - 충분한 메모리 확보될 때까지 가장 오래 미사용 모델부터 제거
 - 현재 파이프라인에 필요한 모델은 보존

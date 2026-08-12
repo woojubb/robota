@@ -15,10 +15,7 @@
  * Error handling strategy types
  */
 export type TErrorHandlingStrategy =
-  | 'simple'
-  | 'circuit-breaker'
-  | 'exponential-backoff'
-  | 'silent';
+  'simple' | 'circuit-breaker' | 'exponential-backoff' | 'silent';
 
 /**
  * Base error context for internal operations

@@ -8,8 +8,7 @@ import { createSystemMessage, createUserMessage } from '@robota-sdk/agent-core';
 const MAX_AUTHORING_TOKENS = 2048;
 
 export type TAuthorResult =
-  | { readonly ok: true; readonly raw: string }
-  | { readonly ok: false; readonly error: string };
+  { readonly ok: true; readonly raw: string } | { readonly ok: false; readonly error: string };
 
 /**
  * The system prompt instructs the provider to emit ONLY a JSON object matching the authoring spec,

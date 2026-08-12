@@ -26,8 +26,7 @@ export interface IProviderMediaError {
 }
 
 export type TProviderMediaResult<TValue> =
-  | { ok: true; value: TValue }
-  | { ok: false; error: IProviderMediaError };
+  { ok: true; value: TValue } | { ok: false; error: IProviderMediaError };
 
 export interface IInlineImageInputSource {
   kind: 'inline';

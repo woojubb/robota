@@ -9,6 +9,7 @@
 **Tech Stack:** Express, multer (new dep for multipart), ws, vitest
 
 **Key references:**
+
 - ComfyUI spec: `.design/dag-benchmark/03-comfyui.md`
 - Runtime SPEC: `apps/dag-runtime-server/docs/SPEC.md`
 - Task tracker: `.agents/tasks/comfyui-api-parity.md`
@@ -18,6 +19,7 @@
 ### Task 1: GET /view — Image Serving Endpoint
 
 **Files:**
+
 - Create: `apps/dag-runtime-server/src/routes/asset-routes.ts`
 - Modify: `apps/dag-runtime-server/src/server.ts` (mount route)
 - Modify: `apps/dag-runtime-server/src/__tests__/endpoint-contract.test.ts` (add tests)
@@ -54,29 +56,29 @@ await rm(tempAssetDir, { recursive: true, force: true });
 
 // New test block:
 describe('GET /view', () => {
-    it('returns 200 with binary content for existing asset', async () => {
-        const content = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG header bytes
-        const saved = await assetStore.save({
-            fileName: 'test.png',
-            mediaType: 'image/png',
-            content,
-        });
-        const res = await fetch(`${baseUrl}/view?filename=${saved.assetId}`);
-        expect(res.status).toBe(200);
-        expect(res.headers.get('content-type')).toBe('image/png');
-        const body = new Uint8Array(await res.arrayBuffer());
-        expect(body).toEqual(content);
+  it('returns 200 with binary content for existing asset', async () => {
+    const content = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG header bytes
+    const saved = await assetStore.save({
+      fileName: 'test.png',
+      mediaType: 'image/png',
+      content,
     });
+    const res = await fetch(`${baseUrl}/view?filename=${saved.assetId}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    const body = new Uint8Array(await res.arrayBuffer());
+    expect(body).toEqual(content);
+  });
 
-    it('returns 404 when asset does not exist', async () => {
-        const res = await fetch(`${baseUrl}/view?filename=nonexistent-id`);
-        expect(res.status).toBe(404);
-    });
+  it('returns 404 when asset does not exist', async () => {
+    const res = await fetch(`${baseUrl}/view?filename=nonexistent-id`);
+    expect(res.status).toBe(404);
+  });
 
-    it('returns 400 when filename query param is missing', async () => {
-        const res = await fetch(`${baseUrl}/view`);
-        expect(res.status).toBe(400);
-    });
+  it('returns 400 when filename query param is missing', async () => {
+    const res = await fetch(`${baseUrl}/view`);
+    expect(res.status).toBe(400);
+  });
 });
 ```
 
@@ -99,33 +101,42 @@ import { pipeline } from 'node:stream/promises';
 import type { IAssetStore } from '@robota-sdk/dag-core';
 
 export function mountAssetRoutes(app: Express, assetStore: IAssetStore): void {
-    app.get('/view', async (req: Request, res: Response) => {
-        const filename = req.query.filename;
-        if (typeof filename !== 'string' || filename.trim().length === 0) {
-            res.status(400).json({
-                error: { type: 'invalid_request', message: 'filename query parameter is required', details: '', extra_info: {} },
-                node_errors: {},
-            });
-            return;
-        }
+  app.get('/view', async (req: Request, res: Response) => {
+    const filename = req.query.filename;
+    if (typeof filename !== 'string' || filename.trim().length === 0) {
+      res.status(400).json({
+        error: {
+          type: 'invalid_request',
+          message: 'filename query parameter is required',
+          details: '',
+          extra_info: {},
+        },
+        node_errors: {},
+      });
+      return;
+    }
 
-        const result = await assetStore.getContent(filename.trim());
-        if (!result) {
-            res.status(404).json({
-                error: { type: 'not_found', message: `Asset not found: ${filename}`, details: '', extra_info: {} },
-                node_errors: {},
-            });
-            return;
-        }
+    const result = await assetStore.getContent(filename.trim());
+    if (!result) {
+      res.status(404).json({
+        error: {
+          type: 'not_found',
+          message: `Asset not found: ${filename}`,
+          details: '',
+          extra_info: {},
+        },
+        node_errors: {},
+      });
+      return;
+    }
 
-        res.setHeader('Content-Type', result.metadata.mediaType);
-        res.setHeader('Content-Length', String(result.metadata.sizeBytes));
+    res.setHeader('Content-Type', result.metadata.mediaType);
+    res.setHeader('Content-Length', String(result.metadata.sizeBytes));
 
-        const readable = result.stream instanceof Readable
-            ? result.stream
-            : Readable.from(result.stream);
-        await pipeline(readable, res);
-    });
+    const readable =
+      result.stream instanceof Readable ? result.stream : Readable.from(result.stream);
+    await pipeline(readable, res);
+  });
 }
 ```
 
@@ -161,6 +172,7 @@ git commit -m "feat(dag-runtime-server): implement GET /view for ComfyUI image s
 ### Task 2: POST /upload/image — Multipart Image Upload
 
 **Files:**
+
 - Modify: `apps/dag-runtime-server/package.json` (add multer dependency)
 - Modify: `apps/dag-runtime-server/src/routes/asset-routes.ts` (add upload route)
 - Modify: `apps/dag-runtime-server/src/__tests__/endpoint-contract.test.ts` (add tests)
@@ -182,52 +194,52 @@ Add to endpoint-contract.test.ts:
 
 ```typescript
 describe('POST /upload/image', () => {
-    it('returns 200 with { name, subfolder, type } for valid image upload', async () => {
-        const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        const formData = new FormData();
-        formData.append('image', new Blob([pngBytes], { type: 'image/png' }), 'upload-test.png');
+  it('returns 200 with { name, subfolder, type } for valid image upload', async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const formData = new FormData();
+    formData.append('image', new Blob([pngBytes], { type: 'image/png' }), 'upload-test.png');
 
-        const res = await fetch(`${baseUrl}/upload/image`, {
-            method: 'POST',
-            body: formData,
-        });
-
-        expect(res.status).toBe(200);
-        const body = await res.json() as Record<string, unknown>;
-        expect(typeof body.name).toBe('string');
-        expect((body.name as string).length).toBeGreaterThan(0);
-        expect(body.subfolder).toBe('');
-        expect(body.type).toBe('input');
+    const res = await fetch(`${baseUrl}/upload/image`, {
+      method: 'POST',
+      body: formData,
     });
 
-    it('returns 400 when no image file is provided', async () => {
-        const res = await fetch(`${baseUrl}/upload/image`, {
-            method: 'POST',
-            body: new FormData(),
-        });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(typeof body.name).toBe('string');
+    expect((body.name as string).length).toBeGreaterThan(0);
+    expect(body.subfolder).toBe('');
+    expect(body.type).toBe('input');
+  });
 
-        expect(res.status).toBe(400);
+  it('returns 400 when no image file is provided', async () => {
+    const res = await fetch(`${baseUrl}/upload/image`, {
+      method: 'POST',
+      body: new FormData(),
     });
 
-    it('uploaded image is retrievable via GET /view', async () => {
-        const content = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]); // JPEG header
-        const formData = new FormData();
-        formData.append('image', new Blob([content], { type: 'image/jpeg' }), 'round-trip.jpg');
+    expect(res.status).toBe(400);
+  });
 
-        const uploadRes = await fetch(`${baseUrl}/upload/image`, {
-            method: 'POST',
-            body: formData,
-        });
-        expect(uploadRes.status).toBe(200);
-        const uploadBody = await uploadRes.json() as Record<string, unknown>;
-        const assetName = uploadBody.name as string;
+  it('uploaded image is retrievable via GET /view', async () => {
+    const content = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]); // JPEG header
+    const formData = new FormData();
+    formData.append('image', new Blob([content], { type: 'image/jpeg' }), 'round-trip.jpg');
 
-        const viewRes = await fetch(`${baseUrl}/view?filename=${assetName}`);
-        expect(viewRes.status).toBe(200);
-        expect(viewRes.headers.get('content-type')).toBe('image/jpeg');
-        const body = new Uint8Array(await viewRes.arrayBuffer());
-        expect(body).toEqual(content);
+    const uploadRes = await fetch(`${baseUrl}/upload/image`, {
+      method: 'POST',
+      body: formData,
     });
+    expect(uploadRes.status).toBe(200);
+    const uploadBody = (await uploadRes.json()) as Record<string, unknown>;
+    const assetName = uploadBody.name as string;
+
+    const viewRes = await fetch(`${baseUrl}/view?filename=${assetName}`);
+    expect(viewRes.status).toBe(200);
+    expect(viewRes.headers.get('content-type')).toBe('image/jpeg');
+    const body = new Uint8Array(await viewRes.arrayBuffer());
+    expect(body).toEqual(content);
+  });
 });
 ```
 
@@ -250,26 +262,31 @@ import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post('/upload/image', upload.single('image'), async (req: Request, res: Response) => {
-    const file = (req as Request & { file?: Express.Multer.File }).file;
-    if (!file) {
-        res.status(400).json({
-            error: { type: 'invalid_request', message: 'No image file provided', details: '', extra_info: {} },
-            node_errors: {},
-        });
-        return;
-    }
-
-    const saved = await assetStore.save({
-        fileName: file.originalname,
-        mediaType: file.mimetype,
-        content: new Uint8Array(file.buffer),
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+  if (!file) {
+    res.status(400).json({
+      error: {
+        type: 'invalid_request',
+        message: 'No image file provided',
+        details: '',
+        extra_info: {},
+      },
+      node_errors: {},
     });
+    return;
+  }
 
-    res.status(200).json({
-        name: saved.assetId,
-        subfolder: '',
-        type: 'input',
-    });
+  const saved = await assetStore.save({
+    fileName: file.originalname,
+    mediaType: file.mimetype,
+    content: new Uint8Array(file.buffer),
+  });
+
+  res.status(200).json({
+    name: saved.assetId,
+    subfolder: '',
+    type: 'input',
+  });
 });
 ```
 
@@ -296,17 +313,18 @@ git commit -m "feat(dag-runtime-server): implement POST /upload/image with multe
 ### Task 3: WebSocket Events — status, execution_cached, progress
 
 **Files:**
+
 - Modify: `apps/dag-runtime-server/src/routes/ws-routes.ts` (add 3 event mappings)
 - Create: `apps/dag-runtime-server/src/__tests__/ws-events-contract.test.ts` (WS event tests)
 
 **Context:**
 The 3 missing WS events can be derived from existing dag-core execution events without adding new types:
 
-| ComfyUI Event | Trigger | Data |
-|---|---|---|
-| `status` | `execution.started`, `execution.completed`, `execution.failed` | `{ exec_info: { queue_remaining } }` |
-| `execution_cached` | `execution.started` (before first node) | `{ nodes: [], prompt_id }` (empty — no caching engine) |
-| `progress` | No current source (nodes don't report progress) | `{ value, max, prompt_id, node }` — mapping added but not emitted |
+| ComfyUI Event      | Trigger                                                        | Data                                                              |
+| ------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `status`           | `execution.started`, `execution.completed`, `execution.failed` | `{ exec_info: { queue_remaining } }`                              |
+| `execution_cached` | `execution.started` (before first node)                        | `{ nodes: [], prompt_id }` (empty — no caching engine)            |
+| `progress`         | No current source (nodes don't report progress)                | `{ value, max, prompt_id, node }` — mapping added but not emitted |
 
 For `status`, the single-worker runtime has at most 1 item running. `queue_remaining = 1` on start, `0` on completion/failure.
 
@@ -327,93 +345,96 @@ import { toComfyUiMessage } from '../routes/ws-routes.js';
 import type { TRunProgressEvent } from '@robota-sdk/dag-core';
 
 describe('ComfyUI WebSocket event mapping', () => {
-    const promptId = 'test-prompt-1';
+  const promptId = 'test-prompt-1';
 
-    describe('status event', () => {
-        it('emits status with queue_remaining: 1 on execution.started', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'execution.started',
-                occurredAt: new Date().toISOString(),
-                dagId: 'dag-1',
-                version: 1,
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            const statusMsg = messages.find((m) => m.type === 'status');
-            expect(statusMsg).toBeDefined();
-            expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 1 } } });
-        });
-
-        it('emits status with queue_remaining: 0 on execution.completed', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'execution.completed',
-                occurredAt: new Date().toISOString(),
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            const statusMsg = messages.find((m) => m.type === 'status');
-            expect(statusMsg).toBeDefined();
-            expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 0 } } });
-        });
-
-        it('emits status with queue_remaining: 0 on execution.failed', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'execution.failed',
-                occurredAt: new Date().toISOString(),
-                error: { code: 'TEST', category: 'task_execution', message: 'fail', retryable: false },
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            const statusMsg = messages.find((m) => m.type === 'status');
-            expect(statusMsg).toBeDefined();
-            expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 0 } } });
-        });
+  describe('status event', () => {
+    it('emits status with queue_remaining: 1 on execution.started', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'execution.started',
+        occurredAt: new Date().toISOString(),
+        dagId: 'dag-1',
+        version: 1,
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      const statusMsg = messages.find((m) => m.type === 'status');
+      expect(statusMsg).toBeDefined();
+      expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 1 } } });
     });
 
-    describe('execution_cached event', () => {
-        it('emits execution_cached with empty nodes on execution.started', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'execution.started',
-                occurredAt: new Date().toISOString(),
-                dagId: 'dag-1',
-                version: 1,
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            const cachedMsg = messages.find((m) => m.type === 'execution_cached');
-            expect(cachedMsg).toBeDefined();
-            expect(cachedMsg!.data).toEqual({ nodes: [], prompt_id: promptId });
-        });
+    it('emits status with queue_remaining: 0 on execution.completed', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'execution.completed',
+        occurredAt: new Date().toISOString(),
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      const statusMsg = messages.find((m) => m.type === 'status');
+      expect(statusMsg).toBeDefined();
+      expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 0 } } });
     });
 
-    describe('existing event mappings are preserved', () => {
-        it('execution.started emits execution_start', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'execution.started',
-                occurredAt: new Date().toISOString(),
-                dagId: 'dag-1',
-                version: 1,
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            const startMsg = messages.find((m) => m.type === 'execution_start');
-            expect(startMsg).toBeDefined();
-            expect(startMsg!.data).toEqual({ prompt_id: promptId });
-        });
-
-        it('task.started emits executing', () => {
-            const event: TRunProgressEvent = {
-                dagRunId: 'run-1',
-                eventType: 'task.started',
-                occurredAt: new Date().toISOString(),
-                taskRunId: 'task-1',
-                nodeId: 'node-1',
-            };
-            const messages = toComfyUiMessages(event, promptId);
-            expect(messages).toHaveLength(1);
-            expect(messages[0]).toEqual({ type: 'executing', data: { node: 'node-1', prompt_id: promptId } });
-        });
+    it('emits status with queue_remaining: 0 on execution.failed', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'execution.failed',
+        occurredAt: new Date().toISOString(),
+        error: { code: 'TEST', category: 'task_execution', message: 'fail', retryable: false },
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      const statusMsg = messages.find((m) => m.type === 'status');
+      expect(statusMsg).toBeDefined();
+      expect(statusMsg!.data).toEqual({ status: { exec_info: { queue_remaining: 0 } } });
     });
+  });
+
+  describe('execution_cached event', () => {
+    it('emits execution_cached with empty nodes on execution.started', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'execution.started',
+        occurredAt: new Date().toISOString(),
+        dagId: 'dag-1',
+        version: 1,
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      const cachedMsg = messages.find((m) => m.type === 'execution_cached');
+      expect(cachedMsg).toBeDefined();
+      expect(cachedMsg!.data).toEqual({ nodes: [], prompt_id: promptId });
+    });
+  });
+
+  describe('existing event mappings are preserved', () => {
+    it('execution.started emits execution_start', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'execution.started',
+        occurredAt: new Date().toISOString(),
+        dagId: 'dag-1',
+        version: 1,
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      const startMsg = messages.find((m) => m.type === 'execution_start');
+      expect(startMsg).toBeDefined();
+      expect(startMsg!.data).toEqual({ prompt_id: promptId });
+    });
+
+    it('task.started emits executing', () => {
+      const event: TRunProgressEvent = {
+        dagRunId: 'run-1',
+        eventType: 'task.started',
+        occurredAt: new Date().toISOString(),
+        taskRunId: 'task-1',
+        nodeId: 'node-1',
+      };
+      const messages = toComfyUiMessages(event, promptId);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toEqual({
+        type: 'executing',
+        data: { node: 'node-1', prompt_id: promptId },
+      });
+    });
+  });
 });
 ```
 
@@ -433,53 +454,63 @@ Update `apps/dag-runtime-server/src/routes/ws-routes.ts`:
 
 ```typescript
 // Rename and change signature:
-export function toComfyUiMessages(event: TRunProgressEvent, promptId: string): { type: string; data: object }[] {
-    const messages: { type: string; data: object }[] = [];
+export function toComfyUiMessages(
+  event: TRunProgressEvent,
+  promptId: string,
+): { type: string; data: object }[] {
+  const messages: { type: string; data: object }[] = [];
 
-    switch (event.eventType) {
-        case EXECUTION_PROGRESS_EVENTS.STARTED:
-            messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 1 } } } });
-            messages.push({ type: 'execution_cached', data: { nodes: [], prompt_id: promptId } });
-            messages.push({ type: 'execution_start', data: { prompt_id: promptId } });
-            break;
-        case TASK_PROGRESS_EVENTS.STARTED:
-            messages.push({ type: 'executing', data: { node: event.nodeId, prompt_id: promptId } });
-            break;
-        case TASK_PROGRESS_EVENTS.COMPLETED:
-            messages.push({ type: 'executed', data: { node: event.nodeId, output: event.output, prompt_id: promptId } });
-            break;
-        case TASK_PROGRESS_EVENTS.FAILED:
-            messages.push({
-                type: 'execution_error',
-                data: { prompt_id: promptId, node_id: event.nodeId, exception_message: event.error.message },
-            });
-            break;
-        case EXECUTION_PROGRESS_EVENTS.COMPLETED:
-            messages.push({ type: 'execution_success', data: { prompt_id: promptId } });
-            messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 0 } } } });
-            break;
-        case EXECUTION_PROGRESS_EVENTS.FAILED:
-            messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 0 } } } });
-            break;
-    }
+  switch (event.eventType) {
+    case EXECUTION_PROGRESS_EVENTS.STARTED:
+      messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 1 } } } });
+      messages.push({ type: 'execution_cached', data: { nodes: [], prompt_id: promptId } });
+      messages.push({ type: 'execution_start', data: { prompt_id: promptId } });
+      break;
+    case TASK_PROGRESS_EVENTS.STARTED:
+      messages.push({ type: 'executing', data: { node: event.nodeId, prompt_id: promptId } });
+      break;
+    case TASK_PROGRESS_EVENTS.COMPLETED:
+      messages.push({
+        type: 'executed',
+        data: { node: event.nodeId, output: event.output, prompt_id: promptId },
+      });
+      break;
+    case TASK_PROGRESS_EVENTS.FAILED:
+      messages.push({
+        type: 'execution_error',
+        data: {
+          prompt_id: promptId,
+          node_id: event.nodeId,
+          exception_message: event.error.message,
+        },
+      });
+      break;
+    case EXECUTION_PROGRESS_EVENTS.COMPLETED:
+      messages.push({ type: 'execution_success', data: { prompt_id: promptId } });
+      messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 0 } } } });
+      break;
+    case EXECUTION_PROGRESS_EVENTS.FAILED:
+      messages.push({ type: 'status', data: { status: { exec_info: { queue_remaining: 0 } } } });
+      break;
+  }
 
-    return messages;
+  return messages;
 }
 
 // Update the subscriber to iterate over messages array:
 eventBus.subscribe((event: TRunProgressEvent) => {
-    const promptId = promptIdResolver.getPromptIdForDagRun(event.dagRunId);
-    if (typeof promptId === 'undefined') return;
+  const promptId = promptIdResolver.getPromptIdForDagRun(event.dagRunId);
+  if (typeof promptId === 'undefined') return;
 
-    const messages = toComfyUiMessages(event, promptId);
-    for (const message of messages) {
-        const payload = JSON.stringify(message);
-        for (const client of wss.clients) {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(payload);
-            }
-        }
+  const messages = toComfyUiMessages(event, promptId);
+  for (const message of messages) {
+    const payload = JSON.stringify(message);
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
     }
+  }
 });
 ```
 
@@ -504,6 +535,7 @@ git commit -m "feat(dag-runtime-server): implement status, execution_cached, pro
 ### Task 4: SPEC Update + Regression Verification
 
 **Files:**
+
 - Modify: `apps/dag-runtime-server/docs/SPEC.md` (move items from "Not implemented" to "Implemented")
 - Modify: `.agents/tasks/comfyui-api-parity.md` (check off completed items)
 
@@ -524,9 +556,11 @@ Move WS events from "Not implemented" to implemented:
 ```
 
 Add note for `progress`:
+
 ```markdown
 | `progress` | Server -> Client | `{ value, max, prompt_id, node }` | `progress` |
 ```
+
 With note: `progress` event mapping exists but no current node emits progress data. Will be populated when nodes support per-step progress reporting.
 
 Update test strategy section to list `ws-events-contract.test.ts`.
@@ -559,10 +593,10 @@ git commit -m "docs(dag-runtime-server): update SPEC for 100% ComfyUI API parity
 
 ## Test Strategy
 
-| Test File | Scope | Type |
-|---|---|---|
-| `endpoint-contract.test.ts` | GET /view, POST /upload/image response shapes + round-trip | Contract |
-| `ws-events-contract.test.ts` | `toComfyUiMessages` mapping for all event types including new status/cached | Unit |
+| Test File                    | Scope                                                                       | Type     |
+| ---------------------------- | --------------------------------------------------------------------------- | -------- |
+| `endpoint-contract.test.ts`  | GET /view, POST /upload/image response shapes + round-trip                  | Contract |
+| `ws-events-contract.test.ts` | `toComfyUiMessages` mapping for all event types including new status/cached | Unit     |
 
 **Verification commands:**
 

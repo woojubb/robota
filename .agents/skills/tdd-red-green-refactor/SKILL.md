@@ -6,6 +6,7 @@ description: Kent Beck's TDD workflow. Use when writing new code or modifying ex
 # TDD: Red-Green-Refactor
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Build Requirements"
 - `AGENTS.md` > "Test-Driven Development"
 
@@ -23,17 +24,20 @@ RED → GREEN → REFACTOR → RED → ...
 ```
 
 ### RED: Write a Failing Test
+
 - Write one small test that describes the next behavior increment.
 - Run the test. It must fail.
 - If it passes, the test is not adding value — rethink what behavior is missing.
 
 ### GREEN: Make It Pass
+
 - Write the simplest code that makes the failing test pass.
 - Do not generalize, optimize, or clean up yet.
 - "Fake it till you make it" is valid — hardcoded returns are acceptable at this step.
 - Run all tests. They must all pass.
 
 ### REFACTOR: Clean Up
+
 - Remove duplication between test and production code.
 - Improve naming, extract methods, simplify logic.
 - Do not add new behavior during refactoring.
@@ -46,16 +50,19 @@ RED → GREEN → REFACTOR → RED → ...
    - Express it as a single test case.
 
 2. **Write the test (RED).**
+
    ```bash
    pnpm --filter @robota-sdk/<pkg> test  # must FAIL
    ```
 
 3. **Write minimal production code (GREEN).**
+
    ```bash
    pnpm --filter @robota-sdk/<pkg> test  # must PASS
    ```
 
 4. **Refactor (GREEN stays GREEN).**
+
    ```bash
    pnpm --filter @robota-sdk/<pkg> test  # must still PASS
    ```

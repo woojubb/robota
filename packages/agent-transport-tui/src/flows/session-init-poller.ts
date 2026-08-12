@@ -7,8 +7,7 @@
  */
 
 export type TSessionInitFailure =
-  | { kind: 'timeout'; lastError: Error | undefined }
-  | { kind: 'error'; error: Error };
+  { kind: 'timeout'; lastError: Error | undefined } | { kind: 'error'; error: Error };
 
 export interface ISessionInitPollerOptions {
   /** Throws while the session is not ready; returns normally when ready. */

@@ -13,6 +13,7 @@
 ### Part 1: AGENTS.md Restructure
 
 Extract detailed rules into `.agents/rules/` sub-documents. AGENTS.md keeps only:
+
 - Project overview
 - Document discovery policy (updated routing tree)
 - Mandatory rules as a routing table (1-line summary + link per group)
@@ -45,13 +46,13 @@ Extract detailed rules into `.agents/rules/` sub-documents. AGENTS.md keeps only
 All rules below are mandatory and non-negotiable. Each rule group has its
 own document with full details. See [rules index](.agents/rules/index.md).
 
-| Group | Document | Key rules |
-|-------|----------|-----------|
-| Code Quality | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
-| Process | [process.md](.agents/rules/process.md) | Spec-first, TDD, no fallback, build verification |
-| API Boundary | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own |
-| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only |
-| Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
+| Group          | Document                                         | Key rules                                               |
+| -------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| Code Quality   | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
+| Process        | [process.md](.agents/rules/process.md)           | Spec-first, TDD, no fallback, build verification        |
+| API Boundary   | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own      |
+| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only          |
+| Git & Branch   | [git-branch.md](.agents/rules/git-branch.md)     | Branch policy, conventional commits, worktree           |
 ```
 
 ### Part 2: Spec-First Development Rule

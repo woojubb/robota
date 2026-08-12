@@ -49,18 +49,18 @@ dag-designer
 
 ```typescript
 interface INodeObjectInfo {
-    display_name: string;
-    category: string;
-    input: {
-        required: Record<string, TInputTypeSpec | string[]>;
-        optional?: Record<string, TInputTypeSpec | string[]>;
-        hidden?: Record<string, string>;
-    };
-    output: string[];
-    output_is_list: boolean[];
-    output_name: string[];
-    output_node: boolean;
-    description: string;
+  display_name: string;
+  category: string;
+  input: {
+    required: Record<string, TInputTypeSpec | string[]>;
+    optional?: Record<string, TInputTypeSpec | string[]>;
+    hidden?: Record<string, string>;
+  };
+  output: string[];
+  output_is_list: boolean[];
+  output_name: string[];
+  output_node: boolean;
+  description: string;
 }
 
 type TObjectInfo = Record<string, INodeObjectInfo>;

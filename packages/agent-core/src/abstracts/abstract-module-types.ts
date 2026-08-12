@@ -13,12 +13,7 @@ export interface IModuleExecutionContext {
   agentName?: string;
   metadata?: Record<string, string | number | boolean | Date>;
   [key: string]:
-    | string
-    | number
-    | boolean
-    | Date
-    | Record<string, string | number | boolean | Date>
-    | undefined;
+    string | number | boolean | Date | Record<string, string | number | boolean | Date> | undefined;
 }
 
 /** Module execution result */

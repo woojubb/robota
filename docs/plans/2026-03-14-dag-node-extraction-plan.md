@@ -15,6 +15,7 @@
 ### Task 1: Scaffold `packages/dag-node` package
 
 **Files:**
+
 - Create: `packages/dag-node/package.json`
 - Create: `packages/dag-node/tsconfig.json`
 - Create: `packages/dag-node/src/index.ts` (empty barrel)
@@ -92,6 +93,7 @@ git commit -m "chore(dag-node): scaffold empty package"
 ### Task 2: Move source files to dag-node
 
 **Files:**
+
 - Move: `packages/dag-core/src/lifecycle/abstract-node-definition.ts` → `packages/dag-node/src/lifecycle/abstract-node-definition.ts`
 - Move: `packages/dag-core/src/lifecycle/node-io-accessor.ts` → `packages/dag-node/src/lifecycle/node-io-accessor.ts`
 - Move: `packages/dag-core/src/lifecycle/registered-node-lifecycle.ts` → `packages/dag-node/src/lifecycle/registered-node-lifecycle.ts`
@@ -114,8 +116,14 @@ All moved files that import from dag-core internal paths (e.g., `../types/error.
 Example — `abstract-node-definition.ts`:
 
 Before:
+
 ```typescript
-import type { ICostEstimate, IDagNodeDefinition, INodeExecutionContext, INodeTaskHandler } from '../types/node-lifecycle.js';
+import type {
+  ICostEstimate,
+  IDagNodeDefinition,
+  INodeExecutionContext,
+  INodeTaskHandler,
+} from '../types/node-lifecycle.js';
 import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
@@ -123,8 +131,17 @@ import { buildValidationError } from '../utils/error-builders.js';
 ```
 
 After:
+
 ```typescript
-import type { ICostEstimate, IDagNodeDefinition, INodeExecutionContext, INodeTaskHandler, TPortPayload, IDagError, TResult } from '@robota-sdk/dag-core';
+import type {
+  ICostEstimate,
+  IDagNodeDefinition,
+  INodeExecutionContext,
+  INodeTaskHandler,
+  TPortPayload,
+  IDagError,
+  TResult,
+} from '@robota-sdk/dag-core';
 import { buildValidationError } from '@robota-sdk/dag-core';
 ```
 
@@ -181,6 +198,7 @@ git commit -m "refactor(dag-node): move node infrastructure source files from da
 ### Task 3: Update dag-core re-exports and fix remaining imports
 
 **Files:**
+
 - Modify: `packages/dag-core/src/index.ts`
 - Modify: `packages/dag-core/src/types/domain.ts` (remove extracted helpers)
 - Modify: `packages/dag-core/src/services/node-lifecycle-runner.ts` (if it imports moved modules)
@@ -190,6 +208,7 @@ git commit -m "refactor(dag-node): move node infrastructure source files from da
 **Step 1: Add dag-node dependency to dag-core**
 
 Add to `packages/dag-core/package.json` dependencies:
+
 ```json
 "@robota-sdk/dag-node": "workspace:*"
 ```
@@ -204,6 +223,7 @@ export * from '@robota-sdk/dag-node';
 ```
 
 Remove the old lines:
+
 ```
 export * from './lifecycle/default-node-task-handlers.js';
 export * from './lifecycle/abstract-node-definition.js';
@@ -238,6 +258,7 @@ git commit -m "refactor(dag-core): re-export moved symbols from dag-node for bac
 ### Task 4: Move test files to dag-node
 
 **Files:**
+
 - Move: `packages/dag-core/src/__tests__/abstract-node-definition.test.ts` → `packages/dag-node/src/__tests__/abstract-node-definition.test.ts`
 - Move: `packages/dag-core/src/__tests__/node-io-accessor.test.ts` → `packages/dag-node/src/__tests__/node-io-accessor.test.ts`
 - Move: `packages/dag-core/src/__tests__/registered-node-lifecycle.test.ts` → `packages/dag-node/src/__tests__/registered-node-lifecycle.test.ts`
@@ -278,6 +299,7 @@ git commit -m "test(dag-node): move node infrastructure tests from dag-core"
 ### Task 5: Update dag-nodes/* imports
 
 **Files:**
+
 - Modify: All 10 `packages/dag-nodes/*/package.json` — add `@robota-sdk/dag-node` dependency
 - Modify: All 10 `packages/dag-nodes/*/src/index.ts` — update imports
 
@@ -286,6 +308,7 @@ git commit -m "test(dag-node): move node infrastructure tests from dag-core"
 For each of the 10 packages (`image-loader`, `image-source`, `input`, `text-output`, `text-template`, `transform`, `llm-text-openai`, `ok-emitter`, `gemini-image-edit`, `seedance-video`):
 
 Add to `package.json` dependencies:
+
 ```json
 "@robota-sdk/dag-node": "workspace:*"
 ```
@@ -299,14 +322,31 @@ Keep imports of core types (`IDagError`, `TResult`, `TPortPayload`, `ICostEstima
 Example — `packages/dag-nodes/input/src/index.ts`:
 
 Before:
+
 ```typescript
-import { AbstractNodeDefinition, type IDagNodeDefinition, type ICostEstimate, type IDagError, type INodeExecutionContext, type TResult, type TPortPayload } from '@robota-sdk/dag-core';
+import {
+  AbstractNodeDefinition,
+  type IDagNodeDefinition,
+  type ICostEstimate,
+  type IDagError,
+  type INodeExecutionContext,
+  type TResult,
+  type TPortPayload,
+} from '@robota-sdk/dag-core';
 ```
 
 After:
+
 ```typescript
 import { AbstractNodeDefinition } from '@robota-sdk/dag-node';
-import type { IDagNodeDefinition, ICostEstimate, IDagError, INodeExecutionContext, TResult, TPortPayload } from '@robota-sdk/dag-core';
+import type {
+  IDagNodeDefinition,
+  ICostEstimate,
+  IDagError,
+  INodeExecutionContext,
+  TResult,
+  TPortPayload,
+} from '@robota-sdk/dag-core';
 ```
 
 **Step 3: Run pnpm install and build all**
@@ -331,6 +371,7 @@ git commit -m "refactor(dag-nodes): import node infrastructure from @robota-sdk/
 ### Task 6: Write dag-node SPEC.md
 
 **Files:**
+
 - Create: `packages/dag-node/docs/SPEC.md`
 - Modify: `packages/dag-core/docs/SPEC.md` — remove node infrastructure sections, add cross-reference
 - Modify: `packages/dag-nodes/docs/SPEC.md` — update dependency references
@@ -338,6 +379,7 @@ git commit -m "refactor(dag-nodes): import node infrastructure from @robota-sdk/
 **Step 1: Write packages/dag-node/docs/SPEC.md**
 
 SSOT for node authoring infrastructure contracts:
+
 - Package purpose and scope
 - `AbstractNodeDefinition<TSchema>` contract (lifecycle hooks, config parsing)
 - `NodeIoAccessor` API (typed input reading, output building)
@@ -369,6 +411,7 @@ git commit -m "docs(dag-node): add SPEC.md, update dag-core and dag-nodes SPEC c
 ### Task 7: Update project structure and full verification
 
 **Files:**
+
 - Modify: `.agents/project-structure.md` — add dag-node package entry
 - Modify: `packages/dag-node/docs/SPEC.md` — finalize contract registry if needed
 

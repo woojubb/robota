@@ -184,12 +184,7 @@ type TBackgroundTaskMode = 'foreground' | 'background';
 
 ```ts
 type TBackgroundTaskStatus =
-  | 'queued'
-  | 'running'
-  | 'waiting_permission'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'waiting_permission' | 'completed' | 'failed' | 'cancelled';
 ```
 
 Terminal states are `completed`, `failed`, and `cancelled`. Terminal states are immutable except for `close()` removing the task from the registry.

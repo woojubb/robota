@@ -16,7 +16,9 @@ import {
   resolveWsAdmission,
   tokenMatches,
 } from './ws-connection-guards.js';
+import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
 
+import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IChannelDescriptor,
@@ -28,10 +30,6 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport-protocol';
 import type { RawData } from 'ws';
-
-import { DEFAULT_MAX_RETRIES, DEFAULT_PORT } from './ws-transport-config.js';
-
-import type { IWsTransportConfig } from './ws-transport-config.js';
 
 /**
  * RUNTIME-13: forced-terminate deadline for `stop()`. `WebSocketServer.close()` fires its callback only after

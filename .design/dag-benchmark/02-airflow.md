@@ -25,13 +25,13 @@ Triggerer (선택)       ← Deferrable Operator의 비동기 트리거 (asyncio
 
 ### 컴포넌트 간 통신
 
-| 경로 | 방식 |
-|------|------|
-| Scheduler ↔ Executor | 프로세스 내부 호출 |
-| Scheduler ↔ Metadata DB | 직접 DB 접근 (row-level lock으로 HA) |
+| 경로                     | 방식                                                                 |
+| ------------------------ | -------------------------------------------------------------------- |
+| Scheduler ↔ Executor     | 프로세스 내부 호출                                                   |
+| Scheduler ↔ Metadata DB  | 직접 DB 접근 (row-level lock으로 HA)                                 |
 | Worker → API Server → DB | **Airflow 3.0**: Worker는 DB 직접 접근 불가. Task Execution API 경유 |
-| DAG Processor → DB | 직접 DB 접근 (직렬화된 DAG 저장) |
-| Webserver → DB | 직접 DB 접근 (읽기 전용) |
+| DAG Processor → DB       | 직접 DB 접근 (직렬화된 DAG 저장)                                     |
+| Webserver → DB           | 직접 DB 접근 (읽기 전용)                                             |
 
 **특징**: Airflow 3.0에서 Worker의 DB 직접 접근을 제거하여 보안 경계를 강화. JWT 토큰 기반 인증으로 태스크별 격리.
 
@@ -78,15 +78,15 @@ def my_pipeline():
 
 태스크의 업스트림 의존성 판단 방식:
 
-| 규칙 | 설명 |
-|------|------|
-| `all_success` (기본) | 모든 업스트림 성공 |
-| `all_failed` | 모든 업스트림 실패 |
-| `all_done` | 모든 업스트림 완료 (상태 무관) |
-| `one_success` | 하나 이상 성공 |
-| `one_failed` | 하나 이상 실패 |
-| `none_skipped` | 스킵된 업스트림 없음 |
-| `always` | 의존성 무시, 항상 실행 |
+| 규칙                 | 설명                           |
+| -------------------- | ------------------------------ |
+| `all_success` (기본) | 모든 업스트림 성공             |
+| `all_failed`         | 모든 업스트림 실패             |
+| `all_done`           | 모든 업스트림 완료 (상태 무관) |
+| `one_success`        | 하나 이상 성공                 |
+| `one_failed`         | 하나 이상 실패                 |
+| `none_skipped`       | 스킵된 업스트림 없음           |
+| `always`             | 의존성 무시, 항상 실행         |
 
 ## 실행 모델
 
@@ -104,13 +104,13 @@ Scheduler.scheduling_loop()
 
 ### Executor 타입
 
-| Executor | 실행 방식 | 적합 환경 |
-|----------|-----------|-----------|
-| `LocalExecutor` | Scheduler 프로세스 내 프로세스 스폰 | 소규모 배포 |
-| `CeleryExecutor` | Celery 분산 큐 (RabbitMQ/Redis) | 수평 확장 |
-| `KubernetesExecutor` | 태스크별 K8s Pod 생성 | 완전 격리 |
-| Multi-Executor (3.0) | 쉼표 구분 다중 Executor | 혼합 워크로드 |
-| Edge Executor (3.0) | 에지 디바이스 실행 | IoT/에지 |
+| Executor             | 실행 방식                           | 적합 환경     |
+| -------------------- | ----------------------------------- | ------------- |
+| `LocalExecutor`      | Scheduler 프로세스 내 프로세스 스폰 | 소규모 배포   |
+| `CeleryExecutor`     | Celery 분산 큐 (RabbitMQ/Redis)     | 수평 확장     |
+| `KubernetesExecutor` | 태스크별 K8s Pod 생성               | 완전 격리     |
+| Multi-Executor (3.0) | 쉼표 구분 다중 Executor             | 혼합 워크로드 |
+| Edge Executor (3.0)  | 에지 디바이스 실행                  | IoT/에지      |
 
 **Airflow 3.0**: `CeleryKubernetesExecutor` 폐지 → Multi-Executor로 대체. 태스크별 `executor` 파라미터로 지정.
 
@@ -157,12 +157,12 @@ QUEUED ──→ RUNNING ──→ SUCCESS
                     ──→ FAILED
 ```
 
-| 상태 | 설명 |
-|------|------|
-| `QUEUED` | 생성되어 실행 대기 |
-| `RUNNING` | 태스크 인스턴스 실행 중 |
-| `SUCCESS` | 모든 리프 노드가 success 또는 skipped |
-| `FAILED` | 하나 이상의 리프 노드가 failed 또는 upstream_failed |
+| 상태      | 설명                                                |
+| --------- | --------------------------------------------------- |
+| `QUEUED`  | 생성되어 실행 대기                                  |
+| `RUNNING` | 태스크 인스턴스 실행 중                             |
+| `SUCCESS` | 모든 리프 노드가 success 또는 skipped               |
+| `FAILED`  | 하나 이상의 리프 노드가 failed 또는 upstream_failed |
 
 ### TaskInstance 상태 머신 (12 상태, 5 터미널)
 
@@ -183,6 +183,7 @@ QUEUED ──→ RUNNING ──→ SUCCESS
 **중간 상태 (6개)**: `SCHEDULED`, `QUEUED`, `RESTARTING`, `UP_FOR_RETRY`, `UP_FOR_RESCHEDULE`, `DEFERRED`
 
 **Robota 대비 특이점**:
+
 - `DEFERRED` 상태 (Triggerer 위임)
 - `UP_FOR_RETRY` / `UP_FOR_RESCHEDULE` 중간 상태 (Robota는 `failed → queued` 직접 전이)
 - `REMOVED` 상태 (DAG 구조 변경 시)
@@ -192,15 +193,15 @@ QUEUED ──→ RUNNING ──→ SUCCESS
 
 관계형 DB (PostgreSQL 권장, MySQL 지원):
 
-| 테이블 | 내용 |
-|--------|------|
-| `dag` | 직렬화된 DAG JSON |
-| `dag_run` | DAG 실행 인스턴스 |
-| `task_instance` | 태스크 실행 인스턴스 |
-| `xcom` | 태스크 간 데이터 |
-| `variable` | 전역 변수 |
-| `connection` | 외부 시스템 연결 정보 |
-| `log` | 실행 로그 |
+| 테이블          | 내용                  |
+| --------------- | --------------------- |
+| `dag`           | 직렬화된 DAG JSON     |
+| `dag_run`       | DAG 실행 인스턴스     |
+| `task_instance` | 태스크 실행 인스턴스  |
+| `xcom`          | 태스크 간 데이터      |
+| `variable`      | 전역 변수             |
+| `connection`    | 외부 시스템 연결 정보 |
+| `log`           | 실행 로그             |
 
 **Scheduler HA**: row-level lock (`SELECT ... FOR UPDATE`)으로 동시성 제어. PGBouncer 연결 풀링 권장.
 
@@ -208,11 +209,11 @@ QUEUED ──→ RUNNING ──→ SUCCESS
 
 ### Airflow 3.0 API 표면 분리
 
-| API | 경로 | 안정성 | 용도 |
-|-----|------|--------|------|
-| Public API | `/api/v2` | Semantic Versioning | 외부 통합, CI/CD |
-| UI API | `/ui` | Breaking change 가능 | React 프론트엔드 전용 |
-| Execution API | `/execution/*` | 내부 전용 | Task SDK ↔ API Server |
+| API           | 경로           | 안정성               | 용도                  |
+| ------------- | -------------- | -------------------- | --------------------- |
+| Public API    | `/api/v2`      | Semantic Versioning  | 외부 통합, CI/CD      |
+| UI API        | `/ui`          | Breaking change 가능 | React 프론트엔드 전용 |
+| Execution API | `/execution/*` | 내부 전용            | Task SDK ↔ API Server |
 
 ### 기술 스택
 
@@ -247,21 +248,21 @@ Airflow 3.0의 핵심 변경:
 
 ### 재시도 설정
 
-| 파라미터 | 설명 |
-|----------|------|
-| `retries` | 최대 재시도 횟수 |
-| `retry_delay` | 재시도 간 대기 시간 |
-| `retry_exponential_backoff` | 지수 백오프 활성화 |
-| `max_retry_delay` | 최대 재시도 지연 |
+| 파라미터                    | 설명                |
+| --------------------------- | ------------------- |
+| `retries`                   | 최대 재시도 횟수    |
+| `retry_delay`               | 재시도 간 대기 시간 |
+| `retry_exponential_backoff` | 지수 백오프 활성화  |
+| `max_retry_delay`           | 최대 재시도 지연    |
 
 ### 특수 예외
 
-| 예외 | 동작 |
-|------|------|
-| `AirflowException` | 일반 실패, 재시도 트리거 |
+| 예외                   | 동작                         |
+| ---------------------- | ---------------------------- |
+| `AirflowException`     | 일반 실패, 재시도 트리거     |
 | `AirflowFailException` | 즉시 실패 (남은 재시도 무시) |
-| `AirflowSkipException` | 태스크 스킵 |
-| `TaskDeferred` | Triggerer로 위임 |
+| `AirflowSkipException` | 태스크 스킵                  |
+| `TaskDeferred`         | Triggerer로 위임             |
 
 ### 콜백
 
@@ -285,11 +286,11 @@ RUNNING → FAILED → (retries 남음?) → UP_FOR_RETRY → SCHEDULED → QUEU
 - Webserver는 파일 파싱 없이 DB에서 직렬화된 DAG 로드
 - 온디맨드 로드: 요청 시 개별 DAG 로드 (전체 DagBag 로드 회피)
 
-| 설정 | 설명 |
-|------|------|
-| `min_serialized_dag_fetch_interval` | DB 재조회 주기 (높으면 DB 부하↓, stale↑) |
-| `compress_serialized_dags` | 대규모 DAG 압축 저장 |
-| `min_serialized_dag_update_interval` | 직렬화 DAG 업데이트 최소 주기 |
+| 설정                                 | 설명                                     |
+| ------------------------------------ | ---------------------------------------- |
+| `min_serialized_dag_fetch_interval`  | DB 재조회 주기 (높으면 DB 부하↓, stale↑) |
+| `compress_serialized_dags`           | 대규모 DAG 압축 저장                     |
+| `min_serialized_dag_update_interval` | 직렬화 DAG 업데이트 최소 주기            |
 
 ### 실행 결과 캐싱
 

@@ -22,8 +22,7 @@ function buildFunctionTool(tool: IPlaygroundTool): FunctionTool {
     },
   };
 
-  return new FunctionTool(
-    schema,
-    async (params: TToolParameters): Promise<TUniversalValue> => tool.execute(params),
+  return new FunctionTool(schema, async (params: TToolParameters): Promise<TUniversalValue> =>
+    tool.execute(params),
   );
 }

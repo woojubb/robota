@@ -103,8 +103,7 @@ function collectValueImports(source) {
 export async function findDevDepOnlyRuntimeImports(root = WORKSPACE_ROOT) {
   requireGovernedTree(root, ['packages'], {
     scan: 'dep-kind',
-    why:
-      'It quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true.',
+    why: 'It quantifies over every workspace package; over none, "no devDependency is imported at runtime" is vacuously true.',
   });
   const findings = [];
   const exemptions = [];

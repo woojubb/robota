@@ -93,9 +93,14 @@ describe('listSourceFiles', () => {
    */
   it('descends into test files when excludeTests is false', async () => {
     const root = await walkFixture();
-    expect(relativeNames(root, listSourceFiles(path.join(root, 'pkg/src'), {
-      excludeTests: false,
-    }))).toEqual([
+    expect(
+      relativeNames(
+        root,
+        listSourceFiles(path.join(root, 'pkg/src'), {
+          excludeTests: false,
+        }),
+      ),
+    ).toEqual([
       'pkg/src/__tests__/deep.ts',
       'pkg/src/index.spec.ts',
       'pkg/src/index.test.ts',
@@ -106,9 +111,14 @@ describe('listSourceFiles', () => {
 
   it('narrows to the requested extensions', async () => {
     const root = await walkFixture();
-    expect(relativeNames(root, listSourceFiles(path.join(root, 'pkg/src'), {
-      extensions: ['.tsx'],
-    }))).toEqual(['pkg/src/widget.tsx']);
+    expect(
+      relativeNames(
+        root,
+        listSourceFiles(path.join(root, 'pkg/src'), {
+          extensions: ['.tsx'],
+        }),
+      ),
+    ).toEqual(['pkg/src/widget.tsx']);
   });
 
   it('returns nothing for a directory that does not exist', async () => {

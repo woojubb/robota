@@ -61,9 +61,7 @@ const response = await agent.run('Hello'); // response is typed as string
 const tool = createFunctionTool(
   'calculate',
   'Math operations',
-  {
-    /* JSON Schema */
-  },
+  {/* JSON Schema */},
   async (params) => {
     // params is fully typed based on schema
     return { result: params.a + params.b };

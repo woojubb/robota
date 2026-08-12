@@ -16,9 +16,7 @@ export interface ISelectionInputKey {
 export type TSelectionInputAction = 'cancel' | 'select' | 'previous' | 'next';
 
 export type TSelectionEffect =
-  | { type: 'none' }
-  | { type: 'cancel' }
-  | { type: 'select'; index: number };
+  { type: 'none' } | { type: 'cancel' } | { type: 'select'; index: number };
 
 export interface ISelectionFlowOptions {
   itemCount: number;

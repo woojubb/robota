@@ -22,17 +22,17 @@ nodeStateMap: Record<nodeId, INodeState>
 
 ```typescript
 interface INodeState {
-    // 통합 상태
-    operationStatus: 'idle' | 'uploading' | 'running' | 'success' | 'failed';
+  // 통합 상태
+  operationStatus: 'idle' | 'uploading' | 'running' | 'success' | 'failed';
 
-    // 부수작업 (업로드 등)
-    pendingDescription?: string;
+  // 부수작업 (업로드 등)
+  pendingDescription?: string;
 
-    // 실행 결과 (리셋/재활용 가능, DAG JSON에 저장 안 됨)
-    trace?: IDagNodeIoTrace;
+  // 실행 결과 (리셋/재활용 가능, DAG JSON에 저장 안 됨)
+  trace?: IDagNodeIoTrace;
 
-    // 선택 상태 (UI용)
-    isSelected: boolean;
+  // 선택 상태 (UI용)
+  isSelected: boolean;
 }
 ```
 
@@ -50,22 +50,21 @@ success/failed → idle  (리셋)
 ## isRunnable 조건
 
 ```typescript
-const isRunnable = Object.values(nodeStateMap)
-    .every(s => s.operationStatus !== 'uploading');
+const isRunnable = Object.values(nodeStateMap).every((s) => s.operationStatus !== 'uploading');
 ```
 
 `uploading` 상태인 노드가 하나라도 있으면 Run 불가.
 
 ## 매핑 (기존 → 통합)
 
-| 기존 상태 | 통합 후 |
-|----------|--------|
-| `pendingOperations.has(id)` | `nodeStateMap[id].operationStatus === 'uploading'` |
-| `pendingOperations.get(id)` | `nodeStateMap[id].pendingDescription` |
-| `nodeUiStateByNodeId[id].executionStatus` | `nodeStateMap[id].operationStatus` |
-| `nodeUiStateByNodeId[id].isSelected` | `nodeStateMap[id].isSelected` |
-| `liveNodeTraceByNodeId[id]` | `nodeStateMap[id].trace` |
-| `hasPendingOperations` | `!isRunnable` |
+| 기존 상태                                 | 통합 후                                            |
+| ----------------------------------------- | -------------------------------------------------- |
+| `pendingOperations.has(id)`               | `nodeStateMap[id].operationStatus === 'uploading'` |
+| `pendingOperations.get(id)`               | `nodeStateMap[id].pendingDescription`              |
+| `nodeUiStateByNodeId[id].executionStatus` | `nodeStateMap[id].operationStatus`                 |
+| `nodeUiStateByNodeId[id].isSelected`      | `nodeStateMap[id].isSelected`                      |
+| `liveNodeTraceByNodeId[id]`               | `nodeStateMap[id].trace`                           |
+| `hasPendingOperations`                    | `!isRunnable`                                      |
 
 ## 액션
 
@@ -89,16 +88,16 @@ setSelectedNodeId(nodeId?: string): void;
 
 ## 영향 범위
 
-| 파일 | 변경 |
-|------|------|
-| `dag-designer-context.tsx` | 3개 상태를 `nodeStateMap`으로 통합, 액션 함수 교체 |
-| `use-dag-designer-state.ts` | 인터페이스 업데이트 |
-| `dag-node-view.tsx` | `executionStatus`를 `nodeStateMap`에서 참조 |
-| `dag-designer-canvas.tsx` | node data에 `operationStatus` 전달 |
-| `dag-designer-panels.tsx` | `pendingOperations` 대신 `nodeStateMap` 사용 |
-| `node-config-panel.tsx` | `pendingOperationDescription` 대신 `nodeStateMap[id].pendingDescription` |
-| `comfyui-field-renderers.tsx` | `onPendingOperation` → `setNodeUploading` |
-| `dag-designer-screen.tsx` | `hasPendingOperations` → `!isRunnable` |
+| 파일                          | 변경                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `dag-designer-context.tsx`    | 3개 상태를 `nodeStateMap`으로 통합, 액션 함수 교체                       |
+| `use-dag-designer-state.ts`   | 인터페이스 업데이트                                                      |
+| `dag-node-view.tsx`           | `executionStatus`를 `nodeStateMap`에서 참조                              |
+| `dag-designer-canvas.tsx`     | node data에 `operationStatus` 전달                                       |
+| `dag-designer-panels.tsx`     | `pendingOperations` 대신 `nodeStateMap` 사용                             |
+| `node-config-panel.tsx`       | `pendingOperationDescription` 대신 `nodeStateMap[id].pendingDescription` |
+| `comfyui-field-renderers.tsx` | `onPendingOperation` → `setNodeUploading`                                |
+| `dag-designer-screen.tsx`     | `hasPendingOperations` → `!isRunnable`                                   |
 
 ## 원칙
 

@@ -3,10 +3,7 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  "eslint.validate": [
-    "javascript",
-    "typescript"
-  ],
+  "eslint.validate": ["javascript", "typescript"],
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "search.exclude": {
@@ -14,4 +11,4 @@
     "**/dist": true,
     "**/.vitepress/dist": true
   }
-} 
+}

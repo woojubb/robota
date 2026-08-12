@@ -57,16 +57,13 @@ export function createLocalMcpServer(options: IMcpCommandOptions = {}): Server {
 
   const ctx = createMcpServerContext(options);
 
-  server.setRequestHandler(
-    ListToolsRequestSchema,
-    async (): Promise<ListToolsResult> => ({
-      tools: TOOL_DEFINITIONS.map((t) => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema as ListToolsResult['tools'][number]['inputSchema'],
-      })),
-    }),
-  );
+  server.setRequestHandler(ListToolsRequestSchema, async (): Promise<ListToolsResult> => ({
+    tools: TOOL_DEFINITIONS.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema as ListToolsResult['tools'][number]['inputSchema'],
+    })),
+  }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
     const toolName = request.params.name;

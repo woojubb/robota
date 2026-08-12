@@ -105,8 +105,10 @@ export interface IToolContract<TParameters = TToolParameters, TResult = IToolRes
  * Tools passed into Agent configuration must support EventService injection
  * so Robota can emit unified tool lifecycle events.
  */
-export interface IToolWithEventService<TParameters = TToolParameters, TResult = IToolResult>
-  extends IToolContract<TParameters, TResult> {
+export interface IToolWithEventService<
+  TParameters = TToolParameters,
+  TResult = IToolResult,
+> extends IToolContract<TParameters, TResult> {
   setEventService(eventService: IEventService | undefined): void;
 }
 
@@ -123,9 +125,10 @@ export interface IToolWithEventService<TParameters = TToolParameters, TResult = 
  * @template TParameters - Tool parameters type (defaults to TToolParameters)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>
-  implements IToolWithEventService<TParameters, TResult>
-{
+export abstract class AbstractTool<
+  TParameters = TToolParameters,
+  TResult = IToolResult,
+> implements IToolWithEventService<TParameters, TResult> {
   abstract readonly schema: IToolSchema;
 
   /**

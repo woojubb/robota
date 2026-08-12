@@ -26,8 +26,7 @@ import {
  *
  * A rule with three implementations is three rules. These tests pin the single verdict.
  */
-const DISAGREEMENT_SENTENCE =
-  'The loader was relocated; packages/ghost-pkg/src/loader.ts is gone.';
+const DISAGREEMENT_SENTENCE = 'The loader was relocated; packages/ghost-pkg/src/loader.ts is gone.';
 
 const MAP_DOC = '.agents/specs/architecture-map/pkg-map.md';
 const SPEC_DOC = 'packages/pkg-a/docs/SPEC.md';
@@ -97,9 +96,11 @@ describe('citedRepoPaths', () => {
     expect(citedRepoPaths(line, { vocabulary: PLANNED_ONLY_VOCABULARY })).toEqual([
       'packages/a/src/gone.ts',
     ]);
-    expect(citedRepoPaths('- `packages/a/src/soon.ts` (planned)', {
-      vocabulary: PLANNED_ONLY_VOCABULARY,
-    })).toEqual([]);
+    expect(
+      citedRepoPaths('- `packages/a/src/soon.ts` (planned)', {
+        vocabulary: PLANNED_ONLY_VOCABULARY,
+      }),
+    ).toEqual([]);
   });
 
   it('drops glob and parent-relative tokens', () => {

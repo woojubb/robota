@@ -15,6 +15,7 @@ EXC_BAD_ACCESS (SIGSEGV) at 0x0000000000000000
 ## Root Cause
 
 Terminal.app's `NSTextInputClient` implementation bug:
+
 1. Ink `setRawMode(true)` puts PTY in raw byte mode
 2. Korean IME activates and begins composition
 3. IME sends `attributedSubstringFromRange:` to Terminal.app
@@ -65,14 +66,14 @@ This is a Terminal.app crash, not our process crash.
 
 ## Technical Limitations
 
-| Approach | Why It Fails |
-|---|---|
-| Detect IME activation from Node.js | No POSIX signal, no FD event for IME state |
+| Approach                            | Why It Fails                                              |
+| ----------------------------------- | --------------------------------------------------------- |
+| Detect IME activation from Node.js  | No POSIX signal, no FD event for IME state                |
 | Disable raw mode during composition | Crash happens before Node.js can detect composition start |
-| Patch React Ink | Ink has no IME composition support by design |
-| `setCursorPosition` fix | Removed, but crash still occurs — not the root cause |
-| `uncaughtException` handler | Crash is in Terminal.app, not our process |
-| SIGSEGV signal handler | Signal is in Terminal.app process, not ours |
+| Patch React Ink                     | Ink has no IME composition support by design              |
+| `setCursorPosition` fix             | Removed, but crash still occurs — not the root cause      |
+| `uncaughtException` handler         | Crash is in Terminal.app, not our process                 |
+| SIGSEGV signal handler              | Signal is in Terminal.app process, not ours               |
 
 ## References
 

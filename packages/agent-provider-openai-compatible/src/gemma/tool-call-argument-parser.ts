@@ -5,12 +5,7 @@ export interface IGemmaArgumentObject {
 }
 
 export type TGemmaArgumentValue =
-  | string
-  | number
-  | boolean
-  | null
-  | IGemmaArgumentObject
-  | TGemmaArgumentValue[];
+  string | number | boolean | null | IGemmaArgumentObject | TGemmaArgumentValue[];
 
 export class GemmaArgumentParser {
   private cursor = 0;

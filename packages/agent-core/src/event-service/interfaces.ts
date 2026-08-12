@@ -14,10 +14,7 @@ export type TEventPrimitiveValue = string | number | boolean | null | undefined;
  * Recursive universal value type for event payloads (JSON-like + Date).
  */
 export type TEventUniversalValue =
-  | TEventPrimitiveValue
-  | Date
-  | TEventUniversalValue[]
-  | IEventObjectValue;
+  TEventPrimitiveValue | Date | TEventUniversalValue[] | IEventObjectValue;
 
 export interface IEventObjectValue {
   [key: string]: TEventUniversalValue;
@@ -62,11 +59,7 @@ export interface IEventContext {
  * Allowed extension values for event payloads.
  */
 export type TEventExtensionValue =
-  | TEventUniversalValue
-  | TEventLoggerData
-  | Error
-  | IEventContext
-  | IOwnerPathSegment[];
+  TEventUniversalValue | TEventLoggerData | Error | IEventContext | IOwnerPathSegment[];
 
 /**
  * Base event payload shape.

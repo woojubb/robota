@@ -31,9 +31,7 @@ export interface IQwenResponsesFunctionTool {
 }
 
 export type TQwenResponsesTool =
-  | IQwenResponsesWebSearchTool
-  | IQwenResponsesWebExtractorTool
-  | IQwenResponsesFunctionTool;
+  IQwenResponsesWebSearchTool | IQwenResponsesWebExtractorTool | IQwenResponsesFunctionTool;
 
 export interface IQwenResponsesMessageInput {
   type?: 'message';

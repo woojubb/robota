@@ -10,13 +10,7 @@ export type { TToolParameters } from './types';
 export type { IEventService } from './event-service';
 
 export type TToolContextExtensionValue =
-  | TUniversalValue
-  | Date
-  | Error
-  | TLoggerData
-  | TContextData
-  | TToolParameters
-  | TToolMetadata;
+  TUniversalValue | Date | Error | TLoggerData | TContextData | TToolParameters | TToolMetadata;
 
 /**
  * Tool metadata structure - specific type definition

@@ -15,6 +15,7 @@
 ### Task 1: Write dag-runtime-server SPEC.md
 
 **Files:**
+
 - Create: `apps/dag-runtime-server/docs/SPEC.md`
 - Reference: `.design/dag-benchmark/03-comfyui.md`
 - Reference: `apps/dag-runtime-server/src/routes/prompt-routes.ts`
@@ -24,6 +25,7 @@
 **Step 1: Read all source files and ComfyUI reference spec**
 
 Read the following to understand the full API surface:
+
 - `.design/dag-benchmark/03-comfyui.md` (ComfyUI reference)
 - `apps/dag-runtime-server/src/routes/prompt-routes.ts` (HTTP endpoints)
 - `apps/dag-runtime-server/src/routes/ws-routes.ts` (WS endpoint)
@@ -33,6 +35,7 @@ Read the following to understand the full API surface:
 **Step 2: Write SPEC.md with all 9 required sections**
 
 Follow `@spec-writing-standard` skill. Required sections:
+
 1. Scope — ComfyUI-compatible Prompt API execution server
 2. Boundaries — does NOT own orchestration, DAG design, or cost policies
 3. Architecture Overview — Express app, port adapters, node lifecycle runner
@@ -46,20 +49,20 @@ Follow `@spec-writing-standard` skill. Required sections:
 For the Public API Surface, use this format:
 
 ```markdown
-| Endpoint | Method | Status | Request | Response |
-|----------|--------|--------|---------|----------|
-| `/prompt` | POST | implemented | IPromptRequest | IPromptResponse |
-| `/queue` | GET | implemented | — | IQueueStatus |
-| ...
+| Endpoint  | Method | Status      | Request        | Response        |
+| --------- | ------ | ----------- | -------------- | --------------- |
+| `/prompt` | POST   | implemented | IPromptRequest | IPromptResponse |
+| `/queue`  | GET    | implemented | —              | IQueueStatus    |
+| ...       |
 ```
 
 Include WS events table:
 
 ```markdown
-| ComfyUI Event | Direction | Payload |
-|---------------|-----------|---------|
+| ComfyUI Event     | Direction     | Payload                         |
+| ----------------- | ------------- | ------------------------------- |
 | `execution_start` | server→client | `{ type, data: { prompt_id } }` |
-| ...
+| ...               |
 ```
 
 **Step 3: Verify SPEC.md matches code**
@@ -79,6 +82,7 @@ git commit -m "docs(dag-runtime-server): add SPEC.md with ComfyUI-compatible API
 ### Task 2: Write dag-runtime-server endpoint contract tests
 
 **Files:**
+
 - Create: `apps/dag-runtime-server/src/__tests__/endpoint-contract.test.ts`
 - Reference: `apps/dag-runtime-server/docs/SPEC.md` (just written)
 - Reference: `apps/dag-runtime-server/src/routes/prompt-routes.ts`
@@ -97,6 +101,7 @@ Test that each implemented endpoint returns the correct shape. Use supertest or 
 - `GET /health` → `{ status: "ok" }`
 
 Each test should verify:
+
 1. HTTP status code
 2. Response body shape (field names and types)
 3. No IProblemDetails in error responses (ComfyUI format only)
@@ -129,6 +134,7 @@ git commit -m "test(dag-runtime-server): add endpoint contract tests for ComfyUI
 ### Task 3: Write dag-orchestrator SPEC.md
 
 **Files:**
+
 - Create: `packages/dag-orchestrator/docs/SPEC.md`
 - Reference: `packages/dag-orchestrator/src/services/orchestrator-run-service.ts`
 - Reference: `packages/dag-orchestrator/src/adapters/definition-to-prompt-translator.ts`
@@ -138,6 +144,7 @@ git commit -m "test(dag-runtime-server): add endpoint contract tests for ComfyUI
 **Step 1: Read all source files**
 
 Read every file in `packages/dag-orchestrator/src/` to understand:
+
 - Service contracts (OrchestratorRunService, PromptOrchestratorService)
 - Port interfaces (IPromptApiClientPort, ICostEstimatorPort, ICostPolicyEvaluatorPort)
 - Adapters (HttpPromptApiClient, translateDefinitionToPrompt)
@@ -145,6 +152,7 @@ Read every file in `packages/dag-orchestrator/src/` to understand:
 **Step 2: Write SPEC.md with all 9 required sections**
 
 Key points for each section:
+
 1. Scope — orchestration layer bridging DAG definitions to Prompt API execution
 2. Boundaries — does NOT own runtime execution, does NOT own DAG storage, does NOT own UI
 3. Architecture Overview — services (run management, orchestration), adapters (HTTP client, translator), ports
@@ -156,6 +164,7 @@ Key points for each section:
 9. Class Contract Registry — HttpPromptApiClient implements IPromptApiClientPort, etc.
 
 **Critical spec items to include:**
+
 - `translateDefinitionToPrompt` must handle object config values (not just primitives)
 - dagRunId = promptId principle: orchestrator uses runtime's prompt_id as dagRunId
 - `OrchestratorRunService.recordEvent()` accumulates events for failed-run error reporting
@@ -176,6 +185,7 @@ git commit -m "docs(dag-orchestrator): add SPEC.md with orchestration contracts"
 ### Task 4: Write dag-orchestrator contract tests for translator and run service
 
 **Files:**
+
 - Create: `packages/dag-orchestrator/src/__tests__/translator-contract.test.ts`
 - Create: `packages/dag-orchestrator/src/__tests__/run-service-contract.test.ts`
 - Reference: `packages/dag-orchestrator/docs/SPEC.md` (just written)
@@ -183,6 +193,7 @@ git commit -m "docs(dag-orchestrator): add SPEC.md with orchestration contracts"
 **Step 1: Write translator contract tests**
 
 Test `translateDefinitionToPrompt`:
+
 - Primitive config values (string, number, boolean) are copied to inputs
 - **Object config values (e.g., nested asset references) are copied to inputs** — this is the bug fix
 - Edge bindings produce TPromptLink arrays
@@ -192,6 +203,7 @@ Test `translateDefinitionToPrompt`:
 **Step 2: Write run service contract tests**
 
 Test `OrchestratorRunService`:
+
 - `createRun` stores run state with `nodeEvents: []`
 - `startRun` calls promptClient.submitPrompt and stores promptId
 - `recordEvent` accumulates events; terminal events update status
@@ -210,11 +222,11 @@ In `packages/dag-orchestrator/src/adapters/definition-to-prompt-translator.ts`, 
 
 ```typescript
 for (const [key, value] of Object.entries(node.config)) {
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        inputs[key] = value;
-    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        inputs[key] = value as TPromptInputValue;
-    }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    inputs[key] = value;
+  } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    inputs[key] = value as TPromptInputValue;
+  }
 }
 ```
 
@@ -223,6 +235,7 @@ Also update `TPromptInputValue` in dag-core if needed to accept object values, o
 **Step 5: Fix dagRunId = promptId in OrchestratorRunService**
 
 In `packages/dag-orchestrator/src/services/orchestrator-run-service.ts`:
+
 - `createRun` generates a temporary internal `preparationId` (UUID), not called dagRunId
 - `startRun(preparationId)` submits to runtime, gets `promptId`, re-keys the run: `dagRunId = promptId`
 - All return types use dagRunId (= promptId)
@@ -250,6 +263,7 @@ git commit -m "feat(dag-orchestrator): add contract tests, fix translator object
 ### Task 5: Write dag-orchestrator-server SPEC.md
 
 **Files:**
+
 - Create: `apps/dag-orchestrator-server/docs/SPEC.md`
 - Reference: `apps/dag-orchestrator-server/src/routes/*.ts`
 - Reference: `apps/dag-orchestrator-server/src/server.ts`
@@ -259,6 +273,7 @@ git commit -m "feat(dag-orchestrator): add contract tests, fix translator object
 **Step 2: Write SPEC.md with all 9 required sections**
 
 Key points:
+
 1. Scope — Robota API gateway; orchestrates DAG definition lifecycle and run execution over a ComfyUI-compatible backend
 2. Boundaries — does NOT own runtime execution; does NOT own domain types (dag-core); does NOT own orchestration logic (dag-orchestrator pkg)
 3. Architecture Overview — Express app, route modules, orchestrator service injection, ComfyUI proxy
@@ -267,21 +282,24 @@ Key points:
 
 ```markdown
 ### Robota API Endpoints
-| Endpoint | Method | Purpose | Request | Response |
-|----------|--------|---------|---------|----------|
-| `/v1/dag/definitions` | POST | Create definition | `{ definition }` | `{ ok, status, data: { definition } }` |
-| ...
+
+| Endpoint              | Method | Purpose           | Request          | Response                               |
+| --------------------- | ------ | ----------------- | ---------------- | -------------------------------------- |
+| `/v1/dag/definitions` | POST   | Create definition | `{ definition }` | `{ ok, status, data: { definition } }` |
+| ...                   |
 
 ### ComfyUI Proxy Endpoints
-| Endpoint | Method | Backend Target |
-|----------|--------|---------------|
-| `/prompt` | POST | POST /prompt |
-| ...
+
+| Endpoint  | Method | Backend Target |
+| --------- | ------ | -------------- |
+| `/prompt` | POST   | POST /prompt   |
+| ...       |
 
 ### WebSocket
-| URL | Protocol | Envelope |
-|-----|----------|----------|
-| `/v1/dag/runs/:dagRunId/ws` | ws | `{ event: TRunProgressEvent }` |
+
+| URL                         | Protocol | Envelope                       |
+| --------------------------- | -------- | ------------------------------ |
+| `/v1/dag/runs/:dagRunId/ws` | ws       | `{ event: TRunProgressEvent }` |
 ```
 
 6. Extension Points — INodeCatalogService, IAssetStore implementations
@@ -301,12 +319,14 @@ git commit -m "docs(dag-orchestrator-server): add SPEC.md with Robota API contra
 ### Task 6: Write dag-orchestrator-server endpoint contract tests
 
 **Files:**
+
 - Create: `apps/dag-orchestrator-server/src/__tests__/endpoint-contract.test.ts`
 - Reference: `apps/dag-orchestrator-server/docs/SPEC.md`
 
 **Step 1: Write contract tests**
 
 Test response shapes for key endpoints:
+
 - `POST /v1/dag/runs` → `{ ok: true, status: 201, data: { dagRunId } }`
 - `GET /v1/dag/runs/:id/result` (success) → `{ ok: true, status: 200, data: { run: { dagRunId, status, traces, nodeErrors, totalCostUsd } } }`
 - `GET /v1/dag/runs/:id/result` (failed) → `{ ok: true, status: 200, data: { run: { status: 'failed', nodeErrors: [...] } } }`
@@ -320,11 +340,13 @@ Run: `pnpm --filter @robota-sdk/dag-orchestrator-server test`
 **Step 3: Update ws-routes and run-routes for dagRunId = promptId**
 
 In `apps/dag-orchestrator-server/src/routes/ws-routes.ts`:
+
 - Accept preparationId in URL (for pre-start WS routing)
 - Use `runService.getDagRunId(preparationId)` to get actual dagRunId (= promptId)
 - Pass dagRunId (= promptId) to event translator
 
 In `apps/dag-orchestrator-server/src/routes/run-routes.ts`:
+
 - `POST /v1/dag/runs` returns `{ preparationId }` (not dagRunId)
 - `POST /v1/dag/runs/:id/start` returns `{ dagRunId }` where dagRunId = promptId
 - `GET /v1/dag/runs/:dagRunId/result` uses dagRunId to look up result
@@ -347,12 +369,14 @@ git commit -m "feat(dag-orchestrator-server): add endpoint contract tests, dagRu
 ### Task 7: Update dag-designer SPEC.md
 
 **Files:**
+
 - Modify: `packages/dag-designer/docs/SPEC.md`
 - Reference: `apps/dag-orchestrator-server/docs/SPEC.md` (just written)
 
 **Step 1: Update SPEC.md**
 
 Changes:
+
 - Run client contract: update to reflect `status` and `nodeErrors` in IRunResult
 - Type Ownership: `IRunResult` imported from `dag-core` (not `dag-server-core` which is deleted)
 - Architecture Overview: change "EventSource for SSE" to "WebSocket for progress streaming"
@@ -375,12 +399,14 @@ git commit -m "docs(dag-designer): update SPEC.md for WS protocol and IRunResult
 ### Task 8: Write dag-designer API client contract tests
 
 **Files:**
+
 - Create: `packages/dag-designer/src/__tests__/designer-api-contract.test.ts`
 - Reference: `packages/dag-designer/docs/SPEC.md`
 
 **Step 1: Write contract tests**
 
 Test `hasValidRunResult` and response parsing:
+
 - Valid success result: `{ dagRunId, status: 'success', traces: [...], nodeErrors: [], totalCostUsd }` → passes
 - Valid failed result: `{ dagRunId, status: 'failed', traces: [], nodeErrors: [...], totalCostUsd }` → passes
 - Missing `status` field → fails validation
@@ -390,17 +416,20 @@ Test `hasValidRunResult` and response parsing:
 **Step 2: Update designer client and screen for preparationId/dagRunId split**
 
 In `packages/dag-designer/src/client/designer-api-client.ts`:
+
 - `createRun` returns `{ preparationId }` (rename from dagRunId)
 - `startRun` accepts preparationId, returns `{ dagRunId }`
 - `subscribeRunProgress` uses preparationId in WS URL
 - `getRunResult` uses dagRunId
 
 In `packages/dag-designer/src/contracts/designer-api.ts`:
+
 - Update `IDesignerCreateRunInput` → rename
 - Update `IDesignerStartRunInput` to accept preparationId
 - `startRun` returns `{ dagRunId }`
 
 In `apps/web/src/app/dag-designer/_components/dag-designer-screen.tsx`:
+
 - Update `runOnServer` flow: createRun → subscribe WS (preparationId) → startRun → get dagRunId
 
 **Step 3: Build and test all**

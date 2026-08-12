@@ -19,8 +19,7 @@ export interface IOpenAIResponsesInputImageContent {
 }
 
 export type TOpenAIResponsesInputContent =
-  | IOpenAIResponsesInputTextContent
-  | IOpenAIResponsesInputImageContent;
+  IOpenAIResponsesInputTextContent | IOpenAIResponsesInputImageContent;
 
 export interface IOpenAIResponsesMessageInput {
   type?: 'message';
@@ -110,8 +109,7 @@ export interface IOpenAIResponsesRefusalOutputContent {
 }
 
 export type TOpenAIResponsesOutputContent =
-  | IOpenAIResponsesTextOutputContent
-  | IOpenAIResponsesRefusalOutputContent;
+  IOpenAIResponsesTextOutputContent | IOpenAIResponsesRefusalOutputContent;
 
 export interface IOpenAIResponsesMessageOutputItem {
   type: 'message';

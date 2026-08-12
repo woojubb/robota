@@ -10,13 +10,7 @@ import type { ICostMeta } from '@robota-sdk/dag-cost';
 import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 
 export type TDagOrchestrationPayloadValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | object
-  | readonly object[];
+  string | number | boolean | null | undefined | object | readonly object[];
 
 export interface IDagOrchestrationJsonObject {
   readonly [key: string]: TDagOrchestrationPayloadValue;

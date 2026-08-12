@@ -102,8 +102,7 @@ function createCollector(blocks: IRealTimeBlockMessage[]): ITestCollector {
     })),
     getBlock: vi.fn((blockId: string) => {
       return blocks.find((block) => block.blockMetadata.id === blockId) as
-        | IBlockMessage
-        | undefined;
+        IBlockMessage | undefined;
     }),
     removeBlock: vi.fn((_blockId: string) => undefined),
     getBlockTree: vi.fn((): IBlockTreeNode[] => []),

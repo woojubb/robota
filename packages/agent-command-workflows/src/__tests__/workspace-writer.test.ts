@@ -7,7 +7,11 @@ import {
   createCompositeInstantNodeDefinition,
   type ICompositeSubRunner,
 } from '@robota-sdk/dag-node-instant-node';
-import type { IDagDefinition, IDagNodeDefinition, INodeExecutionContext } from '@robota-sdk/dag-core';
+import type {
+  IDagDefinition,
+  IDagNodeDefinition,
+  INodeExecutionContext,
+} from '@robota-sdk/dag-core';
 import { saveInstantNodeFile } from '../persistence/workspace-writer.js';
 import { loadInstantNodes } from '../persistence/instant-node-loader.js';
 
@@ -23,9 +27,7 @@ const INNER_DAG = {
   dagId: 'inner',
   version: 1,
   status: 'draft',
-  nodes: [
-    { nodeId: 'echo', nodeType: 'input', dependsOn: [], config: { text: 'from-inner-dag' } },
-  ],
+  nodes: [{ nodeId: 'echo', nodeType: 'input', dependsOn: [], config: { text: 'from-inner-dag' } }],
   edges: [],
 } as unknown as IDagDefinition;
 

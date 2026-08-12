@@ -92,12 +92,12 @@ class ImageRebatch:
 
 ## 3. 비교 요약
 
-| 방식 | Input 카디널리티 | Prompt JSON | 시기 |
-|------|-----------------|------------|------|
-| 고정 Input (ImageBatch) | 정확히 N개 | `image1`, `image2` 각각 1링크 | deprecated |
-| ContainsAnyDict + JS | 가변 (1..N) | `input_1`, `input_2`, ... | 레거시 v1 |
-| v3 Autogrow | 가변 (min..max) | `image0`, `image1`, ... | 현재 권장 |
-| INPUT_IS_LIST | 엔진 레벨 배칭 | 동일 JSON; 엔진이 리스트 래핑 | 집계 노드용 |
+| 방식                    | Input 카디널리티 | Prompt JSON                   | 시기        |
+| ----------------------- | ---------------- | ----------------------------- | ----------- |
+| 고정 Input (ImageBatch) | 정확히 N개       | `image1`, `image2` 각각 1링크 | deprecated  |
+| ContainsAnyDict + JS    | 가변 (1..N)      | `input_1`, `input_2`, ...     | 레거시 v1   |
+| v3 Autogrow             | 가변 (min..max)  | `image0`, `image1`, ...       | 현재 권장   |
+| INPUT_IS_LIST           | 엔진 레벨 배칭   | 동일 JSON; 엔진이 리스트 래핑 | 집계 노드용 |
 
 ---
 
@@ -109,11 +109,11 @@ class ImageRebatch:
 
 ### ComfyUI와의 비교
 
-| 우리 시스템 | ComfyUI |
-|-----------|---------|
-| `images[0]`, `images[1]` | `image0`, `image1` 또는 `input_1`, `input_2` |
-| 하나의 포트 아래 인덱싱 | 별도의 고유 input key |
-| DAG edge에서 `images[0]` → link | prompt에서 `image0` → link |
+| 우리 시스템                     | ComfyUI                                      |
+| ------------------------------- | -------------------------------------------- |
+| `images[0]`, `images[1]`        | `image0`, `image1` 또는 `input_1`, `input_2` |
+| 하나의 포트 아래 인덱싱         | 별도의 고유 input key                        |
+| DAG edge에서 `images[0]` → link | prompt에서 `image0` → link                   |
 
 **결론:** 구조적으로 동일하다. 각 슬롯이 고유한 key를 가지고 1개 링크만 받는 패턴.
 

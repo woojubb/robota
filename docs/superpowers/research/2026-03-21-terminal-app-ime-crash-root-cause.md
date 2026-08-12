@@ -28,6 +28,7 @@
 ## 적용한 수정
 
 `setCursorPosition()` 호출 완전 제거.
+
 - IME 후보창이 좌하단에 표시 (Claude Code와 동일 동작)
 - Terminal.app 크래시 방지
 

@@ -26,6 +26,7 @@ Three independent programs communicating over HTTP:
 ```
 
 Key constraints:
+
 - **Prompt API Server** is a standalone program. Works without Orchestrator.
 - **Orchestrator API Server** is a standalone program. Acts as a gateway/extension pack for Prompt API. Connects to Prompt API via HTTP.
 - **dag-designer** connects only to Orchestrator API. Never directly to Prompt API.
@@ -77,26 +78,26 @@ Identical to ComfyUI API prompt format:
 
 ## API Endpoints (ComfyUI-compatible)
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/prompt` | POST | Submit DAG JSON for execution, returns `prompt_id` |
-| `/queue` | GET | Current queue status (running + pending) |
-| `/queue` | POST | Queue management (clear, delete) |
-| `/history` | GET | Execution history |
-| `/history/{prompt_id}` | GET | Specific execution result |
-| `/object_info` | GET | All registered node types with input/output definitions |
-| `/object_info/{node_type}` | GET | Specific node type info |
-| `/system_stats` | GET | System information |
+| Endpoint                   | Method | Purpose                                                 |
+| -------------------------- | ------ | ------------------------------------------------------- |
+| `/prompt`                  | POST   | Submit DAG JSON for execution, returns `prompt_id`      |
+| `/queue`                   | GET    | Current queue status (running + pending)                |
+| `/queue`                   | POST   | Queue management (clear, delete)                        |
+| `/history`                 | GET    | Execution history                                       |
+| `/history/{prompt_id}`     | GET    | Specific execution result                               |
+| `/object_info`             | GET    | All registered node types with input/output definitions |
+| `/object_info/{node_type}` | GET    | Specific node type info                                 |
+| `/system_stats`            | GET    | System information                                      |
 
 ### POST /prompt Request
 
 ```json
 {
-  "prompt": { /* DAG JSON */ },
+  "prompt": {/* DAG JSON */},
   "client_id": "uuid-string",
   "extra_data": {
     "extra_pnginfo": {
-      "workflow": { /* Workflow JSON with positions/sizes for UI */ }
+      "workflow": {/* Workflow JSON with positions/sizes for UI */}
     }
   }
 }
@@ -116,18 +117,18 @@ Identical to ComfyUI API prompt format:
 
 These items were explicitly excluded from the DAG JSON and assigned to other layers:
 
-| Item | Owner | Rationale |
-|------|-------|-----------|
-| Port definitions (input/output schemas) | Server node type registry (`/object_info`) | Node type knows its own ports |
-| Node lifecycle (initialize, validate, execute, dispose) | Server runtime | Implementation concern |
-| State machines (DagRun, TaskRun) | Server runtime | Execution state tracking |
-| Error model (TResult, IDagError) | Server runtime | Error handling strategy |
-| Execution history | Server storage (`/history` API) | Queried, not embedded |
-| `dagId`, `version`, `status` | Removed — server assigns `prompt_id` on submit | No persistent definition lifecycle |
-| `costPolicy` | Orchestration layer | Queries `/object_info`, computes cost before `/prompt` |
-| `retryPolicy`, `triggerPolicy`, `timeoutMs` | Orchestration layer | Retry on failure, timeout monitoring |
-| `position` (canvas coordinates) | Separate Workflow JSON | Attached via `extra_data.extra_pnginfo.workflow` |
-| `inputSchema` / `outputSchema` | Server node definitions | Validation at server level |
+| Item                                                    | Owner                                          | Rationale                                              |
+| ------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| Port definitions (input/output schemas)                 | Server node type registry (`/object_info`)     | Node type knows its own ports                          |
+| Node lifecycle (initialize, validate, execute, dispose) | Server runtime                                 | Implementation concern                                 |
+| State machines (DagRun, TaskRun)                        | Server runtime                                 | Execution state tracking                               |
+| Error model (TResult, IDagError)                        | Server runtime                                 | Error handling strategy                                |
+| Execution history                                       | Server storage (`/history` API)                | Queried, not embedded                                  |
+| `dagId`, `version`, `status`                            | Removed — server assigns `prompt_id` on submit | No persistent definition lifecycle                     |
+| `costPolicy`                                            | Orchestration layer                            | Queries `/object_info`, computes cost before `/prompt` |
+| `retryPolicy`, `triggerPolicy`, `timeoutMs`             | Orchestration layer                            | Retry on failure, timeout monitoring                   |
+| `position` (canvas coordinates)                         | Separate Workflow JSON                         | Attached via `extra_data.extra_pnginfo.workflow`       |
+| `inputSchema` / `outputSchema`                          | Server node definitions                        | Validation at server level                             |
 
 ## Workflow JSON (UI Format)
 
@@ -137,21 +138,21 @@ dag-designer needs a converter: **prompt API format ↔ React Flow nodes/edges d
 
 ## Confirmed Decisions Log
 
-| # | Item | Decision |
-|---|------|----------|
-| 1 | Node ID | Object key (ComfyUI) |
-| 2 | Node type field | `class_type` (ComfyUI) |
-| 3 | Config values | Mixed in `inputs` (ComfyUI) |
-| 4 | Edge connections | Inline `["nodeId", slot]` in `inputs` (ComfyUI) |
-| 5 | Dependency graph | Inferred from links (ComfyUI) |
-| 6 | Server-side concerns | Not in JSON — server owns port defs, lifecycle, state, errors, history |
-| 7 | dagId/version/status | Removed — prompt_id returned on submit (ComfyUI) |
-| 8 | costPolicy | Orchestration layer |
-| 9 | Architecture | Three independent programs: dag-designer → Orchestrator API → Prompt API → Backend |
-| 10 | retry/trigger/timeout | Orchestration layer |
-| 11 | position | Separate Workflow JSON (ComfyUI) |
-| 12 | inputSchema/outputSchema | Server node definitions |
-| 13 | Output slot indexing | Index-based `["nodeId", 0]` (ComfyUI) |
+| #   | Item                     | Decision                                                                           |
+| --- | ------------------------ | ---------------------------------------------------------------------------------- |
+| 1   | Node ID                  | Object key (ComfyUI)                                                               |
+| 2   | Node type field          | `class_type` (ComfyUI)                                                             |
+| 3   | Config values            | Mixed in `inputs` (ComfyUI)                                                        |
+| 4   | Edge connections         | Inline `["nodeId", slot]` in `inputs` (ComfyUI)                                    |
+| 5   | Dependency graph         | Inferred from links (ComfyUI)                                                      |
+| 6   | Server-side concerns     | Not in JSON — server owns port defs, lifecycle, state, errors, history             |
+| 7   | dagId/version/status     | Removed — prompt_id returned on submit (ComfyUI)                                   |
+| 8   | costPolicy               | Orchestration layer                                                                |
+| 9   | Architecture             | Three independent programs: dag-designer → Orchestrator API → Prompt API → Backend |
+| 10  | retry/trigger/timeout    | Orchestration layer                                                                |
+| 11  | position                 | Separate Workflow JSON (ComfyUI)                                                   |
+| 12  | inputSchema/outputSchema | Server node definitions                                                            |
+| 13  | Output slot indexing     | Index-based `["nodeId", 0]` (ComfyUI)                                              |
 
 ## Next Steps
 
