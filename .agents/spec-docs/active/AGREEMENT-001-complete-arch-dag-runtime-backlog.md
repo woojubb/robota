@@ -146,7 +146,7 @@ Execute the twelve existing records without redefining their scope:
 ## Completion Criteria
 
 - [ ] TC-01: ARCH-009's `/preset` surface uses the assembled instance registry, and two products in one process expose isolated preset sets without module-global registration.
-- [ ] TC-02: ARCH-010 carries a required, trusted absolute execution root through the DAG node execution path as well as the already-landed session/tool path; missing, empty, or relative roots fail closed, and LLM-authored `config.cwd` may only narrow within that root and never widen it.
+- [x] TC-02: ARCH-010 carries a required, trusted absolute execution root through the DAG node execution path as well as the already-landed session/tool path; missing, empty, or relative roots fail closed, and LLM-authored `config.cwd` may only narrow within that root and never widen it.
 - [ ] TC-03: ARCH-012 decomposes `IInteractiveSession` into reachable capability-scoped contracts and the parallel `ICommandHostContext` into framework-owned command-host capability ports; real sessions and test doubles conform without unchecked partial casts, absent capability is distinct from a provided-empty result, and the direct `IInteractiveSession` cast ratchet reaches zero. ARCH-011 then defines and verifies every transport's lifecycle meaning, admission, cancellation verb, error/result shape, in-flight-on-disconnect policy, and session-capability declaration through one shared six-adapter conformance suite, replacing anonymous adapter intersection surfaces with named capabilities.
 - [ ] TC-04: ARCH-013 gives every supported `IResolvedPresetOptions` and reachable `ICreateSessionOptions` field one explicit projection/consumption owner or removes the unsupported field; projects resolved language, prompts, temperature, output limits, trust, tool allow/deny, and interactive `--system-prompt`, `--append-system-prompt`, `--task-file`, and `--json-schema` consistently through interactive, headless, serve, startup, and live `/preset`; supplies or deliberately removes the guardrail-registry and retrieval-adapter composition roots; and documents the legitimate distinction between registered guardrail implementations and hook-selected guardrail names rather than treating them as conflicting shapes.
 - [ ] TC-05: DAG-001's recovery behavior is proven through the in-memory and SQLite queue-adapter recovery matrix from persisted abandoned work to terminal run advancement, and its exact executable commands, fixtures, cleanup, output, and exit evidence live in a durable in-repo user-scenario artifact.
@@ -181,7 +181,7 @@ Execute the twelve existing records without redefining their scope:
 
 - [ ] `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` — initiative tracking
 - [ ] `.agents/tasks/ARCH-009-preset-registry-through-command-host.md` — existing
-- [ ] `.agents/tasks/ARCH-010-execution-root-carried-by-no-contract.md` — existing
+- [x] `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md` — completed 2026-08-13
 - [ ] `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md` — existing
 - [ ] `.agents/tasks/ARCH-012-interactive-session-god-contract.md` — existing
 - [ ] `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md` — existing

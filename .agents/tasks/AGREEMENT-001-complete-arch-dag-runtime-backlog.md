@@ -24,7 +24,7 @@ evidence.
 ## Plan
 
 - [ ] TC-01: complete ARCH-009 instance preset-registry ownership and product isolation.
-- [ ] TC-02: complete ARCH-010 trusted DAG execution-root propagation and containment.
+- [x] TC-02: complete ARCH-010 trusted DAG execution-root propagation and containment.
 - [ ] TC-03: complete ARCH-012 session/command capability decomposition, then ARCH-011 six-transport conformance.
 - [ ] TC-04: complete ARCH-013 option reachability and projection across every product surface.
 - [x] TC-05: complete DAG-001 recovery adapter matrix and durable executable scenario evidence.
@@ -53,6 +53,12 @@ evidence.
 - User explicitly approved implementation and resumed commit/push authority; GATE-APPROVAL passed.
 - DAG-001 completed: SQLite/worker recovery matrix, durable two-process scenario, both Done Gate stages,
   `harness:verify-like-ci`, and zero-finding local review all passed.
+
+### 2026-08-13
+
+- ARCH-010 completed after the explicitly approved one-time process disposition: the unchanged public
+  containment scenario passed again, independent Done Gate Stage 2 returned PASS, CI-equivalent and
+  pre-push verification passed, and the source Task was atomically archived.
 
 ## Decisions
 
