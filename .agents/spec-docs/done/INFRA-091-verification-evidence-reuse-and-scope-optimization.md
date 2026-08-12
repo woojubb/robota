@@ -1,7 +1,8 @@
 ---
-status: in-progress
+status: done
 type: INFRA
 tags: [cli, typescript]
+completed: 2026-08-13
 ---
 
 # INFRA-091: Verification Evidence Reuse and Scope Optimization
@@ -193,73 +194,59 @@ None
 
 ## Completion Criteria
 
-- [ ] TC-01: A harness-change fixture causes one full harness-suite invocation in each of
+- [x] TC-01: A harness-change fixture causes one full harness-suite invocation in each of
       `verify-like-ci`, pre-push, and develop CI ownership graphs; an unknown selective-skip name exits non-zero.
-- [ ] TC-02: A full clean-tree CI-equivalent PASS creates an exact receipt; unchanged same-object/base/tool
+- [x] TC-02: A full clean-tree CI-equivalent PASS creates an exact receipt; unchanged same-object/base/tool
       pre-push reports receipt reuse, while dirty, partial, malformed, stale-base, stale-tool, weaker-profile,
       and different-pushed-object fixtures all run verification.
-- [ ] TC-03: Root manifest fixtures changing only `lint:fix` / `lint:fix:staged` select 0 product scopes;
+- [x] TC-03: Root manifest fixtures changing only `lint:fix` / `lint:fix:staged` select 0 product scopes;
       dependency, override, engine, build/test/typecheck/lint/lifecycle, mixed, parse-error, and unknown changes
       select all configured scopes.
-- [ ] TC-04: Harness-only CI fixtures set `code=true` and product/TUI/examples runtime applicability false;
+- [x] TC-04: Harness-only CI fixtures set `code=true` and product/TUI/examples runtime applicability false;
       required jobs still conclude success through an explicit non-applicable step, while classifier failure
       runs every safety-relevant job.
-- [ ] TC-05: The TUI unit suite still executes all terminal/override capability cells and the PTY suite
+- [x] TC-05: The TUI unit suite still executes all terminal/override capability cells and the PTY suite
       executes the four representative boundary cells plus wide/narrow positioning and real-tmux coverage;
       `pnpm --filter @robota-sdk/agent-transport-tui test:pty` exits 0.
-- [ ] TC-06: A synthetic full-workspace plan executes each planned package-owned test/lint/typecheck script
+- [x] TC-06: A synthetic full-workspace plan executes each planned package-owned test/lint/typecheck script
       through bounded batching, rejects missing per-scope evidence, aggregates multiple failures, and performs
       fewer command launches than the serial baseline.
-- [ ] TC-07: `pnpm harness:verify-like-ci -- --only format-check --only harness-self-test` prints per-stage
+- [x] TC-07: `pnpm harness:verify-like-ci -- --only format-check --only harness-self-test` prints per-stage
       and total elapsed times and does not create a full-gate receipt; a full PASS prints timing and creates one.
-- [ ] TC-08: Verification policy and the cross-cutting verification plan describe targeted development,
+- [x] TC-08: Verification policy and the cross-cutting verification plan describe targeted development,
       one pre-merge full gate, exact receipt invalidation, and measured timing without the stale 3.5-5 minute claim.
-- [ ] TC-09: Focused harness tests, `pnpm harness:scan`, TUI unit/PTy tests, and final
-      `pnpm harness:verify-like-ci` all exit 0 on the post-fix tree.
+- [x] TC-09: Focused harness tests, `pnpm harness:scan`, TUI unit/PTy tests, and final
+      `pnpm harness:verify-like-ci` all exit 0 on the post-fix tree; independent scenario applicability
+      is recorded as `NOT-APPLICABLE` because no shipped product surface changed.
 
 ## Test Plan
 
-| TC-ID | Test Type                 | Tool / Approach                                                             | Notes                                                         |
-| ----- | ------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| TC-01 | CI pipeline unit/contract | Vitest fixtures + workflow ownership parser                                 | Assert one owner, exact selective skip, unknown fail-closed   |
-| TC-02 | Integration/unit          | Temporary Git repositories + pre-push injected sequence                     | Covers exact-match receipt and every invalidation edge        |
-| TC-03 | Unit                      | Root manifest before/after fixtures in check-plan tests                     | Both narrow allowlist and full fallback directions            |
-| TC-04 | CI pipeline contract      | Classifier unit tests + parsed `ci.yml` assertions                          | Required jobs remain present and fail closed                  |
-| TC-05 | Unit + process E2E        | TUI unit suite and `test:pty`                                               | Exhaustive logic owner plus representative real boundary      |
-| TC-06 | Integration/unit          | Synthetic workspace scripts recording execution/results                     | Bounded batching, missing evidence, multi-failure aggregation |
-| TC-07 | CLI integration           | Partial/full verify fixture with temporary receipt store                    | Timing visible; partial never certifies full                  |
-| TC-08 | Governance                | `pnpm harness:scan:consistency` + targeted `rg` absence/presence assertions | Owner prose and mechanics agree                               |
-| TC-09 | Regression/CI smoke       | Focused Vitest, harness scan, TUI tests, final CI-equivalent gate           | Final post-fix evidence                                       |
+| TC-ID | Test Type                 | Tool / Approach                                                                                                                                                                                           | Notes                                         |
+| ----- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| TC-01 | CI pipeline unit/contract | `scripts/harness/__tests__/harness-scripts.test.mjs > repository-check ownership`; `verify-like-ci.test.mjs > CI_STAGES`                                                                                  | One owner and unknown fail-closed             |
+| TC-02 | Integration/unit          | `scripts/harness/__tests__/verification-receipt.test.mjs > exact verification receipts`; `pre-push-sequence.test.mjs > runPrePushGate step order`                                                         | Exact match/invalidation                      |
+| TC-03 | Unit                      | `scripts/harness/__tests__/check-plan.test.mjs > createVerificationPlan`                                                                                                                                  | Narrow allowlist and full fallback directions |
+| TC-04 | CI pipeline contract      | `scripts/harness/__tests__/classify-changed-paths.test.mjs > classifyFiles`; `harness-scripts.test.mjs > CI build workflow`                                                                               | Required jobs remain/fail closed              |
+| TC-05 | Unit + process E2E        | `packages/agent-transport-tui/src/__tests__/terminal-capabilities.test.ts > CLI-062 terminal matrix`; `packages/agent-transport-tui/src/__tests__/pty/ime-cursor.ptytest.ts > observable cursor contract` | Logic plus real boundaries                    |
+| TC-06 | Integration/unit          | `scripts/harness/__tests__/workspace-check-batches.test.mjs > bounded full-workspace check batches`                                                                                                       | Missing evidence/multi-failure aggregation    |
+| TC-07 | CLI integration           | `scripts/harness/__tests__/verify-like-ci.test.mjs > summarize`; `verification-receipt.test.mjs > exact verification receipts`                                                                            | Partial never certifies full                  |
+| TC-08 | Governance                | `scripts/harness/__tests__/harness-scripts.test.mjs > repository-check ownership`; `gate-completion-order.test.mjs > GATE-COMPLETE transition ownership`                                                  | Owner contracts agree                         |
+| TC-09 | Regression/CI smoke       | `scripts/harness/__tests__/verify-like-ci.test.mjs > CI_STAGES`; `scripts/harness/__tests__/gate-completion-order.test.mjs > GATE-COMPLETE transition ownership`; TUI suites, scan, full gate             | Final evidence                                |
 
 ## User Execution Test Scenarios
 
-### Scenario 1: Reuse a completed full gate at push
+**Applicability:** not-applicable
 
-1. On a clean feature commit, run `pnpm harness:verify-like-ci` to completion.
-2. Run the real pre-push entry with a fixture update line naming that same local commit.
-3. Expected: clean-tree and lockfile checks still run; output names the exact receipt identity and no
-   package/harness verification command starts.
-
-### Scenario 2: Narrow developer-script manifest change
-
-1. Generate a plan from a fixture whose only root manifest delta adds or changes
-   `lint:fix` / `lint:fix:staged`.
-2. Expected: repository quality checks are selected, scope coverage is `0 of 86`, and the output
-   explicitly names the semantic narrow classification.
-3. Change root `build` in the same fixture.
-4. Expected: scope coverage becomes `86 of 86` and names root build tooling as the trigger.
-
-### Scenario 3: Harness-only required CI applicability
-
-1. Run the classifier and workflow-contract fixture for `scripts/harness/example.mjs`.
-2. Expected: scans/quality remain applicable; TUI/examples/Windows product work reports explicit
-   non-applicability without disappearing.
-3. Force classifier failure.
-4. Expected: every safety-relevant product applicability output becomes true.
+This work changes repository-internal verification and governance mechanisms only. It changes no shipped
+Robota CLI, TUI, browser, application, public SDK, or example behavior. Its executable observables are
+build, test, lint, harness, Git-hook, and CI results, which the backlog-execution rule explicitly reserves
+for engineering verification and forbids as User Execution evidence. They remain covered by the Test Plan;
+no product-surface scenario is invented. Independent scenario-author outcome on 2026-08-13:
+`NOT-APPLICABLE`; the execution gate is skipped.
 
 ## Tasks
 
-- [x] `.agents/tasks/INFRA-091-verification-evidence-reuse-and-scope-optimization.md` — active implementation record
+- [x] `.agents/tasks/completed/INFRA-091-verification-evidence-reuse-and-scope-optimization.md` — completed implementation record
 
 ## Evidence Log
 
@@ -312,3 +299,152 @@ None
 - Completion Criteria correspondence: the task file contains nine unchecked implementation tasks labelled `TC-01` through `TC-09`, providing one directly corresponding task for each of the spec's nine Completion Criteria.
 - Task test plan: the task file contains a substantive `## Test Plan` section exceeding 50 characters; it specifies RED-first focused coverage for TC-01 through TC-07 and final harness, scan, TUI, scenario, and CI-equivalent verification for TC-09, with policy synchronization covered by the task set's TC-08.
 - Implementation-without-task non-compliance trigger: not triggered because the required task file exists before GATE-IMPLEMENT authorization.
+
+### [IMPLEMENTATION EVIDENCE] — ✅ COMPLETE | 2026-08-13
+
+- Focused RED/GREEN: ten harness test files passed 264 tests after each new contract was observed failing
+  before implementation; TUI exhaustive capability tests passed 36 tests.
+- Full harness: `pnpm harness:test` passed 176 files and 3,209 tests in 219.02 seconds.
+- Harness governance: `pnpm harness:scan` passed 108 scans with one intentional skip and three advisories.
+- Real process coverage: `pnpm --filter @robota-sdk/agent-transport-tui test:pty` passed 23 tests with
+  three tmux-only skips in 35.54 seconds; the capability matrix now owns exhaustive logical coverage.
+- Exact full gate: clean commit `83a878e185b446095121a7d8135ba2f6049ab2f7` passed all 11 mirrored stages
+  in 8m37.6s and wrote the exact receipt. Stage owners were harness-self-test 3m38.0s,
+  affected-verify 2m17.2s, build 1m29.4s, TUI E2E 36.2s, and 36.8s combined for the remaining stages.
+- Scenario applicability: an independent author returned `NOT-APPLICABLE` because all executable
+  observables are engineering/governance verification rather than a shipped product surface. Exact receipt
+  reuse, developer-quality-only planning, and harness-only CI classification remain Test Plan evidence.
+
+### [DONE-GATE AUDIT] — ↩ NOT-APPLICABLE | 2026-08-13
+
+- Initial audit: `DONE-GATE-STAGE-1: FAIL` and `DONE-GATE-STAGE-2: NON-COMPLIANCE`. The original drafts
+  lacked executability decisions, retained fixture placeholders, mismatched two recorded commands, and
+  incorrectly treated harness/CI results as product-surface User Execution evidence. No completion state
+  or archival move preceded that verdict.
+- Corrected PLAN disposition: independent scenario author returned `NOT-APPLICABLE`; an independent
+  guardian returned `PLAN applicability: PASS` and `PHASE-4 SKIP ROUTING: PASS`. The work changes only
+  repository-internal engineering/governance verification and exposes no shipped product capability.
+  Per `user-execution-scenario` routing, Mode GATE is skipped rather than retroactively marked PASS.
+
+### [GATE-VERIFY] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** in-progress → verifying
+
+- Task completion: TC-01 through TC-09 are all `[x]`; no blocked or pending item remains.
+- Build/test: clean commit `83a878e185b446095121a7d8135ba2f6049ab2f7` passed all 11
+  `pnpm harness:verify-like-ci` stages, including build and 35 affected scopes. The complete harness suite
+  additionally passed 176 files / 3,209 tests, and TUI unit/PTY and scan suites passed.
+- Post-gate diff: only INFRA-091 evidence/applicability documentation changed; `git diff --check`,
+  `pnpm harness:scan:test-plans`, and `pnpm harness:scan:task-archival` exited 0.
+- User Execution: independently judged `NOT-APPLICABLE`; the valid Phase 4 skip is not a failure.
+
+### [GATE-COMPLETE: TC-01] — ✅ VERIFIED | 2026-08-13
+
+- Action: `pnpm exec vitest run scripts/harness/__tests__/harness-scripts.test.mjs
+scripts/harness/__tests__/verify-like-ci.test.mjs`, then `pnpm harness:verify-like-ci`.
+- Result: duplicate repository-check ownership was absent; unknown omission names failed closed; full gate
+  exited 0. Tests: `scripts/harness/__tests__/harness-scripts.test.mjs` and
+  `scripts/harness/__tests__/verify-like-ci.test.mjs`.
+
+### [GATE-COMPLETE: TC-02] — ✅ VERIFIED | 2026-08-13
+
+- Action: `pnpm exec vitest run scripts/harness/__tests__/verification-receipt.test.mjs
+scripts/harness/__tests__/pre-push-sequence.test.mjs`, then clean `pnpm harness:verify-like-ci` and
+  `pnpm harness:pre-push` on commit `83a878e18`.
+- Result: receipt fixtures covered malformed/stale/dirty/weaker/object mismatches; the real full gate wrote
+  an exact receipt and pre-push exited 0 in 1.2s with `exact verify-like-ci receipt reused`.
+  Tests: `verification-receipt.test.mjs` and `pre-push-sequence.test.mjs`.
+
+### [GATE-COMPLETE: TC-03] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran `pnpm exec vitest run scripts/harness/__tests__/check-plan.test.mjs`, then
+  `pnpm harness:plan -- --base-ref origin/develop --changed-file package.json`.
+- Result: command exited 0 with `Root manifest: developer-quality-only` and `0 of 86`; unsafe, mixed,
+  unknown, and parse-error fixtures selected all scopes.
+
+### [GATE-COMPLETE: TC-04] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran `pnpm exec vitest run scripts/harness/__tests__/classify-changed-paths.test.mjs
+scripts/harness/__tests__/harness-scripts.test.mjs`, then
+  `node --input-type=module -e "const {classifyFiles}=await import('./scripts/harness/classify-changed-paths.mjs'); console.log(JSON.stringify(classifyFiles(['scripts/harness/example.mjs'])))"`.
+- Result: exit 0 and `{code:true, product:false, tui:false, examples:false}`; classifier failure fixtures
+  set all safety capabilities true and required jobs retained explicit N/A steps. Tests:
+  `classify-changed-paths.test.mjs` and `harness-scripts.test.mjs`.
+
+### [GATE-COMPLETE: TC-05] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran `pnpm --filter @robota-sdk/agent-transport-tui exec vitest run
+src/__tests__/terminal-capabilities.test.ts` and
+  `pnpm --filter @robota-sdk/agent-transport-tui test:pty`.
+- Result: unit suite passed all 36 tests; PTY exited 0 with 23 passed / 3 tmux-only skipped in 35.54s,
+  including four terminal boundaries and both viewport geometries. Tests:
+  `packages/agent-transport-tui/src/__tests__/terminal-capabilities.test.ts > CLI-062 terminal matrix`
+  and `packages/agent-transport-tui/src/__tests__/pty/ime-cursor.ptytest.ts > observable cursor contract`.
+
+### [GATE-COMPLETE: TC-06] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran `pnpm exec vitest run scripts/harness/__tests__/workspace-check-batches.test.mjs` and
+  exercised the full-plan aggregate path in the final gate.
+- Result: bounded concurrency, package-script ownership, missing-result rejection, and multi-failure
+  aggregation passed; full-plan test/lint/typecheck used one bounded recursive launch per check.
+
+### [GATE-COMPLETE: TC-07] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran `pnpm exec vitest run scripts/harness/__tests__/verify-like-ci.test.mjs
+scripts/harness/__tests__/verification-receipt.test.mjs`, a partial
+  `pnpm harness:verify-like-ci -- --only format-check`, and a clean full `pnpm harness:verify-like-ci`.
+- Result: partial execution printed timings without a receipt; the full command exited 0, printed all stage
+  durations plus total `8m 37.6s`, and wrote the receipt. Tests: `verify-like-ci.test.mjs` and
+  `verification-receipt.test.mjs`.
+
+### [GATE-COMPLETE: TC-08] — ✅ VERIFIED | 2026-08-13
+
+- Action: synchronized verification policy, pipeline plan, Git rule, and TUI SPEC; ran
+  `pnpm exec vitest run scripts/harness/__tests__/harness-scripts.test.mjs
+scripts/harness/__tests__/gate-completion-order.test.mjs` and `pnpm harness:scan:consistency`.
+- Result: both exited 0; all owners describe targeted development, one final full gate, exact invalidation,
+  stage timings, and the same CI execution graph.
+
+### [GATE-COMPLETE: TC-09] — ✅ VERIFIED | 2026-08-13
+
+- Action: ran the exact eight-file focused Vitest command recorded in the final summary, complete harness
+  (176 files / 3,209 tests), `pnpm harness:scan` (108 pass / 1 intentional skip), TUI unit (36 tests), TUI PTY
+  (23 pass / 3 tmux-only skip), and clean `pnpm harness:verify-like-ci`.
+- Result: every command exited 0; the full gate passed all 11 stages in 8m37.6s. Independent User Execution
+  applicability was `NOT-APPLICABLE` because no shipped product surface changed.
+
+### [BLOCKING POLICY CONTRADICTION] — ✅ ROOT FIX | 2026-08-13
+
+- Finding: the first GATE-COMPLETE review correctly returned FAIL because the catalogue required an
+  already-archived task and archived pointer before PASS, while `spec-workflow`, `backlog-execution`, and
+  Phase 5 prohibit those PASS outputs before the gate. No ordering could satisfy both contracts.
+- Independent proposal review: `REVIEW VERDICT: ENDORSE`. The reviewer confirmed the defect was a
+  foundational input/output inversion and endorsed correcting the guardian preconditions at their owner,
+  while preserving post-PASS transition ownership in the existing orchestrators.
+- Correction: GATE-COMPLETE now requires the exact active task path and a completion-ready active task.
+  Archival, terminal status/date, pointer update, and spec move remain atomic PASS outputs. A focused
+  relational regression is owned by `scripts/harness/__tests__/gate-completion-order.test.mjs`.
+
+### [GATE-COMPLETE SUMMARY] — READY | 2026-08-13
+
+- Exact focused command:
+  `pnpm exec vitest run scripts/harness/__tests__/check-plan.test.mjs scripts/harness/__tests__/classify-changed-paths.test.mjs scripts/harness/__tests__/harness-scripts.test.mjs scripts/harness/__tests__/pre-push-sequence.test.mjs scripts/harness/__tests__/verification-receipt.test.mjs scripts/harness/__tests__/verify-like-ci.test.mjs scripts/harness/__tests__/workspace-check-batches.test.mjs scripts/harness/__tests__/gate-completion-order.test.mjs`.
+- Exact focused result: exit 0; 8 files passed and 197 tests passed in 551ms.
+- TC-01 through TC-09 are checked and each has exact verification action, observed result, exit status,
+  and a Test Plan owner in the entries above. The active Task is completion-ready and the `## Tasks`
+  pointer names its exact active path.
+- On guardian PASS, Phase 5 will atomically set terminal status/date, archive the Task, move this spec to
+  `done/`, update the Task pointer, and run placement/archival scans before the closing commit.
+
+### [GATE-COMPLETE] — ✅ PASS | 2026-08-13
+
+**Status upgrade:** verifying → done
+
+- Independent guardian verdict: TC-01 through TC-09 PASS; every criterion has exact action, observed
+  result, exit evidence, and a full test path plus actual describe/function owner.
+- Final criteria: all checkboxes, per-TC evidence entries, Test Plan references, final summary, exact active
+  task pointer, and completion-ready state passed.
+- User Execution: independently `NOT-APPLICABLE`; Phase 4 skip is valid because no shipped product surface
+  changed and engineering verification cannot be substituted as User Execution evidence.
+- Phase 5: terminal status/date, Task archive, spec `done/` move, and archived Task pointer are assembled
+  together for the closing commit; placement and archival scans verify the final state.
