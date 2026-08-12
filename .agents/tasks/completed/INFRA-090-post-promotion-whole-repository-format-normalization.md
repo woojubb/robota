@@ -1,7 +1,8 @@
 ---
 title: 'INFRA-090: post-promotion whole-repository format normalization'
-status: in-progress
+status: completed
 created: 2026-08-13
+completed: 2026-08-13
 priority: medium
 urgency: next
 area: repository-wide formatting
@@ -24,7 +25,7 @@ those branches harder to merge.
 - [x] Record the clean pre-run baseline, run `pnpm lint:fix`, and inventory every changed path.
 - [x] Review the broad diff for semantic changes or generated/ignored artifacts; exclude anything not owned by the formatter scope.
 - [x] Run `pnpm lint:fix` a second time and prove the tree is idempotent.
-- [ ] Run `pnpm harness:verify-like-ci`, commit, PR to develop, merge, and promote develop to main.
+- [x] Run `pnpm harness:verify-like-ci`, commit, PR to develop, merge, and promote develop to main.
 
 ## Test Plan
 
@@ -56,6 +57,12 @@ evidence as its observables.
   findings: formatting had reduced those files' line counts. Regenerated the repository-owned
   file-size baseline with the scan's prescribed `--write-baseline` command; all seven changes only
   lower existing ceilings, and the focused file-size scan now passes with 90 burn-down entries.
+- The exact post-fix tree passed all 11 `harness:verify-like-ci` stages in 8m27s and the pre-push
+  scoped verification. PR #1701 passed 20 checks with zero actionable review findings and merged to
+  `develop` at `b684d5d62`. Promotion PR #1702 passed the source, ancestry, CodeQL, review, secret,
+  and 12m05s release-grade gates and merged to `main` at `b3bfa9f3a`.
+- Verified the normalization commit `376532990` and promotion commit `74f34f51e` are ancestors of
+  `origin/main`, then removed both temporary branches locally and remotely. No open PR remained.
 
 ## Decisions
 
@@ -63,8 +70,9 @@ evidence as its observables.
 
 ## Blockers
 
-- `feat/arch-dag-runtime-completion` and INFRA-089 must reach main first.
+- None.
 
 ## Result
 
-Pending.
+The repository-wide ESLint/Prettier normalization is on `main`, its reduced file-size ceilings are
+locked into the ratchet, every local and remote gate passed, and all temporary branches were removed.
