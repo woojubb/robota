@@ -55,6 +55,7 @@ function buildCompositeRunner(
   return {
     async run(dag, input) {
       const provider = new LocalDagRuntimeProvider({
+        executionRoot: cwd,
         workspace: layout,
         projectDir: cwd,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),

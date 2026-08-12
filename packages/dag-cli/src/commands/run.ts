@@ -2197,7 +2197,7 @@ export async function runCommand(
   const runner =
     options.createRunner !== undefined
       ? options.createRunner()
-      : new LocalDagRunner(nodeDefinitions);
+      : new LocalDagRunner(nodeDefinitions, projectDir);
 
   const displayLabel =
     pipeline !== undefined ? `pipeline: ${pipeline}` : stdinMode ? '<stdin>' : (file as string);
@@ -2327,7 +2327,7 @@ export async function runCommand(
         }
 
         const runStartMs = Date.now();
-        const watchRunner = new LocalDagRunner(nodeDefinitions);
+        const watchRunner = new LocalDagRunner(nodeDefinitions, projectDir);
         const outcome = await runOnce(
           reloadedDag,
           watchRunner,

@@ -8,16 +8,14 @@
  *    defaults to the owner; an agent-wakeup/goal turn to the reserved agent id — never the owner,
  *    because an autonomous action must not be mis-attributed to the operator.
  *  - RUNTIME-003 **identity**: a submission is identified when it is accepted, not when it starts
- *    running. Otherwise a queued one has no identity for the whole time its caller waits on it. The
- *    queue drain carries the id back as `resumeTurnId`, so one submission is one turn throughout —
- *    and re-entering here with that id returns the promise its caller is ALREADY holding rather than
- *    minting a second nobody is waiting on.
+ *    running. Otherwise a queued one has no identity for the whole time its caller waits on it.
+ *    RUNTIME-006 keeps queued resumption out of this new-submission function, so every call mints
+ *    exactly one identity and a queued entry carries it directly to execution.
  *
  * Split out of `interactive-session.ts`, which had grown past its size ratchet.
  */
 
 import { AGENT_DRIVER_ID, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-transport';
-import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 import type {
   IQueuedInput,
@@ -25,6 +23,7 @@ import type {
   SessionExecutionController,
 } from './interactive-session-execution-controller.js';
 import type { IExecutionResult } from './types.js';
+import type { TDriverId } from '@robota-sdk/agent-interface-transport';
 
 export interface IAcceptedSubmission {
   readonly driverId: TDriverId;
@@ -51,13 +50,8 @@ export function acceptSubmission(
 ): IAcceptedSubmission {
   const driverId =
     options.driverId ?? (options.turnSource === 'agent-wakeup' ? AGENT_DRIVER_ID : OWNER_DRIVER_ID);
-  const { turnId, completed } = options.resumeTurnId
-    ? {
-        turnId: options.resumeTurnId,
-        completed: execCtrl.turns.completionOf(options.resumeTurnId),
-      }
-    : execCtrl.turns.begin();
-  const resolvedOptions: ITurnOptions = { ...options, driverId, resumeTurnId: turnId };
+  const { turnId, completed } = execCtrl.turns.begin();
+  const resolvedOptions: ITurnOptions = { ...options, driverId };
   return {
     driverId,
     turnId,

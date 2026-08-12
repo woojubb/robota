@@ -19,6 +19,7 @@ import {
 
 function ctx(nodeType: string, config: INodeConfigObject = {}): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

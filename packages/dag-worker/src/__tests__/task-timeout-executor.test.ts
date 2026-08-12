@@ -3,6 +3,7 @@ import type { ITaskExecutorPort, ITaskExecutionInput } from '@robota-sdk/dag-cor
 import { executeWithTimeout } from '../services/task-timeout-executor.js';
 
 const TASK_INPUT: ITaskExecutionInput = {
+  executionRoot: '/test/execution-root',
   dagId: 'dag-1',
   nodeId: 'entry',
   input: {},

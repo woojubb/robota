@@ -200,7 +200,7 @@ export const NOT_MIRRORED = [
     reason:
       'runs on `windows-latest` and exists precisely to exercise the win32 process-spawn path that no Linux or macOS host can execute. Mocked-platform unit tests are what it was added to stop being sufficient.',
     relevance: 'code',
-    relevantWhen: 'the diff changes code at all — ci.yml runs this job on every code PR',
+    relevantWhen: 'the diff changes product code — ci.yml reports infrastructure-only work as N/A',
     manualCommand:
       'no local equivalent off a Windows host — review the win32 branches by hand, or push and read the check.',
   },
@@ -228,6 +228,10 @@ export const RELEVANCE_KEYS = ['manifest-or-lockfile', 'code'];
 export const CI_SETUP_STEPS = {
   build: [
     {
+      step: 'Product verification not applicable',
+      reason: 'explicit CI applicability result; the local stage gate reports the same omission',
+    },
+    {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
     },
@@ -238,6 +242,11 @@ export const CI_SETUP_STEPS = {
     },
   ],
   quality: [
+    {
+      step: 'Product verification not applicable',
+      reason:
+        'explicit CI applicability result; the local affected plan reports zero product scopes',
+    },
     {
       step: 'Install dependencies',
       reason: 'runner provisioning; a local run is already installed',
@@ -262,6 +271,10 @@ export const CI_SETUP_STEPS = {
   ],
   'examples-typecheck': [
     {
+      step: 'Examples verification not applicable',
+      reason: 'explicit CI applicability result; the local stage gate reports the same omission',
+    },
+    {
       step: 'Restore package build output',
       reason:
         'artifact transport between jobs in one CI run; a local run builds in place and has nothing to restore',
@@ -272,6 +285,10 @@ export const CI_SETUP_STEPS = {
     },
   ],
   'tui-e2e': [
+    {
+      step: 'TUI verification not applicable',
+      reason: 'explicit CI applicability result; the local stage gate reports the same omission',
+    },
     {
       step: 'Restore package build output',
       reason:

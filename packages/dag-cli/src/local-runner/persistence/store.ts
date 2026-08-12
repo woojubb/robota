@@ -52,10 +52,16 @@ export async function saveNode(
  * Build a composite sub-runner that closes over the **live** definitions array so nested/other
  * nodes registered before OR after are visible at run time. Shared by create-time and reload.
  */
-export function buildCompositeRunner(liveDefs: IDagNodeDefinition[]): ICompositeSubRunner {
+export function buildCompositeRunner(
+  liveDefs: IDagNodeDefinition[],
+  executionRoot: string,
+): ICompositeSubRunner {
   return {
     async run(dag, input) {
-      const subRunner = new LocalDagRunner([...createCliNodeRegistry(), ...liveDefs]);
+      const subRunner = new LocalDagRunner(
+        [...createCliNodeRegistry(), ...liveDefs],
+        executionRoot,
+      );
       try {
         // allow-fallback: inner DAG errors are returned as structured result
         const subResult = await subRunner.run(dag, input);
@@ -116,7 +122,9 @@ export async function loadNodes(
       if (!record) continue;
       if (liveDefs.some((n) => n.nodeType === record.nodeType)) continue;
       liveDefs.push(
-        rehydrateInstantNode(record, { compositeRunner: buildCompositeRunner(liveDefs) }),
+        rehydrateInstantNode(record, {
+          compositeRunner: buildCompositeRunner(liveDefs, projectDir),
+        }),
       );
     } catch {
       // allow-fallback: unreadable/unparseable/unconstructable record skipped

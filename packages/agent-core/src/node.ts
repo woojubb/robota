@@ -12,5 +12,9 @@
  * consumer that needs them says so by importing from here, and the browser build cannot reach them
  * by accident.
  */
-export { canonicalizePath, isPathInside } from './utils/path-containment.js';
+export {
+  canonicalizePath,
+  isPathInside,
+  resolveTrustedExecutionRoot,
+} from './utils/path-containment.js';
 export { CommandExecutor, HttpExecutor } from './hooks/executors/index.js';

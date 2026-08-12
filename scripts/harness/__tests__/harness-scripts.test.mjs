@@ -9,6 +9,7 @@ import {
   parseScopeArgs,
   classifyScopeChanges,
   classifyPackageManifestChange,
+  classifyRootManifestChange,
   mapFilesToScopes,
   resolveBaseRef,
   resolveRequestedScopes,
@@ -18,6 +19,7 @@ import {
   isDeletedRefUpdate,
   parsePrePushUpdates,
 } from '../pre-push-updates.mjs';
+import { selectRepositoryChecks } from '../verify-change.mjs';
 
 // ---------------------------------------------------------------------------
 // parseScopeArgs
@@ -56,6 +58,16 @@ describe('parseScopeArgs', () => {
   it('parses --skip-repository-checks flag', () => {
     const result = parseScopeArgs(['--skip-repository-checks']);
     expect(result.skipRepositoryChecks).toBe(true);
+  });
+
+  it('parses repeatable named repository-check omissions', () => {
+    const result = parseScopeArgs([
+      '--skip-repository-check',
+      'harness-tests',
+      '--skip-repository-check',
+      'task-plan-scan',
+    ]);
+    expect(result.skipRepositoryCheckNames).toEqual(['harness-tests', 'task-plan-scan']);
   });
 
   it('parses --skip-dependent-scopes flag', () => {
@@ -100,11 +112,37 @@ describe('parseScopeArgs', () => {
       includeScenarios: false,
       skipRecordCheck: false,
       skipRepositoryChecks: false,
+      skipRepositoryCheckNames: [],
       skipDependentScopes: false,
       reportFile: null,
       reportFormat: null,
       baseRef: null,
     });
+  });
+});
+
+describe('repository-check ownership', () => {
+  it('omits only explicitly named checks while preserving the remaining owners', () => {
+    expect(selectRepositoryChecks(['harness-tests', 'task-plan-scan'], ['harness-tests'])).toEqual([
+      'task-plan-scan',
+    ]);
+  });
+
+  it('fails closed when a caller names an unknown repository check', () => {
+    expect(() => selectRepositoryChecks(['harness-tests'], ['not-a-real-check'])).toThrow(
+      'Unknown repository check omission: not-a-real-check',
+    );
+  });
+
+  it('assigns harness self-tests to exactly one owner in each aggregate execution graph', () => {
+    const localGate = readFileSync('scripts/harness/verify-like-ci.mjs', 'utf8');
+    const prePushGate = readFileSync('scripts/harness/pre-push.mjs', 'utf8');
+
+    expect(localGate).toContain("'--skip-repository-check',\n    'harness-tests'");
+    expect(localGate).toContain("'--skip-typecheck'");
+    expect(prePushGate).toContain("'--skip-repository-check',\n        'harness-tests'");
+    expect(localGate.match(/'harness-self-test'/g)).not.toHaveLength(0);
+    expect(prePushGate).toContain("['pnpm', ['harness:test']]");
   });
 });
 
@@ -126,7 +164,7 @@ describe('CI build workflow', () => {
     expect(content).toContain("steps.build_requirement.outputs.required == 'true'");
     expect(content).toContain('tar -czf package-dist.tgz packages/*/dist');
     expect(content).toContain(
-      'package_dist_required: ${{ steps.build_requirement.outputs.required }}',
+      'package_dist_required: ${{ steps.build_requirement.outputs.required || steps.build_requirement_na.outputs.required }}',
     );
     expect(content).not.toContain('Build affected scopes');
     expect(content).not.toContain('--skip-tests --skip-lint --skip-typecheck');
@@ -138,7 +176,7 @@ describe('CI build workflow', () => {
     const restoreIndex = content.indexOf('Restore package build output');
     const verifyIndex = content.indexOf('Verify affected quality checks');
 
-    expect(content).toContain('needs: build');
+    expect(content).toContain('needs: [changes, build]');
     expect(content).toContain("needs.build.outputs.package_dist_required == 'true'");
     expect(content).toContain('tar -xzf .artifacts/package-dist/package-dist.tgz');
     expect(restoreIndex).toBeGreaterThanOrEqual(0);
@@ -171,7 +209,7 @@ describe('CI build workflow', () => {
       expect(jobIndex, `${jobId} job must exist`).toBeGreaterThanOrEqual(0);
       const header = content.slice(jobIndex, content.indexOf('steps:', jobIndex));
       expect(header, `${jobId} must be excluded on a main PR at the job level`).toContain(
-        "if: github.base_ref != 'main'",
+        "github.base_ref != 'main'",
       );
     }
   });
@@ -626,6 +664,49 @@ describe('classifyPackageManifestChange', () => {
     expect(result.kind).toBe('public-surface');
     expect(result.hasPublicSurfaceChanges).toBe(true);
     expect(result.needsSourceHeavyChecks).toBe(true);
+  });
+});
+
+describe('classifyRootManifestChange', () => {
+  const before = {
+    scripts: {
+      'lint:fix': 'eslint packages apps --ext .ts,.tsx --fix',
+      'lint:fix:staged': 'scripts/harness/with-repo-lock.sh pnpm exec lint-staged',
+      build: 'pnpm -r build',
+    },
+    devDependencies: { eslint: '8.57.1' },
+  };
+
+  it('recognizes changes limited to the two developer-only fixer commands', () => {
+    const after = structuredClone(before);
+    after.scripts['lint:fix'] = 'eslint packages apps --ext .ts,.tsx --fix && prettier --write .';
+
+    expect(classifyRootManifestChange({ before, after })).toEqual({
+      kind: 'developer-quality-only',
+      changedKeys: ['scripts'],
+      changedScriptKeys: ['lint:fix'],
+      workspaceWide: false,
+    });
+  });
+
+  it('fails closed when a build script changes beside a fixer command', () => {
+    const after = structuredClone(before);
+    after.scripts['lint:fix'] = 'prettier --write .';
+    after.scripts.build = 'pnpm build:all';
+
+    expect(classifyRootManifestChange({ before, after }).workspaceWide).toBe(true);
+  });
+
+  it('fails closed for dependency and unknown top-level changes', () => {
+    expect(
+      classifyRootManifestChange({
+        before,
+        after: { ...before, devDependencies: { eslint: '9.0.0' } },
+      }).workspaceWide,
+    ).toBe(true);
+    expect(
+      classifyRootManifestChange({ before, after: { ...before, futureField: true } }).workspaceWide,
+    ).toBe(true);
   });
 });
 

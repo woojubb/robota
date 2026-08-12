@@ -161,6 +161,11 @@ This package is SSOT for:
 - `IWorkerLoopDependencies` -- dependency injection shape for the composition factory
 - `IWorkerLoopPolicyOptions` -- policy-level options with optional retry/DLQ flags
 
+`IWorkerLoopDependencies.executionRoot` is required execution authority, not worker policy. The worker
+validates it at construction, canonicalizes it to an absolute real directory, and copies that trusted
+value into every `ITaskExecutionInput`; it never reads `process.cwd()` or accepts a root from a queue
+message or DAG definition.
+
 ## Public API Surface
 
 A table rather than a bullet list, because `check-spec-public-surface` reads table rows — as a list

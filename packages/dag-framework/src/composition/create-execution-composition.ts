@@ -11,6 +11,7 @@ import { RunProgressEventBus, type IDagExecutionComposition } from '@robota-sdk/
 
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
+  executionRoot: string;
   storage: IStoragePort;
   queue: IQueuePort;
   deadLetterQueue?: IQueuePort;
@@ -43,6 +44,7 @@ export function createExecutionComposition(
 
   const workerLoop = createWorkerLoopService(
     {
+      executionRoot: dependencies.executionRoot,
       storage: dependencies.storage,
       queue: dependencies.queue,
       deadLetterQueue: dependencies.deadLetterQueue,

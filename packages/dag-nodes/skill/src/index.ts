@@ -1,4 +1,6 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
+import { isPathInside } from '@robota-sdk/agent-core/node';
+import { resolve } from 'node:path';
 import {
   buildValidationError,
   type ICostEstimate,
@@ -27,7 +29,7 @@ export const SkillNodeConfigSchema = z.object({
   skillName: z.string().min(1),
   /** Static skill arguments; the `args` input port overrides this when non-empty. */
   args: z.string().default(''),
-  /** Working directory to discover skills from. Defaults to the process cwd. */
+  /** Optional discovery directory that may only narrow the trusted execution root. */
   cwd: z.string().optional(),
   /** Session id substituted for `${CLAUDE_SESSION_ID}` in the skill body. */
   sessionId: z.string().optional(),
@@ -90,10 +92,26 @@ export class SkillNodeDefinition extends AbstractNodeDefinition<typeof SkillNode
     const args =
       typeof argsInput === 'string' && argsInput.trim().length > 0 ? argsInput : config.args;
 
+    const requestedCwd = resolve(context.executionRoot, config.cwd ?? '.');
+    if (!isPathInside(context.executionRoot, requestedCwd)) {
+      return {
+        ok: false,
+        error: buildValidationError(
+          'DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT',
+          `cwd "${config.cwd ?? ''}" resolves outside the execution root`,
+          { nodeId: context.nodeDefinition.nodeId },
+          {
+            action: 'set_config',
+            suggestion: 'Set cwd to a directory inside the trusted execution root',
+          },
+        ),
+      };
+    }
+
     const resolved = await this.runtime.resolvePrompt({
       skillName: config.skillName,
       args,
-      cwd: config.cwd ?? process.cwd(),
+      cwd: requestedCwd,
       ...(config.sessionId !== undefined ? { sessionId: config.sessionId } : {}),
     });
     if (!resolved.ok) {

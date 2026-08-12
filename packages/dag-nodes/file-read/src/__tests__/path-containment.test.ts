@@ -34,6 +34,7 @@ let originalCwd: string;
 
 function makeContext(config: Record<string, unknown> = {}): INodeExecutionContext {
   return {
+    executionRoot: workdir,
     nodeDefinition: { nodeId: 'n1', nodeType: 'file-read', config, inputs: [], outputs: [] },
     dagRunId: 'run-1',
     dagId: 'dag-1',
@@ -66,6 +67,13 @@ afterEach(() => {
 });
 
 describe('file-read — confined to the invocation directory (SEC-007)', () => {
+  it('uses context.executionRoot rather than the ambient process cwd', async () => {
+    process.chdir(outside);
+    const result = await read(join(workdir, 'inside.txt'));
+    expect(result.ok).toBe(true);
+    expect(result.text).toContain('in-workflow content');
+  });
+
   const node = new FileReadNodeDefinition();
 
   async function read(path: string): Promise<{ ok: boolean; text?: unknown; code?: string }> {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Changed-path classifier — THE single mechanism that decides whether a PR touches CODE or is
- * documentation-only.
+ * Changed-path classifier — THE single mechanism that decides whether a PR touches CODE and which
+ * product capabilities are affected.
  *
  * ## Why this is a shared module and not two copies
  *
@@ -41,9 +41,8 @@
  * Usage:
  *   node scripts/harness/classify-changed-paths.mjs --base-ref origin/develop [--head HEAD]
  *
- * Prints the merge base(s), the changed files, and a final `code=true|false` line, and appends
- * `code=<value>` to `$GITHUB_OUTPUT` when running under Actions. Always exits 0 — the verdict is
- * the output, not the exit code.
+ * Prints the merge base(s), changed files, and code/product/tui/examples booleans, and appends the
+ * same values to `$GITHUB_OUTPUT` under Actions. Always exits 0 — the verdict is the output.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -64,6 +63,12 @@ export function isDocsOnlyPath(file) {
   return DOCS_ONLY_PATTERN.test(String(file ?? ''));
 }
 
+const INFRASTRUCTURE_ONLY_PATTERN = /^(scripts\/harness\/|\.github\/|\.husky\/|\.claude\/)/;
+
+function failClosedCapabilities(reason) {
+  return { code: true, product: true, tui: true, examples: true, reason };
+}
+
 /**
  * Classify an already-resolved list of changed paths.
  *
@@ -73,18 +78,31 @@ export function isDocsOnlyPath(file) {
 export function classifyFiles(files) {
   const changed = (files ?? []).map((file) => String(file).trim()).filter(Boolean);
   if (changed.length === 0) {
-    return {
-      code: true,
-      reason: 'no changed files could be resolved — classifying as CODE so nothing is skipped.',
-    };
+    return failClosedCapabilities(
+      'no changed files could be resolved — classifying as CODE so nothing is skipped.',
+    );
   }
   const codeFiles = changed.filter((file) => !isDocsOnlyPath(file));
-  return codeFiles.length > 0
-    ? {
-        code: true,
-        reason: `code changes present: full matrix runs (${codeFiles.length} file(s)).`,
-      }
-    : { code: false, reason: 'docs-only PR: no analyzable code changed.' };
+  if (codeFiles.length === 0) {
+    return {
+      code: false,
+      product: false,
+      tui: false,
+      examples: false,
+      reason: 'docs-only PR: no analyzable code changed.',
+    };
+  }
+
+  const product = codeFiles.some((file) => !INFRASTRUCTURE_ONLY_PATTERN.test(file));
+  return {
+    code: true,
+    product,
+    tui: product,
+    examples: product,
+    reason: product
+      ? `product changes present: product matrix runs (${codeFiles.length} code file(s)).`
+      : `infrastructure-only changes: product matrix is not applicable (${codeFiles.length} code file(s)).`,
+  };
 }
 
 function git(args, { cwd } = {}) {
@@ -116,10 +134,9 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
     : [];
   if (bases.length === 0) {
     return {
-      code: true,
+      ...failClosedCapabilities('Classifying as CODE so no required check is silently skipped.'),
       bases: [],
       files: [],
-      reason: 'Classifying as CODE so no required check is silently skipped.',
       error: `no merge base between ${baseRef} and ${head}.`,
     };
   }
@@ -129,10 +146,9 @@ export function classifyRange({ baseRef, head = 'HEAD', cwd, runGit = git } = {}
     const diff = runGit(['diff', '--name-only', '--diff-filter=ACMRD', base, head], { cwd });
     if (!diff.ok) {
       return {
-        code: true,
+        ...failClosedCapabilities('Classifying as CODE so no required check is silently skipped.'),
         bases,
         files: [],
-        reason: 'Classifying as CODE so no required check is silently skipped.',
         error: `git diff against merge base ${base} failed.`,
       };
     }
@@ -174,9 +190,15 @@ export function main(argv = process.argv.slice(2), write = (text) => process.std
     write(`→ ${result.reason}\n`);
   }
   write(`code=${result.code}\n`);
+  write(`product=${result.product}\n`);
+  write(`tui=${result.tui}\n`);
+  write(`examples=${result.examples}\n`);
 
   if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, `code=${result.code}\n`);
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `code=${result.code}\nproduct=${result.product}\ntui=${result.tui}\nexamples=${result.examples}\n`,
+    );
   }
   return result;
 }

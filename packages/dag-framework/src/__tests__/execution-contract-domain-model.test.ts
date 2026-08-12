@@ -93,9 +93,11 @@ function definitionWithStringIds(): IDagDefinition {
 
 describe('the execution contract carries the domain model (DAG-002)', () => {
   it('run outputs name the ORIGINAL string node ids', async () => {
+    const root = projectDir();
     const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
       workspace: DEFAULT_WORKSPACE_LAYOUT,
-      projectDir: projectDir(),
+      projectDir: root,
       instantNodes: [echoNode()],
     });
 
@@ -110,9 +112,11 @@ describe('the execution contract carries the domain model (DAG-002)', () => {
   it('the named port survives, and the edge it carries is still wired', async () => {
     // A port key invented as `out0`/`in0` would not match the handler's declared `passage` port, so
     // the value would not arrive: the id loss and the wiring loss are the same defect seen twice.
+    const root = projectDir();
     const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
       workspace: DEFAULT_WORKSPACE_LAYOUT,
-      projectDir: projectDir(),
+      projectDir: root,
       instantNodes: [echoNode()],
     });
 

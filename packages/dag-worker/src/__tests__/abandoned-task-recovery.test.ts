@@ -109,7 +109,7 @@ async function harness(
   });
   await storage.createTaskRun(fixture.taskRun);
 
-  const service = new WorkerLoopService(storage, queue, lease, executor, clock, {
+  const service = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
     workerId,
     leaseDurationMs: 30_000,
     visibilityTimeoutMs: 30_000,

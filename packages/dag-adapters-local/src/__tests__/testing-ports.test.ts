@@ -412,6 +412,7 @@ describe('ScriptedTaskExecutorPort', () => {
   it('returns default success result (passes input through)', async () => {
     const mock = new ScriptedTaskExecutorPort();
     const result = await mock.execute({
+      executionRoot: '/test/execution-root',
       dagId: 'dag-1',
       dagRunId: 'run-1',
       taskRunId: 'task-1',
@@ -431,6 +432,7 @@ describe('ScriptedTaskExecutorPort', () => {
       output: { custom: 'result' },
     }));
     const result = await mock.execute({
+      executionRoot: '/test/execution-root',
       dagId: 'dag-1',
       dagRunId: 'run-1',
       taskRunId: 'task-1',

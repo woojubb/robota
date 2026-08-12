@@ -13,10 +13,9 @@
  * Assertions only cover the post-boot composition window: boot may legitimately show the cursor
  * (spinners etc.), and teardown restores visibility — both are outside the invariant.
  *
- * The second describe block turns the backlog's MANUAL terminal matrix into a re-runnable one: the
- * same two geometries are driven once per (terminal, ROBOTA_IME_CURSOR) cell, with the terminal
- * applied as the environment handshake it really exports (helpers/terminal-profiles.ts documents
- * how each row's values were obtained). What that does and does NOT prove is stated there.
+ * The second describe block drives four boundary representatives through the real binary. The full
+ * terminal/override matrix remains exhaustive in terminal-capabilities.test.ts; process startup is
+ * reserved for supported-default, Terminal.app-default-off, force-on, and kill-switch boundaries.
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -27,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { spawnTui, writeTuiProviderSettings } from './pty-driver.js';
 import {
-  IME_CURSOR_SETTINGS,
+  REPRESENTATIVE_IME_PTY_CELLS,
   TERMINAL_PROFILES,
   cellLabel,
   expectedImeCursorEnabled,
@@ -35,8 +34,8 @@ import {
 } from '../helpers/terminal-profiles.js';
 import { interpretVtStream } from '../helpers/vt-cursor-interpreter.js';
 
-import type { ICursorShowEvent } from '../helpers/vt-cursor-interpreter.js';
 import type { IPtySession } from './pty-driver.js';
+import type { ICursorShowEvent } from '../helpers/vt-cursor-interpreter.js';
 
 const COLS = 80;
 const PROMPT_PLACEHOLDER = /Type a message or \/help/;
@@ -128,7 +127,7 @@ describe('CLI-062 — IME hardware-cursor positioning through a real PTY', () =>
 });
 
 /**
- * The terminal matrix, re-runnable.
+ * Representative terminal boundaries, re-runnable through the real binary.
  *
  * PROVES, per cell: the built binary's observable cursor contract under exactly the environment
  * that terminal exports — positioned on the input row when the capability gate says yes, and no
@@ -156,29 +155,32 @@ describe('CLI-062 terminal matrix — observable cursor contract per terminal', 
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  for (const profile of TERMINAL_PROFILES) {
-    for (const override of IME_CURSOR_SETTINGS) {
-      const enabled = expectedImeCursorEnabled(profile, override);
-      const verdict = enabled ? 'positions on the input row' : 'never shows the cursor';
-
-      it(`${cellLabel(profile, override)} → ${verdict}`, async () => {
-        const env = profileEnv(profile, override);
-
-        const wide = await probe(projectDir, 24, env, (s) => (session = s));
-        if (!enabled) {
-          expect(wide.compositionShows).toEqual([]);
-          return;
-        }
-        expectPositionedOnInputRow(wide);
-        await session?.disposeAsync();
-        session = undefined;
-
-        // I2, checked wherever the gate would otherwise allow positioning: a frame that fills the
-        // viewport is never positioned into, however capable the terminal is. (For a gated-off
-        // cell the 24-row probe above already proves nothing is ever shown.)
-        const narrow = await probe(projectDir, 5, env, (s) => (session = s));
-        expect(narrow.compositionShows).toEqual([]);
-      }, 90_000);
+  for (const cell of REPRESENTATIVE_IME_PTY_CELLS) {
+    const profile = TERMINAL_PROFILES.find((candidate) => candidate.id === cell.profileId);
+    if (!profile) {
+      throw new Error(`Unknown representative terminal profile: ${cell.profileId}`);
     }
+    const { override } = cell;
+    const enabled = expectedImeCursorEnabled(profile, override);
+    const verdict = enabled ? 'positions on the input row' : 'never shows the cursor';
+
+    it(`${cellLabel(profile, override)} → ${verdict}`, async () => {
+      const env = profileEnv(profile, override);
+
+      const wide = await probe(projectDir, 24, env, (s) => (session = s));
+      if (!enabled) {
+        expect(wide.compositionShows).toEqual([]);
+        return;
+      }
+      expectPositionedOnInputRow(wide);
+      await session?.disposeAsync();
+      session = undefined;
+
+      // I2, checked wherever the gate would otherwise allow positioning: a frame that fills the
+      // viewport is never positioned into, however capable the terminal is. (For a gated-off
+      // cell the 24-row probe above already proves nothing is ever shown.)
+      const narrow = await probe(projectDir, 5, env, (s) => (session = s));
+      expect(narrow.compositionShows).toEqual([]);
+    }, 90_000);
   }
 });

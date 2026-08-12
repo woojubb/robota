@@ -97,6 +97,21 @@ describe(`every required check on \`${MIRRORED_BRANCH}\` is answered for (anti-d
 });
 
 describe('every mirrored job is covered STEP for STEP (anti-drift)', () => {
+  it('declares every explicit not-applicable CI outcome as local setup plumbing', () => {
+    expect(CI_SETUP_STEPS.build.map((entry) => entry.step)).toContain(
+      'Product verification not applicable',
+    );
+    expect(CI_SETUP_STEPS.quality.map((entry) => entry.step)).toContain(
+      'Product verification not applicable',
+    );
+    expect(CI_SETUP_STEPS['examples-typecheck'].map((entry) => entry.step)).toContain(
+      'Examples verification not applicable',
+    );
+    expect(CI_SETUP_STEPS['tui-e2e'].map((entry) => entry.step)).toContain(
+      'TUI verification not applicable',
+    );
+  });
+
   it.each(mirroredContexts.map((entry) => [entry.context, entry.job]))(
     '`%s` (job `%s`): every run-step is claimed by a stage or declared CI plumbing',
     (context, job) => {

@@ -20,11 +20,9 @@
  * anyone noticing is worse than no gate, and it is the fail-open shape INFRA-048/050 closed
  * elsewhere.
  *
- * COST. Every stage is gated on the SAME condition CI gates its job on, so a markdown-only branch
- * still finishes in ~20s. Any other branch — including a `scripts/harness` or `package.json` one,
- * which `classify-changed-paths` correctly calls CODE — runs the build and the e2e suites and costs
- * roughly 3.5-5 minutes serially. That is the price of the name being true, and it is a fraction of
- * a red-CI round trip.
+ * COST. Every stage is gated on the same capability classification CI uses. Infrastructure-only
+ * code still runs its harness owners but does not launch product, TUI, or examples work. The summary
+ * prints measured per-stage and total times; no fixed duration claim substitutes for current evidence.
  *
  * WHY (HARNESS-045). An agent's foreground verification is typically
  * `node scripts/harness/run-all-scans.mjs`, reported as "green locally". That is NOT the same claim
@@ -97,8 +95,10 @@ import { CI_STAGES, describeCiSource, MIRRORED_BRANCH, NOT_MIRRORED } from './ci
 import { classifyFiles } from './classify-changed-paths.mjs';
 import {
   collectPackageManifestChanges,
+  collectRootManifestChange,
   detectChangedFiles,
   listWorkspaceScopes,
+  appendJobSummary,
 } from './shared.mjs';
 import {
   checkTreePrerequisites,
@@ -107,6 +107,7 @@ import {
   inspectTree,
   listBuildablePackageDirs as listBuildablePackageDirsIn,
 } from './tree-prerequisites.mjs';
+import { isCleanTree, shouldWriteFullReceipt } from './verification-receipt.mjs';
 
 export { CI_STAGES, NOT_MIRRORED };
 
@@ -245,11 +246,25 @@ export function listNodeModulesOwners(root = WORKSPACE_ROOT, maxDepth = 5) {
  * stages that now cost minutes, that wording is the cheapest way to hollow the gate out, so a
  * partial run says so and names what it did not run.
  */
-export function summarize(results, { skippedStages = [], notMirrored = [] } = {}) {
+function formatDuration(durationMs) {
+  const seconds = Math.max(0, durationMs) / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(1)}s`;
+}
+
+export function summarize(
+  results,
+  { skippedStages = [], notMirrored = [], totalDurationMs = null } = {},
+) {
   const lines = ['', 'verify-like-ci summary:'];
   for (const result of results) {
     const mark = result.status === 'pass' ? '✓' : result.status === 'skip' ? '-' : '✗';
-    lines.push(`${mark} ${result.name}${result.note ? ` — ${result.note}` : ''}`);
+    const timing =
+      typeof result.durationMs === 'number' ? ` [${formatDuration(result.durationMs)}]` : '';
+    lines.push(`${mark} ${result.name}${timing}${result.note ? ` — ${result.note}` : ''}`);
+  }
+  if (typeof totalDurationMs === 'number') {
+    lines.push(`total elapsed: ${formatDuration(totalDurationMs)}`);
   }
   for (const entry of notMirrored) {
     const mark = entry.relevant ? '!' : '·';
@@ -524,6 +539,9 @@ async function runAffectedVerify({ baseRef }, context) {
     baseRef,
     '--skip-build',
     '--skip-record-check',
+    '--skip-repository-check',
+    'harness-tests',
+    '--skip-typecheck',
   ]);
   return { code, note: describeAffectedScopes(context) };
 }
@@ -566,31 +584,40 @@ export async function resolveRunContext(baseRef) {
     changedFiles,
     baseRef,
   });
+  const rootManifestChange = await collectRootManifestChange({ changedFiles, baseRef });
   const plan = createVerificationPlan({
     scopes,
     changedFiles,
     scopeTokens: [],
     manifestChangesByScope,
+    rootManifestChange,
     includeDependentScopes: true,
   });
   const missingDist = findMissingDist(listBuildablePackageDirs());
   const distRequired = planRequiresPackageDist(plan);
-  const codeChanged = classifyFiles(changedFiles).code;
+  const changeClassification = classifyFiles(changedFiles);
+  const codeChanged = changeClassification.code;
+  const productChanged = changeClassification.product;
+  const tuiChanged = changeClassification.tui;
+  const examplesChanged = changeClassification.examples;
   return {
     changedFiles,
     plan,
     distRequired,
     codeChanged,
+    productChanged,
+    tuiChanged,
+    examplesChanged,
     missingDist,
-    buildReason: describeBuildReason({ distRequired, codeChanged, missingDist }),
+    buildReason: describeBuildReason({ distRequired, productChanged, missingDist }),
   };
 }
 
-function describeBuildReason({ distRequired, codeChanged, missingDist }) {
+function describeBuildReason({ distRequired, productChanged, missingDist }) {
   if (distRequired) return 'the plan needs build output (ci.yml → build builds too)';
   if (missingDist.length > 0)
     return `${missingDist.length} package(s) have no dist/ — the dist-dependent scans would silently no-op`;
-  if (codeChanged)
+  if (productChanged)
     return 'code changed — ci.yml builds inside tui-e2e / examples-typecheck regardless of the plan';
   return 'skipped';
 }
@@ -664,7 +691,7 @@ export function stageBlockCause(stage, state) {
 export function stageGate(name, context) {
   switch (name) {
     case 'build':
-      return context.distRequired || context.codeChanged || context.missingDist.length > 0
+      return context.distRequired || context.productChanged || context.missingDist.length > 0
         ? { run: true }
         : {
             run: false,
@@ -678,24 +705,30 @@ export function stageGate(name, context) {
             note: 'ci.yml gates it on `package_dist_required`, which this plan is not',
           };
     case 'examples-typecheck':
-    case 'tui-e2e':
-      return context.codeChanged
+      return context.examplesChanged
         ? { run: true }
-        : { run: false, note: 'docs-only diff — ci.yml gates it on `changes.code == true`' };
+        : { run: false, note: 'examples capability is not affected — CI reports N/A' };
+    case 'tui-e2e':
+      return context.tuiChanged
+        ? { run: true }
+        : { run: false, note: 'TUI capability is not affected — CI reports N/A' };
     default:
       return { run: true };
   }
 }
 
 /** The un-mirrorable contexts, marked relevant when this diff makes them matter. */
-export function annotateNotMirrored(changedFiles, codeChanged = classifyFiles(changedFiles).code) {
+export function annotateNotMirrored(
+  changedFiles,
+  productChanged = classifyFiles(changedFiles).product,
+) {
   const touchesManifest = changedFiles.some(
     (file) =>
       file === 'pnpm-lock.yaml' || file === 'package.json' || file.endsWith('/package.json'),
   );
   const evaluate = (key) => {
     if (key === 'manifest-or-lockfile') return touchesManifest;
-    if (key === 'code') return codeChanged;
+    if (key === 'code') return productChanged;
     // An unknown key must SHOUT rather than be ignored: the alternative is a required check
     // quietly demoted to a footnote by a relevance rule nobody implemented.
     return true;
@@ -747,13 +780,20 @@ export async function main(argv = process.argv.slice(2)) {
   let buildState = initialBuildState(selected, context);
 
   const results = [];
+  const runStartedAt = performance.now();
   for (const stage of selected) {
+    const stageStartedAt = performance.now();
     // The gate is asked FIRST: a stage CI would not run at all needs no prerequisite, and reporting
     // one for it would invent a failure where a skip is the honest answer.
     const gate = stageGate(stage.name, context);
     if (!gate.run) {
       process.stdout.write(`\n===== ${stage.name} (skipped) =====\n${gate.note}\n`);
-      results.push({ name: stage.name, status: 'skip', note: gate.note });
+      results.push({
+        name: stage.name,
+        status: 'skip',
+        note: gate.note,
+        durationMs: performance.now() - stageStartedAt,
+      });
       continue;
     }
     const blocked = stageBlockCause(stage, buildState);
@@ -769,6 +809,7 @@ export async function main(argv = process.argv.slice(2)) {
       results.push({
         name: stage.name,
         status: 'fail',
+        durationMs: performance.now() - stageStartedAt,
         note:
           blocked === 'build-failed'
             ? '`build` failed in this run — this stage measured nothing'
@@ -782,15 +823,46 @@ export async function main(argv = process.argv.slice(2)) {
       name: stage.name,
       status: outcome.code === 0 ? 'pass' : 'fail',
       note: outcome.note,
+      durationMs: performance.now() - stageStartedAt,
     });
     buildState = advanceBuildState(buildState, stage, outcome.code);
   }
   const { lines, exitCode } = summarize(results, {
     skippedStages,
-    notMirrored: annotateNotMirrored(context.changedFiles, context.codeChanged),
+    notMirrored: annotateNotMirrored(context.changedFiles, context.productChanged),
+    totalDurationMs: performance.now() - runStartedAt,
   });
   process.stdout.write(`${lines.join('\n')}\n`);
-  process.exitCode = exitCode;
+  appendJobSummary(`${lines.join('\n')}\n`);
+  let finalExitCode = exitCode;
+  let clean = false;
+  try {
+    clean = isCleanTree(WORKSPACE_ROOT);
+  } catch (error) {
+    process.stderr.write(`verification receipt eligibility failed: ${error?.message ?? error}\n`);
+  }
+  if (
+    shouldWriteFullReceipt({
+      exitCode,
+      clean,
+      selectedStages: selected.map((stage) => stage.name),
+      requiredStages: CI_STAGES.map((stage) => stage.name),
+    })
+  ) {
+    const receiptCode = await run('scripts/harness/with-repo-lock.sh', [
+      process.execPath,
+      'scripts/harness/verification-receipt.mjs',
+      '--base-ref',
+      options.baseRef,
+      ...selected.flatMap((stage) => ['--stage', stage.name]),
+    ]);
+    if (receiptCode !== 0) finalExitCode = 1;
+  } else if (exitCode === 0) {
+    process.stdout.write(
+      'verification receipt not written: run was partial or tree was not clean\n',
+    );
+  }
+  process.exitCode = finalExitCode;
 }
 
 if (path.resolve(process.argv[1] ?? '') === path.resolve(import.meta.filename)) {

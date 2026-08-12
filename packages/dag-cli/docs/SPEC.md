@@ -173,7 +173,7 @@ The barrel (`src/index.ts`) exports exactly:
 
 The following are **package-internal** (not exported by the barrel):
 
-- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`).
+- `LocalDagRunner` — in-process DAG runner that embeds the runtime, worker, and adapters without a server (`src/local-runner/`). Its constructor requires the product-selected trusted absolute execution root and propagates it to every node; it has no ambient fallback.
 - `createCliNodeRegistry()` — returns all built-in node definitions for use with `LocalDagRunner` (`src/local-runner/`).
 - `computeLineDiff(before, after, options?)` — LCS-based line diff utility (`src/lib/line-diff.ts`).
 - `getMainOutput(result)` — extracts primary string output from a run result for diff comparison.

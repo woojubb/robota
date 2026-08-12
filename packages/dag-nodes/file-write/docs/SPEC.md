@@ -14,7 +14,7 @@
 ## Architecture Overview
 
 - `FileWriteNodeDefinition` — node that accepts optional `text` and `path` input ports and produces `path`, `sizeBytes`, and `appended` output ports.
-- Path resolution: input port value overrides `config.path`; `resolve(cwd, path)` is applied.
+- Path resolution: input port value overrides `config.path`; it is resolved against the required trusted `context.executionRoot` and its canonical path must remain inside that root before any directory or file is created.
 - `config.createDirs` (default `true`): automatically creates parent directories with `mkdir -p`.
 - `config.append` (default `false`): appends to existing file instead of overwriting.
 - Encoding: `utf8` (default) or `base64`, controlled by `config.encoding`.
@@ -38,4 +38,4 @@
 - Config `encoding`: `'utf8'` | `'base64'`.
 - Config `append`: boolean toggle for append vs. overwrite mode.
 - Config `createDirs`: boolean toggle for automatic parent directory creation.
-- Error codes: `DAG_VALIDATION_FILE_WRITE_PATH_REQUIRED`, `DAG_TASK_EXECUTION_FILE_WRITE_FAILED`.
+- Error codes: `DAG_VALIDATION_FILE_WRITE_PATH_REQUIRED`, `DAG_VALIDATION_FILE_WRITE_PATH_OUTSIDE_ROOT`, `DAG_TASK_EXECUTION_FILE_WRITE_FAILED`.

@@ -53,6 +53,7 @@ function makeImageBinary(overrides?: Partial<IPortBinaryValue>): IPortBinaryValu
 
 function makeExecutionContext(nodeId: string = 'node-1'): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'dag-1',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

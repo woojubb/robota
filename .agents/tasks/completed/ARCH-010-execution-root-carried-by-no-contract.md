@@ -1,14 +1,91 @@
 ---
-title: 'ARCH-010: the execution root (`cwd`) is carried by no execution contract, so every layer falls back to `process.cwd()` and the containment guard is disarmed by default'
-status: in-progress
+title: 'ARCH-010: carry a trusted execution root through the remaining DAG execution contract'
+status: done
 created: 2026-08-02
+completed: 2026-08-13
 priority: critical
 urgency: now
 area: packages/agent-session, packages/agent-tools, packages/agent-framework, packages/agent-executor, packages/agent-subagent-runner, packages/dag-core, packages/dag-nodes
 depends_on: []
 ---
 
-# ARCH-010: the execution root is an ambient process fact, not a contract field
+# ARCH-010: carry a trusted execution root through the remaining DAG execution contract
+
+## Current scope correction
+
+The original report below is retained as the historical defect record, but it no longer describes the
+whole current tree. P1 has landed: session/tool construction requires `cwd`, the agent tool guard fails
+closed, and both child-process and in-process subagent paths propagate the selected root. The remaining
+work is P2, the DAG execution path. `ITaskExecutionInput` and `INodeExecutionContext` still carry no
+trusted root, so filesystem-capable DAG nodes still reconstruct authority from `process.cwd()` or from
+LLM-authored node configuration.
+
+The original suggestion to reuse `IWorkspaceLayout.root` is also stale. That field is a project-relative
+workflow-definition storage location such as `.workflows`; it is not an absolute execution authority.
+Definition layout and runtime containment remain separate contracts.
+
+## Recommendation Gate — 2026-08-12
+
+**Depth verdict: FOUNDATIONAL.** The defect is the missing root on the contracts that carry task and node
+execution, not any one filesystem node. It already forces `tool`, `file-read`, `file-write`, and `skill`
+to repeat ambient or attacker-controlled root selection and would force future nodes to do the same.
+
+**Endorsed recommendation:**
+
+1. `dag-core` owns required `executionRoot: string` fields on `ITaskExecutionInput` and
+   `INodeExecutionContext`. `LifecycleTaskExecutorPort` is the explicit projection between those two
+   contracts, and the same value reaches every lifecycle phase.
+2. The root travels as an execution-composition dependency through the worker and into each task input;
+   it is not worker retry/timeout policy. Lower layers never reconstruct or default it.
+3. `createDagFramework({ executionRoot? })` is the sole generic convenience boundary allowed to preserve
+   no-argument construction by immediately strict-validating and canonicalizing `process.cwd()`. Product
+   producers that already know their project/invocation directory pass it explicitly.
+4. `@robota-sdk/agent-core/node`, beside the existing `canonicalizePath`/`isPathInside` SSOT, owns strict
+   trusted-root validation: non-string, empty, relative, nonexistent, non-directory, or inaccessible roots
+   are refused; an accepted root is returned as its canonical absolute real path. Candidate write-path
+   canonicalization remains tolerant of a not-yet-created tail.
+5. `tool`, `file-read`, `file-write`, and `skill` use only `context.executionRoot` as containment authority.
+   Node configuration may narrow within it but may never widen it through an absolute path, `..`, or an
+   escaping symlink.
+6. `dag-node-skill` is explicitly corrected to Node-only: its current browser condition points to the
+   same filesystem-oriented Node build and is a false capability claim. The browser condition is removed,
+   the shared Node containment SSOT is reused, and the manifest/SPEC/changeset record the public-surface
+   correction.
+7. The migration is spec-first and red-first, covers every production composition plus custom executor
+   propagation, and ends with a provider-free public-product scenario, full verification, independent
+   review, and atomic Task archival.
+
+**Independent review:** `REVIEW VERDICT: ENDORSE` — 2026-08-12. The reviewer confirmed the single
+directional authority flow, owner placement, compatibility boundary, Node-only skill classification,
+test/scenario plan, and ordering before RUNTIME-003/RUNTIME-004.
+
+### Done Gate audit record — 2026-08-12
+
+- The scenario authoring guardian returned `DONE-GATE-STAGE-1: PASS` before implementation and before
+  the scenario was executed, but that verdict was not immediately appended to this Task.
+- The completed implementation's unchanged scenario later exited `0` with all expected containment,
+  narrowing, non-disclosure, and cleanup observables recorded in the durable artifact.
+- The independent Stage 2 guardian therefore returned `GATE VERDICT: NON-COMPLIANCE`: the prerequisite
+  Stage 1 PASS existed only in conversation, not in the designated repository evidence surface when
+  Stage 2 began. Its Stage 2 behavior evidence was not evaluated.
+- This record is deliberately not a retroactive Stage 1 PASS and ARCH-010 remains `in-progress`.
+
+### One-time process disposition — approved 2026-08-13
+
+- The user explicitly approved the recommended ARCH-010-only recovery on 2026-08-13 after receiving
+  its scope, alternatives, evidence, and audit consequences. This approval does not establish a
+  reusable exception for any later backlog.
+- For this one item, the pre-implementation conversational `DONE-GATE-STAGE-1: PASS` is accepted as
+  historical Stage 1 evidence. The omission was its failure to land promptly in this designated Task
+  surface; the original Stage 2 `NON-COMPLIANCE` above remains part of the record and is not rewritten.
+- Completion still requires an unchanged fresh scenario run against the completed implementation and
+  a fresh independent Stage 2 verdict. Only a Stage 2 PASS permits `status: done` and atomic archival.
+- The unchanged scenario was freshly executed on 2026-08-13 after this disposition was recorded. It
+  exited `0` with execution root `/tmp/robota-arch010.eAZLog/project`; all expected containment and
+  narrowing observables matched, the outside sentinel was not disclosed, and bounded cleanup passed.
+  The fresh independent guardian then returned `GATE VERDICT: PASS`: direct execution, exit status,
+  every expected product observable, durable evidence, sentinel non-disclosure, cleanup, and use of a
+  public product surface all satisfied `DONE-GATE-STAGE-2`.
 
 ## Problem
 
@@ -111,19 +188,20 @@ _"a root the attacker supplies is not a root"_.
 **Applies.** This changes runnable behavior on a shipped product surface: what a subagent is allowed
 to read.
 
-- **Prerequisites:** a checked-out working copy and a built `robota` CLI; a provider key configured
-  as for any normal session. No new fixture is needed — the scenario reads a file that exists on
-  every Linux host (`/etc/hostname`), which is the exact file `pack-coding`'s doc comment names.
-- **Steps:** from a project directory, start the CLI and ask it to spawn a subagent (the
-  child-process runner path) and have that subagent `Read` the absolute path `/etc/hostname`.
-- **Expected observable result (after the fix):** the subagent's `Read` is refused with a
-  containment error naming the workspace root. The parent session reports the refusal; the file
-  contents never appear in the transcript.
-- **Expected observable result (before the fix, for contrast):** the contents of `/etc/hostname` are
-  returned to the subagent and appear in the transcript.
-- **Cleanup:** none — the scenario writes nothing.
-- **Evidence (fill in after implementation):** transcript excerpt showing the refusal and the root it
-  was measured against.
+- **Durable provider-free DAG scenario:**
+  [`.agents/evals/scenarios/arch-010-dag-execution-root-agent-run.md`](../../evals/scenarios/arch-010-dag-execution-root-agent-run.md)
+- **Executability:** `agent-executable`; it drives public `createDagFramework` with local fixtures and
+  no provider credentials or external service.
+- **Current Done Gate evidence:** executed 2026-08-12; exit `0`. The public framework reported
+  `absoluteOutsideRead: "denied-without-content"`, all three cwd-widening forms as `"denied"`,
+  `internalNarrowing: "success"`, and `outsideSentinelDisclosed: false`. The cleanup trap removed the
+  generated script and `/tmp/robota-arch010.a3bdPo`; the durable artifact contains the exact output.
+- **Coverage:** a sibling outside-root sentinel read must be denied without content disclosure;
+  authored `config.cwd` cannot widen by absolute path, `..`, or escaping symlink; an internal
+  subdirectory remains a valid narrowing root.
+- **Prerequisites / exact Bash / expected observable / cleanup:** owned in the linked durable artifact
+  so the executable recipe has one canonical copy. Its temporary sibling sentinel replaces the prior
+  `/etc/hostname` idea: it is host-independent and proves non-disclosure with unique content.
 
 ## Progress
 
@@ -186,10 +264,11 @@ fail-open guard and the constructor's `?? process.cwd()`:
 × containment is fail-closed > a Read built with no root REFUSES an absolute path …
 ```
 
-### Remaining — P2, the DAG half
+### Pre-implementation P2 finding (historical)
 
-`INodeExecutionContext` still carries no workspace root, and `dag-nodes/skill/src/index.ts:96` still
-takes its root from the LLM-authorable `.dag.json` (`config.cwd ?? process.cwd()`) without calling
+Before the P2 implementation, `INodeExecutionContext` carried no workspace root, and
+`dag-nodes/skill/src/index.ts:96` took its root from the LLM-authorable `.dag.json`
+(`config.cwd ?? process.cwd()`) without calling
 `resolveContainmentRoot`.
 
 A finding that changes the shape of that work, recorded here rather than acted on blind: the
@@ -198,3 +277,27 @@ seam, but its `root` is a path RELATIVE to the project dir (`.workflows`) and it
 workflow DEFINITIONS live — it is not an absolute execution root and cannot be threaded in as one
 without changing what it means. `INodeExecutionContext` also has 57 consumers, so adding a required
 member there is its own migration. P2 needs a design pass, not a mechanical edit.
+
+### P2 completion — 2026-08-13
+
+The endorsed DAG contract implementation is complete. `dag-core` now requires `executionRoot` on task input and
+node lifecycle context; framework/worker/CLI/workflow compositions propagate it; the generic framework
+factory alone preserves no-argument compatibility by validating and capturing its current directory.
+`agent-core/node` owns strict trusted-root validation. Tool, file-read, file-write, and skill nodes use
+the injected root, and the filesystem-backed skill package no longer advertises a browser condition.
+
+Engineering evidence at this checkpoint: full workspace typecheck PASS; package tests PASS for
+agent-core (949), dag-core (183), dag-worker (85), dag-framework (137), dag-cli (1,039), workflows (48),
+plus affected filesystem-node suites; `pnpm harness:scan` PASS (108 scans, 1 skipped). Final independent
+checkpoint review converged at `ACTIONABLE FINDINGS: 0`. A fresh `pnpm harness:verify-like-ci` passed all
+11 mirrored stages, including build, affected verification, binary E2E, examples typecheck, and TUI PTY
+E2E. Following the explicitly approved one-time disposition, the unchanged public scenario was rerun,
+exited `0`, and the independent Stage 2 guardian returned `GATE VERDICT: PASS`.
+
+## Result
+
+ARCH-010 is complete. Trusted execution authority now travels from product/framework composition through
+the worker task input into every DAG node lifecycle phase. Filesystem-capable nodes can narrow that root
+but cannot derive or widen it from ambient process state or authored configuration. Strict validation,
+canonical containment, symlink-escape regressions, package contract updates, and the durable public
+scenario prove the behavior. No follow-up work remains within this Task's corrected P2 scope.

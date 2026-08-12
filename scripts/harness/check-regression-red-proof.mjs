@@ -18,7 +18,16 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import fs, { existsSync } from 'node:fs';
+import fs, {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -84,6 +93,58 @@ export function isTestFile(filePath) {
 /** A source file is a package/app `src` file that is NOT a test file. */
 export function isSourceFile(filePath) {
   return pkgOf(filePath) !== null && !isTestFile(filePath);
+}
+
+/**
+ * Whether reversing a source hunk changes emitted JavaScript behavior.
+ *
+ * Vitest cannot prove TypeScript-only contracts red: interfaces and type aliases are erased before
+ * execution. Comments likewise have no runtime observable. Treating either as an executable mutant
+ * manufactures an accidental-green failure that only typecheck or a documentation scan can settle.
+ */
+export function hasRuntimeSemanticChange(filePath, fixedText, reversedText) {
+  if (/\.sh$/.test(filePath)) return fixedText !== reversedText;
+  if (!/\.[cm]?[jt]sx?$/.test(filePath)) return fixedText !== reversedText;
+
+  const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'robota-red-proof-emit-'));
+  const outDir = path.join(tempRoot, 'out');
+  const extension = path.extname(filePath);
+  const fixedPath = path.join(tempRoot, `fixed${extension}`);
+  const reversedPath = path.join(tempRoot, `reversed${extension}`);
+  try {
+    mkdirSync(outDir);
+    writeFileSync(fixedPath, fixedText);
+    writeFileSync(reversedPath, reversedText);
+    execFileSync(
+      path.join(WORKSPACE_ROOT, 'node_modules/.bin/tsgo'),
+      [
+        fixedPath,
+        reversedPath,
+        '--ignoreConfig',
+        '--allowJs',
+        '--noCheck',
+        '--target',
+        'esnext',
+        '--module',
+        'preserve',
+        '--jsx',
+        'react-jsx',
+        '--removeComments',
+        '--outDir',
+        outDir,
+      ],
+      { stdio: 'ignore' },
+    );
+    const outputs = readdirSync(outDir);
+    const emitted = (prefix) => {
+      const output = outputs.find((name) => name.startsWith(`${prefix}.`));
+      if (!output) throw new Error(`red-proof native emit produced no ${prefix} output`);
+      return readFileSync(path.join(outDir, output), 'utf8').trim();
+    };
+    return emitted('fixed') !== emitted('reversed');
+  } finally {
+    rmSync(tempRoot, { force: true, recursive: true });
+  }
 }
 
 /**
@@ -167,6 +228,19 @@ export function isDefectFixRange(commitSubjects, addedFiles = []) {
   // A floor is the artifact whose red proof matters most: it is what will be trusted to catch the
   // next occurrence, and a floor that cannot fail is worse than none, because it is believed.
   return addedFiles.some((f) => /^scripts\/harness\/__tests__\/.*\.test\.mjs$/.test(f));
+}
+
+/** Files changed by commits that individually qualify as defect fixes or add a harness floor. */
+export function filesForDefectFixCommits(commits, netChangedFiles = null) {
+  const files = new Set();
+  const netChanged = netChangedFiles ? new Set(netChangedFiles) : null;
+  for (const commit of commits) {
+    if (!isDefectFixRange([commit.subject], commit.addedFiles)) continue;
+    for (const file of commit.files) {
+      if (!netChanged || netChanged.has(file)) files.add(file);
+    }
+  }
+  return [...files];
 }
 
 /** Parse `allow-green-at-base: <reason>` (opt-out) from any text (PR body / commit trailers). */
@@ -453,6 +527,27 @@ function gitRaw(args, opts = {}) {
   return execFileSync('git', args, { cwd: WORKSPACE_ROOT, encoding: 'utf8', ...opts });
 }
 
+function defaultDefectFixFiles(base, netChangedFiles) {
+  const commits = gitRaw(['log', '--format=%H%x00%s', `${base}..HEAD`])
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.indexOf('\0');
+      const sha = line.slice(0, separator);
+      const subject = line.slice(separator + 1);
+      const changed = (extraArgs = []) =>
+        git(['diff-tree', '--no-commit-id', '--name-only', ...extraArgs, '-r', sha])
+          .split('\n')
+          .filter(Boolean);
+      return {
+        subject,
+        files: changed(),
+        addedFiles: changed(['--diff-filter=A']),
+      };
+    });
+  return filesForDefectFixCommits(commits, netChangedFiles);
+}
+
 /**
  * Reverse the range's changes to `srcPaths` — the mutation the whole gate is built around.
  *
@@ -518,7 +613,15 @@ export async function runRegressionRedProof(io = {}) {
     return { verdict: VERDICT.SKIPPED_NOT_FIX, decisions };
   }
 
-  const pairs = qualifyingPairs(classifyChanges(changedFiles));
+  // Scope by the commit that owns each file. A mixed PR must not turn unrelated `feat:` / `perf:`
+  // files into alleged defect fixes merely because another commit in the range is spelled `fix:`.
+  // Synthetic fixtures provide range inputs directly and retain whole-range scope.
+  const defectFixFiles =
+    io.defectFixFiles ??
+    (io.changedFiles !== undefined || io.commitSubjects !== undefined
+      ? changedFiles
+      : defaultDefectFixFiles(base, changedFiles));
+  const pairs = qualifyingPairs(classifyChanges(defectFixFiles));
   if (pairs.length === 0) {
     log('↩︎  SKIPPED: no same-package (source+test) pair to red-prove.');
     return { verdict: VERDICT.SKIPPED_NO_PAIR, decisions };
@@ -619,13 +722,25 @@ export async function runRegressionRedProof(io = {}) {
       const addedCases = exercised ? addedCaseMatchers(testsForSource, addedTestCaseDiff) : null;
       let outcome = null;
       let witness = WITNESS.UNKNOWN;
+      let runtimeMutation = true;
       if (exercised) {
         let deciders = [];
+        const fixedText = readText(path.resolve(WORKSPACE_ROOT, source));
         reverseApply([source]);
         try {
-          const vitestJson = await runVitest(pair.pkg, testsForSource);
-          outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
-          deciders = decidingFailures(vitestJson, testsForSource, addedCases);
+          const sourceAbs = path.resolve(WORKSPACE_ROOT, source);
+          const reversedText = fileExists(sourceAbs) ? readText(sourceAbs) : null;
+          // Injected orchestration fixtures may model reverseApply without mutating the real tree;
+          // identical text in that seam must preserve their declared test-run outcome.
+          runtimeMutation =
+            reversedText === null ||
+            fixedText === reversedText ||
+            hasRuntimeSemanticChange(source, fixedText, reversedText);
+          if (runtimeMutation) {
+            const vitestJson = await runVitest(pair.pkg, testsForSource);
+            outcome = classifyVitestOutcome(vitestJson, testsForSource, addedCases);
+            deciders = decidingFailures(vitestJson, testsForSource, addedCases);
+          }
         } finally {
           restore([source]);
         }
@@ -647,17 +762,20 @@ export async function runRegressionRedProof(io = {}) {
         witness,
         importsReversedFile: exercised,
         relation: exercised ? 'executed' : undeterminedRelation ? 'undetermined' : 'unrelated',
+        runtimeMutation,
       });
       const icon =
         verdict === VERDICT.RED_PROOF_OK ? '✅' : verdict === VERDICT.ACCIDENTAL_GREEN ? '❌' : '⚠︎';
       const note =
-        !exercised && undeterminedRelation
-          ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
-          : verdict === VERDICT.PROOF_UNREACHED
-            ? ' (the case that failed executed no line this fix changed)'
-            : outcome
-              ? ` (${outcome})`
-              : '';
+        exercised && !runtimeMutation
+          ? ' (type/comment-only change; runtime red proof is not applicable)'
+          : !exercised && undeterminedRelation
+            ? ' (no changed test could be TIED to this hook — the spawn target is built at runtime)'
+            : verdict === VERDICT.PROOF_UNREACHED
+              ? ' (the case that failed executed no line this fix changed)'
+              : outcome
+                ? ` (${outcome})`
+                : '';
       log(`${icon}  ${source}: ${verdict}${note}`);
       if ((rank[verdict] ?? 0) > (rank[worst] ?? 0)) worst = verdict;
     }

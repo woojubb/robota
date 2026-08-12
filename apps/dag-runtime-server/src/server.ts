@@ -23,7 +23,7 @@ export async function startDagRuntimeServer(
   const envPort = process.env['DAG_RUNTIME_SERVER_PORT'];
   const port = options.port ?? (envPort !== undefined ? Number(envPort) : 3939);
 
-  const framework = await createDagFramework();
+  const framework = await createDagFramework({ executionRoot: process.cwd() });
   await framework.start();
   const app = createDagRuntimeServer(
     framework.client,

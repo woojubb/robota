@@ -152,6 +152,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       new InMemoryLeasePort(),
       new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })),
       clock,
+      process.cwd(),
       {
         workerId: 'worker-2',
         leaseDurationMs: 30_000,

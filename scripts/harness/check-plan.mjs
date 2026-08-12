@@ -261,11 +261,15 @@ export function createVerificationPlan({
   changedFiles,
   scopeTokens = [],
   manifestChangesByScope = new Map(),
+  rootManifestChange = null,
   includeDependentScopes = true,
 }) {
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
   const explicitScopes = scopeTokens.length > 0;
-  const workspaceWideTriggers = explicitScopes ? [] : listWorkspaceWideTriggers(changedFiles);
+  const rawWorkspaceWideTriggers = explicitScopes ? [] : listWorkspaceWideTriggers(changedFiles);
+  const workspaceWideTriggers = rawWorkspaceWideTriggers.filter(
+    (file) => file !== 'package.json' || rootManifestChange?.workspaceWide !== false,
+  );
   const workspaceWide = workspaceWideTriggers.length > 0;
   const forceFullVerification = explicitScopes || workspaceWide;
 
@@ -344,6 +348,9 @@ export function createVerificationPlan({
     unmappedFiles,
     repositoryChecks,
     workspaceWideTriggers,
+    rootManifestClassification: changedFiles.includes('package.json')
+      ? (rootManifestChange?.kind ?? 'unclassified-workspace-wide')
+      : 'not-changed',
     workspaceScopeCount: scopes.length,
   };
 }
@@ -378,6 +385,9 @@ export function renderPlanSummary(plan) {
     `Changed files: ${plan.changedFiles.length}`,
     renderScopeCoverageLine(plan),
   ];
+  if (plan.rootManifestClassification && plan.rootManifestClassification !== 'not-changed') {
+    lines.push(`Root manifest: ${plan.rootManifestClassification}`);
+  }
 
   lines.push('', 'Scopes:');
   if (plan.scopes.length === 0) {

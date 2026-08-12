@@ -929,15 +929,31 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-framework/interactive/`
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
 - **Constructor**: Accepts `{ cwd, provider }` plus optional composition inputs such as `commandModules`. Config and context are loaded internally from `cwd`.
-- **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
+- **Responsibility**: Streaming accumulation, tool state tracking, bounded co-drive prompt queue, abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
 - **Tool execution history**: Each `tool_start` and `tool_end` event is recorded as an individual `IHistoryEntry` with `category: 'event'` and `type: 'tool-start'` or `type: 'tool-end'`. Data includes `toolName`, `firstArg`, `isRunning`, and `result`. For completed Edit tools, `IToolState` also carries `diffFile` and `diffLines` derived from the Edit tool arguments plus the tool result `startLine`. For completed command tools, `IToolState` carries `toolResultData` so transports can render bounded command output previews while raw tool messages remain persisted. The `tool-summary` entry (aggregated) is still pushed at execution completion and preserves the same per-tool metadata for persisted UI rendering.
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
-- **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
+- **submit() signature**: `submit(input, displayInput?, rawInput?, options?: ISubmitOptions)` — the
+  exported concrete class accepts the same transport-owned public options contract as
+  `IInteractiveSession` (`driverId` only). `displayInput` overrides what appears in the client's
+  message list; `rawInput` is passed to `Session.run()` for hook matching. The implementation
+  explicitly projects the public options shape, so runtime extra properties cannot become internal
+  execution authority.
+- **Turn acceptance and queued resumption (RUNTIME-006)**: every new public or framework-internal
+  turn calls the settler registry's `begin()` exactly once and receives a required identity at
+  acceptance. Framework-internal new turns may carry behavioral metadata such as wake source/task,
+  but no new-submission options shape contains a resume identity. A queued entry carries its required
+  `turnId` with its prompt and internal options. Queue drain resumes that complete entry through a
+  private execution path; it never re-enters public `submit()`, never calls acceptance again, and
+  never mints or looks up a replacement handle. Execution and every settle/refuse/fail path require
+  that identity, so missing identity is a construction/type error rather than a silent no-op.
 - **Prompt file references**: Before a non-command prompt reaches `Session.run()`, `InteractiveSession` delegates to the SDK-owned prompt file-reference resolver. Path-like tokens such as `@AGENTS.md`, `@./Makefile`, and `@docs/spec.md` are resolved relative to the session `cwd`, constrained to the workspace root, bounded by explicit file/total byte limits, and expanded into model-only prompt context blocks. The user-visible history keeps the original prompt and records a `prompt-file-reference` event with structured records (`sourcePath`, `relativePath`, `originalReference`, `reason`, `depth`, `byteLength`) without storing file contents in the event. Missing, outside-root, directory, circular, max-depth, and size-limit failures are blocking diagnostics and the prompt is not sent to the provider.
 - **executeCommand()**: `executeCommand(name, args, source?, originDriverId?)` — executes a named system command via the embedded `SystemCommandExecutor`. Product composition roots inject command modules such as `/compact`; SDK-default user-visible commands are intentionally empty. CMD-004 Phase 2: after a successful command, the SESSION applies its `hostActions` (`src/interactive/interactive-session-host-actions.ts`, generalizing the former hot-swap-only block) via `ICommandHostAdapters` — settings/process/remote-control adapters, direct-on-session rename with a `session_renamed` broadcast, a `history_cleared` broadcast on conversation clear — with headless (zero-surface) parity; applied host actions and emitted `uiIntents` are CONSUMED from the returned result (`ui_intent` events are stamped with the command-origin driver id, model-invoked fallback = active turn driver); an absent adapter capability yields an EXPLICIT failure result (no-fallback). The legacy `TCommandEffect` union and its Stage-B mapping shim were deleted in Stage E.
 - **Edit checkpoints**: `listEditCheckpoints()` returns checkpoint summaries for the active session. `inspectEditCheckpoint(id)` returns captured files and restore/rollback plans. `restoreEditCheckpoint(id)` restores code to a prior checkpoint and records a system history entry. It is rejected while a prompt is running.
 - **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
-- **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
+- **Queue behavior**: If `executing` is true, the incoming prompt is queued and auto-executes after
+  the current one completes. The co-drive queue is bounded at 32 entries: a same-driver submission
+  replaces that driver's tail entry, a different driver appends in submission order, and a new
+  entry is refused when the queue is full.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
 - **Session persistence**: When an SDK-owned `sessionStore` facade is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references, and provider sandbox snapshot ids when available) after each `submit()` completion and on shutdown. The SDK facade delegates to the concrete `SessionStore` implementation from `agent-session` internally and exposes resumable-session summaries for hosts such as the CLI. Session JSON is the fast snapshot, while append-only JSONL replay logs are the recovery source when the JSON snapshot is missing.
@@ -1284,7 +1300,7 @@ session.on('memory_event', (event: IMemoryEvent) => {
      category 'event' / type 'memory-event' entries with a formatMemoryEventMessage() message */
 });
 
-// Submit prompt. Queues if already executing (max 1 queued).
+// Submit prompt. Queues if already executing (bounded co-drive queue, max 32 entries).
 // displayInput: shown in UI (e.g., "/audit") instead of full built prompt
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);

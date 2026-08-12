@@ -181,7 +181,7 @@ async function runPipelineBenchmark(
   const samples: number[] = [];
 
   for (let i = 0; i < runs; i++) {
-    const runner = new LocalDagRunner(registry);
+    const runner = new LocalDagRunner(registry, process.cwd());
     const t0 = performance.now();
     await runner.run(dagDef, input);
     samples.push(performance.now() - t0);

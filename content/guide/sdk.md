@@ -22,8 +22,12 @@ const session = new InteractiveSession({
 
 session.on('text_delta', (delta) => process.stdout.write(delta));
 
-// Submit a prompt (queued automatically if a run is in progress)
-await session.submit('Refactor the auth module');
+// Submit a prompt (queued automatically if a run is in progress).
+// Public options carry driver attribution only; queued-turn identity is SDK-owned.
+const handle = await session.submit('Refactor the auth module', undefined, undefined, {
+  driverId: 'owner',
+});
+await handle.completed;
 
 // Abort the in-flight run (partial response saved as 'interrupted')
 session.abort();
@@ -31,6 +35,11 @@ session.abort();
 // Cancel the queued prompt without touching the in-flight run
 session.cancelQueue();
 ```
+
+Every accepted submission receives a fresh `turnId`. Its `completed` promise settles for that
+submission's result or a typed queue refusal. Callers cannot provide or resume a turn identity;
+queued resumption is an internal SDK operation, which prevents one submission from selecting or
+reusing another submission's handle.
 
 ### Events
 

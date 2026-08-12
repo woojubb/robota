@@ -12,6 +12,7 @@
 - **Resolver, not executor.** `executeSkill` in inject mode returns a prompt string via pure substitution — no LLM, no provider, no session. Wire this node to an LLM node to actually execute the skill (`skill → llm-text → …`).
 - **Fork skills are out of scope.** A skill with `context: 'fork'` requires a subagent LLM loop (`runInFork`), which a pure resolver has no runtime for — the node returns a validation error for such skills.
 - **No shell execution.** `executeSkill` is called with no `shellExec`, so `` !`cmd` `` interpolations in a skill body are stripped to empty (never executed) — the resolver never runs arbitrary shell.
+- **Node-only filesystem surface.** Skill discovery reads the local filesystem. The package exposes no browser condition; its previous browser condition pointed to the same Node build and was a false capability claim.
 - The DAG subsystem stays private; this package is `private: true`. Registered in the async/optional node-registry list (lazy import of the agent-framework-backed node).
 
 ## Architecture Overview
@@ -22,6 +23,7 @@
   - `executeSkillFn` — defaults to `executeSkill`.
   - `resolvePrompt({ skillName, args })`: find the command by name (else `DAG_VALIDATION_SKILL_NOT_FOUND` with the available names as `options`); reject `context: 'fork'` skills (`DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`); call `executeSkillFn(skill, args, {}, { sessionId })` and return `{ prompt, mode }`.
 - Args precedence: the `args` input port (if a non-empty string) overrides `config.args`.
+- Root authority: discovery starts from required trusted `context.executionRoot`. `config.cwd` may only narrow within it; absolute, parent-traversal, and escaping-symlink widening fail with `DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT`.
 - Cost estimate: `config.baseCredits` (default 0 — resolution runs no model).
 
 ## Type Ownership
@@ -48,6 +50,6 @@
 
 ## Extension Points
 
-- Config `skillName` (required), `args` (static default), `cwd`, `sessionId`, `baseCredits`.
+- Config `skillName` (required), `args` (static default), `cwd` (narrowing only), `sessionId`, `baseCredits`.
 - Runtime options `loadCommands` / `executeSkillFn` for injection (tests / alternate skill sources).
-- Error codes: `DAG_VALIDATION_SKILL_NOT_FOUND`, `DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`, `DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED`.
+- Error codes: `DAG_VALIDATION_SKILL_CWD_OUTSIDE_ROOT`, `DAG_VALIDATION_SKILL_NOT_FOUND`, `DAG_VALIDATION_SKILL_FORK_UNSUPPORTED`, `DAG_TASK_EXECUTION_SKILL_RESOLVE_FAILED`.

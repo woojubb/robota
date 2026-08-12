@@ -4,6 +4,7 @@ import type { INodeExecutionContext, TPortPayload } from '@robota-sdk/dag-core';
 
 function makeContext(config: Record<string, unknown> = {}): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     nodeDefinition: {
       nodeId: 'test-node-id',
       nodeType: 'http-request',

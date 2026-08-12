@@ -26,10 +26,8 @@ function controller(): SessionExecutionController {
 /**
  * A queue entry, WITH the identity a real one always carries.
  *
- * These fixtures built entries without a `turnId`, which the queue now refuses at `enqueue` — an
- * entry with no identity cannot be settled by any refusal, so its caller waits forever, and that
- * defect shipped once in RUNTIME-003. The fixtures were the only place such an entry existed; a
- * double that cannot be built the way the real thing is built tests something else.
+ * These fixtures once built entries without a `turnId`. RUNTIME-006 now makes that state
+ * unrepresentable: an accepted queued entry always carries the identity every refusal settles.
  */
 let mintedTurns = 0;
 function entry(input: string, driverId: string, wakeTaskId?: string): IQueuedInput {

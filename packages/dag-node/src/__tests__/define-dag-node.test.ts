@@ -5,6 +5,7 @@ import type { INodeExecutionContext, INodeConfigObject } from '@robota-sdk/dag-c
 
 function makeContext(nodeType: string, config: INodeConfigObject = {}): INodeExecutionContext {
   return {
+    executionRoot: '/test/execution-root',
     dagId: 'test-dag',
     dagRunId: 'run-1',
     taskRunId: 'task-1',

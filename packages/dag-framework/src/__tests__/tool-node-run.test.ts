@@ -38,7 +38,7 @@ describe('tool node — functional run through LocalDagRuntimeProvider', () => {
   });
 
   it('runs a 1-node `tool` workflow that reads a file end-to-end', async () => {
-    const provider = new LocalDagRuntimeProvider();
+    const provider = new LocalDagRuntimeProvider({ executionRoot: dir });
 
     const build = buildDagFromPipeline(
       {

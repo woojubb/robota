@@ -250,7 +250,7 @@ The SSOT for "is this path inside that root?" whenever the answer is a SECURITY 
 `path.resolve` and `path.normalize` are purely lexical and never consult the filesystem, so they
 cannot see a symlink: a link sitting inside a root but pointing outside it satisfies a
 `startsWith(root + sep)` check while the syscall that follows escapes the boundary. Every
-security-boundary containment check in the monorepo routes through these two functions — the file-tool
+security-boundary containment check in the monorepo routes through these functions — the file-tool
 sandbox (`agent-tools`), the CLI monitor asset server (`agent-cli`) and the studio HTTP API
 (`dag-cli`) — because two containment checks that can disagree are their own defect.
 
@@ -258,10 +258,11 @@ Both are exported from **`@robota-sdk/agent-core/node`** (CORE-028), not from th
 read the filesystem, and a barrel carrying them puts `node:fs` in every consumer's static import
 graph. The import path is where the Node dependency becomes legible.
 
-| Export             | Kind     | Import from                   | Description                                                                                        |
-| ------------------ | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `isPathInside`     | function | `@robota-sdk/agent-core/node` | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both     |
-| `canonicalizePath` | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve |
+| Export                        | Kind     | Import from                   | Description                                                                                                                      |
+| ----------------------------- | -------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `isPathInside`                | function | `@robota-sdk/agent-core/node` | Whether `candidate` is `root` itself or lies beneath it, decided on the CANONICAL form of both                                   |
+| `canonicalizePath`            | function | `@robota-sdk/agent-core/node` | Realpath-resolve a path, tolerating a not-yet-created tail so `Write`/`Edit` targets still resolve                               |
+| `resolveTrustedExecutionRoot` | function | `@robota-sdk/agent-core/node` | Validate that an execution authority is a non-empty absolute, existing, traversable directory and return its canonical real path |
 
 ### Permission Argument Registry Public API (CORE-030)
 

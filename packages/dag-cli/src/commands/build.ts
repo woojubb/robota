@@ -496,7 +496,7 @@ export async function buildCommand(
     inputPayload[key] = val;
   }
 
-  const runner = new LocalDagRunner(createCliNodeRegistry());
+  const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   let runResult: ILocalRunResult;
   try {
     runResult = await runner.run(dagDefinition, inputPayload); // allow-fallback: run error reported as structured output and non-zero exit

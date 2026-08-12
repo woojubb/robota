@@ -53,6 +53,7 @@ interface IDagFramework {
 | Field                   | Type                             | Default                                                    | Description                                                                                                     |
 | ----------------------- | -------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `nodes`                 | `IDagNodeDefinition[]`           | lazily-loaded catalog from `@robota-sdk/dag-nodes-default` | Node definitions to register                                                                                    |
+| `executionRoot`         | `string`                         | canonicalized `process.cwd()`                              | Trusted absolute root propagated to every task and node; invalid explicit roots are refused                     |
 | `providers`             | `readonly IProviderDefinition[]` | lazily-loaded `createDefaultProviderDefinitions()`         | Provider-definition registry injected into the collapsed `llm-text` node. **Ignored when `nodes` is supplied.** |
 | `ports.storage`         | `IStoragePort`                   | `JsonFileStoragePort` (XDG path)                           | Persistent storage                                                                                              |
 | `ports.queue`           | `IQueuePort`                     | `InMemoryQueuePort`                                        | Task queue                                                                                                      |
@@ -67,6 +68,11 @@ interface IDagFramework {
 | `worker`                | `IWorkerLoopPolicyOptions`       | defaults                                                   | Worker backoff/poll settings                                                                                    |
 | `autoStart`             | `boolean`                        | `false`                                                    | Auto-start worker loop in factory                                                                               |
 | `logger`                | `IDagFrameworkLogger`            | no-op                                                      | Log info + error messages                                                                                       |
+
+`createDagFramework` is the sole generic convenience boundary allowed to capture `process.cwd()` when
+`executionRoot` is omitted. It validates and canonicalizes that value once. Lower execution composition,
+worker, task, and lifecycle contracts require the root and never default it. Product-specific callers
+that already know their project directory pass it explicitly.
 
 ### Node Registries
 
@@ -136,13 +142,14 @@ import type {
 
 #### `ILocalDagRuntimeProviderOptions`
 
-| Field          | Type                   | Default                           | Description                                                                                 |
-| -------------- | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| `nodeRegistry` | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
-| `projectDir`   | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
-| `workspace`    | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
-| `instantNodes` | `IDagNodeDefinition[]` | —                                 | Instant nodes (typically injected from an MCP session context).                             |
-| `extraNodes`   | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
+| Field           | Type                   | Default                           | Description                                                                                 |
+| --------------- | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `executionRoot` | `string`               | (required)                        | Trusted absolute root validated at provider construction and propagated to every node.      |
+| `nodeRegistry`  | `IDagNodeDefinition[]` | `createDefaultNodeRegistrySync()` | Base node registry. CLI typically passes a registry including LLM/provider-backed nodes.    |
+| `projectDir`    | `string`               | —                                 | DAG project directory (reserved for future local node-file scanning).                       |
+| `workspace`     | `IWorkspaceLayout`     | —                                 | **FLOW-007**: injected workspace layout (root dir + workflow ext) for local node discovery. |
+| `instantNodes`  | `IDagNodeDefinition[]` | —                                 | Instant nodes (typically injected from an MCP session context).                             |
+| `extraNodes`    | `IDagNodeDefinition[]` | —                                 | Extra nodes appended at the end (test/special-purpose).                                     |
 
 #### `IHttpDagRuntimeProviderOptions`
 

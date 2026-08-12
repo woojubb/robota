@@ -176,7 +176,7 @@ async function routeRun(req: IncomingMessage, res: ServerResponse, cwd: string):
 
   let runner: LocalDagRunner;
   try {
-    runner = new LocalDagRunner(nodeDefinitions);
+    runner = new LocalDagRunner(nodeDefinitions, cwd);
   } catch (e) {
     // allow-fallback: node registry construction failure is returned as SSE error
     sendSSE(res, {

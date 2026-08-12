@@ -67,14 +67,43 @@ describe('classifyFiles', () => {
   });
 
   it('a workflow or harness script change is CODE, not docs', () => {
-    expect(classifyFiles(['.github/workflows/review-gate.yml']).code).toBe(true);
-    expect(classifyFiles(['scripts/harness/check-review-gate.mjs']).code).toBe(true);
+    expect(classifyFiles(['.github/workflows/review-gate.yml'])).toMatchObject({
+      code: true,
+      product: false,
+      tui: false,
+      examples: false,
+    });
+    expect(classifyFiles(['scripts/harness/check-review-gate.mjs'])).toMatchObject({
+      code: true,
+      product: false,
+      tui: false,
+      examples: false,
+    });
+  });
+
+  it('runs product capabilities for package and app changes', () => {
+    expect(classifyFiles(['packages/agent-core/src/index.ts'])).toMatchObject({
+      code: true,
+      product: true,
+      tui: true,
+      examples: true,
+    });
   });
 
   // "Nothing classified" must run the checks, not skip them.
   it('FAIL-CLOSED: an empty file list is CODE', () => {
-    expect(classifyFiles([]).code).toBe(true);
-    expect(classifyFiles(undefined).code).toBe(true);
+    expect(classifyFiles([])).toMatchObject({
+      code: true,
+      product: true,
+      tui: true,
+      examples: true,
+    });
+    expect(classifyFiles(undefined)).toMatchObject({
+      code: true,
+      product: true,
+      tui: true,
+      examples: true,
+    });
   });
 });
 
@@ -85,6 +114,7 @@ describe('classifyRange (fail-closed on git)', () => {
   it('FAIL-CLOSED: no merge base classifies as CODE and reports the reason', () => {
     const result = classifyRange({ baseRef: 'origin/develop', runGit: () => fail() });
     expect(result.code).toBe(true);
+    expect(result).toMatchObject({ product: true, tui: true, examples: true });
     expect(result.error).toContain('no merge base');
   });
 
@@ -118,6 +148,9 @@ describe('CLI (the shape both workflows call)', () => {
     );
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/^code=(true|false)$/m);
+    expect(result.stdout).toMatch(/^product=(true|false)$/m);
+    expect(result.stdout).toMatch(/^tui=(true|false)$/m);
+    expect(result.stdout).toMatch(/^examples=(true|false)$/m);
   });
 
   it('FAIL-CLOSED: an unresolvable base ref still answers code=true', () => {
@@ -129,5 +162,30 @@ describe('CLI (the shape both workflows call)', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('code=true');
     expect(result.stdout).toContain('::error::changes:');
+  });
+});
+
+describe('CI capability wiring', () => {
+  it('publishes capability outputs and keeps expensive required jobs present with explicit N/A results', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+
+    expect(workflow).toContain('product: ${{ steps.filter.outputs.product }}');
+    expect(workflow).toContain('tui: ${{ steps.filter.outputs.tui }}');
+    expect(workflow).toContain('examples: ${{ steps.filter.outputs.examples }}');
+    expect(workflow).toContain('name: Product verification not applicable');
+    expect(workflow).toContain('name: TUI verification not applicable');
+    expect(workflow).toContain('name: Examples verification not applicable');
+    expect(workflow).toContain("needs.changes.result != 'success'");
+  });
+
+  it('assigns the harness suite to scans instead of rerunning it in quality', () => {
+    const workflow = readFileSync(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const qualityStart = workflow.indexOf('\n  quality:\n');
+    const scansStart = workflow.indexOf('\n  scans:\n');
+    const quality = workflow.slice(qualityStart, scansStart);
+    const scans = workflow.slice(scansStart, workflow.indexOf('\n  dependency-audit:\n'));
+
+    expect(quality).toContain('--skip-repository-check harness-tests');
+    expect(scans).toContain('pnpm harness:test');
   });
 });

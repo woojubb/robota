@@ -643,7 +643,7 @@ async function fetchSuggestions(
   manifests: ReadonlyArray<{ nodeType: string }>,
 ): Promise<string | null> {
   const prompt = buildSuggestPrompt(result, manifests);
-  const runner = new LocalDagRunner(createCliNodeRegistry());
+  const runner = new LocalDagRunner(createCliNodeRegistry(), process.cwd());
   try {
     const llmResult = await runner.run(SUGGEST_LLM_DAG, { text: prompt });
     if (llmResult.dagRun.status !== 'success') return null;

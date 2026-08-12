@@ -218,7 +218,7 @@ that a turn is over when it has stopped and not when it was asked to stop.
 
 ### Remaining
 
-- **P3 — DAG run advancement.** Owned by [DAG-001](DAG-001-running-is-a-terminal-trap.md) and
+- **P3 — DAG run advancement.** Owned by [DAG-001](completed/DAG-001-running-is-a-terminal-trap.md) and
   [DAG-002](completed/DAG-002-run-contract-typed-on-a-foreign-file-format.md); the floating
   `void this.processRunUntilTerminal(...)` (`prompt-backend.ts:89`) belongs with them.
 - **User Execution Test Scenarios** are written against the transport surface, so they close with P2,

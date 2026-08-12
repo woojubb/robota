@@ -8,6 +8,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '../../..');
 const LOCK_WRAPPER = path.join(WORKSPACE_ROOT, 'scripts/harness/with-repo-lock.sh');
 const PRE_COMMIT = path.join(WORKSPACE_ROOT, '.husky/pre-commit');
+const ROOT_PACKAGE = path.join(WORKSPACE_ROOT, 'package.json');
 
 const scratch = [];
 afterAll(() => {
@@ -110,7 +111,7 @@ describe('a worktree does not share its neighbour lint-staged backup', () => {
     expect(result.status).toBe(2);
   });
 
-  it('the pre-commit hook actually goes through it', () => {
+  it('the pre-commit hook reaches the lock through the root staged-fix command', () => {
     // Registered is not reached. A lock nothing calls is a file, and lint-staged is the one caller
     // that matters — it is the shared-stash user every commit passes through, whether or not the
     // author ever types `git stash`.
@@ -122,14 +123,22 @@ describe('a worktree does not share its neighbour lint-staged backup', () => {
       .replace(/\\\r?\n\s*/g, ' ')
       .split('\n')
       .filter((line) => !line.trimStart().startsWith('#'));
-    const lintStaged = statements.filter((line) => line.includes('lint-staged'));
+    const stagedDelegation = statements.filter((line) => line.includes('pnpm lint:fix:staged'));
+    const scripts = JSON.parse(readFileSync(ROOT_PACKAGE, 'utf8')).scripts ?? {};
+    const stagedFix = scripts['lint:fix:staged'] ?? '';
 
-    expect(lintStaged, 'the hook no longer runs lint-staged at all').not.toHaveLength(0);
-    for (const line of lintStaged) {
-      expect(line.trim(), `lint-staged runs without the cross-worktree lock: ${line}`).toContain(
-        'with-repo-lock.sh',
-      );
-    }
+    expect(stagedDelegation, 'the hook no longer delegates to lint:fix:staged').not.toHaveLength(0);
+    expect(stagedFix, 'the staged fixer no longer runs lint-staged').toContain('lint-staged');
+    expect(stagedFix, 'lint-staged runs without the cross-worktree lock').toContain(
+      'with-repo-lock.sh',
+    );
+    expect(
+      stagedFix.match(/with-repo-lock\.sh/g) ?? [],
+      'the staged fixer nests the lock',
+    ).toHaveLength(1);
+    expect(PRE_COMMIT, 'the hook acquires a second repository lock').not.toContain(
+      '"$(git rev-parse --show-toplevel)/scripts/harness/with-repo-lock.sh"',
+    );
   });
 });
 
