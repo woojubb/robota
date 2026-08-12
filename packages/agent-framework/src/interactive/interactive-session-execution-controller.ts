@@ -314,12 +314,6 @@ export class SessionExecutionController {
       } catch (error) {
         this.callbacks.emit('error', error instanceof Error ? error : new Error(String(error)));
       }
-      this.executing = false;
-      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
-      this.callbacks.emit('thinking', false);
-      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
-      if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
-      this.emitExecutionWorkspaceUpdated('main_thread');
       // SELFHOST-008 P2: post-turn auto-capture, awaited here so its events land in THIS turn's record.
       await capturePostTurnMemory({
         capture: this.callbacks.captureMemory,
@@ -334,6 +328,15 @@ export class SessionExecutionController {
       // answered by ITS turn, and a turn that threw where onError never saw still settles.
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
       else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
+      // Release and hand off synchronously. No await may appear between these assignments and the
+      // drain: a public submit in that gap could start a new turn before the queued head claims the
+      // same execution ownership, allowing both turns to run concurrently.
+      this.executing = false;
+      this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
+      this.callbacks.emit('thinking', false);
+      // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
+      if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
+      this.emitExecutionWorkspaceUpdated('main_thread');
       this.drainPendingQueue(resumeQueuedTurn);
     }
   }

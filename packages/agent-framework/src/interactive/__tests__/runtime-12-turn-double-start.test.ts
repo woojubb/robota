@@ -21,6 +21,10 @@ const refreshCtl = vi.hoisted(() => {
   return { blocking: false, release: undefined as (() => void) | undefined };
 });
 
+const captureCtl = vi.hoisted(() => {
+  return { blockNext: false, release: undefined as (() => void) | undefined };
+});
+
 vi.mock('../interactive-session-context-refresh.js', () => ({
   checkAndRefreshContextIfStale: (): Promise<void> =>
     refreshCtl.blocking
@@ -30,12 +34,24 @@ vi.mock('../interactive-session-context-refresh.js', () => ({
       : Promise.resolve(),
 }));
 
+vi.mock('../interactive-session-post-turn-memory.js', () => ({
+  capturePostTurnMemory: (): Promise<void> => {
+    if (!captureCtl.blockNext) return Promise.resolve();
+    captureCtl.blockNext = false;
+    return new Promise<void>((resolve) => {
+      captureCtl.release = resolve;
+    });
+  },
+}));
+
 describe('CORE-026 RUNTIME-12 — no turn double-start', () => {
   let harness: ScriptedSessionHarness | undefined;
 
   afterEach(async () => {
     refreshCtl.blocking = false;
     refreshCtl.release?.();
+    captureCtl.blockNext = false;
+    captureCtl.release?.();
     await harness?.dispose();
     harness = undefined;
   });
@@ -74,5 +90,26 @@ describe('CORE-026 RUNTIME-12 — no turn double-start', () => {
     for (let i = 0; i < 200 && (session.isExecuting() || session.getPendingCount() > 0); i++) {
       await new Promise((r) => setTimeout(r, 0));
     }
+  });
+
+  it('keeps execution ownership while awaited post-turn capture is in flight', async () => {
+    harness = scriptedSession({ turns: [{ text: 'a' }, { text: 'b' }] });
+    const session = harness.session;
+    captureCtl.blockNext = true;
+
+    const first = session.submit('one');
+    for (let i = 0; i < 200 && !captureCtl.release; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(captureCtl.release, 'first turn should be parked in post-turn capture').toBeDefined();
+
+    const second = session.submit('two');
+    for (let i = 0; i < 20 && session.getPendingCount() === 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(session.getPendingCount(), 'post-turn capture released execution ownership').toBe(1);
+
+    captureCtl.release?.();
+    await Promise.all([first, second]);
   });
 });

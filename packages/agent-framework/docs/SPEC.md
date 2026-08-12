@@ -953,7 +953,9 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued and auto-executes after
   the current one completes. The co-drive queue is bounded at 32 entries: a same-driver submission
   replaces that driver's tail entry, a different driver appends in submission order, and a new
-  entry is refused when the queue is full.
+  entry is refused when the queue is full. Execution ownership remains claimed through awaited
+  post-turn capture and persistence; releasing `executing` and draining the queued head are one
+  synchronous handoff with no intervening `await`, so a public submission cannot start in between.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
 - **Session persistence**: When an SDK-owned `sessionStore` facade is provided in options, auto-persists session state (messages, history, cwd, timestamps, system prompt, tool schemas, memory events, used memory references, and provider sandbox snapshot ids when available) after each `submit()` completion and on shutdown. The SDK facade delegates to the concrete `SessionStore` implementation from `agent-session` internally and exposes resumable-session summaries for hosts such as the CLI. Session JSON is the fast snapshot, while append-only JSONL replay logs are the recovery source when the JSON snapshot is missing.
