@@ -430,6 +430,7 @@ describe('stageGate', () => {
     productChanged: false,
     tuiChanged: false,
     examplesChanged: false,
+    harnessChanged: false,
     missingDist: [],
   };
 
@@ -461,6 +462,15 @@ describe('stageGate', () => {
     expect(stageGate('tui-e2e', base).run).toBe(false);
     expect(stageGate('examples-typecheck', { ...base, examplesChanged: true }).run).toBe(true);
     expect(stageGate('examples-typecheck', base).run).toBe(false);
+  });
+
+  it('skips only the hermetic harness tier for a proven non-harness change', () => {
+    expect(stageGate('harness-self-test', base).run).toBe(true);
+    expect(stageGate('harness-hermetic-test', base).run).toBe(false);
+    expect(stageGate('harness-hermetic-test', { ...base, harnessChanged: true }).run).toBe(true);
+    expect(stageGate('harness-hermetic-test', { ...base, harnessChanged: undefined }).run).toBe(
+      true,
+    );
   });
 
   it('runs every other stage unconditionally', () => {

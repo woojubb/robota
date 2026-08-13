@@ -90,7 +90,15 @@ These scripts are the executable layer of the Robota harness.
 - defaults to fast mode, which verifies directly changed scopes and executable repository checks
 - uses `--skip-dependent-scopes` in fast mode so local push latency does not explode on shared package entrypoint changes
 - supports `HARNESS_PRE_PUSH_MODE=full` when dependent scope typechecks should run locally before publishing
-- leaves release-grade verification as an explicit `pnpm harness:verify:release` command
+- leaves `pnpm harness:verify:release` available as an explicit diagnostic; for promotions,
+  protected main-PR CI is the sole automatic release-grade verification owner
+
+### `promote.mjs`
+
+- validates the clean tree, fresh refs, merge tree, exact develop tree, and A1/A2/A3 ancestry
+- assembles or rolls back the promotion branch without running the full release suite locally
+- names protected main-PR CI as the sole automatic owner of `pnpm harness:verify:release`
+- prints the root release command only as an optional local diagnostic
 
 ### `verify-change.mjs`
 
@@ -154,10 +162,23 @@ These scripts are the executable layer of the Robota harness.
   job" correction landed in two of them and left the third contradicting the others — HARNESS-068's
   subject, inside the change that raised it.) It is enforced by
   `scripts/harness/__tests__/cleanup-drift.test.mjs`, not by `run-all-scans.mjs`, so that test file is
-  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs
-  `pnpm harness:test` as a step, and a promotion to `main` runs it inside `harness:verify:release`.
+  where a rise fails. CI reaches it on both sides: the `scans` job (`base_ref != 'main'`) runs the
+  always-applicable `pnpm harness:test:contracts` tier, and a promotion to `main` runs the complete
+  `pnpm harness:test` suite inside `harness:verify:release`.
 - a failed measurement is an error, never a smaller number: `grep` exiting 2 or more, or a root with
   no `packages/`, stops the run rather than reporting less drift.
+
+### Harness self-test tiers (INFRA-093)
+
+- `pnpm harness:test` runs the complete self-test directory and remains the release-grade command.
+- `pnpm harness:test:contracts` runs every test not explicitly admitted to the hermetic allowlist.
+  This tier is fail-closed and always runs in `scans`, pre-push, and verify-like-CI.
+- `pnpm harness:test:hermetic` skips only when the canonical changed-path classifier successfully
+  reports explicit `harness=false`. Harness-owner changes, missing output, and classifier failure run it.
+- `pnpm harness:test:tiers:guard` copies `scripts/harness/**` into a stripped temporary repository,
+  links only installed runtime dependencies, and proves every allowlisted test without `.git`,
+  `.github`, `.agents`, hooks, packages, apps, or unrelated root files. Unlisted tests never enter
+  this tier implicitly.
 
 ## Design Notes
 

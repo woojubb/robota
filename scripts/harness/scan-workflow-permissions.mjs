@@ -25,7 +25,7 @@
  *      workflow actually asks for any more (anti-rot — a stale excuse outlives what it excused).
  *
  * Also checked: JOB-level `permissions:` blocks (HARNESS-081's sibling, #1675). A grant scoped to
- * one job — `codeql.yml`'s recovery job, `review-gate.yml`'s disarm job — used to be invisible here
+ * one job — Review Gate's analyzer, verdict, and disarm jobs — used to be invisible here
  * and excused only in prose, so the "excused-but-unchecked" category grew silently. Each job-level
  * write scope is now held to a structured allowlist (`JUSTIFIED_JOB_WRITE_SCOPES`), the same
  * bidirectional way workflow-level scopes are: an unlisted grant is a finding, and a listed grant
@@ -70,10 +70,6 @@ export const JUSTIFIED_WRITE_SCOPES = {
   'release-desktop-app.yml': {
     contents: 'uploads the packaged installers as GitHub Release assets',
   },
-  'review-gate.yml': {
-    'pull-requests':
-      'posts the blocking findings to the PR so they are readable without the run log',
-  },
 };
 
 /**
@@ -83,13 +79,13 @@ export const JUSTIFIED_WRITE_SCOPES = {
  * job scope so a grant cannot hide one level down and be excused only in a comment (HARNESS-082).
  */
 export const JUSTIFIED_JOB_WRITE_SCOPES = {
-  'codeql.yml': {
-    'recover-review-gate': {
-      actions:
-        're-runs the Review Gate run raced by CodeQL for this same SHA (#1660 recovery); token is same-repo',
-    },
-  },
   'review-gate.yml': {
+    analyze: {
+      'security-events': 'uploads the pull request SARIF analysis before the required gate runs',
+    },
+    'review-gate': {
+      'pull-requests': 'posts blocking findings and supersession notes to the pull request',
+    },
     'disarm-auto-merge': {
       contents:
         'the disable-auto-merge mutation requires it (INFRA-048/#1409 belt-and-braces lever)',

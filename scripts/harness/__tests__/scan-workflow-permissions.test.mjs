@@ -209,24 +209,37 @@ describe('job-level write grants are held to JUSTIFIED_JOB_WRITE_SCOPES (HARNESS
   });
 
   it('passes a job-level write grant that IS justified, and counts it as examined', () => {
-    // Named `codeql.yml` so both allowlists key to it: the workflow-level `security-events: write`
-    // and the job-level `recover-review-gate: actions: write` are both justified, so no findings and
-    // both write scopes are counted.
-    const src =
-      'name: x\non:\n  push:\npermissions:\n  security-events: write\njobs:\n  recover-review-gate:\n    permissions:\n      actions: write\n    steps:\n      - run: true\n';
-    const findings = findWorkflowPermissionFindings(root({ 'codeql.yml': src }));
+    // Review Gate's analyzer owns the PR SARIF upload in the same workflow DAG.
+    const src = `name: x
+on:
+  pull_request:
+jobs:
+  analyze:
+    permissions:
+      security-events: write
+    steps:
+      - run: true
+  review-gate:
+    permissions:
+      pull-requests: write
+    steps:
+      - run: true
+  disarm-auto-merge:
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - run: true
+`;
+    const findings = findWorkflowPermissionFindings(root({ 'review-gate.yml': src }));
     expect(findings).toEqual([]);
-    expect(examinedWriteScopeCount()).toBe(2);
+    expect(examinedWriteScopeCount()).toBe(4);
   });
 
   it('flags a STALE job-level excuse the job no longer requests (anti-rot)', () => {
-    // codeql.yml present, but its recover-review-gate job now grants nothing — the frozen excuse
-    // must be deleted.
-    const src = 'name: x\non:\n  push:\njobs:\n  analyze:\n    steps:\n      - run: true\n';
-    const findings = findWorkflowPermissionFindings(root({ 'codeql.yml': src }));
-    expect(findings.some((f) => /still excuses job `recover-review-gate`/.test(f.detail))).toBe(
-      true,
-    );
+    const src = 'name: x\non:\n  pull_request:\njobs:\n  analyze:\n    steps:\n      - run: true\n';
+    const findings = findWorkflowPermissionFindings(root({ 'review-gate.yml': src }));
+    expect(findings.some((f) => /still excuses job `analyze`/.test(f.detail))).toBe(true);
   });
 });
 

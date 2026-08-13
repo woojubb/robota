@@ -52,45 +52,28 @@ async function newRepo() {
   return { root, git };
 }
 
-/** Same as `run`, but WITHOUT `--skip-release-gate`, so the preflight actually executes. */
-async function runWithGate(root, extraArgv = [], spawn, env) {
-  let output = '';
-  const code = await main({
-    argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
-    cwd: root,
-    fetch: false,
-    spawn,
-    env,
-    out: (text) => {
-      output += text;
-    },
-  });
-  return { code, output };
-}
-
 async function run(root, extraArgv = []) {
   let output = '';
   // extraArgv first: `flag()` reads the FIRST occurrence, so a test override must precede the defaults.
   const code = await main({
-    // `--skip-release-gate`: these cases drive promote against a scratch repository to exercise the
-    // ANCESTRY mechanics. The release gate is a full workspace verification that has nothing to
-    // verify there, and running it made one case take 91s and then fail on the empty scratch tree.
-    // The gate's own wiring is pinned separately, by promotion-preflight-parity.
-    argv: [
-      ...extraArgv,
-      '--skip-release-gate',
-      '--main-ref',
-      'main',
-      '--develop-ref',
-      'develop',
-      '--baseline',
-      'develop',
-    ],
+    argv: [...extraArgv, '--main-ref', 'main', '--develop-ref', 'develop', '--baseline', 'develop'],
     cwd: root,
     out: (text) => {
       output += text;
     },
     fetch: false,
+  });
+  return { code, output };
+}
+
+async function runWithOptions(root, options) {
+  let output = '';
+  const code = await main({
+    cwd: root,
+    out: (text) => {
+      output += text;
+    },
+    ...options,
   });
   return { code, output };
 }
@@ -161,6 +144,124 @@ describe('promote.mjs (INFRA-051)', () => {
     );
   });
 
+  it('fetches fresh origin refs before constructing a promotion', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    const remote = await mkdtemp(path.join(tmpdir(), 'robota-promote-origin-'));
+    roots.push(remote);
+    makeGit(remote)(['init', '--bare', '--quiet']);
+    git(['remote', 'add', 'origin', remote]);
+    git(['push', '--quiet', 'origin', 'main', 'develop']);
+    git(['update-ref', '-d', 'refs/remotes/origin/main']);
+    git(['update-ref', '-d', 'refs/remotes/origin/develop']);
+
+    const { code, output } = await runWithOptions(root, {
+      argv: ['--dry-run', '--baseline', 'origin/develop'],
+    });
+
+    expect(code).toBe(0);
+    expect(output).toMatch(/fetching origin/);
+    expect(git(['rev-parse', '--verify', 'origin/main']).code).toBe(0);
+    expect(git(['rev-parse', '--verify', 'origin/develop']).code).toBe(0);
+  });
+
+  it('restores an existing promotion branch when a post-merge ancestry check fails', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    git(['branch', 'release/promote', 'main']);
+    const previousPromotionHead = git(['rev-parse', 'release/promote']).stdout;
+
+    const { code, output } = await runWithOptions(root, {
+      argv: [
+        '--branch',
+        'release/promote',
+        '--main-ref',
+        'main',
+        '--develop-ref',
+        'develop',
+        '--baseline',
+        'develop',
+      ],
+      fetch: false,
+      runGitImpl: (args, cwd) => {
+        if (args[0] === 'rev-list' && args.includes('--format=%h %s')) {
+          return { code: 2, stdout: '', stderr: 'injected ancestry failure' };
+        }
+        return makeGit(cwd)(args);
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(output).toMatch(/does NOT satisfy the promotion-ancestry gate/);
+    expect(git(['branch', '--show-current']).stdout).toBe('develop');
+    expect(git(['rev-parse', 'release/promote']).stdout).toBe(previousPromotionHead);
+    expect(git(['status', '--porcelain']).stdout).toBe('');
+  });
+
+  it('resets a checked-out existing promotion branch after a post-merge failure', async () => {
+    const { root, git } = await newRepo();
+    commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    git(['checkout', '-b', 'release/promote', 'main']);
+    const previousPromotionHead = git(['rev-parse', 'HEAD']).stdout;
+
+    const { code } = await runWithOptions(root, {
+      argv: [
+        '--branch',
+        'release/promote',
+        '--main-ref',
+        'main',
+        '--develop-ref',
+        'develop',
+        '--baseline',
+        'develop',
+      ],
+      fetch: false,
+      runGitImpl: (args, cwd) => {
+        if (args[0] === 'rev-list' && args.includes('--format=%h %s')) {
+          return { code: 2, stdout: '', stderr: 'injected ancestry failure' };
+        }
+        return makeGit(cwd)(args);
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(git(['branch', '--show-current']).stdout).toBe('release/promote');
+    expect(git(['rev-parse', 'HEAD']).stdout).toBe(previousPromotionHead);
+    expect(git(['status', '--porcelain']).stdout).toBe('');
+  });
+
+  it('returns to a detached head and removes a new promotion branch after failure', async () => {
+    const { root, git } = await newRepo();
+    const detachedHead = commit(root, git, 'feature.txt', 'work\n', 'feat: work');
+    git(['checkout', '--detach', detachedHead]);
+
+    const { code } = await runWithOptions(root, {
+      argv: [
+        '--branch',
+        'release/promote',
+        '--main-ref',
+        'main',
+        '--develop-ref',
+        'develop',
+        '--baseline',
+        'develop',
+      ],
+      fetch: false,
+      runGitImpl: (args, cwd) => {
+        if (args[0] === 'rev-list' && args.includes('--format=%h %s')) {
+          return { code: 2, stdout: '', stderr: 'injected ancestry failure' };
+        }
+        return makeGit(cwd)(args);
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(git(['branch', '--show-current']).stdout).toBe('');
+    expect(git(['rev-parse', 'HEAD']).stdout).toBe(detachedHead);
+    expect(git(['rev-parse', '--verify', '--quiet', 'release/promote']).code).toBe(1);
+    expect(git(['status', '--porcelain']).stdout).toBe('');
+  });
+
   it('stops before touching the tree when main carries conflicting content', async () => {
     const { root, git } = await newRepo();
     git(['checkout', '--quiet', 'main']);
@@ -188,58 +289,15 @@ describe('promote.mjs (INFRA-051)', () => {
     expect(output).toMatch(/resolving refs\/heads\/does-not-exist failed/);
   });
 
-  // The release gate itself, driven WITHOUT the skip flag. Every other case opts out, so until this
-  // existed the new preflight had no execution-based coverage at all — the reviewer's point, and a
-  // fair one: `promotion-preflight-parity` pins that promote INVOKES the right command, not that a
-  // failing invocation actually stops the promotion.
-  //
-  // The scratch repository has no `harness:verify:release` script, so the gate fails immediately.
-  // That is the condition under test: a failing gate must abandon the branch rather than declare it
-  // ready.
-  it('abandons the promotion when the release gate fails', async () => {
-    const { root, git } = await newRepo();
-    git(['checkout', 'develop']);
-    commit(root, git, 'feature.md', 'work\n', 'feat: something');
-
-    const { code, output } = await runWithGate(root);
-
-    expect(code).not.toBe(0);
-    expect(output).toMatch(/release gate/i);
-    expect(output).not.toMatch(/is ready/);
-
-    // The branch must not survive a failed gate — a half-built promotion left behind is worse than
-    // none, because the next run would push it.
-    const branches = git(['branch', '--list', 'release/promote-develop-to-main']).stdout.trim();
-    expect(branches).toBe('');
-  });
-
-  it('runs the release gate against the configured develop novelty baseline', async () => {
+  it('declares protected CI as the next release-verification owner', async () => {
     const { root, git } = await newRepo();
     commit(root, git, 'feature.md', 'work\n', 'feat: something');
-    let invocation;
 
-    const childEnv = {
-      ...process.env,
-      PNPM_HOME: undefined,
-      VOLTA_HOME: '/opt/volta',
-      PATH: '/usr/bin',
-    };
-    const { code, output } = await runWithGate(
-      root,
-      [],
-      (command, args, options) => {
-        invocation = { command, args, options };
-        return { status: 0 };
-      },
-      childEnv,
-    );
+    const { code, output } = await run(root);
 
     expect(code).toBe(0);
-    expect(output).toMatch(/release gate PASSED locally/);
-    expect(invocation.command).toBe('pnpm');
-    expect(invocation.args).toEqual(['harness:verify:release']);
-    expect(invocation.options.env.PATH).toBe(`/opt/volta/bin${path.delimiter}/usr/bin`);
-    expect(invocation.options.env.HARNESS_BASE_REF).toBe('develop');
-    expect(invocation.options.env.GITHUB_BASE_REF).toBe(process.env.GITHUB_BASE_REF);
+    expect(output).toMatch(/release-grade verification.*protected CI/is);
+    expect(output).toMatch(/optional diagnostic.*pnpm harness:verify:release/is);
+    expect(output).not.toMatch(/PASSED locally|SKIPPED/);
   });
 });

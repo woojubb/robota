@@ -6,8 +6,8 @@
  *   - review-gate.yml — whether a code-scanning analysis is expected at all (#1436: a docs-only PR
  *     was blocked for 15 m 23 s waiting for an analysis CodeQL never schedules).
  *
- * Two properties are load-bearing and both are asserted mechanically here: the docs set stays
- * byte-equivalent to codeql.yml's `paths-ignore`, and every undeterminable case answers CODE.
+ * Two properties are load-bearing and both are asserted mechanically here: workflows consume this
+ * classifier instead of copying the docs set, and every undeterminable case answers CODE.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -21,25 +21,28 @@ import {
   classifyFiles,
   classifyRange,
   isDocsOnlyPath,
+  isHarnessOwnerPath,
 } from '../classify-changed-paths.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
 const SCRIPT = path.resolve(import.meta.dirname, '../classify-changed-paths.mjs');
 
-describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
-  // If `paths-ignore` GROWS without this list following, the classifier over-reports code and the
-  // gate waits then blocks — annoying but safe. If it SHRINKS, an analysed PR would be treated as
-  // not-applicable and skip the gate. That second direction is a hole, and this test is what
-  // prevents it.
-  it('DOCS_ONLY_GLOBS equals codeql.yml `paths-ignore`, entry for entry', () => {
-    const yaml = readFileSync(path.join(REPO_ROOT, '.github/workflows/codeql.yml'), 'utf8');
-    const block = /paths-ignore:\n((?:\s*-\s*'[^']*'\n)+)/.exec(yaml);
-    expect(block, 'codeql.yml must still declare a paths-ignore block').not.toBeNull();
-    const pathsIgnore = [...block[1].matchAll(/-\s*'([^']*)'/g)].map((match) => match[1]);
-    expect([...pathsIgnore].sort()).toEqual([...DOCS_ONLY_GLOBS].sort());
+describe('the classifier owns the docs-only set', () => {
+  it('workflows do not carry a second paths-ignore list', () => {
+    const reviewGate = readFileSync(
+      path.join(REPO_ROOT, '.github/workflows/review-gate.yml'),
+      'utf8',
+    );
+    const codeql = readFileSync(path.join(REPO_ROOT, '.github/workflows/codeql.yml'), 'utf8');
+    expect(reviewGate).not.toContain('paths-ignore:');
+    expect(codeql).not.toContain('paths-ignore:');
+    expect(
+      reviewGate.match(/^\s*node scripts\/harness\/classify-changed-paths\.mjs/gm),
+    ).toHaveLength(1);
   });
 
-  it('every path codeql.yml ignores is classified docs-only, and code paths are not', () => {
+  it('every declared docs path is classified docs-only, and code paths are not', () => {
+    expect(DOCS_ONLY_GLOBS).toEqual(['**/*.md', '**/*.mdx', 'docs/**', 'content/**']);
     for (const file of ['README.md', '.agents/tasks/X.md', 'docs/a/b.mdx', 'content/post.md']) {
       expect(isDocsOnlyPath(file), file).toBe(true);
     }
@@ -56,6 +59,34 @@ describe('the docs set is pinned to codeql.yml (anti-drift)', () => {
 });
 
 describe('classifyFiles', () => {
+  it.each([
+    'scripts/harness/check-review-gate.mjs',
+    '.github/workflows/ci.yml',
+    '.agents/harness.config.json',
+    'package.json',
+    'pnpm-lock.yaml',
+    'vitest.config.ts',
+    'vitest.shared.ts',
+    '.npmrc',
+  ])('classifies harness owner path %s as harness-applicable', (file) => {
+    expect(isHarnessOwnerPath(file)).toBe(true);
+    expect(classifyFiles([file]).harness).toBe(true);
+  });
+
+  it('treats documentation under a harness owner directory as harness-applicable', () => {
+    expect(classifyFiles(['scripts/harness/README.md']).harness).toBe(true);
+  });
+
+  it.each([
+    'packages/agent-core/src/index.ts',
+    'apps/agent-app/src/main.tsx',
+    'README.md',
+    'docs/guide.mdx',
+  ])('does not classify non-owner path %s as harness-applicable', (file) => {
+    expect(isHarnessOwnerPath(file)).toBe(false);
+    expect(classifyFiles([file]).harness).toBe(false);
+  });
+
   it('classifies a markdown-only change as docs-only — the #1436 shape', () => {
     const result = classifyFiles(['.agents/tasks/INFRA-053-review-turn-budget.md']);
     expect(result.code).toBe(false);
@@ -97,12 +128,14 @@ describe('classifyFiles', () => {
       product: true,
       tui: true,
       examples: true,
+      harness: true,
     });
     expect(classifyFiles(undefined)).toMatchObject({
       code: true,
       product: true,
       tui: true,
       examples: true,
+      harness: true,
     });
   });
 });
@@ -115,6 +148,7 @@ describe('classifyRange (fail-closed on git)', () => {
     const result = classifyRange({ baseRef: 'origin/develop', runGit: () => fail() });
     expect(result.code).toBe(true);
     expect(result).toMatchObject({ product: true, tui: true, examples: true });
+    expect(result.harness).toBe(true);
     expect(result.error).toContain('no merge base');
   });
 
@@ -122,6 +156,7 @@ describe('classifyRange (fail-closed on git)', () => {
     const runGit = (args) => (args[0] === 'merge-base' ? ok('abc123\n') : fail());
     const result = classifyRange({ baseRef: 'origin/develop', runGit });
     expect(result.code).toBe(true);
+    expect(result.harness).toBe(true);
     expect(result.error).toContain('git diff against merge base abc123 failed');
   });
 
@@ -137,6 +172,17 @@ describe('classifyRange (fail-closed on git)', () => {
     expect(result.files).toEqual(['README.md', 'packages/a/src/x.ts']);
     expect(result.code).toBe(true);
   });
+
+  it('classifies rename/delete paths from the canonical ACMRD diff', () => {
+    const calls = [];
+    const runGit = (args) => {
+      calls.push(args);
+      return args[0] === 'merge-base' ? ok('base1\n') : ok('scripts/harness/deleted.mjs\n');
+    };
+    const result = classifyRange({ baseRef: 'origin/develop', runGit });
+    expect(calls[1]).toEqual(['diff', '--name-only', '--diff-filter=ACMRD', 'base1', 'HEAD']);
+    expect(result).toMatchObject({ harness: true, files: ['scripts/harness/deleted.mjs'] });
+  });
 });
 
 describe('CLI (the shape both workflows call)', () => {
@@ -151,6 +197,7 @@ describe('CLI (the shape both workflows call)', () => {
     expect(result.stdout).toMatch(/^product=(true|false)$/m);
     expect(result.stdout).toMatch(/^tui=(true|false)$/m);
     expect(result.stdout).toMatch(/^examples=(true|false)$/m);
+    expect(result.stdout).toMatch(/^harness=(true|false)$/m);
   });
 
   it('FAIL-CLOSED: an unresolvable base ref still answers code=true', () => {
@@ -172,6 +219,7 @@ describe('CI capability wiring', () => {
     expect(workflow).toContain('product: ${{ steps.filter.outputs.product }}');
     expect(workflow).toContain('tui: ${{ steps.filter.outputs.tui }}');
     expect(workflow).toContain('examples: ${{ steps.filter.outputs.examples }}');
+    expect(workflow).toContain('harness: ${{ steps.filter.outputs.harness }}');
     expect(workflow).toContain('name: Product verification not applicable');
     expect(workflow).toContain('name: TUI verification not applicable');
     expect(workflow).toContain('name: Examples verification not applicable');
@@ -186,6 +234,10 @@ describe('CI capability wiring', () => {
     const scans = workflow.slice(scansStart, workflow.indexOf('\n  dependency-audit:\n'));
 
     expect(quality).toContain('--skip-repository-check harness-tests');
-    expect(scans).toContain('pnpm harness:test');
+    expect(scans).toContain('pnpm harness:test:contracts');
+    expect(scans).toContain('pnpm harness:test:hermetic');
+    expect(scans).toContain("needs.changes.outputs.harness != 'false'");
+    expect(scans).toContain('pnpm harness:scan -- --skip dist --skip build-contracts');
+    expect(scans).not.toMatch(/scripts\/harness\/\*\*/);
   });
 });

@@ -20,6 +20,7 @@ import {
 import { checkTreePrerequisites } from './tree-prerequisites.mjs';
 import { CI_STAGES } from './ci-mirror-map.mjs';
 import { findReusableVerification } from './verification-receipt.mjs';
+import { classifyFiles, classifyRange } from './classify-changed-paths.mjs';
 
 /**
  * The commands the REQUIRED `scans` context runs, mirrored locally.
@@ -39,9 +40,17 @@ import { findReusableVerification } from './verification-receipt.mjs';
  * reads both sides so the two cannot drift silently.
  */
 export const CI_SCANS_JOB_MIRROR = [
-  ['pnpm', ['harness:test']],
+  ['pnpm', ['harness:test:contracts']],
+  ['pnpm', ['harness:test:hermetic']],
   ['pnpm', ['harness:scan', '--', '--skip', 'dist', '--skip', 'build-contracts']],
 ];
+
+/** The local scans plan; an absent/unresolved verdict is deliberately harness-applicable. */
+export function createCiScansJobMirror(classification) {
+  return CI_SCANS_JOB_MIRROR.filter(
+    ([, args]) => args[0] !== 'harness:test:hermetic' || classification?.harness !== false,
+  );
+}
 
 function run(command, args) {
   const rendered = [command, ...args].join(' ');
@@ -268,6 +277,9 @@ function createPrePushSteps() {
   const prePushMode = resolvePrePushMode(process.env.HARNESS_PRE_PUSH_MODE);
   const scopeExpansionArgs = prePushMode === 'fast' ? ['--skip-dependent-scopes'] : [];
   const updates = parsePrePushUpdates(readPrePushInput());
+  const changeClassification = baseRef
+    ? classifyRange({ baseRef, head: 'HEAD', cwd: WORKSPACE_ROOT })
+    : classifyFiles([]);
 
   return {
     pruneAndWarnStaleWorktrees,
@@ -324,7 +336,9 @@ function createPrePushSteps() {
       ]);
 
       process.stdout.write('\n▶ the required `scans` context, run locally (INFRA-069)\n');
-      for (const [command, args] of CI_SCANS_JOB_MIRROR) run(command, args);
+      for (const [command, args] of createCiScansJobMirror(changeClassification)) {
+        run(command, args);
+      }
 
       process.stdout.write('\n▶ CLI smoke check (cli:dev --version)\n');
       run('pnpm', ['cli:dev', '--version']);
