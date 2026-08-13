@@ -35,7 +35,10 @@ scenario_root="$(mktemp -d "${TMPDIR:-/tmp}/robota-arch019.XXXXXX")"
 
 cleanup() {
   case "$(basename -- "$scenario_root")" in
-    robota-arch019.*) rm -rf -- "$scenario_root" ;;
+    robota-arch019.*)
+      node -e "require('node:fs').rmSync(process.argv[1], { recursive: true, force: true })" \
+        "$scenario_root"
+      ;;
     *) printf 'refusing unexpected cleanup path: %s\n' "$scenario_root" >&2; return 1 ;;
   esac
 }
@@ -72,19 +75,28 @@ test "${#observed[@]}" -eq 3
 test "${observed[0]}" = 'test-session-1-turn-1'
 test "${observed[1]}" = 'test-session-1-turn-2'
 test "${observed[2]}" = 'DISTINCT'
+
+completed_root="$scenario_root"
+cleanup
+trap - EXIT
+test ! -e "$completed_root"
+printf 'CLEANUP_OK\n'
 ```
 
 ## Expected observable result
 
 - The complete Bash block exits with status `0` within the stated 120-second build and 15-second
   execution bounds.
-- The one fresh Node.js process prints exactly:
+- In addition to package-build setup output, the one fresh consumer Node.js process prints exactly:
 
   ```text
   test-session-1-turn-1
   test-session-1-turn-2
   DISTINCT
   ```
+
+- After the consumer output, Bash proves the temporary directory is absent and prints exactly one
+  cleanup marker: `CLEANUP_OK`.
 
 - Inside that process, each printed id is derived from the session's own public `getSessionId()`
   value, both `completed` promises settle, and the two ids differ.
@@ -93,9 +105,10 @@ test "${observed[2]}" = 'DISTINCT'
 
 ## Cleanup
 
-The `EXIT` trap removes only the validated `robota-arch019.*` temporary consumer directory,
-including its package symlink, script, and result log. No tracked repository file is created or
-modified.
+The explicit cleanup and fallback `EXIT` trap remove only the validated `robota-arch019.*` temporary
+consumer directory through Node's filesystem API, including its package symlink, script, and result
+log. The command then proves the path no longer exists and prints `CLEANUP_OK`. No tracked repository
+file is created or modified.
 
 ## Observed evidence
 

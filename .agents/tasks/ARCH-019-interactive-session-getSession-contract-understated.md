@@ -134,3 +134,25 @@ supplies an exact bounded Bash/Node command driving the built public
 `@robota-sdk/agent-interface-transport/testing` export; requires exit 0 and exact deterministic
 two-turn output plus settled completions; validates failure modes; provides path-bounded cleanup; and
 carries an intentionally empty pre-implementation Observed evidence field for Stage 2.
+
+### [DONE-GATE-STAGE-1] — ❌ FAIL | 2026-08-14
+
+**Status remains:** scenario drafted
+**Failed criteria:**
+
+- Expected observable result: the revised document attributed `CLEANUP_OK` to the consumer Node
+  process and called four displayed lines exact output, but the consumer prints the first three,
+  Bash prints `CLEANUP_OK` after cleanup, and the build may also emit setup output.
+  **Required action:** Correct output provenance and define the three consumer lines plus the Bash
+  cleanup marker separately from build output.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario drafted → scenario written
+Scenario `ARCH-019 — published test session mints one identity per submission (agent-run)` is fully
+written at `.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md`. It declares
+agent executability and complete credential-free prerequisites; provides an exact bounded Bash/Node
+command against the built public testing subpath; separates package-build setup output from the exact
+three consumer lines and the single Bash `CLEANUP_OK` marker; asserts distinct deterministic IDs and
+settled handles; uses validated explicit cleanup with an EXIT fallback and absence proof; and retains
+an empty Observed evidence field for post-implementation Stage 2.
