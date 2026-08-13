@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import crypto from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -62,7 +63,11 @@ describe('a task file with no readable status', () => {
   });
 
   it('says nothing about a file that HAS one', async () => {
-    const dir = await treeWith('completed', 'ARCH-097-archived.md', '---\nstatus: done\n---\n');
+    const dir = await treeWith(
+      'completed',
+      'ARCH-097-archived.md',
+      '---\nstatus: done\ncompleted: 2026-08-14\n---\n',
+    );
 
     expect(await findBacklogPlacementFindings(dir)).toEqual([]);
   });
@@ -138,5 +143,52 @@ describe('findDuplicateIdFindings — same-ID collisions within the root', () =>
       'SELFHOST-011-evals-as-code.md',
     ]);
     expect(await findDuplicateIdFindings(dir)).toEqual([]);
+  });
+});
+
+describe('legacy terminal lifecycle baseline', () => {
+  async function fixture({ mutate = false } = {}) {
+    const root = await mkdtemp(path.join(tmpdir(), 'backlog-lifecycle-baseline-'));
+    const completedDir = path.join(root, '.agents/tasks/completed');
+    const baselineDir = path.join(root, 'scripts/harness');
+    await mkdir(completedDir, { recursive: true });
+    await mkdir(baselineDir, { recursive: true });
+    const relative = '.agents/tasks/completed/OLD-001-task.md';
+    await writeFile(
+      path.join(root, relative),
+      `---\nstatus: ${mutate ? 'rejected' : 'done'}\n---\n`,
+    );
+    const fingerprint = `${relative}|done|`;
+    await writeFile(
+      path.join(baselineDir, 'task-lifecycle-legacy-baseline.json'),
+      JSON.stringify({
+        count: 1,
+        sha256: crypto.createHash('sha256').update(fingerprint).digest('hex'),
+      }),
+    );
+    return root;
+  }
+
+  it('accepts only the exact frozen historical set', async () => {
+    expect(await findBacklogPlacementFindings(await fixture())).toEqual([]);
+  });
+
+  it('rejects a substitution even when the violation count stays constant', async () => {
+    const findings = await findBacklogPlacementFindings(await fixture({ mutate: true }));
+    expect(findings.map((finding) => finding.problem).join('\n')).toMatch(
+      /do not match.*baseline/i,
+    );
+  });
+
+  it('rejects a stale nonzero baseline after the invalid set reaches zero', async () => {
+    const root = await fixture();
+    await writeFile(
+      path.join(root, '.agents/tasks/completed/OLD-001-task.md'),
+      '---\nstatus: done\ncompleted: 2026-08-14\n---\n',
+    );
+    const findings = await findBacklogPlacementFindings(root);
+    expect(findings.map((finding) => finding.problem).join('\n')).toMatch(
+      /0 archived.*do not match/i,
+    );
   });
 });

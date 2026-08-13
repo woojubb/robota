@@ -216,8 +216,8 @@ describe('task-tracking', () => {
     // classification is the content: an unchecked box is open work, `status: completed` is work that
     // needs archiving. Asserting only that a name appears would pass with the classifier deleted.
     const dir = repoWithTasks({
-      'TASK-1.md': '# One\n\n- [ ] still to do\n',
-      'TASK-2.md': '# Two\n\nstatus: completed\n\n- [ ] leftover\n',
+      'TASK-1.md': '---\nstatus: in-progress\n---\n# One\n\n- [ ] still to do\n',
+      'TASK-2.md': '---\nstatus: done\ncompleted: 2026-08-14\n---\n# Two\n\n- [ ] leftover\n',
     });
     const verdict = track(dir, 'start');
 
@@ -226,6 +226,15 @@ describe('task-tracking', () => {
     expect(verdict.output, 'a finished task was not marked for archival').toMatch(
       /TASK-2\.md — DONE/,
     );
+  });
+
+  it('does not call body prose completed', () => {
+    const dir = repoWithTasks({
+      'TASK-1.md': '---\nstatus: in-progress\n---\n# One\n\nStatus: completed\n',
+    });
+    const verdict = track(dir, 'start');
+    expect(verdict.output).toMatch(/TASK-1\.md — in progress/);
+    expect(verdict.output).not.toMatch(/TASK-1\.md — DONE/);
   });
 
   it('refuses a mode it does not handle, and says so', () => {

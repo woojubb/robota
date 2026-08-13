@@ -91,6 +91,7 @@ const FRONTMATTER_KEYS = [
   'urgency',
   'area',
   'depends_on',
+  'children',
   'related',
   'user_execution',
   'user_execution_scenario',

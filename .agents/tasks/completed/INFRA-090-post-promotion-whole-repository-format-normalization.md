@@ -1,6 +1,6 @@
 ---
 title: 'INFRA-090: post-promotion whole-repository format normalization'
-status: completed
+status: done
 created: 2026-08-13
 completed: 2026-08-13
 priority: medium

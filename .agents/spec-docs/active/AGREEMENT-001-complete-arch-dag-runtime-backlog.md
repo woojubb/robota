@@ -179,19 +179,21 @@ Execute the twelve existing records without redefining their scope:
 
 ## Tasks
 
-- [ ] `.agents/tasks/AGREEMENT-001-complete-arch-dag-runtime-backlog.md` — initiative tracking
-- [ ] `.agents/tasks/ARCH-009-preset-registry-through-command-host.md` — existing
-- [x] `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md` — completed 2026-08-13
-- [ ] `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md` — existing
-- [ ] `.agents/tasks/ARCH-012-interactive-session-god-contract.md` — existing
-- [ ] `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md` — existing
-- [x] `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md` — completed 2026-08-12
-- [ ] `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md` — existing
-- [ ] `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md` — existing
-- [ ] `.agents/tasks/RUNTIME-003-no-turn-or-run-identity.md` — existing
-- [ ] `.agents/tasks/RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md` — existing
-- [ ] `.agents/tasks/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md` — existing
-- [x] `.agents/tasks/completed/RUNTIME-006-turn-identity-is-optional-in-four-places.md` — completed 2026-08-13
+- [ ] ARCH-009 — todo — `.agents/tasks/ARCH-009-preset-registry-through-command-host.md`
+- [x] ARCH-010 — done — `.agents/tasks/completed/ARCH-010-execution-root-carried-by-no-contract.md`
+- [ ] ARCH-011 — in-progress — `.agents/tasks/ARCH-011-transport-adapter-is-a-lifecycle-stub.md`
+- [ ] ARCH-012 — in-progress — `.agents/tasks/ARCH-012-interactive-session-god-contract.md`
+- [ ] ARCH-013 — in-progress — `.agents/tasks/ARCH-013-preset-to-session-options-projection-has-no-owner.md`
+- [x] DAG-001 — done — `.agents/tasks/completed/DAG-001-running-is-a-terminal-trap.md`
+- [ ] DAG-004 — todo — `.agents/tasks/DAG-004-eight-cli-commands-open-code-the-import-adapter.md`
+- [ ] RUNTIME-002 — todo — `.agents/tasks/RUNTIME-002-headless-only-bun-runtime-entry.md`
+- [x] RUNTIME-003 — done — `.agents/tasks/completed/RUNTIME-003-no-turn-or-run-identity.md`
+- [ ] RUNTIME-004 — in-progress — `.agents/tasks/RUNTIME-004-cancellation-declared-at-four-layers-honoured-at-none.md`
+- [x] RUNTIME-005 — done — `.agents/tasks/completed/RUNTIME-005-a-turn-parked-on-approval-is-not-cancellable.md`
+- [x] RUNTIME-006 — done — `.agents/tasks/completed/RUNTIME-006-turn-identity-is-optional-in-four-places.md`
+
+This section is the lifecycle projection of the initiative Task's `children` declaration. Completion
+Criteria above remain independent initiative evidence and are not inferred from these checkboxes.
 
 ## Evidence Log
 
