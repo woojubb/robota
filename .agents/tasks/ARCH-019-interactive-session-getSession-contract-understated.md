@@ -1,5 +1,5 @@
 ---
-title: 'ARCH-019: the IInteractiveSession getSession() return contract is narrower than the surface the framework and its sanctioned test double actually use, and the double mints one fixed turnId for every submission'
+title: 'ARCH-019: the sanctioned session double reuses one turn identity across distinct submissions'
 status: todo
 created: 2026-08-13
 priority: medium
@@ -8,7 +8,19 @@ area: packages/agent-interface-transport, packages/agent-framework
 depends_on: []
 ---
 
-# ARCH-019: the sanctioned session double is dishonest about the contract surface
+# ARCH-019: the sanctioned session double collapses distinct submissions into one identity
+
+## Current finding-depth disposition
+
+- **LOCAL:** the default double returns `turnId: 'test-turn'` for every submission. This Task owns
+  the per-call deterministic identity fix and its public testing-subpath proof.
+- **INVALID:** the original claim that transport-facing `getSession()` must expose
+  `getEventService()`. The framework caller is typed against concrete `Session`; transport-typed
+  production consumers use only `getSessionId()`. The contract stays narrow. The extra defensive
+  stub may be removed as local cleanup, without widening the public contract.
+
+The historical report below is preserved as provenance; its first numbered claim is not current
+acceptance scope.
 
 ## Problem
 
@@ -42,7 +54,20 @@ string }`. `packages/agent-framework/src/interactive/interactive-session-prompt.
 turnId: 'test-turn', … })` — every submission of every double shares one identity, contrasting the
   package's own rationale for per-double session ids (`:117-124`, `test-double-id-coherence.test.ts`).
 
-## Direction
+## Revised Direction
+
+1. Mint a deterministic per-call `turnId` from the double's session id and a submission counter.
+2. Add a red-first two-submit regression proving distinct ids and separately settled handles.
+3. Keep `getSession(): { getSessionId(): string }`; remove the unowned `getEventService` extra stub.
+4. Correct stale package SPEC claims about which package exports the testing double.
+
+The exact default contract is per factory and per call: `${sessionId}-turn-1`, then
+`${sessionId}-turn-2`; another double restarts at 1 under its own session id. A non-empty overridden
+session id controls the prefix, a throwing/empty override uses the existing deterministic fallback,
+and an overridden `submit` stays authoritative. This is a PATCH behavior correction to the published
+testing subpath, not a production signature change.
+
+## Historical Direction (partially invalid)
 
 1. Decide the `getSession()` surface honestly: either widen the contract's return type to include the
    event-service member (or an explicit narrow port), or stop framework internals from reaching
@@ -53,7 +78,29 @@ turnId: 'test-turn', … })` — every submission of every double shares one ide
    as the per-double session id), so RUNTIME-003 two-submission behavior is testable through the SSOT
    double.
 
-## Test Plan
+## Revised Test Plan
+
+- Red-first: submit twice through one `createTestInteractiveSession` and assert different,
+  deterministic ids plus successful completion for each handle.
+- Type/regression: the default nested session exposes only `getSessionId`; affected consumers compile.
+- Public SDK scenario: import the published `./testing` subpath, submit twice, print ids and
+  `DISTINCT`, exit 0, and clean up scratch files.
+- Package build/typecheck/tests, scoped harness verification, and CI-equivalent verification green.
+
+## Plan
+
+- [ ] TC-01: add red-first exact per-call/per-double turn identity and settlement regressions.
+- [ ] TC-02: remove the undeclared nested event-service stub and prove the identity-only shape.
+- [ ] TC-03: cover session-id override, throwing/empty fallback, and authoritative submit override.
+- [ ] TC-04: synchronize both owner SPECs and add the PATCH changeset.
+- [ ] TC-05: author, gate, execute, and record the durable public testing-subpath scenario.
+- [ ] TC-06: run affected package and broad harness verification, completion gates, and atomic archive.
+
+## Blockers
+
+- None.
+
+## Historical Test Plan
 
 - Red-first: a test submitting twice through `createTestInteractiveSession` asserts two distinct
   `turnId`s (fails today — both `'test-turn'`).
@@ -64,7 +111,10 @@ turnId: 'test-turn', … })` — every submission of every double shares one ide
 
 ## User Execution Test Scenarios
 
-**Applies — via the public SDK surface** (a consumer using `@robota-sdk/agent-interface-transport/testing`).
+**Applies — via the public SDK surface** (a consumer using
+`@robota-sdk/agent-interface-transport/testing`). Exact agent-executable commands, prerequisites,
+observable output, bounds, cleanup, and the evidence field live in
+[`arch-019-test-session-turn-identity-agent-run.md`](../evals/scenarios/arch-019-test-session-turn-identity-agent-run.md).
 
 - Prerequisites: built workspace; a scratch consumer that constructs the double and submits two
   prompts.
@@ -73,3 +123,14 @@ turnId: 'test-turn', … })` — every submission of every double shares one ide
 - Expected (before fix, contrast): both ids are `'test-turn'`.
 - Cleanup: delete the scratch project.
 - Evidence (fill in after implementation): the two distinct turn ids printed by the consumer.
+
+### [DONE-GATE-STAGE-1] — ✅ PASS | 2026-08-14
+
+**Status upgrade:** scenario drafted → scenario written
+Scenario `ARCH-019 — published test session mints one identity per submission (agent-run)` is fully
+written at `.agents/evals/scenarios/arch-019-test-session-turn-identity-agent-run.md`. It is explicitly
+agent-executable; states complete local prerequisites and the absence of credential/network needs;
+supplies an exact bounded Bash/Node command driving the built public
+`@robota-sdk/agent-interface-transport/testing` export; requires exit 0 and exact deterministic
+two-turn output plus settled completions; validates failure modes; provides path-bounded cleanup; and
+carries an intentionally empty pre-implementation Observed evidence field for Stage 2.
